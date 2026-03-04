@@ -134,79 +134,79 @@ classDiagram
 > **Baseline**: `Lovelace.Integer/Class1.cs` is an empty placeholder — all items below are unchecked.
 
 **Structural / Type-level**
-- [ ] Rename/replace `Class1` → `Integer` class declaration with interface list (`ISignedNumber<Integer>`, `INumber<Integer>`, `IComparable<Integer>`, `IEquatable<Integer>`, `IParsable<Integer>`, `ISpanParsable<Integer>`, `ISpanFormattable`, and all operator interfaces)
-- [ ] Private fields: `Natural _magnitude`, `bool _isNegative`
+- [x] Rename/replace `Class1` → `Integer` class declaration with interface list (`ISignedNumber<Integer>`, `INumber<Integer>`, `IComparable<Integer>`, `IEquatable<Integer>`, `IParsable<Integer>`, `ISpanParsable<Integer>`, `ISpanFormattable`, and all operator interfaces)
+- [x] Private fields: `Natural _magnitude`, `bool _isNegative`
 
 **Constructors / Assignment** *(prerequisite for everything else)*
-- [ ] `Integer()` — default constructor (magnitude=zero, positive)
-- [ ] `Integer(Natural magnitude, bool isNegative)` — internal raw constructor; normalises sign of zero
-- [ ] `Integer(long value)` — infers `_isNegative` from `value < 0`, magnitude from `|value|`
-- [ ] `Integer(int value)` — delegates to `Integer((long)value)`
-- [ ] `Integer(Natural magnitude)` — wraps Natural with positive sign (maps from `InteiroLovelace(const Lovelace&)`)
-- [ ] `ctor(string value)` [mandatory — commodity parsing]
-- [ ] `ctor(ReadOnlySpan<char> value)` [mandatory — commodity parsing]
+- [x] `Integer()` — default constructor (magnitude=zero, positive)
+- [x] `Integer(Natural magnitude, bool isNegative)` — internal raw constructor; normalises sign of zero
+- [x] `Integer(long value)` — infers `_isNegative` from `value < 0`, magnitude from `|value|`
+- [x] `Integer(int value)` — delegates to `Integer((long)value)`
+- [x] `Integer(Natural magnitude)` — wraps Natural with positive sign (maps from `InteiroLovelace(const Lovelace&)`)
+- [x] `ctor(string value)` [mandatory — commodity parsing]
+- [x] `ctor(ReadOnlySpan<char> value)` [mandatory — commodity parsing]
 
 **Internal helpers** *(no public surface; required by arithmetic)*
-- [ ] `ToNatural()` — returns `_magnitude` (maps `toLovelace`)
+- [x] `ToNatural()` — returns `_magnitude` (maps `toLovelace`)
 
 **Static predicates** *(INumber<T> requirements)*
-- [ ] `static IsZero(Integer)` — delegates to `Natural.IsZero(_magnitude)`
-- [ ] `static IsPositive(Integer)` — `!value._isNegative`
-- [ ] `static IsNegative(Integer)` — `value._isNegative` (also satisfies `ISignedNumber<T>`)
-- [ ] `static IsEvenInteger(Integer)` — delegates to `Natural.IsEvenInteger(_magnitude)`
-- [ ] `static IsOddInteger(Integer)` — delegates to `Natural.IsOddInteger(_magnitude)`
-- [ ] `Sign` property — returns `-1`, `0`, or `+1`
+- [x] `static IsZero(Integer)` — delegates to `Natural.IsZero(_magnitude)`
+- [x] `static IsPositive(Integer)` — `!value._isNegative`
+- [x] `static IsNegative(Integer)` — `value._isNegative` (also satisfies `ISignedNumber<T>`)
+- [x] `static IsEvenInteger(Integer)` — delegates to `Natural.IsEvenInteger(_magnitude)`
+- [x] `static IsOddInteger(Integer)` — delegates to `Natural.IsOddInteger(_magnitude)`
+- [x] `Sign` property — returns `-1`, `0`, or `+1`
 
 **Negation**
-- [ ] `Negate()` — returns copy with flipped `_isNegative`; zero stays positive
-- [ ] `operator-(Integer)` unary (`IUnaryNegationOperators<T,T>`) — calls `Negate()` [mandatory — arithmetic]
-- [ ] `operator+(Integer)` unary (`IUnaryPlusOperators<T,T>`) — returns a copy unchanged [mandatory — arithmetic]
+- [x] `Negate()` — returns copy with flipped `_isNegative`; zero stays positive
+- [x] `operator-(Integer)` unary (`IUnaryNegationOperators<T,T>`) — calls `Negate()` [mandatory — arithmetic]
+- [x] `operator+(Integer)` unary (`IUnaryPlusOperators<T,T>`) — returns a copy unchanged [mandatory — arithmetic]
 
 **Addition** *(depends on: constructors, Natural.Add, Natural.Subtract, Natural comparison)*
-- [ ] `Add(Integer)` — same-sign: add magnitudes, keep sign; different-sign: subtract magnitudes, sign follows the larger magnitude
-- [ ] `operator+(Integer, Integer)` — calls `Add`
+- [x] `Add(Integer)` — same-sign: add magnitudes, keep sign; different-sign: subtract magnitudes, sign follows the larger magnitude
+- [x] `operator+(Integer, Integer)` — calls `Add`
 
 **Subtraction** *(depends on: Add)*
-- [ ] `Subtract(Integer)` — three cases based on sign combination:
+- [x] `Subtract(Integer)` — three cases based on sign combination:
   - `this` and `B` have different signs → add magnitudes, keep `this.sign`
   - Both positive → subtract magnitudes; result positive iff `A ≥ B`
   - Both negative → subtract magnitudes; result positive iff `B ≥ A`
-- [ ] `operator-(Integer, Integer)` — calls `Subtract`
+- [x] `operator-(Integer, Integer)` — calls `Subtract`
 
 **Multiplication** *(depends on: constructors, Natural.Multiply)*
-- [ ] `Multiply(Integer)` — multiply magnitudes; result negative iff exactly one operand is negative (XOR of signs)
-- [ ] `operator*(Integer, Integer)` — calls `Multiply`
+- [x] `Multiply(Integer)` — multiply magnitudes; result negative iff exactly one operand is negative (XOR of signs)
+- [x] `operator*(Integer, Integer)` — calls `Multiply`
 
 **Division / Remainder** *(depends on: constructors, Natural.DivRem)*
-- [ ] `DivRem(Integer divisor, out Integer remainder)` — divide magnitudes; quotient and remainder sign = equal-signs rule
-- [ ] `operator/(Integer, Integer)` — quotient from `DivRem`
-- [ ] `operator%(Integer, Integer)` — remainder from `DivRem`
+- [x] `DivRem(Integer divisor, out Integer remainder)` — divide magnitudes; quotient and remainder sign = equal-signs rule
+- [x] `operator/(Integer, Integer)` — quotient from `DivRem`
+- [x] `operator%(Integer, Integer)` — remainder from `DivRem`
 
 **Exponentiation** *(depends on: constructors, Natural.Pow, IsZero, IsOddInteger)*
-- [ ] `Pow(Integer exponent)` — guard: base≠0 and exponent>0; result negative iff base<0 AND exponent is odd
+- [x] `Pow(Integer exponent)` — guard: base≠0 and exponent>0; result negative iff base<0 AND exponent is odd
 
 **Factorial** *(depends on: constructors, Natural.Factorial, IsNegative)*
-- [ ] `Factorial()` — throws `InvalidOperationException` for negative input; delegates to `Natural.Factorial()` otherwise (note: C++ source has inverted sign check — this is a bug, do not replicate)
+- [x] `Factorial()` — throws `InvalidOperationException` for negative input; delegates to `Natural.Factorial()` otherwise (note: C++ source has inverted sign check — this is a bug, do not replicate)
 
 **Increment / Decrement** *(depends on: Add, Subtract)*
-- [ ] `Increment()` — `this = Add(Integer(1))`; returns new value
-- [ ] `Decrement()` — `this = Subtract(Integer(1))`; returns new value
-- [ ] `operator++(Integer)` — pre-increment; calls `Increment()`
-- [ ] `operator--(Integer)` — pre-decrement; calls `Decrement()`
+- [x] `Increment()` — `this = Add(Integer(1))`; returns new value
+- [x] `Decrement()` — `this = Subtract(Integer(1))`; returns new value
+- [x] `operator++(Integer)` — pre-increment; calls `Increment()`
+- [x] `operator--(Integer)` — pre-decrement; calls `Decrement()`
 
 **Equality / Comparison** *(depends on: constructors, Natural comparison)*
-- [ ] `Equals(Integer)` — checks sign equality then delegates magnitude comparison to `Natural.Equals`
-- [ ] `CompareTo(Integer)` — cross-sign: positive > negative; same sign: delegate to `Natural.CompareTo`; flip result if both negative
-- [ ] `operator==(Integer, Integer)` / `operator!=(Integer, Integer)`
-- [ ] `operator>(Integer, Integer)` / `operator>=(Integer, Integer)` / `operator<(Integer, Integer)` / `operator<=(Integer, Integer)`
+- [x] `Equals(Integer)` — checks sign equality then delegates magnitude comparison to `Natural.Equals`
+- [x] `CompareTo(Integer)` — cross-sign: positive > negative; same sign: delegate to `Natural.CompareTo`; flip result if both negative
+- [x] `operator==(Integer, Integer)` / `operator!=(Integer, Integer)`
+- [x] `operator>(Integer, Integer)` / `operator>=(Integer, Integer)` / `operator<(Integer, Integer)` / `operator<=(Integer, Integer)`
 
 **Formatting / Parsing** *(depends on: constructors, Natural.ToString, Natural.Parse)*
-- [ ] `ToString()` — prepend `-` if negative, then `Natural.ToString()`
-- [ ] `ToString(string format, IFormatProvider? provider)` — format-aware version
-- [ ] `TryFormat(Span<char>, out int, ReadOnlySpan<char>, IFormatProvider?)` — `ISpanFormattable`
-- [ ] `Parse(string s, IFormatProvider? provider)` — strip leading whitespace; detect `-`; parse remaining digits via `Natural.Parse`; `ArgumentException` on invalid input
-- [ ] `TryParse(string? s, IFormatProvider? provider, out Integer result)` — non-throwing variant
-- [ ] `Parse(ReadOnlySpan<char>, IFormatProvider?)` / `TryParse(ReadOnlySpan<char>, IFormatProvider?, out Integer)` — `ISpanParsable<T>`
+- [x] `ToString()` — prepend `-` if negative, then `Natural.ToString()`
+- [x] `ToString(string format, IFormatProvider? provider)` — format-aware version
+- [x] `TryFormat(Span<char>, out int, ReadOnlySpan<char>, IFormatProvider?)` — `ISpanFormattable`
+- [x] `Parse(string s, IFormatProvider? provider)` — strip leading whitespace; detect `-`; parse remaining digits via `Natural.Parse`; `ArgumentException` on invalid input
+- [x] `TryParse(string? s, IFormatProvider? provider, out Integer result)` — non-throwing variant
+- [x] `Parse(ReadOnlySpan<char>, IFormatProvider?)` / `TryParse(ReadOnlySpan<char>, IFormatProvider?, out Integer)` — `ISpanParsable<T>`
 
 ---
 

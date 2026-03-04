@@ -81,7 +81,7 @@ Only `Lovelace.Representation` ever reads or writes these bytes. All higher laye
 |---|---|---|
 | `Lovelace.Representation` | [`.github/requirements/Lovelace.Representation.md`](.github/requirements/Lovelace.Representation.md) | ✅ Complete |
 | `Lovelace.Natural` | [`.github/requirements/Lovelace.Natural.md`](.github/requirements/Lovelace.Natural.md) | ✅ Complete |
-| `Lovelace.Integer` | *(pending)* | ⬜ Not started |
+| `Lovelace.Integer` | [`.github/requirements/Lovelace.Integer.md`](.github/requirements/Lovelace.Integer.md) | ✅ Complete |
 | `Lovelace.Real` | *(pending)* | ⬜ Not started |
 
 ---
