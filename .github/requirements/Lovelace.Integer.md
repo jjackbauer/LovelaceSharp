@@ -143,6 +143,8 @@ classDiagram
 - [ ] `Integer(long value)` — infers `_isNegative` from `value < 0`, magnitude from `|value|`
 - [ ] `Integer(int value)` — delegates to `Integer((long)value)`
 - [ ] `Integer(Natural magnitude)` — wraps Natural with positive sign (maps from `InteiroLovelace(const Lovelace&)`)
+- [ ] `ctor(string value)` [mandatory — commodity parsing]
+- [ ] `ctor(ReadOnlySpan<char> value)` [mandatory — commodity parsing]
 
 **Internal helpers** *(no public surface; required by arithmetic)*
 - [ ] `ToNatural()` — returns `_magnitude` (maps `toLovelace`)
@@ -157,7 +159,8 @@ classDiagram
 
 **Negation**
 - [ ] `Negate()` — returns copy with flipped `_isNegative`; zero stays positive
-- [ ] `operator-(Integer)` unary — calls `Negate()`
+- [ ] `operator-(Integer)` unary (`IUnaryNegationOperators<T,T>`) — calls `Negate()` [mandatory — arithmetic]
+- [ ] `operator+(Integer)` unary (`IUnaryPlusOperators<T,T>`) — returns a copy unchanged [mandatory — arithmetic]
 
 **Addition** *(depends on: constructors, Natural.Add, Natural.Subtract, Natural comparison)*
 - [ ] `Add(Integer)` — same-sign: add magnitudes, keep sign; different-sign: subtract magnitudes, sign follows the larger magnitude
@@ -231,37 +234,68 @@ classDiagram
 7. `Constructor_GivenInt_DelegatesToLongOverload`  
    *Assumption*: `new Integer(-7)` behaves identically to `new Integer(-7L)`.
 
+### `ctor(string value)` — String Constructor [mandatory — commodity parsing]
+
+8. `Constructor_GivenPositiveDecimalString_ReturnsCorrectValue`  
+   *Assumption*: `new Integer("42")` produces the integer 42 with positive sign.
+
+9. `Constructor_GivenNegativeDecimalString_ReturnsCorrectValue`  
+   *Assumption*: `new Integer("-7")` produces the integer −7 with negative sign.
+
+10. `Constructor_GivenZeroString_IsZeroAndPositive`  
+    *Assumption*: `new Integer("0")` produces a value where `IsZero == true` and `IsNegative == false`.
+
+11. `Constructor_GivenStringWithLeadingZeros_StripsLeadingZeros`  
+    *Assumption*: `new Integer("007")` is equal to `new Integer(7L)`.
+
+12. `Constructor_GivenInvalidString_ThrowsFormatException`  
+    *Assumption*: A string containing non-digit characters (other than a leading `-`) throws `FormatException`.
+
+13. `Constructor_GivenArbitraryPrecisionString_ParsesCorrectly`  
+    *Assumption*: A 30-digit decimal string is parsed correctly — no overflow.
+
+### `ctor(ReadOnlySpan<char> value)` — Span Constructor [mandatory — commodity parsing]
+
+14. `Constructor_GivenPositiveSpan_ReturnsCorrectValue`  
+    *Assumption*: A `ReadOnlySpan<char>` view of `"99"` parses to positive integer 99.
+
+15. `Constructor_GivenNegativeSpan_ReturnsCorrectValue`  
+    *Assumption*: A `ReadOnlySpan<char>` view of `"-3"` parses to negative integer −3.
+
+16. `Constructor_GivenEmptySpan_ThrowsFormatException`  
+    *Assumption*: An empty `ReadOnlySpan<char>` throws `FormatException`.
+
 ### `Integer(Natural)` — From Natural
 
-8. `Constructor_GivenNatural_IsAlwaysPositive`  
-   *Assumption*: `new Integer(someNatural)` → `IsNegative` == false.
-9. `Constructor_GivenZeroNatural_IsZero`  
-   *Assumption*: Wrapping zero Natural produces `IsZero == true`.
+17. `Constructor_GivenNatural_IsAlwaysPositive`  
+    *Assumption*: `new Integer(someNatural)` → `IsNegative` == false.
+18. `Constructor_GivenZeroNatural_IsZero`  
+    *Assumption*: Wrapping zero Natural produces `IsZero == true`.
 
 ### `Integer(Natural, bool)` — Internal Raw Constructor
 
-10. `Constructor_GivenNonZeroMagnitudeAndIsNegativeTrue_IsNegative`  
+19. `Constructor_GivenNonZeroMagnitudeAndIsNegativeTrue_IsNegative`  
     *Assumption*: `new Integer(mag, true)` → `IsNegative == true`.
-11. `Constructor_GivenZeroMagnitudeAndIsNegativeTrue_NormalisedToPositive`  
+20. `Constructor_GivenZeroMagnitudeAndIsNegativeTrue_NormalisedToPositive`  
     *Assumption*: Passing zero magnitude with `isNegative=true` normalises sign to positive (zero is unsigned).
 
 ### `IsZero` / `IsPositive` / `IsNegative` / `IsEvenInteger` / `IsOddInteger` — Static Predicates
 
-12. `IsZero_GivenDefaultInstance_ReturnsTrue`  
+21. `IsZero_GivenDefaultInstance_ReturnsTrue`  
     *Assumption*: `Integer.IsZero(new Integer())` == true.
-13. `IsZero_GivenNonZeroValue_ReturnsFalse`  
+22. `IsZero_GivenNonZeroValue_ReturnsFalse`  
     *Assumption*: `Integer.IsZero(new Integer(1L))` == false.
-14. `IsPositive_GivenPositiveValue_ReturnsTrue`  
+23. `IsPositive_GivenPositiveValue_ReturnsTrue`  
     *Assumption*: `Integer.IsPositive(new Integer(5L))` == true.
-15. `IsPositive_GivenNegativeValue_ReturnsFalse`  
+24. `IsPositive_GivenNegativeValue_ReturnsFalse`  
     *Assumption*: `Integer.IsPositive(new Integer(-5L))` == false.
-16. `IsNegative_GivenNegativeValue_ReturnsTrue`  
+25. `IsNegative_GivenNegativeValue_ReturnsTrue`  
     *Assumption*: `Integer.IsNegative(new Integer(-1L))` == true.
-17. `IsNegative_GivenZero_ReturnsFalse`  
+26. `IsNegative_GivenZero_ReturnsFalse`  
     *Assumption*: Zero is not negative.
-18. `IsEvenInteger_GivenEvenValue_ReturnsTrue`  
+27. `IsEvenInteger_GivenEvenValue_ReturnsTrue`  
     *Assumption*: `IsEvenInteger(new Integer(4L))` == true.
-19. `IsOddInteger_GivenOddNegativeValue_ReturnsTrue`  
+28. `IsOddInteger_GivenOddNegativeValue_ReturnsTrue`  
     *Assumption*: `IsOddInteger(new Integer(-3L))` == true.
 
 ### `Sign` Property
@@ -272,6 +306,19 @@ classDiagram
     *Assumption*: `new Integer(-10L).Sign` == -1.
 22. `Sign_GivenZero_ReturnsZero`  
     *Assumption*: `new Integer(0L).Sign` == 0.
+
+### `operator+` (unary) [mandatory — arithmetic]
+
+**Added as mandatory per workflow Step 4 (`IUnaryPlusOperators<T,T>`).**
+
+N1. `UnaryPlus_GivenPositiveValue_ReturnsCopyWithSameSign`  
+    *Assumption*: `+new Integer(5L)` returns a new `Integer` equal to `Integer(5L)` with no sign change.
+
+N2. `UnaryPlus_GivenNegativeValue_ReturnsCopyWithSameSign`  
+    *Assumption*: `+new Integer(-5L)` returns a new `Integer` equal to `Integer(-5L)` — sign is preserved.
+
+N3. `UnaryPlus_GivenZero_ReturnsZero`  
+    *Assumption*: `+new Integer(0L)` returns zero.
 
 ### `Negate` / Unary `operator-`
 
