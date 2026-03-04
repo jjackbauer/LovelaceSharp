@@ -123,7 +123,41 @@ Before marking done, perform a final self-check:
 Only if all four checks pass:
 
 1. In the checklist document, change `- [ ]` to `- [x]` for the completed item.
-2. Output a brief summary:
+2. Scan all checklist items in the requirements document. If **every** item is now checked off, proceed to Steps 5a and 5b before reporting.
+
+---
+
+### Step 5a — Update root `README.md` (only when all checklist items are complete)
+
+1. Open `README.md` at the repository root.
+2. Locate the **Requirements & Status** table row for `<CsProject>`.
+3. Change the status cell to `✅ Complete`.
+4. Save the file.
+
+---
+
+### Step 5b — Create or update the project-level `README.md` (only when all checklist items are complete)
+
+If `<CsProject>/README.md` does not exist, create it. If it exists, update it to reflect the final public API.
+
+The file must contain:
+
+1. **H1 title** — the project name (e.g. `# Lovelace.Natural`).
+2. **One-sentence description** — what the class represents and its role in the dependency chain.
+3. **`## Class: <ClassName>`** section — namespace, a short paragraph describing the type.
+4. **`## Public API`** section covering:
+   - All public constructors (signature + behaviour).
+   - All public properties (name, type, description).
+   - All public methods and operators (signature + brief description of semantics).
+   - All implemented `System.Numerics` interfaces listed in a bullet list.
+5. **`## Usage`** section — a minimal C# code snippet showing construction, an arithmetic operation, and formatting.
+6. **`## See also`** section — links to the requirements doc (`.github/requirements/<CsProject>.md`), the legacy C++ source, and the adjacent projects in the dependency chain.
+
+Use `Lovelace.Representation/README.md` as a style reference.
+
+---
+
+3. Output a brief summary:
 
 ```markdown
 ## ✅ Completed: `<ChecklistItem>`
@@ -142,7 +176,11 @@ Only if all four checks pass:
 - [ ] `Subtract(Natural)` → `operator-`
 - [ ] `Multiply(Natural)` → `operator*`
 ...
+
+<!-- If all items complete: -->
+**Project complete** — root `README.md` status updated to ✅ Complete; `<CsProject>/README.md` written.
 ```
 
-3. Tell the developer:
-> "Item complete. To continue, run `workflow-iterative-implementation` again with the next unchecked item."
+4. Tell the developer:
+> "Item complete. To continue, run `workflow-iterative-implementation` again with the next unchecked item."  
+> If all items are done: "All checklist items complete. `README.md` and `<CsProject>/README.md` have been updated."
