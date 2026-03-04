@@ -82,8 +82,8 @@ Or use `CopyDigitsFrom` when the target store already exists:
 
 ```csharp
 _store.Reset();
-_store.DigitCount = other._store.DigitCount;
-_store.IsZero     = other._store.IsZero;
+_store.SetDigitCount(other._store.DigitCount);
+_store.SetIsZero(other._store.IsZero);
 _store.CopyDigitsFrom(other._store);
 ```
 

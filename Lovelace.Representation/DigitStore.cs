@@ -1,5 +1,6 @@
 using System.Text;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 [assembly: InternalsVisibleTo("Lovelace.Representation.Tests")]
 
@@ -20,6 +21,15 @@ public class DigitStore
     private long _digitCount;
     private bool _isZero;
 
+    /// <summary>Monitor used for all read/write synchronisation on this instance.</summary>
+    private readonly object _syncRoot = new();
+
+    // Monotonically increasing ID assigned at construction; used by CopyDigitsFrom to
+    // establish a canonical lock order and thereby prevent ABBA deadlocks when two
+    // threads simultaneously copy from each other.
+    private static long _idCounter;
+    private readonly long _id = Interlocked.Increment(ref _idCounter);
+
     // -------------------------------------------------------------------------
     // Constructors
     // -------------------------------------------------------------------------
@@ -35,10 +45,14 @@ public class DigitStore
     public DigitStore(DigitStore other)
     {
         _bytes = [];
-        _digitCount = other._digitCount;
-        _isZero = other._isZero;
-        if (!other._isZero)
-            CopyDigitsFrom(other);
+        // Snapshot other's state atomically so we get a consistent view.
+        lock (other._syncRoot)
+        {
+            _digitCount = other._digitCount;
+            _isZero = other._isZero;
+            if (!other._isZero)
+                _bytes.AddRange(other._bytes);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -49,17 +63,35 @@ public class DigitStore
     public long ByteCount => _bytes.Count;
 
     /// <summary>Number of logical decimal digits stored.</summary>
-    public long DigitCount
-    {
-        get => _digitCount;
-        internal set => _digitCount = value;
-    }
+    public long DigitCount => _digitCount;
 
     /// <summary>True when the number represented is zero.</summary>
-    public bool IsZero
+    public bool IsZero => _isZero;
+
+    /// <summary>
+    /// Sets <see cref="DigitCount"/> to <paramref name="value"/> under <c>_syncRoot</c>.
+    /// Use instead of the former <c>internal set</c> accessor to ensure the write is
+    /// covered by the same monitor lock used by all other mutating methods.
+    /// </summary>
+    internal void SetDigitCount(long value)
     {
-        get => _isZero;
-        internal set => _isZero = value;
+        lock (_syncRoot)
+        {
+            _digitCount = value;
+        }
+    }
+
+    /// <summary>
+    /// Sets <see cref="IsZero"/> to <paramref name="value"/> under <c>_syncRoot</c>.
+    /// Use instead of the former <c>internal set</c> accessor to ensure the write is
+    /// covered by the same monitor lock used by all other mutating methods.
+    /// </summary>
+    internal void SetIsZero(bool value)
+    {
+        lock (_syncRoot)
+        {
+            _isZero = value;
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -73,16 +105,19 @@ public class DigitStore
     /// </summary>
     public byte GetDigit(long position)
     {
-        if (_isZero)
-            return 0;
-
-        if (position >= 0 && position < _digitCount)
+        lock (_syncRoot)
         {
-            GetBitwise(position / 2, out byte high, out byte low);
-            return (position % 2 == 0) ? high : low;
-        }
+            if (_isZero)
+                return 0;
 
-        return 0;
+            if (position >= 0 && position < _digitCount)
+            {
+                GetBitwise(position / 2, out byte high, out byte low);
+                return (position % 2 == 0) ? high : low;
+            }
+
+            return 0;
+        }
     }
 
     /// <summary>
@@ -94,35 +129,38 @@ public class DigitStore
     /// </exception>
     public void SetDigit(long position, byte digit)
     {
-        if (position < 0 || position > _digitCount)
-            throw new ArgumentOutOfRangeException(nameof(position),
-                $"position {position} is out of range (DigitCount={_digitCount}).");
-
-        byte high, low;
-
-        if (position / 2 < ByteCount)
+        lock (_syncRoot)
         {
-            // Byte slot already exists — read-modify-write
-            GetBitwise(position / 2, out high, out low);
-            if (position % 2 == 0)
-                high = digit;
+            if (position < 0 || position > _digitCount)
+                throw new ArgumentOutOfRangeException(nameof(position),
+                    $"position {position} is out of range (DigitCount={_digitCount}).");
+
+            byte high, low;
+
+            if (position / 2 < ByteCount)
+            {
+                // Byte slot already exists — read-modify-write
+                GetBitwise(position / 2, out high, out low);
+                if (position % 2 == 0)
+                    high = digit;
+                else
+                    low = digit;
+            }
             else
-                low = digit;
+            {
+                // New byte slot — initialize sentinel low nibble
+                high = digit;
+                low = 0x0F;
+            }
+
+            if (position >= _digitCount)
+                _digitCount++;
+
+            if (position == 0)
+                _isZero = false;
+
+            SetBitwise(position / 2, high, low);
         }
-        else
-        {
-            // New byte slot — initialize sentinel low nibble
-            high = digit;
-            low = 0x0F;
-        }
-
-        if (position >= _digitCount)
-            _digitCount++;
-
-        if (position == 0)
-            _isZero = false;
-
-        SetBitwise(position / 2, high, low);
     }
 
     // -------------------------------------------------------------------------
@@ -156,24 +194,30 @@ public class DigitStore
     /// </summary>
     internal void SetBitwise(long pos, byte high, byte low)
     {
-        long size = ByteCount;
-
-        if (pos >= 0 && pos <= size)
+        lock (_syncRoot)
         {
-            byte packed = (byte)((high << 4) | (low & 0x0F));
+            long size = ByteCount;
 
-            if (pos == size)
-                GrowDigits();
+            if (pos >= 0 && pos <= size)
+            {
+                byte packed = (byte)((high << 4) | (low & 0x0F));
 
-            _bytes[(int)pos] = packed;
+                if (pos == size)
+                    GrowDigits();
+
+                _bytes[(int)pos] = packed;
+            }
+            // Silently ignore out-of-range positions
         }
-        // Silently ignore out-of-range positions
     }
 
     /// <summary>Appends a sentinel byte (0x0C) to grow the backing store by one byte.</summary>
     internal void GrowDigits()
     {
-        _bytes.Add(0x0C);
+        lock (_syncRoot)
+        {
+            _bytes.Add(0x0C);
+        }
     }
 
     /// <summary>
@@ -184,16 +228,19 @@ public class DigitStore
     /// </summary>
     internal void ShrinkDigits()
     {
-        if (_digitCount % 2 == 1)
+        lock (_syncRoot)
         {
-            _bytes.RemoveAt(_bytes.Count - 1);
+            if (_digitCount % 2 == 1)
+            {
+                _bytes.RemoveAt(_bytes.Count - 1);
+            }
+            else
+            {
+                GetBitwise(ByteCount - 1, out byte high, out byte _);
+                SetBitwise(ByteCount - 1, high, 0x0F);
+            }
+            _digitCount--;
         }
-        else
-        {
-            GetBitwise(ByteCount - 1, out byte high, out byte _);
-            SetBitwise(ByteCount - 1, high, 0x0F);
-        }
-        _digitCount--;
     }
 
     /// <summary>
@@ -202,39 +249,71 @@ public class DigitStore
     /// </summary>
     public void TrimLeadingZeros()
     {
-        // Walk from the most-significant digit downward while it is zero.
-        while (_digitCount > 1 && GetDigit(_digitCount - 1) == 0)
-            ShrinkDigits();
+        lock (_syncRoot)
+        {
+            // Walk from the most-significant digit downward while it is zero.
+            while (_digitCount > 1 && GetDigit(_digitCount - 1) == 0)
+                ShrinkDigits();
 
-        // If the only remaining digit is also zero, restore zero state.
-        if (_digitCount == 1 && GetDigit(0) == 0)
-            Reset();
+            // If the only remaining digit is also zero, restore zero state.
+            if (_digitCount == 1 && GetDigit(0) == 0)
+                Reset();
+        }
     }
 
     /// <summary>Clears all bytes from the backing store.</summary>
     internal void ClearDigits()
     {
-        _bytes.Clear();
+        lock (_syncRoot)
+        {
+            _bytes.Clear();
+        }
     }
 
     /// <summary>
     /// Deep-copies the backing bytes from <paramref name="other"/> into this instance.
     /// No-op when <paramref name="other"/> is the same instance or is zero.
+    /// Both instance locks are held simultaneously for the duration of the copy,
+    /// acquired in canonical order (by <see cref="_id"/>) to prevent ABBA deadlocks.
+    /// Uses <see cref="CollectionsMarshal.AsSpan"/> and
+    /// <see cref="CollectionsMarshal.SetCount"/> for a zero-allocation copy path.
     /// </summary>
     internal void CopyDigitsFrom(DigitStore other)
     {
-        if (!ReferenceEquals(other, this) && !other._isZero)
+        if (ReferenceEquals(other, this))
+            return;
+
+        // Acquire both locks in a consistent canonical order to prevent ABBA deadlock
+        // when two threads simultaneously call a.CopyDigitsFrom(b) and b.CopyDigitsFrom(a).
+        // Instance IDs are assigned at construction via an Interlocked counter, so they
+        // are strictly unique — no tie-breaking edge case is possible.
+        bool thisFirst    = _id < other._id;
+        object firstLock  = thisFirst ? _syncRoot        : other._syncRoot;
+        object secondLock = thisFirst ? other._syncRoot  : _syncRoot;
+
+        lock (firstLock)
+        lock (secondLock)
         {
+            if (other._isZero)
+                return;
+
+            // Zero-allocation copy: read directly from other's backing buffer via a
+            // Span; both locks are held so neither list can be mutated during the copy.
+            ReadOnlySpan<byte> src = CollectionsMarshal.AsSpan(other._bytes);
             _bytes.Clear();
-            _bytes.AddRange(other._bytes);
+            CollectionsMarshal.SetCount(_bytes, src.Length);
+            src.CopyTo(CollectionsMarshal.AsSpan(_bytes));
         }
     }
 
     /// <summary>Resets digit count and zero flag without touching the byte list.</summary>
     internal void Initialize()
     {
-        _digitCount = 0;
-        _isZero = true;
+        lock (_syncRoot)
+        {
+            _digitCount = 0;
+            _isZero = true;
+        }
     }
 
     /// <summary>
@@ -243,10 +322,13 @@ public class DigitStore
     /// </summary>
     internal void Reset()
     {
-        if (!_isZero)
+        lock (_syncRoot)
         {
-            ClearDigits();
-            Initialize();
+            if (!_isZero)
+            {
+                ClearDigits();
+                Initialize();
+            }
         }
     }
 
@@ -268,44 +350,65 @@ public class DigitStore
     /// </summary>
     public string ToString(char separator)
     {
-        if (_isZero)
+        // Snapshot immutable view of the store under lock to enable safe string
+        // construction (including any future Parallel.For in Phase 1) outside the lock.
+        bool isZero;
+        long digitCount;
+        byte[] bytesSnapshot;
+        lock (_syncRoot)
+        {
+            isZero = _isZero;
+            digitCount = _digitCount;
+            bytesSnapshot = _bytes.ToArray();
+        }
+
+        if (isZero)
             return "0";
 
-        // Build raw digit string — most-significant digit first.
-        var sb = new StringBuilder((int)_digitCount + 4);
+        // Pre-allocate output buffer — one slot per digit, MSB at index 0.
+        var chars = new char[digitCount];
 
-        long lastByteIdx = ByteCount - 1;
-        GetBitwise(lastByteIdx, out byte a, out byte b);
+        long lastByteIdx = bytesSnapshot.LongLength - 1;
 
-        // Handle the most-significant byte
-        if (_digitCount % 2 == 0)
+        // Resolve the most-significant byte (always sequential; only 1–2 digits).
+        byte a = (byte)((bytesSnapshot[lastByteIdx] & 0xF0) >> 4);
+        byte b = (byte)(bytesSnapshot[lastByteIdx] & 0x0F);
+
+        // offset is the chars[] index at which interior bytes start writing.
+        int offset;
+        if (digitCount % 2 == 0)
         {
             // Even count: last byte holds two significant digits.
-            // High nibble (a) is digit at position DigitCount-2 (less significant),
-            // Low nibble (b) is digit at position DigitCount-1 (most significant).
-            sb.Append((char)('0' + b));
-            sb.Append((char)('0' + a));
+            // Low nibble (b)  = digit at position digitCount-1 (MSB) → chars[0]
+            // High nibble (a) = digit at position digitCount-2       → chars[1]
+            chars[0] = (char)('0' + b);
+            chars[1] = (char)('0' + a);
+            offset = 2;
         }
         else
         {
             // Odd count: only the high nibble (a) is the most-significant digit.
-            sb.Append((char)('0' + a));
+            chars[0] = (char)('0' + a);
+            offset = 1;
         }
 
-        // Iterate remaining bytes from second-to-last down to byte 0
-        for (long c = lastByteIdx - 1; c >= 0; c--)
+        // Fill interior bytes in parallel — each byte index c writes two chars at
+        // non-overlapping positions: outputIdx = offset + 2*(lastByteIdx-1-c).
+        // Within each interior byte the low nibble (odd-position digit) is more
+        // significant and therefore written first (lower output index).
+        Parallel.For(0L, lastByteIdx, c =>
         {
-            GetBitwise(c, out byte ba, out byte bb);
-            // Within each interior byte: low nibble is more significant (higher position)
-            sb.Append((char)('0' + bb));
-            sb.Append((char)('0' + ba));
-        }
+            byte ba = (byte)((bytesSnapshot[c] & 0xF0) >> 4); // even-position digit
+            byte bb = (byte)((bytesSnapshot[c] & 0x0F));       // odd-position digit (more significant)
+            int outputIdx = offset + (int)(2 * (lastByteIdx - 1 - c));
+            chars[outputIdx]     = (char)('0' + bb);
+            chars[outputIdx + 1] = (char)('0' + ba);
+        });
 
         // Insert separator every 3 digits from the right
+        string raw = new string(chars);
         if (separator == '\0')
-            return sb.ToString();
-
-        string raw = sb.ToString();
+            return raw;
         int len = raw.Length;
         var result = new StringBuilder(len + len / 3);
         for (int i = 0; i < len; i++)
