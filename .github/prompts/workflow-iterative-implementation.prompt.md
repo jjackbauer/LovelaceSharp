@@ -122,8 +122,9 @@ Before marking done, perform a final self-check:
 
 Only if all four checks pass:
 
-1. In the checklist document, change `- [ ]` to `- [x]` for the completed item.
-2. Scan all checklist items in the requirements document. If **every** item is now checked off, proceed to Steps 5a and 5b before reporting.
+1. In the requirements document (`.github/requirements/<CsProject>.md`), change `- [ ]` to `- [x]` for the completed checklist item.
+2. In the same requirements document, locate every row in the **Mapping Table** whose C# Equivalent column corresponds to a member implemented by this checklist item. Change the Status cell of each matching row from `⬜ Missing` to `✅ Done`.
+3. Scan all checklist items in the requirements document. If **every** item is now checked off, proceed to Steps 5a and 5b before reporting.
 
 ---
 

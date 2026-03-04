@@ -80,7 +80,7 @@ Only `Lovelace.Representation` ever reads or writes these bytes. All higher laye
 | Project | Requirements Doc | Status |
 |---|---|---|
 | `Lovelace.Representation` | [`.github/requirements/Lovelace.Representation.md`](.github/requirements/Lovelace.Representation.md) | ✅ Complete |
-| `Lovelace.Natural` | [`.github/requirements/Lovelace.Natural.md`](.github/requirements/Lovelace.Natural.md) | 🚧 In progress |
+| `Lovelace.Natural` | [`.github/requirements/Lovelace.Natural.md`](.github/requirements/Lovelace.Natural.md) | ✅ Complete |
 | `Lovelace.Integer` | *(pending)* | ⬜ Not started |
 | `Lovelace.Real` | *(pending)* | ⬜ Not started |
 

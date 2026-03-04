@@ -78,40 +78,42 @@ classDiagram
 
 | C++ Method | C# Equivalent | .NET Interface | Status |
 |---|---|---|---|
-| `Lovelace()` | `Natural()` default ctor | — | ⬜ Missing |
-| `Lovelace(const Lovelace&)` | `Natural(Natural)` copy ctor | — | ⬜ Missing |
-| `atribuir(ulong)` | `Natural(ulong)` ctor overload | — | ⬜ Missing |
-| `atribuir(const int&)` | `Natural(int)` ctor overload | — | ⬜ Missing |
-| `atribuir(const Lovelace&)` | `Assign(Natural)` / copy ctor | — | ⬜ Missing |
-| `atribuir(string)` | `Parse` / `TryParse` | `IParsable<Natural>`, `ISpanParsable<Natural>` | ⬜ Missing |
-| `static getAlgarismosExibicao/setAlgarismosExibicao` | `static long DisplayDigits { get; set; }` | — | ⬜ Missing |
-| `static Precisao` | `static long Precision { get; set; }` | — | ⬜ Missing (C++ stub — body absent in .cpp) |
-| `eZero()` | `static IsZero(Natural)` | `INumber<Natural>` | ⬜ Missing |
-| `ePar()` | `static IsEvenInteger(Natural)` | `INumber<Natural>` | ⬜ Missing |
-| `eImpar()` | `static IsOddInteger(Natural)` | `INumber<Natural>` | ⬜ Missing |
-| `eIgualA(const Lovelace&)` | `Equals(Natural)`, `operator==` | `IEquatable<Natural>`, `IComparisonOperators` | ⬜ Missing |
-| `eDiferenteDe(const Lovelace&)` | `operator!=` | `IComparisonOperators` | ⬜ Missing |
-| `eMaiorQue(const Lovelace&)` | `operator>`, `CompareTo` | `IComparable<Natural>`, `IComparisonOperators` | ⬜ Missing |
-| `eMenorQue(const Lovelace&)` | `operator<` | `IComparisonOperators` | ⬜ Missing |
-| `eMaiorOuIgualA(const Lovelace&)` | `operator>=` | `IComparisonOperators` | ⬜ Missing |
-| `eMenorOuIgualA(const Lovelace&)` | `operator<=` | `IComparisonOperators` | ⬜ Missing |
-| `incrementar()` / `operator++` | `operator++` (prefix & postfix) | `IIncrementOperators<Natural>` | ⬜ Missing |
-| `decrementar()` / `operator--` | `operator--` (prefix & postfix) | `IDecrementOperators<Natural>` | ⬜ Missing |
-| `somar(const Lovelace&)` / `operator+` | `Add(Natural)`, `operator+` | `IAdditionOperators<Natural,Natural,Natural>` | ⬜ Missing |
-| `subtrair(const Lovelace&)` / `operator-` | `Subtract(Natural)`, `operator-` | `ISubtractionOperators<Natural,Natural,Natural>` | ⬜ Missing |
-| `multiplicar(const Lovelace&)` / `operator*` | `Multiply(Natural)`, `operator*` | `IMultiplyOperators<Natural,Natural,Natural>` | ⬜ Missing |
-| `multiplicar_burro` | *(private helper — not exposed)* | — | ⬜ Missing (private) |
-| `dividir(B, resultado, resto)` | `DivRem(Natural divisor, out Natural remainder)` | — | ⬜ Missing |
-| `dividir_burro` | *(private helper — not exposed)* | — | ⬜ Missing (private) |
-| `operator/` | `operator/` | `IDivisionOperators<Natural,Natural,Natural>` | ⬜ Missing |
-| `operator%` | `operator%` | `IModulusOperators<Natural,Natural,Natural>` | ⬜ Missing |
-| `exponenciar(const Lovelace&)` / `operator^` | `Pow(Natural exponent)` | — | ⬜ Missing |
-| `fatorial()` | `Factorial()` | — | ⬜ Missing |
-| `imprimir()` / `operator<<` | `ToString()`, `TryFormat` | `ISpanFormattable` | ⬜ Missing |
-| `imprimir(char separador)` | `ToString(string format, IFormatProvider?)` | `IFormattable` | ⬜ Missing |
-| `operator>>` | `Parse` / `TryParse` | `IParsable<Natural>` | ⬜ Missing |
+| `Lovelace()` | `Natural()` default ctor | — | ✅ Done |
+| `Lovelace(const Lovelace&)` | `Natural(Natural)` copy ctor | — | ✅ Done |
+| `atribuir(ulong)` | `Natural(ulong)` ctor overload | — | ✅ Done |
+| `atribuir(const int&)` | `Natural(int)` ctor overload | — | ✅ Done |
+| `atribuir(const Lovelace&)` | `Assign(Natural)` / copy ctor | — | ✅ Done |
+| `atribuir(string)` | `Parse` / `TryParse` | `IParsable<Natural>`, `ISpanParsable<Natural>` | ✅ Done |
+| `atribuir(string)` | `Natural(string)` ctor overload | — | ✅ Done |
+| `atribuir(string)` | `Natural(ReadOnlySpan<char>)` ctor overload | — | ✅ Done |
+| `static getAlgarismosExibicao/setAlgarismosExibicao` | `static long DisplayDigits { get; set; }` | — | ✅ Done |
+| `static Precisao` | `static long Precision { get; set; }` | — | ✅ Done (C++ stub — body absent in .cpp) |
+| `eZero()` | `static IsZero(Natural)` | `INumber<Natural>` | ✅ Done |
+| `ePar()` | `static IsEvenInteger(Natural)` | `INumber<Natural>` | ✅ Done |
+| `eImpar()` | `static IsOddInteger(Natural)` | `INumber<Natural>` | ✅ Done |
+| `eIgualA(const Lovelace&)` | `Equals(Natural)`, `operator==` | `IEquatable<Natural>`, `IComparisonOperators` | ✅ Done |
+| `eDiferenteDe(const Lovelace&)` | `operator!=` | `IComparisonOperators` | ✅ Done |
+| `eMaiorQue(const Lovelace&)` | `operator>`, `CompareTo` | `IComparable<Natural>`, `IComparisonOperators` | ✅ Done |
+| `eMenorQue(const Lovelace&)` | `operator<` | `IComparisonOperators` | ✅ Done |
+| `eMaiorOuIgualA(const Lovelace&)` | `operator>=` | `IComparisonOperators` | ✅ Done |
+| `eMenorOuIgualA(const Lovelace&)` | `operator<=` | `IComparisonOperators` | ✅ Done |
+| `incrementar()` / `operator++` | `operator++` (prefix & postfix) | `IIncrementOperators<Natural>` | ✅ Done |
+| `decrementar()` / `operator--` | `operator--` (prefix & postfix) | `IDecrementOperators<Natural>` | ✅ Done |
+| `somar(const Lovelace&)` / `operator+` | `Add(Natural)`, `operator+` | `IAdditionOperators<Natural,Natural,Natural>` | ✅ Done |
+| `subtrair(const Lovelace&)` / `operator-` | `Subtract(Natural)`, `operator-` | `ISubtractionOperators<Natural,Natural,Natural>` | ✅ Done |
+| `multiplicar(const Lovelace&)` / `operator*` | `Multiply(Natural)`, `operator*` | `IMultiplyOperators<Natural,Natural,Natural>` | ✅ Done |
+| `multiplicar_burro` | *(private helper — not exposed)* | — | ✅ Done (private) |
+| `dividir(B, resultado, resto)` | `DivRem(Natural divisor, out Natural remainder)` | — | ✅ Done |
+| `dividir_burro` | *(private helper — not exposed)* | — | ✅ Done |
+| `operator/` | `operator/` | `IDivisionOperators<Natural,Natural,Natural>` | ✅ Done |
+| `operator%` | `operator%` | `IModulusOperators<Natural,Natural,Natural>` | ✅ Done |
+| `exponenciar(const Lovelace&)` / `operator^` | `Pow(Natural exponent)` | — | ✅ Done |
+| `fatorial()` | `Factorial()` | — | ✅ Done |
+| `imprimir()` / `operator<<` | `ToString()`, `TryFormat` | `ISpanFormattable` | ✅ Done |
+| `imprimir(char separador)` | `ToString(string format, IFormatProvider?)` | `IFormattable` | ✅ Done |
+| `operator>>` | `Parse` / `TryParse` | `IParsable<Natural>` | ✅ Done |
 | `getBitwise`, `setBitwise`, `getDigito`, `setDigito`, `getTamanho`, `getQuantidadeAlgarismos` | *(delegated entirely to `DigitStore` — not re-exposed on `Natural`)* | — | ✅ In Representation |
-| `imprimirInfo(int)` | `Dump()` (optional debug helper, non-public API) | — | ⬜ Missing (non-public) |
+| `imprimirInfo(int)` | `Dump()` (optional debug helper, non-public API) | — | ✅ Done (non-public) |
 
 **Falsify Claims — all mappings confirmed as Supported against the .hpp and .cpp source. Zero Falsified rows.**
 
@@ -121,27 +123,28 @@ Key fact checked: `subtrair` returns `|A − B|` (it silently swaps operands whe
 
 ### Completeness Checklist
 
-- [ ] Rename class `Class1` → `Natural`; declare all interfaces on the type declaration
-- [ ] Constructors: `Natural()`, `Natural(ulong)`, `Natural(int)`, copy ctor `Natural(Natural)`
-- [ ] `static bool IsZero(Natural value)` — `INumber<T>` predicate [prerequisite for many others]
-- [ ] `static bool IsEvenInteger(Natural value)` — `INumber<T>` predicate
-- [ ] `static bool IsOddInteger(Natural value)` — `INumber<T>` predicate
-- [ ] `bool Equals(Natural other)` + `operator==` + `operator!=` — `IEquatable<Natural>`, `IComparisonOperators`
-- [ ] `int CompareTo(Natural other)` + `operator>` + `<` + `>=` + `<=` — `IComparable<Natural>`, `IComparisonOperators`
-- [ ] `operator++` (prefix & postfix) — `IIncrementOperators<Natural>` [depends on Add]
-- [ ] `operator--` (prefix & postfix) — `IDecrementOperators<Natural>` [depends on Subtract]
-- [ ] `static Natural Add(Natural left, Natural right)` / `operator+` — `IAdditionOperators`
-- [ ] `static Natural Subtract(Natural left, Natural right)` / `operator-` — `ISubtractionOperators` [throws on underflow]
-- [ ] `static Natural Multiply(Natural left, Natural right)` / `operator*` — `IMultiplyOperators`
-- [ ] `static Natural DivRem(Natural left, Natural right, out Natural remainder)` [efficient division]
-- [ ] `static Natural operator/(Natural left, Natural right)` — `IDivisionOperators`
-- [ ] `static Natural operator%(Natural left, Natural right)` — `IModulusOperators`
-- [ ] `Natural Pow(Natural exponent)` [depends on Multiply]
-- [ ] `Natural Factorial()` [depends on Multiply, comparison, increment]
-- [ ] `static Natural Parse(string s)` + `TryParse` — `IParsable<Natural>`, `ISpanParsable<Natural>`
-- [ ] `string ToString()` + `ToString(string?, IFormatProvider?)` + `TryFormat(...)` — `ISpanFormattable`
-- [ ] `static long DisplayDigits { get; set; }` static property
-- [ ] `static long Precision { get; set; }` static property
+- [x] Rename class `Class1` → `Natural`; declare all interfaces on the type declaration
+- [x] Constructors: `Natural()`, `Natural(ulong)`, `Natural(int)`, copy ctor `Natural(Natural)`
+- [x] Constructors: `Natural(string)`, `Natural(ReadOnlySpan<char>)` — parse-based convenience ctors [depends on Parse]
+- [x] `static bool IsZero(Natural value)` — `INumber<T>` predicate [prerequisite for many others]
+- [x] `static bool IsEvenInteger(Natural value)` — `INumber<T>` predicate
+- [x] `static bool IsOddInteger(Natural value)` — `INumber<T>` predicate
+- [x] `bool Equals(Natural other)` + `operator==` + `operator!=` — `IEquatable<Natural>`, `IComparisonOperators`
+- [x] `int CompareTo(Natural other)` + `operator>` + `<` + `>=` + `<=` — `IComparable<Natural>`, `IComparisonOperators`
+- [x] `operator++` (prefix & postfix) — `IIncrementOperators<Natural>` [depends on Add]
+- [x] `operator--` (prefix & postfix) — `IDecrementOperators<Natural>` [depends on Subtract]
+- [x] `static Natural Add(Natural left, Natural right)` / `operator+` — `IAdditionOperators`
+- [x] `static Natural Subtract(Natural left, Natural right)` / `operator-` — `ISubtractionOperators` [throws on underflow]
+- [x] `static Natural Multiply(Natural left, Natural right)` / `operator*` — `IMultiplyOperators`
+- [x] `static Natural DivRem(Natural left, Natural right, out Natural remainder)` [efficient division]
+- [x] `static Natural operator/(Natural left, Natural right)` — `IDivisionOperators`
+- [x] `static Natural operator%(Natural left, Natural right)` — `IModulusOperators`
+- [x] `Natural Pow(Natural exponent)` [depends on Multiply]
+- [x] `Natural Factorial()` [depends on Multiply, comparison, increment]
+- [x] `static Natural Parse(string s)` + `TryParse` — `IParsable<Natural>`, `ISpanParsable<Natural>`
+- [x] `string ToString()` + `ToString(string?, IFormatProvider?)` + `TryFormat(...)` — `ISpanFormattable`
+- [x] `static long DisplayDigits { get; set; }` static property
+- [x] `static long Precision { get; set; }` static property
 
 ---
 

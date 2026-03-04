@@ -196,6 +196,21 @@ public class DigitStore
         _digitCount--;
     }
 
+    /// <summary>
+    /// Removes non-significant leading zeros (digits at the most-significant positions
+    /// that are zero). Resets to zero state when the entire value is zero.
+    /// </summary>
+    public void TrimLeadingZeros()
+    {
+        // Walk from the most-significant digit downward while it is zero.
+        while (_digitCount > 1 && GetDigit(_digitCount - 1) == 0)
+            ShrinkDigits();
+
+        // If the only remaining digit is also zero, restore zero state.
+        if (_digitCount == 1 && GetDigit(0) == 0)
+            Reset();
+    }
+
     /// <summary>Clears all bytes from the backing store.</summary>
     internal void ClearDigits()
     {
