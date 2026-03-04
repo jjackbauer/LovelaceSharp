@@ -4,6 +4,7 @@ description: Generate a complete xUnit test plan for a C# method migrated from t
 ---
 
 #file:.github/prompts/legacy-knowledge-map.md
+#file:.github/prompts/skill-use-digit-store.prompt.md
 #file:.github/prompts/skill-falsify-claims.prompt.md
 
 # Skill: Test Standards

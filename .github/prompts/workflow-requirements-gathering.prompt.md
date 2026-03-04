@@ -4,6 +4,7 @@ description: Produce a full requirements checklist and xUnit test plan for one C
 ---
 
 #file:.github/prompts/legacy-knowledge-map.md
+#file:.github/prompts/skill-use-digit-store.prompt.md
 #file:.github/prompts/skill-impl-completeness.prompt.md
 #file:.github/prompts/skill-test-standards.prompt.md
 

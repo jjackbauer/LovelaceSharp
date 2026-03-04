@@ -4,6 +4,7 @@ description: Implement one checklist item end-to-end — write functional tests,
 ---
 
 #file:.github/prompts/legacy-knowledge-map.md
+#file:.github/prompts/skill-use-digit-store.prompt.md
 #file:.github/prompts/skill-falsify-claims.prompt.md
 #file:.github/prompts/skill-test-standards.prompt.md
 #file:.github/prompts/skill-impl-completeness.prompt.md

@@ -4,6 +4,7 @@ description: Verify or refute a list of claims against the legacy C++ source and
 ---
 
 #file:.github/prompts/legacy-knowledge-map.md
+#file:.github/prompts/skill-use-digit-store.prompt.md
 
 # Skill: Falsify Claims
 
