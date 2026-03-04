@@ -42,11 +42,44 @@ For every unchecked item in the checklist (in dependency order):
 2. Invoke the Test Standards skill with the C# method signature and that description.
 3. Wait for the skill to finish (zero Falsified rows) and collect the named test list.
 
-### Step 3 — Assemble the output
+### Step 3 — Enforce mandatory constructors
+
+Every numerical implementation class **must** expose the following constructors regardless of what the C++ source provides:
+
+| Constructor | Signature | Purpose |
+|---|---|---|
+| String constructor | `ctor(string value)` | Parse a decimal string representation at runtime |
+| ReadOnlySpan constructor | `ctor(ReadOnlySpan<char> value)` | Zero-allocation span-based parsing (preferred hot path) |
+
+If either constructor is missing from the C# class, add it to the completeness checklist as a **mandatory unchecked item** with the tag `[mandatory — commodity parsing]`, and generate the corresponding test cases in the Test Plan (Step 2 rules apply).
+
+### Step 4 — Enforce mandatory operator overloads
+
+Every numerical implementation class **must** implement the following operator overloads via the corresponding `System.Numerics` generic math interfaces, regardless of what the C++ source provides:
+
+| Operator | Interface | Tag |
+|---|---|---|
+| `operator+` (binary) | `IAdditionOperators<T,T,T>` | `[mandatory — arithmetic]` |
+| `operator-` (binary) | `ISubtractionOperators<T,T,T>` | `[mandatory — arithmetic]` |
+| `operator*` | `IMultiplyOperators<T,T,T>` | `[mandatory — arithmetic]` |
+| `operator/` | `IDivisionOperators<T,T,T>` | `[mandatory — arithmetic]` |
+| `operator%` | `IModulusOperators<T,T,T>` | `[mandatory — arithmetic]` |
+| `operator+` (unary) | `IUnaryPlusOperators<T,T>` | `[mandatory — arithmetic]` |
+| `operator-` (unary) | `IUnaryNegationOperators<T,T>` | `[mandatory — arithmetic]` |
+| `operator++` | `IIncrementOperators<T>` | `[mandatory — arithmetic]` |
+| `operator--` | `IDecrementOperators<T>` | `[mandatory — arithmetic]` |
+| `operator==`, `operator!=` | `IEqualityOperators<T,T,bool>` | `[mandatory — comparison]` |
+| `operator<`, `operator>`, `operator<=`, `operator>=` | `IComparisonOperators<T,T,bool>` | `[mandatory — comparison]` |
+
+> **Note**: Omit `operator%` and unary `operator-` for `Natural` (unsigned type). Include all operators for `Integer` and `Real`.
+
+For each missing operator, add a **mandatory unchecked item** to the completeness checklist with the corresponding tag, and generate test cases in the Test Plan (Step 2 rules apply).
+
+### Step 5 — Assemble the output
 
 Combine both artefacts into a single structured document.
 
-### Step 4 — Save to the requirements folder
+### Step 6 — Save to the requirements folder
 
 Write the assembled document to `.github/requirements/<CsProject>.md` (e.g. `.github/requirements/Lovelace.Integer.md`).  
 Create the file if it does not exist; overwrite it if it does.  
@@ -67,6 +100,14 @@ Create the file if it does not exist; overwrite it if it does.
 
 ### Completeness Checklist
 
+- [ ] `ctor(string value)` [mandatory — commodity parsing]
+- [ ] `ctor(ReadOnlySpan<char> value)` [mandatory — commodity parsing]
+- [ ] `operator+` (binary) (`IAdditionOperators<T,T,T>`) [mandatory — arithmetic]
+- [ ] `operator-` (binary) (`ISubtractionOperators<T,T,T>`) [mandatory — arithmetic]
+- [ ] `operator*` (`IMultiplyOperators<T,T,T>`) [mandatory — arithmetic]
+- [ ] `operator/` (`IDivisionOperators<T,T,T>`) [mandatory — arithmetic]
+- [ ] `operator==`, `operator!=` (`IEqualityOperators<T,T,bool>`) [mandatory — comparison]
+- [ ] `operator<`, `operator>`, `operator<=`, `operator>=` (`IComparisonOperators<T,T,bool>`) [mandatory — comparison]
 - [ ] `IsZero` (static predicate — `INumber<T>`) [prerequisite for many others]
 - [ ] `Add(Integer)` → `operator+` (`IAdditionOperators<T,T,T>`)
 ...
