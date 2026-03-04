@@ -45,6 +45,12 @@ For every unchecked item in the checklist (in dependency order):
 
 Combine both artefacts into a single structured document.
 
+### Step 4 — Save to the requirements folder
+
+Write the assembled document to `.github/requirements/<CsProject>.md` (e.g. `.github/requirements/Lovelace.Integer.md`).  
+Create the file if it does not exist; overwrite it if it does.  
+**This step is mandatory — do not skip it.**
+
 ## Output Format
 
 ```markdown
@@ -86,5 +92,5 @@ Combine both artefacts into a single structured document.
 *All assumptions verified by Falsify Claims. Zero Falsified rows.*
 ```
 
-After delivering this document, tell the developer:
-> "Requirements gathering complete. Run `workflow-iterative-implementation` and supply one checklist item at a time to implement and test it end-to-end."
+After saving the file and delivering this document, tell the developer:
+> "Requirements gathering complete. Output saved to `.github/requirements/<CsProject>.md`. Run `workflow-iterative-implementation` and supply one checklist item at a time to implement and test it end-to-end."
