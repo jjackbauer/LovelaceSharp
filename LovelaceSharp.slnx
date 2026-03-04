@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj" />
+  <Project Path="Lovelace.Integer/Lovelace.Integer.csproj" />
+  <Project Path="Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj" />
+  <Project Path="Lovelace.Natural/Lovelace.Natural.csproj" />
+  <Project Path="Lovelace.Real.Tests/Lovelace.Real.Tests.csproj" />
+  <Project Path="Lovelace.Real/Lovelace.Real.csproj" />
+  <Project Path="Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj" />
+  <Project Path="Lovelace.Representation/Lovelace.Representation.csproj" />
+</Solution>
