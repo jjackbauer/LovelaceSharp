@@ -50,4 +50,25 @@ public class NaturalPowTests
         var result = new Natural(2UL).Pow(new Natural(64UL));
         Assert.Equal("18446744073709551616", result.ToString());
     }
+
+    // --- Pow_GivenOddExponent_ReturnsCorrectResult ---
+    // 3^7 = 2187. Exponent 7 (binary 111) forces the "odd branch" to execute
+    // at every squaring step, exercising the full result *= base path.
+    [Fact]
+    public void Pow_GivenOddExponent_ReturnsCorrectResult()
+    {
+        var result = new Natural(3UL).Pow(new Natural(7UL));
+        Assert.Equal(new Natural(2187UL), result);
+    }
+
+    // --- Pow_GivenBaseOneAndAnyExponent_ReturnsOne ---
+    // 1^50 = 1. Squaring 1 repeatedly always yields 1 regardless of odd/even
+    // branches, verifying that the base=1 identity is preserved through all
+    // O(log n) squaring steps.
+    [Fact]
+    public void Pow_GivenBaseOneAndAnyExponent_ReturnsOne()
+    {
+        var result = new Natural(1UL).Pow(new Natural(50UL));
+        Assert.Equal(new Natural(1UL), result);
+    }
 }

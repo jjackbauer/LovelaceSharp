@@ -1,6 +1,8 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
+using System.Threading;
 using Lovelace.Representation;
 
 namespace Lovelace.Natural;
@@ -36,16 +38,35 @@ public sealed class Natural :
     // Static configuration properties (C++ algarismosExibicao / Precisao)
     // -------------------------------------------------------------------------
 
+    // Backing fields for Interlocked-safe 64-bit access.
+    // Plain auto-properties are not guaranteed atomic on 32-bit runtimes.
+    private static long _displayDigits = -1L;
+    private static long _precision     = -1L;
+
     /// <summary>
     /// Maximum number of digits to display when formatting.
     /// -1 means "no limit" (display all digits). Matches C++ <c>algarismosExibicao</c>.
+    /// Reads and writes are atomic on both 32-bit and 64-bit runtimes via
+    /// <see cref="Interlocked.Read(ref long)"/> and
+    /// <see cref="Interlocked.Exchange(ref long, long)"/>.
     /// </summary>
-    public static long DisplayDigits { get; set; } = -1L;
+    public static long DisplayDigits
+    {
+        get => Interlocked.Read(ref _displayDigits);
+        set => Interlocked.Exchange(ref _displayDigits, value);
+    }
 
     /// <summary>
     /// Precision hint. Stub — C++ body was absent. Matches C++ <c>Precisao</c>.
+    /// Reads and writes are atomic on both 32-bit and 64-bit runtimes via
+    /// <see cref="Interlocked.Read(ref long)"/> and
+    /// <see cref="Interlocked.Exchange(ref long, long)"/>.
     /// </summary>
-    public static long Precision { get; set; } = -1L;
+    public static long Precision
+    {
+        get => Interlocked.Read(ref _precision);
+        set => Interlocked.Exchange(ref _precision, value);
+    }
 
     // -------------------------------------------------------------------------
     // INumberBase<Natural> — required static properties
@@ -370,38 +391,106 @@ public sealed class Natural :
         Natural aux  = leftIsLarger ? right : left;  // smaller (outer loop)
         Natural aux1 = leftIsLarger ? left  : right; // larger  (inner loop)
 
-        var result = new Natural();
+        long outerCount    = aux._store.DigitCount;
+        int  processorCount = Environment.ProcessorCount;
 
-        for (long c = 0; c < aux._store.DigitCount; c++)
+        // Rent both operand digit arrays from ArrayPool before entering any loop.
+        // This replaces the O(outerCount × innerCount) individual Monitor.Enter calls
+        // that would otherwise occur inside Parallel.For (every aux1._store.GetDigit(c2)
+        // acquires _syncRoot). After the snapshot, all digit reads from plain byte[]
+        // require no lock whatsoever. The rented buffers are returned in the finally
+        // block below to avoid repeated heap allocation during e.g. factorial computation.
+        var (dAux,  dAuxLen)  = aux._store.RentDigitSnapshot();
+        var (dAux1, dAux1Len) = aux1._store.RentDigitSnapshot();
+        try
         {
-            int multiplicador = aux._store.GetDigit(c);
-            if (multiplicador == 0) continue;
 
-            // Build partial product shifted left by c positions.
-            var temp = new Natural();
+        // ── Parallel path ─────────────────────────────────────────────────────
+        // When the outer operand has more than 2 × processorCount digits, build
+        // each partial product independently via Parallel.For, then accumulate
+        // serially (carry-chain addition prevents a fully parallel reduction).
+        // Each lambda owns its private `temp` → no cross-iteration write conflict.
+        // Different `c` values write to distinct `partials[c]` slots → no aliasing.
+        if (outerCount > processorCount * 2)
+        {
+            var partials = new Natural?[outerCount];
 
-            // Fill positions 0..c-1 with zeros to satisfy SetDigit's sequential-write
-            // constraint (position <= DigitCount) and produce the correct positional shift.
-            // Setting position 0 also clears the IsZero flag on the DigitStore.
-            for (long c1 = 0; c1 < c; c1++)
-                temp._store.SetDigit(c1, 0);
-
-            // Multiply each digit of aux1 by multiplicador and store at position c2+c.
-            int overflow = 0;
-            long c2 = 0;
-            for (; c2 < aux1._store.DigitCount; c2++)
+            Parallel.For(0L, outerCount, c =>
             {
-                int produto = aux1._store.GetDigit(c2) * multiplicador + overflow;
-                temp._store.SetDigit(c2 + c, (byte)(produto % 10));
-                overflow = produto / 10;
-            }
-            if (overflow > 0)
-                temp._store.SetDigit(c2 + c, (byte)overflow);
+                int multiplicador = dAux[c];
+                if (multiplicador == 0) return;     // leave partials[c] null (≡ zero)
 
-            result += temp;
+                var temp = new Natural();
+
+                for (long c1 = 0; c1 < c; c1++)
+                    temp._store.SetDigit(c1, 0);
+
+                int overflow = 0;
+                long c2 = 0;
+                for (; c2 < dAux1Len; c2++)
+                {
+                    int produto = dAux1[c2] * multiplicador + overflow;
+                    temp._store.SetDigit(c2 + c, (byte)(produto % 10));
+                    overflow = produto / 10;
+                }
+                if (overflow > 0)
+                    temp._store.SetDigit(c2 + c, (byte)overflow);
+
+                partials[c] = temp;
+            });
+
+            // Serial combination — Parallel.For has returned; all partials are visible.
+            var result = new Natural();
+            for (long c = 0; c < outerCount; c++)
+            {
+                if (partials[c] is not null)
+                    result += partials[c]!;
+            }
+            return result;
         }
 
-        return result;
+        // ── Sequential path ───────────────────────────────────────────────────
+        // Small operands: parallelism overhead would exceed the gain.
+        {
+            var result = new Natural();
+
+            for (long c = 0; c < outerCount; c++)
+            {
+                int multiplicador = dAux[c];
+                if (multiplicador == 0) continue;
+
+                // Build partial product shifted left by c positions.
+                var temp = new Natural();
+
+                // Fill positions 0..c-1 with zeros to satisfy SetDigit's sequential-write
+                // constraint (position <= DigitCount) and produce the correct positional shift.
+                // Setting position 0 also clears the IsZero flag on the DigitStore.
+                for (long c1 = 0; c1 < c; c1++)
+                    temp._store.SetDigit(c1, 0);
+
+                // Multiply each digit of aux1 by multiplicador and store at position c2+c.
+                int overflow = 0;
+                long c2 = 0;
+                for (; c2 < dAux1Len; c2++)
+                {
+                    int produto = dAux1[c2] * multiplicador + overflow;
+                    temp._store.SetDigit(c2 + c, (byte)(produto % 10));
+                    overflow = produto / 10;
+                }
+                if (overflow > 0)
+                    temp._store.SetDigit(c2 + c, (byte)overflow);
+
+                result += temp;
+            }
+
+            return result;
+        }
+        } // end try
+        finally
+        {
+            aux._store.ReturnDigitSnapshot(dAux);
+            aux1._store.ReturnDigitSnapshot(dAux1);
+        }
     }
 
     /// <inheritdoc/>
@@ -572,17 +661,34 @@ public sealed class Natural :
     }
 
     /// <summary>
-    /// Raises this instance to the power of <paramref name="exponent"/>.
-    /// Mirrors C++ <c>exponenciar</c>: initialises result to 1 and multiplies by
-    /// <c>this</c> once for every unit of <paramref name="exponent"/>.
-    /// Any base raised to the power of zero returns 1.
+    /// Raises this instance to the power of <paramref name="exponent"/>
+    /// using binary (repeated-squaring) exponentiation — O(log n) multiplications
+    /// rather than O(n). Any base raised to the power of zero returns 1.
     /// </summary>
+    /// <remarks>
+    /// Algorithm: maintain a running <c>result = 1</c> and a mutable copy of the
+    /// base <c>b</c>. At each step, if the current exponent is odd, fold <c>b</c>
+    /// into <c>result</c>; square <c>b</c>; then halve the exponent (integer ÷ 2).
+    /// Repeat until the exponent reaches zero.
+    /// </remarks>
     public Natural Pow(Natural exponent)
     {
+        if (IsZero(exponent))
+            return One;
+
         var result = One;
-        if (!IsZero(exponent))
-            for (var c = new Natural(); c < exponent; c++)
-                result *= this;
+        var b      = new Natural(this);     // mutable copy of base
+        var e      = new Natural(exponent); // mutable copy of exponent
+
+        while (!IsZero(e))
+        {
+            if (IsOddInteger(e))
+                result *= b;
+
+            b *= b;
+            e  = DivRem(e, new Natural(2UL), out _);
+        }
+
         return result;
     }
 
@@ -591,12 +697,62 @@ public sealed class Natural :
     /// Mirrors C++ <c>fatorial</c>: returns 1 for 0! and 1!, then accumulates
     /// the product 2 × 3 × … × this for larger values.
     /// </summary>
+    /// <remarks>
+    /// For values large enough to benefit from parallelism (greater than
+    /// 2 × <see cref="Environment.ProcessorCount"/>), the range [2..n] is
+    /// partitioned into <see cref="Environment.ProcessorCount"/> sub-ranges that
+    /// are multiplied concurrently via <see cref="Parallel.For(int,int,Action{int})"/>.
+    /// The resulting partial products are then combined serially.
+    /// For small values or when the input does not fit in a <see cref="ulong"/>,
+    /// a simple sequential loop is used instead.
+    /// </remarks>
     public Natural Factorial()
     {
-        var result = One;
-        if (!IsZero(this))
+        if (IsZero(this)) return One;
+
+        // Use the string representation to obtain the numeric value for range
+        // partitioning. If this exceeds ulong.MaxValue the caller wants a
+        // ludicrously large factorial; fall back to sequential in that case.
+        int processorCount = Environment.ProcessorCount;
+        if (!ulong.TryParse(ToString(), out ulong n) || n <= (ulong)(processorCount * 2))
+        {
+            // Sequential path — small values or astronomically large N.
+            var seqResult = One;
             for (var aux = new Natural(2UL); aux <= this; aux++)
-                result *= aux;
+                seqResult *= aux;
+            return seqResult;
+        }
+
+        // Parallel tree reduction.
+        // Partition the factor range [2..n] into `processorCount` sub-ranges.
+        // Each sub-range is multiplied independently, then all partial products
+        // are combined serially (carry-chain addition prevents a fully parallel
+        // reduction of the final combination step).
+
+        int t = processorCount;
+        var partials = new Natural[t];
+        for (int i = 0; i < t; i++) partials[i] = One;
+
+        ulong totalFactors = n - 1UL;                                           // factors: 2,3,…,n  → count = n-1
+        ulong rangeSize    = (totalFactors + (ulong)t - 1UL) / (ulong)t;       // ceil division
+
+        Parallel.For(0, t, i =>
+        {
+            ulong start = 2UL + (ulong)i * rangeSize;
+            ulong end   = start + rangeSize - 1UL;
+            if (end > n) end = n;
+            if (start > n) return;          // this partition slot is empty
+
+            var sub = One;
+            for (ulong k = start; k <= end; k++)
+                sub *= new Natural(k);
+            partials[i] = sub;
+        });
+
+        // Serial combination of partial products.
+        var result = One;
+        foreach (var p in partials)
+            result *= p;
         return result;
     }
 

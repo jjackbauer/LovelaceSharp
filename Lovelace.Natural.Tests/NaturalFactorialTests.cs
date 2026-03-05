@@ -41,4 +41,25 @@ public class NaturalFactorialTests
         var result = new Natural(21UL).Factorial();
         Assert.Equal("51090942171709440000", result.ToString());
     }
+
+    // --- Factorial_Given10_ReturnsCorrectResult ---
+    // 10! = 3628800.
+    [Fact]
+    public void Factorial_Given10_ReturnsCorrectResult()
+    {
+        var result = new Natural(10UL).Factorial();
+        Assert.Equal("3628800", result.ToString());
+    }
+
+    // --- Factorial_Given100_ReturnsCorrectResult ---
+    // 100! is a well-known 158-digit value. Exercises the parallel sub-range path
+    // on any machine with more than one logical processor.
+    [Fact]
+    public void Factorial_Given100_ReturnsCorrectResult()
+    {
+        const string expected =
+            "93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000";
+        var result = new Natural(100UL).Factorial();
+        Assert.Equal(expected, result.ToString());
+    }
 }

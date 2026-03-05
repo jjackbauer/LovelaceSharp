@@ -1,8 +1,10 @@
+using System.Buffers;
 using System.Text;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 [assembly: InternalsVisibleTo("Lovelace.Representation.Tests")]
+[assembly: InternalsVisibleTo("Lovelace.Natural")]
 
 namespace Lovelace.Representation;
 
@@ -163,6 +165,85 @@ public class DigitStore
         }
     }
 
+    /// <summary>
+    /// Returns a snapshot of every digit as a plain <c>byte[]</c> (one decimal
+    /// digit per element, index = logical position, 0 = least-significant digit).
+    /// Returns an empty array when <see cref="IsZero"/> is true.
+    /// The snapshot is taken atomically under <c>_syncRoot</c>; callers may read
+    /// the returned array from any number of threads without additional locking.
+    /// </summary>
+    /// <remarks>
+    /// Prefer <see cref="RentDigitSnapshot"/> in hot paths (e.g. repeated arithmetic)
+    /// to avoid repeated heap allocation; remember to call
+    /// <see cref="ReturnDigitSnapshot"/> in a <c>finally</c> block.
+    /// </remarks>
+    internal byte[] SnapshotDigits()
+    {
+        lock (_syncRoot)
+        {
+            if (_isZero)
+                return Array.Empty<byte>();
+
+            var snapshot = new byte[_digitCount];
+            long byteCount = (_digitCount + 1) / 2;
+            for (long b = 0; b < byteCount; b++)
+            {
+                GetBitwise(b, out byte high, out byte low);
+                snapshot[b * 2] = high;
+                long oddPos = b * 2 + 1;
+                if (oddPos < _digitCount)
+                    snapshot[oddPos] = low;
+            }
+            return snapshot;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Pooled snapshot helpers (zero-GC hot path)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Rents a <c>byte[]</c> from <see cref="ArrayPool{T}.Shared"/>, fills it with
+    /// the unpacked decimal digits (one per element, index 0 = least-significant
+    /// digit), and returns it together with the valid element count.
+    /// The caller <b>must</b> pass the buffer to
+    /// <see cref="ReturnDigitSnapshot(byte[])"/> in a <c>finally</c> block.
+    /// Returns <c>(Array.Empty&lt;byte&gt;(), 0)</c> when <see cref="IsZero"/> is
+    /// true — <see cref="ReturnDigitSnapshot(byte[])"/> silently ignores empty arrays.
+    /// </summary>
+    internal (byte[] Buffer, int Length) RentDigitSnapshot()
+    {
+        lock (_syncRoot)
+        {
+            if (_isZero)
+                return (Array.Empty<byte>(), 0);
+
+            int length = (int)_digitCount;
+            byte[] rented = ArrayPool<byte>.Shared.Rent(length);
+            long byteCount = (_digitCount + 1) / 2;
+            for (long b = 0; b < byteCount; b++)
+            {
+                GetBitwise(b, out byte high, out byte low);
+                rented[b * 2] = high;
+                long oddPos = b * 2 + 1;
+                if (oddPos < _digitCount)
+                    rented[oddPos] = low;
+            }
+            return (rented, length);
+        }
+    }
+
+    /// <summary>
+    /// Returns a buffer previously rented via <see cref="RentDigitSnapshot"/> to
+    /// <see cref="ArrayPool{T}.Shared"/>. Silently ignores empty arrays (the sentinel
+    /// returned by <see cref="RentDigitSnapshot"/> when the store is zero).
+    /// </summary>
+    internal void ReturnDigitSnapshot(byte[] buffer)
+    {
+        if (buffer.Length > 0)
+            ArrayPool<byte>.Shared.Return(buffer);
+    }
+
     // -------------------------------------------------------------------------
     // Internal BCD infrastructure
     // -------------------------------------------------------------------------
@@ -216,7 +297,112 @@ public class DigitStore
     {
         lock (_syncRoot)
         {
-            _bytes.Add(0x0C);
+            GrowDigitsUnsafe();
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Private lock-free "Unsafe" helpers
+    // These helpers perform the same mutations as their locking counterparts but
+    // assume the caller already holds _syncRoot. They exist solely to eliminate
+    // redundant reentrant Monitor acquisitions in methods like TrimLeadingZeros
+    // and Reset, each of which takes one outer lock and then delegates entirely
+    // to these helpers for the duration of that lock.
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Lock-free variant of <see cref="GrowDigits"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void GrowDigitsUnsafe()
+    {
+        _bytes.Add(0x0C);
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="SetBitwise"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void SetBitwiseUnsafe(long pos, byte high, byte low)
+    {
+        long size = ByteCount;
+
+        if (pos >= 0 && pos <= size)
+        {
+            byte packed = (byte)((high << 4) | (low & 0x0F));
+
+            if (pos == size)
+                GrowDigitsUnsafe();
+
+            _bytes[(int)pos] = packed;
+        }
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="GetDigit"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private byte GetDigitUnsafe(long position)
+    {
+        if (_isZero)
+            return 0;
+
+        if (position >= 0 && position < _digitCount)
+        {
+            GetBitwise(position / 2, out byte high, out byte low);
+            return (position % 2 == 0) ? high : low;
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="ShrinkDigits"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void ShrinkDigitsUnsafe()
+    {
+        if (_digitCount % 2 == 1)
+        {
+            _bytes.RemoveAt(_bytes.Count - 1);
+        }
+        else
+        {
+            GetBitwise(ByteCount - 1, out byte high, out byte _);
+            SetBitwiseUnsafe(ByteCount - 1, high, 0x0F);
+        }
+        _digitCount--;
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="ClearDigits"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void ClearDigitsUnsafe()
+    {
+        _bytes.Clear();
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="Initialize"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void InitializeUnsafe()
+    {
+        _digitCount = 0;
+        _isZero = true;
+    }
+
+    /// <summary>
+    /// Lock-free variant of <see cref="Reset"/>.
+    /// Caller must hold <c>_syncRoot</c>.
+    /// </summary>
+    private void ResetUnsafe()
+    {
+        if (!_isZero)
+        {
+            ClearDigitsUnsafe();
+            InitializeUnsafe();
         }
     }
 
@@ -246,18 +432,21 @@ public class DigitStore
     /// <summary>
     /// Removes non-significant leading zeros (digits at the most-significant positions
     /// that are zero). Resets to zero state when the entire value is zero.
+    /// Acquires <c>_syncRoot</c> exactly once for the entire operation.
     /// </summary>
     public void TrimLeadingZeros()
     {
         lock (_syncRoot)
         {
             // Walk from the most-significant digit downward while it is zero.
-            while (_digitCount > 1 && GetDigit(_digitCount - 1) == 0)
-                ShrinkDigits();
+            // Uses lock-free Unsafe helpers to avoid redundant reentrant Monitor
+            // acquisitions — eliminates 3 × DigitCount extra Enter/Exit pairs.
+            while (_digitCount > 1 && GetDigitUnsafe(_digitCount - 1) == 0)
+                ShrinkDigitsUnsafe();
 
             // If the only remaining digit is also zero, restore zero state.
-            if (_digitCount == 1 && GetDigit(0) == 0)
-                Reset();
+            if (_digitCount == 1 && GetDigitUnsafe(0) == 0)
+                ResetUnsafe();
         }
     }
 
@@ -319,6 +508,10 @@ public class DigitStore
     /// <summary>
     /// Clears all digits and reinitializes to zero state.
     /// No-op when already zero.
+    /// Acquires <c>_syncRoot</c> exactly once for the entire operation by
+    /// delegating to <see cref="ClearDigitsUnsafe"/> and <see cref="InitializeUnsafe"/>,
+    /// eliminating the two redundant reentrant <c>Monitor.Enter</c>/<c>Monitor.Exit</c>
+    /// pairs that would occur if the locking overloads were called instead.
     /// </summary>
     internal void Reset()
     {
@@ -326,8 +519,8 @@ public class DigitStore
         {
             if (!_isZero)
             {
-                ClearDigits();
-                Initialize();
+                ClearDigitsUnsafe();
+                InitializeUnsafe();
             }
         }
     }
@@ -352,23 +545,34 @@ public class DigitStore
     {
         // Snapshot immutable view of the store under lock to enable safe string
         // construction (including any future Parallel.For in Phase 1) outside the lock.
+        // The byte snapshot is rented from ArrayPool to avoid repeated heap allocation
+        // for large numbers; it is returned in the finally block below.
         bool isZero;
         long digitCount;
-        byte[] bytesSnapshot;
+        byte[]? bytesSnapshot = null;
+        int bytesSnapshotLen = 0;
         lock (_syncRoot)
         {
             isZero = _isZero;
             digitCount = _digitCount;
-            bytesSnapshot = _bytes.ToArray();
+            if (!isZero)
+            {
+                bytesSnapshotLen = _bytes.Count;
+                bytesSnapshot = ArrayPool<byte>.Shared.Rent(bytesSnapshotLen);
+                CollectionsMarshal.AsSpan(_bytes).CopyTo(bytesSnapshot);
+            }
         }
 
         if (isZero)
             return "0";
 
+        try
+        {
+
         // Pre-allocate output buffer — one slot per digit, MSB at index 0.
         var chars = new char[digitCount];
 
-        long lastByteIdx = bytesSnapshot.LongLength - 1;
+        long lastByteIdx = bytesSnapshotLen - 1;
 
         // Resolve the most-significant byte (always sequential; only 1–2 digits).
         byte a = (byte)((bytesSnapshot[lastByteIdx] & 0xF0) >> 4);
@@ -419,6 +623,13 @@ public class DigitStore
                 result.Append(separator);
         }
         return result.ToString();
+
+        } // end try
+        finally
+        {
+            if (bytesSnapshot is not null)
+                ArrayPool<byte>.Shared.Return(bytesSnapshot);
+        }
     }
 
     /// <summary>Debug helper — prints internal state: size, DigitCount, IsZero, raw nibble pairs.</summary>

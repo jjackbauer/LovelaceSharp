@@ -88,13 +88,14 @@ Instance convenience overload of the above.
 ```csharp
 Natural Pow(Natural exponent)
 ```
-Raises this value to `exponent` by repeated multiplication.  
+Raises this value to `exponent` using **binary (repeated-squaring) exponentiation** — O(log n) multiplications rather than O(n).  
 Any base raised to exponent zero returns `One`.
 
 ```csharp
 Natural Factorial()
 ```
-Returns `this!`. Returns `One` for `0! = 1! = 1`.
+Returns `this!`. Returns `One` for `0! = 1! = 1`.  
+For large values (n > 2 × `Environment.ProcessorCount`), uses a **parallel tree reduction**: the factor range `[2..n]` is partitioned into `ProcessorCount` sub-ranges multiplied concurrently via `Parallel.For`, then the partial products are combined serially.
 
 ### Parsing
 
@@ -118,7 +119,8 @@ Non-throwing counterparts; return `false` on invalid input.
 ```csharp
 override string ToString()
 ```
-Returns the decimal string with most-significant digit first. No leading zeros. Returns `"0"` for zero.
+Returns the decimal string with most-significant digit first. No leading zeros. Returns `"0"` for zero.  
+Delegates to `DigitStore.ToString()`, which already parallelises byte extraction internally via `Parallel.For`.
 
 ```csharp
 string ToString(string? format, IFormatProvider? formatProvider)
@@ -162,8 +164,8 @@ Natural product = a * new Natural(3UL);
 Natural quotient = Natural.DivRem(b, a, out Natural remainder);
 
 // Formatting
-Console.WriteLine(sum);                       // "100000000000012344"
-Console.WriteLine(product.ToString("N", null)); // "37,035" (no, actual: "37,035")
+Console.WriteLine(sum);                         // "100000000000000012344"
+Console.WriteLine(product.ToString("N", null)); // "37,035"
 
 // Predicates
 Console.WriteLine(Natural.IsZero(new Natural())); // True
@@ -179,6 +181,7 @@ Console.WriteLine(n); // "314159265358979323846"
 ## See Also
 
 - [Requirements & test plan](.github/requirements/Lovelace.Natural.md)
+- [Parallelization audit](.github/requirements/Lovelace.Natural-parallelization-audit.md)
 - [Legacy C++ source](../Legacy/Lovelace.hpp) / [implementation](../Legacy/Lovelace.cpp)
 - Depends on: [`Lovelace.Representation`](../Lovelace.Representation/README.md)
-- Used by: `Lovelace.Integer` (not yet implemented)
+- Used by: [`Lovelace.Integer`](../Lovelace.Integer/README.md)

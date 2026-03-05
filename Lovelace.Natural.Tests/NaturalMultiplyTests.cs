@@ -140,4 +140,98 @@ public class NaturalMultiplyTests
         var result = new Natural(25UL) * new Natural(4UL);
         Assert.Equal("100", result.ToString());
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Parallel partial-products path (outer operand has many digits, so the
+    // Parallel.For code path is exercised when the threshold is exceeded)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Multiply_GivenFifteenDigitOperand_ReturnsCorrectProduct()
+    {
+        // 100000000000000 × 2 = 200000000000000
+        // Forces the outer operand ("2") to be 1 digit while the inner operand
+        // has 15 digits, exercising the inner digit loop over many positions.
+        var a      = Natural.Parse("100000000000000"); // 10^14
+        var two    = new Natural(2UL);
+        var result = a * two;
+        Assert.Equal("200000000000000", result.ToString());
+    }
+
+    [Fact]
+    public void Multiply_GivenTwoFifteenDigitNumbers_ReturnsCorrectProduct()
+    {
+        // (10^15 - 1)^2 = 10^30 - 2×10^15 + 1
+        //               = 999999999999998000000000000001
+        var n = Natural.Parse("999999999999999");   // 15 nines
+        var result = n * n;
+        Assert.Equal("999999999999998000000000000001", result.ToString());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Snapshot-path correctness (parallel path, 50-digit operands)
+    // Validates that SnapshotDigits-backed reads yield the same result as
+    // per-digit GetDigit reads for very large operands that always exceed the
+    // processorCount * 2 threshold.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Multiply_GivenHundredFiftyDigitPowersOfTen_ReturnsCorrectThreeHundredDigitResult()
+    {
+        // 10^150 × 10^150 = 10^300  — "1" followed by 300 zeros
+        // 151-digit operands guarantee the parallel path even on machines with
+        // up to 75 processors (75 × 2 = 150 < 151).
+        var a = Natural.Parse("1" + new string('0', 150)); // 10^150 (151 digits)
+        var b = Natural.Parse("1" + new string('0', 150));
+        var result = a * b;
+        Assert.Equal("1" + new string('0', 300), result.ToString());
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task Multiply_GivenSharedLargeOperandReadConcurrently_AllResultsConsistent()
+    {
+        // Create one large shared Natural that multiple concurrent multiplications read.
+        // 200-digit operands guarantee the parallel path even on machines with up to
+        // 99 processorCount (99 * 2 = 198 < 200).
+        // Expected: 10^200 × 10^200 = 10^400
+        var shared = Natural.Parse("1" + new string('0', 200)); // 10^200 (201 digits)
+        string expectedResult = "1" + new string('0', 400);     // 10^400 (401 chars)
+
+        const int taskCount = 16;
+        var tasks = new System.Threading.Tasks.Task<string>[taskCount];
+        for (int i = 0; i < taskCount; i++)
+            tasks[i] = System.Threading.Tasks.Task.Run(() => (shared * shared).ToString());
+
+        string[] results = await System.Threading.Tasks.Task.WhenAll(tasks);
+
+        foreach (var r in results)
+            Assert.Equal(expectedResult, r);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task Multiply_GivenLargeMultiplicationsRunConcurrently_AllReturnCorrectResults()
+    {
+        // Stress-test the parallel partial-products path with 32 concurrent
+        // multiplications. If there is any shared-state race across Natural
+        // instances the results will diverge from the expected value.
+        // 100000000000 × 100000000000 = 10000000000000000000000 (10^22)
+        const string expected = "10000000000000000000000";
+        const int taskCount   = 32;
+
+        var tasks = new System.Threading.Tasks.Task<string>[taskCount];
+        for (int i = 0; i < taskCount; i++)
+        {
+            tasks[i] = System.Threading.Tasks.Task.Run(() =>
+            {
+                var a = Natural.Parse("100000000000");   // 10^11
+                var b = Natural.Parse("100000000000");
+                return (a * b).ToString();
+            });
+        }
+
+        string[] results = await System.Threading.Tasks.Task.WhenAll(tasks);
+
+        foreach (string r in results)
+            Assert.Equal(expected, r);
+    }
 }
