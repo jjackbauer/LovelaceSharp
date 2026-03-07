@@ -18,4 +18,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Lovelace.Real\Lovelace.Real.csproj" />
+  </ItemGroup>
+
 </Project>

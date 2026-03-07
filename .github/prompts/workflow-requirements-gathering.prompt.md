@@ -1,5 +1,5 @@
 ---
-agent: agent
+agent: plan
 description: Produce a full requirements checklist and xUnit test plan for one C++ class being migrated to C#.
 ---
 

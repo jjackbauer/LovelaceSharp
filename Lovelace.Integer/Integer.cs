@@ -12,7 +12,7 @@ namespace Lovelace.Integer;
 /// Backed by a <see cref="Nat"/> magnitude and a boolean sign flag.
 /// Corresponds to C++ <c>InteiroLovelace</c>.
 /// </summary>
-public sealed class Integer :
+public class Integer :
     ISignedNumber<Integer>,
     INumber<Integer>,
     IComparable<Integer>,
