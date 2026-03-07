@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Lovelace.Natural\Lovelace.Natural.csproj" />
     <ProjectReference Include="..\Lovelace.Integer\Lovelace.Integer.csproj" />
+    <ProjectReference Include="..\Lovelace.Real\Lovelace.Real.csproj" />
   </ItemGroup>
 
 </Project>

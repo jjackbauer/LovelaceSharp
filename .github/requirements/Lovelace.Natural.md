@@ -1,5 +1,7 @@
 # Requirements: `Lovelace` (arithmetic layer) → `Lovelace.Natural`
 
+> Migration requirements for `Lovelace` arithmetic layer (C++) to `Lovelace.Natural` (C#). Covers functionality mapping, completeness checklist, and xUnit test plan.
+
 ---
 
 ## Functionality Worktree

@@ -1,5 +1,7 @@
 # Requirements: `InteiroLovelace` → `Lovelace.Integer`
 
+> Migration requirements for `InteiroLovelace` (C++) to `Lovelace.Integer` (C#). Covers functionality mapping, completeness checklist, and xUnit test plan.
+
 ---
 
 ## Functionality Worktree

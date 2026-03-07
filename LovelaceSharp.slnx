@@ -1,4 +1,6 @@
 <Solution>
+  <Project Path="Lovelace.Console.Tests/Lovelace.Console.Tests.csproj" />
+  <Project Path="Lovelace.Console/Lovelace.Console.csproj" />
   <Project Path="Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj" />
   <Project Path="Lovelace.Integer/Lovelace.Integer.csproj" />
   <Project Path="Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj" />

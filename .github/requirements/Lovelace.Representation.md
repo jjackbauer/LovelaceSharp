@@ -1,5 +1,7 @@
 # Requirements: `Lovelace` (digit storage) → `Lovelace.Representation`
 
+> Migration requirements for `Lovelace` digit storage layer (C++) to `Lovelace.Representation` (C#). Covers functionality mapping, completeness checklist, and xUnit test plan.
+
 ---
 
 ## Functionality Worktree

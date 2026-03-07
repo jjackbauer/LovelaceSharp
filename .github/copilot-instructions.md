@@ -35,10 +35,11 @@ Lovelace.Representation  ←  Lovelace.Natural  ←  Lovelace.Integer  ←  Love
 
 ## When Working on Migration Tasks
 
-Always load the legacy knowledge map before writing code or tests:
+Always load the legacy knowledge map and codebase patterns reference before writing code or tests:
 
 ```
 #file:.github/prompts/legacy-knowledge-map.md
+#file:.github/prompts/codebase-patterns.md
 ```
 
 ## Available Prompts and Workflows
@@ -49,5 +50,9 @@ Always load the legacy knowledge map before writing code or tests:
 | `.github/prompts/skill-falsify-claims.prompt.md` | Skill: verify or refute specific claims against source |
 | `.github/prompts/skill-test-standards.prompt.md` | Skill: generate xUnit test plan for a method |
 | `.github/prompts/skill-impl-completeness.prompt.md` | Skill: audit C++ class against C# counterpart |
-| `.github/prompts/workflow-requirements-gathering.prompt.md` | Workflow: produce checklist + test plan for a whole class |
+| `.github/prompts/workflow-requirements-gathering.prompt.md` | Workflow: generic — produce a requirements checklist and xUnit test plan for any C# project, driven by a pluggable analysis source and mandatory-item rules |
+| `.github/prompts/rule-migration.prompt.md` | Rule: migration-specific pre-configuration of the requirements-gathering workflow for C++ → C# class migration |
 | `.github/prompts/workflow-iterative-implementation.prompt.md` | Workflow: implement one checklist item end-to-end |
+| `.github/prompts/codebase-patterns.md` | Reference: implementation and test-writing conventions distilled from the codebase |
+| `.github/prompts/skill-codebase-patterns.prompt.md` | Skill: regenerate/update the codebase patterns reference by re-analyzing source files |
+| `.github/prompts/skill-plan-format-gate.prompt.md` | Skill: validate plan document structure; auto-invoked by the requirements-gathering workflow and self-heals violations autonomously |

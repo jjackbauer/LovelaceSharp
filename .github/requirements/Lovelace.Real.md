@@ -1,5 +1,7 @@
 # Requirements: `RealLovelace` → `Lovelace.Real`
 
+> Migration requirements for `RealLovelace` (C++) to `Lovelace.Real` (C#). Covers functionality mapping, completeness checklist, and xUnit test plan.
+
 ---
 
 ## Functionality Worktree

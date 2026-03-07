@@ -1,94 +1,84 @@
+﻿````prompt
 ---
 agent: plan
-description: Produce a full requirements checklist and xUnit test plan for one C++ class being migrated to C#.
+description: Produce a requirements checklist and xUnit test plan for a C# project, driven by a pluggable analysis source and mandatory-item rules.
 ---
 
-#file:.github/prompts/legacy-knowledge-map.md
-#file:.github/prompts/skill-use-digit-store.prompt.md
-#file:.github/prompts/skill-impl-completeness.prompt.md
+#file:.github/prompts/codebase-patterns.md
 #file:.github/prompts/skill-test-standards.prompt.md
+#file:.github/prompts/skill-plan-format-gate.prompt.md
 
 # Workflow: Requirements Gathering
 
 ## Purpose
-For a given C++ class and its target C# project, produce:
-1. A **Functionality Worktree** — the completeness checklist and Mermaid class diagram from the Implementation Completeness skill.
+For a given C# project, produce:
+1. A **Functionality Worktree** — a completeness checklist and (where applicable) a Mermaid class diagram, derived from the provided `AnalysisSource`.
 2. A **Test Plan** — a named xUnit test list for every unchecked checklist item, produced by the Test Standards skill.
 
-Deliver both artefacts in a single response so the developer can start the Iterative Implementation workflow immediately.
+Deliver both artefacts in a single structured document so the developer can start implementation immediately.
 
-## Input (supplied by caller)
+## Input (supplied by caller or collected interactively)
 
 ```
-CppClass:    <C++ class name, e.g. InteiroLovelace>
-CsProject:   <Target C# project name, e.g. Lovelace.Integer>
+CsProject:      <Target C# project name, e.g. Lovelace.Integer>
+AnalysisSource: <How to derive the checklist — e.g. "invoke an analysis skill with specific inputs",
+                 "audit an existing C# class against its interfaces", or a free-form description>
+MandatoryItems: <List of mandatory checklist entries with tags, or "none">
+PlanType:       <Value to pass to the Format Gate, e.g. "requirements" or "generic">
+OutputPath:     <Save location; defaults to .github/requirements/<CsProject>.md>
+OutputTitle:    <H1 title of the output document>
+ClosingMessage: <Message to display after saving>
 ```
+
+> **If invoked directly without a rule file supplying these parameters**, ask the user to provide each missing input before proceeding.
 
 ## Procedure
 
-### Step 1 — Run the Implementation Completeness skill
+### Step 1 — Derive the completeness checklist
 
-Invoke the Implementation Completeness skill with the provided `CppClass` and `CsProject`.
-
-Wait for the skill to finish (zero Falsified rows) and collect:
-- The mapping table
-- The Mermaid class diagram
-- The completeness checklist (unchecked items only, ordered by dependency)
+Use `AnalysisSource` to produce the checklist:
+- If `AnalysisSource` references a named skill, invoke that skill with the appropriate inputs and wait for it to finish (zero Falsified rows). Collect the mapping table, Mermaid class diagram, and unchecked checklist items ordered by dependency.
+- Otherwise, derive the checklist directly from the provided description, listing each distinct piece of functionality as an unchecked item.
 
 ### Step 2 — Run the Test Standards skill for each checklist item
 
 For every unchecked item in the checklist (in dependency order):
-1. Derive a plain-English functional description from the C++ `.cpp` implementation.
+1. Derive a plain-English functional description from `AnalysisSource` (e.g. from a `.cpp` implementation, interface contract, or provided description).
 2. Invoke the Test Standards skill with the C# method signature and that description.
 3. Wait for the skill to finish (zero Falsified rows) and collect the named test list.
 
-### Step 3 — Enforce mandatory constructors
+### Step 3 — Enforce mandatory items
 
-Every numerical implementation class **must** expose the following constructors regardless of what the C++ source provides:
+For each entry in `MandatoryItems`:
+- If the item is already present in the checklist, leave it as-is.
+- If it is missing, add it as a **mandatory unchecked item** with its specified tag.
+- For each newly added mandatory item, generate test cases following Step 2 rules.
 
-| Constructor | Signature | Purpose |
-|---|---|---|
-| String constructor | `ctor(string value)` | Parse a decimal string representation at runtime |
-| ReadOnlySpan constructor | `ctor(ReadOnlySpan<char> value)` | Zero-allocation span-based parsing (preferred hot path) |
+If `MandatoryItems` is `"none"`, skip this step.
 
-If either constructor is missing from the C# class, add it to the completeness checklist as a **mandatory unchecked item** with the tag `[mandatory — commodity parsing]`, and generate the corresponding test cases in the Test Plan (Step 2 rules apply).
+### Step 4 — Assemble the output
 
-### Step 4 — Enforce mandatory operator overloads
+Combine the checklist and test plan into a single structured document using `OutputTitle` as the H1 heading and a brief scope statement as the blockquote.
 
-Every numerical implementation class **must** implement the following operator overloads via the corresponding `System.Numerics` generic math interfaces, regardless of what the C++ source provides:
+### Step 5 — Validate format
 
-| Operator | Interface | Tag |
-|---|---|---|
-| `operator+` (binary) | `IAdditionOperators<T,T,T>` | `[mandatory — arithmetic]` |
-| `operator-` (binary) | `ISubtractionOperators<T,T,T>` | `[mandatory — arithmetic]` |
-| `operator*` | `IMultiplyOperators<T,T,T>` | `[mandatory — arithmetic]` |
-| `operator/` | `IDivisionOperators<T,T,T>` | `[mandatory — arithmetic]` |
-| `operator%` | `IModulusOperators<T,T,T>` | `[mandatory — arithmetic]` |
-| `operator+` (unary) | `IUnaryPlusOperators<T,T>` | `[mandatory — arithmetic]` |
-| `operator-` (unary) | `IUnaryNegationOperators<T,T>` | `[mandatory — arithmetic]` |
-| `operator++` | `IIncrementOperators<T>` | `[mandatory — arithmetic]` |
-| `operator--` | `IDecrementOperators<T>` | `[mandatory — arithmetic]` |
-| `operator==`, `operator!=` | `IEqualityOperators<T,T,bool>` | `[mandatory — comparison]` |
-| `operator<`, `operator>`, `operator<=`, `operator>=` | `IComparisonOperators<T,T,bool>` | `[mandatory — comparison]` |
+Invoke the Plan Format Gate skill with the value of `PlanType` against the assembled document from Step 4.
 
-> **Note**: Omit `operator%` and unary `operator-` for `Natural` (unsigned type). Include all operators for `Integer` and `Real`.
+- If the verdict is **FAIL**, fix every listed violation in-place and re-run the gate until it returns **PASS**.
+- Only proceed to Step 6 after a **PASS** verdict.
 
-For each missing operator, add a **mandatory unchecked item** to the completeness checklist with the corresponding tag, and generate test cases in the Test Plan (Step 2 rules apply).
+### Step 6 — Save to the output path
 
-### Step 5 — Assemble the output
-
-Combine both artefacts into a single structured document.
-
-### Step 6 — Save to the requirements folder
-
-Write the assembled document to `.github/requirements/<CsProject>.md` (e.g. `.github/requirements/Lovelace.Integer.md`).  
-Create the file if it does not exist; overwrite it if it does.  
+Write the assembled document to `OutputPath`.
+Create the file if it does not exist; overwrite it if it does.
 **This step is mandatory — do not skip it.**
 
 ## Output Format
 
 ```markdown
-# Requirements: `<CppClass>` → `<CsProject>`
+<OutputTitle>
+
+> <Scope statement derived from caller inputs>
 
 ---
 
@@ -96,36 +86,21 @@ Create the file if it does not exist; overwrite it if it does.
 
 ### Class Diagram
 
-<Mermaid diagram from Implementation Completeness skill>
+<Mermaid diagram, if produced by AnalysisSource; omit section if not applicable>
 
 ### Completeness Checklist
 
-- [ ] `ctor(string value)` [mandatory — commodity parsing]
-- [ ] `ctor(ReadOnlySpan<char> value)` [mandatory — commodity parsing]
-- [ ] `operator+` (binary) (`IAdditionOperators<T,T,T>`) [mandatory — arithmetic]
-- [ ] `operator-` (binary) (`ISubtractionOperators<T,T,T>`) [mandatory — arithmetic]
-- [ ] `operator*` (`IMultiplyOperators<T,T,T>`) [mandatory — arithmetic]
-- [ ] `operator/` (`IDivisionOperators<T,T,T>`) [mandatory — arithmetic]
-- [ ] `operator==`, `operator!=` (`IEqualityOperators<T,T,bool>`) [mandatory — comparison]
-- [ ] `operator<`, `operator>`, `operator<=`, `operator>=` (`IComparisonOperators<T,T,bool>`) [mandatory — comparison]
-- [ ] `IsZero` (static predicate — `INumber<T>`) [prerequisite for many others]
-- [ ] `Add(Integer)` → `operator+` (`IAdditionOperators<T,T,T>`)
+- [ ] <item 1> [<tag>]
+- [ ] <item 2> [<tag>]
 ...
 
 ---
 
 ## Test Plan
 
-### `IsZero`
+### `<Method or feature name>`
 
-1. `IsZero_GivenDefaultInstance_ReturnsTrue`  
-   *Assumption*: ...
-2. `IsZero_GivenNonZeroValue_ReturnsFalse`  
-   *Assumption*: ...
-
-### `Add`
-
-1. `Add_GivenTwoPositiveIntegers_ReturnsCorrectSum`  
+1. `<TestName_GivenScenario_ExpectedResult>`
    *Assumption*: ...
 ...
 
@@ -134,5 +109,6 @@ Create the file if it does not exist; overwrite it if it does.
 *All assumptions verified by Falsify Claims. Zero Falsified rows.*
 ```
 
-After saving the file and delivering this document, tell the developer:
-> "Requirements gathering complete. Output saved to `.github/requirements/<CsProject>.md`. Run `workflow-iterative-implementation` and supply one checklist item at a time to implement and test it end-to-end."
+After saving the file, display `ClosingMessage`.
+
+````
