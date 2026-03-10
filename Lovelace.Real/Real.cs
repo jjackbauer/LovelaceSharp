@@ -39,6 +39,10 @@ public class Real :
 
     private static long _displayDecimalPlaces = 100L;
     private static long _maxComputationDecimalPlaces = 1000L;
+    // Per-call-stack precision override set by Sqrt to avoid clobbering the global
+    // value when tests run in parallel.  Flows down the call tree (into Divide) but
+    // does not propagate sideways to sibling tasks.
+    private static readonly AsyncLocal<long?> _localMaxComputationDecimalPlaces = new();
 
     /// <summary>
     /// Controls how many fractional digits appear in <see cref="ToString()"/> for non-periodic values.
@@ -59,8 +63,26 @@ public class Real :
     /// </summary>
     public static long MaxComputationDecimalPlaces
     {
-        get => Interlocked.Read(ref _maxComputationDecimalPlaces);
+        // Prefer the per-call-stack override (set by Sqrt) over the global default.
+        get => _localMaxComputationDecimalPlaces.Value ?? Interlocked.Read(ref _maxComputationDecimalPlaces);
+        // Sets the global default (existing public API); does not affect any active local scope.
         set => Interlocked.Exchange(ref _maxComputationDecimalPlaces, value);
+    }
+
+    // Establishes a call-stack-local precision override for the duration of the returned scope.
+    // Restoring the previous local value on Dispose ensures nesting works correctly.
+    private static PrecisionScope WithLocalPrecision(long precision)
+    {
+        long? previous = _localMaxComputationDecimalPlaces.Value;
+        _localMaxComputationDecimalPlaces.Value = precision;
+        return new PrecisionScope(previous);
+    }
+
+    private readonly struct PrecisionScope : IDisposable
+    {
+        private readonly long? _saved;
+        public PrecisionScope(long? saved) => _saved = saved;
+        public void Dispose() => _localMaxComputationDecimalPlaces.Value = _saved;
     }
 
     // -------------------------------------------------------------------------
@@ -625,6 +647,203 @@ public class Real :
     /// Implements <see cref="IDecrementOperators{Real}"/>.
     /// </summary>
     public static Real operator --(Real value) => value - Real.One;
+
+    // -------------------------------------------------------------------------
+    // Domain-specific operations — Sqrt
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Computes the principal square root of <paramref name="value"/> to
+    /// <see cref="MaxComputationDecimalPlaces"/> fractional digits using Newton-Raphson
+    /// (Heron's method): <c>x_{n+1} = (x_n + value / x_n) / 2</c>.
+    /// Seeded from the <see cref="double"/> approximation; iterates until two consecutive
+    /// results agree to <see cref="MaxComputationDecimalPlaces"/> decimal places.
+    /// Delegates to the internal <c>Sqrt(Real, long)</c> overload.
+    /// New C# addition with no C++ counterpart.
+    /// </summary>
+    /// <exception cref="ArithmeticException">Thrown when <paramref name="value"/> is negative.</exception>
+    public static Real Sqrt(Real value) => Sqrt(value, MaxComputationDecimalPlaces);
+
+    /// <summary>
+    /// Internal Newton-Raphson square root with caller-specified precision; imposes no
+    /// additional cap on <paramref name="precision"/> beyond what the underlying arithmetic
+    /// provides.  Used exclusively by <see cref="Pi(long)"/> to compute <c>√10005</c> at
+    /// guard-digit precision.
+    /// </summary>
+    /// <exception cref="ArithmeticException">Thrown when <paramref name="value"/> is negative.</exception>
+    private static Real Sqrt(Real value, long precision)
+    {
+        if (IsNegative(value))
+            throw new ArithmeticException("Square root is not defined for negative numbers.");
+
+        if (IsZero(value))
+            return Zero;
+
+        // Guard digits absorb truncation drift through Newton-Raphson iterations.
+        const long guard = 50L;
+        long targetPrecision = precision + guard;
+
+        // Seed from double approximation (~15 significant digits).
+        string strVal = value.ToString();
+        if (strVal.Length > 20) strVal = strVal[..20];
+        if (!double.TryParse(strVal, System.Globalization.NumberStyles.Float,
+                             System.Globalization.CultureInfo.InvariantCulture,
+                             out double dblApprox) || dblApprox <= 0.0)
+            dblApprox = 1.0;
+        Real x = new Real(Math.Sqrt(dblApprox));
+        if (IsZero(x) || IsNegative(x)) x = One;
+
+        Real two = new Real(2.0);
+
+        // Progressive precision: double the working precision each iteration from the
+        // seed's ~16 fractional digits up to targetPrecision.  Each iteration's
+        // division is given enough budget for xFracDigits + currentTarget so the
+        // quotient value/x has currentTarget significant fractional digits.
+        long currentTarget = 16L;
+
+        while (currentTarget < targetPrecision)
+        {
+            currentTarget = Math.Min(currentTarget * 2, targetPrecision);
+            long xFracDigits = x.Exponent < 0 ? -x.Exponent : 0L;
+            long divPrecision = xFracDigits + currentTarget;
+
+            using (WithLocalPrecision(divPrecision))
+            {
+                x = (x + value / x) / two;
+            }
+
+            // Exact convergence (perfect squares): if x*x == value, stop early.
+            if (IsZero(x * x - value))
+                return Normalize(new Real(x.ToNatural(), false, x.Exponent));
+        }
+
+        // Strip guard-digit tail so callers see exactly `precision` fractional digits.
+        return Normalize(TruncateFracDigits(
+            new Real(x.ToNatural(), false, x.Exponent), precision));
+
+        // Truncates x to at most maxFrac fractional digits by dropping the tail.
+        static Real TruncateFracDigits(Real x, long maxFrac)
+        {
+            long storedFrac = -x.Exponent;
+            long toDrop = storedFrac - maxFrac;
+            if (toDrop <= 0L) return x;
+
+            string natStr = x.ToNatural().ToString();
+            int keepLen = (int)((long)natStr.Length - toDrop);
+            if (keepLen <= 0) return Real.Zero;
+
+            string truncStr = natStr[..keepLen];
+            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+                return x;
+            return new Real(truncNat, false, x.Exponent + toDrop);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Domain-specific operations — Pi
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Computes π to <paramref name="digits"/> decimal places using the Chudnovsky algorithm:
+    /// <c>π = 426880·√10005 / Σ_k [ (-1)^k·(6k)!·(13591409 + 545140134k) / ((3k)!·(k!)³·640320^(3k)) ]</c>.
+    /// Each term contributes ~14.18 digits of precision.
+    /// Internally computes with <c>digits + 10</c> guard digits (including
+    /// passing <c>digits + 10</c> to the internal <see cref="Sqrt(Real, long)"/> overload)
+    /// and truncates to <paramref name="digits"/> fractional places before returning.
+    /// <para>
+    /// The series is accumulated as an exact rational (Integer numerator / Natural denominator)
+    /// to avoid precision loss from intermediate Real divisions.  Only the final step
+    /// <c>426880 · √10005 · denS / numS</c> performs a Real division at guard-digit precision.
+    /// </para>
+    /// New C# addition with no C++ counterpart.
+    /// </summary>
+    /// <param name="digits">The number of fractional decimal places to compute. Must be between 1 and
+    /// <see cref="MaxComputationDecimalPlaces"/> inclusive.</param>
+    /// <returns>A non-negative, non-periodic <see cref="Real"/> with <see cref="Exponent"/> equal to
+    /// <c>-digits</c>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="digits"/> is ≤ 0 or
+    /// exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
+    public static Real Pi(long digits)
+    {
+        if (digits <= 0 || digits > Interlocked.Read(ref _maxComputationDecimalPlaces))
+            throw new ArgumentOutOfRangeException(nameof(digits));
+
+        long guardDigits = digits + 10;
+
+        // √10005 at guard-digit precision using the internal Sqrt overload.
+        Real sqrt10005 = Sqrt(new Real("10005"), guardDigits);
+
+        // Chudnovsky series accumulated as an exact rational numS / denS.
+        //
+        // Recurrence (exact integer arithmetic — no truncation):
+        //   numS_0 = A,  denS_0 = 1,  prodP_0 = 1
+        //   a_k = (6k)(6k-1)(6k-2)(6k-3)(6k-4)(6k-5)
+        //   b_k = (3k)(3k-1)(3k-2) · k³ · C³
+        //   prodP_k = prodP_{k-1} · a_k
+        //   numS_k  = numS_{k-1} · b_k  +  (-1)^k · prodP_k · (A + B·k)
+        //   denS_k  = denS_{k-1} · b_k
+        //
+        // Then S = numS / denS, and π = 426880 · √10005 · denS / numS.
+        const long A = 13591409L;
+        const long B = 545140134L;
+        Nat c3 = Nat.Parse("262537412640768000", null); // 640320³
+
+        Int numS = new Int(new Nat((ulong)A), false);
+        Nat denS = Nat.One;
+        Nat prodP = Nat.One;
+
+        long numTerms = (long)Math.Ceiling((double)guardDigits / 14.0) + 2;
+        for (long k = 1; k <= numTerms; k++)
+        {
+            long k6 = 6 * k;
+            long k3 = 3 * k;
+
+            // a_k: product of 6 consecutive integers (split to avoid long overflow).
+            Nat ak = new Nat((ulong)(k6 * (k6 - 1) * (k6 - 2)))
+                   * new Nat((ulong)((k6 - 3) * (k6 - 4) * (k6 - 5)));
+
+            // b_k: denominator factor per term.
+            Nat bk = new Nat((ulong)(k3 * (k3 - 1) * (k3 - 2)))
+                   * new Nat((ulong)(k * k * k)) * c3;
+
+            prodP = prodP * ak;
+
+            // numS = numS * bk + (-1)^k * prodP * (A + B*k)
+            Int bkInt = new Int(bk, false);
+            Nat linearFactor = new Nat((ulong)(A + B * k));
+            Int termInt = new Int(prodP * linearFactor, k % 2 == 1); // negative when k is odd
+            numS = numS * bkInt + termInt;
+            denS = denS * bk;
+        }
+
+        // π = 426880 · √10005 · denS / numS
+        Real pi;
+        using (WithLocalPrecision(guardDigits))
+        {
+            Real realNumS = new Real(numS);
+            Real realDenS = new Real(new Int(denS, false));
+            pi = new Real("426880") * sqrt10005 * realDenS / realNumS;
+        }
+
+        // Truncate to exactly `digits` fractional places.
+        return TruncatePiFracDigits(pi, digits);
+
+        static Real TruncatePiFracDigits(Real x, long maxFrac)
+        {
+            long storedFrac = -x.Exponent;
+            long toDrop = storedFrac - maxFrac;
+            if (toDrop <= 0L) return x;
+
+            string natStr = x.ToNatural().ToString();
+            int keepLen = (int)((long)natStr.Length - toDrop);
+            if (keepLen <= 0) return Real.Zero;
+
+            string truncStr = natStr[..keepLen];
+            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+                return x;
+            return new Real(truncNat, false, x.Exponent + toDrop);
+        }
+    }
 
     /// <summary>
     /// Truncated remainder: <c>left - Truncate(left / right) * right</c>.

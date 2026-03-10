@@ -171,6 +171,8 @@ AST walker with a variable store and built-in function registry.
 | `is_even(x)` | Calls `IsEvenInteger` on the appropriate type; returns `Boolean`. |
 | `is_odd(x)` | Calls `IsOddInteger` on the appropriate type; returns `Boolean`. |
 | `sign(x)` | Widens to at least `Integer`, reads `.Sign`, returns `Integer(-1 / 0 / 1)`. Not supported for `Real`. |
+| `sqrt(x)` | Widens the single argument to `Real` and delegates to `Real.Sqrt`. Precision is `Real.MaxComputationDecimalPlaces`. Throws `ArithmeticException` for negative input; `InvalidOperationException` for wrong arity. |
+| `pi()` / `pi(digits)` | Computes Ï€ via `Real.Pi`. With 0 arguments uses `Real.DisplayDecimalPlaces` as the digit count; with 1 `Natural` or `Integer` argument uses its value. Throws `InvalidOperationException` for `Real` argument or arity > 1. |
 
 ---
 
@@ -252,24 +254,24 @@ LovelaceSharp REPL v1.0.0
 Arbitrary-precision arithmetic calculator.
 Type ''help'' for a list of operators, functions, and commands.
 
-» 42
+ï¿½ 42
 = 42 (Natural)
-» x = 3.14
+ï¿½ x = 3.14
 = 3.14 (Real)
-» x * 2
+ï¿½ x * 2
 = 6.28 (Real)
-» abs(-5)
+ï¿½ abs(-5)
 = 5 (Integer)
-» 5!
+ï¿½ 5!
 = 120 (Natural)
-» divrem(17, 5)
+ï¿½ divrem(17, 5)
 = quotient = 3, remainder = 2
-» 3 == 3
+ï¿½ 3 == 3
 = True (Boolean)
-» vars
+ï¿½ vars
   _ = 2 (Natural)
   x = 3.14 (Real)
-» exit
+ï¿½ exit
 Bye!
 ```
 

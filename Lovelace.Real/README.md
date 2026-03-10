@@ -64,6 +64,8 @@ Migrated from C++ `RealLovelace` (≥ `Lovelace.Integer` ≥ `Lovelace.Natural` 
 | `static Real Divide(Real, Real)` / `operator/` | Remainder-tracked long division with exact period detection via a remainder-history dictionary; falls back to `MaxComputationDecimalPlaces` truncation for irrationals. Throws `DivideByZeroException` for zero divisor. |
 | `static Real Negate(Real)` / `operator-` (unary) | Flips the sign; preserves exponent and period metadata; zero stays positive. |
 | `Real Invert()` | Computes `Real.One / this`. Throws `DivideByZeroException` for zero. |
+| `static Real Sqrt(Real value)` | Principal square root via Newton-Raphson with progressive precision (doubling strategy). Converges to `MaxComputationDecimalPlaces` correct fractional digits for irrational roots; exact for perfect squares (e.g. `Sqrt(4) == 2`). Throws `ArithmeticException` for negative input. |
+| `static Real Pi(long digits)` | Computes π to `digits` fractional decimal places using the Chudnovsky algorithm (~14.18 digits per term). Internally adds 10 guard digits then truncates. `digits` must be in `[1, MaxComputationDecimalPlaces]`; throws `ArgumentOutOfRangeException` otherwise. |
 | `Real Pow(Real exponent)` | Integer-exponent fast path via binary exponentiation. Non-integer or negative exponents throw `NotImplementedException`. |
 | `Real Assign(Real other)` | Returns a new `Real` that is a deep copy of `other`. |
 | `operator++` | Increments by `Real.One` (i.e. `value + Real.One`). |
@@ -155,5 +157,6 @@ Real r = Real.Parse("0.1(6)");  // 1/6
 ## See also
 
 - [Requirements document](.github/requirements/Lovelace.Real.md)
+- [Sqrt 1000-digit precision requirements](.github/requirements/Lovelace.Real.Sqrt.md)
 - Legacy C++ source: [`Legacy/RealLovelace.hpp`](../Legacy/RealLovelace.hpp), [`Legacy/RealLovelace.cpp`](../Legacy/RealLovelace.cpp)
 - Dependency chain: [`Lovelace.Representation`](../Lovelace.Representation/README.md) ← [`Lovelace.Natural`](../Lovelace.Natural/README.md) ← [`Lovelace.Integer`](../Lovelace.Integer/README.md) ← **`Lovelace.Real`**

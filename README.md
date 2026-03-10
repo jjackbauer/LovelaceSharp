@@ -84,6 +84,8 @@ Only `Lovelace.Representation` ever reads or writes these bytes. All higher laye
 | `Lovelace.Integer` | [`.github/requirements/Lovelace.Integer.md`](.github/requirements/Lovelace.Integer.md) | ✅ Complete |
 | `Lovelace.Console` | [`.github/requirements/Lovelace.Console.md`](.github/requirements/Lovelace.Console.md) | ✅ Complete |
 | `Lovelace.Real` | [`.github/requirements/Lovelace.Real.md`](.github/requirements/Lovelace.Real.md) | ✅ Complete |
+| `Lovelace.Real` — Sqrt | [`.github/requirements/Lovelace.Real.Sqrt.md`](.github/requirements/Lovelace.Real.Sqrt.md) | ✅ Complete |
+| `Lovelace.Real` — Pi & Console | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
 
 ---
 

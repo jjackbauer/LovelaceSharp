@@ -280,6 +280,8 @@ public sealed class Evaluator
             "is_even" => BuiltinIsEven(call),
             "is_odd"  => BuiltinIsOdd(call),
             "sign"    => BuiltinSign(call),
+            "sqrt"    => BuiltinSqrt(call),
+            "pi"      => BuiltinPi(call),
             _ => throw new InvalidOperationException(
                 $"Unknown built-in function '{call.FunctionName}'."),
         };
@@ -439,5 +441,62 @@ public sealed class Evaluator
         };
 
         return new Value(result);
+    }
+
+    /// <summary>
+    /// <c>sqrt(x)</c> — returns the arbitrary-precision square root of <paramref name="call"/>'s
+    /// single argument. Widens the argument to <see cref="Rl"/> unconditionally, then calls
+    /// <see cref="Rl.Sqrt(Rl)"/>. Precision is governed by
+    /// <see cref="Rl.MaxComputationDecimalPlaces"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the argument count is not 1.</exception>
+    /// <exception cref="ArithmeticException">Propagated when the argument is negative.</exception>
+    private Value BuiltinSqrt(CallExpr call)
+    {
+        if (call.Arguments.Count != 1)
+            throw new InvalidOperationException(
+                $"sqrt() expects exactly 1 argument, but got {call.Arguments.Count}.");
+
+        var arg = Evaluate(call.Arguments[0]);
+        var real = arg.Widen(ValueKind.Real).AsReal();
+        return new Value(Rl.Sqrt(real));
+    }
+
+    /// <summary>
+    /// <c>pi()</c> or <c>pi(digits)</c> — computes π to the specified number of fractional
+    /// decimal places via the Chudnovsky algorithm.
+    /// <list type="bullet">
+    ///   <item>0 arguments: uses <see cref="Rl.DisplayDecimalPlaces"/> as the digit count.</item>
+    ///   <item>1 Natural or Integer argument: uses the argument's value as the digit count.</item>
+    /// </list>
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the argument is of kind <see cref="ValueKind.Real"/>, or when the
+    /// argument count is not 0 or 1.
+    /// </exception>
+    private Value BuiltinPi(CallExpr call)
+    {
+        switch (call.Arguments.Count)
+        {
+            case 0:
+                return new Value(Rl.Pi(Rl.DisplayDecimalPlaces));
+
+            case 1:
+            {
+                var arg = Evaluate(call.Arguments[0]);
+                long digits = arg.Kind switch
+                {
+                    ValueKind.Natural => long.Parse(arg.AsNatural().ToString()),
+                    ValueKind.Integer => long.Parse(arg.AsInteger().ToString()),
+                    _ => throw new InvalidOperationException(
+                        $"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+                };
+                return new Value(Rl.Pi(digits));
+            }
+
+            default:
+                throw new InvalidOperationException(
+                    $"pi() expects 0 or 1 argument, but got {call.Arguments.Count}.");
+        }
     }
 }
