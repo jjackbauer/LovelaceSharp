@@ -112,4 +112,39 @@ public class RealDivideTests
         Assert.True(result.IsPeriodic);
         Assert.Equal(Real.Parse("-0.(3)"), result);
     }
+
+    // -------------------------------------------------------------------------
+    // Periodic operands — Option C: periodic guard (Divide_GivenPeriodic*)
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Divide_GivenPeriodicDividendByNonPeriodic_ReturnsCorrectQuotient()
+    {
+        // 0.(3) = 1/3; 1/3 ÷ 3 = 1/9 = 0.(1)
+        // Without the periodic guard, ToNatural() gives Nat("3") and Exponent=-1,
+        // so the raw division 3÷3=1 with exponent adjustment -1 produces 0.1 (= 1/10), not 0.(1).
+        Real result = Real.Parse("0.(3)") / Real.Parse("3");
+        Assert.Equal(Real.Parse("0.(1)"), result);
+    }
+
+    [Fact]
+    public void Divide_GivenNonPeriodicByPeriodic_ExponentCompensatedCorrectly()
+    {
+        // 1 ÷ 0.(1) = 1 ÷ (1/9) = 9
+        // Without the guard, ToNatural() gives Nat("1") for 0.(1) and Exponent=-1, so
+        // raw 1÷1=1 with exponent adjustment +1 yields 10, not 9.
+        Real result = Real.Parse("1") / Real.Parse("0.(1)");
+        Assert.Equal(Real.Parse("9"), result);
+    }
+
+    [Fact]
+    public void Divide_GivenNonPeriodicByPeriodic_PreservesCorrectness()
+    {
+        // 1 ÷ 0.(3) = 1 ÷ (1/3) = 3  — result must be non-periodic
+        // Without the guard, the remainder loop finds a spurious period of length 1,
+        // yielding Real(Nat("3"), IsPeriodic=true) which is not equal to Real("3").
+        Real result = Real.Parse("1") / Real.Parse("0.(3)");
+        Assert.Equal(Real.Parse("3"), result);
+        Assert.False(result.IsPeriodic);
+    }
 }

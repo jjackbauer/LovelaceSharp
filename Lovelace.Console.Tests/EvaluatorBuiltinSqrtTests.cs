@@ -24,12 +24,12 @@ public class EvaluatorBuiltinSqrtTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSqrtOfNatural_ReturnsRealSquareRoot()
+    public async Task Evaluate_GivenSqrtOfNatural_ReturnsRealSquareRoot()
     {
         // LiteralExpr("4") evaluates to Natural(4); sqrt widens to Real and returns 2.
         var expr = SqrtCall(new LiteralExpr("4"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(new Rl("2"), result.AsReal());
@@ -40,7 +40,7 @@ public class EvaluatorBuiltinSqrtTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSqrtOfPositiveInteger_ReturnsRealSquareRoot()
+    public async Task Evaluate_GivenSqrtOfPositiveInteger_ReturnsRealSquareRoot()
     {
         // Double-negate "16": Natural(16) → Integer(-16) → Integer(16).
         var posIntSixteen = new UnaryExpr(
@@ -48,7 +48,7 @@ public class EvaluatorBuiltinSqrtTests
             new UnaryExpr(UnaryOp.Negate, new LiteralExpr("16")));
         var expr = SqrtCall(posIntSixteen);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(new Rl("4"), result.AsReal());
@@ -59,13 +59,13 @@ public class EvaluatorBuiltinSqrtTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSqrtOfReal_ReturnsRealSquareRoot()
+    public async Task Evaluate_GivenSqrtOfReal_ReturnsRealSquareRoot()
     {
         // LiteralExpr("4.0") evaluates to Real (contains '.'); sqrt of a perfect square
         // converges in one Newton-Raphson step and returns exactly 2.
         var expr = SqrtCall(new LiteralExpr("4.0"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(new Rl("2"), result.AsReal());
@@ -76,11 +76,11 @@ public class EvaluatorBuiltinSqrtTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSqrtWithNoArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenSqrtWithNoArguments_ThrowsInvalidOperationException()
     {
         var expr = new CallExpr("sqrt", []);
 
-        Assert.Throws<InvalidOperationException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 
     // -----------------------------------------------------------------------
@@ -88,10 +88,10 @@ public class EvaluatorBuiltinSqrtTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSqrtWithTooManyArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenSqrtWithTooManyArguments_ThrowsInvalidOperationException()
     {
         var expr = new CallExpr("sqrt", [new LiteralExpr("4"), new LiteralExpr("9")]);
 
-        Assert.Throws<InvalidOperationException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 }

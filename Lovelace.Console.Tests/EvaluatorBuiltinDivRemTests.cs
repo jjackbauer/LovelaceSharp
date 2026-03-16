@@ -22,11 +22,11 @@ public class EvaluatorBuiltinDivRemTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDivRemOfNaturals_ReturnsFormattedString()
+    public async Task Evaluate_GivenDivRemOfNaturals_ReturnsFormattedString()
     {
         var expr = DivRemCall(new LiteralExpr("17"), new LiteralExpr("5"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Text, result.Kind);
         Assert.Equal("quotient = 3, remainder = 2", result.AsText());
@@ -38,7 +38,7 @@ public class EvaluatorBuiltinDivRemTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDivRemOfPositiveIntegers_ReturnsFormattedString()
+    public async Task Evaluate_GivenDivRemOfPositiveIntegers_ReturnsFormattedString()
     {
         // Assign x = -1 to coerce a Natural literal into Integer context,
         // then compute -17 so both operands are Integer after widening.
@@ -50,7 +50,7 @@ public class EvaluatorBuiltinDivRemTests
         // quotient = -3, remainder = -2 (sign follows dividend in this implementation).
         var expr = DivRemCall(negSeventeen, new LiteralExpr("5"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Text, result.Kind);
         // Quotient = -3, remainder = -2 (dividend is negative, divisor positive → !sameSign)
@@ -60,7 +60,7 @@ public class EvaluatorBuiltinDivRemTests
     }
 
     [Fact]
-    public void Evaluate_GivenDivRemOfIntegers_ReturnsFormattedString()
+    public async Task Evaluate_GivenDivRemOfIntegers_ReturnsFormattedString()
     {
         // Both operands start as Natural but are equal in kind → no widening needed.
         // Use negation to force Integer kind: unary minus on a Natural widens to Integer.
@@ -72,12 +72,12 @@ public class EvaluatorBuiltinDivRemTests
         // divrem(Integer(7), Integer(3)) → quotient = 2, remainder = 1
         // Force Integer: negate then negate back is not useful, instead widen via variable assignment.
         // The cleanest approach: assign an Integer variable first.
-        _evaluator.Evaluate(new AssignExpr("__x", new UnaryExpr(UnaryOp.Negate, new LiteralExpr("7"))));
+        await _evaluator.EvaluateAsync(new AssignExpr("__x", new UnaryExpr(UnaryOp.Negate, new LiteralExpr("7"))));
         // __x is now Integer(-7); abs(__x) is still Integer.
         // For divrem(__x, ...) the a operand is Integer, so WidenPair gives both Integer.
         var expr = DivRemCall(new VariableExpr("__x"), new UnaryExpr(UnaryOp.Negate, new LiteralExpr("3")));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         // divrem(Integer(-7), Integer(-3)): same sign → quotient positive = 2, remainder positive = 1
         Assert.Equal(ValueKind.Text, result.Kind);
@@ -89,11 +89,11 @@ public class EvaluatorBuiltinDivRemTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDivRemOfReal_ThrowsError()
+    public async Task Evaluate_GivenDivRemOfReal_ThrowsError()
     {
         var expr = DivRemCall(new LiteralExpr("3.14"), new LiteralExpr("1.5"));
 
-        var ex = Assert.Throws<InvalidOperationException>(() => _evaluator.Evaluate(expr));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
         Assert.Contains("divrem()", ex.Message);
     }
 }

@@ -21,7 +21,7 @@ public class EvaluatorBuiltinPiTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPiWithNoArguments_ReturnsRealWithDisplayDecimalPlacesDigits()
+    public async Task Evaluate_GivenPiWithNoArguments_ReturnsRealWithDisplayDecimalPlacesDigits()
     {
         // Temporarily reduce DisplayDecimalPlaces to 5 so the test runs fast.
         long saved = Rl.DisplayDecimalPlaces;
@@ -30,7 +30,7 @@ public class EvaluatorBuiltinPiTests
         {
             var expr = new CallExpr("pi", []);
 
-            var result = _evaluator.Evaluate(expr);
+            var result = await _evaluator.EvaluateAsync(expr);
 
             Assert.Equal(ValueKind.Real, result.Kind);
             Assert.Equal("3.14159", result.AsReal().ToString());
@@ -46,12 +46,12 @@ public class EvaluatorBuiltinPiTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPiWithNaturalArgument_ReturnsRealWithRequestedDigits()
+    public async Task Evaluate_GivenPiWithNaturalArgument_ReturnsRealWithRequestedDigits()
     {
         // LiteralExpr("10") evaluates to Natural(10).
         var expr = new CallExpr("pi", [new LiteralExpr("10")]);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal("3.1415926535", result.AsReal().ToString());
@@ -62,7 +62,7 @@ public class EvaluatorBuiltinPiTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPiWithIntegerArgument_ReturnsRealWithRequestedDigits()
+    public async Task Evaluate_GivenPiWithIntegerArgument_ReturnsRealWithRequestedDigits()
     {
         // Double-negate "10": Natural(10) → Integer(-10) → Integer(10).
         var posIntTen = new UnaryExpr(
@@ -70,7 +70,7 @@ public class EvaluatorBuiltinPiTests
             new UnaryExpr(UnaryOp.Negate, new LiteralExpr("10")));
         var expr = new CallExpr("pi", [posIntTen]);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal("3.1415926535", result.AsReal().ToString());
@@ -81,12 +81,12 @@ public class EvaluatorBuiltinPiTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPiWithRealArgument_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenPiWithRealArgument_ThrowsInvalidOperationException()
     {
         // LiteralExpr("3.0") evaluates to Real; digit counts must be Natural or Integer.
         var expr = new CallExpr("pi", [new LiteralExpr("3.0")]);
 
-        Assert.Throws<InvalidOperationException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 
     // -----------------------------------------------------------------------
@@ -94,10 +94,10 @@ public class EvaluatorBuiltinPiTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPiWithTooManyArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenPiWithTooManyArguments_ThrowsInvalidOperationException()
     {
         var expr = new CallExpr("pi", [new LiteralExpr("10"), new LiteralExpr("20")]);
 
-        Assert.Throws<InvalidOperationException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 }

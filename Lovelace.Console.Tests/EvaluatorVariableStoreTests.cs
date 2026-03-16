@@ -16,12 +16,12 @@ public class EvaluatorVariableStoreTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenAssignment_StoresValueAndReturnsIt()
+    public async Task Evaluate_GivenAssignment_StoresValueAndReturnsIt()
     {
         var evaluator = new Evaluator();
         var expr = new AssignExpr("x", new LiteralExpr("5"));
 
-        var result = evaluator.Evaluate(expr);
+        var result = await evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("5", null), result.AsNatural());
@@ -32,13 +32,13 @@ public class EvaluatorVariableStoreTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenVariableReference_ReturnsStoredValue()
+    public async Task Evaluate_GivenVariableReference_ReturnsStoredValue()
     {
         var evaluator = new Evaluator();
         // First store x = 5.
-        evaluator.Evaluate(new AssignExpr("x", new LiteralExpr("5")));
+        await evaluator.EvaluateAsync(new AssignExpr("x", new LiteralExpr("5")));
 
-        var result = evaluator.Evaluate(new VariableExpr("x"));
+        var result = await evaluator.EvaluateAsync(new VariableExpr("x"));
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("5", null), result.AsNatural());
@@ -49,12 +49,12 @@ public class EvaluatorVariableStoreTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenUndefinedVariable_ThrowsError()
+    public async Task Evaluate_GivenUndefinedVariable_ThrowsError()
     {
         var evaluator = new Evaluator();
 
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => evaluator.Evaluate(new VariableExpr("y")));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await evaluator.EvaluateAsync(new VariableExpr("y")));
 
         Assert.Contains("y", ex.Message);
     }

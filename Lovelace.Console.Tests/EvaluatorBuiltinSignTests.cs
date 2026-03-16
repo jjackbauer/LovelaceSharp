@@ -25,13 +25,13 @@ public class EvaluatorBuiltinSignTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSignOfNegative_ReturnsNegativeOne()
+    public async Task Evaluate_GivenSignOfNegative_ReturnsNegativeOne()
     {
         // UnaryExpr(Negate, LiteralExpr("5")) evaluates to Integer(-5).
         var negFive = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("5"));
         var expr = SignCall(negFive);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("-1", null), result.AsInteger());
@@ -43,11 +43,11 @@ public class EvaluatorBuiltinSignTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSignOfZero_ReturnsZero()
+    public async Task Evaluate_GivenSignOfZero_ReturnsZero()
     {
         var expr = SignCall(new LiteralExpr("0"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("0", null), result.AsInteger());
@@ -59,11 +59,11 @@ public class EvaluatorBuiltinSignTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSignOfPositive_ReturnsOne()
+    public async Task Evaluate_GivenSignOfPositive_ReturnsOne()
     {
         var expr = SignCall(new LiteralExpr("5"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("1", null), result.AsInteger());
@@ -74,12 +74,12 @@ public class EvaluatorBuiltinSignTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenSignOfLargeNegative_ReturnsNegativeOne()
+    public async Task Evaluate_GivenSignOfLargeNegative_ReturnsNegativeOne()
     {
         var negHundred = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("100"));
         var expr = SignCall(negHundred);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("-1", null), result.AsInteger());

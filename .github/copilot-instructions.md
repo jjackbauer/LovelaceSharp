@@ -56,3 +56,87 @@ Always load the legacy knowledge map and codebase patterns reference before writ
 | `.github/prompts/codebase-patterns.md` | Reference: implementation and test-writing conventions distilled from the codebase |
 | `.github/prompts/skill-codebase-patterns.prompt.md` | Skill: regenerate/update the codebase patterns reference by re-analyzing source files |
 | `.github/prompts/skill-plan-format-gate.prompt.md` | Skill: validate plan document structure; auto-invoked by the requirements-gathering workflow and self-heals violations autonomously |
+
+## Journal-Driven Codebase Distillation System
+
+An incremental, evidence-grounded system for exploring the codebase, recording findings, validating
+hypotheses, and synthesising trustworthy downstream artifacts (architecture maps, migration plans,
+risk assessments). All files fit the existing `.github/prompts/` skill/workflow/rule/reference taxonomy.
+
+### Entry Points
+
+| Usage | How to invoke |
+|---|---|
+| **Architecture documentation** | Open `#file:.github/prompts/rule-architecture-analysis.prompt.md` and supply an optional `Scope`. |
+| **Migration gap analysis** | Open `#file:.github/prompts/rule-migration-analysis.prompt.md` and supply an optional `CppClass`. |
+| **Single observation session** | Open `#file:.github/prompts/skill-journal-observe.prompt.md` with a narrow `Objective`. |
+| **Manual exploration cycle** | Open `#file:.github/prompts/workflow-codebase-exploration.prompt.md` with an `Objective`. |
+
+### Lightweight vs. Heavyweight Usage
+
+- **Lightweight** (quick exploration, no distillation needed): invoke `skill-journal-observe` only.
+  Produces OBS entries. Skip Steps 4–7 of the workflow. Useful when you need a fast factual snapshot
+  of one file or method without updating distilled documents.
+
+- **Heavyweight** (full cycle, distillation + metrics): invoke `workflow-codebase-exploration` (or a
+  rule that wraps it). Runs all 7 steps: observe → hypothesize → validate → assess → distill → metrics.
+  Required before generating downstream artifacts (architecture reports, migration plans).
+
+### Prompts
+
+| File | Type | Purpose |
+|---|---|---|
+| `.github/prompts/journal-schema.md` | Reference | Entry templates, ID format, confidence levels for all journal files |
+| `.github/prompts/distilled-knowledge-schema.md` | Reference | Header template, uncertainty markers (✅⚠️❓), update criteria for distilled docs |
+| `.github/prompts/skill-journal-observe.prompt.md` | Skill | Explorer — read source, produce grounded OBS entries |
+| `.github/prompts/skill-journal-hypothesize.prompt.md` | Skill | Theorist — derive testable HYP entries with falsification strategies |
+| `.github/prompts/skill-journal-validate.prompt.md` | Skill | Skeptic — falsify HYP entries, produce VAL entries, update HYP status |
+| `.github/prompts/skill-journal-distill.prompt.md` | Skill | Synthesizer — promote validated findings to distilled knowledge documents |
+| `.github/prompts/skill-completeness-review.prompt.md` | Skill | Reviewer — audit 12 coverage dimensions, produce OQ and TODO entries |
+| `.github/prompts/skill-convergence-metrics.prompt.md` | Skill | Metrics — compute all convergence metrics and evaluate stopping criteria |
+| `.github/prompts/workflow-codebase-exploration.prompt.md` | Workflow | Orchestrates one full 7-step exploration cycle |
+| `.github/prompts/rule-architecture-analysis.prompt.md` | Rule | Pre-configures the workflow for architecture/design documentation |
+| `.github/prompts/rule-migration-analysis.prompt.md` | Rule | Pre-configures the workflow for C++ → C# migration analysis |
+
+### Journals (`.github/journals/`)
+
+Append-only evidence store. Never edit past entries.
+
+| File | Entry type | Purpose |
+|---|---|---|
+| `observations.md` | OBS | Grounded factual findings from source code |
+| `hypotheses.md` | HYP | Testable claims with falsification strategies |
+| `validations.md` | VAL | Falsification results — Supported, Falsified, or Unresolved |
+| `decisions.md` | DEC | Architectural and synthesis decisions with rationale |
+| `todos.md` | TODO | Actionable exploration and implementation tasks |
+| `risks.md` | RISK | Identified risks with likelihood, impact, and mitigation |
+| `open-questions.md` | OQ | Unresolved questions requiring further investigation |
+| `artifact-index.md` | ART | Registry of downstream artifacts linked to their evidence |
+
+### Distilled Knowledge (`.github/distilled/`)
+
+Synthesised, curated documents derived from journal entries. Updated by `skill-journal-distill`.
+
+| File | Scope |
+|---|---|
+| `system-overview.md` | High-level architecture and project structure |
+| `module-map.md` | Per-project responsibilities and inter-module boundaries |
+| `domain-concepts.md` | BCD packing, periodic decimals, exponent model |
+| `runtime-flows.md` | Key execution paths (parse→compute→format, etc.) |
+| `dependencies.md` | Inter-project and external dependencies |
+| `invariants-and-risks.md` | Architectural invariants and known risks |
+| `migration-findings.md` | C++ → C# migration decisions and lessons |
+| `trusted-facts.md` | High-confidence claims (✅ markers only) |
+| `unresolved-areas.md` | Gaps, weak evidence, and open questions |
+| `glossary.md` | Domain terms (Portuguese → English, BCD terminology) |
+
+### State (`.github/state/`)
+
+| File | Purpose |
+|---|---|
+| `convergence-metrics.md` | Quantitative snapshot of exploration depth and stopping-criteria status |
+
+### Artifacts (`.github/artifacts/`)
+
+Downstream generated documents (architecture reports, migration plans, risk assessments) produced
+from distilled knowledge when confidence is sufficient.

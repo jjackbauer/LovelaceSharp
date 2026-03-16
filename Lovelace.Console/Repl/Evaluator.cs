@@ -39,15 +39,15 @@ public sealed class Evaluator
     /// <summary>
     /// Evaluates <paramref name="expr"/> and returns the resulting <see cref="Value"/>.
     /// </summary>
-    public Value Evaluate(Expr expr) => expr switch
+    public async Task<Value> EvaluateAsync(Expr expr) => expr switch
     {
         LiteralExpr lit => EvaluateLiteral(lit),
         VariableExpr var => EvaluateVariable(var),
-        AssignExpr assign => EvaluateAssign(assign),
-        BinaryExpr bin => EvaluateBinary(bin),
-        UnaryExpr unary => EvaluateUnary(unary),
-        PostfixExpr postfix => EvaluatePostfix(postfix),
-        CallExpr call => EvaluateCall(call),
+        AssignExpr assign => await EvaluateAssignAsync(assign),
+        BinaryExpr bin => await EvaluateBinaryAsync(bin),
+        UnaryExpr unary => await EvaluateUnaryAsync(unary),
+        PostfixExpr postfix => await EvaluatePostfixAsync(postfix),
+        CallExpr call => await EvaluateCallAsync(call),
         _ => throw new NotImplementedException($"Unsupported expression type: {expr.GetType().Name}"),
     };
 
@@ -84,9 +84,9 @@ public sealed class Evaluator
         throw new InvalidOperationException($"Undefined variable '{var.Name}'.");
     }
 
-    private Value EvaluateAssign(AssignExpr assign)
+    private async Task<Value> EvaluateAssignAsync(AssignExpr assign)
     {
-        var value = Evaluate(assign.Value);
+        var value = await EvaluateAsync(assign.Value);
         _variables[assign.Name] = value;
         return value;
     }
@@ -95,10 +95,10 @@ public sealed class Evaluator
     // Binary arithmetic
     // -----------------------------------------------------------------
 
-    private Value EvaluateBinary(BinaryExpr bin)
+    private async Task<Value> EvaluateBinaryAsync(BinaryExpr bin)
     {
-        var left = Evaluate(bin.Left);
-        var right = Evaluate(bin.Right);
+        var left = await EvaluateAsync(bin.Left);
+        var right = await EvaluateAsync(bin.Right);
 
         // Comparison operators: widen pair, CompareTo, return Boolean.
         if (bin.Op is BinaryOp.Equal or BinaryOp.NotEqual
@@ -211,9 +211,9 @@ public sealed class Evaluator
     ///   <item><c>-Real</c>    — negates directly.</item>
     /// </list>
     /// </summary>
-    private Value EvaluateUnary(UnaryExpr unary)
+    private async Task<Value> EvaluateUnaryAsync(UnaryExpr unary)
     {
-        var operand = Evaluate(unary.Operand);
+        var operand = await EvaluateAsync(unary.Operand);
 
         return unary.Op switch
         {
@@ -246,9 +246,9 @@ public sealed class Evaluator
     ///   <item><c>Real!</c>    — throws <see cref="InvalidOperationException"/> with descriptive message.</item>
     /// </list>
     /// </summary>
-    private Value EvaluatePostfix(PostfixExpr postfix)
+    private async Task<Value> EvaluatePostfixAsync(PostfixExpr postfix)
     {
-        var operand = Evaluate(postfix.Operand);
+        var operand = await EvaluateAsync(postfix.Operand);
 
         return postfix.Op switch
         {
@@ -271,17 +271,17 @@ public sealed class Evaluator
     // Built-in function calls
     // -----------------------------------------------------------------
 
-    private Value EvaluateCall(CallExpr call) =>
+    private Task<Value> EvaluateCallAsync(CallExpr call) =>
         call.FunctionName switch
         {
-            "abs"     => BuiltinAbs(call),
-            "inv"     => BuiltinInv(call),
-            "divrem"  => BuiltinDivRem(call),
-            "is_even" => BuiltinIsEven(call),
-            "is_odd"  => BuiltinIsOdd(call),
-            "sign"    => BuiltinSign(call),
-            "sqrt"    => BuiltinSqrt(call),
-            "pi"      => BuiltinPi(call),
+            "abs"     => BuiltinAbsAsync(call),
+            "inv"     => BuiltinInvAsync(call),
+            "divrem"  => BuiltinDivRemAsync(call),
+            "is_even" => BuiltinIsEvenAsync(call),
+            "is_odd"  => BuiltinIsOddAsync(call),
+            "sign"    => BuiltinSignAsync(call),
+            "sqrt"    => BuiltinSqrtAsync(call),
+            "pi"      => BuiltinPiAsync(call),
             _ => throw new InvalidOperationException(
                 $"Unknown built-in function '{call.FunctionName}'."),
         };
@@ -291,13 +291,13 @@ public sealed class Evaluator
     /// Widens the argument to <see cref="Rl"/> unconditionally, then calls <see cref="Rl.Invert"/>.
     /// </summary>
     /// <exception cref="DivideByZeroException">Thrown when the argument is zero.</exception>
-    private Value BuiltinInv(CallExpr call)
+    private async Task<Value> BuiltinInvAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"inv() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
         var real = arg.Widen(ValueKind.Real).AsReal();
         return new Value(real.Invert());
     }
@@ -309,14 +309,14 @@ public sealed class Evaluator
     /// Supported for <see cref="ValueKind.Natural"/> and <see cref="ValueKind.Integer"/> only.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown for <see cref="ValueKind.Real"/> arguments.</exception>
-    private Value BuiltinDivRem(CallExpr call)
+    private async Task<Value> BuiltinDivRemAsync(CallExpr call)
     {
         if (call.Arguments.Count != 2)
             throw new InvalidOperationException(
                 $"divrem() expects exactly 2 arguments, but got {call.Arguments.Count}.");
 
-        var a = Evaluate(call.Arguments[0]);
-        var b = Evaluate(call.Arguments[1]);
+        var a = await EvaluateAsync(call.Arguments[0]);
+        var b = await EvaluateAsync(call.Arguments[1]);
 
         // Widen both to the wider of the two numeric kinds.
         (a, b) = Value.WidenPair(a, b);
@@ -346,13 +346,13 @@ public sealed class Evaluator
     /// Dispatches to <see cref="Nat.Abs"/>, <see cref="Int.Abs"/>, or <see cref="Rl.Abs"/>
     /// depending on kind.
     /// </summary>
-    private Value BuiltinAbs(CallExpr call)
+    private async Task<Value> BuiltinAbsAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"abs() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
 
         return arg.Kind switch
         {
@@ -373,13 +373,13 @@ public sealed class Evaluator
     /// Thrown when the argument is of kind <see cref="ValueKind.Real"/>, which has no
     /// integer <c>Sign</c> property, or when the wrong number of arguments is supplied.
     /// </exception>
-    private Value BuiltinSign(CallExpr call)
+    private async Task<Value> BuiltinSignAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"sign() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
 
         // Widen Natural → Integer; Integer stays. Real is not supported.
         var intArg = arg.Kind switch
@@ -398,13 +398,13 @@ public sealed class Evaluator
     /// Dispatches to the static <c>IsEvenInteger</c> method on <see cref="Nat"/>,
     /// <see cref="Int"/>, or <see cref="Rl"/> depending on the argument's kind.
     /// </summary>
-    private Value BuiltinIsEven(CallExpr call)
+    private async Task<Value> BuiltinIsEvenAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"is_even() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
 
         bool result = arg.Kind switch
         {
@@ -423,13 +423,13 @@ public sealed class Evaluator
     /// Dispatches to the static <c>IsOddInteger</c> method on <see cref="Nat"/>,
     /// <see cref="Int"/>, or <see cref="Rl"/> depending on the argument's kind.
     /// </summary>
-    private Value BuiltinIsOdd(CallExpr call)
+    private async Task<Value> BuiltinIsOddAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"is_odd() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
 
         bool result = arg.Kind switch
         {
@@ -451,15 +451,15 @@ public sealed class Evaluator
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when the argument count is not 1.</exception>
     /// <exception cref="ArithmeticException">Propagated when the argument is negative.</exception>
-    private Value BuiltinSqrt(CallExpr call)
+    private async Task<Value> BuiltinSqrtAsync(CallExpr call)
     {
         if (call.Arguments.Count != 1)
             throw new InvalidOperationException(
                 $"sqrt() expects exactly 1 argument, but got {call.Arguments.Count}.");
 
-        var arg = Evaluate(call.Arguments[0]);
+        var arg = await EvaluateAsync(call.Arguments[0]);
         var real = arg.Widen(ValueKind.Real).AsReal();
-        return new Value(Rl.Sqrt(real));
+        return new Value(await Rl.SqrtAsync(real));
     }
 
     /// <summary>
@@ -474,16 +474,16 @@ public sealed class Evaluator
     /// Thrown when the argument is of kind <see cref="ValueKind.Real"/>, or when the
     /// argument count is not 0 or 1.
     /// </exception>
-    private Value BuiltinPi(CallExpr call)
+    private async Task<Value> BuiltinPiAsync(CallExpr call)
     {
         switch (call.Arguments.Count)
         {
             case 0:
-                return new Value(Rl.Pi(Rl.DisplayDecimalPlaces));
+                return new Value(await Rl.PiAsync(Rl.DisplayDecimalPlaces));
 
             case 1:
             {
-                var arg = Evaluate(call.Arguments[0]);
+                var arg = await EvaluateAsync(call.Arguments[0]);
                 long digits = arg.Kind switch
                 {
                     ValueKind.Natural => long.Parse(arg.AsNatural().ToString()),
@@ -491,7 +491,7 @@ public sealed class Evaluator
                     _ => throw new InvalidOperationException(
                         $"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
                 };
-                return new Value(Rl.Pi(digits));
+                return new Value(await Rl.PiAsync(digits));
             }
 
             default:

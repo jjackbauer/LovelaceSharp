@@ -24,11 +24,11 @@ public class EvaluatorBuiltinInvTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenInvOfNatural_WidensToRealAndInverts()
+    public async Task Evaluate_GivenInvOfNatural_WidensToRealAndInverts()
     {
         var expr = InvCall(new LiteralExpr("4"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("0.25", null), result.AsReal());
@@ -39,10 +39,10 @@ public class EvaluatorBuiltinInvTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenInvOfZero_ThrowsDivideByZeroException()
+    public async Task Evaluate_GivenInvOfZero_ThrowsDivideByZeroException()
     {
         var expr = InvCall(new LiteralExpr("0"));
 
-        Assert.Throws<DivideByZeroException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<DivideByZeroException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 }

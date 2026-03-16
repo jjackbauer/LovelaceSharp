@@ -25,14 +25,14 @@ public class EvaluatorBuiltinAbsTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenAbsOfNegativeInteger_ReturnsPositiveInteger()
+    public async Task Evaluate_GivenAbsOfNegativeInteger_ReturnsPositiveInteger()
     {
         // UnaryExpr(Negate, LiteralExpr("5")) evaluates to Integer(-5)
         // because Natural does not support negation (widens to Integer first).
         var negFive = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("5"));
         var expr = AbsCall(negFive);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("5", null), result.AsInteger());
@@ -43,11 +43,11 @@ public class EvaluatorBuiltinAbsTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenAbsOfPositiveNatural_ReturnsSameNatural()
+    public async Task Evaluate_GivenAbsOfPositiveNatural_ReturnsSameNatural()
     {
         var expr = AbsCall(new LiteralExpr("5"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("5", null), result.AsNatural());
@@ -58,14 +58,14 @@ public class EvaluatorBuiltinAbsTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenAbsOfNegativeReal_ReturnsPositiveReal()
+    public async Task Evaluate_GivenAbsOfNegativeReal_ReturnsPositiveReal()
     {
         // UnaryExpr(Negate, LiteralExpr("3.14")) evaluates to Real(-3.14)
         // because the literal contains '.', producing a Real.
         var negReal = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("3.14"));
         var expr = AbsCall(negReal);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("3.14", null), result.AsReal());

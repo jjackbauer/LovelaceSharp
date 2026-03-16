@@ -2,7 +2,7 @@ using Lovelace.Console.Repl;
 
 internal static class Program
 {
-    public static void Main(string[] args)
+    public static async Task Main(string[] args)
     {
         var version = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "1.0.0";
         System.Console.WriteLine($"LovelaceSharp REPL v{version}");
@@ -10,6 +10,6 @@ internal static class Program
         System.Console.WriteLine("Type 'help' for a list of operators, functions, and commands.");
         System.Console.WriteLine();
 
-        new ReplSession().Run();
+        await new ReplSession().RunAsync();
     }
 }

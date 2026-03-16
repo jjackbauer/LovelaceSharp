@@ -23,11 +23,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenNaturalPlusNatural_ReturnsNatural()
+    public async Task Evaluate_GivenNaturalPlusNatural_ReturnsNatural()
     {
         var expr = Bin("2", BinaryOp.Add, "3");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("5", null), result.AsNatural());
@@ -41,13 +41,13 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenNaturalPlusReal_WidensAndReturnsReal()
+    public async Task Evaluate_GivenNaturalPlusReal_WidensAndReturnsReal()
     {
         // "5" → Natural(5) ; "3.0" → Real(3.0)
         // WidenPair promotes Natural(5) → Real(5); Real(5) + Real(3.0) = Real(8.0)
         var expr = Bin("5", BinaryOp.Add, "3.0");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("8.0", null), result.AsReal());
@@ -58,12 +58,12 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenRealMinusReal_ReturnsCorrectDifference()
+    public async Task Evaluate_GivenRealMinusReal_ReturnsCorrectDifference()
     {
         // "5.0" → Real(5.0); "3.5" → Real(3.5); 5.0 − 3.5 = 1.5
         var expr = Bin("5.0", BinaryOp.Subtract, "3.5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("1.5", null), result.AsReal());
@@ -74,11 +74,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenMultiply_ReturnsCorrectProduct()
+    public async Task Evaluate_GivenMultiply_ReturnsCorrectProduct()
     {
         var expr = Bin("12", BinaryOp.Multiply, "34");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("408", null), result.AsNatural());
@@ -89,11 +89,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDivide_ReturnsCorrectQuotient()
+    public async Task Evaluate_GivenDivide_ReturnsCorrectQuotient()
     {
         var expr = Bin("100", BinaryOp.Divide, "5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("20", null), result.AsNatural());
@@ -104,11 +104,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDivideByZero_ThrowsDivideByZeroException()
+    public async Task Evaluate_GivenDivideByZero_ThrowsDivideByZeroException()
     {
         var expr = Bin("5", BinaryOp.Divide, "0");
 
-        Assert.Throws<DivideByZeroException>(() => _evaluator.Evaluate(expr));
+        await Assert.ThrowsAsync<DivideByZeroException>(async () => await _evaluator.EvaluateAsync(expr));
     }
 
     // -----------------------------------------------------------------------
@@ -116,11 +116,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenModulo_ReturnsCorrectRemainder()
+    public async Task Evaluate_GivenModulo_ReturnsCorrectRemainder()
     {
         var expr = Bin("17", BinaryOp.Modulo, "5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("2", null), result.AsNatural());
@@ -131,11 +131,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPower_ReturnsCorrectResult()
+    public async Task Evaluate_GivenPower_ReturnsCorrectResult()
     {
         var expr = Bin("2", BinaryOp.Power, "10");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("1024", null), result.AsNatural());
@@ -146,11 +146,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenRealPlusReal_ReturnsCorrectSum()
+    public async Task Evaluate_GivenRealPlusReal_ReturnsCorrectSum()
     {
         var expr = Bin("1.5", BinaryOp.Add, "2.5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("4.0", null), result.AsReal());
@@ -161,11 +161,11 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenNaturalMinusSmaller_ReturnsNaturalDifference()
+    public async Task Evaluate_GivenNaturalMinusSmaller_ReturnsNaturalDifference()
     {
         var expr = Bin("10", BinaryOp.Subtract, "3");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("7", null), result.AsNatural());
@@ -176,13 +176,13 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenNaturalMinusLarger_AutoWidensToInteger()
+    public async Task Evaluate_GivenNaturalMinusLarger_AutoWidensToInteger()
     {
         // Natural(3) - Natural(5) underflows; evaluator catches InvalidOperationException,
         // widens both to Integer and retries: Integer(3) - Integer(5) = Integer(-2).
         var expr = Bin("3", BinaryOp.Subtract, "5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Integer, result.Kind);
         Assert.Equal(Int.Parse("-2", null), result.AsInteger());
@@ -193,12 +193,12 @@ public class EvaluatorBinaryArithmeticTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenNaturalMinusEqual_ReturnsNaturalZero()
+    public async Task Evaluate_GivenNaturalMinusEqual_ReturnsNaturalZero()
     {
         // Natural(5) - Natural(5) = 0, no underflow — stays Natural.
         var expr = Bin("5", BinaryOp.Subtract, "5");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("0", null), result.AsNatural());

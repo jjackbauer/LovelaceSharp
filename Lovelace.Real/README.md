@@ -65,7 +65,10 @@ Migrated from C++ `RealLovelace` (≥ `Lovelace.Integer` ≥ `Lovelace.Natural` 
 | `static Real Negate(Real)` / `operator-` (unary) | Flips the sign; preserves exponent and period metadata; zero stays positive. |
 | `Real Invert()` | Computes `Real.One / this`. Throws `DivideByZeroException` for zero. |
 | `static Real Sqrt(Real value)` | Principal square root via Newton-Raphson with progressive precision (doubling strategy). Converges to `MaxComputationDecimalPlaces` correct fractional digits for irrational roots; exact for perfect squares (e.g. `Sqrt(4) == 2`). Throws `ArithmeticException` for negative input. |
-| `static Real Pi(long digits)` | Computes π to `digits` fractional decimal places using the Chudnovsky algorithm (~14.18 digits per term). Internally adds 10 guard digits then truncates. `digits` must be in `[1, MaxComputationDecimalPlaces]`; throws `ArgumentOutOfRangeException` otherwise. |
+| `static Real[] Sqrt(IReadOnlyList<Real> values)` | Batch parallel square root: dispatches each element concurrently via `Task.WhenAll` and collects results. Empty input returns an empty array. Propagates `ArithmeticException` if any element is negative. |
+| `static Task<Real> SqrtAsync(Real value)` | Async wrapper: offloads `Sqrt(Real)` to the thread pool via `Task.Run`. Re-throws `ArithmeticException` on `await` for negative inputs. |
+| `static Real Pi(long digits)` | Computes π to `digits` fractional decimal places using the Chudnovsky algorithm (~14.18 digits per term). Internally uses Binary Splitting (BSP) decomposition with `Task.WhenAll` parallelism for independent sub-ranges. Adds 10 guard digits then truncates. `digits` must be in `[1, MaxComputationDecimalPlaces]`; throws `ArgumentOutOfRangeException` otherwise. |
+| `static Task<Real> PiAsync(long digits)` | Async wrapper: offloads `Pi(long)` to the thread pool via `Task.Run`. Re-throws `ArgumentOutOfRangeException` on `await` for out-of-range `digits`. |
 | `Real Pow(Real exponent)` | Integer-exponent fast path via binary exponentiation. Non-integer or negative exponents throw `NotImplementedException`. |
 | `Real Assign(Real other)` | Returns a new `Real` that is a deep copy of `other`. |
 | `operator++` | Increments by `Real.One` (i.e. `value + Real.One`). |
@@ -158,5 +161,6 @@ Real r = Real.Parse("0.1(6)");  // 1/6
 
 - [Requirements document](.github/requirements/Lovelace.Real.md)
 - [Sqrt 1000-digit precision requirements](.github/requirements/Lovelace.Real.Sqrt.md)
+- [Sqrt / Pi parallelism requirements](.github/requirements/Lovelace.Real.Parallelism.md)
 - Legacy C++ source: [`Legacy/RealLovelace.hpp`](../Legacy/RealLovelace.hpp), [`Legacy/RealLovelace.cpp`](../Legacy/RealLovelace.cpp)
 - Dependency chain: [`Lovelace.Representation`](../Lovelace.Representation/README.md) ← [`Lovelace.Natural`](../Lovelace.Natural/README.md) ← [`Lovelace.Integer`](../Lovelace.Integer/README.md) ← **`Lovelace.Real`**

@@ -91,4 +91,23 @@ public class RealPiTests
         Real result = Real.Pi(10);
         Assert.Equal(-10L, result.Exponent);
     }
+
+    // -------------------------------------------------------------------------
+    // Parallel-Pi refactoring tests
+    // -------------------------------------------------------------------------
+
+    [Fact]
+    public void Pi_GivenConcurrentCallsFromMultipleThreads_AllReturnConsistentResults()
+    {
+        // Launching 8 concurrent Pi(10) computations must all return "3.1415926535".
+        // BSP sub-range lambdas operate on independent local variables, so no
+        // data corruption from shared mutable state is expected.
+        const int taskCount = 8;
+        const string expected = "3.1415926535";
+        var tasks = Enumerable.Range(0, taskCount)
+            .Select(_ => Task.Run(() => Real.Pi(10).ToString()))
+            .ToArray();
+        string[] results = Task.WhenAll(tasks).GetAwaiter().GetResult();
+        Assert.All(results, r => Assert.Equal(expected, r));
+    }
 }

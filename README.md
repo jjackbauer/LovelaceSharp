@@ -86,6 +86,7 @@ Only `Lovelace.Representation` ever reads or writes these bytes. All higher laye
 | `Lovelace.Real` | [`.github/requirements/Lovelace.Real.md`](.github/requirements/Lovelace.Real.md) | ✅ Complete |
 | `Lovelace.Real` — Sqrt | [`.github/requirements/Lovelace.Real.Sqrt.md`](.github/requirements/Lovelace.Real.Sqrt.md) | ✅ Complete |
 | `Lovelace.Real` — Pi & Console | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
+| `Lovelace.Real` — Sqrt Redesign | [`.github/requirements/Lovelace.Real.Sqrt-Redesign.md`](.github/requirements/Lovelace.Real.Sqrt-Redesign.md) | ✅ Complete |
 
 ---
 

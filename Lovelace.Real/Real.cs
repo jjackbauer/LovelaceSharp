@@ -1,11 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using Lovelace.Natural;
 
 using Int = Lovelace.Integer.Integer;
 using Nat = Lovelace.Natural.Natural;
+
+[assembly: InternalsVisibleTo("Lovelace.Real.Tests")]
 
 namespace Lovelace.Real;
 
@@ -44,6 +47,9 @@ public class Real :
     // does not propagate sideways to sibling tasks.
     private static readonly AsyncLocal<long?> _localMaxComputationDecimalPlaces = new();
 
+    // 640320³ — shared by Pi and PiSegment.
+    private static readonly Nat s_chudnovskyC3 = Nat.Parse("262537412640768000", null);
+
     /// <summary>
     /// Controls how many fractional digits appear in <see cref="ToString()"/> for non-periodic values.
     /// Default is 100. Corresponds to C++ <c>casasDecimaisExibicao</c>.
@@ -71,14 +77,15 @@ public class Real :
 
     // Establishes a call-stack-local precision override for the duration of the returned scope.
     // Restoring the previous local value on Dispose ensures nesting works correctly.
-    private static PrecisionScope WithLocalPrecision(long precision)
+    // Internal (not private) so that Lovelace.Real.Tests can exercise AsyncLocal semantics directly.
+    internal static PrecisionScope WithLocalPrecision(long precision)
     {
         long? previous = _localMaxComputationDecimalPlaces.Value;
         _localMaxComputationDecimalPlaces.Value = precision;
         return new PrecisionScope(previous);
     }
 
-    private readonly struct PrecisionScope : IDisposable
+    internal readonly struct PrecisionScope : IDisposable
     {
         private readonly long? _saved;
         public PrecisionScope(long? saved) => _saved = saved;
@@ -485,6 +492,26 @@ public class Real :
         if (Real.IsZero(left))
             return Zero;
 
+        // Periodic guard: mirrors the Add / Multiply pattern.
+        // Only periodic operands are expanded; non-periodic operands are used as-is to
+        // avoid introducing trailing zeros that could produce a spurious all-zero period
+        // in the result (e.g. expanding non-periodic 1 to 1000 decimal places yields
+        // 1.0000…0, and dividing that by an expanded periodic denominator produces a
+        // quotient whose trailing zeros mislead DetectAndNormalizePeriod).
+        // A period of length ≥ workingFrac in the raw quotient is an artifact of the
+        // finite expansion (the remainder repeats at the expansion boundary), not a true
+        // mathematical period — strip it before running period detection.
+        if (left.IsPeriodic || right.IsPeriodic)
+        {
+            long workingFrac   = MaxComputationDecimalPlaces;
+            Real expandedLeft  = left.IsPeriodic  ? ExpandToNonPeriodic(left,  workingFrac) : left;
+            Real expandedRight = right.IsPeriodic ? ExpandToNonPeriodic(right, workingFrac) : right;
+            Real rawQuotient   = Divide(expandedLeft, expandedRight);
+            if (rawQuotient.IsPeriodic && rawQuotient.PeriodLength >= workingFrac)
+                rawQuotient = new Real(rawQuotient.ToNatural(), Int.IsNegative(rawQuotient), rawQuotient.Exponent);
+            return DetectAndNormalizePeriod(rawQuotient);
+        }
+
         bool resultNeg = Real.IsNegative(left) != Real.IsNegative(right);
 
         // The exponent adjustment: dividing (leftMag × 10^leftExp) by (rightMag × 10^rightExp)
@@ -665,6 +692,32 @@ public class Real :
     public static Real Sqrt(Real value) => Sqrt(value, MaxComputationDecimalPlaces);
 
     /// <summary>
+    /// Computes the principal square root of each element in <paramref name="values"/> concurrently,
+    /// dispatching each element to the thread pool via <see cref="Task.WhenAll"/>.
+    /// Results are returned in the same order as the inputs.
+    /// New C# addition with no C++ counterpart.
+    /// </summary>
+    /// <param name="values">The batch of values to compute square roots for.</param>
+    /// <returns>An array of results in the same order as <paramref name="values"/>.</returns>
+    /// <exception cref="AggregateException">
+    /// Thrown when one or more elements cause an exception (e.g.,
+    /// <see cref="ArithmeticException"/> for negative values).
+    /// </exception>
+    public static Real[] Sqrt(IReadOnlyList<Real> values)
+    {
+        if (values.Count == 0)
+            return Array.Empty<Real>();
+
+        var tasks = new Task<Real>[values.Count];
+        for (int i = 0; i < values.Count; i++)
+        {
+            var v = values[i];
+            tasks[i] = Task.Run(() => Sqrt(v));
+        }
+        return Task.WhenAll(tasks).GetAwaiter().GetResult();
+    }
+
+    /// <summary>
     /// Internal Newton-Raphson square root with caller-specified precision; imposes no
     /// additional cap on <paramref name="precision"/> beyond what the underlying arithmetic
     /// provides.  Used exclusively by <see cref="Pi(long)"/> to compute <c>√10005</c> at
@@ -683,15 +736,48 @@ public class Real :
         const long guard = 50L;
         long targetPrecision = precision + guard;
 
-        // Seed from double approximation (~15 significant digits).
-        string strVal = value.ToString();
-        if (strVal.Length > 20) strVal = strVal[..20];
-        if (!double.TryParse(strVal, System.Globalization.NumberStyles.Float,
-                             System.Globalization.CultureInfo.InvariantCulture,
-                             out double dblApprox) || dblApprox <= 0.0)
-            dblApprox = 1.0;
-        Real x = new Real(Math.Sqrt(dblApprox));
-        if (IsZero(x) || IsNegative(x)) x = One;
+        // Option A — Pre-expand periodic inputs: a periodic Real stores only one period
+        // block in its backing Nat (e.g. 0.(3) is stored as Nat=3, Exp=-1, representing
+        // 0.3 not 1/3).  Expanding here fixes both the seeding path (double.TryParse
+        // fails on "0.(3)"-style notation) and the value/x division inside the NR loop
+        // (which would otherwise compute sqrt(0.3) instead of sqrt(1/3)).
+        if (value.IsPeriodic)
+            value = ExpandToNonPeriodic(value, targetPrecision);
+
+        // Option B — Exponent-aware seeding.
+        // Builds the NR seed from value.ToNatural() digits and value.Exponent directly,
+        // replacing the old 20-char ToString() truncation that silently collapsed
+        // very small values to 0.0 (e.g. Nat="1", Exponent=-28 → string "0.0000…0001"
+        // (30 chars) → truncated "0.000000000000000000" → 0.0 → fallback seed 1.0).
+        // With a seed 14 orders of magnitude off, NR halves ~4 times and produces
+        // ≈0.125 instead of 1e-14.  The new path uses the Exponent directly to place
+        // the seed in the correct order of magnitude, eliminating the truncation loss.
+        Real x;
+        {
+            string natDigits = value.ToNatural().ToString();
+            int take = Math.Min(natDigits.Length, 15);
+            double lead = double.Parse(natDigits[..take],
+                                       System.Globalization.CultureInfo.InvariantCulture);
+            long exp10 = (long)(natDigits.Length - take) + value.Exponent;
+            // Normalise lead into [1, 10) and track the exponent offset.
+            while (lead >= 10.0) { lead /= 10.0; exp10++; }
+            while (lead > 0.0 && lead < 1.0) { lead *= 10.0; exp10--; }
+            // Make exp10 even so that seedExp = exp10/2 is exact (C# truncates toward 0
+            // for negative integers, which would lose half an order of magnitude).
+            if (exp10 % 2 != 0) { lead *= 10.0; exp10--; }
+            long seedExp = exp10 / 2;
+            // sqrt(lead) ∈ [1, sqrt(10)) ≈ [1, 3.162…); "G15" never triggers scientific
+            // notation for values in this range, so TryParse can always consume the string.
+            double seedSig = Math.Sqrt(lead);
+            string seedStr = seedSig.ToString("G15",
+                                              System.Globalization.CultureInfo.InvariantCulture);
+            if (!TryParse(seedStr, null, out Real seedReal) || IsZero(seedReal))
+                seedReal = One;
+            // Compose the seed Real: seedReal encodes the significand; seedExp shifts
+            // the order of magnitude so the combined value approximates sqrt(value).
+            x = new Real(seedReal.ToNatural(), false, seedReal.Exponent + seedExp);
+            if (IsZero(x) || IsNegative(x)) x = One;
+        }
 
         Real two = new Real(2.0);
 
@@ -773,47 +859,47 @@ public class Real :
         // √10005 at guard-digit precision using the internal Sqrt overload.
         Real sqrt10005 = Sqrt(new Real("10005"), guardDigits);
 
-        // Chudnovsky series accumulated as an exact rational numS / denS.
-        //
-        // Recurrence (exact integer arithmetic — no truncation):
-        //   numS_0 = A,  denS_0 = 1,  prodP_0 = 1
-        //   a_k = (6k)(6k-1)(6k-2)(6k-3)(6k-4)(6k-5)
-        //   b_k = (3k)(3k-1)(3k-2) · k³ · C³
-        //   prodP_k = prodP_{k-1} · a_k
-        //   numS_k  = numS_{k-1} · b_k  +  (-1)^k · prodP_k · (A + B·k)
-        //   denS_k  = denS_{k-1} · b_k
-        //
-        // Then S = numS / denS, and π = 426880 · √10005 · denS / numS.
-        const long A = 13591409L;
-        const long B = 545140134L;
-        Nat c3 = Nat.Parse("262537412640768000", null); // 640320³
-
-        Int numS = new Int(new Nat((ulong)A), false);
-        Nat denS = Nat.One;
-        Nat prodP = Nat.One;
-
+        // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
+        // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
+        // where Q = denS and T = numS from the original sequential recurrence.
+        // Then π = 426880 · √10005 · Q / T.
         long numTerms = (long)Math.Ceiling((double)guardDigits / 14.0) + 2;
-        for (long k = 1; k <= numTerms; k++)
+        long range = numTerms + 1; // half-open: [0, range)
+
+        // Divide [0, range) into independent sub-ranges and compute concurrently.
+        int degree = Math.Max(1, Math.Min(Environment.ProcessorCount, (int)Math.Min(range, 64L)));
+
+        Nat denS;
+        Int numS;
+
+        if (degree <= 1 || range <= 1)
         {
-            long k6 = 6 * k;
-            long k3 = 3 * k;
+            var (_, q, t) = PiSegment(0, range);
+            denS = q; numS = t;
+        }
+        else
+        {
+            long chunkSize = range / degree;
+            var tasks = new Task<(Nat P, Nat Q, Int T)>[degree];
+            for (int i = 0; i < degree; i++)
+            {
+                long start = i * chunkSize;
+                long end = (i == degree - 1) ? range : start + chunkSize;
+                tasks[i] = Task.Run(() => PiSegment(start, end));
+            }
+            var segments = Task.WhenAll(tasks).GetAwaiter().GetResult();
 
-            // a_k: product of 6 consecutive integers (split to avoid long overflow).
-            Nat ak = new Nat((ulong)(k6 * (k6 - 1) * (k6 - 2)))
-                   * new Nat((ulong)((k6 - 3) * (k6 - 4) * (k6 - 5)));
-
-            // b_k: denominator factor per term.
-            Nat bk = new Nat((ulong)(k3 * (k3 - 1) * (k3 - 2)))
-                   * new Nat((ulong)(k * k * k)) * c3;
-
-            prodP = prodP * ak;
-
-            // numS = numS * bk + (-1)^k * prodP * (A + B*k)
-            Int bkInt = new Int(bk, false);
-            Nat linearFactor = new Nat((ulong)(A + B * k));
-            Int termInt = new Int(prodP * linearFactor, k % 2 == 1); // negative when k is odd
-            numS = numS * bkInt + termInt;
-            denS = denS * bk;
+            // Merge BSP triples left-to-right:
+            // T(a,b) = T(a,m)·Q(m,b) + P(a,m)·T(m,b)
+            var (accP, accQ, accT) = segments[0];
+            for (int i = 1; i < segments.Length; i++)
+            {
+                var (rP, rQ, rT) = segments[i];
+                accT = accT * new Int(rQ, false) + new Int(accP, false) * rT;
+                accQ = accQ * rQ;
+                accP = accP * rP;
+            }
+            denS = accQ; numS = accT;
         }
 
         // π = 426880 · √10005 · denS / numS
@@ -843,6 +929,83 @@ public class Real :
                 return x;
             return new Real(truncNat, false, x.Exponent + toDrop);
         }
+    }
+
+    /// <summary>
+    /// Asynchronously computes π to <paramref name="digits"/> decimal places by offloading
+    /// the CPU-bound <see cref="Pi(long)"/> call to the thread pool via <see cref="Task.Run"/>.
+    /// New C# addition with no C++ counterpart.
+    /// </summary>
+    /// <param name="digits">The number of fractional decimal places to compute. Must be between 1 and
+    /// <see cref="MaxComputationDecimalPlaces"/> inclusive.</param>
+    /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="Pi(long)"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Propagated from <see cref="Pi(long)"/> when
+    /// <paramref name="digits"/> is ≤ 0 or exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
+    public static Task<Real> PiAsync(long digits) => Task.Run(() => Pi(digits));
+
+    /// <summary>
+    /// Asynchronously computes the square root of <paramref name="value"/> by offloading
+    /// the CPU-bound <see cref="Sqrt(Real)"/> call to the thread pool via <see cref="Task.Run"/>.
+    /// New C# addition with no C++ counterpart.
+    /// </summary>
+    /// <param name="value">The value whose square root to compute. Must be non-negative.</param>
+    /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="Sqrt(Real)"/>.</returns>
+    /// <exception cref="ArithmeticException">Propagated from <see cref="Sqrt(Real)"/> when
+    /// <paramref name="value"/> is negative.</exception>
+    public static Task<Real> SqrtAsync(Real value) => Task.Run(() => Sqrt(value));
+
+    // -------------------------------------------------------------------------
+    // Binary Splitting (BSP) decomposition — internal helper for Pi
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Computes the Binary Splitting (BSP) triple <c>(P, Q, T)</c> for the Chudnovsky series
+    /// over the half-open term range [<paramref name="termStart"/>, <paramref name="termEnd"/>).
+    /// <list type="bullet">
+    ///   <item><c>P(a,b)</c> = ∏ a_k for k ∈ [a,b), where a_0 = 1</item>
+    ///   <item><c>Q(a,b)</c> = ∏ b_k for k ∈ [a,b), where b_0 = 1</item>
+    ///   <item><c>T(a,b)</c> = the Chudnovsky partial-sum numerator contribution</item>
+    /// </list>
+    /// Satisfies the BSP merge identity:
+    /// <c>T(a,b) = T(a,m)·Q(m,b) + P(a,m)·T(m,b)</c>.
+    /// Calling <c>PiSegment(0, numTerms+1)</c> produces <c>T = numS</c> and <c>Q = denS</c>
+    /// equivalent to the sequential Chudnovsky loop, so <c>π = 426880·√10005·Q/T</c>.
+    /// </summary>
+    internal static (Nat P, Nat Q, Int T) PiSegment(long termStart, long termEnd)
+    {
+        const long A = 13591409L;
+        const long B = 545140134L;
+
+        if (termEnd - termStart == 1)
+        {
+            long k = termStart;
+            if (k == 0)
+                return (Nat.One, Nat.One, new Int(new Nat((ulong)A), false));
+
+            long k6 = 6 * k;
+            long k3 = 3 * k;
+
+            // a_k = (6k)(6k-1)(6k-2)(6k-3)(6k-4)(6k-5)
+            Nat ak = new Nat((ulong)(k6 * (k6 - 1) * (k6 - 2)))
+                   * new Nat((ulong)((k6 - 3) * (k6 - 4) * (k6 - 5)));
+
+            // b_k = (3k)(3k-1)(3k-2) · k³ · 640320³
+            Nat bk = new Nat((ulong)(k3 * (k3 - 1) * (k3 - 2)))
+                   * new Nat((ulong)(k * k * k)) * s_chudnovskyC3;
+
+            // T(k, k+1) = (-1)^k · a_k · (A + B·k)
+            Nat ck = new Nat((ulong)(A + B * k));
+            Int tk = new Int(ak * ck, k % 2 == 1);
+
+            return (ak, bk, tk);
+        }
+
+        long mid = (termStart + termEnd) / 2;
+        var (lP, lQ, lT) = PiSegment(termStart, mid);
+        var (rP, rQ, rT) = PiSegment(mid, termEnd);
+
+        // Merge: P = P_L·P_R, Q = Q_L·Q_R, T = T_L·Q_R + P_L·T_R
+        return (lP * rP, lQ * rQ, lT * new Int(rQ, false) + new Int(lP, false) * rT);
     }
 
     /// <summary>
@@ -1193,6 +1356,7 @@ public class Real :
             // Wrap position into the stored period block.
             long periodicOffset = (position - PeriodStart) % PeriodLength;
             long idx = (long)digits.Length - fracLen + PeriodStart + periodicOffset;
+            if (idx < 0 || idx >= (long)digits.Length) return 0;
             return (byte)(digits[(int)idx] - '0');
         }
     }

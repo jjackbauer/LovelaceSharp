@@ -67,7 +67,7 @@ public sealed class ReplSession
     /// Starts the REPL loop. Exits when the user types <c>exit</c>, <c>quit</c>,
     /// or presses Ctrl+C.
     /// </summary>
-    public void Run()
+    public async Task RunAsync()
     {
         Value? lastResult = null;
 
@@ -94,11 +94,11 @@ public sealed class ReplSession
             {
                 var tokens = _tokenizer.Tokenize(trimmed);
                 var expr = _parser.Parse(tokens);
-                var result = _evaluator.Evaluate(expr);
+                var result = await _evaluator.EvaluateAsync(expr);
 
                 // Store in _ (last-result variable)
                 lastResult = result;
-                _evaluator.Evaluate(new AssignExpr("_", new LiteralExpr(GetRawText(result))));
+                await _evaluator.EvaluateAsync(new AssignExpr("_", new LiteralExpr(GetRawText(result))));
 
                 PrintResult(result);
             }

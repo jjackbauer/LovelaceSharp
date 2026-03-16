@@ -17,11 +17,11 @@ public class EvaluatorLiteralTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenWholeNumberLiteral_ReturnsNaturalValue()
+    public async Task Evaluate_GivenWholeNumberLiteral_ReturnsNaturalValue()
     {
         var expr = new LiteralExpr("42");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("42", null), result.AsNatural());
@@ -32,11 +32,11 @@ public class EvaluatorLiteralTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenDecimalLiteral_ReturnsRealValue()
+    public async Task Evaluate_GivenDecimalLiteral_ReturnsRealValue()
     {
         var expr = new LiteralExpr("3.14");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("3.14", null), result.AsReal());
@@ -47,11 +47,11 @@ public class EvaluatorLiteralTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenPeriodicLiteral_ReturnsRealValue()
+    public async Task Evaluate_GivenPeriodicLiteral_ReturnsRealValue()
     {
         var expr = new LiteralExpr("0.(3)");
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Real, result.Kind);
         Assert.Equal(Rl.Parse("0.(3)", null), result.AsReal());

@@ -20,19 +20,40 @@ A numbered list of claims, supplied by the caller. Example:
 3. `InteiroLovelace::fatorial` delegates to `Lovelace::fatorial`.
 ```
 
+## Agent Roles
+
+This skill uses a 4-agent parallel architecture:
+
+- **Falsifier A** — reviews **all** claims independently. Runs in parallel with B and C.
+- **Falsifier B** — reviews **all** claims independently. Runs in parallel with A and C.
+- **Falsifier C** — reviews **all** claims independently. Runs in parallel with A and B.
+- **Synthesizer** — runs sequentially after all 3 Falsifiers complete. Reconciles the 3 independent tables, resolves disagreements, and applies the Loop Instruction.
+
+Each Falsifier works from the full claim list with no overlap restriction. The Synthesizer uses the independent results to produce a higher-confidence verdict for each claim.
+
 ## Procedure
 
-For each claim:
+1. **Dispatch in parallel** — launch Falsifier A, Falsifier B, and Falsifier C simultaneously, each receiving the full claim list.  
+   Each Falsifier, for every claim:  
+   a. **Locate evidence** — search `Legacy/*.hpp`, `Legacy/*.cpp`, and all `*.cs` files for code that directly supports or contradicts the claim.  
+   b. **Attempt a counterexample** — try to construct a concrete input or scenario where the claim would be violated.  
+   c. **Classify**:  
+      - **Supported** — at least one code location confirms the claim and no counterexample was found. Record `file:line`.  
+      - **Falsified** — a counterexample exists, or the claim contradicts source code. Record the reason and the contradicting `file:line`.  
+   d. Return a full Markdown table (same schema as the Output Format) covering all claims.
 
-1. **Locate evidence** — search `Legacy/*.hpp`, `Legacy/*.cpp`, and all `*.cs` files for code that directly supports or contradicts the claim.
-2. **Attempt a counterexample** — try to construct a concrete input or scenario where the claim would be violated.
-3. **Classify**:
-   - **Supported** — at least one code location confirms the claim and no counterexample was found. Record `file:line`.
-   - **Falsified** — a counterexample exists, or the claim contradicts source code. Record the reason and the contradicting `file:line`.
+2. **Synthesize** — after all 3 Falsifiers complete, launch the Synthesizer agent:
+   - For each claim, compare the 3 independent verdicts.
+   - If all 3 agree, use the consensus verdict and representative evidence.
+   - If there is disagreement, mark the claim **Falsified** (conservative default) and note the conflicting findings as the reason.
+   - Produce the final merged table sorted by claim number.
+   - Apply the Loop Instruction (see below).
 
 ## Output Format
 
-Produce a Markdown table:
+Each **Falsifier** produces a full table covering all claims.
+
+The **Synthesizer** produces the final reconciled table — this is the skill's authoritative output:
 
 | # | Claim | Evidence (file:line) | Status | Reason |
 |---|---|---|---|---|
@@ -41,7 +62,9 @@ Produce a Markdown table:
 
 ## Loop Instruction
 
-After producing the table, state the count of Falsified rows.  
+Applied by the **Synthesizer** to the merged output only.
+
+After producing the merged table, state the count of Falsified rows.  
 If any rows are Falsified, instruct the caller:  
 > "Revise the following claims and re-run this skill until zero Falsified rows remain: [list claim numbers]"
 

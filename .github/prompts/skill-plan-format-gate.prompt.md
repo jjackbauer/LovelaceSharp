@@ -111,4 +111,128 @@ After reaching **PASS** (or exhausting iterations), return:
 
 Do not ask the caller to fix violations manually — resolve them autonomously.
 
+---
+
+## Extended Rules for Journal and Distilled Document Types
+
+The following conditional rules activate when `PlanType` is `"journal-entry"` or `"distilled"`.
+They are checked **in addition to** Rules 1–8 above (where applicable).
+
+---
+
+### When `PlanType = "journal-entry"`
+
+These rules validate a document that contains OBS, HYP, VAL, DEC, TODO, RISK, OQ, or ART entries.
+
+#### Rule J1 — Entry IDs follow `{TYPE}-{NNN}` format
+
+All journal entry IDs in the document must match the pattern `^(OBS|HYP|VAL|DEC|TODO|RISK|OQ|ART)-\d{3,}$`.
+IDs without a type prefix, with an invalid type, or with fewer than three digits are flagged.
+
+#### Rule J2 — Required fields present per entry type
+
+For each entry, check that all required fields defined in `journal-schema.md` are present:
+
+| Entry type | Required fields |
+|---|---|
+| OBS | Source, Fact, Implications, Confidence, (Related optional) |
+| HYP | Claim, Supporting OBS, Why it matters, Falsification strategy, Status, Confidence |
+| VAL | Target HYP, Method, Evidence examined, Result, Conclusion, (Related optional) |
+| DEC | Decision, Rationale, Alternatives considered, (Related optional) |
+| TODO | Task, Priority, Depends on, Status, (Related optional) |
+| RISK | Risk, Likelihood, Impact, Evidence, Mitigation |
+| OQ | Question, Needed evidence, Priority, (Related optional) |
+| ART | Artifact path, Type, Supporting evidence, Confidence, Last updated |
+
+Entries missing a required field are flagged with the field name.
+
+#### Rule J3 — HYP entries have a non-vague Falsification strategy
+
+For every HYP entry, the **Falsification strategy** field must contain a specific file path or code
+location to examine, **not** a generic phrase like "check the code" or "look at the source".
+Strategies shorter than 20 words or containing only generic language are flagged.
+
+#### Rule J4 — Confidence values are constrained
+
+All Confidence fields must be exactly one of: `High`, `Medium`, or `Low`.
+Any other value (e.g., `high`, `medium`, `Very High`) is flagged.
+
+#### Rule J5 — HYP Status values follow the lifecycle
+
+All HYP Status fields must be exactly one of: `Proposed`, `Under review`, `Supported`, `Falsified`,
+`Superseded`. Any other value is flagged.
+
+#### Rule J6 — VAL Result values are constrained
+
+All VAL Result fields must be exactly one of: `Supported`, `Falsified`, `Unresolved`.
+Any other value is flagged.
+
+---
+
+### When `PlanType = "distilled"`
+
+These rules validate a distilled knowledge document under `.github/distilled/`.
+
+#### Rule D1 — Standard header present
+
+The document must begin with an H1 title followed immediately by a metadata blockquote containing
+all four required fields: **Scope**, **Confidence**, **Last updated**, and **Source entries**.
+A document missing any of these header fields is flagged.
+
+#### Rule D2 — All claims carry exactly one uncertainty marker
+
+Every bullet point or sentence within the document body that makes a factual claim must begin with
+exactly one of: `✅`, `⚠️`, or `❓`. Claims without a marker are flagged.
+Claims with more than one marker on the same line are also flagged.
+
+#### Rule D3 — Claims cite source entries
+
+Every claim marked with ✅ or ⚠️ must include at least one journal entry ID in parentheses
+(e.g., `(OBS-001)` or `(OBS-003, VAL-005)`). Claims without parenthetical citations are flagged.
+
+#### Rule D4 — `trusted-facts.md` contains only ✅ markers
+
+If the document being validated is `trusted-facts.md`, any ⚠️ or ❓ markers found are flagged
+as violations. That document is strictly ✅-only.
+
+#### Rule D5 — Overall Confidence matches marker distribution
+
+The document-level **Confidence** header field must be consistent with the marker distribution:
+
+| Confidence | Required distribution |
+|---|---|
+| High | All claims are ✅; zero ⚠️ or ❓ |
+| Medium | Majority ✅ or ⚠️; ❓ are a minority |
+| Low | Significant ❓ present |
+
+A mismatch between the header Confidence and the observed marker distribution is flagged.
+
+---
+
+### Extended Output Format
+
+When `PlanType = "journal-entry"` or `"distilled"`, append a second results table after the main
+Rules 1–8 table:
+
+| # | Rule | Status | Violations |
+|---|---|---|---|
+| J1 | Entry ID format | ✅ Pass / ❌ Fail | — |
+| J2 | Required fields per type | ✅ Pass / ❌ Fail | — |
+| J3 | Non-vague falsification strategy | ✅ Pass / ❌ Fail | — |
+| J4 | Confidence values | ✅ Pass / ❌ Fail | — |
+| J5 | HYP status lifecycle | ✅ Pass / ❌ Fail | — |
+| J6 | VAL result values | ✅ Pass / ❌ Fail | — |
+
+Or for `"distilled"`:
+
+| # | Rule | Status | Violations |
+|---|---|---|---|
+| D1 | Standard header present | ✅ Pass / ❌ Fail | — |
+| D2 | All claims have one marker | ✅ Pass / ❌ Fail | — |
+| D3 | Claims cite source entries | ✅ Pass / ❌ Fail | — |
+| D4 | trusted-facts.md ✅-only | ✅ Pass / ⏭️ Skipped / ❌ Fail | — |
+| D5 | Confidence matches markers | ✅ Pass / ❌ Fail | — |
+
+The self-healing loop applies to these extended rules as well.
+
 ````

@@ -28,11 +28,11 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsEvenOfEvenNumber_ReturnsTrue()
+    public async Task Evaluate_GivenIsEvenOfEvenNumber_ReturnsTrue()
     {
         var expr = IsEvenCall(new LiteralExpr("4"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.True(result.AsBoolean());
@@ -43,11 +43,11 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsEvenOfOddNumber_ReturnsFalse()
+    public async Task Evaluate_GivenIsEvenOfOddNumber_ReturnsFalse()
     {
         var expr = IsEvenCall(new LiteralExpr("3"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.False(result.AsBoolean());
@@ -59,13 +59,13 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsEvenOfEvenNegativeInteger_ReturnsTrue()
+    public async Task Evaluate_GivenIsEvenOfEvenNegativeInteger_ReturnsTrue()
     {
         // UnaryExpr(Negate, LiteralExpr("4")) evaluates to Integer(-4).
         var negFour = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("4"));
         var expr = IsEvenCall(negFour);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.True(result.AsBoolean());
@@ -76,11 +76,11 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsOddOfOddNumber_ReturnsTrue()
+    public async Task Evaluate_GivenIsOddOfOddNumber_ReturnsTrue()
     {
         var expr = IsOddCall(new LiteralExpr("3"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.True(result.AsBoolean());
@@ -91,11 +91,11 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsOddOfEvenNumber_ReturnsFalse()
+    public async Task Evaluate_GivenIsOddOfEvenNumber_ReturnsFalse()
     {
         var expr = IsOddCall(new LiteralExpr("4"));
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.False(result.AsBoolean());
@@ -107,13 +107,13 @@ public class EvaluatorBuiltinIsEvenIsOddTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Evaluate_GivenIsOddOfOddNegativeInteger_ReturnsTrue()
+    public async Task Evaluate_GivenIsOddOfOddNegativeInteger_ReturnsTrue()
     {
         // UnaryExpr(Negate, LiteralExpr("3")) evaluates to Integer(-3).
         var negThree = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("3"));
         var expr = IsOddCall(negThree);
 
-        var result = _evaluator.Evaluate(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
         Assert.Equal(ValueKind.Boolean, result.Kind);
         Assert.True(result.AsBoolean());
