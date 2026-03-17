@@ -1,8 +1,8 @@
 # System Overview
 
 > **Scope**: High-level architecture, project structure, and dependency topology of the LovelaceSharp solution
-> **Confidence**: Medium
-> **Last updated**: 2026-03-12
+> **Confidence**: High
+> **Last updated**: 2026-03-16
 > **Source entries**: OBS-001, OBS-005, OBS-008, OBS-011, OBS-016, OBS-018, OBS-019, VAL-001, VAL-002
 
 ---
@@ -22,7 +22,7 @@ claim confirmations).
 - ✅ The dependency chain is: `Lovelace.Representation` ← `Lovelace.Natural` ← `Lovelace.Integer` ← `Lovelace.Real`. Each layer adds exactly one abstraction level (OBS-018).
 - ✅ `Lovelace.Representation` is the only project that reads/writes the raw `byte[]` backing store. All upper layers use `GetDigit`/`SetDigit` exclusively (VAL-001, OBS-001, OBS-003).
 - ✅ `Real` inherits from `Integer` (the sole subclass), which wraps `Natural`, which wraps `DigitStore` (VAL-002, OBS-008, OBS-011).
-- ⚠️ All three numeric types implement .NET generic math interfaces (`INumber<T>`, `IParsable<T>`, `ISpanFormattable`, etc.), but generic type conversion methods are all stubs (OBS-019).
+- ✅ All three numeric types implement .NET generic math interfaces (`INumber<T>`, `IParsable<T>`, `ISpanFormattable`, etc.), but generic type conversion methods are all stubs — Natural throws `NotImplementedException`, Integer and Real return `false` (OBS-019, VAL-004).
 
 ---
 

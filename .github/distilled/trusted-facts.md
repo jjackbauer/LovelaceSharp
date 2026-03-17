@@ -2,7 +2,7 @@
 
 > **Scope**: Verified facts about LovelaceSharp with the highest evidential bar: High confidence, Supported validation only
 > **Confidence**: High
-> **Last updated**: 2026-03-12
+> **Last updated**: 2026-03-16
 > **Source entries**: OBS-001, OBS-003, OBS-005, OBS-006, OBS-007, OBS-008, OBS-009, OBS-011, OBS-019, VAL-001, VAL-002, VAL-003, VAL-004, VAL-005
 
 ---

@@ -52,18 +52,18 @@ For the full translation table (class names, method names, representation contra
 
 | Portuguese (C++) | English (C#) | Definition |
 |---|---|---|
-| `somar` | `Add` / `operator+` | ⚠️ Addition. Implements `IAdditionOperators<T,T,T>`. |
-| `subtrair` | `Subtract` / `operator-` | ⚠️ Subtraction. Implements `ISubtractionOperators<T,T,T>`. |
-| `multiplicar` | `Multiply` / `operator*` | ⚠️ Multiplication. Implements `IMultiplyOperators<T,T,T>`. |
-| `multiplicar_burro` | *(private)* | ⚠️ Naïve repeated-addition multiplication in Legacy (Lovelace.cpp:476). Not exposed in C# public API (OBS-026). |
-| `dividir` | `DivRem` / `operator/` | ⚠️ Division with remainder. Implements `IDivisionOperators<T,T,T>`. |
-| `dividir_burro` | *(private)* | ⚠️ Naïve long-division fallback in Legacy (Lovelace.cpp:638). Not exposed in C# public API (OBS-026). |
+| `somar` | `Add` / `operator+` | ✅ Addition. Implements `IAdditionOperators<T,T,T>`. |
+| `subtrair` | `Subtract` / `operator-` | ✅ Subtraction. Implements `ISubtractionOperators<T,T,T>`. |
+| `multiplicar` | `Multiply` / `operator*` | ✅ Multiplication. Implements `IMultiplyOperators<T,T,T>`. |
+| `multiplicar_burro` | *(private)* | ✅ Naïve repeated-addition multiplication in Legacy (Lovelace.cpp:476). Removed in C# migration; replaced by grade-school algorithm with optional `Parallel.For` (OBS-030). |
+| `dividir` | `DivRem` / `operator/` | ✅ Division with remainder. Implements `IDivisionOperators<T,T,T>`. |
+| `dividir_burro` | *(private)* | ✅ Naïve long-division fallback in Legacy (Lovelace.cpp:638). Removed in C# migration (OBS-030). |
 | `exponenciar` | `Pow` | ⚠️ Exponentiation (integer exponent). |
 | `fatorial` | `Factorial` | ⚠️ Factorial (natural numbers only). |
 | `incrementar` | `Increment` / `operator++` | ⚠️ Adds one in-place. Implements `IIncrementOperators<T>`. |
 | `decrementar` | `Decrement` / `operator--` | ⚠️ Subtracts one in-place. Implements `IDecrementOperators<T>`. |
 | `inverterSinal` | `Negate` / unary `operator-` | ⚠️ Flips sign. Implements `IUnaryNegationOperators<T,T>`. |
-| `inverter` | `Invert` | ⚠️ Declared in Legacy (RealLovelace.cpp:164) with empty implementation. Not migrated to C# (OBS-026). |
+| `inverter` | `Invert` | ✅ C++ body was empty stub (RealLovelace.cpp:164). C# `Real.Invert()` fully implements the multiplicative inverse as `Real.One / this` (OBS-033). |
 
 ### 2.3 Comparison and Predicates
 
@@ -95,21 +95,21 @@ For the full translation table (class names, method names, representation contra
 
 | Portuguese (C++) | English (C#) | Definition |
 |---|---|---|
-| `getBitwise` | `GetBitwise(long pos, out byte high, out byte low)` | ⚠️ Splits a BCD byte into its two nibbles (high = even index, low = odd index). |
-| `setBitwise` | `SetBitwise(long pos, byte high, byte low)` | ⚠️ Packs two nibbles into one BCD byte. |
+| `getBitwise` | `GetBitwise(long pos, out byte high, out byte low)` | ✅ Splits a BCD byte into its two nibbles (high = even index, low = odd index). `internal` in C# — visible to Natural only (OBS-031). |
+| `setBitwise` | `SetBitwise(long pos, byte high, byte low)` | ✅ Packs two nibbles into one BCD byte: `(byte)((high << 4) | (low & 0x0F))`. `internal` in C# — visible to Natural only (OBS-031). |
 | `getDigito` | `GetDigit(long position)` | ✅ Returns a single decimal digit (0–9) at the given logical position. Public API. |
 | `setDigito` | `SetDigit(long position, byte digit)` | ✅ Stores a single decimal digit (0–9) at the given logical position. Public API. |
-| `getTamanho` | `ByteCount` property | ⚠️ Number of backing bytes allocated. |
-| `getQuantidadeAlgarismos` | `DigitCount` property | ⚠️ Number of logical decimal digits stored. |
-| `expandirAlgarismos` | `GrowDigits()` (internal) | ⚠️ Resizes the backing array upward; pushes `0x0C` sentinel. Confirmed in DigitStore.cs:296 (OBS-027). |
-| `reduzirAlgarismos` | `ShrinkDigits()` (internal) | ⚠️ Shrinks the backing array; vacated low nibble set to `0x0F`. Confirmed in DigitStore.cs:438 (OBS-027). |
+| `getTamanho` | `ByteCount` property | ✅ Number of backing bytes allocated. |
+| `getQuantidadeAlgarismos` | `DigitCount` property | ✅ Number of logical decimal digits stored. |
+| `expandirAlgarismos` | `GrowDigits()` (internal) | ✅ Resizes the backing array upward; pushes `0x0C` sentinel. Confirmed in DigitStore.cs:296 (OBS-027). |
+| `reduzirAlgarismos` | `ShrinkDigits()` (internal) | ✅ Shrinks the backing array; vacated low nibble set to `0x0F`. Confirmed in DigitStore.cs:438 (OBS-027). |
 
 ### 2.6 RealLovelace-specific
 
 | Portuguese (C++) | English (C#) | Definition |
 |---|---|---|
-| `getExpoente` | `Exponent` property | ⚠️ Decimal exponent. Negative value = fractional part. |
-| `setExpoente` | `Exponent` setter | ⚠️ Sets the decimal exponent. |
+| `getExpoente` | `Exponent` property | ✅ Decimal exponent. Negative value = fractional part. |
+| `setExpoente` | `Exponent` setter | ✅ Sets the decimal exponent. `Real.Exponent` has a public setter (RISK-002, OBS-011). |
 | `getCasasDecimaisExibicao` | `DisplayDecimalPlaces` static property | ⚠️ Number of decimal places shown when formatting. |
 | `setCasasDecimaisExibicao` | `DisplayDecimalPlaces` static setter | ⚠️ Sets the display decimal precision globally. |
 | `toInteiroLovelace` | *(no direct equivalent)* | ⚠️ Legacy method (RealLovelace.cpp:23) for conversion to Integer. C# achieves this through `ToNatural()` + constructor composition rather than a dedicated method (OBS-026, VAL-007). |
@@ -120,14 +120,14 @@ For the full translation table (class names, method names, representation contra
 
 | Term | Definition |
 |---|---|
-| **BCD** (Binary-Coded Decimal) | ⚠️ Encoding scheme where each decimal digit 0–9 is stored in a 4-bit nibble. LovelaceSharp packs **two** digits per byte. |
-| **Nibble** | ⚠️ A 4-bit half-byte. The high nibble (bits 7–4) holds the even-indexed digit; the low nibble (bits 3–0) holds the odd-indexed digit. |
-| **High nibble** | ⚠️ Bits 7–4 of a BCD byte — stores the digit at even logical position `2*byteIndex`. |
-| **Low nibble** | ⚠️ Bits 3–0 of a BCD byte — stores the digit at odd logical position `2*byteIndex + 1`. |
-| **Sentinel `0x0C` (12)** | ⚠️ Value pushed by `GrowDigits` (C# equivalent of `expandirAlgarismos`) to mark a newly allocated but unused digit slot. Confirmed in DigitStore.cs:296 (OBS-027). |
-| **Sentinel `0x0F` (15)** | ⚠️ Value written to the low nibble by `ShrinkDigits` (C# equivalent of `reduzirAlgarismos`) when a digit slot is vacated after shrinking. Confirmed in DigitStore.cs:438 (OBS-027). |
-| **Digit position** | ⚠️ Logical 0-based index of a decimal digit. Even positions occupy the high nibble of byte `position / 2`; odd positions occupy the low nibble. |
-| **Byte count** | ⚠️ Number of bytes in the backing `byte[]`. Equals `ceil(DigitCount / 2)`. |
+| **BCD** (Binary-Coded Decimal) | ✅ Encoding scheme where each decimal digit 0–9 is stored in a 4-bit nibble. LovelaceSharp packs **two** digits per byte (OBS-002). |
+| **Nibble** | ✅ A 4-bit half-byte. The high nibble (bits 7–4) holds the even-indexed digit; the low nibble (bits 3–0) holds the odd-indexed digit (OBS-002). |
+| **High nibble** | ✅ Bits 7–4 of a BCD byte — stores the digit at even logical position `2*byteIndex` (OBS-002). |
+| **Low nibble** | ✅ Bits 3–0 of a BCD byte — stores the digit at odd logical position `2*byteIndex + 1` (OBS-002). |
+| **Sentinel `0x0C` (12)** | ✅ Value pushed by `GrowDigits` to mark a newly allocated but unused digit slot. Confirmed in DigitStore.cs (OBS-027). |
+| **Sentinel `0x0F` (15)** | ✅ Value written to the low nibble by `ShrinkDigits` when a digit slot is vacated after shrinking. Confirmed in DigitStore.cs (OBS-027). |
+| **Digit position** | ✅ Logical 0-based index of a decimal digit. Even positions occupy the high nibble of byte `position / 2`; odd positions occupy the low nibble. Position 0 = LSD (OBS-002). |
+| **Byte count** | ✅ Number of bytes in the backing `List<byte>`. Equals `ceil(DigitCount / 2)` (OBS-001). |
 | **Digit count** | ⚠️ Number of logical decimal digits that the current number occupies, including leading zeros if any. |
 
 ---

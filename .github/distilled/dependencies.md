@@ -1,8 +1,8 @@
 # Dependencies
 
 > **Scope**: Inter-project and external dependencies across the LovelaceSharp solution
-> **Confidence**: Medium
-> **Last updated**: 2026-03-12
+> **Confidence**: High
+> **Last updated**: 2026-03-16
 > **Source entries**: OBS-003, OBS-006, OBS-010, OBS-018, OBS-020, VAL-001, VAL-002
 
 ---
@@ -22,13 +22,13 @@ entries that confirm boundary claims.
 - ✅ `Lovelace.Natural` → `Lovelace.Representation` (project reference; accesses internal APIs via InternalsVisibleTo) (OBS-003, OBS-006, VAL-001).
 - ✅ `Lovelace.Integer` → `Lovelace.Natural` (project reference; uses Natural for magnitude arithmetic) (OBS-010, OBS-018).
 - ✅ `Lovelace.Real` → `Lovelace.Integer` (project reference; extends Integer via inheritance) (OBS-011, OBS-018, VAL-002).
-- ⚠️ `Lovelace.Console` → `Lovelace.Natural`, `Lovelace.Integer`, `Lovelace.Real` (direct project references; uses only public APIs) (OBS-016, OBS-018).
+- ✅ `Lovelace.Console` → `Lovelace.Natural`, `Lovelace.Integer`, `Lovelace.Real` (direct project references; uses only public APIs) (OBS-016, OBS-018).
 
 ## InternalsVisibleTo Grants
 
 - ✅ `Lovelace.Representation` → `Lovelace.Representation.Tests`, `Lovelace.Natural` (OBS-003).
 - ✅ `Lovelace.Real` → `Lovelace.Real.Tests` (OBS-020).
-- ⚠️ No InternalsVisibleTo observed in `Lovelace.Natural` or `Lovelace.Integer` (OBS-018).
+- ✅ No `InternalsVisibleTo` in `Lovelace.Natural` or `Lovelace.Integer` (OBS-018).
 
 ---
 
