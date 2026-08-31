@@ -16,6 +16,7 @@
 | G4 | Introduce a **`Vector` value type** (range literals + list literals) with indexing, length, and element-wise arithmetic — the foundation for the vector/matrix layer (`VetorLovelace` migration) and the input to plotting. |
 | G5 | Provide **2D graph visualization**: a `plot` built-in that builds a plot model and renders it through a pluggable renderer, with an SVG renderer shipped first (resolution-independent for the future GUI). |
 | G6 | Keep the **AST as a stable intermediate representation** so a future bytecode/AOT compiler can reuse the same front-end; the interpreter is the first backend, not the only one. |
+| G7 | Maintain an **executable language reference**: a syntax document (`docs/Language.md`) whose every example is verified by a doctest (`LanguageDocumentationTests`), so the documentation cannot drift from the engine. |
 
 ### Non-Goals / Deferred (v1.1+)
 
@@ -304,6 +305,7 @@ Serializable capture of `Variables` (name → rendered value + kind) and `Functi
 - [x] Refactor `Lovelace.Console` to consume `SuiteEngine`; keep `vars`/`clear`/`delete`/`set`/`help`/`exit` and `_` semantics [depends on SuiteEngine]
 - [x] Add `funcs`, `run <file>`, and multi-line block entry to `LineEditor`/`ReplSession` [depends on SuiteEngine]
 - [x] Port the existing 133 REPL tests to target `Lovelace.Suite` and keep them green [mandatory — backward compatibility]
+- [x] Author the executable language reference `docs/Language.md` and a doctest (`LanguageDocumentationTests`) that evaluates every documented example and fails on any drift [mandatory — G7]
 
 ---
 
@@ -394,6 +396,13 @@ Serializable capture of `Variables` (name → rendered value + kind) and `Functi
 
 24. `ReplSession_GivenMultiLineFunctionDefinition_AccumulatesUntilBracesBalance`
     *Assumption*: The line editor accepts a block-bodied function split across lines and only submits once braces are balanced.
+
+### Executable documentation (G7)
+
+25. `DocumentedExample_GivenEveryLanguageReferenceExample_MatchesEngine`
+    *Assumption*: `docs/Language.md` contains `lovelace`/`result` fence pairs; a doctest evaluates
+    each example in a fresh engine and asserts the documented result (value, error message, print
+    output, or plot title) matches the engine exactly.
 
 ---
 

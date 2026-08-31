@@ -4,6 +4,10 @@ The scripting engine behind the LovelaceSharp REPL: a tokenizer → parser → i
 compiles and executes a MATLAB/Scilab-style math scripting language, plus a public introspection
 API and 2D SVG plotting. `Lovelace.Console` is a thin front-end over this library.
 
+> **Language reference:** the complete, machine-checked syntax reference is
+> [`docs/Language.md`](docs/Language.md). Every example there is verified by the
+> `LanguageDocumentationTests` doctest.
+
 ---
 
 ## Architecture
@@ -44,6 +48,9 @@ and a future bytecode/AOT compiler can reuse the same front-end.
 
 - `a..b` and `a..step..b` ranges; `[a, b, c]` list literals.
 - `len(v)`, 0-based indexing `v[i]`, and element-wise `+ - * /` (vector∘vector or scalar broadcast).
+- A range binds tighter than arithmetic operators, so `1..10 ^ 2` is `(1..10) ^ 2`,
+  `2 * 1..5` is `2 * (1..5)`, and `1..n + 1` is `(1..n) + 1` (parenthesize an endpoint to
+  change that, e.g. `1..(n + 1)`).
 
 ### Strings and output
 
