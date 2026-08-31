@@ -145,4 +145,18 @@ public class StatementTests
         Assert.Equal(ValueKind.Integer, result.AsVector()[0].Kind);
         Assert.Equal(Int.Parse("-2", null), result.AsVector()[0].AsInteger());
     }
+
+    [Fact]
+    public async Task Evaluate_GivenRangeSquared_AppliesElementWise()
+    {
+        var engine = new SuiteEngine();
+
+        // "1..10 ^ 2" must parse as (1..10) ^ 2, not 1..(10 ^ 2).
+        var result = await Eval(engine, "1..10 ^ 2");
+
+        Assert.Equal(ValueKind.Vector, result.Kind);
+        Assert.Equal(10, result.AsVector().Count);
+        Assert.Equal(Nat.Parse("1", null), result.AsVector()[0].AsNatural());
+        Assert.Equal(Nat.Parse("100", null), result.AsVector()[9].AsNatural());
+    }
 }

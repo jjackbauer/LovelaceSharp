@@ -7,8 +7,8 @@ namespace Lovelace.Suite;
 /// </summary>
 /// <remarks>
 /// Expression precedence, lowest to highest:
-/// assignment → range (<c>..</c>) → comparison → additive → multiplicative →
-/// power → unary prefix → postfix (factorial/index) → primary.
+/// assignment → comparison → additive → multiplicative → power → range (<c>..</c>) →
+/// unary prefix → postfix (factorial/index) → primary.
 /// </remarks>
 public sealed class Parser
 {
@@ -274,28 +274,7 @@ public sealed class Parser
             return new AssignExpr(name, value);
         }
 
-        return ParseRange();
-    }
-
-    // Range — start..end and start..step..end (binds looser than comparison)
-    private Expr ParseRange()
-    {
-        var first = ParseComparison();
-
-        if (Current.Kind != TokenKind.DotDot)
-            return first;
-
-        Advance(); // consume first '..'
-        var second = ParseComparison();
-
-        if (Current.Kind == TokenKind.DotDot)
-        {
-            Advance(); // consume second '..'
-            var third = ParseComparison();
-            return new RangeExpr(first, second, third);
-        }
-
-        return new RangeExpr(first, null, second);
+        return ParseComparison();
     }
 
     // Comparison (left-associative)
@@ -372,7 +351,7 @@ public sealed class Parser
     // Power (right-associative)
     private Expr ParsePower()
     {
-        var left = ParseUnary();
+        var left = ParseRange();
         if (Current.Kind == TokenKind.Caret)
         {
             Advance();
@@ -380,6 +359,28 @@ public sealed class Parser
             return new BinaryExpr(left, BinaryOp.Power, right);
         }
         return left;
+    }
+
+    // Range — start..end and start..step..end. Binds tighter than power so a
+    // range reads like an atomic value: `1..10 ^ 2` means `(1..10) ^ 2`.
+    private Expr ParseRange()
+    {
+        var first = ParseUnary();
+
+        if (Current.Kind != TokenKind.DotDot)
+            return first;
+
+        Advance(); // consume first '..'
+        var second = ParseUnary();
+
+        if (Current.Kind == TokenKind.DotDot)
+        {
+            Advance(); // consume second '..'
+            var third = ParseUnary();
+            return new RangeExpr(first, second, third);
+        }
+
+        return new RangeExpr(first, null, second);
     }
 
     // Unary prefix (right-associative)

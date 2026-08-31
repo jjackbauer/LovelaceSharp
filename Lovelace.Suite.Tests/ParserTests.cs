@@ -243,6 +243,52 @@ public class ParserTests
     }
 
     // -----------------------------------------------------------------------
+    // Range binds tighter than arithmetic (so `1..10 ^ 2` is `(1..10) ^ 2`)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Parse_GivenRangeBeforePower_RangeBindsTighter()
+    {
+        // "1..10 ^ 2" → Power(Range(1, 10), 2)
+        var expr = Parse("1..10 ^ 2");
+        var power = Assert.IsType<BinaryExpr>(expr);
+        Assert.Equal(BinaryOp.Power, power.Op);
+        var range = Assert.IsType<RangeExpr>(power.Left);
+        Assert.Null(range.Step);
+        Assert.Equal("1", Assert.IsType<LiteralExpr>(range.Start).RawText);
+        Assert.Equal("10", Assert.IsType<LiteralExpr>(range.End).RawText);
+        Assert.Equal("2", Assert.IsType<LiteralExpr>(power.Right).RawText);
+    }
+
+    [Fact]
+    public void Parse_GivenScalarTimesRange_RangeBindsTighter()
+    {
+        // "2 * 1..5" → Multiply(2, Range(1, 5))
+        var expr = Parse("2 * 1..5");
+        var mul = Assert.IsType<BinaryExpr>(expr);
+        Assert.Equal(BinaryOp.Multiply, mul.Op);
+        Assert.Equal("2", Assert.IsType<LiteralExpr>(mul.Left).RawText);
+        var range = Assert.IsType<RangeExpr>(mul.Right);
+        Assert.Null(range.Step);
+        Assert.Equal("1", Assert.IsType<LiteralExpr>(range.Start).RawText);
+        Assert.Equal("5", Assert.IsType<LiteralExpr>(range.End).RawText);
+    }
+
+    [Fact]
+    public void Parse_GivenRangePlusScalar_RangeBindsTighter()
+    {
+        // "1..5 + 1" → Add(Range(1, 5), 1)
+        var expr = Parse("1..5 + 1");
+        var add = Assert.IsType<BinaryExpr>(expr);
+        Assert.Equal(BinaryOp.Add, add.Op);
+        var range = Assert.IsType<RangeExpr>(add.Left);
+        Assert.Null(range.Step);
+        Assert.Equal("1", Assert.IsType<LiteralExpr>(range.Start).RawText);
+        Assert.Equal("5", Assert.IsType<LiteralExpr>(range.End).RawText);
+        Assert.Equal("1", Assert.IsType<LiteralExpr>(add.Right).RawText);
+    }
+
+    // -----------------------------------------------------------------------
     // Assignment (Test 41)
     // -----------------------------------------------------------------------
 

@@ -35,11 +35,11 @@ public sealed class ReplSession
           !         postfix factorial              e.g.  5!
           [i]       vector index (0-based)         e.g.  v[0]
           - +       unary negation / identity      e.g.  -x
+          ..        range (inclusive)              e.g.  1..5, 1..2..7
           ^         power (right-associative)      e.g.  2 ^ 10
           * / %     multiplicative                 e.g.  a * b
           + -       additive                       e.g.  a + b
           == != > < >= <=   comparison             e.g.  a > b
-          ..        range (inclusive)              e.g.  1..5, 1..2..7
           =         assignment (right-assoc)       e.g.  x = 42
 
         Built-in functions:
