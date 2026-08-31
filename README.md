@@ -55,7 +55,8 @@ holds the last result), operators `+ - * / % ^ ! == != > < >= <=`, statements (`
 with element-wise arithmetic and 0-based indexing), string interpolation (`$"… {expr} …"`),
 `print`, and 2D plotting (`plot(x, y)` → SVG). Built-ins include `abs`, `inv`, `divrem`,
 `is_even`, `is_odd`, `sign`, `sqrt`, `pi`, `len`. Full details in
-[`Lovelace.Suite/README.md`](Lovelace.Suite/README.md).
+[`Lovelace.Suite/README.md`](Lovelace.Suite/README.md); the complete, machine-checked syntax
+reference is [`Lovelace.Suite/docs/Language.md`](Lovelace.Suite/docs/Language.md).
 
 ---
 
@@ -71,6 +72,20 @@ make studio            # or: dotnet run --project Lovelace.Studio
 Open the printed localhost URL (default `http://localhost:5000`). It is a local, single-user
 tool that intentionally runs arbitrary scripts. See
 [`Lovelace.Studio/README.md`](Lovelace.Studio/README.md).
+
+---
+
+## Try it — the DSH harness
+
+A DeepSeek Harness (DSH) `lovelace` tool over the same engine, for authoring scripts from
+an agent conversation (results, variables, and plots come back as JSON):
+
+```bash
+make runner     # publish Lovelace.Run first
+```
+
+Then load the dynamic plugin in [`harness/lovelace.host.js`](harness/lovelace.host.js) — full
+steps in [`harness/README.md`](harness/README.md).
 
 ---
 
@@ -119,6 +134,7 @@ Lovelace.Representation ← Lovelace.Natural ← Lovelace.Integer ← Lovelace.R
 | `Lovelace.Suite` | The scripting engine: tokenizer → parser → interpreter, the `SuiteEngine` introspection API, vectors, and SVG plotting. |
 | `Lovelace.Console` | The interactive REPL front-end over `Lovelace.Suite`. |
 | `Lovelace.Studio` | A browser IDE over `Lovelace.Suite`: editor, variables/functions workspace, inline SVG plots, and a logs bar. |
+| `Lovelace.Run` | A non-interactive script runner over `Lovelace.Suite` that emits a JSON envelope; the engine behind the DSH `lovelace` tool in [`harness/`](harness/README.md). |
 
 Each library project has a matching `*.Tests` project (xUnit).
 
@@ -193,6 +209,10 @@ LovelaceSharp.slnx
 ├── Lovelace.Studio/                     # Browser IDE (ASP.NET Core minimal API + wwwroot)
 ├── Lovelace.Studio.Tests/
 │
+├── Lovelace.Run/                        # Non-interactive JSON script runner
+│
+├── harness/                             # DSH plugin source + docs (the `lovelace` tool)
+│
 ├── Lovelace.Real/                       # Real numbers (Real)
 ├── Lovelace.Real.Tests/
 │
@@ -208,12 +228,13 @@ Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 ```bash
 dotnet build          # build the whole solution
 make studio           # build + run the Lovelace.Studio web IDE
+make runner           # publish the non-interactive Lovelace.Run script runner
 make test             # run the fast test suites
 ```
 
 A [`Makefile`](Makefile) wraps the common commands: `make build` (publish the console app),
-`make run` (run the published console binary), `make studio` (build + run the web IDE),
-`make test` (fast test suites), `make clean`, and `make help`.
+`make run` (run the published console binary), `make runner` (publish the script runner),
+`make studio` (build + run the web IDE), `make test` (fast test suites), `make clean`, and `make help`.
 
 The Lean proofs are a separate toolchain (Lean 4.33.1, core-only):
 

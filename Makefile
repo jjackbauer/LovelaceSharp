@@ -2,10 +2,12 @@
 # Targets: build, run, studio, test, clean, help
 
 PROJECT        := Lovelace.Console/Lovelace.Console.csproj
+RUN_PROJECT    := Lovelace.Run/Lovelace.Run.csproj
 STUDIO_PROJECT := Lovelace.Studio/Lovelace.Studio.csproj
 CONFIGURATION  := Release
 FRAMEWORK      := net10.0
 PUBLISH_DIR    := Lovelace.Console/bin/$(CONFIGURATION)/$(FRAMEWORK)/publish
+RUN_DIR        := Lovelace.Run/bin/$(CONFIGURATION)/$(FRAMEWORK)/publish
 
 # Detect OS for binary extension
 ifeq ($(OS),Windows_NT)
@@ -14,7 +16,7 @@ else
     BINARY := $(PUBLISH_DIR)/Lovelace.Console
 endif
 
-.PHONY: all build run studio test clean help
+.PHONY: all build run runner studio test clean help
 
 all: build
 
@@ -33,6 +35,14 @@ build:
 ## run: Run the previously built console binary (requires `make build` first).
 run: $(BINARY)
 	$(BINARY)
+
+## runner: Publish the non-interactive script runner (Lovelace.Run).
+runner:
+	dotnet publish $(RUN_PROJECT) \
+		--configuration $(CONFIGURATION) \
+		--framework $(FRAMEWORK) \
+		--no-self-contained \
+		--output $(RUN_DIR)
 
 ## studio: Build and run the Lovelace.Studio web IDE (binds to localhost).
 studio:
@@ -61,6 +71,7 @@ help:
 	@echo LovelaceSharp - targets:
 	@echo   make build    Publish the console app (Release)
 	@echo   make run      Run the previously built console binary
+	@echo   make runner   Publish the non-interactive script runner (Lovelace.Run)
 	@echo   make studio   Build + run the Lovelace.Studio web IDE
 	@echo   make test     Run the fast test suites
 	@echo   make clean    Remove build artifacts
