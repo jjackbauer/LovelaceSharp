@@ -235,7 +235,7 @@ public sealed class Interpreter
             (BinaryOp.Add,      ValueKind.Natural) => new Value(left.AsNatural() + right.AsNatural()),
             (BinaryOp.Subtract, ValueKind.Natural) => SubtractNatural(left, right),
             (BinaryOp.Multiply, ValueKind.Natural) => new Value(left.AsNatural() * right.AsNatural()),
-            (BinaryOp.Divide,   ValueKind.Natural) => new Value(left.AsNatural() / right.AsNatural()),
+            (BinaryOp.Divide,   ValueKind.Natural) => DivideNatural(left, right),
             (BinaryOp.Modulo,   ValueKind.Natural) => new Value(left.AsNatural() % right.AsNatural()),
             (BinaryOp.Power,    ValueKind.Natural) => new Value(left.AsNatural().Pow(right.AsNatural())),
 
@@ -243,7 +243,7 @@ public sealed class Interpreter
             (BinaryOp.Add,      ValueKind.Integer) => new Value(left.AsInteger() + right.AsInteger()),
             (BinaryOp.Subtract, ValueKind.Integer) => new Value(left.AsInteger() - right.AsInteger()),
             (BinaryOp.Multiply, ValueKind.Integer) => new Value(left.AsInteger() * right.AsInteger()),
-            (BinaryOp.Divide,   ValueKind.Integer) => new Value(left.AsInteger() / right.AsInteger()),
+            (BinaryOp.Divide,   ValueKind.Integer) => DivideInteger(left, right),
             (BinaryOp.Modulo,   ValueKind.Integer) => new Value(left.AsInteger() % right.AsInteger()),
             (BinaryOp.Power,    ValueKind.Integer) => new Value(left.AsInteger().Pow(right.AsInteger())),
 
@@ -329,6 +329,37 @@ public sealed class Interpreter
             var rightInt = right.Widen(ValueKind.Integer);
             return new Value(leftInt.AsInteger() - rightInt.AsInteger());
         }
+    }
+
+    /// <summary>
+    /// Natural division. An exact quotient stays <see cref="ValueKind.Natural"/>; a non-zero
+    /// remainder widens to <see cref="ValueKind.Real"/> so the exact rational result is
+    /// preserved with period detection (e.g. <c>1 / 3 = 0.(3)</c>) instead of truncating.
+    /// </summary>
+    private static Value DivideNatural(Value left, Value right)
+    {
+        var quotient = Nat.DivRem(left.AsNatural(), right.AsNatural(), out var remainder);
+        if (Nat.IsZero(remainder))
+            return new Value(quotient);
+
+        return new Value(Rl.Divide(
+            left.Widen(ValueKind.Real).AsReal(),
+            right.Widen(ValueKind.Real).AsReal()));
+    }
+
+    /// <summary>
+    /// Integer division. An exact quotient stays <see cref="ValueKind.Integer"/>; otherwise the
+    /// result widens to <see cref="ValueKind.Real"/> (e.g. <c>-7 / 2 = -3.5</c>).
+    /// </summary>
+    private static Value DivideInteger(Value left, Value right)
+    {
+        var quotient = left.AsInteger().DivRem(right.AsInteger(), out var remainder);
+        if (Int.IsZero(remainder))
+            return new Value(quotient);
+
+        return new Value(Rl.Divide(
+            left.Widen(ValueKind.Real).AsReal(),
+            right.Widen(ValueKind.Real).AsReal()));
     }
 
     // -----------------------------------------------------------------

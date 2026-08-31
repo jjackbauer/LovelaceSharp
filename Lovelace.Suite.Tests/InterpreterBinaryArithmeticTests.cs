@@ -203,4 +203,30 @@ public class InterpreterBinaryArithmeticTests
         Assert.Equal(ValueKind.Natural, result.Kind);
         Assert.Equal(Nat.Parse("0", null), result.AsNatural());
     }
+
+    // -----------------------------------------------------------------------
+    // Non-exact division widens to Real (exact rational, period-detected)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Evaluate_GivenNaturalDivideNonExact_WidensToReal()
+    {
+        var expr = Bin("1", BinaryOp.Divide, "3");
+
+        var result = await _evaluator.EvaluateAsync(expr);
+
+        Assert.Equal(ValueKind.Real, result.Kind);
+        Assert.Equal(Rl.Parse("0.(3)", null), result.AsReal());
+    }
+
+    [Fact]
+    public async Task Evaluate_GivenIntegerDivideNonExact_WidensToReal()
+    {
+        var engine = new SuiteEngine();
+
+        var result = await engine.EvaluateAsync("-7 / 2");
+
+        Assert.Equal(ValueKind.Real, result.Kind);
+        Assert.Equal(Rl.Parse("-3.5", null), result.AsReal());
+    }
 }
