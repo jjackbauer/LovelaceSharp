@@ -1,4 +1,3 @@
-using System.Text;
 using Lovelace.Suite;
 
 namespace Lovelace.Studio;
@@ -38,7 +37,7 @@ public sealed class EngineHost
             Exception? error = null;
             try
             {
-                result = await _engine.EvaluateAsync(ToSemicolonStatements(text), logs);
+                result = await _engine.EvaluateAsync(ScriptSource.ToSemicolonStatements(text), logs);
             }
             catch (Exception ex)
             {
@@ -102,80 +101,6 @@ public sealed class EngineHost
             plotPayload,
             diagnostics,
             snapshot.Revision);
-    }
-
-    /// <summary>
-    /// Rewrites top-level newlines (brace/bracket/paren/string aware) to <c>;</c> so a
-    /// newline-separated script parses as a program. Length-preserving: each newline
-    /// becomes exactly one character, so engine diagnostics keep their positions.
-    /// </summary>
-    private static string ToSemicolonStatements(string source)
-    {
-        var sb = new StringBuilder(source.Length);
-        int depth = 0;
-        bool inString = false;
-        char? last = null; // last non-whitespace char emitted outside a string
-
-        for (int i = 0; i < source.Length; i++)
-        {
-            char c = source[i];
-
-            if (inString)
-            {
-                sb.Append(c);
-                if (c == '"')
-                {
-                    inString = false;
-                    last = c;
-                }
-                continue;
-            }
-
-            if (c == '"')
-            {
-                inString = true;
-                sb.Append(c);
-                last = c;
-                continue;
-            }
-
-            switch (c)
-            {
-                case '{':
-                case '[':
-                case '(':
-                    depth++;
-                    sb.Append(c);
-                    last = c;
-                    break;
-                case '}':
-                case ']':
-                case ')':
-                    if (depth > 0) depth--;
-                    sb.Append(c);
-                    last = c;
-                    break;
-                case '\n':
-                    if (depth == 0)
-                    {
-                        // Suppress a separator after ';' (trailing/blank lines) and at the start.
-                        char replacement = last is null || last == ';' ? ' ' : ';';
-                        sb.Append(replacement);
-                        if (replacement == ';') last = ';';
-                    }
-                    else
-                    {
-                        sb.Append('\n');
-                    }
-                    break;
-                default:
-                    if (!char.IsWhiteSpace(c)) last = c;
-                    sb.Append(c);
-                    break;
-            }
-        }
-
-        return sb.ToString();
     }
 
     private static StateResponse ToState(StateSnapshot snapshot) =>
