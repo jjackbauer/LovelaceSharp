@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="Lovelace.Console.Tests/Lovelace.Console.Tests.csproj" />
   <Project Path="Lovelace.Console/Lovelace.Console.csproj" />
   <Project Path="Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj" />
   <Project Path="Lovelace.Integer/Lovelace.Integer.csproj" />
@@ -9,4 +8,8 @@
   <Project Path="Lovelace.Real/Lovelace.Real.csproj" />
   <Project Path="Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj" />
   <Project Path="Lovelace.Representation/Lovelace.Representation.csproj" />
+  <Project Path="Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj" />
+  <Project Path="Lovelace.Suite/Lovelace.Suite.csproj" />
+  <Project Path="Lovelace.Studio/Lovelace.Studio.csproj" />
+  <Project Path="Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj" />
 </Solution>

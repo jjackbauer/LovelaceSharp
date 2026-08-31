@@ -38,14 +38,39 @@ Type 'help' for a list of operators, functions, and commands.
 = 120 (Natural)
 > divrem(17, 5)
 = quotient = 3, remainder = 2
+> func square(x) = x ^ 2
+> square(5)
+= 25 (Natural)
+> 1..5
+= [1, 2, 3, 4, 5] (Vector)
+> plot(1..5, [1, 4, 9, 16, 25], "squares")
+= C:\…\plot.svg (Text)
 > exit
 Bye!
 ```
 
-It is a full expression evaluator: variables (`x = 3.14`, and `_` always holds the last result),
-operators `+ - * / % ^ ! == != > < >= <=`, and built-ins `abs`, `inv`, `divrem`, `is_even`,
-`is_odd`, `sign`, `sqrt`, `pi`. Full details in
-[`Lovelace.Console/README.md`](Lovelace.Console/README.md).
+It is a full scripting engine, not just a calculator: variables (`x = 3.14`, and `_` always
+holds the last result), operators `+ - * / % ^ ! == != > < >= <=`, statements (`if`, `while`,
+`for … in …`, `return`), user-defined functions (`func`), vectors and ranges (`1..10`, `[1, 2, 3]`
+with element-wise arithmetic and 0-based indexing), string interpolation (`$"… {expr} …"`),
+`print`, and 2D plotting (`plot(x, y)` → SVG). Built-ins include `abs`, `inv`, `divrem`,
+`is_even`, `is_odd`, `sign`, `sqrt`, `pi`, `len`. Full details in
+[`Lovelace.Suite/README.md`](Lovelace.Suite/README.md).
+
+---
+
+## Try it — the web IDE
+
+A browser IDE (script editor, variables/functions workspace, inline SVG plots, and a logs bar)
+over the same engine:
+
+```bash
+make studio            # or: dotnet run --project Lovelace.Studio
+```
+
+Open the printed localhost URL (default `http://localhost:5000`). It is a local, single-user
+tool that intentionally runs arbitrary scripts. See
+[`Lovelace.Studio/README.md`](Lovelace.Studio/README.md).
 
 ---
 
@@ -72,12 +97,17 @@ interfaces:
 
 ## Architecture
 
-Four focused projects, each built on the one below it, plus an interactive front-end:
+Four numeric library projects, each built on the one below it, plus the script engine and two front-ends (a REPL and a web IDE):
 
 ```
 Lovelace.Representation ← Lovelace.Natural ← Lovelace.Integer ← Lovelace.Real
                                                                         ↑
-                                                             Lovelace.Console (REPL)
+                                                               Lovelace.Suite (script engine)
+                                                                        ↑
+                                                               ┌────────┴────────┐
+                                                               ↓                 ↓
+                                                     Lovelace.Console      Lovelace.Studio
+                                                        (REPL)             (web IDE)
 ```
 
 | Project | Responsibility |
@@ -86,7 +116,9 @@ Lovelace.Representation ← Lovelace.Natural ← Lovelace.Integer ← Lovelace.R
 | `Lovelace.Natural` | Arbitrary-precision naturals. |
 | `Lovelace.Integer` | Signed integers on top of `Natural`. |
 | `Lovelace.Real` | Reals on top of `Integer` (decimal exponent + period metadata). |
-| `Lovelace.Console` | The interactive REPL (tokenizer → parser → evaluator). |
+| `Lovelace.Suite` | The scripting engine: tokenizer → parser → interpreter, the `SuiteEngine` introspection API, vectors, and SVG plotting. |
+| `Lovelace.Console` | The interactive REPL front-end over `Lovelace.Suite`. |
+| `Lovelace.Studio` | A browser IDE over `Lovelace.Suite`: editor, variables/functions workspace, inline SVG plots, and a logs bar. |
 
 Each library project has a matching `*.Tests` project (xUnit).
 
@@ -120,8 +152,10 @@ The named theorems are in [`Lovelace.Proofs/README.md`](Lovelace.Proofs/README.m
 | `Lovelace.Real` — Pi | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
 | `Lovelace.Real` — Sqrt Redesign | [`.github/requirements/Lovelace.Real.Sqrt-Redesign.md`](.github/requirements/Lovelace.Real.Sqrt-Redesign.md) | ✅ Complete |
 | `Lovelace.Console` | [`.github/requirements/Lovelace.Console.md`](.github/requirements/Lovelace.Console.md) | ✅ Complete |
+| `Lovelace.Suite` | [`.github/requirements/Lovelace.Suite.md`](.github/requirements/Lovelace.Suite.md) | ✅ Complete |
 | `Lovelace.Proofs` | [`.github/requirements/Lovelace.Proofs.md`](.github/requirements/Lovelace.Proofs.md) | ✅ Complete |
 | `Lovelace.Proofs` — Division | [`.github/requirements/Lovelace.Proofs.Division.md`](.github/requirements/Lovelace.Proofs.Division.md) | ✅ Complete |
+| `Lovelace.Studio` | [`.github/requirements/Lovelace.Studio.md`](.github/requirements/Lovelace.Studio.md) | ✅ Complete |
 
 Engineering notes (parallelization, investigations):
 [Representation audit](.github/requirements/Lovelace.Representation-parallelization-audit.md) ·
@@ -151,8 +185,13 @@ LovelaceSharp.slnx
 ├── Lovelace.Integer/                    # Signed integers (Integer)
 ├── Lovelace.Integer.Tests/
 │
-├── Lovelace.Console/                    # Interactive REPL calculator
-├── Lovelace.Console.Tests/
+├── Lovelace.Suite/                      # Scripting engine: interpreter, introspection API, vectors, plotting
+├── Lovelace.Suite.Tests/
+│
+├── Lovelace.Console/                    # Interactive REPL front-end
+│
+├── Lovelace.Studio/                     # Browser IDE (ASP.NET Core minimal API + wwwroot)
+├── Lovelace.Studio.Tests/
 │
 ├── Lovelace.Real/                       # Real numbers (Real)
 ├── Lovelace.Real.Tests/
@@ -167,8 +206,14 @@ LovelaceSharp.slnx
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
-dotnet build
+dotnet build          # build the whole solution
+make studio           # build + run the Lovelace.Studio web IDE
+make test             # run the fast test suites
 ```
+
+A [`Makefile`](Makefile) wraps the common commands: `make build` (publish the console app),
+`make run` (run the published console binary), `make studio` (build + run the web IDE),
+`make test` (fast test suites), `make clean`, and `make help`.
 
 The Lean proofs are a separate toolchain (Lean 4.33.1, core-only):
 

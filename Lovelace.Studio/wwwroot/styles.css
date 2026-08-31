@@ -1,0 +1,329 @@
+:root {
+  --bg: #1e1f24;
+  --panel: #26272e;
+  --panel-header: #2c2e36;
+  --border: #3a3d47;
+  --text: #e6e6ea;
+  --muted: #9aa0ad;
+  --accent: #4f8cff;
+  --accent-hover: #3d7af0;
+  --error: #ff5f6d;
+  --ok: #55c98a;
+  --mono: "Cascadia Mono", "Consolas", "SF Mono", "Menlo", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+body.resizing { cursor: default; user-select: none; }
+
+/* ---------------- Toolbar ---------------- */
+#toolbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar-group { display: flex; align-items: center; gap: 6px; }
+.toolbar-spacer { flex: 1; }
+
+.readout {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { background: var(--accent-hover); }
+
+/* ---------------- Panes ---------------- */
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.pane-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+}
+
+.pane-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.pane-actions { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+
+.pane-btn {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.pane-btn:hover { color: var(--text); border-color: var(--border); background: var(--panel); }
+
+.pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ---------------- Layout ---------------- */
+#main-row {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: row;
+  min-height: 0;
+  padding: 8px 8px 0 8px;
+  gap: 0;
+}
+
+#editor-pane { flex: 1 1 auto; min-width: 240px; }
+
+#workspace-pane { flex: 0 0 auto; width: 45%; min-width: 260px; }
+
+#graph-pane { flex: 0 0 auto; height: 270px; min-height: 120px; margin: 0 8px; }
+
+#logs-pane { flex: 0 0 auto; height: 190px; min-height: 80px; margin: 8px; }
+
+/* ---------------- Dividers ---------------- */
+.divider {
+  flex: 0 0 auto;
+  background: transparent;
+  z-index: 6;
+  transition: background 0.12s ease;
+}
+.divider:hover, body.resizing .divider { background: var(--accent); }
+.divider-v { width: 6px; cursor: col-resize; }
+.divider-h { height: 6px; cursor: row-resize; margin: 0 8px; }
+
+/* ---------------- Editor ---------------- */
+#editor {
+  flex: 1 1 auto;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: #16171b;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 4;
+}
+#editor.editor-error { box-shadow: inset 0 0 0 2px var(--error); }
+
+/* ---------------- Workspace ---------------- */
+#workspace-pane .pane-body { padding: 10px; overflow-y: auto; }
+
+#workspace-pane h3 {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+#functions-panel { margin-top: 18px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+th, td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+td { word-break: break-all; }
+
+.kind { color: var(--accent); }
+.kind.builtin { color: var(--muted); }
+.kind.user { color: var(--ok); }
+
+.row-delete {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 6px;
+  cursor: pointer;
+}
+.row-delete:hover { color: var(--error); }
+
+.empty-hint {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+/* ---------------- Graph ---------------- */
+#graph-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  background: #16171b;
+}
+.graph-svg { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: 8px; }
+.graph-svg svg { max-width: 100%; max-height: 100%; width: auto; height: auto; background: #fff; }
+
+/* ---------------- Logs ---------------- */
+#quick-eval {
+  flex: 1 1 auto;
+  max-width: 420px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+  background: #16171b;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  outline: none;
+}
+#quick-eval:focus { border-color: var(--accent); }
+
+.log-output {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: #16171b;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.log-line { }
+.log-line.echo { color: var(--muted); }
+.log-line.output { color: var(--text); }
+.log-line.result { color: var(--ok); }
+.log-line.error { color: var(--error); }
+.log-line.info { color: var(--muted); }
+
+/* ---------------- Minimize / Maximize ---------------- */
+.pane.minimized {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  width: auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+}
+.pane.minimized .pane-body,
+.pane.minimized #quick-eval,
+.pane.minimized .pane-max { display: none; }
+.pane.minimized .pane-header { border-bottom: none; border-radius: 6px; }
+
+/* A minimized side pane becomes a slim vertical tab. */
+#editor-pane.minimized, #workspace-pane.minimized { width: 28px !important; min-width: 28px !important; }
+#editor-pane.minimized .pane-header, #workspace-pane.minimized .pane-header {
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: none;
+  border-radius: 6px;
+}
+#editor-pane.minimized .pane-title, #workspace-pane.minimized .pane-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+#editor-pane.minimized .pane-actions, #workspace-pane.minimized .pane-actions {
+  margin-left: 0;
+  flex-direction: column;
+}
+
+/* Maximized: one pane fills the content area; the other group is hidden. */
+body.has-maximized .divider { display: none !important; }
+body.has-maximized .pane:not(.maximized) { display: none !important; }
+body.has-maximized.max-group-bottom #main-row { display: none !important; }
+body.has-maximized.max-group-main #main-row { padding: 0 !important; }
+.pane.maximized {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  width: auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  margin: 8px !important;
+}
+
+/* ---------------- Scrollbars ---------------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #4a4d59; }
+::-webkit-scrollbar-track { background: transparent; }

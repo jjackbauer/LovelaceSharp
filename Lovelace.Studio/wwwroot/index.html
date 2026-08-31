@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lovelace.Studio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header id="toolbar">
+    <div class="toolbar-group">
+      <button id="run-btn" class="primary" title="Run the script (Ctrl+Enter)">Run</button>
+      <button id="clear-btn" title="Clear all variables (functions remain)">Clear</button>
+      <button id="save-btn" title="Save editor content to localStorage">Save</button>
+      <button id="load-btn" title="Load editor content from localStorage">Load</button>
+    </div>
+    <div class="toolbar-spacer"></div>
+    <div class="toolbar-group">
+      <span id="cursor-pos" class="readout">Ln 1, Col 1</span>
+      <span id="status" class="readout">rev 0</span>
+    </div>
+  </header>
+
+  <div id="main-row">
+    <section id="editor-pane" class="pane" data-group="main">
+      <div class="pane-header">
+        <span class="pane-title">Script</span>
+        <span class="pane-actions">
+          <button class="pane-btn pane-min" title="Minimize" aria-label="Minimize">–</button>
+          <button class="pane-btn pane-max" title="Maximize" aria-label="Maximize">□</button>
+        </span>
+      </div>
+      <div class="pane-body">
+        <textarea id="editor" spellcheck="false" wrap="off"
+          placeholder="Enter a Lovelace script, e.g.&#10;func square(x) = x^2&#10;square(5)&#10;plot(1..5, [1,4,9,16,25])"></textarea>
+      </div>
+    </section>
+
+    <div class="divider divider-v" id="divider-main" title="Drag to resize"></div>
+
+    <section id="workspace-pane" class="pane" data-group="main">
+      <div class="pane-header">
+        <span class="pane-title">Workspace</span>
+        <span class="pane-actions">
+          <button class="pane-btn pane-min" title="Minimize" aria-label="Minimize">–</button>
+          <button class="pane-btn pane-max" title="Maximize" aria-label="Maximize">□</button>
+        </span>
+      </div>
+      <div class="pane-body">
+        <div id="variables-panel">
+          <h3>Variables</h3>
+          <table id="variables-table">
+            <thead><tr><th>Name</th><th>Value</th><th>Type</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="variables-empty" class="empty-hint">no variables</div>
+        </div>
+        <div id="functions-panel">
+          <h3>Functions</h3>
+          <table id="functions-table">
+            <thead><tr><th>Name</th><th>Parameters</th><th>Kind</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="functions-empty" class="empty-hint">no functions</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="divider divider-h" id="divider-graph" title="Drag to resize"></div>
+
+  <section id="graph-pane" class="pane" data-group="bottom">
+    <div class="pane-header">
+      <span class="pane-title">Graph</span>
+      <span class="pane-actions">
+        <button class="pane-btn pane-min" title="Minimize" aria-label="Minimize">–</button>
+        <button class="pane-btn pane-max" title="Maximize" aria-label="Maximize">□</button>
+      </span>
+    </div>
+    <div class="pane-body">
+      <div id="graph-container">
+        <div id="graph-placeholder" class="empty-hint">no plot yet</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider divider-h" id="divider-logs" title="Drag to resize"></div>
+
+  <section id="logs-pane" class="pane" data-group="bottom">
+    <div class="pane-header">
+      <span class="pane-title">Logs</span>
+      <input id="quick-eval" type="text" placeholder="quick eval — one-liner, press Enter" spellcheck="false" autocomplete="off" />
+      <span class="pane-actions">
+        <button class="pane-btn pane-min" title="Minimize" aria-label="Minimize">–</button>
+        <button class="pane-btn pane-max" title="Maximize" aria-label="Maximize">□</button>
+      </span>
+    </div>
+    <div class="pane-body">
+      <div id="logs" class="log-output" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

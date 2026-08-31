@@ -43,6 +43,9 @@ coverage*/
 publish/
 artifacts/
 
+# Plot output (default filename from the plot builtin)
+plot.svg
+
 # Logs
 *.log
 logs/
