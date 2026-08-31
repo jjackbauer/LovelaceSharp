@@ -1,96 +1,137 @@
 # LovelaceSharp
 
-An arbitrary-precision number library for .NET 10, migrated from a C++ implementation ([`Legacy/`](Legacy/)) to idiomatic C# with full xUnit test coverage.
+> Arbitrary-precision arithmetic, end to end: a .NET library, an interactive calculator, and a
+> Lean proof that the digits are actually right.
 
-Named after [Ada Lovelace](https://en.wikipedia.org/wiki/Ada_Lovelace), the first computer programmer.
+Named after [Ada Lovelace](https://en.wikipedia.org/wiki/Ada_Lovelace), the first programmer,
+LovelaceSharp computes with numbers of *any* size. No `long`, no `double`, no fixed precision —
+unless you ask for it.
 
 ---
 
-## Overview
+## Try it — the REPL
 
-LovelaceSharp provides arbitrary-precision numeric types with no fixed size limit:
+The fastest way to meet the library is the interactive calculator:
 
-| Type | Range | Description |
+```bash
+dotnet run --project Lovelace.Console
+```
+
+```
+LovelaceSharp REPL v1.0.0
+Arbitrary-precision arithmetic calculator.
+Type 'help' for a list of operators, functions, and commands.
+
+> 42
+= 42 (Natural)
+> x = 3.14
+= 3.14 (Real)
+> x * 2
+= 6.28 (Real)
+> 1 / 3
+= 0.(3) (Real)        # exact periodic fraction, not 0.3333333...
+> sqrt(2)
+= 1.4142135623… (Real) # as many digits as you want
+> pi(100)
+= 3.1415926535… (Real)
+> 5!
+= 120 (Natural)
+> divrem(17, 5)
+= quotient = 3, remainder = 2
+> exit
+Bye!
+```
+
+It is a full expression evaluator: variables (`x = 3.14`, and `_` always holds the last result),
+operators `+ - * / % ^ ! == != > < >= <=`, and built-ins `abs`, `inv`, `divrem`, `is_even`,
+`is_odd`, `sign`, `sqrt`, `pi`. Full details in
+[`Lovelace.Console/README.md`](Lovelace.Console/README.md).
+
+---
+
+## The numbers
+
+Three arbitrary-precision types, each implementing the relevant `System.Numerics` generic-math
+interfaces:
+
+| Type | Domain | Highlights |
 |---|---|---|
-| `Natural` | ≥ 0 | Arbitrary-precision natural numbers |
-| `Integer` | ℤ | Signed arbitrary-precision integers |
-| `Real` | ℝ | Arbitrary-precision fixed/floating-point reals |
+| `Natural` | ℕ₀ (≥ 0) | digit-by-digit `+ − × ÷`, `DivRem`, binary `Pow`, parallel `Factorial` |
+| `Integer` | ℤ | sign + magnitude, signed `DivRem`, `Pow`, `Factorial` |
+| `Real` | ℝ | arbitrary precision + **exact periodic fractions**, `Sqrt`, `Pi` |
 
-All types implement the appropriate [`System.Numerics`](https://learn.microsoft.com/en-us/dotnet/standard/numerics) generic math interfaces, making them compatible with generic numeric algorithms out of the box.
+**Why that is fun:**
+
+- `1 / 3` is *exactly* `0.(3)`. Division detects the repeating block and stores it compactly
+  instead of rounding.
+- `sqrt(2)` and `π` go to any number of digits — Newton–Raphson and the Chudnovsky algorithm,
+  both parallelized.
+- `100000!` works. It just takes a moment.
 
 ---
 
 ## Architecture
 
-The library is split into four focused projects, each building on the one below it.
+Four focused projects, each built on the one below it, plus an interactive front-end:
 
 ```
-Lovelace.Representation  ←  Lovelace.Natural  ←  Lovelace.Integer  ←  Lovelace.Real
+Lovelace.Representation ← Lovelace.Natural ← Lovelace.Integer ← Lovelace.Real
+                                                                        ↑
+                                                             Lovelace.Console (REPL)
 ```
 
-### Projects
+| Project | Responsibility |
+|---|---|
+| `Lovelace.Representation` | `DigitStore` — the only project that touches the raw BCD `byte[]` (two decimal digits per byte). |
+| `Lovelace.Natural` | Arbitrary-precision naturals. |
+| `Lovelace.Integer` | Signed integers on top of `Natural`. |
+| `Lovelace.Real` | Reals on top of `Integer` (decimal exponent + period metadata). |
+| `Lovelace.Console` | The interactive REPL (tokenizer → parser → evaluator). |
 
-| Project | Class | Responsibility |
-|---|---|---|
-| `Lovelace.Representation` | `DigitStore` | **Internal BCD digit store.** Packs two decimal digits per `byte` (Binary Coded Decimal). The only project that may read or write the raw `byte[]` backing store. |
-| `Lovelace.Natural` | `Natural` | Arbitrary-precision natural numbers (≥ 0). Arithmetic, comparison, parsing, and formatting via `INumber<T>`. |
-| `Lovelace.Integer` | `Integer` | Signed arbitrary-precision integers. Adds a sign bit on top of `Natural`. |
-| `Lovelace.Real` | `Real` | Arbitrary-precision real numbers. Adds a decimal exponent on top of `Integer`. |
-
-Each project has a corresponding `*.Tests` project using xUnit.
+Each library project has a matching `*.Tests` project (xUnit).
 
 ---
 
-## BCD Storage
+## Formal proofs (Lean)
 
-`DigitStore` uses **Binary Coded Decimal (BCD)** packing — two decimal digits per `byte`:
+The digit-by-digit algorithms are not just tested — they are **proved**.
+[`Lovelace.Proofs/`](Lovelace.Proofs/) is a Lean 4 formalization (core-only, no Mathlib) of the
+schoolbook base-`b` arithmetic in `White Paper.pdf`, stated over `Nat`:
 
-```
-Byte layout:
-  bits 7–4 (high nibble) → even-indexed digit  (position 2n)
-  bits 3–0 (low nibble)  → odd-indexed digit   (position 2n+1)
-```
+- **Representation** — digit expansion, round-trip, and uniqueness.
+- **Addition** — carry-propagating digit addition.
+- **Subtraction** — borrow-propagating digit subtraction.
+- **Multiplication** — convolution (Cauchy product) plus carry.
+- **Division** — digit-by-digit long division with a bounded running remainder.
 
-Sentinel values:
-- `0x0C` — slot available (appended by `GrowDigits`)
-- `0x0F` — slot freed (written by `ShrinkDigits` to the vacated half-byte)
-
-Only `Lovelace.Representation` ever reads or writes these bytes. All higher layers call `GetDigit(position)` and `SetDigit(position, digit)`.
-
----
-
-## Interfaces Implemented
-
-`Natural`, `Integer`, and `Real` implement the standard .NET generic math interfaces:
-
-- `INumber<T>`
-- `IComparable<T>`, `IEquatable<T>`
-- `IParsable<T>`, `ISpanParsable<T>`
-- `ISpanFormattable`
-- `IAdditionOperators<T,T,T>`, `ISubtractionOperators<T,T,T>`
-- `IMultiplyOperators<T,T,T>`, `IDivisionOperators<T,T,T>`, `IModulusOperators<T,T,T>`
-- `IIncrementOperators<T>`, `IDecrementOperators<T>`
-- `IComparisonOperators<T,T,bool>`
-- `ISignedNumber<T>` (`Integer` and `Real` only)
+The named theorems are in [`Lovelace.Proofs/README.md`](Lovelace.Proofs/README.md).
 
 ---
 
 ## Requirements & Status
 
-| Project | Requirements Doc | Status |
+| Project | Requirements doc | Status |
 |---|---|---|
 | `Lovelace.Representation` | [`.github/requirements/Lovelace.Representation.md`](.github/requirements/Lovelace.Representation.md) | ✅ Complete |
 | `Lovelace.Natural` | [`.github/requirements/Lovelace.Natural.md`](.github/requirements/Lovelace.Natural.md) | ✅ Complete |
 | `Lovelace.Integer` | [`.github/requirements/Lovelace.Integer.md`](.github/requirements/Lovelace.Integer.md) | ✅ Complete |
-| `Lovelace.Console` | [`.github/requirements/Lovelace.Console.md`](.github/requirements/Lovelace.Console.md) | ✅ Complete |
 | `Lovelace.Real` | [`.github/requirements/Lovelace.Real.md`](.github/requirements/Lovelace.Real.md) | ✅ Complete |
 | `Lovelace.Real` — Sqrt | [`.github/requirements/Lovelace.Real.Sqrt.md`](.github/requirements/Lovelace.Real.Sqrt.md) | ✅ Complete |
-| `Lovelace.Real` — Pi & Console | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
+| `Lovelace.Real` — Pi | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
 | `Lovelace.Real` — Sqrt Redesign | [`.github/requirements/Lovelace.Real.Sqrt-Redesign.md`](.github/requirements/Lovelace.Real.Sqrt-Redesign.md) | ✅ Complete |
+| `Lovelace.Console` | [`.github/requirements/Lovelace.Console.md`](.github/requirements/Lovelace.Console.md) | ✅ Complete |
+| `Lovelace.Proofs` | [`.github/requirements/Lovelace.Proofs.md`](.github/requirements/Lovelace.Proofs.md) | ✅ Complete |
+| `Lovelace.Proofs` — Division | [`.github/requirements/Lovelace.Proofs.Division.md`](.github/requirements/Lovelace.Proofs.Division.md) | ✅ Complete |
+
+Engineering notes (parallelization, investigations):
+[Representation audit](.github/requirements/Lovelace.Representation-parallelization-audit.md) ·
+[Natural audit](.github/requirements/Lovelace.Natural-parallelization-audit.md) ·
+[Real parallelism](.github/requirements/Lovelace.Real.Parallelism.md) ·
+[Sqrt investigation](.github/requirements/Lovelace.Real.Sqrt.investigation.md).
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 LovelaceSharp.slnx
@@ -110,20 +151,30 @@ LovelaceSharp.slnx
 ├── Lovelace.Integer/                    # Signed integers (Integer)
 ├── Lovelace.Integer.Tests/
 │
-├── Lovelace.Console/                    # Interactive demo app (exercises Natural & Integer)
+├── Lovelace.Console/                    # Interactive REPL calculator
+├── Lovelace.Console.Tests/
 │
 ├── Lovelace.Real/                       # Real numbers (Real)
-└── Lovelace.Real.Tests/
+├── Lovelace.Real.Tests/
+│
+└── Lovelace.Proofs/                     # Lean formal proofs (representation → division)
 ```
 
 ---
 
 ## Building
 
-Requires [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
 dotnet build
+```
+
+The Lean proofs are a separate toolchain (Lean 4.33.1, core-only):
+
+```bash
+cd Lovelace.Proofs
+lake build
 ```
 
 ---
@@ -134,24 +185,24 @@ dotnet build
 # Run all tests
 dotnet test
 
-# Run tests for a specific project
+# Run a specific project
 dotnet test Lovelace.Representation.Tests/
 dotnet test Lovelace.Natural.Tests/
 ```
 
-Test naming convention: `MethodName_GivenScenario_ExpectedResult`
+Test naming convention: `MethodName_GivenScenario_ExpectedResult`.
 
 ---
 
-## Legacy Migration
+## Legacy migration
 
-The C# codebase is a class-by-class migration from the C++ `Legacy/` source. The original code was written in Portuguese; all C# identifiers use English following .NET naming conventions (`PascalCase` for public members).
-
-Key reference documents in `.github/`:
+The C# codebase is a class-by-class migration of the C++ `Legacy/` source (originally written in
+Portuguese; identifiers are English here, using .NET conventions). Key reference documents live in
+[`.github/`](.github/):
 
 | File | Purpose |
 |---|---|
-| [`.github/prompts/legacy-knowledge-map.md`](.github/prompts/legacy-knowledge-map.md) | Full Portuguese → English method name mapping and representation contract |
+| [`.github/prompts/legacy-knowledge-map.md`](.github/prompts/legacy-knowledge-map.md) | Portuguese → English method-name mapping and representation contract |
 | [`.github/prompts/skill-impl-completeness.prompt.md`](.github/prompts/skill-impl-completeness.prompt.md) | Audit a C++ class against its C# counterpart |
 | [`.github/prompts/skill-test-standards.prompt.md`](.github/prompts/skill-test-standards.prompt.md) | Generate an xUnit test plan for a method |
 | [`.github/prompts/skill-falsify-claims.prompt.md`](.github/prompts/skill-falsify-claims.prompt.md) | Verify or refute claims against the legacy source |

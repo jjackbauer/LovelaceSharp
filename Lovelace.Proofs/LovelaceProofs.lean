@@ -1,0 +1,6 @@
+import LovelaceProofs.Basic
+import LovelaceProofs.Representation
+import LovelaceProofs.Addition
+import LovelaceProofs.Subtraction
+import LovelaceProofs.Multiplication
+import LovelaceProofs.Division
