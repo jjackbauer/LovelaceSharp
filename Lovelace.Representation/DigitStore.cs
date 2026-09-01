@@ -525,6 +525,41 @@ public class DigitStore
         }
     }
 
+    /// <summary>
+    /// Overwrites the entire store from an unpacked digit array (one decimal digit
+    /// per element, index 0 = least-significant). Leading zeros are trimmed, and a
+    /// value consisting solely of zeros produces the zero state. Acquires
+    /// <c>_syncRoot</c> exactly once for the whole write, regardless of digit count.
+    /// </summary>
+    internal void SetDigitsBulk(ReadOnlySpan<byte> digits)
+    {
+        lock (_syncRoot)
+        {
+            int len = digits.Length;
+            while (len > 1 && digits[len - 1] == 0)
+                len--;
+
+            if (len == 0 || (len == 1 && digits[0] == 0))
+            {
+                ResetUnsafe();
+                return;
+            }
+
+            int byteCount = (len + 1) / 2;
+            _bytes.Clear();
+            if (_bytes.Capacity < byteCount)
+                _bytes.Capacity = byteCount;
+            for (int b = 0; b < byteCount; b++)
+            {
+                byte high = digits[b * 2];
+                byte low  = (b * 2 + 1 < len) ? digits[b * 2 + 1] : (byte)0x0F;
+                _bytes.Add((byte)((high << 4) | (low & 0x0F)));
+            }
+            _digitCount = len;
+            _isZero = false;
+        }
+    }
+
     // -------------------------------------------------------------------------
     // Formatting
     // -------------------------------------------------------------------------

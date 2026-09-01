@@ -315,23 +315,46 @@ public sealed class Natural :
         if (IsZero(left)) return new Natural(right);
         if (IsZero(right)) return new Natural(left);
 
-        var result = new Natural();
-        long maxDigi = Math.Max(left._store.DigitCount, right._store.DigitCount);
-
-        // Digit-by-digit addition with carry (position 0 = LSD, mirrors C++ somar).
-        int carry = 0;
-        for (long c = 0; c < maxDigi; c++)
+        // Snapshot both operands so the digit loop runs on plain byte[] with no
+        // per-digit Monitor acquisition, then bulk-write the result.
+        var (da, la) = left._store.RentDigitSnapshot();
+        var (db, lb) = right._store.RentDigitSnapshot();
+        try
         {
-            int sum = left._store.GetDigit(c) + right._store.GetDigit(c) + carry;
-            carry   = sum / 10;
-            result._store.SetDigit(c, (byte)(sum % 10));
+            int n = Math.Max(la, lb);
+            byte[] result = ArrayPool<byte>.Shared.Rent(n + 1);
+            try
+            {
+                int carry = 0;
+                int i = 0;
+                for (; i < n; i++)
+                {
+                    int av = i < la ? da[i] : 0;
+                    int bv = i < lb ? db[i] : 0;
+                    int s = av + bv + carry;
+                    result[i] = (byte)(s % 10);
+                    carry = s / 10;
+                }
+                int len = n;
+                if (carry > 0)
+                {
+                    result[i] = (byte)carry;
+                    len = n + 1;
+                }
+                var res = new Natural();
+                res._store.SetDigitsBulk(new ReadOnlySpan<byte>(result, 0, len));
+                return res;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(result);
+            }
         }
-
-        // Propagate any final carry into a new most-significant digit.
-        if (carry > 0)
-            result._store.SetDigit(maxDigi, (byte)carry);
-
-        return result;
+        finally
+        {
+            left._store.ReturnDigitSnapshot(da);
+            right._store.ReturnDigitSnapshot(db);
+        }
     }
 
     /// <summary>
@@ -352,144 +375,82 @@ public sealed class Natural :
         if (IsZero(right)) return new Natural(left);
         if (left == right) return new Natural(); // zero
 
-        // Standard borrow subtraction (mirrors C++ subtrair, but without the
-        // operand-swap shortcut that the C++ uses for |A−B|).
-        // carry=1 means "no pending borrow"; carry=0 means "borrow from next digit".
-        var result = new Natural();
-        long aCount = left._store.DigitCount;
-        int carry = 1;
-
-        for (long c = 0; c < aCount; c++)
+        // Snapshot both operands so the borrow loop runs on plain byte[] with no
+        // per-digit Monitor acquisition, then bulk-write the result.
+        var (da, la) = left._store.RentDigitSnapshot();
+        var (db, lb) = right._store.RentDigitSnapshot();
+        try
         {
-            int current = 10 + left._store.GetDigit(c) - right._store.GetDigit(c) - (1 - carry);
-            carry = current / 10;     // 1 if no borrow needed next round, 0 if borrow
-            result._store.SetDigit(c, (byte)(current % 10));
+            byte[] result = ArrayPool<byte>.Shared.Rent(la);
+            try
+            {
+                int borrow = 0;
+                for (int i = 0; i < la; i++)
+                {
+                    int bv = i < lb ? db[i] : 0;
+                    int diff = da[i] - bv - borrow;
+                    if (diff < 0)
+                    {
+                        diff += 10;
+                        borrow = 1;
+                    }
+                    else
+                    {
+                        borrow = 0;
+                    }
+                    result[i] = (byte)diff;
+                }
+
+                var res = new Natural();
+                res._store.SetDigitsBulk(new ReadOnlySpan<byte>(result, 0, la));
+                return res;
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(result);
+            }
         }
-
-        // Strip any leading zeros produced by the subtraction
-        // (e.g. 1000 − 1 writes 4 digits: 9, 9, 9, 0 → trim the leading 0).
-        result._store.TrimLeadingZeros();
-
-        return result;
+        finally
+        {
+            left._store.ReturnDigitSnapshot(da);
+            right._store.ReturnDigitSnapshot(db);
+        }
     }
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Long (grade-school) multiplication. Mirrors C++ <c>multiplicar</c>:
-    /// the smaller operand drives the outer loop (fewer partial products);
-    /// each partial product is shifted by the outer-loop digit's position and
-    /// accumulated via <c>operator+</c>.
+    /// Long (grade-school) multiplication with direct in-place accumulation.
+    /// The smaller operand (fewer digits) drives the outer loop; each of its digits
+    /// is multiplied against every digit of the larger operand and accumulated
+    /// straight into a single result digit buffer. No intermediate <c>Natural</c>
+    /// per partial product and no repeated <c>operator+</c> — mathematically
+    /// identical to the previous algorithm, so exactness is unchanged.
     /// </remarks>
     public static Natural operator *(Natural left, Natural right)
     {
         // Absorbing element: 0 × anything = 0.
         if (IsZero(left) || IsZero(right)) return new Natural();
 
-        // Put the smaller operand in the outer loop to minimise iterations,
-        // mirroring the C++ assignment: aux = log ? B : *this.
-        bool leftIsLarger = left > right;
-        Natural aux  = leftIsLarger ? right : left;  // smaller (outer loop)
-        Natural aux1 = leftIsLarger ? left  : right; // larger  (inner loop)
+        // Put the smaller operand (fewer digits) first to keep the recursion
+        // balanced; MultiplyDigits dispatches to schoolbook or Karatsuba by size.
+        bool leftIsLarger = left._store.DigitCount > right._store.DigitCount;
+        Natural small = leftIsLarger ? right : left;
+        Natural large = leftIsLarger ? left  : right;
 
-        long outerCount    = aux._store.DigitCount;
-        int  processorCount = Environment.ProcessorCount;
-
-        // Rent both operand digit arrays from ArrayPool before entering any loop.
-        // This replaces the O(outerCount × innerCount) individual Monitor.Enter calls
-        // that would otherwise occur inside Parallel.For (every aux1._store.GetDigit(c2)
-        // acquires _syncRoot). After the snapshot, all digit reads from plain byte[]
-        // require no lock whatsoever. The rented buffers are returned in the finally
-        // block below to avoid repeated heap allocation during e.g. factorial computation.
-        var (dAux,  dAuxLen)  = aux._store.RentDigitSnapshot();
-        var (dAux1, dAux1Len) = aux1._store.RentDigitSnapshot();
+        var (ds, smallLen) = small._store.RentDigitSnapshot();
+        var (dl, largeLen) = large._store.RentDigitSnapshot();
         try
         {
+            byte[] result = MultiplyDigits(ds, smallLen, dl, largeLen, out int resultLen);
 
-        // ── Parallel path ─────────────────────────────────────────────────────
-        // When the outer operand has more than 2 × processorCount digits, build
-        // each partial product independently via Parallel.For, then accumulate
-        // serially (carry-chain addition prevents a fully parallel reduction).
-        // Each lambda owns its private `temp` → no cross-iteration write conflict.
-        // Different `c` values write to distinct `partials[c]` slots → no aliasing.
-        if (outerCount > processorCount * 2)
-        {
-            var partials = new Natural?[outerCount];
-
-            Parallel.For(0L, outerCount, c =>
-            {
-                int multiplicador = dAux[c];
-                if (multiplicador == 0) return;     // leave partials[c] null (≡ zero)
-
-                var temp = new Natural();
-
-                for (long c1 = 0; c1 < c; c1++)
-                    temp._store.SetDigit(c1, 0);
-
-                int overflow = 0;
-                long c2 = 0;
-                for (; c2 < dAux1Len; c2++)
-                {
-                    int produto = dAux1[c2] * multiplicador + overflow;
-                    temp._store.SetDigit(c2 + c, (byte)(produto % 10));
-                    overflow = produto / 10;
-                }
-                if (overflow > 0)
-                    temp._store.SetDigit(c2 + c, (byte)overflow);
-
-                partials[c] = temp;
-            });
-
-            // Serial combination — Parallel.For has returned; all partials are visible.
-            var result = new Natural();
-            for (long c = 0; c < outerCount; c++)
-            {
-                if (partials[c] is not null)
-                    result += partials[c]!;
-            }
-            return result;
+            var res = new Natural();
+            res._store.SetDigitsBulk(new ReadOnlySpan<byte>(result, 0, resultLen));
+            return res;
         }
-
-        // ── Sequential path ───────────────────────────────────────────────────
-        // Small operands: parallelism overhead would exceed the gain.
-        {
-            var result = new Natural();
-
-            for (long c = 0; c < outerCount; c++)
-            {
-                int multiplicador = dAux[c];
-                if (multiplicador == 0) continue;
-
-                // Build partial product shifted left by c positions.
-                var temp = new Natural();
-
-                // Fill positions 0..c-1 with zeros to satisfy SetDigit's sequential-write
-                // constraint (position <= DigitCount) and produce the correct positional shift.
-                // Setting position 0 also clears the IsZero flag on the DigitStore.
-                for (long c1 = 0; c1 < c; c1++)
-                    temp._store.SetDigit(c1, 0);
-
-                // Multiply each digit of aux1 by multiplicador and store at position c2+c.
-                int overflow = 0;
-                long c2 = 0;
-                for (; c2 < dAux1Len; c2++)
-                {
-                    int produto = dAux1[c2] * multiplicador + overflow;
-                    temp._store.SetDigit(c2 + c, (byte)(produto % 10));
-                    overflow = produto / 10;
-                }
-                if (overflow > 0)
-                    temp._store.SetDigit(c2 + c, (byte)overflow);
-
-                result += temp;
-            }
-
-            return result;
-        }
-        } // end try
         finally
         {
-            aux._store.ReturnDigitSnapshot(dAux);
-            aux1._store.ReturnDigitSnapshot(dAux1);
+            small._store.ReturnDigitSnapshot(ds);
+            large._store.ReturnDigitSnapshot(dl);
         }
     }
 
@@ -583,55 +544,144 @@ public sealed class Natural :
             return new Natural();
         }
 
-        // Long division: process dividend digits from MSD to LSD.
-        // quotientDigits[0] = most-significant quotient digit.
-        long n = left._store.DigitCount;
-        var quotientDigits = new byte[n];
-        var partial = new Natural();
+        // Fast path: recursive-Newton quotient. Exact after correction, and O(M(n))
+        // for large operands regardless of quotient size.
+        if (left._store.DigitCount >= FastDivThreshold && right._store.DigitCount >= FastDivThreshold)
+            return DivRemFast(left, right, out remainder);
 
-        for (long i = n - 1; i >= 0; i--)
+        // Long division, rewritten to run on pooled plain digit arrays instead of
+        // repeatedly reading/writing the DigitStore through locked GetDigit/SetDigit.
+        // A single leading-digit estimate selects each quotient digit; an exact
+        // correction loop then guarantees q = floor(partial / divisor) before the
+        // remainder is reduced — mathematically identical to the previous trial
+        // loop, so exactness is unchanged.
+        var (dA, n) = left._store.RentDigitSnapshot();   // dividend, LSD at 0
+        var (dB, m) = right._store.RentDigitSnapshot();  // divisor,  LSD at 0
+        try
         {
-            // Bring down the next digit of the dividend (partial = partial * 10 + d).
-            partial = BringDownDigit(partial, left._store.GetDigit(i));
-
-            // Trial division: find q ∈ [0..9] such that q*right <= partial < (q+1)*right.
-            byte q = 0;
-            var qTimesDivisor = new Natural();
-            for (byte k = 1; k <= 9; k++)
+            var partial  = ArrayPool<byte>.Shared.Rent(m + 2);
+            var qTimes   = ArrayPool<byte>.Shared.Rent(m + 2);
+            var quotient = ArrayPool<byte>.Shared.Rent(n);
+            try
             {
-                var candidate = right * new Natural((ulong)k);
-                if (candidate <= partial)
+                Array.Clear(partial, 0, m + 2);
+                Array.Clear(quotient, 0, n);
+
+                int partialLen = 0; // significant digit count of partial (0 = zero)
+
+                for (int i = n - 1; i >= 0; i--)
                 {
-                    q = k;
-                    qTimesDivisor = candidate;
+                    // Bring down: partial = partial * 10 + dA[i].
+                    for (int p = partialLen - 1; p >= 0; p--)
+                        partial[p + 1] = partial[p];
+                    partial[0] = dA[i];
+                    if (partialLen > 0 || dA[i] != 0)
+                        partialLen++;
+
+                    int q = EstimateQuotientDigit(partial, partialLen, dB, m);
+
+                    if (q > 0)
+                    {
+                        MultiplySingleDigit(dB, m, q, qTimes, out int qTimesLen);
+
+                        // Correct downward while the estimate overshoots.
+                        while (CompareDigits(qTimes, qTimesLen, partial, partialLen) > 0)
+                        {
+                            q--;
+                            SubtractInPlace(qTimes, ref qTimesLen, dB, m);
+                        }
+
+                        // Correct upward while the estimate undershoots.
+                        while (q < 9)
+                        {
+                            AddInPlace(qTimes, ref qTimesLen, dB, m);
+                            if (CompareDigits(qTimes, qTimesLen, partial, partialLen) <= 0)
+                                q++;
+                            else
+                            {
+                                SubtractInPlace(qTimes, ref qTimesLen, dB, m);
+                                break;
+                            }
+                        }
+
+                        SubtractInPlace(partial, ref partialLen, qTimes, qTimesLen);
+                    }
+
+                    quotient[i] = (byte)q;
                 }
-                else
-                    break;
+
+                var quo = new Natural();
+                quo._store.SetDigitsBulk(new ReadOnlySpan<byte>(quotient, 0, n));
+                var rem = new Natural();
+                rem._store.SetDigitsBulk(new ReadOnlySpan<byte>(partial, 0, partialLen));
+                remainder = rem;
+                return quo;
             }
-
-            partial = partial - qTimesDivisor;
-            quotientDigits[n - 1 - i] = q; // index 0 = MSD
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(partial);
+                ArrayPool<byte>.Shared.Return(qTimes);
+                ArrayPool<byte>.Shared.Return(quotient);
+            }
         }
+        finally
+        {
+            left._store.ReturnDigitSnapshot(dA);
+            right._store.ReturnDigitSnapshot(dB);
+        }
+    }
 
-        // Strip leading zeros from quotientDigits.
-        int start = 0;
-        while (start < quotientDigits.Length - 1 && quotientDigits[start] == 0)
-            start++;
+    /// <summary>
+    /// Exact quotient/remainder for large operands via the Newton-reciprocal digit-array
+    /// path (<see cref="DivRemDigits"/>). Caller guarantees <c>left ≥ right</c> and both
+    /// digit counts exceed <see cref="FastDivThreshold"/>.
+    /// </summary>
+    private static Natural DivRemFast(Natural left, Natural right, out Natural remainder)
+    {
+        var (n, nLen) = left._store.RentDigitSnapshot();
+        var (d, dLen) = right._store.RentDigitSnapshot();
+        try
+        {
+            byte[] q = DivRemDigits(n, nLen, d, dLen, out byte[] r, out int rLen, out int qLen);
 
-        int qLen = quotientDigits.Length - start;
-        var quotient = new Natural();
-        // Write digits from LSD (position 0) to MSD (position qLen-1).
-        for (int j = 0; j < qLen; j++)
-            quotient._store.SetDigit(j, quotientDigits[start + qLen - 1 - j]);
+            var quo = new Natural();
+            quo._store.SetDigitsBulk(new ReadOnlySpan<byte>(q, 0, qLen));
+            var rem = new Natural();
+            rem._store.SetDigitsBulk(new ReadOnlySpan<byte>(r, 0, rLen));
+            remainder = rem;
+            return quo;
+        }
+        finally
+        {
+            left._store.ReturnDigitSnapshot(n);
+            right._store.ReturnDigitSnapshot(d);
+        }
+    }
 
-        // If all quotient digits were zero (shouldn't reach here, but guard)
-        if (qLen == 1 && quotientDigits[start] == 0)
-            quotient = new Natural();
+    /// <summary>
+    /// Returns this value × 10^k (appends <paramref name="k"/> zero digits) without a
+    /// full multiplication — a plain left-shift of the decimal digits.
+    /// </summary>
+    public Natural ShiftLeftDecimal(long k)
+    {
+        if (IsZero(this) || k <= 0)
+            return new Natural(this);
 
-        quotient._store.TrimLeadingZeros();
+        var (buf, len) = _store.RentDigitSnapshot();
+        try
+        {
+            int newLen = len + (int)k;
+            byte[] shifted = new byte[newLen];
+            Array.Copy(buf, 0, shifted, (int)k, len);
 
-        remainder = partial;
-        return quotient;
+            var res = new Natural();
+            res._store.SetDigitsBulk(new ReadOnlySpan<byte>(shifted, 0, newLen));
+            return res;
+        }
+        finally
+        {
+            _store.ReturnDigitSnapshot(buf);
+        }
     }
 
     /// <summary>
@@ -641,23 +691,796 @@ public sealed class Natural :
     public Natural DivRem(Natural divisor, out Natural remainder) => DivRem(this, divisor, out remainder);
 
     /// <summary>
-    /// Returns <paramref name="partial"/> * 10 + <paramref name="digit"/>.
-    /// Used internally by the long-division algorithm to bring down one dividend digit.
+    /// Estimates a single base-10 quotient digit from the two most-significant digits
+    /// of <paramref name="partial"/> and the one or two most-significant digits of the
+    /// divisor. The estimate may be wrong; the caller corrects it with exact
+    /// comparison. When <paramref name="partial"/> has fewer digits than the divisor
+    /// it must be smaller, so the digit is 0.
     /// </summary>
-    private static Natural BringDownDigit(Natural partial, byte digit)
+    private static int EstimateQuotientDigit(byte[] partial, int partialLen, byte[] divisor, int mLen)
     {
-        if (IsZero(partial) && digit == 0)
-            return new Natural();
+        if (partialLen < mLen)
+            return 0;
 
-        var result = new Natural();
-        // Write digit at position 0 (ones place = LSD of the new value).
-        result._store.SetDigit(0, digit);
-        // Write the old partial digits shifted up by one decimal place.
-        long n = IsZero(partial) ? 0 : partial._store.DigitCount;
-        for (long i = 0; i < n; i++)
-            result._store.SetDigit(i + 1, partial._store.GetDigit(i));
+        int u = partialLen >= 2
+            ? partial[partialLen - 1] * 10 + partial[partialLen - 2]
+            : partial[partialLen - 1];
 
+        int v = mLen >= 2
+            ? divisor[mLen - 1] * 10 + divisor[mLen - 2]
+            : divisor[mLen - 1];
+
+        // When partial has one more digit than the divisor, the divisor's leading
+        // TWO digits are too fine a granularity; use only its leading digit so the
+        // estimate stays in the right decade.
+        int qhat = (partialLen > mLen) ? u / divisor[mLen - 1] : u / v;
+        return qhat > 9 ? 9 : qhat;
+    }
+
+    /// <summary>
+    /// Multiplies the LSD-first digit array <paramref name="src"/> (length
+    /// <paramref name="srcLen"/>) by a single digit <paramref name="q"/> (1–9),
+    /// writing the result LSD-first into <paramref name="dst"/>. The result length
+    /// is reported via <paramref name="dstLen"/>.
+    /// </summary>
+    private static void MultiplySingleDigit(byte[] src, int srcLen, int q, byte[] dst, out int dstLen)
+    {
+        int carry = 0;
+        int i = 0;
+        for (; i < srcLen; i++)
+        {
+            int p = src[i] * q + carry;
+            dst[i] = (byte)(p % 10);
+            carry = p / 10;
+        }
+        if (carry > 0)
+        {
+            dst[i] = (byte)carry;
+            dstLen = srcLen + 1;
+        }
+        else
+        {
+            dstLen = srcLen;
+        }
+    }
+
+    /// <summary>
+    /// Compares two LSD-first digit arrays by value. Lengths must already be
+    /// canonical (no leading zeros); a length of zero denotes the value zero.
+    /// </summary>
+    private static int CompareDigits(byte[] a, int aLen, byte[] b, int bLen)
+    {
+        if (aLen != bLen)
+            return aLen.CompareTo(bLen);
+        for (int i = aLen - 1; i >= 0; i--)
+        {
+            if (a[i] != b[i])
+                return a[i].CompareTo(b[i]);
+        }
+        return 0;
+    }
+
+    /// <summary>
+    /// Subtracts <paramref name="b"/> (length <paramref name="bLen"/>) from
+    /// <paramref name="a"/> in place. Caller guarantees <c>a &gt;= b</c>; the
+    /// updated significant length is written back through <paramref name="aLen"/>
+    /// (leading zeros are trimmed).
+    /// </summary>
+    private static void SubtractInPlace(byte[] a, ref int aLen, byte[] b, int bLen)
+    {
+        int borrow = 0;
+        for (int i = 0; i < bLen; i++)
+        {
+            int diff = a[i] - b[i] - borrow;
+            if (diff < 0)
+            {
+                diff += 10;
+                borrow = 1;
+            }
+            else
+            {
+                borrow = 0;
+            }
+            a[i] = (byte)diff;
+        }
+        for (int i = bLen; i < aLen && borrow > 0; i++)
+        {
+            int diff = a[i] - borrow;
+            if (diff < 0)
+            {
+                diff += 10;
+                borrow = 1;
+            }
+            else
+            {
+                borrow = 0;
+            }
+            a[i] = (byte)diff;
+        }
+
+        // Trim leading zeros introduced by the subtraction.
+        while (aLen > 1 && a[aLen - 1] == 0)
+            aLen--;
+        if (aLen == 1 && a[0] == 0)
+            aLen = 0;
+    }
+
+    /// <summary>
+    /// Adds <paramref name="b"/> (length <paramref name="bLen"/>) to
+    /// <paramref name="a"/> in place, propagating any final carry into a new
+    /// most-significant digit when needed.
+    /// </summary>
+    private static void AddInPlace(byte[] a, ref int aLen, byte[] b, int bLen)
+    {
+        int carry = 0;
+        int maxLen = aLen > bLen ? aLen : bLen;
+        for (int i = 0; i < maxLen; i++)
+        {
+            int av = i < aLen ? a[i] : 0;
+            int bv = i < bLen ? b[i] : 0;
+            int s = av + bv + carry;
+            a[i] = (byte)(s % 10);
+            carry = s / 10;
+        }
+        aLen = maxLen;
+        if (carry > 0)
+        {
+            a[aLen] = (byte)carry;
+            aLen++;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast multiplication — Karatsuba over base-10 digit arrays
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Operands with this many digits or fewer use the grade-school product;
+    /// larger operands recurse via Karatsuba.
+    /// </summary>
+    private const int KaratsubaThreshold = 1024;
+
+    public static long DiagNttCalls, DiagKaraCalls, DiagSchoolCalls;
+    public static long DiagNttTicks, DiagKaraTicks, DiagSchoolTicks;
+    public static void ResetMultiplyDiag() { DiagNttCalls = DiagKaraCalls = DiagSchoolCalls = 0; DiagNttTicks = DiagKaraTicks = DiagSchoolTicks = 0; }
+    public static string MultiplyDiag()
+    {
+        double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+        return $"NTT calls={DiagNttCalls} ms={DiagNttTicks * f:F0} | KARA calls={DiagKaraCalls} ms={DiagKaraTicks * f:F0} | SCHL calls={DiagSchoolCalls} ms={DiagSchoolTicks * f:F0}";
+    }
+
+    /// <summary>
+    /// Multiplies two canonical LSD-first decimal-digit arrays and returns the
+    /// canonical (trimmed) product. <paramref name="resultLen"/> receives the
+    /// number of significant digits (0 for a zero product).
+    /// </summary>
+    private static byte[] MultiplyDigits(byte[] a, int aLen, byte[] b, int bLen, out int resultLen)
+    {
+        if (aLen == 0 || bLen == 0)
+        {
+            resultLen = 0;
+            return Array.Empty<byte>();
+        }
+
+        // Number-Theoretic Transform (exact) for very large operands.
+        if (aLen >= NttThreshold && bLen >= NttThreshold && (long)aLen + bLen <= (long)MaxNttLength * NttLimbDigits)
+        {
+            long ds = System.Diagnostics.Stopwatch.GetTimestamp();
+            var r = NttMultiply(a, aLen, b, bLen, out resultLen);
+            DiagNttTicks += System.Diagnostics.Stopwatch.GetTimestamp() - ds; DiagNttCalls++;
+            return r;
+        }
+
+        if (aLen <= KaratsubaThreshold || bLen <= KaratsubaThreshold)
+        {
+            long ds = System.Diagnostics.Stopwatch.GetTimestamp();
+            var r = SchoolbookMultiply(a, aLen, b, bLen, out resultLen);
+            DiagSchoolTicks += System.Diagnostics.Stopwatch.GetTimestamp() - ds; DiagSchoolCalls++;
+            return r;
+        }
+
+        // Split at m = ceil(maxLen/2): a = a0 + a1·10^m, b = b0 + b1·10^m.
+        int m = (Math.Max(aLen, bLen) + 1) / 2;
+
+        int a0Len = Math.Min(aLen, m);
+        int a1Len = aLen - a0Len;
+        int b0Len = Math.Min(bLen, m);
+        int b1Len = bLen - b0Len;
+
+        byte[] a1 = SliceDigits(a, a0Len, a1Len);
+        byte[] b1 = SliceDigits(b, b0Len, b1Len);
+
+        // z0 = a0·b0 (low), z2 = a1·b1 (high).
+        byte[] z0 = MultiplyDigits(a, a0Len, b, b0Len, out int z0Len);
+        byte[] z2 = MultiplyDigits(a1, a1Len, b1, b1Len, out int z2Len);
+
+        // z1 = (a0+a1)(b0+b1) − z0 − z2.
+        byte[] sumA = AddDigits(a, a0Len, a1, a1Len, out int sumALen);
+        byte[] sumB = AddDigits(b, b0Len, b1, b1Len, out int sumBLen);
+        byte[] z1 = MultiplyDigits(sumA, sumALen, sumB, sumBLen, out int z1Len);
+        z1 = SubtractDigits(z1, z1Len, z0, z0Len, out z1Len);
+        z1 = SubtractDigits(z1, z1Len, z2, z2Len, out z1Len);
+
+        // result = z0 + z1·10^m + z2·10^(2m).
+        byte[] s1 = ShiftLeftDigits(z1, z1Len, m, out int s1Len);
+        byte[] s2 = ShiftLeftDigits(z2, z2Len, 2 * m, out int s2Len);
+        byte[] acc = AddDigits(z0, z0Len, s1, s1Len, out int accLen);
+        acc = AddDigits(acc, accLen, s2, s2Len, out accLen);
+
+        resultLen = accLen;
+        return acc;
+    }
+
+    /// <summary>
+    /// Grade-school product of two canonical LSD-first digit arrays. Returns a
+    /// canonical (trimmed) result.
+    /// </summary>
+    private static byte[] SchoolbookMultiply(byte[] a, int aLen, byte[] b, int bLen, out int resultLen)
+    {
+        byte[] result = new byte[aLen + bLen + 1];
+        for (int i = 0; i < aLen; i++)
+        {
+            int mult = a[i];
+            if (mult == 0) continue;
+
+            int carry = 0;
+            for (int j = 0; j < bLen; j++)
+            {
+                int t = result[i + j] + mult * b[j] + carry;
+                result[i + j] = (byte)(t % 10);
+                carry = t / 10;
+            }
+            int idx = i + bLen;
+            while (carry > 0)
+            {
+                int t = result[idx] + carry;
+                result[idx] = (byte)(t % 10);
+                carry = t / 10;
+                idx++;
+            }
+        }
+
+        resultLen = aLen + bLen + 1;
+        while (resultLen > 0 && result[resultLen - 1] == 0)
+            resultLen--;
         return result;
+    }
+
+    /// <summary>
+    /// Adds two canonical LSD-first digit arrays; returns a canonical sum.
+    /// </summary>
+    private static byte[] AddDigits(byte[] a, int aLen, byte[] b, int bLen, out int resultLen)
+    {
+        if (aLen == 0) { resultLen = bLen; return CopyDigits(b, bLen); }
+        if (bLen == 0) { resultLen = aLen; return CopyDigits(a, aLen); }
+
+        int maxLen = Math.Max(aLen, bLen);
+        byte[] result = new byte[maxLen + 1];
+        int carry = 0;
+        for (int i = 0; i < maxLen; i++)
+        {
+            int s = (i < aLen ? a[i] : 0) + (i < bLen ? b[i] : 0) + carry;
+            result[i] = (byte)(s % 10);
+            carry = s / 10;
+        }
+
+        resultLen = maxLen;
+        if (carry > 0)
+        {
+            result[maxLen] = (byte)carry;
+            resultLen = maxLen + 1;
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Subtracts <paramref name="b"/> from <paramref name="a"/> (a ≥ b); returns a
+    /// canonical difference.
+    /// </summary>
+    private static byte[] SubtractDigits(byte[] a, int aLen, byte[] b, int bLen, out int resultLen)
+    {
+        if (bLen == 0) { resultLen = aLen; return CopyDigits(a, aLen); }
+
+        byte[] result = new byte[aLen];
+        int borrow = 0;
+        for (int i = 0; i < aLen; i++)
+        {
+            int bv = i < bLen ? b[i] : 0;
+            int d = a[i] - bv - borrow;
+            if (d < 0) { d += 10; borrow = 1; } else { borrow = 0; }
+            result[i] = (byte)d;
+        }
+
+        resultLen = aLen;
+        while (resultLen > 0 && result[resultLen - 1] == 0)
+            resultLen--;
+        return result;
+    }
+
+    /// <summary>
+    /// Left-shifts a canonical LSD-first digit array by <paramref name="k"/> decimal
+    /// places (× 10^k), returning the canonical result.
+    /// </summary>
+    private static byte[] ShiftLeftDigits(byte[] a, int aLen, int k, out int resultLen)
+    {
+        if (aLen == 0 || k == 0) { resultLen = aLen; return CopyDigits(a, aLen); }
+
+        byte[] result = new byte[aLen + k];
+        Array.Copy(a, 0, result, k, aLen);
+        resultLen = aLen + k;
+        return result;
+    }
+
+    /// <summary>
+    /// Copies <paramref name="len"/> digits from <paramref name="a"/> into a fresh
+    /// array.
+    /// </summary>
+    private static byte[] CopyDigits(byte[] a, int len)
+    {
+        byte[] result = new byte[len];
+        Array.Copy(a, 0, result, 0, len);
+        return result;
+    }
+
+    /// <summary>
+    /// Copies <paramref name="len"/> digits starting at <paramref name="start"/> into
+    /// a fresh array.
+    /// </summary>
+    private static byte[] SliceDigits(byte[] a, int start, int len)
+    {
+        byte[] result = new byte[len];
+        Array.Copy(a, start, result, 0, len);
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast multiplication — Number-Theoretic Transform (exact convolution)
+    // -------------------------------------------------------------------------
+
+    /// <summary>998244353 = 119·2^23 + 1 — first NTT prime, supports lengths up to 2^23, primitive root 3.</summary>
+    private const long NttPrime1 = 998244353L;
+
+    /// <summary>469762049 = 7·2^26 + 1 — second NTT prime (CRT), supports lengths up to 2^26, primitive root 3.</summary>
+    private const long NttPrime2 = 469762049L;
+
+    /// <summary>Primitive root shared by both NTT primes.</summary>
+    private const long NttRoot = 3L;
+
+    /// <summary>Largest NTT length (a power of two) any prime supports; bounded by <see cref="NttPrime1"/> at 2^23.</summary>
+    private const int MaxNttLength = 1 << 23;
+
+    /// <summary>
+    /// Decimal digits packed into each NTT limb. Grouping base-10 digits into
+    /// base-10^5 limbs shrinks the transform length ~5× versus the old
+    /// one-digit-per-coefficient scheme, at the cost of a second prime for the CRT.
+    /// </summary>
+    private const int NttLimbDigits = 5;
+
+    /// <summary>10^<see cref="NttLimbDigits"/> — the limb radix.</summary>
+    private const long NttLimbBase = 100000L;
+
+    /// <summary>
+    /// Operands with at least this many digits each use the NTT product instead of
+    /// schoolbook multiplication. The packed NTT beats the former Karatsuba path
+    /// across the board, so Karatsuba is superseded (its branch is unreachable when
+    /// this value is ≤ <see cref="KaratsubaThreshold"/>).
+    /// </summary>
+    private const int NttThreshold = 8192;
+
+    /// <summary>
+    /// Modular exponentiation (base^exp mod mod) for NTT roots and inverse lengths.
+    /// </summary>
+    private static long ModPow(long b, long e, long mod)
+    {
+        long result = 1;
+        b %= mod;
+        while (e > 0)
+        {
+            if ((e & 1) != 0)
+                result = result * b % mod;
+            b = b * b % mod;
+            e >>= 1;
+        }
+        return result;
+    }
+
+    /// <summary>Multiplicative inverse of <see cref="NttPrime1"/> modulo <see cref="NttPrime2"/> (CRT coefficient).</summary>
+    private static readonly long InvP1ModP2 = ModPow(NttPrime1 % NttPrime2, NttPrime2 - 2, NttPrime2);
+
+    /// <summary>
+    /// In-place iterative Cooley–Tukey Number-Theoretic Transform modulo
+    /// <paramref name="prime"/>. <paramref name="n"/> must be a power of two dividing
+    /// <c>prime − 1</c> (both primes support n ≤ 2^23).
+    /// </summary>
+    private static void Ntt(long[] a, int n, bool invert, long prime)
+    {
+        // Bit-reversal permutation.
+        for (int i = 1, j = 0; i < n; i++)
+        {
+            int bit = n >> 1;
+            for (; (j & bit) != 0; bit >>= 1)
+                j ^= bit;
+            j ^= bit;
+            if (i < j)
+                (a[i], a[j]) = (a[j], a[i]);
+        }
+
+        long root = invert ? ModPow(NttRoot, prime - 2, prime) : NttRoot;
+
+        for (int len = 2; len <= n; len <<= 1)
+        {
+            long wlen = ModPow(root, (prime - 1) / len, prime);
+            int half = len >> 1;
+            for (int i = 0; i < n; i += len)
+            {
+                long w = 1;
+                for (int j = 0; j < half; j++)
+                {
+                    long u = a[i + j];
+                    long v = a[i + j + half] * w % prime;
+                    long s = u + v;
+                    a[i + j] = s < prime ? s : s - prime;
+                    long d = u - v;
+                    a[i + j + half] = d >= 0 ? d : d + prime;
+                    w = w * wlen % prime;
+                }
+            }
+        }
+
+        if (invert)
+        {
+            long nInv = ModPow(n, prime - 2, prime);
+            for (int i = 0; i < n; i++)
+                a[i] = a[i] * nInv % prime;
+        }
+    }
+
+    /// <summary>
+    /// Packs <paramref name="len"/> base-10 digits (LSD-first) into base-10^5 limbs,
+    /// written into <paramref name="limbs"/> (already zero-initialised to the transform
+    /// size; entries beyond the packed count stay zero).
+    /// </summary>
+    private static void PackLimbs(byte[] digits, int len, long[] limbs)
+    {
+        for (int i = 0; i < len; i += NttLimbDigits)
+        {
+            long limb = 0;
+            long place = 1;
+            int end = Math.Min(len, i + NttLimbDigits);
+            for (int t = i; t < end; t++)
+            {
+                limb += digits[t] * place;
+                place *= 10;
+            }
+            limbs[i / NttLimbDigits] = limb;
+        }
+    }
+
+    /// <summary>
+    /// Reconstructs the exact non-negative convolution coefficient from its residues
+    /// modulo the two NTT primes. Because the coefficient is strictly less than the
+    /// product of the primes (see the bound in <see cref="NttMultiply"/>), Garner's
+    /// two-term CRT recovers it exactly with 64-bit arithmetic.
+    /// </summary>
+    private static ulong Crt(long r1, long r2)
+    {
+        long diff = (r2 - r1) % NttPrime2;
+        if (diff < 0) diff += NttPrime2;
+        long t = diff * InvP1ModP2 % NttPrime2;
+        return (ulong)(r1 + t * NttPrime1);
+    }
+
+    /// <summary>
+    /// Multiplies two base-10 digit arrays via a packed two-prime NTT: the digits are
+    /// grouped into base-10^5 limbs, convolved exactly modulo each prime, reconstructed
+    /// with the CRT, then carry-propagated back into base-10 digits.
+    /// <para>
+    /// Exactness bound: a convolution coefficient is at most
+    /// <c>(10^5 − 1)² · 2^22 ≈ 4.2×10^16</c>, strictly below the prime product
+    /// <c>NttPrime1 · NttPrime2 ≈ 4.7×10^17</c>, so the two residues determine it
+    /// uniquely and every intermediate value fits in 64 bits.
+    /// </para>
+    /// </summary>
+    private static byte[] NttMultiply(byte[] a, int aLen, byte[] b, int bLen, out int resultLen)
+    {
+        int aLimbs = (aLen + NttLimbDigits - 1) / NttLimbDigits;
+        int bLimbs = (bLen + NttLimbDigits - 1) / NttLimbDigits;
+        int need = aLimbs + bLimbs;
+        int size = 1;
+        while (size < need)
+            size <<= 1;
+
+        // Pack both operands into limb arrays padded to the transform size.
+        long[] fa = new long[size];
+        long[] fb = new long[size];
+        PackLimbs(a, aLen, fa);
+        PackLimbs(b, bLen, fb);
+
+        // Convolve modulo the first prime (fa is overwritten in place, so keep a copy
+        // of the packed 'a' limbs for the second prime).
+        long[] fa2 = (long[])fa.Clone();
+        Ntt(fa, size, false, NttPrime1);
+        Ntt(fb, size, false, NttPrime1);
+        for (int i = 0; i < size; i++)
+            fa[i] = fa[i] * fb[i] % NttPrime1;
+        Ntt(fa, size, true, NttPrime1);
+
+        // Convolve modulo the second prime (fb was clobbered, so re-pack 'b').
+        Array.Clear(fb, 0, size);
+        PackLimbs(b, bLen, fb);
+        Ntt(fa2, size, false, NttPrime2);
+        Ntt(fb, size, false, NttPrime2);
+        for (int i = 0; i < size; i++)
+            fa2[i] = fa2[i] * fb[i] % NttPrime2;
+        Ntt(fa2, size, true, NttPrime2);
+
+        // CRT + carry propagation into base-10 digits (LSD-first).
+        byte[] result = new byte[need * NttLimbDigits];
+        ulong carry = 0;
+        for (int i = 0; i < need; i++)
+        {
+            ulong val = Crt(fa[i], fa2[i]) + carry;
+            ulong limb = val % (ulong)NttLimbBase;
+            carry = val / (ulong)NttLimbBase;
+            int at = i * NttLimbDigits;
+            for (int t = 0; t < NttLimbDigits; t++)
+            {
+                result[at + t] = (byte)(limb % 10);
+                limb /= 10;
+            }
+        }
+
+        resultLen = need * NttLimbDigits;
+        while (resultLen > 0 && result[resultLen - 1] == 0)
+            resultLen--;
+        return result;
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast division — Newton reciprocal over base-10 digit arrays
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Dividends and divisors with at least this many digits use the Newton-reciprocal
+    /// quotient path; smaller ones use the exact grade-school long division.
+    /// </summary>
+    private const int FastDivThreshold = 1024;
+
+    /// <summary>
+    /// Reciprocal results with at most this many digits use the direct Newton loop
+    /// (<see cref="ReciprocalFloorBase"/>); larger ones recurse to halve the precision.
+    /// </summary>
+    private const int ReciprocalBaseThreshold = 512;
+
+    /// <summary>
+    /// Computes the quotient and remainder of <paramref name="n"/> ÷ <paramref name="d"/>
+    /// (both canonical LSD-first digit arrays) via Newton reciprocal. The caller
+    /// guarantees <c>nLen ≥ dLen</c>, <c>d ≠ 0</c>, and both lengths exceed
+    /// <see cref="FastDivThreshold"/>.
+    /// </summary>
+    private static byte[] DivRemDigits(byte[] n, int nLen, byte[] d, int dLen,
+                                       out byte[] rem, out int remLen, out int qLen)
+    {
+        // R = floor(10^p / d) with p = nLen + 1 (one guard digit).
+        int p = nLen + 1;
+        byte[] r = ReciprocalFloor(d, dLen, p, out int rLen);
+
+        // Q ≈ floor(n·R / 10^p) = floor(n/d), possibly one too low.
+        byte[] nR = MultiplyDigits(n, nLen, r, rLen, out int nRLen);
+        byte[] q = ShiftRightDigits(nR, nRLen, p, out qLen);
+
+        // remainder = n − q·d, then correct upward while remainder ≥ d.
+        byte[] qd = MultiplyDigits(q, qLen, d, dLen, out int qdLen);
+        rem = SubtractDigits(n, nLen, qd, qdLen, out remLen);
+        while (CompareDigits(rem, remLen, d, dLen) >= 0)
+        {
+            rem = SubtractDigits(rem, remLen, d, dLen, out remLen);
+            q = AddOneDigits(q, qLen, out qLen);
+        }
+
+        return q;
+    }
+
+    /// <summary>
+    /// Returns <c>floor(10^precision / d)</c> as a canonical LSD-first digit array via
+    /// recursive Newton doubling. The result has <c>precision − dLen + 1</c> significant
+    /// digits; each recursion level computes a half-precision reciprocal and refines it
+    /// with a single Newton step, so the working size stays proportional to the result
+    /// (no scale overshoot). Small results fall through to
+    /// <see cref="ReciprocalFloorBase"/>.
+    /// </summary>
+    private static byte[] ReciprocalFloor(byte[] d, int dLen, int precision, out int outLen)
+    {
+        int q = precision - dLen + 1;   // digits of the result
+        if (q <= ReciprocalBaseThreshold)
+            return ReciprocalFloorBase(d, dLen, precision, out outLen);
+
+        // Half-precision reciprocal at scale f0 = dLen + q0 − 1.
+        int q0 = (q + 1) / 2;
+        int f0 = dLen + q0 - 1;
+        byte[] x0 = ReciprocalFloor(d, dLen, f0, out int x0Len);
+
+        // One Newton step: x = x0·(2·10^f0 − d·x0) ≈ 10^(2·f0) / d.
+        byte[] dx0 = MultiplyDigits(d, dLen, x0, x0Len, out int dx0Len);
+        byte[] twoPow = TwoTimesPow10(f0, out int twoLen);
+        byte[] m = SubtractDigits(twoPow, twoLen, dx0, dx0Len, out int mLen);
+        byte[] x = MultiplyDigits(x0, x0Len, m, mLen, out int xLen);
+
+        // Truncate the scale overshoot (2·f0 ≥ precision always holds), then correct.
+        int shift = 2 * f0 - precision;
+        if (shift > 0)
+            x = ShiftRightDigits(x, xLen, shift, out xLen);
+
+        x = CorrectReciprocal(x, xLen, d, dLen, precision, out xLen);
+        outLen = xLen;
+        return x;
+    }
+
+    /// <summary>
+    /// Base case for <see cref="ReciprocalFloor"/>: small results (fewer than
+    /// <see cref="ReciprocalBaseThreshold"/> digits) via a direct Newton loop seeded
+    /// from the top digits of <paramref name="d"/>. When <paramref name="d"/> is much
+    /// longer than the result, only its top digits are consulted.
+    /// </summary>
+    private static byte[] ReciprocalFloorBase(byte[] d, int dLen, int precision, out int outLen)
+    {
+        // The result has q = precision − dLen + 1 significant digits; only the top
+        // ~q+guard digits of d influence it, so truncate d to bound the working size.
+        const int guard = 16;
+        int q = precision - dLen + 1;               // digits of the result (≥ 1)
+        int t = Math.Min(dLen, q + guard);          // digits of the working divisor
+        byte[] dTop = t == dLen ? d : SliceDigits(d, dLen - t, t);
+        int p = precision - dLen + t;               // floor(10^p / dTop) = floor(10^precision / d)
+
+        // Bootstrap from the top 15 digits of dTop: X0 = floor(10^32 / lead).
+        const int k = 15;
+        const int B = 32;
+        ulong lead = 0;
+        for (int i = 0; i < k; i++)
+            lead = lead * 10UL + dTop[t - 1 - i];
+
+        int s = t - k + B;                          // x ≈ 10^s / dTop
+        byte[] x = FromBigInteger(System.Numerics.BigInteger.Pow(10, B) / lead, out int xLen);
+
+        // Newton doubling until the leading `q + 8` digits are correct. Each step
+        // doubles both the scale s and the number of correct digits (~16 initially).
+        int correctDigits = 16;
+        while (correctDigits < q + 8)
+        {
+            byte[] dx = MultiplyDigits(dTop, t, x, xLen, out int dxLen);
+            byte[] twoPow = TwoTimesPow10(s, out int twoLen);
+            byte[] m = SubtractDigits(twoPow, twoLen, dx, dxLen, out int mLen);
+            x = MultiplyDigits(x, xLen, m, mLen, out xLen);
+            s = 2 * s;
+            correctDigits = 2 * correctDigits;
+        }
+
+        // Truncate the overshoot beyond p, then correct to the exact floor.
+        if (s > p)
+            x = ShiftRightDigits(x, xLen, s - p, out xLen);
+
+        x = CorrectReciprocal(x, xLen, dTop, t, p, out xLen);
+
+        // The top-digit shortcut yields floor(10^p/dTop) = floor(10^precision/d) ± 1;
+        // correct against the full d so the returned value is exact. The recursive
+        // Newton step requires x0 = floor(10^f0/d) exactly, otherwise 2·10^f0 − d·x0
+        // can go negative.
+        x = CorrectReciprocal(x, xLen, d, dLen, precision, out xLen);
+        outLen = xLen;
+        return x;
+    }
+
+    /// <summary>
+    /// Adjusts <paramref name="x"/> (an estimate of <c>floor(10^precision/d)</c>) to
+    /// the exact floor value.
+    /// </summary>
+    private static byte[] CorrectReciprocal(byte[] x, int xLen, byte[] d, int dLen,
+                                            int precision, out int outLen)
+    {
+        byte[] p10 = Pow10Digits(precision, out int p10Len);
+
+        // Decrease while x·d > 10^precision.
+        byte[] prod = MultiplyDigits(x, xLen, d, dLen, out int prodLen);
+        int _it = 0;
+        while (CompareDigits(prod, prodLen, p10, p10Len) > 0)
+        {
+            x = SubtractOneDigits(x, xLen, out xLen);
+            prod = MultiplyDigits(x, xLen, d, dLen, out prodLen);
+            if (++_it > 1000) { System.Console.Error.WriteLine($"[corr] decrease spin xLen={xLen} dLen={dLen} precision={precision}"); _it = 0; }
+        }
+
+        // Increase while (x+1)·d ≤ 10^precision.
+        byte[] xp1 = AddOneDigits(x, xLen, out int xp1Len);
+        prod = MultiplyDigits(xp1, xp1Len, d, dLen, out prodLen);
+        _it = 0;
+        while (CompareDigits(prod, prodLen, p10, p10Len) <= 0)
+        {
+            x = xp1; xLen = xp1Len;
+            xp1 = AddOneDigits(x, xLen, out xp1Len);
+            prod = MultiplyDigits(xp1, xp1Len, d, dLen, out prodLen);
+            if (++_it > 1000) { System.Console.Error.WriteLine($"[corr] increase spin xLen={xLen} dLen={dLen} precision={precision}"); _it = 0; }
+        }
+
+        outLen = xLen;
+        return x;
+    }
+
+    /// <summary>Returns 10^n as a canonical LSD-first digit array (n+1 digits).</summary>
+    private static byte[] Pow10Digits(int n, out int len)
+    {
+        byte[] r = new byte[n + 1];
+        r[n] = 1;
+        len = n + 1;
+        return r;
+    }
+
+    /// <summary>Returns 2·10^s as a canonical LSD-first digit array (s+1 digits).</summary>
+    private static byte[] TwoTimesPow10(int s, out int len)
+    {
+        byte[] r = new byte[s + 1];
+        r[s] = 2;
+        len = s + 1;
+        return r;
+    }
+
+    /// <summary>Drops the <paramref name="k"/> least-significant digits (floor ÷ 10^k).</summary>
+    private static byte[] ShiftRightDigits(byte[] a, int aLen, int k, out int outLen)
+    {
+        if (k <= 0) { outLen = aLen; return CopyDigits(a, aLen); }
+        if (k >= aLen) { outLen = 0; return Array.Empty<byte>(); }
+
+        outLen = aLen - k;
+        byte[] r = new byte[outLen];
+        Array.Copy(a, k, r, 0, outLen);
+        return r;
+    }
+
+    /// <summary>Returns a + 1 as a canonical LSD-first digit array.</summary>
+    private static byte[] AddOneDigits(byte[] a, int aLen, out int outLen)
+    {
+        byte[] r = new byte[aLen + 1];
+        Array.Copy(a, 0, r, 0, aLen);
+        int carry = 1;
+        for (int i = 0; i <= aLen && carry > 0; i++)
+        {
+            int t = r[i] + carry;
+            r[i] = (byte)(t % 10);
+            carry = t / 10;
+        }
+        outLen = aLen + 1;
+        while (outLen > 0 && r[outLen - 1] == 0)
+            outLen--;
+        return r;
+    }
+
+    /// <summary>Returns a − 1 (a &gt; 0) as a canonical LSD-first digit array.</summary>
+    private static byte[] SubtractOneDigits(byte[] a, int aLen, out int outLen)
+    {
+        byte[] r = CopyDigits(a, aLen);
+        int borrow = 1;
+        for (int i = 0; i < aLen && borrow > 0; i++)
+        {
+            int t = r[i] - borrow;
+            if (t < 0) { t += 10; borrow = 1; } else { borrow = 0; }
+            r[i] = (byte)t;
+        }
+        outLen = aLen;
+        while (outLen > 0 && r[outLen - 1] == 0)
+            outLen--;
+        return r;
+    }
+
+    /// <summary>Converts a (small, constant-size) BigInteger to an LSD-first digit array.</summary>
+    private static byte[] FromBigInteger(System.Numerics.BigInteger v, out int len)
+    {
+        if (v.IsZero) { len = 0; return Array.Empty<byte>(); }
+
+        string s = v.ToString();
+        len = s.Length;
+        byte[] r = new byte[len];
+        for (int i = 0; i < len; i++)
+            r[i] = (byte)(s[len - 1 - i] - '0');
+        return r;
     }
 
     /// <summary>
