@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+    <Optimize>true</Optimize>
+    <TieredPGO>true</TieredPGO>
+    <AssemblyName>bench</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="dbg/**/*.cs" />
+    <Compile Remove="realcheck/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Lovelace.Natural/Lovelace.Natural.csproj" />
+    <ProjectReference Include="../Lovelace.Integer/Lovelace.Integer.csproj" />
+    <ProjectReference Include="../Lovelace.Real/Lovelace.Real.csproj" />
+  </ItemGroup>
+</Project>
