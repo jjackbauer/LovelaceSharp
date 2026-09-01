@@ -33,7 +33,7 @@ public sealed class ReplSession
 
         Operators (high to low precedence):
           !         postfix factorial              e.g.  5!
-          [i]       vector index (0-based)         e.g.  v[0]
+          [i]       index (0-based)                e.g.  v[0], m[i, j]
           - +       unary negation / identity      e.g.  -x
           ..        range (inclusive)              e.g.  1..5, 1..2..7
           ^         power (right-associative)      e.g.  2 ^ 10
@@ -42,9 +42,19 @@ public sealed class ReplSession
           == != > < >= <=   comparison             e.g.  a > b
           =         assignment (right-assoc)       e.g.  x = 42
 
+        Arrays:
+          [1, 2, 3]  vector          [[1, 2], [3, 4]]  matrix
+          [[[1,2],[3,4]],[[5,6],[7,8]]]  rank-3 (N-D)
+          sum(a[, axis])  prod(a[, axis])  min(a[, axis])  max(a[, axis])
+          mean(a[, axis])  norm(a[, axis])
+          dot(a, b)  cross(a, b)  matmul(a, b)  det(m)  inv(m)  trace(m)
+          zeros(d…)  ones(d…)  eye(n)  reshape(a, d…)  shape(a)  rank(a)
+          numel(a)  len(a)  flatten(a)  transpose(a[, perm])  squeeze(a)
+          concat(a, b[, axis])  append(a, b)
+
         Built-in functions:
           abs(x)  inv(x)  divrem(a, b)  is_even(x)  is_odd(x)  sign(x)
-          sqrt(x)  pi([digits])  len(v)  print(x)  plot(y) / plot(x, y[, "title"])
+          sqrt(x)  pi([digits])  print(x)  plot(y) / plot(x, y[, "title"])
 
         Special commands:
           vars                     list all variables

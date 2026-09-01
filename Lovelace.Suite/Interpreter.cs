@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Lovelace.Arrays;
 using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
@@ -218,6 +219,9 @@ public sealed class Interpreter
                    or BinaryOp.GreaterEqual or BinaryOp.LessEqual)
             return EvaluateComparison(left, right, bin.Op);
 
+        if (left.Kind == ValueKind.Array || right.Kind == ValueKind.Array)
+            return EvaluateArrayBinary(bin.Op, left, right);
+
         if (left.Kind == ValueKind.Vector || right.Kind == ValueKind.Vector)
             return EvaluateVectorBinary(bin.Op, left, right);
 
@@ -225,40 +229,8 @@ public sealed class Interpreter
     }
 
     /// <summary>Widens both operands to the wider numeric kind, then dispatches.</summary>
-    private static Value ApplyScalarBinary(BinaryOp op, Value left, Value right)
-    {
-        (left, right) = Value.WidenPair(left, right);
-
-        return (op, left.Kind) switch
-        {
-            // ---- Natural arithmetic ----
-            (BinaryOp.Add,      ValueKind.Natural) => new Value(left.AsNatural() + right.AsNatural()),
-            (BinaryOp.Subtract, ValueKind.Natural) => SubtractNatural(left, right),
-            (BinaryOp.Multiply, ValueKind.Natural) => new Value(left.AsNatural() * right.AsNatural()),
-            (BinaryOp.Divide,   ValueKind.Natural) => DivideNatural(left, right),
-            (BinaryOp.Modulo,   ValueKind.Natural) => new Value(left.AsNatural() % right.AsNatural()),
-            (BinaryOp.Power,    ValueKind.Natural) => new Value(left.AsNatural().Pow(right.AsNatural())),
-
-            // ---- Integer arithmetic ----
-            (BinaryOp.Add,      ValueKind.Integer) => new Value(left.AsInteger() + right.AsInteger()),
-            (BinaryOp.Subtract, ValueKind.Integer) => new Value(left.AsInteger() - right.AsInteger()),
-            (BinaryOp.Multiply, ValueKind.Integer) => new Value(left.AsInteger() * right.AsInteger()),
-            (BinaryOp.Divide,   ValueKind.Integer) => DivideInteger(left, right),
-            (BinaryOp.Modulo,   ValueKind.Integer) => new Value(left.AsInteger() % right.AsInteger()),
-            (BinaryOp.Power,    ValueKind.Integer) => new Value(left.AsInteger().Pow(right.AsInteger())),
-
-            // ---- Real arithmetic ----
-            (BinaryOp.Add,      ValueKind.Real) => new Value(left.AsReal() + right.AsReal()),
-            (BinaryOp.Subtract, ValueKind.Real) => new Value(left.AsReal() - right.AsReal()),
-            (BinaryOp.Multiply, ValueKind.Real) => new Value(left.AsReal() * right.AsReal()),
-            (BinaryOp.Divide,   ValueKind.Real) => new Value(left.AsReal() / right.AsReal()),
-            (BinaryOp.Modulo,   ValueKind.Real) => new Value(left.AsReal() % right.AsReal()),
-            (BinaryOp.Power,    ValueKind.Real) => new Value(left.AsReal().Pow(right.AsReal())),
-
-            _ => throw new InvalidOperationException(
-                $"Operator '{op}' is not supported for type '{left.Kind}'."),
-        };
-    }
+    private static Value ApplyScalarBinary(BinaryOp op, Value left, Value right) =>
+        NumericOps.Apply(op, left, right);
 
     /// <summary>Element-wise vector arithmetic with scalar broadcast.</summary>
     private static Value EvaluateVectorBinary(BinaryOp op, Value left, Value right)
@@ -290,17 +262,41 @@ public sealed class Interpreter
         return new Value(result2);
     }
 
+    /// <summary>Element-wise array arithmetic with scalar broadcast.</summary>
+    private static Value EvaluateArrayBinary(BinaryOp op, Value left, Value right)
+    {
+        if (left.Kind == ValueKind.Array && right.Kind == ValueKind.Array)
+        {
+            var a = left.AsArray();
+            var b = right.AsArray();
+            if (!a.Shape.SequenceEqual(b.Shape))
+                throw new InvalidOperationException($"Array operands must have the same shape ([{string.Join(", ", a.Shape)}] vs [{string.Join(", ", b.Shape)}]).");
+
+            var result = new List<Value>(a.Data.Count);
+            for (int i = 0; i < a.Data.Count; i++)
+                result.Add(ApplyScalarBinary(op, a.Data[i], b.Data[i]));
+            return new Value(new NdArray<Value>(a.Shape, result));
+        }
+
+        if (left.Kind == ValueKind.Array)
+        {
+            var a = left.AsArray();
+            var result = new List<Value>(a.Data.Count);
+            foreach (var e in a.Data)
+                result.Add(ApplyScalarBinary(op, e, right));
+            return new Value(new NdArray<Value>(a.Shape, result));
+        }
+
+        var b2 = right.AsArray();
+        var result2 = new List<Value>(b2.Data.Count);
+        foreach (var e in b2.Data)
+            result2.Add(ApplyScalarBinary(op, left, e));
+        return new Value(new NdArray<Value>(b2.Shape, result2));
+    }
+
     private static Value EvaluateComparison(Value left, Value right, BinaryOp op)
     {
-        (left, right) = Value.WidenPair(left, right);
-
-        int cmp = left.Kind switch
-        {
-            ValueKind.Natural => left.AsNatural().CompareTo(right.AsNatural()),
-            ValueKind.Integer => left.AsInteger().CompareTo(right.AsInteger()),
-            ValueKind.Real    => left.AsReal().CompareTo(right.AsReal()),
-            _ => throw new InvalidOperationException($"Cannot compare values of kind '{left.Kind}'."),
-        };
+        int cmp = NumericOps.Compare(left, right);
 
         bool result = op switch
         {
@@ -316,51 +312,6 @@ public sealed class Interpreter
         return new Value(result);
     }
 
-    /// <summary>Natural subtraction that auto-widens to Integer on underflow.</summary>
-    private static Value SubtractNatural(Value left, Value right)
-    {
-        try
-        {
-            return new Value(left.AsNatural() - right.AsNatural());
-        }
-        catch (InvalidOperationException)
-        {
-            var leftInt  = left.Widen(ValueKind.Integer);
-            var rightInt = right.Widen(ValueKind.Integer);
-            return new Value(leftInt.AsInteger() - rightInt.AsInteger());
-        }
-    }
-
-    /// <summary>
-    /// Natural division. An exact quotient stays <see cref="ValueKind.Natural"/>; a non-zero
-    /// remainder widens to <see cref="ValueKind.Real"/> so the exact rational result is
-    /// preserved with period detection (e.g. <c>1 / 3 = 0.(3)</c>) instead of truncating.
-    /// </summary>
-    private static Value DivideNatural(Value left, Value right)
-    {
-        var quotient = Nat.DivRem(left.AsNatural(), right.AsNatural(), out var remainder);
-        if (Nat.IsZero(remainder))
-            return new Value(quotient);
-
-        return new Value(Rl.Divide(
-            left.Widen(ValueKind.Real).AsReal(),
-            right.Widen(ValueKind.Real).AsReal()));
-    }
-
-    /// <summary>
-    /// Integer division. An exact quotient stays <see cref="ValueKind.Integer"/>; otherwise the
-    /// result widens to <see cref="ValueKind.Real"/> (e.g. <c>-7 / 2 = -3.5</c>).
-    /// </summary>
-    private static Value DivideInteger(Value left, Value right)
-    {
-        var quotient = left.AsInteger().DivRem(right.AsInteger(), out var remainder);
-        if (Int.IsZero(remainder))
-            return new Value(quotient);
-
-        return new Value(Rl.Divide(
-            left.Widen(ValueKind.Real).AsReal(),
-            right.Widen(ValueKind.Real).AsReal()));
-    }
 
     // -----------------------------------------------------------------
     // Unary / postfix
@@ -459,17 +410,45 @@ public sealed class Interpreter
     private async Task<Value> EvaluateIndexAsync(IndexExpr idx, Scope scope)
     {
         var target = await EvaluateAsync(idx.Target, scope);
-        var index = await EvaluateAsync(idx.Index, scope);
 
-        if (target.Kind != ValueKind.Vector)
-            throw new InvalidOperationException($"Indexing is not supported for type '{target.Kind}'.");
+        var indices = new List<long>(idx.Indices.Count);
+        foreach (var ie in idx.Indices)
+        {
+            var iv = await EvaluateAsync(ie, scope);
+            indices.Add(ToLong(iv));
+        }
 
-        long i = ToLong(index);
-        var vec = target.AsVector();
-        if (i < 0 || i >= vec.Count)
-            throw new InvalidOperationException($"Index {i} is out of range for vector of length {vec.Count}.");
+        return IndexValue(target, indices);
+    }
 
-        return vec[(int)i];
+    /// <summary>Indexes a vector or N-D array with 1..rank coordinates.</summary>
+    private static Value IndexValue(Value target, IReadOnlyList<long> indices)
+    {
+        if (target.Kind == ValueKind.Vector)
+        {
+            if (indices.Count != 1)
+                throw new InvalidOperationException($"Vector indexing expects exactly 1 index, but got {indices.Count}.");
+            long i = indices[0];
+            var vec = target.AsVector();
+            if (i < 0 || i >= vec.Count)
+                throw new InvalidOperationException($"Index {i} is out of range for vector of length {vec.Count}.");
+            return vec[(int)i];
+        }
+
+        if (target.Kind == ValueKind.Array)
+        {
+            var arr = target.AsArray();
+            if (indices.Count > arr.Rank)
+                throw new InvalidOperationException($"A rank-{arr.Rank} array cannot be indexed with {indices.Count} indices.");
+
+            if (indices.Count == arr.Rank)
+                return arr.Get(indices);
+
+            var sub = arr.Slice(indices);
+            return sub.Rank == 1 ? new Value(sub.Data) : new Value(sub);
+        }
+
+        throw new InvalidOperationException($"Indexing is not supported for type '{target.Kind}'.");
     }
 
     private async Task<Value> EvaluateListAsync(ListExpr list, Scope scope)
@@ -477,8 +456,44 @@ public sealed class Interpreter
         var elements = new List<Value>(list.Elements.Count);
         foreach (var e in list.Elements)
             elements.Add(await EvaluateAsync(e, scope));
+        return BuildList(elements);
+    }
+
+    /// <summary>
+    /// Wraps evaluated list elements. When every element is a container (Vector or Array)
+    /// of the same shape, promotes to an N-D array; a ragged container list is an error.
+    /// </summary>
+    private static Value BuildList(IReadOnlyList<Value> elements)
+    {
+        if (elements.Count > 0 && elements.All(IsContainer))
+        {
+            long[] firstShape = ShapeOf(elements[0]);
+            if (!elements.All(e => ShapeOf(e).SequenceEqual(firstShape)))
+                throw new InvalidOperationException(
+                    "Ragged nested list literal: every row must have the same shape.");
+
+            long[] shape = new long[firstShape.Length + 1];
+            shape[0] = elements.Count;
+            for (int i = 0; i < firstShape.Length; i++)
+                shape[i + 1] = firstShape[i];
+
+            var data = new List<Value>();
+            foreach (var e in elements)
+                data.AddRange(ContainerData(e));
+
+            return new Value(new NdArray<Value>(shape, data));
+        }
+
         return new Value(elements);
     }
+
+    private static bool IsContainer(Value v) => v.Kind is ValueKind.Vector or ValueKind.Array;
+
+    private static long[] ShapeOf(Value v) =>
+        v.Kind == ValueKind.Vector ? new[] { (long)v.AsVector().Count } : v.AsArray().Shape;
+
+    private static IEnumerable<Value> ContainerData(Value v) =>
+        v.Kind == ValueKind.Vector ? v.AsVector() : v.AsArray().Data;
 
     private async Task<Value> EvaluateInterpolatedAsync(InterpolatedStringExpr interp, Scope scope)
     {
@@ -710,11 +725,13 @@ public sealed class Interpreter
             });
         });
 
-        // inv(x)
+        // inv(x) / inv(matrix)
         Register("inv", ["x"], args =>
         {
             RequireArity("inv", args, 1);
             var arg = args[0];
+            if (arg.Kind == ValueKind.Array)
+                return Task.FromResult(FromNdArray(ArrayMath.Inverse(ValueField.Instance, arg.AsArray())));
             var real = arg.Widen(ValueKind.Real).AsReal();
             return Task.FromResult<Value>(new Value(real.Invert()));
         });
@@ -820,18 +837,23 @@ public sealed class Interpreter
             return Task.FromResult(Value.Void);
         });
 
-        // len(v)
+        // len(v) / len(array)
         Register("len", ["v"], args =>
         {
             RequireArity("len", args, 1);
             var arg = args[0];
-            if (arg.Kind != ValueKind.Vector)
-                throw new InvalidOperationException($"len() expects a vector, but got '{arg.Kind}'.");
-            return Task.FromResult<Value>(new Value(new Nat(arg.AsVector().Count)));
+            return arg.Kind switch
+            {
+                ValueKind.Vector => Task.FromResult<Value>(new Value(new Nat(arg.AsVector().Count))),
+                ValueKind.Array  => Task.FromResult<Value>(Natural(arg.AsArray().Shape[0])),
+                _ => throw new InvalidOperationException($"len() expects a vector or array, but got '{arg.Kind}'."),
+            };
         });
 
         // plot(...)
         Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)));
+
+        RegisterArrayBuiltins();
     }
 
     private Value BuiltinPlot(IReadOnlyList<Value> args)
@@ -902,6 +924,228 @@ public sealed class Interpreter
 
     private static string FormatDivRem(object quotient, object remainder) =>
         $"quotient = {quotient}, remainder = {remainder}";
+
+    // -----------------------------------------------------------------
+    // Array / vector built-in helpers
+    // -----------------------------------------------------------------
+
+    /// <summary>Normalizes a Vector or Array value to an <see cref="NdArray{T}"/>.</summary>
+    private static NdArray<Value> ToNdArray(Value v)
+    {
+        if (v.Kind == ValueKind.Vector)
+        {
+            var d = v.AsVector();
+            return new NdArray<Value>(new[] { (long)d.Count }, d);
+        }
+        if (v.Kind == ValueKind.Array)
+            return v.AsArray();
+        throw new InvalidOperationException($"Expected a vector or array, but got '{v.Kind}'.");
+    }
+
+    /// <summary>Wraps an <see cref="NdArray{T}"/> as a Vector (rank 1) or Array (rank ≥ 2).</summary>
+    private static Value FromNdArray(NdArray<Value> nd) =>
+        nd.Rank == 1 ? new Value(nd.Data) : new Value(nd);
+
+    /// <summary>Builds a Natural value from a non-negative long.</summary>
+    private static Value Natural(long n) => new Value(Nat.Parse(n.ToString(), null));
+
+    /// <summary>Parses trailing arguments as dimension sizes.</summary>
+    private static long[] ParseShape(IReadOnlyList<Value> args, int start, string name)
+    {
+        if (args.Count <= start)
+            throw new InvalidOperationException($"{name}() requires at least one dimension.");
+        var dims = new long[args.Count - start];
+        for (int i = start; i < args.Count; i++)
+            dims[i - start] = ToLong(args[i]);
+        return dims;
+    }
+
+    /// <summary>Converts a vector of indices to a long array.</summary>
+    private static long[] ToLongArray(Value v)
+    {
+        if (v.Kind != ValueKind.Vector)
+            throw new InvalidOperationException("Expected a vector of axis indices.");
+        return v.AsVector().Select(ToLong).ToArray();
+    }
+
+    /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.</summary>
+    private static Task<Value> ReduceBuiltin(
+        IReadOnlyList<Value> args,
+        Func<NdArray<Value>, Value> all,
+        Func<NdArray<Value>, long, NdArray<Value>> axis)
+    {
+        return args.Count switch
+        {
+            1 => Task.FromResult(all(ToNdArray(args[0]))),
+            2 => Task.FromResult(ReduceAxisResult(args[0], ToLong(args[1]), axis)),
+            _ => throw new InvalidOperationException($"Expected 1 or 2 arguments, but got {args.Count}."),
+        };
+    }
+
+    /// <summary>Reduces along an axis; a rank-1 input reduces to a scalar.</summary>
+    private static Value ReduceAxisResult(Value input, long axis, Func<NdArray<Value>, long, NdArray<Value>> reduce)
+    {
+        var nd = ToNdArray(input);
+        var result = reduce(nd, axis);
+        if (nd.Rank == 1)
+            return result.Data[0];
+        return FromNdArray(result);
+    }
+
+    private void RegisterArrayBuiltins()
+    {
+        var f = ValueField.Instance;
+
+        // zeros(d1, …, dn)
+        Register("zeros", ["dims"], args =>
+            Task.FromResult(FromNdArray(ArrayMath.Zeros(f, ParseShape(args, 0, "zeros")))));
+
+        // ones(d1, …, dn)
+        Register("ones", ["dims"], args =>
+            Task.FromResult(FromNdArray(ArrayMath.Ones(f, ParseShape(args, 0, "ones")))));
+
+        // eye(n) / eye(r, c)
+        Register("eye", ["rows", "cols"], args =>
+        {
+            return args.Count switch
+            {
+                1 => Task.FromResult(FromNdArray(ArrayMath.Eye(f, ToLong(args[0]), ToLong(args[0])))),
+                2 => Task.FromResult(FromNdArray(ArrayMath.Eye(f, ToLong(args[0]), ToLong(args[1])))),
+                _ => throw new InvalidOperationException($"eye() expects 1 or 2 arguments, but got {args.Count}."),
+            };
+        });
+
+        // reshape(a, d1, …, dn)
+        Register("reshape", ["a", "dims"], args =>
+        {
+            if (args.Count < 2)
+                throw new InvalidOperationException("reshape() requires an array and one or more dimensions.");
+            var nd = ToNdArray(args[0]);
+            return Task.FromResult(FromNdArray(nd.Reshape(ParseShape(args, 1, "reshape"))));
+        });
+
+        // shape(a)
+        Register("shape", ["a"], args =>
+        {
+            RequireArity("shape", args, 1);
+            var nd = ToNdArray(args[0]);
+            return Task.FromResult<Value>(new Value(nd.Shape.Select(Natural).ToList()));
+        });
+
+        // rank(a) / ndims(a)
+        Register("rank", ["a"], args =>
+        {
+            RequireArity("rank", args, 1);
+            return Task.FromResult<Value>(Natural(ToNdArray(args[0]).Rank));
+        });
+        Register("ndims", ["a"], args =>
+        {
+            RequireArity("ndims", args, 1);
+            return Task.FromResult<Value>(Natural(ToNdArray(args[0]).Rank));
+        });
+
+        // numel(a)
+        Register("numel", ["a"], args =>
+        {
+            RequireArity("numel", args, 1);
+            return Task.FromResult<Value>(Natural(ToNdArray(args[0]).Numel));
+        });
+
+        // flatten(a)
+        Register("flatten", ["a"], args =>
+        {
+            RequireArity("flatten", args, 1);
+            return Task.FromResult(FromNdArray(ToNdArray(args[0]).Flatten()));
+        });
+
+        // transpose(a) / transpose(a, perm)
+        Register("transpose", ["a", "perm"], args =>
+        {
+            var nd = ToNdArray(args[0]);
+            return args.Count switch
+            {
+                1 => Task.FromResult(FromNdArray(nd.Transpose())),
+                2 => Task.FromResult(FromNdArray(nd.Transpose(ToLongArray(args[1])))),
+                _ => throw new InvalidOperationException($"transpose() expects 1 or 2 arguments, but got {args.Count}."),
+            };
+        });
+
+        // squeeze(a)
+        Register("squeeze", ["a"], args =>
+        {
+            RequireArity("squeeze", args, 1);
+            return Task.FromResult(FromNdArray(ToNdArray(args[0]).Squeeze()));
+        });
+
+        // reductions: sum / prod / min / max / mean / norm (all + axis)
+        Register("sum",  ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Sum(f, a),  (a, ax) => ArrayMath.Sum(f, a, ax)));
+        Register("prod", ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Prod(f, a), (a, ax) => ArrayMath.Prod(f, a, ax)));
+        Register("min",  ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Min(f, a),  (a, ax) => ArrayMath.Min(f, a, ax)));
+        Register("max",  ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Max(f, a),  (a, ax) => ArrayMath.Max(f, a, ax)));
+        Register("mean", ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Mean(f, a), (a, ax) => ArrayMath.Mean(f, a, ax)));
+        Register("norm", ["a", "axis"], args => ReduceBuiltin(args, a => ArrayMath.Norm(f, a), (a, ax) => ArrayMath.Norm(f, a, ax)));
+
+        // dot(a, b)
+        Register("dot", ["a", "b"], args =>
+        {
+            RequireArity("dot", args, 2);
+            return Task.FromResult<Value>(ArrayMath.Dot(f, ToNdArray(args[0]), ToNdArray(args[1])));
+        });
+
+        // cross(a, b)
+        Register("cross", ["a", "b"], args =>
+        {
+            RequireArity("cross", args, 2);
+            return Task.FromResult(FromNdArray(ArrayMath.Cross(f, ToNdArray(args[0]), ToNdArray(args[1]))));
+        });
+
+        // matmul(a, b)
+        Register("matmul", ["a", "b"], args =>
+        {
+            RequireArity("matmul", args, 2);
+            var a = ToNdArray(args[0]);
+            var b = ToNdArray(args[1]);
+            if (a.Rank == 1 && b.Rank == 1)
+                return Task.FromResult<Value>(ArrayMath.Dot(f, a, b));
+            return Task.FromResult(FromNdArray(ArrayMath.MatMul(f, a, b)));
+        });
+
+        // det(m)
+        Register("det", ["m"], args =>
+        {
+            RequireArity("det", args, 1);
+            return Task.FromResult<Value>(ArrayMath.Det(f, ToNdArray(args[0])));
+        });
+
+        // trace(m)
+        Register("trace", ["m"], args =>
+        {
+            RequireArity("trace", args, 1);
+            return Task.FromResult<Value>(ArrayMath.Trace(f, ToNdArray(args[0])));
+        });
+
+        // concat(a, b) / concat(a, b, axis)
+        Register("concat", ["a", "b", "axis"], args =>
+        {
+            if (args.Count != 2 && args.Count != 3)
+                throw new InvalidOperationException($"concat() expects 2 or 3 arguments, but got {args.Count}.");
+            var a = ToNdArray(args[0]);
+            var b = ToNdArray(args[1]);
+            long axis = args.Count == 3 ? ToLong(args[2]) : 0;
+            return Task.FromResult(FromNdArray(NdArray<Value>.Concat(a, b, axis)));
+        });
+
+        // append(a, b) — vectors only
+        Register("append", ["a", "b"], args =>
+        {
+            RequireArity("append", args, 2);
+            var a = ToNdArray(args[0]);
+            var b = ToNdArray(args[1]);
+            if (a.Rank != 1 || b.Rank != 1)
+                throw new InvalidOperationException("append() expects two vectors.");
+            return Task.FromResult(FromNdArray(NdArray<Value>.Concat(a, b, 0)));
+        });
+    }
 
     // -----------------------------------------------------------------
     // Event helpers

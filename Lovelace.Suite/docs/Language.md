@@ -782,3 +782,177 @@ error: Undefined variable 'nope'.
 ```result
 error: Cannot widen from Natural to Text: only numeric kinds (Natural, Integer, Real) support widening.
 ```
+
+---
+
+## 14. N-Dimensional arrays
+
+A **vector** is a rank-1 array, a **matrix** a rank-2 array, and a nested list literal of depth `k`
+builds a rank-`k` array. Every row must be rectangular.
+
+### Literals
+
+```lovelace
+[[1, 2], [3, 4]]
+```
+```result
+[[1, 2], [3, 4]] (Array)
+```
+
+```lovelace
+[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+```
+```result
+[[[1, 2], [3, 4]], [[5, 6], [7, 8]]] (Array)
+```
+
+A ragged nested list is an error.
+
+```lovelace
+[[1, 2], [3]]
+```
+```result
+error: Ragged nested list literal: every row must have the same shape.
+```
+
+### Indexing
+
+`a[i, j, …]` indexes with one coordinate per dimension (0-based); `a[i, …]` with fewer coordinates
+returns a lower-rank sub-array.
+
+```lovelace
+[[1, 2], [3, 4]][1, 0]
+```
+```result
+3 (Natural)
+```
+
+```lovelace
+[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][0]
+```
+```result
+[[1, 2], [3, 4]] (Array)
+```
+
+### Construction and shape
+
+```lovelace
+zeros(2, 3)
+```
+```result
+[[0, 0, 0], [0, 0, 0]] (Array)
+```
+
+```lovelace
+reshape(1..6, 2, 3)
+```
+```result
+[[1, 2, 3], [4, 5, 6]] (Array)
+```
+
+```lovelace
+shape(zeros(2, 3))
+```
+```result
+[2, 3] (Vector)
+```
+
+### Reductions
+
+`sum`/`prod`/`min`/`max`/`mean`/`norm` collapse all elements, or reduce along one `axis`.
+
+```lovelace
+sum([[1, 2], [3, 4]])
+```
+```result
+10 (Natural)
+```
+
+```lovelace
+sum([[1, 2], [3, 4]], 0)
+```
+```result
+[4, 6] (Vector)
+```
+
+```lovelace
+mean([1, 2])
+```
+```result
+1.5 (Real)
+```
+
+```lovelace
+norm([3, 4])
+```
+```result
+5 (Real)
+```
+
+### Linear algebra
+
+```lovelace
+matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])
+```
+```result
+[[19, 22], [43, 50]] (Array)
+```
+
+```lovelace
+dot([1, 2], [3, 4])
+```
+```result
+11 (Natural)
+```
+
+```lovelace
+cross([1, 0, 0], [0, 1, 0])
+```
+```result
+[0, 0, 1] (Vector)
+```
+
+```lovelace
+det([[1, 2], [3, 4]])
+```
+```result
+-2 (Integer)
+```
+
+```lovelace
+inv([[1, 2], [3, 4]])
+```
+```result
+[[-2, 1], [1.5, -0.5]] (Array)
+```
+
+```lovelace
+trace([[1, 2], [3, 4]])
+```
+```result
+5 (Natural)
+```
+
+### Shape manipulation and concatenation
+
+```lovelace
+transpose([[1, 2], [3, 4]])
+```
+```result
+[[1, 3], [2, 4]] (Array)
+```
+
+```lovelace
+flatten([[1, 2], [3, 4]])
+```
+```result
+[1, 2, 3, 4] (Vector)
+```
+
+```lovelace
+append([1, 2], [3, 4])
+```
+```result
+[1, 2, 3, 4] (Vector)
+```
+

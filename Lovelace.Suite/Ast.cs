@@ -75,8 +75,8 @@ public sealed record StringExpr(string Value) : Expr;
 /// <summary>A range expression <c>start..end</c> or <c>start..step..end</c>.</summary>
 public sealed record RangeExpr(Expr Start, Expr? Step, Expr End) : Expr;
 
-/// <summary>An element access <c>target[index]</c>.</summary>
-public sealed record IndexExpr(Expr Target, Expr Index) : Expr;
+/// <summary>An element access <c>target[i]</c> or <c>target[i, j, …]</c>.</summary>
+public sealed record IndexExpr(Expr Target, List<Expr> Indices) : Expr;
 
 /// <summary>A list literal <c>[a, b, c]</c>.</summary>
 public sealed record ListExpr(List<Expr> Elements) : Expr;

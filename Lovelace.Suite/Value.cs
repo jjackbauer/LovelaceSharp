@@ -1,6 +1,7 @@
 using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
+using Lovelace.Arrays;
 
 namespace Lovelace.Suite;
 
@@ -23,6 +24,7 @@ public enum ValueKind
     Vector,
     Function,
     Void,
+    Array,
 }
 
 // -------------------------------------------------------------------------
@@ -87,6 +89,13 @@ public sealed class Value
         Kind = ValueKind.Vector;
     }
 
+    /// <summary>Wraps an N-dimensional array (rank &gt;= 2).</summary>
+    public Value(NdArray<Value> array)
+    {
+        _inner = array;
+        Kind = ValueKind.Array;
+    }
+
     /// <summary>Wraps a first-class function reference.</summary>
     public Value(FunctionDefinition function)
     {
@@ -131,6 +140,9 @@ public sealed class Value
 
     /// <summary>Returns the stored value cast to a read-only list of values.</summary>
     public IReadOnlyList<Value> AsVector() => (IReadOnlyList<Value>)_inner;
+
+    /// <summary>Returns the stored value cast to an <see cref="NdArray{T}"/> of values.</summary>
+    public NdArray<Value> AsArray() => (NdArray<Value>)_inner;
 
     /// <summary>Returns the stored value cast to a <see cref="FunctionDefinition"/>.</summary>
     public FunctionDefinition AsFunction() => (FunctionDefinition)_inner;
@@ -202,6 +214,7 @@ public sealed class Value
         ValueKind.Boolean => $"Boolean: {_inner}",
         ValueKind.Text    => (string)_inner,
         ValueKind.Vector  => $"Vector: {ValueFormatter.Format(this)}",
+        ValueKind.Array   => $"Array: {ValueFormatter.Format(this)}",
         ValueKind.Function => $"Function: {AsFunction().Name}",
         ValueKind.Void    => "Void",
         _                 => throw new InvalidOperationException($"Unknown kind: {Kind}"),

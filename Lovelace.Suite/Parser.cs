@@ -416,9 +416,14 @@ public sealed class Parser
             if (Current.Kind == TokenKind.LBracket)
             {
                 Advance(); // consume '['
-                var index = ParseAssignment();
+                var indices = new List<Expr> { ParseAssignment() };
+                while (Current.Kind == TokenKind.Comma)
+                {
+                    Advance();
+                    indices.Add(ParseAssignment());
+                }
                 Expect(TokenKind.RBracket);
-                operand = new IndexExpr(operand, index);
+                operand = new IndexExpr(operand, indices);
                 continue;
             }
 
