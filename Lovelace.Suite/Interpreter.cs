@@ -901,7 +901,7 @@ public sealed class Interpreter
         var model = new PlotModel { Title = title };
         var series = new PlotSeries();
         for (int i = 0; i < xv.Count; i++)
-            series.Points.Add(new PlotPoint(PlotValue.ToDouble(xv[i]), PlotValue.ToDouble(yv[i])));
+            series.Points.Add(new PlotPoint(PlotValue.ToReal(xv[i]), PlotValue.ToReal(yv[i])));
         model.Series.Add(series);
 
         string path = Path.Combine(PlotOutputDirectory, PlotFileName);

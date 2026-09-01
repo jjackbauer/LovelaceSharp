@@ -1,4 +1,5 @@
 using Lovelace.Suite;
+using Nat = global::Lovelace.Natural.Natural;
 using Rl = global::Lovelace.Real.Real;
 
 namespace Lovelace.Suite.Tests;
@@ -95,5 +96,42 @@ public class PlotTests
         double d = PlotValue.ToDouble(value);
 
         Assert.Equal(1.0 / 3.0, d, 3);
+    }
+
+    [Fact]
+    public void PlotValue_GivenHugeNatural_ToRealPreservesDigitsExactly()
+    {
+        string digits = "1" + new string('0', 400);
+        var value = new Value(Nat.Parse(digits, null));
+
+        Rl real = PlotValue.ToReal(value);
+
+        Assert.Equal(digits, real.ToString());
+    }
+
+    [Fact]
+    public void SvgPlotRenderer_GivenHugeCloseXValues_KeepsPointsDistinct()
+    {
+        var model = new PlotModel();
+        var series = new PlotSeries();
+        series.Points.Add(new PlotPoint(new Rl("100000000000000000000"), new Rl("0")));
+        series.Points.Add(new PlotPoint(new Rl("100000000000000000001"), new Rl("1")));
+        model.Series.Add(series);
+
+        string svg = new SvgPlotRenderer().Render(model);
+
+        Assert.DoesNotContain("Infinity", svg);
+        Assert.DoesNotContain("NaN", svg);
+
+        int idx = svg.IndexOf("points=\"", StringComparison.Ordinal);
+        Assert.True(idx >= 0);
+        string tail = svg[(idx + "points=\"".Length)..];
+        string pts = tail[..tail.IndexOf('"')];
+        string[] coords = pts.Split(' ');
+        Assert.Equal(2, coords.Length);
+
+        double x1 = double.Parse(coords[0].Split(',')[0], System.Globalization.CultureInfo.InvariantCulture);
+        double x2 = double.Parse(coords[1].Split(',')[0], System.Globalization.CultureInfo.InvariantCulture);
+        Assert.NotEqual(x1, x2);
     }
 }
