@@ -273,6 +273,24 @@ td { word-break: break-all; }
 .log-line.result { color: var(--ok); }
 .log-line.error { color: var(--error); }
 .log-line.info { color: var(--muted); }
+.log-line.timing { color: var(--muted); }
+.log-line.inspectable > summary { cursor: pointer; user-select: none; }
+.log-line.inspectable > summary::marker { color: var(--muted); }
+.log-line.inspectable[open] > summary { margin-bottom: 6px; }
+.log-json {
+  margin: 0;
+  padding: 8px 10px;
+  background: #0f1015;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  white-space: pre;
+  overflow: auto;
+  max-height: 340px;
+}
 
 /* ---------------- Minimize / Maximize ---------------- */
 .pane.minimized {

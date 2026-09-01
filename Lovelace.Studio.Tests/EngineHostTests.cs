@@ -148,4 +148,66 @@ public class EngineHostTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task Evaluate_GivenScript_ReturnsElapsedTime()
+    {
+        var (_, host, dir) = CreateHost();
+        try
+        {
+            var response = await host.EvaluateAsync("1 + 1");
+
+            Assert.False(string.IsNullOrWhiteSpace(response.Elapsed));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Evaluate_GivenPrintStatement_ReturnsOutputScopedToThatLine()
+    {
+        var (_, host, dir) = CreateHost();
+        try
+        {
+            var response = await host.EvaluateAsync("x = 11\nprint(x)");
+
+            Assert.Equal(2, response.Timings.Length);
+            Assert.Equal("11", response.Timings[0].Result);
+            Assert.Null(response.Timings[0].Output);
+            Assert.Null(response.Timings[1].Result);
+            Assert.Equal("11", response.Timings[1].Output);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Evaluate_GivenMultiLineScript_ReturnsPerLineTimings()
+    {
+        var (_, host, dir) = CreateHost();
+        try
+        {
+            var response = await host.EvaluateAsync("x = 1\ny = 2\nx + y");
+
+            Assert.Equal(3, response.Timings.Length);
+            Assert.Equal(1, response.Timings[0].Line);
+            Assert.Equal("x = 1", response.Timings[0].Text);
+            Assert.Equal("1", response.Timings[0].Result);
+            Assert.Equal(2, response.Timings[1].Line);
+            Assert.Equal("y = 2", response.Timings[1].Text);
+            Assert.Equal("2", response.Timings[1].Result);
+            Assert.Equal(3, response.Timings[2].Line);
+            Assert.Equal("x + y", response.Timings[2].Text);
+            Assert.Equal("3", response.Timings[2].Result);
+            Assert.All(response.Timings, t => Assert.False(string.IsNullOrWhiteSpace(t.Elapsed)));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }

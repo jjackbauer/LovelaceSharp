@@ -93,6 +93,18 @@ public sealed class EngineHost
             ? null
             : new ValueResult(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result));
 
+        var sourceLines = source.Split('\n');
+        var timings = _engine.OperationTimings
+            .Select(t =>
+            {
+                int line = ComputeLineColumn(source, t.Position).Line;
+                string text = line >= 1 && line <= sourceLines.Length ? sourceLines[line - 1].Trim() : string.Empty;
+                string? result = t.Result.Kind == ValueKind.Void ? null : ValueFormatter.Format(t.Result);
+                string? output = t.Output.Length == 0 ? null : t.Output.TrimEnd('\r', '\n');
+                return new TimingRow(line, text, result, output, t.ElapsedDisplay);
+            })
+            .ToArray();
+
         return new EvaluateResponse(
             resultPayload,
             variables,
@@ -100,7 +112,9 @@ public sealed class EngineHost
             SplitLines(logs.ToString()),
             plotPayload,
             diagnostics,
-            snapshot.Revision);
+            snapshot.Revision,
+            _engine.LastElapsedDisplay,
+            timings);
     }
 
     private static StateResponse ToState(StateSnapshot snapshot) =>

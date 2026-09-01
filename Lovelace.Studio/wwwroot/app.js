@@ -21,13 +21,42 @@ let running = false;
 // Logs
 // ---------------------------------------------------------------------------
 
-function appendLog(text, kind) {
+function appendLog(text, kind, response) {
   if (text === undefined || text === null || text === "") return;
-  const div = document.createElement("div");
-  div.className = "log-line" + (kind ? " " + kind : "");
-  div.textContent = text;
-  logsEl.appendChild(div);
+
+  if (response !== undefined && response !== null) {
+    const details = document.createElement("details");
+    details.className = "log-line inspectable" + (kind ? " " + kind : "");
+
+    const summary = document.createElement("summary");
+    summary.textContent = text;
+    summary.title = "Inspect server response";
+    details.appendChild(summary);
+
+    const pre = document.createElement("pre");
+    pre.className = "log-json";
+    pre.textContent = JSON.stringify(response, null, 2);
+    details.appendChild(pre);
+
+    logsEl.appendChild(details);
+  } else {
+    const div = document.createElement("div");
+    div.className = "log-line" + (kind ? " " + kind : "");
+    div.textContent = text;
+    logsEl.appendChild(div);
+  }
+
   logsEl.scrollTop = logsEl.scrollHeight;
+}
+
+// The scoped payload for a single operation line: just its own source, result, and time.
+function stepPayload(step) {
+  return {
+    line: step.line,
+    source: step.text,
+    result: step.result,
+    elapsed: step.elapsed
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -141,18 +170,31 @@ function applyResponse(data) {
   renderPlot(data.plot);
   setStatus(data.revision);
 
-  for (const line of data.logs || []) {
-    appendLog(line, "output");
+  const steps = data.timings || [];
+  let lastResultStep = null;
+
+  for (const step of steps) {
+    if (step.output) {
+      appendLog(step.output, "output", stepPayload(step));
+    }
+    if (step.result !== null && step.result !== undefined) {
+      lastResultStep = step;
+    }
   }
 
   if (data.result && data.result.kind !== "Void") {
-    appendLog("= " + data.result.typed, "result");
+    appendLog("= " + data.result.typed, "result", lastResultStep ? stepPayload(lastResultStep) : null);
   }
 
   if (data.diagnostics && data.diagnostics.length > 0) {
     const d = data.diagnostics[0];
-    appendLog("error: " + d.message + " (line " + d.line + ", col " + d.column + ")", "error");
+    appendLog("error: " + d.message + " (line " + d.line + ", col " + d.column + ")", "error",
+      { error: d.message, line: d.line, column: d.column });
     highlightError(d);
+  }
+
+  if (data.elapsed) {
+    appendLog("total: " + data.elapsed, "timing", { total: data.elapsed });
   }
 }
 
@@ -166,6 +208,7 @@ async function run(source) {
   try {
     const res = await fetch("/api/evaluate", {
       method: "POST",
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source })
     });

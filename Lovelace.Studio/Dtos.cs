@@ -20,6 +20,9 @@ public sealed record DiagnosticRow(string Message, int Position, int Line, int C
 /// <summary>An inline plot capture.</summary>
 public sealed record PlotPayload(string Svg, string Title);
 
+/// <summary>A single script operation: line number, source text, result value, print output, and elapsed time.</summary>
+public sealed record TimingRow(int Line, string Text, string? Result, string? Output, string Elapsed);
+
 /// <summary>The full evaluate round-trip response.</summary>
 public sealed record EvaluateResponse(
     ValueResult? Result,
@@ -28,7 +31,9 @@ public sealed record EvaluateResponse(
     string[] Logs,
     PlotPayload? Plot,
     DiagnosticRow[] Diagnostics,
-    long Revision);
+    long Revision,
+    string Elapsed,
+    TimingRow[] Timings);
 
 /// <summary>The workspace snapshot response (variables + functions + revision).</summary>
 public sealed record StateResponse(long Revision, VariableRow[] Variables, FunctionRow[] Functions);

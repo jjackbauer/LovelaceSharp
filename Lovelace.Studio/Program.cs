@@ -11,6 +11,9 @@ builder.Services.AddSingleton<EngineHost>();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    // Native AOT: resolve types from the source-generated context instead of
+    // the (trimmed) reflection-based serializer.
+    options.SerializerOptions.TypeInfoResolver = StudioJsonContext.Default;
 });
 
 var app = builder.Build();

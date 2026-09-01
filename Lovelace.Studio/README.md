@@ -42,10 +42,12 @@ engine's grammar is semicolon-separated, exactly like the REPL which submits one
 ## Run
 
 ~~~bash
-dotnet run --project Lovelace.Studio
+make studio    # publish a Native AOT binary and run it (default)
 ~~~
 
 Then open the localhost URL printed by the server (default http://localhost:5000).
+
+For JIT development iteration (no C++ toolchain required): `dotnet run --project Lovelace.Studio`.
 
 **Local, single-user tool.** The server binds to localhost only, holds one shared engine session
 (like the REPL), and intentionally runs arbitrary scripts — do not expose it beyond your machine.
