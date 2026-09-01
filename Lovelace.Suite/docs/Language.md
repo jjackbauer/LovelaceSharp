@@ -766,9 +766,9 @@ plot was produced and its title, not the path.
 - `plot(y)` uses `1..len(y)` as the x-axis.
 - `plot(x, y)` requires two equal-length vectors.
 - The optional third argument is the title, rendered into the SVG.
-- A series of three or more points is connected with a smooth shape-preserving curve through the
-  data (sampled densely, so a coarse sample draws as a curve, not an angular polygon); fewer than
-  three points fall back to straight segments.
+- A series of three or more points is connected with a smooth cubic spline through the data
+  (sampled densely, so a coarse sample draws as a curve, not an angular polygon); fewer than three
+  points fall back to straight segments.
 
 ```lovelace
 plot(1..10, 1 / (1..10 ^ 2), "1/x^2")
