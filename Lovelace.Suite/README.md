@@ -25,7 +25,7 @@ and a future bytecode/AOT compiler can reuse the same front-end.
 
 ---
 
-## Language (v1)
+## Language
 
 ### Values
 
@@ -34,7 +34,8 @@ and a future bytecode/AOT compiler can reuse the same front-end.
 | `Natural` / `Integer` / `Real` | arbitrary-precision numerics; widen `Natural → Integer → Real` |
 | `Boolean` | from comparisons and predicates |
 | `Text` | strings and interpolated strings |
-| `Vector` | numeric list (ranges, list literals); seeds the vector/matrix layer |
+| `Vector` | numeric list (ranges, list literals) — a rank-1 array |
+| `Array` | N-dimensional array (rank ≥ 2): matrices and tensors, from nested list literals |
 | `Function` | first-class function reference |
 | `Void` | result of statements that produce no value |
 
@@ -44,13 +45,22 @@ and a future bytecode/AOT compiler can reuse the same front-end.
 `for i in range { … }`, `return [expr]`, `break`, `continue`, and
 `func name(a, b) { … }` (or `func f(x) = expr`).
 
-### Vectors
+### Vectors & N-D arrays
 
-- `a..b` and `a..step..b` ranges; `[a, b, c]` list literals.
-- `len(v)`, 0-based indexing `v[i]`, and element-wise `+ - * /` (vector∘vector or scalar broadcast).
+- `a..b` and `a..step..b` ranges; `[a, b, c]` list literals (a rank-1 **vector**).
+- Nested rectangular lists build higher ranks: `[[1, 2], [3, 4]]` is a **matrix** (rank 2),
+  `[[[...]]]` an N-D **array**. A ragged nested list is an error.
+- 0-based indexing `v[i]` and multi-index `m[i, j]`; a partial index returns a sub-array.
+- Element-wise `+ - * / % ^` between same-shape arrays, or with a scalar broadcast.
+- Built-ins: reductions (`sum` `prod` `min` `max` `mean` `norm`, with optional `axis`),
+  linear algebra (`dot` `cross` `matmul` `det` `inv` `trace`), construction
+  (`zeros` `ones` `eye` `reshape`), introspection (`shape` `rank` `numel` `len`), and
+  manipulation (`flatten` `transpose` `squeeze` `concat` `append`).
 - A range binds tighter than arithmetic operators, so `1..10 ^ 2` is `(1..10) ^ 2`,
   `2 * 1..5` is `2 * (1..5)`, and `1..n + 1` is `(1..n) + 1` (parenthesize an endpoint to
   change that, e.g. `1..(n + 1)`).
+- The array type and algorithms live in [`Lovelace.Array`](../Lovelace.Array/), consumed here as
+  `NdArray<Value>`; the full reference is [`docs/Language.md`](docs/Language.md) §14.
 
 ### Strings and output
 
@@ -96,4 +106,6 @@ Console.WriteLine(engine.Variables["y"]);   // Natural: 25
 var snapshot = engine.CaptureState();        // feed a future GUI variables panel
 ```
 
-See also: [`.github/requirements/Lovelace.Suite.md`](../.github/requirements/Lovelace.Suite.md).
+See also: [`.github/requirements/Lovelace.Suite.md`](../.github/requirements/Lovelace.Suite.md),
+[`.github/requirements/Lovelace.Suite.Arrays.md`](../.github/requirements/Lovelace.Suite.Arrays.md),
+[`Lovelace.Array`](../.github/requirements/Lovelace.Array.md).

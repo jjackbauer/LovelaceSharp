@@ -1,98 +1,107 @@
 # LovelaceSharp
 
-> Arbitrary-precision arithmetic, end to end: a .NET library, an interactive calculator, and a
-> Lean proof that the digits are actually right.
+> **Arbitrary-precision math, end to end** — a scripting language, a .NET library, and a Lean proof
+> that the digits are actually right.
 
-Named after [Ada Lovelace](https://en.wikipedia.org/wiki/Ada_Lovelace), the first programmer,
-LovelaceSharp computes with numbers of *any* size. No `long`, no `double`, no fixed precision —
-unless you ask for it.
+Named after [Ada Lovelace](https://en.wikipedia.org/wiki/Ada_Lovelace), the first programmer.
+LovelaceSharp computes with numbers of *any* size — no `long`, no `double`, no fixed precision
+unless you ask for it — and it does so in a real scripting language with vectors, N-dimensional
+arrays, and linear algebra built in.
 
 ---
 
-## Try it — the REPL
+## The language in 60 seconds
 
-The fastest way to meet the library is the interactive calculator:
+The REPL is the fastest way to meet it. Everything below is one engine — exact arithmetic,
+arbitrary precision, functions, vectors, matrices, and plotting:
 
-```bash
-dotnet run --project Lovelace.Console
-```
-
-```
-LovelaceSharp REPL v1.0.0
-Arbitrary-precision arithmetic calculator.
-Type 'help' for a list of operators, functions, and commands.
-
-> 42
-= 42 (Natural)
-> x = 3.14
-= 3.14 (Real)
-> x * 2
-= 6.28 (Real)
+```text
 > 1 / 3
-= 0.(3) (Real)        # exact periodic fraction, not 0.3333333...
+= 0.(3) (Real)                        # exact repeating fraction — never rounded
+
+> 2 ^ 100
+= 1267650600228229401496703205376 (Natural)
+
 > sqrt(2)
-= 1.4142135623… (Real) # as many digits as you want
-> pi(100)
-= 3.1415926535… (Real)
-> 5!
-= 120 (Natural)
-> divrem(17, 5)
-= quotient = 3, remainder = 2
-> func square(x) = x ^ 2
-> square(5)
-= 25 (Natural)
-> 1..5
+= 1.4142135623730950488… (Real)       # as many digits as you ask for
+
+> func fib(n) { if (n < 2) { n } else { fib(n - 1) + fib(n - 2) } }
+> fib(20)
+= 6765 (Natural)
+
+> v = 1..5
 = [1, 2, 3, 4, 5] (Vector)
-> plot(1..5, [1, 4, 9, 16, 25], "squares")
+> v * 10
+= [10, 20, 30, 40, 50] (Vector)       # element-wise, scalar broadcast
+> sum(v ^ 2)
+= 55 (Natural)
+
+> m = [[1, 2], [3, 4]]                 # a matrix is a rank-2 array
+= [[1, 2], [3, 4]] (Array)
+> det(m)
+= -2 (Integer)
+> matmul(m, m)
+= [[7, 10], [15, 22]] (Array)
+> inv(m)
+= [[-2, 1], [1.5, -0.5]] (Array)      # exact, not floating-point
+
+> plot(v, v ^ 2, "squares")
 = C:\…\plot.svg (Text)
-> exit
-Bye!
 ```
 
-It is a full scripting engine, not just a calculator: variables (`x = 3.14`, and `_` always
-holds the last result), operators `+ - * / % ^ ! == != > < >= <=`, statements (`if`, `while`,
-`for … in …`, `return`), user-defined functions (`func`), vectors and ranges (`1..10`, `[1, 2, 3]`
-with element-wise arithmetic and 0-based indexing), string interpolation (`$"… {expr} …"`),
-`print`, and 2D plotting (`plot(x, y)` → SVG). Built-ins include `abs`, `inv`, `divrem`,
-`is_even`, `is_odd`, `sign`, `sqrt`, `pi`, `len`. Full details in
-[`Lovelace.Suite/README.md`](Lovelace.Suite/README.md); the complete, machine-checked syntax
-reference is [`Lovelace.Suite/docs/Language.md`](Lovelace.Suite/docs/Language.md).
+It is a full scripting language, not a calculator: variables (with `_` always holding the last
+result), user-defined functions, control flow, interpolation, and a first-class N-dimensional array
+type. The complete, **machine-checked** reference — every example is doctested against the engine —
+is [Lovelace.Suite/docs/Language.md](Lovelace.Suite/docs/Language.md).
 
 ---
 
-## Try it — the web IDE
+## Run it
 
-A browser IDE (script editor, variables/functions workspace, inline SVG plots, and a logs bar)
-over the same engine:
+| Surface | Command | More |
+|---|---|---|
+| **REPL** (interactive calculator) | `dotnet run --project Lovelace.Console` | [Lovelace.Console/README.md](Lovelace.Console/README.md) |
+| **Web IDE** (editor + variables/functions + inline SVG plots) | `make studio` | [Lovelace.Studio/README.md](Lovelace.Studio/README.md) |
+| **DSH harness** (agent-callable `lovelace` tool) | `make runner` then load the plugin | [harness/README.md](harness/README.md) |
 
-```bash
-make studio            # or: dotnet run --project Lovelace.Studio
-```
-
-Open the printed localhost URL (default `http://localhost:5000`). It is a local, single-user
-tool that intentionally runs arbitrary scripts. See
-[`Lovelace.Studio/README.md`](Lovelace.Studio/README.md).
+All three share one engine (`Lovelace.Suite`). The Studio and the DSH tool are thin projections of
+the same `SuiteEngine` — no duplicated language logic.
 
 ---
 
-## Try it — the DSH harness
+## The language at a glance
 
-A DeepSeek Harness (DSH) `lovelace` tool over the same engine, for authoring scripts from
-an agent conversation (results, variables, and plots come back as JSON):
+**Values.** `Natural` · `Integer` · `Real` (exact periodic fractions) · `Boolean` · `Text` ·
+`Vector` (rank-1) · `Array` (rank ≥ 2) · `Function` · `Void`. Numerics widen
+`Natural → Integer → Real`.
 
-```bash
-make runner     # publish Lovelace.Run first
-```
+**Operators.** `+ - * / % ^ !` · comparisons `== != > < >= <=` · assignment `=` · range `..`.
 
-Then load the dynamic plugin in [`harness/lovelace.host.js`](harness/lovelace.host.js) — full
-steps in [`harness/README.md`](harness/README.md).
+**Statements.** blocks `{ … }` · `if/else` · `while` · `for i in range` · `return` ·
+`break`/`continue` · `func f(x) { … }` (or `func f(x) = expr`).
+
+**Arrays (the headline feature).** Nested list literals build any rank — `[1,2,3]` is a vector,
+`[[1,2],[3,4]]` a matrix, `[[[…] ]]` an N-D array. Multi-index `m[i, j]` (with partial indexing
+returning sub-arrays), element-wise operators with scalar broadcast, and a full toolbox:
+
+| Group | Built-ins |
+|---|---|
+| Reductions | `sum` `prod` `min` `max` `mean` `norm` — all elements, or along an `axis` |
+| Linear algebra | `dot` `cross` `matmul` `det` `inv` `trace` |
+| Construction | `zeros` `ones` `eye` `reshape` |
+| Introspection | `shape` `rank` `numel` `len` |
+| Manipulation | `flatten` `transpose` `squeeze` `concat` `append` |
+
+**Other built-ins.** `abs` `inv` `divrem` `is_even` `is_odd` `sign` `sqrt` `pi`
+`print` `plot`.
+
+> Full syntax, precedence, and every built-in: [Lovelace.Suite/docs/Language.md](Lovelace.Suite/docs/Language.md).
 
 ---
 
 ## The numbers
 
-Three arbitrary-precision types, each implementing the relevant `System.Numerics` generic-math
-interfaces:
+Three arbitrary-precision types, each implementing the relevant .NET generic-math interfaces:
 
 | Type | Domain | Highlights |
 |---|---|---|
@@ -100,9 +109,9 @@ interfaces:
 | `Integer` | ℤ | sign + magnitude, signed `DivRem`, `Pow`, `Factorial` |
 | `Real` | ℝ | arbitrary precision + **exact periodic fractions**, `Sqrt`, `Pi` |
 
-**Why that is fun:**
+Why that is fun:
 
-- `1 / 3` is *exactly* `0.(3)`. Division detects the repeating block and stores it compactly
+- `1 / 3` is *exactly* `0.(3)` — division detects the repeating block and stores it compactly
   instead of rounding.
 - `sqrt(2)` and `π` go to any number of digits — Newton–Raphson and the Chudnovsky algorithm,
   both parallelized.
@@ -110,170 +119,89 @@ interfaces:
 
 ---
 
-## Architecture
+## How it fits together
 
-Four numeric library projects, each built on the one below it, plus the script engine and two front-ends (a REPL and a web IDE):
+```mermaid
+flowchart TB
+    rep[Lovelace.Representation<br/>DigitStore] --> nat[Lovelace.Natural]
+    nat --> int[Lovelace.Integer]
+    int --> real[Lovelace.Real]
 
-```
-Lovelace.Representation ← Lovelace.Natural ← Lovelace.Integer ← Lovelace.Real
-                                                                        ↑
-                                                               Lovelace.Suite (script engine)
-                                                                        ↑
-                                                               ┌────────┴────────┐
-                                                               ↓                 ↓
-                                                     Lovelace.Console      Lovelace.Studio
-                                                        (REPL)             (web IDE)
+    arr[Lovelace.Array<br/>generic NdArray&lt;T&gt; + IField&lt;T&gt;] --> suite[Lovelace.Suite<br/>script engine]
+    real --> suite
+
+    suite --> console[Lovelace.Console<br/>REPL]
+    suite --> studio[Lovelace.Studio<br/>web IDE]
+    suite --> run[Lovelace.Run<br/>JSON → DSH tool]
 ```
 
 | Project | Responsibility |
 |---|---|
 | `Lovelace.Representation` | `DigitStore` — the only project that touches the raw BCD `byte[]` (two decimal digits per byte). |
-| `Lovelace.Natural` | Arbitrary-precision naturals. |
-| `Lovelace.Integer` | Signed integers on top of `Natural`. |
-| `Lovelace.Real` | Reals on top of `Integer` (decimal exponent + period metadata). |
-| `Lovelace.Suite` | The scripting engine: tokenizer → parser → interpreter, the `SuiteEngine` introspection API, vectors, and SVG plotting. |
-| `Lovelace.Console` | The interactive REPL front-end over `Lovelace.Suite`. |
-| `Lovelace.Studio` | A browser IDE over `Lovelace.Suite`: editor, variables/functions workspace, inline SVG plots, and a logs bar. |
-| `Lovelace.Run` | A non-interactive script runner over `Lovelace.Suite` that emits a JSON envelope; the engine behind the DSH `lovelace` tool in [`harness/`](harness/README.md). |
+| `Lovelace.Natural` / `Integer` / `Real` | Arbitrary-precision naturals, signed integers, reals (each built on the one below). |
+| `Lovelace.Array` | Generic `NdArray<T>` (shape/rank/strides, indexing, reshape/transpose/squeeze/concat) + all numeric algorithms, parameterized by an `IField<T>` so the element type stays abstract. |
+| `Lovelace.Suite` | The scripting engine: tokenizer → parser → interpreter, the `SuiteEngine` introspection API, `Value` (wrapping `NdArray<Value>`), and SVG plotting. |
+| `Lovelace.Console` | Interactive REPL front-end over `Lovelace.Suite`. |
+| `Lovelace.Studio` | Browser IDE over `Lovelace.Suite`: editor, variables/functions workspace, inline SVG plots, logs bar. |
+| `Lovelace.Run` | Non-interactive JSON script runner; the engine behind the DSH `lovelace` tool. |
 
-Each library project has a matching `*.Tests` project (xUnit).
-
----
-
-## Formal proofs (Lean)
-
-The digit-by-digit algorithms are not just tested — they are **proved**.
-[`Lovelace.Proofs/`](Lovelace.Proofs/) is a Lean 4 formalization (core-only, no Mathlib) of the
-schoolbook base-`b` arithmetic in `White Paper.pdf`, stated over `Nat`:
-
-- **Representation** — digit expansion, round-trip, and uniqueness.
-- **Addition** — carry-propagating digit addition.
-- **Subtraction** — borrow-propagating digit subtraction.
-- **Multiplication** — convolution (Cauchy product) plus carry.
-- **Division** — digit-by-digit long division with a bounded running remainder.
-
-The named theorems are in [`Lovelace.Proofs/README.md`](Lovelace.Proofs/README.md).
+Every library project has a matching `*.Tests` project (xUnit). A deeper, sourced map of module
+boundaries and invariants lives in [.github/distilled/module-map.md](.github/distilled/module-map.md)
+and [.github/distilled/system-overview.md](.github/distilled/system-overview.md).
 
 ---
 
-## Requirements & Status
+## Proven, not just tested
 
-| Project | Requirements doc | Status |
-|---|---|---|
-| `Lovelace.Representation` | [`.github/requirements/Lovelace.Representation.md`](.github/requirements/Lovelace.Representation.md) | ✅ Complete |
-| `Lovelace.Natural` | [`.github/requirements/Lovelace.Natural.md`](.github/requirements/Lovelace.Natural.md) | ✅ Complete |
-| `Lovelace.Integer` | [`.github/requirements/Lovelace.Integer.md`](.github/requirements/Lovelace.Integer.md) | ✅ Complete |
-| `Lovelace.Real` | [`.github/requirements/Lovelace.Real.md`](.github/requirements/Lovelace.Real.md) | ✅ Complete |
-| `Lovelace.Real` — Sqrt | [`.github/requirements/Lovelace.Real.Sqrt.md`](.github/requirements/Lovelace.Real.Sqrt.md) | ✅ Complete |
-| `Lovelace.Real` — Pi | [`.github/requirements/Lovelace.Real.Pi.md`](.github/requirements/Lovelace.Real.Pi.md) | ✅ Complete |
-| `Lovelace.Real` — Sqrt Redesign | [`.github/requirements/Lovelace.Real.Sqrt-Redesign.md`](.github/requirements/Lovelace.Real.Sqrt-Redesign.md) | ✅ Complete |
-| `Lovelace.Console` | [`.github/requirements/Lovelace.Console.md`](.github/requirements/Lovelace.Console.md) | ✅ Complete |
-| `Lovelace.Suite` | [`.github/requirements/Lovelace.Suite.md`](.github/requirements/Lovelace.Suite.md) | ✅ Complete |
-| `Lovelace.Proofs` | [`.github/requirements/Lovelace.Proofs.md`](.github/requirements/Lovelace.Proofs.md) | ✅ Complete |
-| `Lovelace.Proofs` — Division | [`.github/requirements/Lovelace.Proofs.Division.md`](.github/requirements/Lovelace.Proofs.Division.md) | ✅ Complete |
-| `Lovelace.Studio` | [`.github/requirements/Lovelace.Studio.md`](.github/requirements/Lovelace.Studio.md) | ✅ Complete |
-
-Engineering notes (parallelization, investigations):
-[Representation audit](.github/requirements/Lovelace.Representation-parallelization-audit.md) ·
-[Natural audit](.github/requirements/Lovelace.Natural-parallelization-audit.md) ·
-[Real parallelism](.github/requirements/Lovelace.Real.Parallelism.md) ·
-[Sqrt investigation](.github/requirements/Lovelace.Real.Sqrt.investigation.md).
+The digit-by-digit algorithms are **formally proved** in Lean 4.
+[Lovelace.Proofs/](Lovelace.Proofs/) is a core-only (no Mathlib) formalization of the schoolbook
+base-`b` arithmetic in `White Paper.pdf`: representation, addition, subtraction, multiplication,
+and division. Named theorems and build instructions: [Lovelace.Proofs/README.md](Lovelace.Proofs/README.md).
 
 ---
 
-## Project structure
+## Documentation map
 
-```
-LovelaceSharp.slnx
-├── Legacy/                              # Original C++ source (reference only)
-│   ├── Lovelace.hpp / .cpp              # BCD store + natural arithmetic
-│   ├── InteiroLovelace.hpp / .cpp       # Signed integers
-│   ├── RealLovelace.hpp / .cpp          # Real numbers
-│   ├── VetorLovelace.hpp / .cpp         # Arbitrary-precision vector (not yet migrated)
-│   └── VetorMultidimensionalLovelace.*  # Multi-dimensional array (not yet migrated)
-│
-├── Lovelace.Representation/             # BCD digit store (DigitStore)
-├── Lovelace.Representation.Tests/
-│
-├── Lovelace.Natural/                    # Natural numbers (Natural)
-├── Lovelace.Natural.Tests/
-│
-├── Lovelace.Integer/                    # Signed integers (Integer)
-├── Lovelace.Integer.Tests/
-│
-├── Lovelace.Suite/                      # Scripting engine: interpreter, introspection API, vectors, plotting
-├── Lovelace.Suite.Tests/
-│
-├── Lovelace.Console/                    # Interactive REPL front-end
-│
-├── Lovelace.Studio/                     # Browser IDE (ASP.NET Core minimal API + wwwroot)
-├── Lovelace.Studio.Tests/
-│
-├── Lovelace.Run/                        # Non-interactive JSON script runner
-│
-├── harness/                             # DSH plugin source + docs (the `lovelace` tool)
-│
-├── Lovelace.Real/                       # Real numbers (Real)
-├── Lovelace.Real.Tests/
-│
-└── Lovelace.Proofs/                     # Lean formal proofs (representation → division)
-```
+The repo documents are deliberately split — this README is the map, the links below are the territory.
+
+**Language & engine**
+- [Lovelace.Suite/docs/Language.md](Lovelace.Suite/docs/Language.md) — the executable language reference (doctested).
+- [Lovelace.Suite/README.md](Lovelace.Suite/README.md) — engine architecture + the `SuiteEngine` public API.
+- Requirements: [Lovelace.Suite](.github/requirements/Lovelace.Suite.md) · [Lovelace.Suite.Arrays](.github/requirements/Lovelace.Suite.Arrays.md) · [Lovelace.Array](.github/requirements/Lovelace.Array.md).
+
+**Numeric library** — per-project READMEs ([Natural](Lovelace.Natural/README.md) · [Integer](Lovelace.Integer/README.md) · [Real](Lovelace.Real/README.md) · [Representation](Lovelace.Representation/README.md)) and requirements ([Natural](.github/requirements/Lovelace.Natural.md) · [Integer](.github/requirements/Lovelace.Integer.md) · [Real](.github/requirements/Lovelace.Real.md) · [Sqrt](.github/requirements/Lovelace.Real.Sqrt.md) · [Pi](.github/requirements/Lovelace.Real.Pi.md) · [Representation](.github/requirements/Lovelace.Representation.md)).
+
+**Proofs** — [Lovelace.Proofs/README.md](Lovelace.Proofs/README.md) · [Lovelace.Proofs/BREAKDOWN.md](Lovelace.Proofs/BREAKDOWN.md).
+
+**Front-ends** — [Lovelace.Console/README.md](Lovelace.Console/README.md) · [Lovelace.Studio/README.md](Lovelace.Studio/README.md) · [harness/README.md](harness/README.md).
+
+**Knowledge base** (journal-distilled, sourced) — [system overview](.github/distilled/system-overview.md) · [module map](.github/distilled/module-map.md) · [domain concepts](.github/distilled/domain-concepts.md) · [trusted facts](.github/distilled/trusted-facts.md) · [glossary](.github/distilled/glossary.md) · [dependencies](.github/distilled/dependencies.md).
 
 ---
 
-## Building
+## Build & test
 
 Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
-dotnet build          # build the whole solution
-make studio           # build + run the Lovelace.Studio web IDE
-make runner           # publish the non-interactive Lovelace.Run script runner
-make test             # run the fast test suites
+dotnet build        # build the whole solution
+dotnet test         # run the test suites
+make studio         # build + run the web IDE
+make runner         # publish the non-interactive script runner
 ```
 
-A [`Makefile`](Makefile) wraps the common commands: `make build` (publish the console app),
-`make run` (run the published console binary), `make runner` (publish the script runner),
-`make studio` (build + run the web IDE), `make test` (fast test suites), `make clean`, and `make help`.
-
-The Lean proofs are a separate toolchain (Lean 4.33.1, core-only):
-
-```bash
-cd Lovelace.Proofs
-lake build
-```
+A [Makefile](Makefile) wraps the common commands (`make build`, `make run`, `make runner`,
+`make studio`, `make test`, `make clean`, `make help`). The Lean proofs use a separate
+toolchain (Lean 4.33.1, core-only): `cd Lovelace.Proofs && lake build`.
 
 ---
 
-## Testing
+## Legacy → C# migration
 
-```bash
-# Run all tests
-dotnet test
-
-# Run a specific project
-dotnet test Lovelace.Representation.Tests/
-dotnet test Lovelace.Natural.Tests/
-```
-
-Test naming convention: `MethodName_GivenScenario_ExpectedResult`.
-
----
-
-## Legacy migration
-
-The C# codebase is a class-by-class migration of the C++ `Legacy/` source (originally written in
-Portuguese; identifiers are English here, using .NET conventions). Key reference documents live in
-[`.github/`](.github/):
-
-| File | Purpose |
-|---|---|
-| [`.github/prompts/legacy-knowledge-map.md`](.github/prompts/legacy-knowledge-map.md) | Portuguese → English method-name mapping and representation contract |
-| [`.github/prompts/skill-impl-completeness.prompt.md`](.github/prompts/skill-impl-completeness.prompt.md) | Audit a C++ class against its C# counterpart |
-| [`.github/prompts/skill-test-standards.prompt.md`](.github/prompts/skill-test-standards.prompt.md) | Generate an xUnit test plan for a method |
-| [`.github/prompts/skill-falsify-claims.prompt.md`](.github/prompts/skill-falsify-claims.prompt.md) | Verify or refute claims against the legacy source |
-| [`.github/prompts/workflow-requirements-gathering.prompt.md`](.github/prompts/workflow-requirements-gathering.prompt.md) | Produce a checklist and test plan for a whole class |
-| [`.github/prompts/workflow-iterative-implementation.prompt.md`](.github/prompts/workflow-iterative-implementation.prompt.md) | Implement one checklist item end-to-end |
+The C# codebase is a class-by-class migration of the C++ `Legacy/` source (originally in
+Portuguese; identifiers are English here). The `VetorLovelace` / `VetorMultidimensionalLovelace`
+legacy vector classes have now been migrated to the **`Lovelace.Array`** project. Migration aids
+and method-name mappings live under [.github/prompts/](.github/prompts/).
 
 ---
 
