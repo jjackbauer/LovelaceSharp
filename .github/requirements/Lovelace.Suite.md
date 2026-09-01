@@ -258,6 +258,7 @@ Serializable capture of `Variables` (name → rendered value + kind) and `Functi
 4. **Vector length mismatch** in `plot(x, y)` is a positioned diagnostic, not a silent truncation.
 5. **Backend pluggability**: rendering goes through an `IPlotRenderer` interface so a PNG exporter or an in-GUI renderer can be added without touching the language or plot model.
 6. **File output** default: `plot.svg` in the current directory (name configurable); the engine returns the absolute path as a `Text` value for the REPL to print.
+7. **Smooth curve interpolation** — a series of three or more points renders as a cubic-spline `<path>` (Catmull-Rom → Bézier) that passes through every data point, so a coarse sample of a smooth function draws as a curve instead of an angular polygon. The straight-segment `<polyline>` remains available via `PlotSeries.Interpolation = Linear` and is used automatically for fewer than three points. See `.github/requirements/Lovelace.Suite.Plot.Interpolation.md`.
 
 ---
 
@@ -301,6 +302,7 @@ Serializable capture of `Variables` (name → rendered value + kind) and `Functi
 - [x] Implement vector/range/list literals and vector operations (`len`, 1-based indexing, element-wise arithmetic) [depends on Interpreter]
 - [x] Implement `$"… {expr} …"` interpolated strings and the `print` built-in [depends on Interpreter]
 - [x] Implement `PlotModel` + `IPlotRenderer` + `SvgPlotRenderer` [depends on Vector]
+- [x] Implement smooth cubic-spline interpolation (`PlotInterpolation`) in `SvgPlotRenderer` [depends on PlotModel + Vector]
 - [x] Implement `plot` built-in with `plot(y)`, `plot(x, y)`, optional title [depends on PlotModel + Vector]
 - [x] Refactor `Lovelace.Console` to consume `SuiteEngine`; keep `vars`/`clear`/`delete`/`set`/`help`/`exit` and `_` semantics [depends on SuiteEngine]
 - [x] Add `funcs`, `run <file>`, and multi-line block entry to `LineEditor`/`ReplSession` [depends on SuiteEngine]

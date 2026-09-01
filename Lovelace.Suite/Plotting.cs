@@ -24,10 +24,31 @@ public readonly record struct PlotPoint(Rl X, Rl Y)
     public PlotPoint(double x, double y) : this(new Rl(x), new Rl(y)) { }
 }
 
+/// <summary>How the renderer connects the points of a series.</summary>
+public enum PlotInterpolation
+{
+    /// <summary>Connect successive points with straight line segments.</summary>
+    Linear,
+
+    /// <summary>
+    /// Draw a smooth curve through the points using a Catmull-Rom spline converted to
+    /// cubic Bézier segments (C¹ continuous, passing through every data point). Series
+    /// with fewer than three points fall back to <see cref="Linear"/> automatically.
+    /// </summary>
+    CubicSpline,
+}
+
 /// <summary>One plotted series.</summary>
 public sealed class PlotSeries
 {
     public List<PlotPoint> Points { get; } = new();
+
+    /// <summary>
+    /// How successive points are connected. Defaults to <see cref="PlotInterpolation.CubicSpline"/>
+    /// so a coarse sample of a smooth function renders as a smooth curve rather than a
+    /// piecewise-linear (angular) polygon.
+    /// </summary>
+    public PlotInterpolation Interpolation { get; set; } = PlotInterpolation.CubicSpline;
 }
 
 /// <summary>A renderer-agnostic 2D line plot.</summary>
@@ -143,29 +164,233 @@ public sealed class SvgPlotRenderer : IPlotRenderer
               .Append(FormatTick(tick)).Append("</text>\n");
         }
 
-        // Series polylines
+        // Series lines: smooth cubic splines by default, straight segments when
+        // requested (or when there are too few points to fit a spline).
         int colorIndex = 0;
         foreach (var series in model.Series)
         {
             string stroke = SeriesColors[colorIndex % SeriesColors.Length];
             colorIndex++;
 
-            var points = new StringBuilder();
-            for (int i = 0; i < series.Points.Count; i++)
-            {
-                var p = series.Points[i];
-                double sx = MapX(p.X);
-                double sy = MapY(p.Y);
-                if (i > 0) points.Append(' ');
-                points.Append(Fmt(sx)).Append(',').Append(Fmt(sy));
-            }
-
-            sb.Append("  <polyline fill=\"none\" stroke=\"").Append(stroke)
-              .Append("\" stroke-width=\"2\" points=\"").Append(points).Append("\"/>\n");
+            if (series.Points.Count < 3 || series.Interpolation == PlotInterpolation.Linear)
+                AppendPolyline(sb, series, MapX, MapY, stroke);
+            else
+                AppendSmoothCurve(sb, series, MapX, MapY, stroke);
         }
 
         sb.Append("</svg>\n");
         return sb.ToString();
+    }
+
+    /// <summary>Connects a series' points with straight line segments.</summary>
+    private static void AppendPolyline(
+        StringBuilder sb,
+        PlotSeries series,
+        Func<Rl, double> mapX,
+        Func<Rl, double> mapY,
+        string stroke)
+    {
+        var points = new StringBuilder();
+        for (int i = 0; i < series.Points.Count; i++)
+        {
+            var p = series.Points[i];
+            double sx = mapX(p.X);
+            double sy = mapY(p.Y);
+            if (i > 0) points.Append(' ');
+            points.Append(Fmt(sx)).Append(',').Append(Fmt(sy));
+        }
+
+        sb.Append("  <polyline fill=\"none\" stroke=\"").Append(stroke)
+          .Append("\" stroke-width=\"2\" points=\"").Append(points).Append("\"/>\n");
+    }
+
+    /// <summary>
+    /// Draws a smooth curve through the series as a plain, densely sampled <c>&lt;polyline&gt;</c>.
+    /// Where the x values are strictly increasing (a function of x), it fits a natural cubic spline
+    /// <c>y(x)</c> — C² smooth, so it cannot introduce the kinks that a Catmull-Rom/order spline
+    /// can overshoot into — and reproduces polynomials exactly (e.g. <c>y = x²</c>). For x that is
+    /// not a function it falls back to a densely sampled parametric Catmull-Rom. All samples are
+    /// mapped to pixels through the exact <see cref="Rl"/> mapping, and the curve is emitted as a
+    /// plain polyline so every renderer draws it identically.
+    /// </summary>
+    private static void AppendSmoothCurve(
+        StringBuilder sb,
+        PlotSeries series,
+        Func<Rl, double> mapX,
+        Func<Rl, double> mapY,
+        string stroke)
+    {
+        int n = series.Points.Count;
+        if (n < 3)
+        {
+            AppendPolyline(sb, series, mapX, mapY, stroke);
+            return;
+        }
+
+        // Fit the curve in data space (well conditioned for a function like y = x²) with a
+        // natural cubic spline, then map each sample to a pixel through the affine transform that
+        // maps the data points — avoiding any Rl round-trips on interpolated samples.
+        var xd = new double[n];
+        var yd = new double[n];
+        var px = new double[n];
+        var py = new double[n];
+        for (int i = 0; i < n; i++)
+        {
+            xd[i] = PlotValue.ToDouble(series.Points[i].X);
+            yd[i] = PlotValue.ToDouble(series.Points[i].Y);
+            px[i] = mapX(series.Points[i].X);
+            py[i] = mapY(series.Points[i].Y);
+        }
+
+        bool increasing = true;
+        for (int i = 1; i < n; i++)
+            if (!(xd[i] > xd[i - 1])) { increasing = false; break; }
+
+        if (increasing)
+            AppendNaturalSpline(sb, xd, yd, px, py, stroke);
+        else
+            AppendParametricSpline(sb, series, mapX, mapY, stroke);
+    }
+
+    /// <summary>
+    /// Fits a natural cubic spline through (x, y) in data space and emits a densely sampled
+    /// polyline, mapping each sample to a pixel via the affine transform derived from the mapped
+    /// data points (so interpolated samples never go through an Rl round-trip).
+    /// </summary>
+    private static void AppendNaturalSpline(
+        StringBuilder sb,
+        double[] x,
+        double[] y,
+        double[] px,
+        double[] py,
+        string stroke)
+    {
+        int n = x.Length;
+        var h = new double[n - 1];
+        for (int i = 0; i < n - 1; i++)
+            h[i] = x[i + 1] - x[i];
+
+        // Second derivatives M under natural boundary conditions (M[0] = M[n-1] = 0).
+        var M = new double[n];
+        if (n > 2)
+        {
+            var l = new double[n];
+            var mu = new double[n];
+            var z = new double[n];
+            l[0] = 1.0;
+            mu[0] = 0.0;
+            z[0] = 0.0;
+            for (int i = 1; i < n - 1; i++)
+            {
+                l[i] = 2.0 * (x[i + 1] - x[i - 1]) - (h[i - 1] * mu[i - 1]);
+                mu[i] = h[i] / l[i];
+                z[i] = (6.0 * (((y[i + 1] - y[i]) / h[i]) - ((y[i] - y[i - 1]) / h[i - 1])) - (h[i - 1] * z[i - 1])) / l[i];
+            }
+            l[n - 1] = 1.0;
+            for (int j = n - 2; j >= 1; j--)
+                M[j] = z[j] - (mu[j] * M[j + 1]);
+        }
+
+        // Affine data → pixel, derived from the mapped data points.
+        double ax = (px[n - 1] - px[0]) / (x[n - 1] - x[0]);
+        double bx = px[0] - (ax * x[0]);
+        double ySpan = y[n - 1] - y[0];
+        double ay = Math.Abs(ySpan) > 1e-12 ? (py[n - 1] - py[0]) / ySpan : 0.0;
+        double by = py[0] - (ay * y[0]);
+
+        double xLo = x[0];
+        double xHi = x[n - 1];
+        int samples = Math.Max(200, (int)Math.Ceiling(Math.Abs(px[n - 1] - px[0])) + 1);
+        var points = new StringBuilder();
+        for (int s = 0; s <= samples; s++)
+        {
+            double xs = xLo + (((xHi - xLo) * s) / samples);
+            double ys = SplineValue(x, y, M, h, xs);
+            double sx = (ax * xs) + bx;
+            double sy = (ay * ys) + by;
+            if (s > 0) points.Append(' ');
+            points.Append(Fmt(sx)).Append(',').Append(Fmt(sy));
+        }
+
+        sb.Append("  <polyline fill=\"none\" stroke=\"").Append(stroke)
+          .Append("\" stroke-width=\"2\" points=\"").Append(points).Append("\"/>\n");
+    }
+
+    /// <summary>Evaluates the natural cubic spline at <paramref name="xs"/>.</summary>
+    private static double SplineValue(double[] x, double[] y, double[] M, double[] h, double xs)
+    {
+        int n = x.Length;
+        int i = Array.BinarySearch(x, xs);
+        if (i < 0) i = ~i - 1;
+        if (i < 0) i = 0;
+        if (i > n - 2) i = n - 2;
+
+        double A = x[i + 1] - xs;
+        double B = xs - x[i];
+        double hi = h[i];
+        return (M[i] * A * A * A / (6.0 * hi))
+             + (M[i + 1] * B * B * B / (6.0 * hi))
+             + ((y[i] / hi) - (M[i] * hi / 6.0)) * A
+             + ((y[i + 1] / hi) - (M[i + 1] * hi / 6.0)) * B;
+    }
+
+    /// <summary>
+    /// Densely sampled parametric Catmull-Rom, used when x is not a function of y (i.e. the points
+    /// do not trace a single-valued curve). Emitted as a plain polyline.
+    /// </summary>
+    private static void AppendParametricSpline(
+        StringBuilder sb,
+        PlotSeries series,
+        Func<Rl, double> mapX,
+        Func<Rl, double> mapY,
+        string stroke)
+    {
+        int n = series.Points.Count;
+        var pts = new (double x, double y)[n];
+        for (int i = 0; i < n; i++)
+            pts[i] = (mapX(series.Points[i].X), mapY(series.Points[i].Y));
+
+        var points = new StringBuilder();
+        points.Append(Fmt(pts[0].x)).Append(',').Append(Fmt(pts[0].y));
+
+        int last = n - 1;
+        for (int i = 0; i < last; i++)
+        {
+            (double x, double y) p0 = i > 0 ? pts[i - 1] : pts[i];
+            (double x, double y) p1 = pts[i];
+            (double x, double y) p2 = pts[i + 1];
+            (double x, double y) p3 = i + 1 < last ? pts[i + 2] : pts[i + 1];
+
+            double dx = p2.x - p1.x;
+            double dy = p2.y - p1.y;
+            double length = Math.Sqrt((dx * dx) + (dy * dy));
+            int sub = Math.Max(1, (int)Math.Ceiling(length / 2.0));
+
+            for (int s = 1; s <= sub; s++)
+            {
+                double t = (double)s / sub;
+                var q = CatmullRom(p0, p1, p2, p3, t);
+                points.Append(' ').Append(Fmt(q.x)).Append(',').Append(Fmt(q.y));
+            }
+        }
+
+        sb.Append("  <polyline fill=\"none\" stroke=\"").Append(stroke)
+          .Append("\" stroke-width=\"2\" points=\"").Append(points).Append("\"/>\n");
+    }
+
+    /// <summary>Evaluates a uniform Catmull-Rom spline at parameter <paramref name="t"/> ∈ [0, 1].</summary>
+    private static (double x, double y) CatmullRom(
+        (double x, double y) p0,
+        (double x, double y) p1,
+        (double x, double y) p2,
+        (double x, double y) p3,
+        double t)
+    {
+        double t2 = t * t;
+        double t3 = t2 * t;
+        double x = 0.5 * ((2.0 * p1.x) + ((-p0.x + p2.x) * t) + ((2.0 * p0.x - 5.0 * p1.x + 4.0 * p2.x - p3.x) * t2) + ((-p0.x + 3.0 * p1.x - 3.0 * p2.x + p3.x) * t3));
+        double y = 0.5 * ((2.0 * p1.y) + ((-p0.y + p2.y) * t) + ((2.0 * p0.y - 5.0 * p1.y + 4.0 * p2.y - p3.y) * t2) + ((-p0.y + 3.0 * p1.y - 3.0 * p2.y + p3.y) * t3));
+        return (x, y);
     }
 
     private static readonly string[] SeriesColors = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4"];

@@ -93,7 +93,7 @@ Promote every numeric `Value` to `Real` **exactly** (via `Value.Widen(ValueKind.
 
 ### E. Backward-compatibility & determinism requirements
 
-- **E1 — Identical output for ordinary data.** For in-range, human-scale data (|value| < 2⁵³, non-pathological ranges), the rendered SVG shall remain byte-identical to today's output (modulo any intentional tick improvements). Existing `Lovelace.Suite.Tests\PlotTests.cs` and `SuiteEngineOutputPlotTests.cs` must still pass.
+- **E1 — Identical output for ordinary data (modulo interpolation).** For in-range, human-scale data (|value| < 2⁵³, non-pathological ranges), the exact `Real` bounds, padding, axes, and per-point normalization remain byte-identical to the precision migration's output. The line *between* points changed after the smooth-interpolation work (see `Lovelace.Suite.Plot.Interpolation.md`): multi-point series now render as a cubic-spline `<path>` instead of a `<polyline>`. That is an intentional geometry change, not a precision regression. Existing `Lovelace.Suite.Tests\PlotTests.cs` and `SuiteEngineOutputPlotTests.cs` must still pass.
 - **E2 — Determinism preserved.** Same inputs → byte-identical SVG, invariant culture, no timestamps/randomness. The `SvgPlotRenderer` already guarantees this; the `Real` path must not reintroduce nondeterminism.
 - **E3 — Output boundary unchanged.** `Fmt` (`"0.#####"`) and `FormatTick` (`"0.####"`) may remain the final string boundary; they are already sub-pixel for the 800×600 viewBox, so increasing SVG string precision is **not** required.
 
@@ -110,7 +110,7 @@ Promote every numeric `Value` to `Real` **exactly** (via `Value.Widen(ValueKind.
 1. `plot([10^20, 10^20 + 1], [0, 1], "huge")` → two distinct x columns; today it collapses to one.
 2. Plotting a 400-digit `Natural` → finite bounds, valid SVG, no `Infinity`.
 3. `plot([0, 0.1, 0.2], [0, 1e-400, 2e-400])` → three distinct y positions; today the tiny y values collapse toward 0.
-4. Existing plot tests pass byte-identical for ordinary data.
+4. Existing precision regression tests (huge close values, periodic reals, 400-digit Naturals) pass unchanged; multi-point series geometry now reflects smooth interpolation.
 5. Two runs of the same script produce byte-identical SVG.
 
 ---

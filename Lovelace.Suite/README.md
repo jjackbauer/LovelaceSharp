@@ -71,6 +71,11 @@ and a future bytecode/AOT compiler can reuse the same front-end.
 
 `plot(y)`, `plot(x, y)`, or `plot(x, y, "title")` builds a `PlotModel` and renders it to a
 deterministic SVG file via `SvgPlotRenderer`; the returned `Text` value is the output path.
+Series of three or more points are drawn as a natural cubic spline through the data by default,
+sampled densely into a `<polyline>` so a coarse sample renders as a curve (not an angular polygon)
+without the overshoot/kinks a pixel-space Catmull-Rom spline can add. Set
+`PlotSeries.Interpolation = PlotInterpolation.Linear` for straight segments (also used
+automatically for fewer than three points).
 
 ---
 
