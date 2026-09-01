@@ -584,6 +584,33 @@ public class Real :
     /// <inheritdoc cref="Divide"/>
     public static Real operator /(Real left, Real right) => Divide(left, right);
 
+    /// <summary>
+    /// Divides two non-periodic <see cref="Real"/> values and truncates the quotient to
+    /// exactly <paramref name="fracDigits"/> fractional digits, using a single fixed-point
+    /// integer division (no period detection). This is the fast path used by
+    /// <see cref="Pi(long)"/> and <see cref="Sqrt(Real, long)"/>, whose operands are
+    /// irrational truncations and never produce a true repeating period.
+    /// </summary>
+    /// <exception cref="DivideByZeroException">Thrown when <paramref name="right"/> is zero.</exception>
+    internal static Real DivideNonPeriodic(Real left, Real right, long fracDigits)
+    {
+        if (IsZero(right))
+            throw new DivideByZeroException("Cannot divide a Real by zero.");
+
+        if (IsZero(left))
+            return Zero;
+
+        bool resultNeg = IsNegative(left) != IsNegative(right);
+        Nat numerator   = left.ToNatural();
+        Nat denominator = right.ToNatural();
+        long exponentAdjustment = left.Exponent - right.Exponent;
+
+        // scaled = floor(numerator · 10^fracDigits / denominator) — one integer division.
+        Nat scaled = Nat.DivRem(numerator.ShiftLeftDecimal(fracDigits), denominator, out _);
+
+        return Normalize(new Real(scaled, resultNeg, -fracDigits + exponentAdjustment));
+    }
+
     /// <summary>Returns the arithmetic negation of <paramref name="value"/>.
     /// Zero remains positive; for all other values the sign bit is flipped
     /// while magnitude, <see cref="Exponent"/>, <see cref="PeriodStart"/> and
@@ -793,10 +820,9 @@ public class Real :
             long xFracDigits = x.Exponent < 0 ? -x.Exponent : 0L;
             long divPrecision = xFracDigits + currentTarget;
 
-            using (WithLocalPrecision(divPrecision))
-            {
-                x = (x + value / x) / two;
-            }
+            // value/x is an irrational truncation (x is a Newton iterate), so the
+            // single fixed-point division fast path is exact here.
+            x = (x + DivideNonPeriodic(value, x, divPrecision)) / two;
 
             // Exact convergence (perfect squares): if x*x == value, stop early.
             if (IsZero(x * x - value))
@@ -855,9 +881,11 @@ public class Real :
             throw new ArgumentOutOfRangeException(nameof(digits));
 
         long guardDigits = digits + 10;
+        var _sw = System.Diagnostics.Stopwatch.StartNew();
 
         // √10005 at guard-digit precision using the internal Sqrt overload.
         Real sqrt10005 = Sqrt(new Real("10005"), guardDigits);
+        System.Console.Error.WriteLine($"[pi] sqrt {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
         // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
         // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
@@ -901,15 +929,15 @@ public class Real :
             }
             denS = accQ; numS = accT;
         }
+        System.Console.Error.WriteLine($"[pi] bsp {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
-        // π = 426880 · √10005 · denS / numS
-        Real pi;
-        using (WithLocalPrecision(guardDigits))
-        {
-            Real realNumS = new Real(numS);
-            Real realDenS = new Real(new Int(denS, false));
-            pi = new Real("426880") * sqrt10005 * realDenS / realNumS;
-        }
+        // π = 426880 · √10005 · denS / numS. The operands are irrational truncations, so
+        // use the single fixed-point division fast path (no period detection needed).
+        Real realNumS = new Real(numS);
+        Real realDenS = new Real(new Int(denS, false));
+        Real numerator = new Real("426880") * sqrt10005 * realDenS;
+        Real pi = DivideNonPeriodic(numerator, realNumS, guardDigits);
+        System.Console.Error.WriteLine($"[pi] finaldiv {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
         // Truncate to exactly `digits` fractional places.
         return TruncatePiFracDigits(pi, digits);
