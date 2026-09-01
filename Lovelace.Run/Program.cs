@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Lovelace.Suite;
 
 return await ProgramMain(args);
@@ -13,6 +15,9 @@ return await ProgramMain(args);
 //   Lovelace.Run script.ls --plot-dir out
 //
 // Exit codes: 0 success, 1 script/diagnostic error, 2 usage error.
+//
+// JSON is emitted via the source-generated RunJsonContext (see below), which is
+// required for Native AOT: the reflection-based serializer is trimmed away there.
 // ---------------------------------------------------------------------------
 static async Task<int> ProgramMain(string[] args)
 {
@@ -83,7 +88,7 @@ static async Task<int> ProgramMain(string[] args)
         }
         catch (Exception ex)
         {
-            WriteJson(new { ok = false, message = $"Cannot read script file '{file}': {ex.Message}" });
+            WriteJson(new FileReadErrorDto(false, $"Cannot read script file '{file}': {ex.Message}"), RunJsonContext.Default.FileReadErrorDto);
             return 1;
         }
     }
@@ -111,36 +116,35 @@ static async Task<int> ProgramMain(string[] args)
         var snapshot = engine.CaptureState();
         var variables = snapshot.Variables.Values
             .OrderBy(v => v.Name, StringComparer.Ordinal)
-            .Select(v => new { name = v.Name, kind = v.Kind.ToString(), display = v.Display })
+            .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
             .ToArray();
         var functions = snapshot.Functions.Values
             .OrderBy(f => f.Name, StringComparer.Ordinal)
-            .Select(f => new { name = f.Name, parameters = f.Parameters.ToArray(), builtin = f.IsBuiltin })
+            .Select(f => new FunctionDto(f.Name, f.Parameters.ToArray(), f.IsBuiltin))
             .ToArray();
 
-        object? plot = null;
+        PlotDto? plot = null;
         if (engine.LastPlot is { } capture)
         {
             string path = Path.GetFullPath(Path.Combine(engine.PlotOutputDirectory, engine.PlotFileName));
-            plot = new { path, title = capture.Title ?? string.Empty, svg = capture.Svg ?? string.Empty };
+            plot = new PlotDto(path, capture.Title ?? string.Empty, capture.Svg ?? string.Empty);
         }
 
-        object? resultPayload = result.Kind == ValueKind.Void
+        ResultDto? resultPayload = result.Kind == ValueKind.Void
             ? null
-            : new { kind = result.Kind.ToString(), display = ValueFormatter.Format(result), typed = ValueFormatter.FormatTyped(result) };
+            : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result));
 
-        var envelope = new
-        {
-            ok = true,
-            revision = snapshot.Revision,
-            result = resultPayload,
+        var envelope = new RunEnvelopeDto(
+            true,
+            snapshot.Revision,
+            resultPayload,
             variables,
             functions,
             plot,
-        };
+            engine.LastElapsedDisplay);
 
         if (json)
-            WriteJson(envelope);
+            WriteJson(envelope, RunJsonContext.Default.RunEnvelopeDto);
         else
             PrintText(envelope);
 
@@ -149,11 +153,11 @@ static async Task<int> ProgramMain(string[] args)
     catch (Exception ex)
     {
         var diagnostics = engine.Diagnostics
-            .Select(d => new { message = d.Message, position = d.Position, line = d.Line, column = d.Column })
+            .Select(d => new DiagnosticDto(d.Message, d.Position, d.Line, d.Column))
             .ToArray();
 
         if (json)
-            WriteJson(new { ok = false, message = ex.Message, diagnostics });
+            WriteJson(new RunErrorDto(false, ex.Message, diagnostics, engine.LastElapsedDisplay), RunJsonContext.Default.RunErrorDto);
         else
             Console.Error.WriteLine($"Error: {ex.Message}");
 
@@ -161,20 +165,11 @@ static async Task<int> ProgramMain(string[] args)
     }
 }
 
-static void PrintText(object envelope)
-{
-    // Best-effort human rendering for the --text mode; not the machine path.
-    Console.WriteLine(JsonSerializer.Serialize(envelope, JsonOptions(pretty: true)));
-}
+static void PrintText(RunEnvelopeDto envelope) =>
+    Console.WriteLine(JsonSerializer.Serialize(envelope, RunJsonPrettyContext.Default.RunEnvelopeDto));
 
-static void WriteJson(object value) =>
-    Console.WriteLine(JsonSerializer.Serialize(value, JsonOptions(pretty: false)));
-
-static JsonSerializerOptions JsonOptions(bool pretty) => new()
-{
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    WriteIndented = pretty,
-};
+static void WriteJson(object value, JsonTypeInfo typeInfo) =>
+    Console.WriteLine(JsonSerializer.Serialize(value, typeInfo));
 
 static int Usage(string message)
 {
@@ -202,4 +197,43 @@ static void PrintUsage(TextWriter writer)
         "  --json               emit JSON (default)\n" +
         "  --text               emit a human-readable form\n" +
         "  --help, -h           show this help");
+}
+
+// ---------------------------------------------------------------------------
+// JSON envelope DTOs. These replace the anonymous types used previously, which
+// the reflection-based serializer cannot serialize under Native AOT.
+// ---------------------------------------------------------------------------
+internal sealed record VariableDto(string Name, string Kind, string Display);
+internal sealed record FunctionDto(string Name, string[] Parameters, bool Builtin);
+internal sealed record PlotDto(string Path, string Title, string Svg);
+internal sealed record ResultDto(string Kind, string Display, string Typed);
+internal sealed record DiagnosticDto(string Message, int Position, int Line, int Column);
+internal sealed record RunEnvelopeDto(
+    bool Ok,
+    long Revision,
+    ResultDto? Result,
+    VariableDto[] Variables,
+    FunctionDto[] Functions,
+    PlotDto? Plot,
+    string Elapsed);
+internal sealed record RunErrorDto(bool Ok, string Message, DiagnosticDto[] Diagnostics, string Elapsed);
+internal sealed record FileReadErrorDto(bool Ok, string Message);
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(RunEnvelopeDto))]
+[JsonSerializable(typeof(RunErrorDto))]
+[JsonSerializable(typeof(FileReadErrorDto))]
+[JsonSerializable(typeof(ResultDto))]
+[JsonSerializable(typeof(VariableDto))]
+[JsonSerializable(typeof(FunctionDto))]
+[JsonSerializable(typeof(PlotDto))]
+[JsonSerializable(typeof(DiagnosticDto))]
+internal sealed partial class RunJsonContext : JsonSerializerContext
+{
+}
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = true)]
+[JsonSerializable(typeof(RunEnvelopeDto))]
+internal sealed partial class RunJsonPrettyContext : JsonSerializerContext
+{
 }

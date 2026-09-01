@@ -186,13 +186,32 @@ Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 ```bash
 dotnet build        # build the whole solution
 dotnet test         # run the test suites
-make studio         # build + run the web IDE
-make runner         # publish the non-interactive script runner
+make build          # publish the REPL as a Native AOT binary
+make run            # run the published REPL
+make runner         # publish the script runner as a Native AOT binary
+make studio         # publish + run the web IDE as a Native AOT binary
 ```
 
 A [Makefile](Makefile) wraps the common commands (`make build`, `make run`, `make runner`,
-`make studio`, `make test`, `make clean`, `make help`). The Lean proofs use a separate
-toolchain (Lean 4.33.1, core-only): `cd Lovelace.Proofs && lake build`.
+`make studio`, `make test`, `make clean`, `make help`). `make build`, `make runner`, and
+`make studio` publish **Native AOT** binaries by default (single-file, self-contained, no JIT
+warm-up). The Lean proofs use a separate toolchain (Lean 4.33.1, core-only):
+`cd Lovelace.Proofs && lake build`.
+
+### Native AOT
+
+Every library project is marked `IsAotCompatible=true`, and the executables serialize their
+JSON through source-generated contexts (no reflection), so the whole solution is Native
+AOT–ready. `make build`, `make runner`, and `make studio` produce self-contained native
+binaries:
+
+```bash
+make build    # → Lovelace.Console/bin/Release/net10.0/publish/Lovelace.Console.exe
+make runner   # → Lovelace.Run/bin/Release/net10.0/publish/Lovelace.Run.exe
+make studio   # → Lovelace.Studio/bin/Release/net10.0/aot/Lovelace.Studio.exe (then runs it)
+```
+
+This requires the C++ build tools (MSVC on Windows, clang on macOS/Linux).
 
 ---
 

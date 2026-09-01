@@ -30,12 +30,13 @@ in `Lovelace.Suite`.
 make runner
 # or, equivalently:
 dotnet publish Lovelace.Run/Lovelace.Run.csproj --configuration Release \
-  --framework net10.0 --no-self-contained \
+  --framework net10.0 \
+  -p:PublishAot=true -p:InvariantGlobalization=true \
   --output Lovelace.Run/bin/Release/net10.0/publish
 ```
 
-The plugin defaults to the published apphost at
-`Lovelace.Run/bin/Release/net10.0/publish/Lovelace.Run.exe`. On non-Windows the apphost has
+The plugin defaults to the published native binary at
+`Lovelace.Run/bin/Release/net10.0/publish/Lovelace.Run.exe`. On non-Windows the binary has
 no `.exe` suffix — pass its path via the tool's optional `runner` argument.
 
 ## 2. Load the plugin

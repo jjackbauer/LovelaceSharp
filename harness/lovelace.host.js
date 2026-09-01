@@ -9,8 +9,9 @@
 //   - cordis_define (kind "new", idPrefix "lovel"), code.host = this file's body
 //   - cordis_run  (mode "run")
 //
-// The runner must be published first:
+// The runner must be published first (Native AOT binary):
 //   dotnet publish Lovelace.Run/Lovelace.Run.csproj -c Release -f net10.0 \
+//     -p:PublishAot=true -p:InvariantGlobalization=true \
 //     -o Lovelace.Run/bin/Release/net10.0/publish
 //   (or: make runner)
 
