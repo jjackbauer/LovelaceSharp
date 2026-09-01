@@ -881,11 +881,9 @@ public class Real :
             throw new ArgumentOutOfRangeException(nameof(digits));
 
         long guardDigits = digits + 10;
-        var _sw = System.Diagnostics.Stopwatch.StartNew();
 
         // √10005 at guard-digit precision using the internal Sqrt overload.
         Real sqrt10005 = Sqrt(new Real("10005"), guardDigits);
-        System.Console.Error.WriteLine($"[pi] sqrt {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
         // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
         // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
@@ -929,7 +927,6 @@ public class Real :
             }
             denS = accQ; numS = accT;
         }
-        System.Console.Error.WriteLine($"[pi] bsp {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
         // π = 426880 · √10005 · denS / numS. The operands are irrational truncations, so
         // use the single fixed-point division fast path (no period detection needed).
@@ -937,7 +934,6 @@ public class Real :
         Real realDenS = new Real(new Int(denS, false));
         Real numerator = new Real("426880") * sqrt10005 * realDenS;
         Real pi = DivideNonPeriodic(numerator, realNumS, guardDigits);
-        System.Console.Error.WriteLine($"[pi] finaldiv {_sw.Elapsed.TotalMilliseconds:F0} ms");
 
         // Truncate to exactly `digits` fractional places.
         return TruncatePiFracDigits(pi, digits);

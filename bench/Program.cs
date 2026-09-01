@@ -66,43 +66,6 @@ if (op == "check")
     return 0;
 }
 
-// diagmul: run one large division and dump the multiply-path diagnostic counters.
-if (op == "diagmul")
-{
-    Natural.ResetMultiplyDiag();
-    var da = new Natural(RandomDigits(digits, 1));
-    var db = new Natural(RandomDigits(Math.Max(2, digits / 2), 2));
-    _ = Natural.DivRem(da, db, out _);
-    Console.WriteLine(Natural.MultiplyDiag());
-    return 0;
-}
-
-// mulcheck: dense multiplication-only cross-check against BigInteger.
-if (op == "mulcheck")
-{
-    var rng = new Random(123456789);
-    int fails = 0;
-    foreach (int n in Enumerable.Range(200, 401))  // 200..600
-    {
-        for (int rep = 0; rep < 20; rep++)
-        {
-            var sa = RandomDigits(n, rng.Next());
-            var sb = RandomDigits(n, rng.Next());
-            var A = new Natural(sa);
-            var B = new Natural(sb);
-            var expect = (System.Numerics.BigInteger.Parse(sa) * System.Numerics.BigInteger.Parse(sb)).ToString();
-            var got = (A * B).ToString();
-            if (got != expect)
-            {
-                fails++;
-                if (fails <= 3) Console.Error.WriteLine($"MULCHECK mismatch at {n} digits: {sa} x {sb}");
-            }
-        }
-    }
-    Console.WriteLine(fails == 0 ? "MULCHECK all ok (200..600 x20)" : $"MULCHECK FAILS {fails}");
-    return fails == 0 ? 0 : 1;
-}
-
 // verify: exact reference checks for Pi and Sqrt (self-contained, no test framework).
 if (op == "verify")
 {

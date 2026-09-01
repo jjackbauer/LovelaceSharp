@@ -840,15 +840,6 @@ public sealed class Natural :
     /// </summary>
     private const int KaratsubaThreshold = 1024;
 
-    public static long DiagNttCalls, DiagKaraCalls, DiagSchoolCalls;
-    public static long DiagNttTicks, DiagKaraTicks, DiagSchoolTicks;
-    public static void ResetMultiplyDiag() { DiagNttCalls = DiagKaraCalls = DiagSchoolCalls = 0; DiagNttTicks = DiagKaraTicks = DiagSchoolTicks = 0; }
-    public static string MultiplyDiag()
-    {
-        double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
-        return $"NTT calls={DiagNttCalls} ms={DiagNttTicks * f:F0} | KARA calls={DiagKaraCalls} ms={DiagKaraTicks * f:F0} | SCHL calls={DiagSchoolCalls} ms={DiagSchoolTicks * f:F0}";
-    }
-
     /// <summary>
     /// Multiplies two canonical LSD-first decimal-digit arrays and returns the
     /// canonical (trimmed) product. <paramref name="resultLen"/> receives the
@@ -864,20 +855,10 @@ public sealed class Natural :
 
         // Number-Theoretic Transform (exact) for very large operands.
         if (aLen >= NttThreshold && bLen >= NttThreshold && (long)aLen + bLen <= (long)MaxNttLength * NttLimbDigits)
-        {
-            long ds = System.Diagnostics.Stopwatch.GetTimestamp();
-            var r = NttMultiply(a, aLen, b, bLen, out resultLen);
-            DiagNttTicks += System.Diagnostics.Stopwatch.GetTimestamp() - ds; DiagNttCalls++;
-            return r;
-        }
+            return NttMultiply(a, aLen, b, bLen, out resultLen);
 
         if (aLen <= KaratsubaThreshold || bLen <= KaratsubaThreshold)
-        {
-            long ds = System.Diagnostics.Stopwatch.GetTimestamp();
-            var r = SchoolbookMultiply(a, aLen, b, bLen, out resultLen);
-            DiagSchoolTicks += System.Diagnostics.Stopwatch.GetTimestamp() - ds; DiagSchoolCalls++;
-            return r;
-        }
+            return SchoolbookMultiply(a, aLen, b, bLen, out resultLen);
 
         // Split at m = ceil(maxLen/2): a = a0 + a1·10^m, b = b0 + b1·10^m.
         int m = (Math.Max(aLen, bLen) + 1) / 2;
@@ -1065,7 +1046,7 @@ public sealed class Natural :
     /// across the board, so Karatsuba is superseded (its branch is unreachable when
     /// this value is ≤ <see cref="KaratsubaThreshold"/>).
     /// </summary>
-    private const int NttThreshold = 8192;
+    private const int NttThreshold = 256;
 
     /// <summary>
     /// Modular exponentiation (base^exp mod mod) for NTT roots and inverse lengths.
@@ -1381,24 +1362,20 @@ public sealed class Natural :
 
         // Decrease while x·d > 10^precision.
         byte[] prod = MultiplyDigits(x, xLen, d, dLen, out int prodLen);
-        int _it = 0;
         while (CompareDigits(prod, prodLen, p10, p10Len) > 0)
         {
             x = SubtractOneDigits(x, xLen, out xLen);
             prod = MultiplyDigits(x, xLen, d, dLen, out prodLen);
-            if (++_it > 1000) { System.Console.Error.WriteLine($"[corr] decrease spin xLen={xLen} dLen={dLen} precision={precision}"); _it = 0; }
         }
 
         // Increase while (x+1)·d ≤ 10^precision.
         byte[] xp1 = AddOneDigits(x, xLen, out int xp1Len);
         prod = MultiplyDigits(xp1, xp1Len, d, dLen, out prodLen);
-        _it = 0;
         while (CompareDigits(prod, prodLen, p10, p10Len) <= 0)
         {
             x = xp1; xLen = xp1Len;
             xp1 = AddOneDigits(x, xLen, out xp1Len);
             prod = MultiplyDigits(xp1, xp1Len, d, dLen, out prodLen);
-            if (++_it > 1000) { System.Console.Error.WriteLine($"[corr] increase spin xLen={xLen} dLen={dLen} precision={precision}"); _it = 0; }
         }
 
         outLen = xLen;
