@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace Lovelace.Suite;
@@ -45,6 +46,15 @@ public sealed class SuiteEngine
 
     /// <summary>Clears the last-plot capture (used by hosts to detect plots per run).</summary>
     public void ResetPlotCapture() => _interpreter.ResetPlotCapture();
+
+    /// <summary>Elapsed wall-clock time of the most recent evaluation.</summary>
+    public TimeSpan LastElapsed { get; private set; }
+
+    /// <summary><see cref="LastElapsed"/> rendered with an auto-scaled unit (ns/µs/ms/…).</summary>
+    public string LastElapsedDisplay => Timing.Format(LastElapsed);
+
+    /// <summary>Per-statement elapsed times from the most recent evaluation, in statement order.</summary>
+    public IReadOnlyList<OperationTiming> OperationTimings => _interpreter.OperationTimings;
 
     // -----------------------------------------------------------------
     // Introspection
@@ -105,20 +115,30 @@ public sealed class SuiteEngine
     public async Task<Value> EvaluateAsync(string source, TextWriter? output = null)
     {
         _diagnostics.Clear();
+        _interpreter.ClearOperationTimings();
         _lastSource = source;
 
-        if (output is null)
-            return await EvaluateCoreAsync(source);
-
-        var previous = _interpreter.Output;
-        _interpreter.Output = output;
+        var stopwatch = Stopwatch.StartNew();
         try
         {
-            return await EvaluateCoreAsync(source);
+            if (output is null)
+                return await EvaluateCoreAsync(source);
+
+            var previous = _interpreter.Output;
+            _interpreter.Output = output;
+            try
+            {
+                return await EvaluateCoreAsync(source);
+            }
+            finally
+            {
+                _interpreter.Output = previous;
+            }
         }
         finally
         {
-            _interpreter.Output = previous;
+            stopwatch.Stop();
+            LastElapsed = stopwatch.Elapsed;
         }
     }
 

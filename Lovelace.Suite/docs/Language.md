@@ -720,6 +720,18 @@ pi(5)
 3.14159 (Real)
 ```
 
+### `setprecision(n)`
+
+Raises `Real.MaxComputationDecimalPlaces` (the hard cap on generated digits, default `1000`) and
+`Real.DisplayDecimalPlaces` (how many fractional digits `ToString()` emits for non-periodic values,
+default `100`) to the given positive integer `n`. Returns `void`. Use it before `pi(n)` (or other
+irrational work) to compute and display more than the default precision.
+
+```lovelace
+setprecision(50000)
+pi(50000)
+```
+
 ### `len(v)`
 
 Vector length.
@@ -754,6 +766,9 @@ plot was produced and its title, not the path.
 - `plot(y)` uses `1..len(y)` as the x-axis.
 - `plot(x, y)` requires two equal-length vectors.
 - The optional third argument is the title, rendered into the SVG.
+- A series of three or more points is connected with a smooth shape-preserving curve through the
+  data (sampled densely, so a coarse sample draws as a curve, not an angular polygon); fewer than
+  three points fall back to straight segments.
 
 ```lovelace
 plot(1..10, 1 / (1..10 ^ 2), "1/x^2")

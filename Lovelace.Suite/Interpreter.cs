@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Lovelace.Arrays;
@@ -29,6 +30,7 @@ public sealed class Interpreter
     private readonly Scope _global = new();
     private readonly Dictionary<string, FunctionDefinition> _functions = new();
     private long _revision;
+    private readonly List<OperationTiming> _timings = [];
 
     // -----------------------------------------------------------------
     // Host-configurable settings
@@ -77,6 +79,12 @@ public sealed class Interpreter
 
     /// <summary>Monotonic revision counter bumped on every state mutation.</summary>
     public long Revision => _revision;
+
+    /// <summary>Per-statement timings from the most recent program execution, in statement order.</summary>
+    public IReadOnlyList<OperationTiming> OperationTimings => _timings;
+
+    /// <summary>Clears the accumulated per-statement timings (called before each evaluation).</summary>
+    internal void ClearOperationTimings() => _timings.Clear();
 
     // -----------------------------------------------------------------
     // State mutation
@@ -131,12 +139,44 @@ public sealed class Interpreter
     /// <summary>Evaluates a single expression in the global scope.</summary>
     public Task<Value> EvaluateAsync(Expr expr) => EvaluateAsync(expr, _global);
 
-    /// <summary>Executes a program (list of statements) in the global scope.</summary>
+    /// <summary>
+    /// Executes a program (list of statements) in the global scope, timing each
+    /// top-level statement and recording the elapsed time with its source position.
+    /// </summary>
     public async Task<Value> ExecuteAsync(Program program)
     {
+        _timings.Clear();
+        Value last = Value.Void;
+
         try
         {
-            return await ExecuteStatementListAsync(program.Statements, _global);
+            for (int i = 0; i < program.Statements.Count; i++)
+            {
+                var statement = program.Statements[i];
+                int position = i < program.StatementPositions.Count ? program.StatementPositions[i] : 0;
+
+                var stopwatch = Stopwatch.StartNew();
+                var capture = new StringWriter();
+                var previousOutput = Output;
+                Output = capture;
+                Value result = Value.Void;
+                try
+                {
+                    result = await ExecuteAsync(statement, _global);
+                    last = result;
+                }
+                finally
+                {
+                    Output = previousOutput;
+                    string output = capture.ToString();
+                    if (output.Length > 0)
+                        previousOutput.Write(output);
+                    stopwatch.Stop();
+                    _timings.Add(new OperationTiming(position, result, output, stopwatch.Elapsed));
+                }
+            }
+
+            return last;
         }
         catch (ReturnSignal rs)
         {
@@ -828,6 +868,25 @@ public sealed class Interpreter
                 default:
                     throw new InvalidOperationException($"pi() expects 0 or 1 argument, but got {args.Count}.");
             }
+        });
+
+        // setprecision(n) — raise both the computation cap and the display precision.
+        Register("setprecision", ["digits"], args =>
+        {
+            RequireArity("setprecision", args, 1);
+            var arg = args[0];
+            long n = arg.Kind switch
+            {
+                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+                _ => throw new InvalidOperationException($"setprecision() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+            };
+            if (n <= 0)
+                throw new InvalidOperationException($"setprecision() expects a positive digit count, but got {n}.");
+
+            Rl.MaxComputationDecimalPlaces = n;
+            Rl.DisplayDecimalPlaces = n;
+            return Task.FromResult(Value.Void);
         });
 
         // print(values...)

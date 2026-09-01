@@ -51,9 +51,11 @@ public sealed class Parser
         _pos = 0;
 
         var statements = new List<Statement>();
+        var positions = new List<int>();
 
         while (Current.Kind != TokenKind.Eof)
         {
+            positions.Add(Current.Position);
             statements.Add(ParseStatement());
 
             if (Current.Kind == TokenKind.Semicolon)
@@ -67,7 +69,7 @@ public sealed class Parser
             }
         }
 
-        return new Program(statements);
+        return new Program(statements) { StatementPositions = positions };
     }
 
     // ------------------------------------------------------------------

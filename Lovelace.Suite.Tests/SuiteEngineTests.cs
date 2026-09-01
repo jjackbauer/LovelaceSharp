@@ -147,4 +147,30 @@ public class SuiteEngineTests
 
         Assert.IsType<BinaryExpr>(expr);
     }
+
+    [Fact]
+    public async Task EvaluateAsync_GivenScript_RecordsElapsedTime()
+    {
+        var engine = new SuiteEngine();
+
+        await engine.EvaluateAsync("1 + 1");
+
+        Assert.True(engine.LastElapsed >= TimeSpan.Zero);
+        Assert.False(string.IsNullOrWhiteSpace(engine.LastElapsedDisplay));
+    }
+
+    [Fact]
+    public async Task EvaluateAsync_GivenMultipleStatements_RecordsPerStatementTimings()
+    {
+        var engine = new SuiteEngine();
+
+        await engine.EvaluateAsync("x = 1; y = 2; x + y");
+
+        Assert.Equal(3, engine.OperationTimings.Count);
+        Assert.Equal(0, engine.OperationTimings[0].Position);
+        Assert.True(engine.OperationTimings[1].Position > engine.OperationTimings[0].Position);
+        Assert.True(engine.OperationTimings[2].Position > engine.OperationTimings[1].Position);
+        Assert.All(engine.OperationTimings, t => Assert.True(t.Elapsed >= TimeSpan.Zero));
+        Assert.All(engine.OperationTimings, t => Assert.False(string.IsNullOrWhiteSpace(t.ElapsedDisplay)));
+    }
 }

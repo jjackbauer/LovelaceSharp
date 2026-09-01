@@ -54,7 +54,7 @@ public sealed class ReplSession
 
         Built-in functions:
           abs(x)  inv(x)  divrem(a, b)  is_even(x)  is_odd(x)  sign(x)
-          sqrt(x)  pi([digits])  print(x)  plot(y) / plot(x, y[, "title"])
+          sqrt(x)  pi([digits])  setprecision(n)  print(x)  plot(y) / plot(x, y[, "title"])
 
         Special commands:
           vars                     list all variables
@@ -108,11 +108,11 @@ public sealed class ReplSession
             {
                 var result = await _engine.EvaluateAsync(source);
                 if (result.Kind != ValueKind.Void)
-                    PrintResult(result);
+                    PrintResult(result, _engine.LastElapsedDisplay);
             }
             catch (Exception ex)
             {
-                PrintError(source, ex.Message);
+                PrintError(source, ex.Message, _engine.LastElapsedDisplay);
             }
         }
 
@@ -205,11 +205,11 @@ public sealed class ReplSession
                 string content = File.ReadAllText(path);
                 var result = await _engine.EvaluateAsync(content);
                 if (result.Kind != ValueKind.Void)
-                    PrintResult(result);
+                    PrintResult(result, _engine.LastElapsedDisplay);
             }
             catch (Exception ex)
             {
-                PrintError(source, ex.Message);
+                PrintError(source, ex.Message, _engine.LastElapsedDisplay);
             }
             return true;
         }
@@ -221,8 +221,8 @@ public sealed class ReplSession
     // Output helpers
     // -----------------------------------------------------------------
 
-    private static void PrintResult(Value result) =>
-        System.Console.WriteLine("= " + ValueFormatter.FormatTyped(result));
+    private static void PrintResult(Value result, string elapsed) =>
+        System.Console.WriteLine($"= {ValueFormatter.FormatTyped(result)}   [{elapsed}]");
 
     private void PrintVars()
     {
@@ -257,7 +257,7 @@ public sealed class ReplSession
     /// Prints an error message, with a caret under the error position when one
     /// can be extracted from the message.
     /// </summary>
-    private static void PrintError(string input, string message)
+    private static void PrintError(string input, string message, string elapsed)
     {
         var match = Regex.Match(message, @"at position (\d+)", RegexOptions.IgnoreCase);
         if (match.Success && int.TryParse(match.Groups[1].Value, out int pos))
@@ -266,7 +266,7 @@ public sealed class ReplSession
             System.Console.WriteLine(new string(' ', pos) + "^");
         }
 
-        System.Console.WriteLine($"Error: {message}");
+        System.Console.WriteLine($"Error: {message}   [{elapsed}]");
     }
 
     /// <summary>True when braces are balanced (used for multi-line accumulation).</summary>

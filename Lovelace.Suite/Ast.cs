@@ -128,4 +128,11 @@ public sealed record ContinueStatement : Statement;
 public sealed record FunctionStatement(FunctionDefinition Definition) : Statement;
 
 /// <summary>A parsed program: an ordered list of statements.</summary>
-public sealed record Program(List<Statement> Statements);
+public sealed record Program(List<Statement> Statements)
+{
+    /// <summary>
+    /// Zero-based source position of each top-level statement, parallel to
+    /// <see cref="Statements"/>. Populated by the parser; empty when unknown.
+    /// </summary>
+    public IReadOnlyList<int> StatementPositions { get; init; } = Array.Empty<int>();
+}
