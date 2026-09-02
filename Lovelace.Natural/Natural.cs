@@ -35,6 +35,9 @@ public sealed class Natural :
 
     private readonly ulong[] _limbs;
 
+    /// <summary>Lazily-computed canonical decimal digit string (null until first needed).</summary>
+    private string? _decimal;
+
     private static readonly ulong[] s_empty = Array.Empty<ulong>();
     private static readonly Natural s_zero = new();
     private static readonly Natural s_one = new(1UL);
@@ -89,9 +92,11 @@ public sealed class Natural :
     /// <summary>Default constructor — produces zero.</summary>
     public Natural() => _limbs = s_empty;
 
-    /// <summary>Copy constructor — deep copy of <paramref name="other"/>.</summary>
+    /// <summary>Copy constructor — deep copy of <paramref name="other"/>'s limbs; shares the
+    /// cached decimal string (strings are immutable).</summary>
     public Natural(Natural other)
     {
+        _decimal = other._decimal;
         var src = other._limbs;
         _limbs = src.Length == 0 ? s_empty : (ulong[])src.Clone();
     }
@@ -112,10 +117,20 @@ public sealed class Natural :
     }
 
     /// <summary>Constructs a <see cref="Natural"/> by parsing a decimal digit string.</summary>
-    public Natural(string s) => _limbs = Parse(s, null)._limbs;
+    public Natural(string s)
+    {
+        var parsed = Parse(s, null);
+        _limbs = parsed._limbs;
+        _decimal = parsed._decimal;
+    }
 
     /// <summary>Constructs a <see cref="Natural"/> by parsing a span of decimal digit characters.</summary>
-    public Natural(ReadOnlySpan<char> s) => _limbs = Parse(s, null)._limbs;
+    public Natural(ReadOnlySpan<char> s)
+    {
+        var parsed = Parse(s, null);
+        _limbs = parsed._limbs;
+        _decimal = parsed._decimal;
+    }
 
     // -------------------------------------------------------------------------
     // INumberBase<Natural> — classification predicates
@@ -506,8 +521,11 @@ public sealed class Natural :
     /// <inheritdoc/>
     public override string ToString()
     {
-        if (_limbs.Length == 0) return "0";
-        return ToStringRecursive(_limbs);
+        var cached = _decimal;
+        if (cached is not null) return cached;
+        var computed = _limbs.Length == 0 ? "0" : ToStringRecursive(_limbs);
+        Interlocked.CompareExchange(ref _decimal, computed, null);
+        return _decimal!;
     }
 
     /// <summary>Divide-and-conquer binary→decimal conversion: split the value at 10^half and recurse.</summary>
@@ -598,6 +616,7 @@ public sealed class Natural :
         }
 
         result = ParseDigits(digits);
+        result._decimal = digits.ToString();
         return true;
     }
 
