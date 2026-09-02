@@ -882,8 +882,9 @@ public class Real :
 
         long guardDigits = digits + 10;
 
-        // √10005 at guard-digit precision using the internal Sqrt overload.
-        Real sqrt10005 = Sqrt(new Real("10005"), guardDigits);
+        // √10005 is independent of the Chudnovsky series; compute it concurrently so its
+        // Newton-division chain overlaps the BSP term computation and merge.
+        Task<Real> sqrtTask = Task.Run(() => Sqrt(new Real("10005"), guardDigits));
 
         // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
         // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
@@ -927,6 +928,8 @@ public class Real :
             }
             denS = accQ; numS = accT;
         }
+
+        Real sqrt10005 = sqrtTask.GetAwaiter().GetResult();
 
         // π = 426880 · √10005 · denS / numS. The operands are irrational truncations, so
         // use the single fixed-point division fast path (no period detection needed).

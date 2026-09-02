@@ -566,6 +566,9 @@ public sealed class Natural :
     /// <inheritdoc/>
     public override string ToString() => GetDecimal();
 
+    /// <summary>Minimum limb count at which the divide-and-conquer decimal conversion forks.</summary>
+    private const int ToStringParallelThreshold = 2048;
+
     /// <summary>Divide-and-conquer binary→decimal conversion: split the value at 10^half and recurse.</summary>
     private static string ToStringRecursive(ulong[] limbs)
     {
@@ -578,8 +581,21 @@ public sealed class Natural :
         int half = digits / 2;
 
         Natural q = DivRem(new Natural(limbs), Pow10(half), out Natural r);
-        string hi = ToStringRecursive(q.GetLimbs());
-        string lo = ToStringRecursive(r.GetLimbs());
+
+        string hi, lo;
+        if (limbs.Length >= ToStringParallelThreshold)
+        {
+            // The high and low halves are independent; convert the low half on a worker
+            // while the current thread converts the high half (classic fork-join).
+            Task<string> loTask = Task.Run(() => ToStringRecursive(r.GetLimbs()));
+            hi = ToStringRecursive(q.GetLimbs());
+            lo = loTask.GetAwaiter().GetResult();
+        }
+        else
+        {
+            hi = ToStringRecursive(q.GetLimbs());
+            lo = ToStringRecursive(r.GetLimbs());
+        }
         return hi + lo.PadLeft(half, '0');
     }
 
@@ -748,13 +764,27 @@ public sealed class Natural :
 
     /// <summary>
     /// Dividends+divisors with at least this many combined limbs use Newton-reciprocal division.
-    /// Knuth's O(n·m) has a small constant and wins up to ~5M digits; Newton (O(M(n) log n))
-    /// takes over beyond that, where the quadratic Knuth cost explodes.
+    /// Knuth's O(n·m) division is single-threaded, so once multiplication is parallelized the
+    /// Newton path (O(M(n) log n) over parallel multiplies) wins at a much smaller crossover
+    /// than the historical ~5M-digit figure (which assumed single-threaded multiply).
     /// </summary>
-    private const long DivNewtonThreshold = 1L << 18; // 262144 limbs (≈ 5M decimal digits)
+    private const long DivNewtonThreshold = 4096; // limbs (≈ 79k decimal digits)
+
+    /// <summary>Minimum operand size (limbs) at which a Karatsuba split is parallelized.</summary>
+    private const int ParallelKaratsubaThreshold = 1024;
+
+    /// <summary>Number of parallel fork levels in Karatsuba (3^depth-way concurrency).</summary>
+    private const int ParallelKaratsubaDepth = 2;
 
     /// <summary>Multiply dispatcher: schoolbook below the threshold, Karatsuba above.</summary>
-    private static ulong[] Multiply(ulong[] a, ulong[] b)
+    private static ulong[] Multiply(ulong[] a, ulong[] b) => MultiplyCore(a, b, 0);
+
+    /// <summary>
+    /// Depth-limited recursive multiply.  The top <see cref="ParallelKaratsubaDepth"/> Karatsuba
+    /// levels fork their three independent sub-products concurrently; deeper levels recurse
+    /// sequentially to keep total task spawns bounded.
+    /// </summary>
+    private static ulong[] MultiplyCore(ulong[] a, ulong[] b, int depth)
     {
         if (a.Length == 0 || b.Length == 0) return Array.Empty<ulong>();
         if (a.Length <= KaratsubaThreshold || b.Length <= KaratsubaThreshold)
@@ -768,29 +798,75 @@ public sealed class Natural :
         if (total >= NttThreshold && total * NttPieces <= MaxNttLength)
             return NttMultiply(a, b);
 
-        // Karatsuba degenerates when the operands are very unbalanced (one operand's high
-        // half is empty); schoolbook is O(a·b) and beats it there.
+        // Very unbalanced operands: split the longer into minLen-sized blocks and multiply
+        // each block (balanced) by the shorter operand.  This avoids the single-threaded
+        // O(a·b) schoolbook blow-up (e.g. √10005 × denS in Pi) and is embarrassingly parallel.
         if (maxLen >= 2 * minLen)
-            return SchoolbookMultiply(a, b);
+            return minLen <= KaratsubaThreshold ? SchoolbookMultiply(a, b) : UnbalancedMultiply(a, b);
 
         int m = (maxLen + 1) / 2;
 
         (ulong[] a0, ulong[] a1) = Split(a, m);
         (ulong[] b0, ulong[] b1) = Split(b, m);
 
-        ulong[] z0 = Multiply(a0, b0);
-        ulong[] z2 = Multiply(a1, b1);
         ulong[] sumA = AddRaw(a0, a1);
         ulong[] sumB = AddRaw(b0, b1);
-        ulong[] z1 = Multiply(sumA, sumB);
-        z1 = SubRaw(z1, z0);
-        z1 = SubRaw(z1, z2);
+
+        ulong[] z0, z1, z2;
+        if (depth < ParallelKaratsubaDepth && maxLen >= ParallelKaratsubaThreshold)
+        {
+            // The three sub-products a0·b0, a1·b1, (a0+a1)·(b0+b1) are independent; compute
+            // them concurrently, then apply only the cheap O(n) recombination serially.
+            z0 = null!; z1 = null!; z2 = null!;
+            Parallel.Invoke(
+                () => z0 = MultiplyCore(a0, b0, depth + 1),
+                () => z1 = MultiplyCore(sumA, sumB, depth + 1),
+                () => z2 = MultiplyCore(a1, b1, depth + 1));
+            z1 = SubRaw(z1, z0);
+            z1 = SubRaw(z1, z2);
+        }
+        else
+        {
+            z0 = MultiplyCore(a0, b0, depth + 1);
+            z2 = MultiplyCore(a1, b1, depth + 1);
+            z1 = MultiplyCore(sumA, sumB, depth + 1);
+            z1 = SubRaw(z1, z0);
+            z1 = SubRaw(z1, z2);
+        }
 
         var r = new ulong[a.Length + b.Length];
         AddShifted(r, z0, 0);
         AddShifted(r, z1, m);
         AddShifted(r, z2, 2 * m);
         return r;
+    }
+
+    /// <summary>
+    /// Multiplies an unbalanced pair by splitting the longer operand into blocks of the shorter
+    /// operand's length and multiplying each block (balanced) by the shorter operand in parallel.
+    /// Results are combined by shift-add: <c>big·small = Σ (block_i · small) · 2^(64·i·m)</c>.
+    /// </summary>
+    private static ulong[] UnbalancedMultiply(ulong[] a, ulong[] b)
+    {
+        ulong[] big = a.Length >= b.Length ? a : b;
+        ulong[] small = a.Length >= b.Length ? b : a;
+        int m = small.Length;
+        int chunks = (big.Length + m - 1) / m;
+        var partials = new ulong[chunks][];
+
+        Parallel.For(0, chunks, i =>
+        {
+            int start = i * m;
+            int len = Math.Min(m, big.Length - start);
+            var block = new ulong[len];
+            Array.Copy(big, start, block, 0, len);
+            partials[i] = Multiply(block, small);
+        });
+
+        var r = new ulong[big.Length + small.Length];
+        for (int i = 0; i < chunks; i++)
+            AddShifted(r, partials[i], i * m);
+        return TrimCopy(r, r.Length);
     }
 
     /// <summary>Splits <paramref name="a"/> into (low m limbs, remaining high limbs), both canonical.</summary>
@@ -926,6 +1002,9 @@ public sealed class Natural :
 
     private static readonly long InvP1ModP2 = ModPow(NttPrime1 % NttPrime2, NttPrime2 - 2, NttPrime2);
 
+    /// <summary>Minimum number of independent butterfly groups in a stage before parallelizing.</summary>
+    private const int NttParallelMinGroups = 8;
+
     /// <summary>In-place iterative Cooley–Tukey NTT modulo <paramref name="prime"/>.</summary>
     private static void Ntt(long[] a, int n, bool invert, long prime)
     {
@@ -945,20 +1024,16 @@ public sealed class Natural :
         {
             long wlen = ModPow(root, (prime - 1) / len, prime);
             int half = len >> 1;
-            for (int i = 0; i < n; i += len)
-            {
-                long w = 1;
-                for (int j = 0; j < half; j++)
-                {
-                    long u = a[i + j];
-                    long v = a[i + j + half] * w % prime;
-                    long s = u + v;
-                    a[i + j] = s < prime ? s : s - prime;
-                    long d = u - v;
-                    a[i + j + half] = d >= 0 ? d : d + prime;
-                    w = w * wlen % prime;
-                }
-            }
+            int groups = n / len;
+
+            // Each butterfly group touches a disjoint [start, start+len) slice, so the group
+            // loop is embarrassingly parallel.  Parallelize the early/mid stages (many groups);
+            // fall back to serial for the last few stages (few groups, no parallelism left).
+            if (groups >= NttParallelMinGroups)
+                Parallel.For(0, groups, g => NttStage(a, g * len, half, wlen, prime));
+            else
+                for (int g = 0; g < groups; g++)
+                    NttStage(a, g * len, half, wlen, prime);
         }
 
         if (invert)
@@ -966,6 +1041,22 @@ public sealed class Natural :
             long nInv = ModPow(n, prime - 2, prime);
             for (int i = 0; i < n; i++)
                 a[i] = a[i] * nInv % prime;
+        }
+    }
+
+    /// <summary>Applies one butterfly group (block size 2·<paramref name="half"/>) starting at <paramref name="start"/>.</summary>
+    private static void NttStage(long[] a, int start, int half, long wlen, long prime)
+    {
+        long w = 1;
+        for (int j = 0; j < half; j++)
+        {
+            long u = a[start + j];
+            long v = a[start + j + half] * w % prime;
+            long s = u + v;
+            a[start + j] = s < prime ? s : s - prime;
+            long d = u - v;
+            a[start + j + half] = d >= 0 ? d : d + prime;
+            w = w * wlen % prime;
         }
     }
 
