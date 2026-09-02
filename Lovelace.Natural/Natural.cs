@@ -407,9 +407,16 @@ public sealed class Natural :
             return Make(q, u.Length);
         }
 
-        (Natural quotient, Natural remKnuth) = DivRemKnuth(u, v);
+        if ((long)u.Length + v.Length >= DivNewtonThreshold)
+        {
+            (Natural qNewton, Natural remNewton) = DivRemNewton(u, v);
+            remainder = remNewton;
+            return qNewton;
+        }
+
+        (Natural qKnuth, Natural remKnuth) = DivRemKnuth(u, v);
         remainder = remKnuth;
-        return quotient;
+        return qKnuth;
     }
 
     /// <summary>
@@ -696,6 +703,13 @@ public sealed class Natural :
 
     /// <summary>Operands with at most this many limbs use schoolbook; larger recurse via Karatsuba.</summary>
     private const int KaratsubaThreshold = 40;
+
+    /// <summary>
+    /// Dividends+divisors with at least this many combined limbs use Newton-reciprocal division.
+    /// Knuth's O(n·m) has a small constant and wins up to ~5M digits; Newton (O(M(n) log n))
+    /// takes over beyond that, where the quadratic Knuth cost explodes.
+    /// </summary>
+    private const long DivNewtonThreshold = 1L << 18; // 262144 limbs (≈ 5M decimal digits)
 
     /// <summary>Multiply dispatcher: schoolbook below the threshold, Karatsuba above.</summary>
     private static ulong[] Multiply(ulong[] a, ulong[] b)
@@ -1105,6 +1119,172 @@ public sealed class Natural :
             carry = t << (64 - shift);
         }
         return r;
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast division — Newton reciprocal (O(M(n) log n))
+    // -------------------------------------------------------------------------
+
+    /// <summary>Bit length of a canonical non-zero limb array.</summary>
+    private static int BitLength(ulong[] a)
+        => a.Length * 64 - BitOperations.LeadingZeroCount(a[^1]);
+
+    /// <summary>Returns 2^<paramref name="bit"/> as a canonical limb array.</summary>
+    private static ulong[] PowerOfTwo(int bit)
+    {
+        var r = new ulong[bit / 64 + 1];
+        r[bit / 64] = 1UL << (bit % 64);
+        return r;
+    }
+
+    /// <summary>Right-shifts <paramref name="a"/> by <paramref name="bits"/> bits (floor ÷ 2^bits).</summary>
+    private static ulong[] ShiftRightByBits(ulong[] a, int bits)
+    {
+        int wordShift = bits / 64;
+        int bitShift = bits % 64;
+        int srcLen = a.Length - wordShift;
+        if (srcLen <= 0) return Array.Empty<ulong>();
+        var r = new ulong[srcLen];
+        if (bitShift == 0)
+        {
+            Array.Copy(a, wordShift, r, 0, srcLen);
+        }
+        else
+        {
+            for (int i = 0; i < srcLen; i++)
+            {
+                ulong low = a[i + wordShift];
+                ulong high = (i + wordShift + 1 < a.Length) ? a[i + wordShift + 1] : 0UL;
+                r[i] = (low >> bitShift) | (high << (64 - bitShift));
+            }
+        }
+        return TrimCopy(r, r.Length);
+    }
+
+    /// <summary>Returns <paramref name="a"/> + 1 as a canonical limb array.</summary>
+    private static ulong[] AddOneLimbs(ulong[] a)
+    {
+        var r = new ulong[a.Length + 1];
+        Array.Copy(a, r, a.Length);
+        int i = 0;
+        while (true)
+        {
+            r[i]++;
+            if (r[i] != 0) break;
+            i++;
+        }
+        return TrimCopy(r, r.Length);
+    }
+
+    /// <summary>Result sizes with at most this many bits use the direct base case.</summary>
+    private const int ReciprocalBaseBits = 64;
+
+    /// <summary>
+    /// Returns floor(2^<paramref name="k"/> / d) for a normalized d (top bit set), k ≥ bitlen(d).
+    /// Recursive half-precision Newton: the working size stays proportional to the result
+    /// (no scale overshoot), and the result is exact after ±1 correction.
+    /// </summary>
+    private static ulong[] Reciprocal(ulong[] d, int k)
+    {
+        int n = BitLength(d);
+        int q = k - n + 1;                 // bits of the result
+        if (q <= ReciprocalBaseBits)
+            return ReciprocalBase(d, n, k);
+
+        int q0 = (q + 1) / 2;
+        int f0 = n + q0 - 1;               // half-precision scale
+        ulong[] x0 = Reciprocal(d, f0);    // floor(2^f0 / d), q0 bits
+
+        ulong[] dx0 = Multiply(d, x0);
+        ulong[] two = PowerOfTwo(f0 + 1);
+        ulong[] m = SubRaw(two, dx0);      // 2^(f0+1) − d·x0 ≥ 2^f0 > 0
+        ulong[] x = Multiply(x0, m);       // ≈ 2^(2·f0) / d
+
+        int shift = 2 * f0 - k;
+        if (shift > 0)
+            x = ShiftRightByBits(x, shift);
+
+        return CorrectReciprocal(x, d, k);
+    }
+
+    /// <summary>Base case (q ≤ 64 bits): seed from the top limb, shift, and correct.</summary>
+    private static ulong[] ReciprocalBase(ulong[] d, int n, int k)
+    {
+        ulong dTop = d[^1];
+        UInt128 two64 = (UInt128)1 << 64;
+        UInt128 q1 = two64 / dTop;
+        UInt128 r1 = two64 % dTop;
+        UInt128 x0 = (q1 << 64) + ((r1 << 64) / dTop);   // ≈ 2^(n+64) / d
+
+        ulong[] x = TrimCopy(new[] { (ulong)x0, (ulong)(x0 >> 64) }, 2);
+        int shift = n + 64 - k;            // = 65 − q
+        if (shift > 0)
+            x = ShiftRightByBits(x, shift);
+        return CorrectReciprocal(x, d, k);
+    }
+
+    /// <summary>Adjusts <paramref name="x"/> (within ±2 of floor(2^k/d)) to the exact floor.</summary>
+    private static ulong[] CorrectReciprocal(ulong[] x, ulong[] d, int k)
+    {
+        ulong[] pk = PowerOfTwo(k);
+        ulong[] xd = Multiply(x, d);
+        while (CompareLimbs(xd, pk) > 0)   // x·d > 2^k: x too big
+        {
+            x = SubtractOneLimbs(x);
+            xd = Multiply(x, d);
+        }
+        ulong[] xp1 = AddOneLimbs(x);
+        ulong[] xp1d = Multiply(xp1, d);
+        while (CompareLimbs(xp1d, pk) <= 0)  // (x+1)·d ≤ 2^k: x too small
+        {
+            x = xp1;
+            xp1 = AddOneLimbs(x);
+            xp1d = Multiply(xp1, d);
+        }
+        return x;
+    }
+
+    /// <summary>Returns <paramref name="a"/> − 1 as a canonical limb array (a &gt; 0).</summary>
+    private static ulong[] SubtractOneLimbs(ulong[] a)
+    {
+        var r = (ulong[])a.Clone();
+        int i = 0;
+        while (true)
+        {
+            if (r[i] != 0)
+            {
+                r[i]--;
+                break;
+            }
+            r[i] = ulong.MaxValue;   // borrow
+            i++;
+        }
+        return TrimCopy(r, r.Length);
+    }
+
+    /// <summary>Newton-reciprocal quotient/remainder. Caller guarantees u ≥ v, v.Length ≥ 2.</summary>
+    private static (Natural quotient, Natural remainder) DivRemNewton(ulong[] u, ulong[] v)
+    {
+        int shift = BitOperations.LeadingZeroCount(v[^1]);
+        ulong[] vn = TrimCopy(ShiftLeftBits(v, shift), v.Length);
+        ulong[] un = TrimCopy(ShiftLeftBits(u, shift), u.Length + 1);
+
+        int nBits = BitLength(un);
+        int k = nBits + 64;
+
+        ulong[] R = Reciprocal(vn, k);          // floor(2^k / vn)
+        ulong[] q = ShiftRightByBits(Multiply(un, R), k);  // ≤ floor(un / vn)
+        ulong[] qv = Multiply(q, vn);
+        ulong[] r = SubRaw(un, qv);             // qv ≤ un, so no underflow
+
+        while (CompareLimbs(r, vn) >= 0)
+        {
+            r = SubRaw(r, vn);
+            q = AddOneLimbs(q);
+        }
+
+        ulong[] rem = ShiftRightByBits(r, shift);
+        return (Make(q, q.Length), Make(rem, rem.Length));
     }
 
     /// <summary>Returns 10^k as a Natural (binary exponentiation).</summary>

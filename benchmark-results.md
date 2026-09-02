@@ -50,9 +50,11 @@ because `Real.Sqrt`/`Real.Pi` round-trip through strings constantly (`ToNatural(
 
 - [x] **NTT multiply** (Phase 2.1) — exact two-prime NTT over base-2^16 pieces; cross-checked
       against `BigInteger` at 2M digits. Binary multiply now wins or ties BCD at every size.
-- [ ] **Newton-reciprocal division** (Phase 2.2) — division is still Knuth `O(n²)`, so very
-      large `DivRem` falls behind BCD's Newton path, and `ToString` is capped at `O(n²)`.
-      Newton division + divide-and-conquer `ToString` would reach `O(M(n)·log n)`.
-- [ ] **Cached decimal form / hybrid** (Phase 2.3) — cache the decimal string on parse so
-      `ToString` is free; or keep BCD purely as a display cache. This closes the conversion
-      gap entirely for the "parse once, print many" workload.
+- [x] **Newton-reciprocal division** (Phase 2.2) — recursive half-precision Newton, correct
+      (cross-checked to 200k digits) and dispatched at ≥ 262144 combined limbs (~5M digits).
+      *Finding:* binary Knuth division has a small enough constant that it beats Newton up to
+      ~5M digits (1.77s at 1M digits vs Newton's 3.5s), so Newton only pays off asymptotically.
+      It is kept for completeness; practical division stays on the fast Knuth path.
+- [ ] **Cached decimal form / hybrid** (Phase 2.3) — the one remaining *practical* gap. Cache
+      the decimal string on parse so `ToString` is free; or keep BCD purely as a display cache.
+      This closes the conversion gap entirely for the "parse once, print many" workload.
