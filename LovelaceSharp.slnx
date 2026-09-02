@@ -15,4 +15,6 @@
   <Project Path="Lovelace.Suite/Lovelace.Suite.csproj" />
   <Project Path="Lovelace.Studio/Lovelace.Studio.csproj" />
   <Project Path="Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj" />
+  <Project Path="precbench/precbench.csproj" />
+  <Project Path="precbench.Tests/precbench.Tests.csproj" />
 </Solution>
