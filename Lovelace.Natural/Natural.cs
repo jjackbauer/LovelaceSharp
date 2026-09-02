@@ -704,10 +704,16 @@ public sealed class Natural :
         if (a.Length <= KaratsubaThreshold || b.Length <= KaratsubaThreshold)
             return SchoolbookMultiply(a, b);
 
-        // Karatsuba degenerates when the operands are very unbalanced (one operand's high
-        // half is empty); schoolbook is O(a·b) and beats it there.
         int maxLen = Math.Max(a.Length, b.Length);
         int minLen = Math.Min(a.Length, b.Length);
+
+        // NTT (exact convolution) for very large operands, within the transform-size bound.
+        long total = (long)a.Length + b.Length;
+        if (total >= NttThreshold && total * NttPieces <= MaxNttLength)
+            return NttMultiply(a, b);
+
+        // Karatsuba degenerates when the operands are very unbalanced (one operand's high
+        // half is empty); schoolbook is O(a·b) and beats it there.
         if (maxLen >= 2 * minLen)
             return SchoolbookMultiply(a, b);
 
@@ -818,6 +824,170 @@ public sealed class Natural :
         var r = new ulong[len];
         Array.Copy(src, r, len);
         return r;
+    }
+
+    // -------------------------------------------------------------------------
+    // Fast multiplication — Number-Theoretic Transform (exact convolution) over
+    // 64-bit limbs split into base-2^16 pieces.
+    // -------------------------------------------------------------------------
+
+    /// <summary>998244353 = 119·2^23 + 1 — first NTT prime, length ≤ 2^23, primitive root 3.</summary>
+    private const long NttPrime1 = 998244353L;
+
+    /// <summary>469762049 = 7·2^26 + 1 — second NTT prime (CRT), length ≤ 2^26, primitive root 3.</summary>
+    private const long NttPrime2 = 469762049L;
+
+    /// <summary>Primitive root shared by both NTT primes.</summary>
+    private const long NttRoot = 3L;
+
+    /// <summary>Largest transform length either prime supports (bounded by <see cref="NttPrime1"/>).</summary>
+    private const int MaxNttLength = 1 << 23;
+
+    /// <summary>Each 64-bit limb is split into four base-2^16 pieces.</summary>
+    private const int NttBaseBits = 16;
+    private const int NttPieces = 4;
+
+    /// <summary>
+    /// Operands whose combined limb count reaches this value use the NTT product. The exact
+    /// convolution is cheap to pack (base-2^16 bit-slices) but the transform itself has a
+    /// higher constant than Karatsuba, so the threshold sits well above practical small sizes.
+    /// </summary>
+    private const long NttThreshold = 100000; // a+b limbs (≈ 1.9M decimal digits); NTT wins past this crossover
+
+    private static long ModPow(long b, long e, long mod)
+    {
+        long result = 1;
+        b %= mod;
+        while (e > 0)
+        {
+            if ((e & 1) != 0)
+                result = result * b % mod;
+            b = b * b % mod;
+            e >>= 1;
+        }
+        return result;
+    }
+
+    private static readonly long InvP1ModP2 = ModPow(NttPrime1 % NttPrime2, NttPrime2 - 2, NttPrime2);
+
+    /// <summary>In-place iterative Cooley–Tukey NTT modulo <paramref name="prime"/>.</summary>
+    private static void Ntt(long[] a, int n, bool invert, long prime)
+    {
+        for (int i = 1, j = 0; i < n; i++)
+        {
+            int bit = n >> 1;
+            for (; (j & bit) != 0; bit >>= 1)
+                j ^= bit;
+            j ^= bit;
+            if (i < j)
+                (a[i], a[j]) = (a[j], a[i]);
+        }
+
+        long root = invert ? ModPow(NttRoot, prime - 2, prime) : NttRoot;
+
+        for (int len = 2; len <= n; len <<= 1)
+        {
+            long wlen = ModPow(root, (prime - 1) / len, prime);
+            int half = len >> 1;
+            for (int i = 0; i < n; i += len)
+            {
+                long w = 1;
+                for (int j = 0; j < half; j++)
+                {
+                    long u = a[i + j];
+                    long v = a[i + j + half] * w % prime;
+                    long s = u + v;
+                    a[i + j] = s < prime ? s : s - prime;
+                    long d = u - v;
+                    a[i + j + half] = d >= 0 ? d : d + prime;
+                    w = w * wlen % prime;
+                }
+            }
+        }
+
+        if (invert)
+        {
+            long nInv = ModPow(n, prime - 2, prime);
+            for (int i = 0; i < n; i++)
+                a[i] = a[i] * nInv % prime;
+        }
+    }
+
+    /// <summary>Splits <paramref name="limbs"/> into base-2^16 pieces (LSD-first) in <paramref name="pieces"/>.</summary>
+    private static void PackPieces(ulong[] limbs, long[] pieces)
+    {
+        int idx = 0;
+        for (int i = 0; i < limbs.Length; i++)
+        {
+            ulong v = limbs[i];
+            pieces[idx++] = (long)(v & 0xFFFF);
+            pieces[idx++] = (long)((v >> 16) & 0xFFFF);
+            pieces[idx++] = (long)((v >> 32) & 0xFFFF);
+            pieces[idx++] = (long)((v >> 48) & 0xFFFF);
+        }
+    }
+
+    /// <summary>Two-prime CRT: reconstructs a convolution coefficient &lt; p1·p2 from its residues.</summary>
+    private static ulong Crt(long r1, long r2)
+    {
+        long diff = (r2 - r1) % NttPrime2;
+        if (diff < 0) diff += NttPrime2;
+        long t = diff * InvP1ModP2 % NttPrime2;
+        return (ulong)(r1 + t * NttPrime1);
+    }
+
+    /// <summary>
+    /// Multiplies two limb arrays via a two-prime NTT over base-2^16 pieces. A convolution
+    /// coefficient is &lt; (2^16−1)² · minPieceCount &lt; 2^32 · 2^23 &lt; p1·p2, so the CRT is exact.
+    /// </summary>
+    private static ulong[] NttMultiply(ulong[] a, ulong[] b)
+    {
+        int aPieces = a.Length * NttPieces;
+        int bPieces = b.Length * NttPieces;
+        int need = aPieces + bPieces;
+        int size = 1;
+        while (size < need)
+            size <<= 1;
+
+        long[] fa = new long[size];
+        long[] fb = new long[size];
+        PackPieces(a, fa);
+        PackPieces(b, fb);
+
+        // Prime 1 (fa is clobbered, so keep a copy of the packed 'a' for prime 2).
+        long[] fa2 = (long[])fa.Clone();
+        Ntt(fa, size, false, NttPrime1);
+        Ntt(fb, size, false, NttPrime1);
+        for (int i = 0; i < size; i++)
+            fa[i] = fa[i] * fb[i] % NttPrime1;
+        Ntt(fa, size, true, NttPrime1);
+
+        // Prime 2 (fb was clobbered, re-pack 'b').
+        Array.Clear(fb, 0, size);
+        PackPieces(b, fb);
+        Ntt(fa2, size, false, NttPrime2);
+        Ntt(fb, size, false, NttPrime2);
+        for (int i = 0; i < size; i++)
+            fa2[i] = fa2[i] * fb[i] % NttPrime2;
+        Ntt(fa2, size, true, NttPrime2);
+
+        // CRT + carry-propagation back into 64-bit limbs.
+        var result = new ulong[a.Length + b.Length];
+        UInt128 carry = 0;
+        int ci = 0;
+        for (int limb = 0; limb < result.Length; limb++)
+        {
+            UInt128 val = carry;
+            for (int p = 0; p < NttPieces; p++)
+            {
+                ulong coeff = Crt(fa[ci], fa2[ci]);
+                val += (UInt128)coeff << (NttBaseBits * p);
+                ci++;
+            }
+            result[limb] = (ulong)val;
+            carry = val >> 64;
+        }
+        return result;
     }
 
     /// <summary>Knuth Algorithm D long division. Caller guarantees u ≥ v, v.Length ≥ 2.</summary>

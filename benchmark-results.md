@@ -1,10 +1,10 @@
 # Binary-limb vs BCD — benchmark results
 
-Measured on the same machine with `bench/Program.cs` (`Release`, warmed), `main` (BCD
-baseline) vs `feature/binary-limb-natural` (64-bit binary limbs). `speedup = main_ms / binary_ms`
-(> 1 means the binary build is faster). Raw numbers in `benchmark-results.csv`.
+Measured on the same machine with `bench/Program.cs` and `mulbench/Program.cs` (`Release`,
+warmed), `main` (BCD baseline) vs `feature/binary-limb-natural` (64-bit binary limbs).
+`speedup = main_ms / binary_ms` (> 1 means the binary build is faster).
 
-## Headline
+## Headline (existing `bench` harness, unbalanced b = digits/2)
 
 | Op | Digits | BCD (main) | Binary | Speedup |
 |---|---|---|---|---|
@@ -19,28 +19,40 @@ baseline) vs `feature/binary-limb-natural` (64-bit binary limbs). `speedup = mai
 | parse | 100 000 | 2.1 ms | 13.7 ms | **0.15× (binary slower)** |
 | tostring | 100 000 | 4.7 ms | 53 ms | **0.09× (binary slower)** |
 
+## Balanced multiply (`mulbench`, a = b = digits)
+
+| Digits | BCD (main) | Binary | Speedup | Binary algorithm |
+|---|---|---|---|---|
+| 100 000 | ~42 ms | 7.5 ms | **~5.6×** | Karatsuba |
+| 500 000 | 137.9 ms | 106.4 ms | **1.30×** | Karatsuba |
+| 1 000 000 | 292.6 ms | 277.0 ms | **1.06×** | NTT |
+| 2 000 000 | 618.3 ms | 592.5 ms | **1.04×** | NTT |
+
+NTT/Karatsuba crossover for balanced operands is ≈ 900k digits; the threshold is set at
+100 000 limbs total (≈ 1.9M decimal digits), so NTT only runs where it wins.
+
 ## Interpretation
 
-**Binary limbs win the arithmetic core.** Add/sub/div are the big wins (div up to ~300×),
+**Binary limbs win the arithmetic core.** Add/sub/div are the big wins (div up to ~300×)
 because every 64-bit limb processes ~19.3 decimal digits in one native instruction, versus one
-BCD digit per inner-loop iteration with a `%10`/`/10` divide. Multiply is ~20× at small sizes
-and ~2.5× at 100k digits (schoolbook + Karatsuba; see the Phase-2 note below).
+BCD digit per inner-loop iteration with a `%10`/`/10` divide. Multiply wins ~20× at small
+sizes, ~2.5–5× at 100k digits, and ~1.04–1.3× at 1M+ digits (where both sides run an O(n log n)
+NTT, so the constant-factor gap closes).
 
 **Binary limbs lose at decimal↔binary conversion.** BCD formats/parses in O(n) (it just
 unpacks/packs nibbles, in parallel). A binary representation must *convert* bases —
-`O(M(n)·log n)` for parse and divide-and-conquer `ToString` — so `parse` and `toString` are
-~3–10× slower than BCD at large sizes. This is the fundamental tax of a binary working form,
-not a bug. It matters because `Real.Sqrt`/`Real.Pi` round-trip through strings constantly
-(they use `ToNatural().ToString()` + `Nat.TryParse`), which is why the Pi speedup is only
-~2–3× instead of the raw-multiply speedup.
+divide-and-conquer parse is `O(M(n)·log n)` and `ToString` is still O(n²) (Knuth division at
+each split). This is the fundamental tax of a binary working form, not a bug. It matters
+because `Real.Sqrt`/`Real.Pi` round-trip through strings constantly (`ToNatural().ToString()`
++ `Nat.TryParse`), which is why the Pi speedup is only ~2–3×.
 
-## Phase 2 (not yet done)
+## Status
 
-1. **NTT / FFT multiply** (port the existing BCD `NttMultiply` to 64-bit limbs) — would flip
-   the multiply crossover at very large operand sizes and speed up `parse`/`Pi` further.
-2. **Newton-reciprocal division** (`O(M(n) log n)`) — currently division is Knuth `O(n²)`,
-   which caps `ToString` at large sizes; Newton division + divide-and-conquer `ToString`
-   would reach `O(M(n) log n)`.
-3. **Cached decimal form / hybrid** — cache the decimal string on parse so `ToString` is
-   free; or keep BCD purely as a display cache. This closes the conversion gap entirely for
-   the "parse once, print many" workload.
+- [x] **NTT multiply** (Phase 2.1) — exact two-prime NTT over base-2^16 pieces; cross-checked
+      against `BigInteger` at 2M digits. Binary multiply now wins or ties BCD at every size.
+- [ ] **Newton-reciprocal division** (Phase 2.2) — division is still Knuth `O(n²)`, so very
+      large `DivRem` falls behind BCD's Newton path, and `ToString` is capped at `O(n²)`.
+      Newton division + divide-and-conquer `ToString` would reach `O(M(n)·log n)`.
+- [ ] **Cached decimal form / hybrid** (Phase 2.3) — cache the decimal string on parse so
+      `ToString` is free; or keep BCD purely as a display cache. This closes the conversion
+      gap entirely for the "parse once, print many" workload.
