@@ -30,12 +30,17 @@ public sealed class Natural :
     // -------------------------------------------------------------------------
     // Backing store — little-endian 64-bit limbs (base 2^64).
     // Canonical form: no most-significant zero limbs; zero is the empty array.
-    // Instances are immutable (operators return new instances).
+    // A value is held in one or both of two forms, materialized lazily and cached:
+    //   _limbs   — binary limbs (null until converted from the decimal string)
+    //   _decimal — canonical decimal digits (null until converted from the limbs)
+    // At least one is always non-null; zero is "0" / empty limbs. Limbs and the
+    // decimal string are immutable once created (operators return new instances);
+    // only the two lazy-cache fields themselves are written, thread-safely.
     // -------------------------------------------------------------------------
 
-    private readonly ulong[] _limbs;
+    private ulong[]? _limbs;
 
-    /// <summary>Lazily-computed canonical decimal digit string (null until first needed).</summary>
+    /// <summary>Canonical decimal digit string; null until computed from <see cref="_limbs"/>.</summary>
     private string? _decimal;
 
     private static readonly ulong[] s_empty = Array.Empty<ulong>();
@@ -90,14 +95,14 @@ public sealed class Natural :
     // -------------------------------------------------------------------------
 
     /// <summary>Default constructor — produces zero.</summary>
-    public Natural() => _limbs = s_empty;
+    public Natural() { _limbs = s_empty; _decimal = "0"; }
 
     /// <summary>Copy constructor — deep copy of <paramref name="other"/>'s limbs; shares the
     /// cached decimal string (strings are immutable).</summary>
     public Natural(Natural other)
     {
         _decimal = other._decimal;
-        var src = other._limbs;
+        var src = other.GetLimbs();
         _limbs = src.Length == 0 ? s_empty : (ulong[])src.Clone();
     }
 
@@ -116,20 +121,50 @@ public sealed class Natural :
         _limbs = value == 0 ? s_empty : new[] { (ulong)value };
     }
 
-    /// <summary>Constructs a <see cref="Natural"/> by parsing a decimal digit string.</summary>
+    /// <summary>Constructs a <see cref="Natural"/> by parsing a decimal digit string (limbs are
+    /// materialized lazily; only the canonical decimal string is stored).</summary>
     public Natural(string s)
     {
-        var parsed = Parse(s, null);
-        _limbs = parsed._limbs;
-        _decimal = parsed._decimal;
+        var canonical = TryCanonicalize(s.AsSpan());
+        if (canonical is null)
+            throw new FormatException($"The string '{s}' is not a valid decimal representation of a Natural number.");
+        _decimal = canonical;
+        _limbs = canonical == "0" ? s_empty : null;
     }
 
-    /// <summary>Constructs a <see cref="Natural"/> by parsing a span of decimal digit characters.</summary>
+    /// <summary>Constructs a <see cref="Natural"/> by parsing a span of decimal digit characters
+    /// (limbs are materialized lazily; only the canonical decimal string is stored).</summary>
     public Natural(ReadOnlySpan<char> s)
     {
-        var parsed = Parse(s, null);
-        _limbs = parsed._limbs;
-        _decimal = parsed._decimal;
+        var canonical = TryCanonicalize(s);
+        if (canonical is null)
+            throw new FormatException("The input is not a valid decimal representation of a Natural number.");
+        _decimal = canonical;
+        _limbs = canonical == "0" ? s_empty : null;
+    }
+
+    // -------------------------------------------------------------------------
+    // Lazy representation accessors — each form is materialized once on first use
+    // -------------------------------------------------------------------------
+
+    /// <summary>Returns the binary limbs, converting from the decimal string on first use.</summary>
+    private ulong[] GetLimbs()
+    {
+        var limbs = _limbs;
+        if (limbs is not null) return limbs;
+        var computed = ParseDigits(_decimal!).GetLimbs();
+        Interlocked.CompareExchange(ref _limbs, computed, null);
+        return _limbs!;
+    }
+
+    /// <summary>Returns the canonical decimal string, converting from the limbs on first use.</summary>
+    private string GetDecimal()
+    {
+        var dec = _decimal;
+        if (dec is not null) return dec;
+        var computed = _limbs!.Length == 0 ? "0" : ToStringRecursive(_limbs);
+        Interlocked.CompareExchange(ref _decimal, computed, null);
+        return _decimal!;
     }
 
     // -------------------------------------------------------------------------
@@ -137,14 +172,24 @@ public sealed class Natural :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public static bool IsZero(Natural value) => value._limbs.Length == 0;
+    public static bool IsZero(Natural value)
+    {
+        var dec = value._decimal;
+        if (dec is not null) return dec == "0";
+        return value._limbs!.Length == 0;
+    }
 
     /// <inheritdoc/>
     public static bool IsEvenInteger(Natural value) => !IsOddInteger(value);
 
     /// <inheritdoc/>
     public static bool IsOddInteger(Natural value)
-        => value._limbs.Length != 0 && (value._limbs[0] & 1UL) != 0;
+    {
+        var dec = value._decimal;
+        if (dec is not null) return ((dec[^1] - '0') & 1) != 0;
+        var limbs = value._limbs!;
+        return limbs.Length != 0 && (limbs[0] & 1UL) != 0;
+    }
 
     /// <inheritdoc/>
     public static bool IsCanonical(Natural value) => true;
@@ -215,8 +260,8 @@ public sealed class Natural :
     public bool Equals(Natural? other)
     {
         if (other is null) return false;
-        var a = _limbs;
-        var b = other._limbs;
+        var a = GetLimbs();
+        var b = other.GetLimbs();
         if (a.Length != b.Length) return false;
         for (int i = 0; i < a.Length; i++)
             if (a[i] != b[i]) return false;
@@ -227,7 +272,7 @@ public sealed class Natural :
     public int CompareTo(Natural? other)
     {
         if (other is null) return 1;
-        return CompareLimbs(_limbs, other._limbs);
+        return CompareLimbs(GetLimbs(), other.GetLimbs());
     }
 
     /// <inheritdoc/>
@@ -263,8 +308,8 @@ public sealed class Natural :
     /// <inheritdoc/>
     public static Natural operator +(Natural left, Natural right)
     {
-        var a = left._limbs;
-        var b = right._limbs;
+        var a = left.GetLimbs();
+        var b = right.GetLimbs();
         if (a.Length == 0) return new Natural(right);
         if (b.Length == 0) return new Natural(left);
 
@@ -294,8 +339,8 @@ public sealed class Natural :
     /// <exception cref="InvalidOperationException">Thrown when <paramref name="right"/> &gt; <paramref name="left"/>.</exception>
     public static Natural operator -(Natural left, Natural right)
     {
-        var a = left._limbs;
-        var b = right._limbs;
+        var a = left.GetLimbs();
+        var b = right.GetLimbs();
         if (right > left)
             throw new InvalidOperationException(
                 "Subtraction would produce a negative result, which cannot be represented as a Natural.");
@@ -320,8 +365,8 @@ public sealed class Natural :
     /// <inheritdoc/>
     public static Natural operator *(Natural left, Natural right)
     {
-        var a = left._limbs;
-        var b = right._limbs;
+        var a = left.GetLimbs();
+        var b = right.GetLimbs();
         if (a.Length == 0 || b.Length == 0) return s_zero;
         var product = Multiply(a, b);
         return Make(product, product.Length);
@@ -385,8 +430,8 @@ public sealed class Natural :
     /// <exception cref="DivideByZeroException">Thrown when <paramref name="right"/> is zero.</exception>
     public static Natural DivRem(Natural left, Natural right, out Natural remainder)
     {
-        var u = left._limbs;
-        var v = right._limbs;
+        var u = left.GetLimbs();
+        var v = right.GetLimbs();
         if (v.Length == 0)
             throw new DivideByZeroException("Cannot divide by zero.");
         if (u.Length == 0)
@@ -519,14 +564,7 @@ public sealed class Natural :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public override string ToString()
-    {
-        var cached = _decimal;
-        if (cached is not null) return cached;
-        var computed = _limbs.Length == 0 ? "0" : ToStringRecursive(_limbs);
-        Interlocked.CompareExchange(ref _decimal, computed, null);
-        return _decimal!;
-    }
+    public override string ToString() => GetDecimal();
 
     /// <summary>Divide-and-conquer binary→decimal conversion: split the value at 10^half and recurse.</summary>
     private static string ToStringRecursive(ulong[] limbs)
@@ -540,8 +578,8 @@ public sealed class Natural :
         int half = digits / 2;
 
         Natural q = DivRem(new Natural(limbs), Pow10(half), out Natural r);
-        string hi = ToStringRecursive(q._limbs);
-        string lo = ToStringRecursive(r._limbs);
+        string hi = ToStringRecursive(q.GetLimbs());
+        string lo = ToStringRecursive(r.GetLimbs());
         return hi + lo.PadLeft(half, '0');
     }
 
@@ -594,29 +632,14 @@ public sealed class Natural :
     /// <inheritdoc/>
     public static bool TryParse(ReadOnlySpan<char> s, IFormatProvider? provider, [MaybeNullWhen(false)] out Natural result)
     {
-        result = null;
-
-        if (s.IsEmpty) return false;
-
-        foreach (char ch in s)
+        var canonical = TryCanonicalize(s);
+        if (canonical is null)
         {
-            if (ch < '0' || ch > '9') return false;
+            result = null;
+            return false;
         }
 
-        int start = 0;
-        while (start < s.Length - 1 && s[start] == '0')
-            start++;
-
-        ReadOnlySpan<char> digits = s[start..];
-
-        if (digits.Length == 1 && digits[0] == '0')
-        {
-            result = s_zero;
-            return true;
-        }
-
-        result = ParseDigits(digits);
-        result._decimal = digits.ToString();
+        result = canonical == "0" ? s_zero : FromDecimalString(canonical);
         return true;
     }
 
@@ -1320,6 +1343,28 @@ public sealed class Natural :
             if (e != 0) b *= b;
         }
         return result;
+    }
+
+    /// <summary>Validates a decimal digit span and returns its canonical (leading-zero-stripped)
+    /// form, or null when empty or containing a non-digit.</summary>
+    private static string? TryCanonicalize(ReadOnlySpan<char> s)
+    {
+        if (s.IsEmpty) return null;
+        foreach (char ch in s)
+            if (ch < '0' || ch > '9') return null;
+        int start = 0;
+        while (start < s.Length - 1 && s[start] == '0') start++;
+        return s[start..].ToString();
+    }
+
+    /// <summary>Creates a <see cref="Natural"/> held only as a canonical decimal string, with
+    /// limbs materialized lazily on first arithmetic use. Caller guarantees a non-zero value.</summary>
+    private static Natural FromDecimalString(string canonical)
+    {
+        var n = new Natural();
+        n._decimal = canonical;
+        n._limbs = null;
+        return n;
     }
 
     private const int ParseChunkDigits = 19; // 10^19 < 2^64
