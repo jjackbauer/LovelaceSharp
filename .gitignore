@@ -61,3 +61,6 @@ Thumbs.db
 
 # Lean / Lake
 .lake/
+
+# Segregated git worktrees (implementation experiments)
+.worktrees/
