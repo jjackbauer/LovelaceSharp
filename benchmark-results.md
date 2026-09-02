@@ -44,7 +44,27 @@ unpacks/packs nibbles, in parallel). A binary representation must *convert* base
 divide-and-conquer parse is `O(M(n)·log n)` and `ToString` is still O(n²) (Knuth division at
 each split). This is the fundamental tax of a binary working form, not a bug. It matters
 because `Real.Sqrt`/`Real.Pi` round-trip through strings constantly (`ToNatural().ToString()`
-+ `Nat.TryParse`), which is why the Pi speedup is only ~2–3×.
++ `Nat.TryParse`), which is why the Pi speedup is only ~2–3×. The decimal-cache upgrade
+described next closes this gap by making each conversion happen at most once per value.
+
+## Parse/ToString after the decimal-cache upgrade (Phase 2.3)
+
+`Natural` now caches both representations and materializes each lazily, so a value crosses the
+decimal↔binary boundary at most once. Parsed values keep only the canonical string (limbs are
+computed on first arithmetic use); arithmetic results keep only the limbs (the string is
+computed on first `ToString`). Both caches are lock-free compute-then-`Interlocked.CompareExchange`.
+
+Measured at 100 000 digits (same `bench` harness, `Release`, 20 reps):
+
+| Op | binary before | binary after | BCD (main) | binary vs BCD |
+|---|---|---|---|---|
+| parse | 13.7 ms | 0.0995 ms | 2.30 ms | **23× faster than BCD** |
+| tostring | 53 ms | 0.0051 ms | 0.923 ms | **181× faster than BCD** |
+
+`tostring` on a parsed value is now O(1) (median 0.0000 ms — just a field read); `parse` is the
+string-copy bound (O(n): 0.0995 ms at 100k digits, 0.51 ms at 1M digits — linear). The
+"compute once, print many" pattern pays one O(M(n)·log n) conversion, then O(1). Memory
+overhead of the cache is ~2 bytes/digit (UTF-16 string) plus ~0.42 bytes/digit (binary limbs).
 
 ## Status
 
@@ -55,6 +75,6 @@ because `Real.Sqrt`/`Real.Pi` round-trip through strings constantly (`ToNatural(
       *Finding:* binary Knuth division has a small enough constant that it beats Newton up to
       ~5M digits (1.77s at 1M digits vs Newton's 3.5s), so Newton only pays off asymptotically.
       It is kept for completeness; practical division stays on the fast Knuth path.
-- [ ] **Cached decimal form / hybrid** (Phase 2.3) — the one remaining *practical* gap. Cache
-      the decimal string on parse so `ToString` is free; or keep BCD purely as a display cache.
-      This closes the conversion gap entirely for the "parse once, print many" workload.
+- [x] **Cached decimal form / hybrid** (Phase 2.3) — done. `Natural` caches the canonical
+      decimal string and (lazily) the binary limbs, so parse is the string-copy bound and
+      `ToString` on a parsed value is O(1). See the section above for before/after numbers.
