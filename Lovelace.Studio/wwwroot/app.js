@@ -238,7 +238,8 @@ function hideProgress() { $("#toolbar-progress").hidden = true; }
 function updateProgress(data) {
   const total = data.totalStatements || 0;
   const done = data.completedStatements || 0;
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const sub = (data.subProgress !== null && data.subProgress !== undefined) ? data.subProgress : 0;
+  const pct = total > 0 ? Math.round(((done + sub) / total) * 100) : 0;
   $("#progress-fill").style.width = pct + "%";
   let label = "";
   if (data.currentLabel) label = "step " + (data.currentIndex + 1) + "/" + total + ": " + data.currentLabel;

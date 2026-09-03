@@ -202,7 +202,7 @@ internal sealed class IncrementalRunner
 
         session.Engine.ProgressReporter = state is null
             ? null
-            : new Progress<OperationProgress>(p => state.SetSubProgress(p.Label, p.Fraction));
+            : new SyncProgress<OperationProgress>(p => state.SetSubProgress(p.Label, p.Fraction));
 
         for (int i = 0; i < slices.Count; i++)
         {

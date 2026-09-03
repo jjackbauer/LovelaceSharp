@@ -70,7 +70,7 @@ public sealed class Interpreter
     private IProgress<double>? SubProgress(string label) =>
         ProgressReporter is null
             ? null
-            : new Progress<double>(f => ProgressReporter.Report(new OperationProgress(label, Math.Clamp(f, 0.0, 1.0))));
+            : new SyncProgress<double>(f => ProgressReporter.Report(new OperationProgress(label, Math.Clamp(f, 0.0, 1.0))));
 
     // -----------------------------------------------------------------
     // Events

@@ -126,6 +126,14 @@ public class Real :
         }
     }
 
+    /// <summary>Synchronous <see cref="IProgress{T}"/> — invokes the handler inline (no thread-pool hop).</summary>
+    private sealed class InlineProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _report;
+        public InlineProgress(Action<T> report) => _report = report;
+        public void Report(T value) => _report(value);
+    }
+
     internal readonly struct PrecisionScope : IDisposable
     {
         private readonly long? _saved;
@@ -924,9 +932,23 @@ public class Real :
 
         long guardDigits = digits + 10;
 
+        // Combine the two concurrent phases (√10005 Newton chain and the BSP series) into one
+        // fraction, each contributing half, so the bar advances with whichever phase is working
+        // and never jumps to 100% while the other is still running.
+        double sqrtDone = 0.0, bspDone = 0.0;
+        object progressSync = new();
+        IProgress<double>? sqrtProg = progress is null ? null : new InlineProgress<double>(f =>
+        {
+            lock (progressSync) { sqrtDone = f; progress.Report(0.9 * (sqrtDone + bspDone) / 2.0); }
+        });
+        IProgress<double>? bspProg = progress is null ? null : new InlineProgress<double>(f =>
+        {
+            lock (progressSync) { bspDone = f; progress.Report(0.9 * (sqrtDone + bspDone) / 2.0); }
+        });
+
         // √10005 is independent of the Chudnovsky series; compute it concurrently so its
         // Newton-division chain overlaps the BSP term computation and merge.
-        Task<Real> sqrtTask = Task.Run(() => Sqrt(new Real("10005"), guardDigits, null));
+        Task<Real> sqrtTask = Task.Run(() => Sqrt(new Real("10005"), guardDigits, sqrtProg));
 
         // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
         // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
@@ -945,20 +967,37 @@ public class Real :
         {
             var (_, q, t) = PiSegment(0, range);
             denS = q; numS = t;
+            bspProg?.Report(1.0);
         }
         else
         {
             long chunkSize = range / degree;
             var tasks = new Task<(Nat P, Nat Q, Int T)>[degree];
-            int completed = 0;
+
+            // Progress is cost-weighted: the Chudnovsky terms grow super-exponentially with the
+            // term index, so a chunk's cost is dominated by its largest term (~end). Weighting each
+            // chunk by end^2 makes the bar move roughly proportionally to real work instead of
+            // jumping to ~(degree-1)/degree and stalling on the final, dominant chunk.
+            long[] chunkCost = new long[degree];
+            long totalCost = 0;
+            for (int i = 0; i < degree; i++)
+            {
+                long end = (i == degree - 1) ? range : (i + 1) * chunkSize;
+                chunkCost[i] = end * end;
+                totalCost += chunkCost[i];
+            }
+
+            long costDone = 0;
             for (int i = 0; i < degree; i++)
             {
                 long start = i * chunkSize;
                 long end = (i == degree - 1) ? range : start + chunkSize;
+                int idx = i;
                 tasks[i] = Task.Run(() =>
                 {
                     var result = PiSegment(start, end);
-                    progress?.Report((double)Interlocked.Increment(ref completed) / degree);
+                    long done = Interlocked.Add(ref costDone, chunkCost[idx]);
+                    bspProg?.Report((double)done / totalCost);
                     return result;
                 });
             }
@@ -985,6 +1024,8 @@ public class Real :
         Real realDenS = new Real(new Int(denS, false));
         Real numerator = new Real("426880") * sqrt10005 * realDenS;
         Real pi = DivideNonPeriodic(numerator, realNumS, guardDigits);
+
+        progress?.Report(1.0);
 
         // Truncate to exactly `digits` fractional places.
         return TruncatePiFracDigits(pi, digits);
