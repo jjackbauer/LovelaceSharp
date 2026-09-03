@@ -229,23 +229,13 @@ function applyFinal(data) {
 }
 
 // ---------------------------------------------------------------------------
-// Progress dialog
+// Progress (inline in the toolbar)
 // ---------------------------------------------------------------------------
 
-function showProgress() { $("#progress-overlay").classList.remove("hidden"); }
-function hideProgress() { $("#progress-overlay").classList.add("hidden"); }
-
-function statusText(status) {
-  if (status === "running") return "Running…";
-  if (status === "finished") return "Finished";
-  if (status === "error") return "Error";
-  if (status === "cancelled") return "Cancelled";
-  if (status === "queued") return "Queued…";
-  return status || "";
-}
+function showProgress() { $("#toolbar-progress").hidden = false; }
+function hideProgress() { $("#toolbar-progress").hidden = true; }
 
 function updateProgress(data) {
-  $("#progress-status").textContent = statusText(data.status);
   const total = data.totalStatements || 0;
   const done = data.completedStatements || 0;
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -253,10 +243,11 @@ function updateProgress(data) {
   let label = "";
   if (data.currentLabel) label = "step " + (data.currentIndex + 1) + "/" + total + ": " + data.currentLabel;
   if (data.subLabel && data.subProgress !== null && data.subProgress !== undefined) {
-    label = label + " — " + data.subLabel + " " + Math.round(data.subProgress * 100) + "%";
+    label += " — " + data.subLabel + " " + Math.round(data.subProgress * 100) + "%";
   }
+  if (data.reusedCount) label += " · " + data.reusedCount + " reused";
   $("#progress-label").textContent = label;
-  $("#progress-meta").textContent = done + "/" + total + " · " + (data.reusedCount || 0) + " reused";
+  $("#progress-label").title = label;
 }
 
 function finishPoll() {
@@ -307,7 +298,7 @@ async function runSource(source) {
     logsEl.innerHTML = "";
     clearError();
     showProgress();
-    updateProgress({ status: "queued", totalStatements: 0, completedStatements: 0, reusedCount: 0 });
+    updateProgress({ totalStatements: 0, completedStatements: 0, reusedCount: 0 });
     pollRun(data.runId);
   } catch (err) {
     appendLog("run failed: " + err, "error");
