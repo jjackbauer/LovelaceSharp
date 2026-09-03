@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Lovelace.Suite\Lovelace.Suite.csproj" />
+    <ProjectReference Include="..\Lovelace.Statistics\Lovelace.Statistics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

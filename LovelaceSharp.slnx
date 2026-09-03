@@ -1,10 +1,15 @@
 <Solution>
+  <Project Path="Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.csproj" />
+  <Project Path="Lovelace.Abstractions/Lovelace.Abstractions.csproj" />
   <Project Path="Lovelace.Array.Tests/Lovelace.Array.Tests.csproj" />
   <Project Path="Lovelace.Array/Lovelace.Array.csproj" />
   <Project Path="Lovelace.Console/Lovelace.Console.csproj" />
   <Project Path="Lovelace.Run/Lovelace.Run.csproj" />
   <Project Path="Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj" />
   <Project Path="Lovelace.Integer/Lovelace.Integer.csproj" />
+  <Project Path="Lovelace.Knowledge/Lovelace.Knowledge.csproj" />
+  <Project Path="Lovelace.Knowledge.Run/Lovelace.Knowledge.Run.csproj" />
+  <Project Path="Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.csproj" />
   <Project Path="Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj" />
   <Project Path="Lovelace.Natural/Lovelace.Natural.csproj" />
   <Project Path="Lovelace.Real.Tests/Lovelace.Real.Tests.csproj" />
@@ -13,6 +18,7 @@
   <Project Path="Lovelace.Representation/Lovelace.Representation.csproj" />
   <Project Path="Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj" />
   <Project Path="Lovelace.Suite/Lovelace.Suite.csproj" />
+  <Project Path="Lovelace.Statistics/Lovelace.Statistics.csproj" />
   <Project Path="Lovelace.Studio/Lovelace.Studio.csproj" />
   <Project Path="Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj" />
   <Project Path="precbench/precbench.csproj" />
