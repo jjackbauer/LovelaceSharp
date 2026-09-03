@@ -13,6 +13,7 @@ public sealed class DenseArray<T> : ArrayValue
     private readonly long[] _strides;
     private readonly long _offset;
     private readonly long _numel;
+    private readonly bool _isContiguous;
 
     /// <summary>Packed construction: offset 0, canonical row-major strides.</summary>
     public DenseArray(long[] shape, T[] buffer, DType dtype, Precision precision)
@@ -29,6 +30,7 @@ public sealed class DenseArray<T> : ArrayValue
         _shape = (long[])shape.Clone();
         _strides = ComputeStrides(_shape);
         _offset = 0;
+        _isContiguous = true;
         _buffer = buffer;
         DType = dtype;
         Precision = precision;
@@ -58,6 +60,7 @@ public sealed class DenseArray<T> : ArrayValue
         _shape = (long[])shape.Clone();
         _strides = (long[])strides.Clone();
         _offset = offset;
+        _isContiguous = offset == 0 && IsPacked(shape, strides);
         _buffer = buffer;
         DType = dtype;
         Precision = precision;
@@ -71,13 +74,13 @@ public sealed class DenseArray<T> : ArrayValue
     public override long Offset => _offset;
     public override long Numel => _numel;
     public override Type ElementType => typeof(T);
-    public override bool IsContiguous => _offset == 0 && IsPacked(_shape, _strides);
+    public override bool IsContiguous => _isContiguous;
 
     public override object GetElement(long flatIndex)
     {
         if (flatIndex < 0 || flatIndex >= _numel)
             throw new ArgumentOutOfRangeException(nameof(flatIndex));
-        return _buffer[FlatIndexToBuffer(flatIndex)]!;
+        return _isContiguous ? _buffer[_offset + flatIndex]! : _buffer[FlatIndexToBuffer(flatIndex)]!;
     }
 
     public override ArrayValue AsContiguous()

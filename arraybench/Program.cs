@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using Lovelace.Abstractions;
 using Lovelace.Arrays;
 using Lovelace.Suite;
 using Rl = Lovelace.Real.Real;
@@ -190,6 +191,65 @@ foreach (var n in new long[] { 1000, 1_000_000 })
     var bd = new NdArray<double>(new[] { big, big }, bigL);
     var (mb, ab) = Bench(2, () => { var t = ArrayMath.MatMul(DoubleField.Instance, bd, bd); sink += t.Data.Count; });
     Report("matmul-1000x1000-nd-double", mb, ab, nb, 2);
+}
+
+// =========================================================================
+// 7. Typed path (DenseArray<Value>) — the "after" migration representation,
+//    compared head-to-head against the boxed NdArray<Value> reference.
+// =========================================================================
+foreach (var n in new long[] { 1000, 1_000_000 })
+{
+    var vaL = new List<Value>((int)n);
+    for (int i = 0; i < n; i++) vaL.Add(new Value(poolA[i % 10]));
+    var buf = vaL.ToArray();
+    var nd_v = new NdArray<Value>(new[] { n }, vaL);
+    var da_v = new DenseArray<Value>(new[] { n }, buf, DType.Real, new Precision(0));
+    var da_v2 = new DenseArray<Value>(new[] { n }, buf, DType.Real, new Precision(0));
+
+    int reps = n == 1000 ? 20 : 5;
+
+    var (b0, ba0) = Bench(reps, () => { var res = new List<Value>((int)n); for (int i = 0; i < n; i++) res.Add(NumericOps.Apply(BinaryOp.Add, nd_v.Data[i], nd_v.Data[i])); sink += res.Count; });
+    Report("elem-add-boxed-value", b0, ba0, n, reps);
+
+    var (t0, ta0) = Bench(reps, () => { var res = new List<Value>((int)n); for (int i = 0; i < n; i++) res.Add(NumericOps.Apply(BinaryOp.Add, (Value)da_v.GetElement(i), (Value)da_v2.GetElement(i))); sink += res.Count; });
+    Report("elem-add-typed-value", t0, ta0, n, reps);
+}
+
+{
+    long n = 1_000_000;
+    var vaL = new List<Value>((int)n);
+    for (int i = 0; i < n; i++) vaL.Add(new Value(poolA[i % 10]));
+    var buf = vaL.ToArray();
+    var nd_v = new NdArray<Value>(new[] { n }, vaL);
+    var da_v = new DenseArray<Value>(new[] { n }, buf, DType.Real, new Precision(0));
+    var da_v2 = new DenseArray<Value>(new[] { n }, buf, DType.Real, new Precision(0));
+
+    var (bm, bam) = Bench(5, () => { var res = new List<Value>((int)n); for (int i = 0; i < n; i++) res.Add(NumericOps.Apply(BinaryOp.Multiply, nd_v.Data[i], nd_v.Data[i])); sink += res.Count; });
+    Report("elem-mul-boxed-value", bm, bam, n, 5);
+
+    var (tm, tam) = Bench(5, () => { var res = new List<Value>((int)n); for (int i = 0; i < n; i++) res.Add(NumericOps.Apply(BinaryOp.Multiply, (Value)da_v.GetElement(i), (Value)da_v2.GetElement(i))); sink += res.Count; });
+    Report("elem-mul-typed-value", tm, tam, n, 5);
+
+    var (bs, bas) = Bench(3, () => { var s = ArrayMath.Sum(ValueField.Instance, nd_v); sink += s.GetHashCode(); });
+    Report("sum-boxed-value", bs, bas, n, 3);
+
+    var (ts, tas) = Bench(3, () => { Value acc = NumericOps.Zero; for (long i = 0; i < n; i++) acc = NumericOps.Apply(BinaryOp.Add, acc, (Value)da_v.GetElement(i)); sink += acc.GetHashCode(); });
+    Report("sum-typed-value", ts, tas, n, 3);
+}
+
+{
+    long r = 1000, c = 1000, n = r * c;
+    var vaL = new List<Value>((int)n);
+    for (int i = 0; i < n; i++) vaL.Add(new Value(poolA[i % 10]));
+    var buf = vaL.ToArray();
+    var nd_v = new NdArray<Value>(new[] { r, c }, vaL);
+    var da_v = new DenseArray<Value>(new[] { r, c }, buf, DType.Real, new Precision(0));
+
+    var (bt, bat) = Bench(2, () => { var t = nd_v.Transpose(); sink += t.Data.Count; });
+    Report("transpose-1000x1000-boxed-value", bt, bat, n, 2);
+
+    var (tt, tat) = Bench(200, () => { var t = da_v.Transpose(null); sink += t.Numel; });
+    Report("transpose-1000x1000-typed-value", tt, tat, n, 200);
 }
 
 Console.Error.WriteLine("SINK " + sink);
