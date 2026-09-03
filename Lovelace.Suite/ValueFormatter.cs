@@ -1,4 +1,4 @@
-using Lovelace.Arrays;
+using Lovelace.Abstractions;
 
 namespace Lovelace.Suite;
 
@@ -17,27 +17,27 @@ public static class ValueFormatter
         ValueKind.Real     => value.AsReal().ToString(),
         ValueKind.Boolean  => value.AsBoolean() ? "True" : "False",
         ValueKind.Text     => value.AsText(),
-        ValueKind.Vector   => "[" + string.Join(", ", value.AsVector().Select(Format)) + "]",
-        ValueKind.Array    => FormatArray(value.AsArray()),
+        ValueKind.Vector   => FormatArray(value.AsArrayValue()),
+        ValueKind.Array    => FormatArray(value.AsArrayValue()),
         ValueKind.Function => $"Function: {value.AsFunction().Name}",
         ValueKind.Void     => string.Empty,
         _                  => value.ToString(),
     };
 
     /// <summary>Renders an N-dimensional array as nested brackets, e.g. <c>[[1, 2], [3, 4]]</c>.</summary>
-    public static string FormatArray(NdArray<Value> array)
+    public static string FormatArray(ArrayValue array)
     {
-        long[] shape = array.Shape;
-        return FormatLevel(shape, array.Data, 0, array.Rank, 0);
+        long[] shape = array.Shape.ToArray();
+        return FormatLevel(array, shape, 0, array.Rank, 0);
     }
 
-    private static string FormatLevel(long[] shape, IReadOnlyList<Value> data, int dim, int rank, long offset)
+    private static string FormatLevel(ArrayValue array, long[] shape, int dim, int rank, long offset)
     {
         if (dim == rank - 1)
         {
             var parts = new List<string>((int)shape[dim]);
             for (long i = 0; i < shape[dim]; i++)
-                parts.Add(Format(data[(int)(offset + i)]));
+                parts.Add(Format((Value)array.GetElement(offset + i)));
             return "[" + string.Join(", ", parts) + "]";
         }
 
@@ -46,7 +46,7 @@ public static class ValueFormatter
             stride *= shape[s];
         var rows = new List<string>((int)shape[dim]);
         for (long i = 0; i < shape[dim]; i++)
-            rows.Add(FormatLevel(shape, data, dim + 1, rank, offset + i * stride));
+            rows.Add(FormatLevel(array, shape, dim + 1, rank, offset + i * stride));
         return "[" + string.Join(", ", rows) + "]";
     }
 

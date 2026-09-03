@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Rl = global::Lovelace.Real.Real;
+using Lovelace.Abstractions;
 
 namespace Lovelace.Suite;
 
@@ -15,7 +16,13 @@ public sealed class SuiteEngine
     private readonly Tokenizer _tokenizer = new();
     private readonly Parser _parser = new();
     private readonly List<Diagnostic> _diagnostics = [];
+    private readonly ModusHost _modus;
     private string _lastSource = string.Empty;
+
+    public SuiteEngine()
+    {
+        _modus = new ModusHost(_interpreter);
+    }
 
     // -----------------------------------------------------------------
     // Host settings (delegated to the interpreter)
@@ -229,6 +236,13 @@ public sealed class SuiteEngine
     /// <summary>Registers a host-provided native function.</summary>
     public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation) =>
         _interpreter.RegisterBuiltin(name, parameters, implementation);
+
+    /// <summary>Loads a Modus plugin, registering its builtins and kernels.</summary>
+    public void LoadPlugin(IModusPlugin plugin) => _modus.Load(plugin);
+
+    /// <summary>Fallible kernel dispatch; returns false when no plugin kernel handles the request.</summary>
+    public bool TryDispatchKernel<T>(ArrayOp op, ReadOnlySpan<T> left, ReadOnlySpan<T> right, Span<T> result)
+        where T : unmanaged => _modus.TryDispatch(op, left, right, result);
 
     /// <summary>Captures an immutable snapshot of variables and functions.</summary>
     public StateSnapshot CaptureState()

@@ -464,8 +464,9 @@ len([5, 6, 7, 8])
 
 ### Element-wise arithmetic and broadcast
 
-`+ - * /` (and the other numeric operators) apply element-wise between two vectors of equal
-length, or broadcast a scalar across a vector. Mismatched vector lengths are an error.
+`+ - * /` (and the other numeric operators) apply element-wise between arrays, with
+right-aligned broadcasting (dimensions are equal, or one of them is 1), or broadcast a
+scalar across an array. Incompatible shapes are an error.
 
 ```lovelace
 [1, 2] + [10, 20]
@@ -482,10 +483,35 @@ length, or broadcast a scalar across a vector. Mismatched vector lengths are an 
 ```
 
 ```lovelace
+[1, 2] + [[1, 2], [3, 4]]
+```
+```result
+[[2, 4], [4, 6]] (Array)
+```
+
+```lovelace
 [1, 2] + [1, 2, 3]
 ```
 ```result
-error: Vector operands must have the same length (2 vs 3).
+error: Operands could not be broadcast together with shapes [2] and [3].
+```
+
+### Slicing
+
+`a[start:stop:step]` returns a strided view; the step is optional and defaults to 1.
+
+```lovelace
+[0, 1, 2, 3, 4][1:4]
+```
+```result
+[1, 2, 3] (Vector)
+```
+
+```lovelace
+[[1, 2, 3], [4, 5, 6]][:, 1]
+```
+```result
+[2, 5] (Vector)
 ```
 
 ---

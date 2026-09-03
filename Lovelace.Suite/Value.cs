@@ -2,6 +2,7 @@ using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
 using Lovelace.Arrays;
+using Lovelace.Abstractions;
 
 namespace Lovelace.Suite;
 
@@ -82,18 +83,27 @@ public sealed class Value
         Kind = ValueKind.Text;
     }
 
-    /// <summary>Wraps a vector of values.</summary>
+    /// <summary>Wraps a vector of values (rank 1).</summary>
     public Value(IReadOnlyList<Value> elements)
+        : this(TypedArrayAdapter.FromElements(elements), ValueKind.Vector)
     {
-        _inner = elements;
-        Kind = ValueKind.Vector;
     }
 
-    /// <summary>Wraps an N-dimensional array (rank &gt;= 2).</summary>
-    public Value(NdArray<Value> array)
+    /// <summary>Wraps an N-dimensional array (rank &gt;= 2). Kept for source-compat; adapts to the typed path.</summary>
+    public Value(NdArray<Value> array) : this(TypedArrayAdapter.FromNdArray(array), ValueKind.Array)
+    {
+    }
+
+    /// <summary>Wraps a typed array value (the Stage-2+ representation behind <see cref="ValueKind.Array"/>).</summary>
+    public Value(ArrayValue array) : this(array, ValueKind.Array)
+    {
+    }
+
+    /// <summary>Wraps a typed array value with an explicit presentation kind (Vector vs Array).</summary>
+    internal Value(ArrayValue array, ValueKind kind)
     {
         _inner = array;
-        Kind = ValueKind.Array;
+        Kind = kind;
     }
 
     /// <summary>Wraps a first-class function reference.</summary>
@@ -139,10 +149,13 @@ public sealed class Value
     public string AsText() => (string)_inner;
 
     /// <summary>Returns the stored value cast to a read-only list of values.</summary>
-    public IReadOnlyList<Value> AsVector() => (IReadOnlyList<Value>)_inner;
+    public IReadOnlyList<Value> AsVector() => TypedArrayAdapter.ToElements(AsArrayValue());
 
     /// <summary>Returns the stored value cast to an <see cref="NdArray{T}"/> of values.</summary>
-    public NdArray<Value> AsArray() => (NdArray<Value>)_inner;
+    public NdArray<Value> AsArray() => TypedArrayAdapter.ToNdArray(AsArrayValue());
+
+    /// <summary>Returns the stored value cast to an <see cref="ArrayValue"/>.</summary>
+    public ArrayValue AsArrayValue() => (ArrayValue)_inner;
 
     /// <summary>Returns the stored value cast to a <see cref="FunctionDefinition"/>.</summary>
     public FunctionDefinition AsFunction() => (FunctionDefinition)_inner;

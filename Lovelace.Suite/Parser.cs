@@ -418,11 +418,11 @@ public sealed class Parser
             if (Current.Kind == TokenKind.LBracket)
             {
                 Advance(); // consume '['
-                var indices = new List<Expr> { ParseAssignment() };
+                var indices = new List<Expr> { ParseIndexSpec() };
                 while (Current.Kind == TokenKind.Comma)
                 {
                     Advance();
-                    indices.Add(ParseAssignment());
+                    indices.Add(ParseIndexSpec());
                 }
                 Expect(TokenKind.RBracket);
                 operand = new IndexExpr(operand, indices);
@@ -433,6 +433,29 @@ public sealed class Parser
         }
 
         return operand;
+    }
+
+    /// <summary>Parses one index axis: a scalar expression, or a slice <c>start:stop:step</c> (each part optional).</summary>
+    private Expr ParseIndexSpec()
+    {
+        Expr? start = Current.Kind == TokenKind.Colon ? null : ParseAssignment();
+        if (Current.Kind != TokenKind.Colon)
+            return start!;
+
+        Advance(); // consume ':'
+        Expr? stop = null;
+        if (Current.Kind is not (TokenKind.Colon or TokenKind.Comma or TokenKind.RBracket))
+            stop = ParseAssignment();
+
+        Expr? step = null;
+        if (Current.Kind == TokenKind.Colon)
+        {
+            Advance(); // consume ':'
+            if (Current.Kind is not (TokenKind.Comma or TokenKind.RBracket))
+                step = ParseAssignment();
+        }
+
+        return new SliceExpr(start, stop, step);
     }
 
     // Primary

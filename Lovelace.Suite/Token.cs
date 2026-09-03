@@ -53,6 +53,7 @@ public enum TokenKind
     StringLiteral,    // 25 — "..."   (Text = raw content between quotes)
     InterpolatedString, // 26 — $"..." (Text = raw content between quotes)
     Semicolon,        // 27 — ;
+    Colon,            // 28 — :
 }
 
 // -------------------------------------------------------------------------
