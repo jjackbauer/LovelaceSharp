@@ -3,122 +3,215 @@ using Lovelace.Suite;
 namespace Lovelace.Studio;
 
 /// <summary>
-/// Pure projection of a <see cref="SuiteEngine"/> onto the HTTP DTOs. Holds no
-/// language logic; it only renders the engine's state, logs, plots, and diagnostics.
+/// Pure projection of a per-session <see cref="SuiteEngine"/> onto the HTTP DTOs. Holds no
+/// language logic; it renders the engine's state, logs, plots, and diagnostics, and drives the
+/// incremental runner synchronously (tests) or as a pollable background run.
 /// </summary>
-/// <remarks>
-/// The editor is newline-separated while the engine's program grammar is
-/// semicolon-separated (mirroring the REPL, which submits one line at a time).
-/// <see cref="ToSemicolonStatements"/> rewrites top-level newlines to <c>;</c> so a
-/// multi-line script evaluates as one program. The rewrite is length-preserving, so
-/// the engine's <c>position</c> diagnostics still index into the original source; only
-/// line/column are recomputed here (they depend on where the newlines were).
-/// </remarks>
 public sealed class EngineHost
 {
-    private readonly SuiteEngine _engine;
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly SessionRegistry _sessions;
+    private readonly IncrementalRunner _runner = new();
 
-    public EngineHost(SuiteEngine engine) => _engine = engine;
+    public EngineHost(SessionRegistry sessions) => _sessions = sessions;
 
-    /// <summary>Evaluates <paramref name="source"/> and returns the full round-trip response.</summary>
-    public async Task<EvaluateResponse> EvaluateAsync(string source)
+    /// <summary>Returns the session for <paramref name="sessionId"/>, or creates a new one when the id is null/unknown.</summary>
+    public Session ResolveSession(string? sessionId)
     {
-        await _gate.WaitAsync();
+        if (!string.IsNullOrEmpty(sessionId) && _sessions.Get(sessionId) is { } existing)
+            return existing;
+        return _sessions.Create();
+    }
+
+    public Session? TryGetSession(string sessionId) => _sessions.Get(sessionId);
+
+    public bool RemoveSession(string sessionId) => _sessions.Remove(sessionId);
+
+    /// <summary>Synchronous evaluate (used by tests and non-UI callers): runs to completion and returns the full response.</summary>
+    public async Task<EvaluateResponse> EvaluateAsync(Session session, string source)
+    {
+        await session.Gate.WaitAsync();
         try
         {
-            // Normalize CRLF/CR to LF so positions map 1:1 to what the editor shows.
-            string text = source.Replace("\r\n", "\n").Replace('\r', '\n');
-
-            var logs = new StringWriter();
-            _engine.ResetPlotCapture();
-
-            Value? result = null;
-            Exception? error = null;
-            try
-            {
-                result = await _engine.EvaluateAsync(ScriptSource.ToSemicolonStatements(text), logs);
-            }
-            catch (Exception ex)
-            {
-                error = ex;
-            }
-
-            return BuildResponse(text, result, logs, error);
+            var outcome = await _runner.RunAsync(session, source);
+            return BuildResponse(session.Engine, outcome.Text, outcome.Snapshot, outcome.Result, outcome.Plot, outcome.Diagnostics, outcome.Steps, outcome.Elapsed, outcome.ReusedCount);
         }
         finally
         {
-            _gate.Release();
+            session.Gate.Release();
         }
     }
 
-    /// <summary>Returns the current variables/functions snapshot.</summary>
-    public StateResponse GetState() => ToState(_engine.CaptureState());
-
-    /// <summary>Clears all variables (functions remain).</summary>
-    public StateResponse ClearVariables()
+    /// <summary>Starts a background run and returns its run id immediately. Throws if a run is already active.</summary>
+    public StartRunResponse StartRun(Session session, string source)
     {
-        _engine.Clear();
-        return GetState();
+        foreach (var r in session.Runs.Values)
+            if (r.StatusText is "queued" or "running")
+                throw new InvalidOperationException("A run is already in progress for this session.");
+
+        var state = new RunState
+        {
+            SessionId = session.Id,
+            Text = source.Replace("\r\n", "\n").Replace('\r', '\n'),
+        };
+        state.Cts = new CancellationTokenSource();
+        session.Runs[state.Id] = state;
+
+        _ = Task.Run(async () =>
+        {
+            await session.Gate.WaitAsync();
+            try
+            {
+                await _runner.RunAsync(session, source, state, state.Cts.Token);
+            }
+            catch (Exception ex)
+            {
+                state.FinishError((ex.Message, 0));
+            }
+            finally
+            {
+                session.Gate.Release();
+            }
+        });
+
+        return new StartRunResponse(state.Id, session.Id);
     }
 
-    /// <summary>Removes one variable.</summary>
-    public StateResponse DeleteVariable(string name)
+    /// <summary>Returns the current status/progress/result of a run, or <see langword="null"/> if unknown.</summary>
+    public RunStatusResponse? GetRun(Session session, string runId)
     {
-        _engine.RemoveVariable(name);
-        return GetState();
+        if (!session.Runs.TryGetValue(runId, out var state))
+            return null;
+
+        var snap = state.Capture();
+        var snapshot = snap.Snapshot ?? session.Engine.CaptureState();
+        var response = BuildResponse(session.Engine, state.Text, snapshot, snap.Result, session.Engine.LastPlot, snap.Diagnostics, snap.Steps, snap.Elapsed, snap.ReusedCount);
+        return new RunStatusResponse(
+            snap.Status, snap.TotalStatements, snap.CompletedStatements, snap.ReusedCount,
+            snap.CurrentIndex, snap.CurrentLabel, snap.SubProgress, snap.SubLabel, response);
     }
 
-    private EvaluateResponse BuildResponse(string source, Value? result, StringWriter logs, Exception? error)
+    /// <summary>Requests cancellation of an in-flight run. Returns <see langword="false"/> if the run is unknown.</summary>
+    public bool CancelRun(Session session, string runId)
     {
-        var snapshot = _engine.CaptureState();
+        if (!session.Runs.TryGetValue(runId, out var state))
+            return false;
+        state.Cts?.Cancel();
+        return true;
+    }
 
+    private static readonly string[] Keywords = ["func", "if", "else", "while", "for", "in", "return", "break", "continue"];
+
+    /// <summary>Returns the autocomplete catalog: keywords, built-ins, user functions, and live variables.</summary>
+    public CompletionResponse GetCompletions(Session session)
+    {
+        var items = new List<CompletionItem>();
+
+        foreach (var kw in Keywords)
+            items.Add(new CompletionItem(kw, "keyword", kw));
+
+        foreach (var f in session.Engine.Functions.Values.Where(f => f.IsBuiltin).OrderBy(f => f.Name, StringComparer.Ordinal))
+            items.Add(new CompletionItem(f.Name, "builtin", f.Name + "(" + string.Join(", ", f.Parameters) + ")"));
+
+        foreach (var f in session.Engine.Functions.Values.Where(f => !f.IsBuiltin).OrderBy(f => f.Name, StringComparer.Ordinal))
+            items.Add(new CompletionItem(f.Name, "function", f.Name + "(" + string.Join(", ", f.Parameters) + ")"));
+
+        foreach (var v in session.Engine.Variables.Keys.OrderBy(n => n, StringComparer.Ordinal))
+        {
+            string kind = session.Engine.TryGetVariable(v, out var val) ? val.Kind.ToString() : "unknown";
+            items.Add(new CompletionItem(v, "variable", kind));
+        }
+
+        return new CompletionResponse(items.ToArray());
+    }
+
+    public StateResponse GetState(Session session) => ToState(session);
+
+    public StateResponse ClearVariables(Session session)
+    {
+        session.Engine.Clear();
+        session.Cache.Invalidate();
+        return ToState(session);
+    }
+
+    public StateResponse DeleteVariable(Session session, string name)
+    {
+        session.Engine.RemoveVariable(name);
+        session.Cache.Invalidate();
+        return ToState(session);
+    }
+
+    public StateResponse SetPrecision(Session session, long digits)
+    {
+        if (digits <= 0)
+            throw new InvalidOperationException($"precision must be a positive integer, but got {digits}.");
+        session.Engine.SetPrecision(digits);
+        session.Cache.Invalidate();
+        return ToState(session);
+    }
+
+    private static EvaluateResponse BuildResponse(
+        SuiteEngine engine,
+        string text,
+        StateSnapshot snapshot,
+        Value? result,
+        PlotCapture? plot,
+        IReadOnlyList<(string Message, int Position)> diagnostics,
+        IReadOnlyList<RunStep> steps,
+        TimeSpan elapsed,
+        int reused)
+    {
         var variables = ToVariables(snapshot);
         var functions = ToFunctions(snapshot);
 
-        var plot = _engine.LastPlot;
         var plotPayload = plot?.Svg is null
             ? null
             : new PlotPayload(plot.Svg, plot.Title ?? string.Empty);
 
-        var diagnostics = (error is null ? Array.Empty<Diagnostic>() : _engine.Diagnostics.ToArray())
+        var sourceLines = text.Split('\n');
+        var diagnosticRows = diagnostics
             .Select(d =>
             {
-                var (line, column) = ComputeLineColumn(source, d.Position);
+                var (line, column) = ComputeLineColumn(text, d.Position);
                 return new DiagnosticRow(d.Message, d.Position, line, column);
             })
             .ToArray();
 
+        var logs = steps.SelectMany(s => SplitLines(s.Output)).ToArray();
+
         var resultPayload = result is null
             ? null
-            : new ValueResult(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result));
+            : new ValueResult(result.Kind.ToString(), engine.FormatValue(result), engine.FormatValueTyped(result));
 
-        var sourceLines = source.Split('\n');
-        var timings = _engine.OperationTimings
-            .Select(t =>
+        var timings = steps
+            .Select(s =>
             {
-                int line = ComputeLineColumn(source, t.Position).Line;
-                string text = line >= 1 && line <= sourceLines.Length ? sourceLines[line - 1].Trim() : string.Empty;
-                string? result = t.Result.Kind == ValueKind.Void ? null : ValueFormatter.Format(t.Result);
-                string? output = t.Output.Length == 0 ? null : t.Output.TrimEnd('\r', '\n');
-                return new TimingRow(line, text, result, output, t.ElapsedDisplay);
+                int line = ComputeLineColumn(text, s.Position).Line;
+                string src = line >= 1 && line <= sourceLines.Length ? sourceLines[line - 1].Trim() : string.Empty;
+                string? r = s.Result is null || s.Result.Kind == ValueKind.Void ? null : engine.FormatValue(s.Result);
+                string? output = s.Output.Length == 0 ? null : s.Output.TrimEnd('\r', '\n');
+                return new TimingRow(line, src, r, output, Timing.Format(s.Elapsed), s.Mode);
             })
             .ToArray();
 
         return new EvaluateResponse(
-            resultPayload,
-            variables,
-            functions,
-            SplitLines(logs.ToString()),
-            plotPayload,
-            diagnostics,
-            snapshot.Revision,
-            _engine.LastElapsedDisplay,
-            timings);
+            resultPayload, variables, functions, logs, plotPayload, diagnosticRows,
+            snapshot.Revision, Timing.Format(elapsed), timings, reused, engine.ComputationDecimalPlaces);
     }
 
-    private static StateResponse ToState(StateSnapshot snapshot) =>
-        new(snapshot.Revision, ToVariables(snapshot), ToFunctions(snapshot));
+    private static StateResponse ToState(Session session)
+    {
+        var snapshot = session.Engine.CaptureState();
+        return new StateResponse(snapshot.Revision, ToVariables(snapshot), ToFunctions(snapshot), session.Precision);
+    }
+
+    private static List<string> SplitLines(string text)
+    {
+        string normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized.Split('\n');
+        if (lines.Length > 0 && lines[^1].Length == 0)
+            return lines[..^1].ToList();
+        return lines.ToList();
+    }
 
     private static VariableRow[] ToVariables(StateSnapshot snapshot) =>
         snapshot.Variables.Values
@@ -131,15 +224,6 @@ public sealed class EngineHost
             .OrderBy(f => f.Name, StringComparer.Ordinal)
             .Select(f => new FunctionRow(f.Name, f.Parameters.ToArray(), f.IsBuiltin, f.Span))
             .ToArray();
-
-    private static string[] SplitLines(string text)
-    {
-        string normalized = text.Replace("\r\n", "\n").Replace('\r', '\n');
-        var lines = normalized.Split('\n');
-        if (lines.Length > 0 && lines[^1].Length == 0)
-            return lines[..^1];
-        return lines;
-    }
 
     private static (int Line, int Column) ComputeLineColumn(string source, int position)
     {

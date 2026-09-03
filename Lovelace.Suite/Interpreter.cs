@@ -51,6 +51,27 @@ public sealed class Interpreter
     /// <summary>Clears the last-plot capture.</summary>
     public void ResetPlotCapture() => LastPlot = null;
 
+    /// <summary>Computation precision (Real decimal places). Default 1000.</summary>
+    public long ComputationDecimalPlaces { get; set; } = 1000L;
+
+    /// <summary>Display precision (Real fractional digits shown). Default 100.</summary>
+    public long DisplayDecimalPlaces { get; set; } = 100L;
+
+    /// <summary>Sets both computation and display precision (the single "precision" knob).</summary>
+    public void SetPrecision(long decimalPlaces)
+    {
+        ComputationDecimalPlaces = decimalPlaces;
+        DisplayDecimalPlaces = decimalPlaces;
+    }
+
+    /// <summary>Optional sink for sub-operation progress (sqrt/pi/factorial), set by the host.</summary>
+    public IProgress<OperationProgress>? ProgressReporter { get; set; }
+
+    private IProgress<double>? SubProgress(string label) =>
+        ProgressReporter is null
+            ? null
+            : new Progress<double>(f => ProgressReporter.Report(new OperationProgress(label, Math.Clamp(f, 0.0, 1.0))));
+
     // -----------------------------------------------------------------
     // Events
     // -----------------------------------------------------------------
@@ -136,8 +157,12 @@ public sealed class Interpreter
     // Entry points
     // -----------------------------------------------------------------
 
-    /// <summary>Evaluates a single expression in the global scope.</summary>
-    public Task<Value> EvaluateAsync(Expr expr) => EvaluateAsync(expr, _global);
+    /// <summary>Evaluates a single expression in the global scope, scoped to this engine's precision.</summary>
+    public async Task<Value> EvaluateAsync(Expr expr)
+    {
+        using var scope = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
+        return await EvaluateAsync(expr, _global);
+    }
 
     /// <summary>
     /// Executes a program (list of statements) in the global scope, timing each
@@ -154,6 +179,10 @@ public sealed class Interpreter
             {
                 var statement = program.Statements[i];
                 int position = i < program.StatementPositions.Count ? program.StatementPositions[i] : 0;
+
+                // Re-enter the precision scope each statement so a mid-script setprecision
+                // takes effect immediately for subsequent statements.
+                using var statementScope = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
 
                 var stopwatch = Stopwatch.StartNew();
                 var capture = new StringWriter();
@@ -385,8 +414,8 @@ public sealed class Interpreter
         {
             PostfixOp.Factorial => operand.Kind switch
             {
-                ValueKind.Natural => new Value(operand.AsNatural().Factorial()),
-                ValueKind.Integer => new Value(operand.AsInteger().Factorial()),
+                ValueKind.Natural => new Value(operand.AsNatural().Factorial(SubProgress("factorial"))),
+                ValueKind.Integer => new Value(operand.AsInteger().Factorial(SubProgress("factorial"))),
                 ValueKind.Real    => throw new InvalidOperationException("Factorial is not supported for Real numbers."),
                 _ => throw new InvalidOperationException($"Factorial is not supported for type '{operand.Kind}'."),
             },
@@ -842,7 +871,7 @@ public sealed class Interpreter
             RequireArity("sqrt", args, 1);
             var arg = args[0];
             var real = arg.Widen(ValueKind.Real).AsReal();
-            return new Value(await Rl.SqrtAsync(real));
+            return new Value(await Rl.SqrtAsync(real, SubProgress("sqrt")));
         });
 
         // pi() / pi(digits)
@@ -851,7 +880,7 @@ public sealed class Interpreter
             switch (args.Count)
             {
                 case 0:
-                    return new Value(await Rl.PiAsync(Rl.DisplayDecimalPlaces));
+                    return new Value(await Rl.PiAsync(Rl.DisplayDecimalPlaces, SubProgress("pi")));
 
                 case 1:
                 {
@@ -862,7 +891,7 @@ public sealed class Interpreter
                         ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
                         _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
                     };
-                    return new Value(await Rl.PiAsync(digits));
+                    return new Value(await Rl.PiAsync(digits, SubProgress("pi")));
                 }
 
                 default:
@@ -884,8 +913,7 @@ public sealed class Interpreter
             if (n <= 0)
                 throw new InvalidOperationException($"setprecision() expects a positive digit count, but got {n}.");
 
-            Rl.MaxComputationDecimalPlaces = n;
-            Rl.DisplayDecimalPlaces = n;
+            SetPrecision(n);
             return Task.FromResult(Value.Void);
         });
 

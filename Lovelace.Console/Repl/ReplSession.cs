@@ -171,7 +171,7 @@ public sealed class ReplSession
             string rest = source["set precision ".Length..].Trim();
             if (long.TryParse(rest, out long n) && n > 0)
             {
-                Rl.MaxComputationDecimalPlaces = n;
+                _engine.ComputationDecimalPlaces = n;
                 System.Console.WriteLine($"Computation precision set to {n} decimal places.");
             }
             else
@@ -186,7 +186,7 @@ public sealed class ReplSession
             string rest = source["set display ".Length..].Trim();
             if (long.TryParse(rest, out long n) && n > 0)
             {
-                Rl.DisplayDecimalPlaces = n;
+                _engine.DisplayDecimalPlaces = n;
                 Nat.DisplayDigits = n;
                 System.Console.WriteLine($"Display digits set to {n}.");
             }

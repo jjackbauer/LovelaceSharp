@@ -520,7 +520,7 @@ public sealed class Natural :
     /// Returns the factorial of this instance (this!). Large values partition the factor range
     /// [2..n] across <see cref="Environment.ProcessorCount"/> sub-ranges multiplied concurrently.
     /// </summary>
-    public Natural Factorial()
+    public Natural Factorial(IProgress<double>? progress = null)
     {
         if (IsZero(this)) return s_one;
 
@@ -540,17 +540,23 @@ public sealed class Natural :
         ulong totalFactors = n - 1UL;
         ulong rangeSize = (totalFactors + (ulong)t - 1UL) / (ulong)t;
 
+        int completed = 0;
         Parallel.For(0, t, i =>
         {
             ulong start = 2UL + (ulong)i * rangeSize;
             ulong end = start + rangeSize - 1UL;
             if (end > n) end = n;
-            if (start > n) return;
+            if (start > n)
+            {
+                progress?.Report((double)Interlocked.Increment(ref completed) / t);
+                return;
+            }
 
             var sub = s_one;
             for (ulong k = start; k <= end; k++)
                 sub *= new Natural(k);
             partials[i] = sub;
+            progress?.Report((double)Interlocked.Increment(ref completed) / t);
         });
 
         var result = s_one;

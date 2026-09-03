@@ -46,6 +46,7 @@ public class Real :
     // value when tests run in parallel.  Flows down the call tree (into Divide) but
     // does not propagate sideways to sibling tasks.
     private static readonly AsyncLocal<long?> _localMaxComputationDecimalPlaces = new();
+    private static readonly AsyncLocal<long?> _localDisplayDecimalPlaces = new();
 
     // 640320³ — shared by Pi and PiSegment.
     private static readonly Nat s_chudnovskyC3 = Nat.Parse("262537412640768000", null);
@@ -57,7 +58,7 @@ public class Real :
     /// </summary>
     public static long DisplayDecimalPlaces
     {
-        get => Interlocked.Read(ref _displayDecimalPlaces);
+        get => _localDisplayDecimalPlaces.Value ?? Interlocked.Read(ref _displayDecimalPlaces);
         set => Interlocked.Exchange(ref _displayDecimalPlaces, value);
     }
 
@@ -83,6 +84,46 @@ public class Real :
         long? previous = _localMaxComputationDecimalPlaces.Value;
         _localMaxComputationDecimalPlaces.Value = precision;
         return new PrecisionScope(previous);
+    }
+
+    /// <summary>
+    /// Establishes a scope that overrides BOTH the computation cap and the display
+    /// precision for the duration of the returned scope (restored on Dispose). Public so
+    /// the scripting engine and its hosts can make precision session/evaluation-local.
+    /// </summary>
+    public static IDisposable WithPrecision(long computationDecimalPlaces, long displayDecimalPlaces)
+    {
+        long? previousComputation = _localMaxComputationDecimalPlaces.Value;
+        long? previousDisplay = _localDisplayDecimalPlaces.Value;
+        _localMaxComputationDecimalPlaces.Value = computationDecimalPlaces;
+        _localDisplayDecimalPlaces.Value = displayDecimalPlaces;
+        return new RealPrecisionScope(previousComputation, previousDisplay);
+    }
+
+    /// <summary>
+    /// Updates the ACTIVE local scope in place. Used by <c>setprecision</c> so a precision
+    /// change made mid-evaluation takes effect for the remainder of that evaluation.
+    /// </summary>
+    public static void SetLocalPrecision(long computationDecimalPlaces, long displayDecimalPlaces)
+    {
+        _localMaxComputationDecimalPlaces.Value = computationDecimalPlaces;
+        _localDisplayDecimalPlaces.Value = displayDecimalPlaces;
+    }
+
+    private readonly struct RealPrecisionScope : IDisposable
+    {
+        private readonly long? _computation;
+        private readonly long? _display;
+        public RealPrecisionScope(long? computation, long? display)
+        {
+            _computation = computation;
+            _display = display;
+        }
+        public void Dispose()
+        {
+            _localMaxComputationDecimalPlaces.Value = _computation;
+            _localDisplayDecimalPlaces.Value = _display;
+        }
     }
 
     internal readonly struct PrecisionScope : IDisposable
@@ -716,7 +757,7 @@ public class Real :
     /// New C# addition with no C++ counterpart.
     /// </summary>
     /// <exception cref="ArithmeticException">Thrown when <paramref name="value"/> is negative.</exception>
-    public static Real Sqrt(Real value) => Sqrt(value, MaxComputationDecimalPlaces);
+    public static Real Sqrt(Real value) => Sqrt(value, MaxComputationDecimalPlaces, null);
 
     /// <summary>
     /// Computes the principal square root of each element in <paramref name="values"/> concurrently,
@@ -751,7 +792,7 @@ public class Real :
     /// guard-digit precision.
     /// </summary>
     /// <exception cref="ArithmeticException">Thrown when <paramref name="value"/> is negative.</exception>
-    private static Real Sqrt(Real value, long precision)
+    private static Real Sqrt(Real value, long precision, IProgress<double>? progress)
     {
         if (IsNegative(value))
             throw new ArithmeticException("Square root is not defined for negative numbers.");
@@ -823,6 +864,7 @@ public class Real :
             // value/x is an irrational truncation (x is a Newton iterate), so the
             // single fixed-point division fast path is exact here.
             x = (x + DivideNonPeriodic(value, x, divPrecision)) / two;
+            progress?.Report((double)currentTarget / targetPrecision);
 
             // Exact convergence (perfect squares): if x*x == value, stop early.
             if (IsZero(x * x - value))
@@ -875,16 +917,16 @@ public class Real :
     /// <c>-digits</c>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="digits"/> is ≤ 0 or
     /// exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
-    public static Real Pi(long digits)
+    public static Real Pi(long digits, IProgress<double>? progress = null)
     {
-        if (digits <= 0 || digits > Interlocked.Read(ref _maxComputationDecimalPlaces))
+        if (digits <= 0 || digits > MaxComputationDecimalPlaces)
             throw new ArgumentOutOfRangeException(nameof(digits));
 
         long guardDigits = digits + 10;
 
         // √10005 is independent of the Chudnovsky series; compute it concurrently so its
         // Newton-division chain overlaps the BSP term computation and merge.
-        Task<Real> sqrtTask = Task.Run(() => Sqrt(new Real("10005"), guardDigits));
+        Task<Real> sqrtTask = Task.Run(() => Sqrt(new Real("10005"), guardDigits, null));
 
         // Chudnovsky series accumulated via Binary Splitting (BSP) in parallel.
         // PiSegment(0, range) covers all terms 0..numTerms, producing (P, Q, T)
@@ -908,11 +950,17 @@ public class Real :
         {
             long chunkSize = range / degree;
             var tasks = new Task<(Nat P, Nat Q, Int T)>[degree];
+            int completed = 0;
             for (int i = 0; i < degree; i++)
             {
                 long start = i * chunkSize;
                 long end = (i == degree - 1) ? range : start + chunkSize;
-                tasks[i] = Task.Run(() => PiSegment(start, end));
+                tasks[i] = Task.Run(() =>
+                {
+                    var result = PiSegment(start, end);
+                    progress?.Report((double)Interlocked.Increment(ref completed) / degree);
+                    return result;
+                });
             }
             var segments = Task.WhenAll(tasks).GetAwaiter().GetResult();
 
@@ -968,7 +1016,12 @@ public class Real :
     /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="Pi(long)"/>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Propagated from <see cref="Pi(long)"/> when
     /// <paramref name="digits"/> is ≤ 0 or exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
-    public static Task<Real> PiAsync(long digits) => Task.Run(() => Pi(digits));
+    public static Task<Real> PiAsync(long digits) => PiAsync(digits, null);
+
+    /// <summary>
+    /// Asynchronously computes π, reporting series-chunk progress (0..1).
+    /// </summary>
+    public static Task<Real> PiAsync(long digits, IProgress<double>? progress) => Task.Run(() => Pi(digits, progress));
 
     /// <summary>
     /// Asynchronously computes the square root of <paramref name="value"/> by offloading
@@ -979,7 +1032,12 @@ public class Real :
     /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="Sqrt(Real)"/>.</returns>
     /// <exception cref="ArithmeticException">Propagated from <see cref="Sqrt(Real)"/> when
     /// <paramref name="value"/> is negative.</exception>
-    public static Task<Real> SqrtAsync(Real value) => Task.Run(() => Sqrt(value));
+    public static Task<Real> SqrtAsync(Real value) => SqrtAsync(value, null);
+
+    /// <summary>
+    /// Asynchronously computes the square root, reporting Newton-iteration progress (0..1).
+    /// </summary>
+    public static Task<Real> SqrtAsync(Real value, IProgress<double>? progress) => Task.Run(() => Sqrt(value, MaxComputationDecimalPlaces, progress));
 
     // -------------------------------------------------------------------------
     // Binary Splitting (BSP) decomposition — internal helper for Pi

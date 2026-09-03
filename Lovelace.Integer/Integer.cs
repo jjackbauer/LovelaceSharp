@@ -346,11 +346,11 @@ public class Integer :
     /// Note: C++ source has an inverted sign check (a bug) — this implementation is correct.
     /// Maps from C++ <c>fatorial()</c>.
     /// </summary>
-    public Integer Factorial()
+    public Integer Factorial(IProgress<double>? progress = null)
     {
         if (_isNegative)
             throw new InvalidOperationException("Factorial is not defined for negative integers.");
-        return new Integer(_magnitude.Factorial());
+        return new Integer(_magnitude.Factorial(progress));
     }
 
     // -------------------------------------------------------------------------

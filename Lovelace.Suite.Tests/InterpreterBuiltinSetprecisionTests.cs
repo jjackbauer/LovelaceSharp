@@ -25,23 +25,13 @@ public class InterpreterBuiltinSetprecisionTests
     [Fact]
     public async Task Evaluate_GivenNaturalArgument_SetsComputationAndDisplayPrecision()
     {
-        long savedMax = Rl.MaxComputationDecimalPlaces;
-        long savedDisplay = Rl.DisplayDecimalPlaces;
-        try
-        {
-            var expr = new CallExpr("setprecision", [new LiteralExpr("2500")]);
+        var expr = new CallExpr("setprecision", [new LiteralExpr("2500")]);
 
-            var result = await _evaluator.EvaluateAsync(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
-            Assert.Equal(ValueKind.Void, result.Kind);
-            Assert.Equal(2500L, Rl.MaxComputationDecimalPlaces);
-            Assert.Equal(2500L, Rl.DisplayDecimalPlaces);
-        }
-        finally
-        {
-            Rl.MaxComputationDecimalPlaces = savedMax;
-            Rl.DisplayDecimalPlaces = savedDisplay;
-        }
+        Assert.Equal(ValueKind.Void, result.Kind);
+        Assert.Equal(2500L, _evaluator.ComputationDecimalPlaces);
+        Assert.Equal(2500L, _evaluator.DisplayDecimalPlaces);
     }
 
     // -----------------------------------------------------------------------
@@ -51,25 +41,15 @@ public class InterpreterBuiltinSetprecisionTests
     [Fact]
     public async Task Evaluate_GivenIntegerArgument_SetsComputationAndDisplayPrecision()
     {
-        long savedMax = Rl.MaxComputationDecimalPlaces;
-        long savedDisplay = Rl.DisplayDecimalPlaces;
-        try
-        {
-            // Double-negate "2500": Natural(2500) → Integer(-2500) → Integer(2500).
-            var posInt = new UnaryExpr(UnaryOp.Negate, new UnaryExpr(UnaryOp.Negate, new LiteralExpr("2500")));
-            var expr = new CallExpr("setprecision", [posInt]);
+        // Double-negate "2500": Natural(2500) → Integer(-2500) → Integer(2500).
+        var posInt = new UnaryExpr(UnaryOp.Negate, new UnaryExpr(UnaryOp.Negate, new LiteralExpr("2500")));
+        var expr = new CallExpr("setprecision", [posInt]);
 
-            var result = await _evaluator.EvaluateAsync(expr);
+        var result = await _evaluator.EvaluateAsync(expr);
 
-            Assert.Equal(ValueKind.Void, result.Kind);
-            Assert.Equal(2500L, Rl.MaxComputationDecimalPlaces);
-            Assert.Equal(2500L, Rl.DisplayDecimalPlaces);
-        }
-        finally
-        {
-            Rl.MaxComputationDecimalPlaces = savedMax;
-            Rl.DisplayDecimalPlaces = savedDisplay;
-        }
+        Assert.Equal(ValueKind.Void, result.Kind);
+        Assert.Equal(2500L, _evaluator.ComputationDecimalPlaces);
+        Assert.Equal(2500L, _evaluator.DisplayDecimalPlaces);
     }
 
     // -----------------------------------------------------------------------

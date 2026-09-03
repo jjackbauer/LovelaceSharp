@@ -345,3 +345,90 @@ body.has-maximized.max-group-main #main-row { padding: 0 !important; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: #4a4d59; }
 ::-webkit-scrollbar-track { background: transparent; }
+/* ---------------- Precision control ---------------- */
+.precision-group { gap: 6px; }
+#precision-readout { color: var(--accent); font-weight: 600; }
+#precision-input {
+  width: 90px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  background: #16171b;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 8px;
+  outline: none;
+}
+#precision-input:focus { border-color: var(--accent); }
+
+/* ---------------- CodeMirror editor ---------------- */
+#editor { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#editor .cm-editor { height: 100%; font-size: 14px; }
+#editor .cm-scroller { font-family: var(--mono); }
+.cm-error-line { background: rgba(255, 95, 109, 0.15); }
+
+/* ---------------- Progress dialog ---------------- */
+.hidden { display: none !important; }
+#progress-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+#progress-dialog {
+  width: 460px;
+  max-width: 90vw;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+#progress-status { font-size: 14px; font-weight: 600; }
+button.danger { background: var(--error); border-color: var(--error); color: #fff; }
+button.danger:hover { background: #e04a57; }
+.progress-track {
+  height: 10px;
+  border-radius: 5px;
+  background: #16171b;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+#progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--ok));
+  transition: width 0.15s ease;
+}
+.progress-label {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 1.2em;
+}
+.progress-meta {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---------------- Autocomplete popup ---------------- */
+.cm-tooltip-autocomplete { border-radius: 6px; border: 1px solid var(--border) !important; background: var(--panel) !important; }
+.cm-tooltip-autocomplete > ul > li { font-family: var(--mono); font-size: 13px; }
+.cm-tooltip-autocomplete .cm-completionDetail { color: var(--muted); font-size: 12px; margin-left: 6px; }
+.cm-tooltip-autocomplete .cm-completionMatchedText { text-decoration: none; color: var(--accent); }
+

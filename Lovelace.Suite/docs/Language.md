@@ -728,8 +728,11 @@ default `100`) to the given positive integer `n`. Returns `void`. Use it before 
 irrational work) to compute and display more than the default precision.
 
 ```lovelace
-setprecision(50000)
-pi(50000)
+setprecision(50)
+pi(50)
+```
+```result
+3.14159265358979323846264338327950288419716939937510 (Real)
 ```
 
 ### `len(v)`

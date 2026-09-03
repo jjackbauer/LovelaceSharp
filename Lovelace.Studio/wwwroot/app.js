@@ -1,62 +1,146 @@
-"use strict";
+import { EditorView, keymap, Decoration, StateEffect, StateField, basicSetup, autocompletion, completionKeymap, oneDark } from "./vendor/codemirror.js";
 
 const $ = (sel) => document.querySelector(sel);
 
-const editor = $("#editor");
-const cursorPos = $("#cursor-pos");
-const statusEl = $("#status");
+const SESSION_KEY = "lovelace.studio.session";
+const EDITOR_KEY = "lovelace.studio.editor";
+
+let sessionId = sessionStorage.getItem(SESSION_KEY) || null;
+let completionCatalog = [];
+let currentRunId = null;
+let pollTimer = null;
+let renderedSteps = 0;
+
+const logsEl = $("#logs");
 const variablesTbody = $("#variables-table tbody");
 const variablesEmpty = $("#variables-empty");
 const functionsTbody = $("#functions-table tbody");
 const functionsEmpty = $("#functions-empty");
 const graphContainer = $("#graph-container");
 const graphPlaceholder = $("#graph-placeholder");
-const logsEl = $("#logs");
+const statusEl = $("#status");
+const precisionReadout = $("#precision-readout");
+const precisionInput = $("#precision-input");
 const quickEval = $("#quick-eval");
+const cursorPos = $("#cursor-pos");
 
-const STORAGE_KEY = "lovelace.studio.editor";
-let running = false;
+// ---------------------------------------------------------------------------
+// API helper (session-scoped)
+// ---------------------------------------------------------------------------
+
+async function api(path, options) {
+  const opts = options || {};
+  opts.headers = Object.assign({}, opts.headers || {}, { "X-Session-Id": sessionId || "" });
+  return fetch(path, opts);
+}
+
+// ---------------------------------------------------------------------------
+// Session
+// ---------------------------------------------------------------------------
+
+function setPrecisionReadout(precision) {
+  precisionReadout.textContent = precision + " digits";
+  precisionInput.placeholder = String(precision);
+}
+
+async function ensureSession() {
+  if (sessionId) {
+    const res = await api("/api/session");
+    if (res.ok) {
+      const data = await res.json();
+      setPrecisionReadout(data.precision);
+      return;
+    }
+    sessionId = null;
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+  const res = await fetch("/api/session", { method: "POST" });
+  if (!res.ok) throw new Error("could not create session");
+  const data = await res.json();
+  sessionId = data.sessionId;
+  sessionStorage.setItem(SESSION_KEY, sessionId);
+  setPrecisionReadout(data.precision);
+}
+
+// ---------------------------------------------------------------------------
+// CodeMirror editor + autocomplete
+// ---------------------------------------------------------------------------
+
+const setErrorLine = StateEffect.define();
+const errorLineField = StateField.define({
+  create: () => Decoration.none,
+  update: (deco, tr) => {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) if (e.is(setErrorLine)) deco = e.value;
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f)
+});
+
+function completionType(kind) {
+  if (kind === "builtin" || kind === "function") return "function";
+  if (kind === "variable") return "variable";
+  return "keyword";
+}
+
+function completionSource(context) {
+  const word = context.matchBefore(/[A-Za-z_][A-Za-z0-9_]*/);
+  if (!word || (word.from === word.to && !context.explicit)) return null;
+  const prefix = word.text.toLowerCase();
+  return {
+    from: word.from,
+    options: completionCatalog
+      .filter((c) => c.label.toLowerCase().startsWith(prefix))
+      .map((c) => ({ label: c.label, type: completionType(c.kind), detail: c.detail, apply: c.label }))
+  };
+}
+
+const editor = new EditorView({
+  parent: $("#editor"),
+  extensions: [
+    basicSetup,
+    oneDark,
+    keymap.of([...completionKeymap, { key: "Ctrl-Enter", run: () => { run(); return true; } }]),
+    autocompletion({ override: [completionSource] }),
+    errorLineField,
+    EditorView.updateListener.of((u) => {
+      if (u.selectionSet || u.docChanged) {
+        const pos = u.state.selection.main.head;
+        const line = u.state.doc.lineAt(pos);
+        cursorPos.textContent = "Ln " + line.number + ", Col " + (pos - line.from + 1);
+      }
+      if (u.docChanged) localStorage.setItem(EDITOR_KEY, u.state.doc.toString());
+    })
+  ]
+});
+
+function editorValue() { return editor.state.doc.toString(); }
+function setEditorValue(text) {
+  editor.dispatch({ changes: { from: 0, to: editor.state.doc.length, insert: text } });
+}
+
+function highlightError(line) {
+  const doc = editor.state.doc;
+  const ln = Math.max(1, Math.min(line, doc.lines));
+  const from = doc.line(ln).from;
+  const to = doc.line(ln).to;
+  editor.dispatch({ effects: setErrorLine.of(Decoration.line({ class: "cm-error-line" }).range(from, to)) });
+}
+function clearError() {
+  editor.dispatch({ effects: setErrorLine.of(Decoration.none) });
+}
 
 // ---------------------------------------------------------------------------
 // Logs
 // ---------------------------------------------------------------------------
 
-function appendLog(text, kind, response) {
+function appendLog(text, kind) {
   if (text === undefined || text === null || text === "") return;
-
-  if (response !== undefined && response !== null) {
-    const details = document.createElement("details");
-    details.className = "log-line inspectable" + (kind ? " " + kind : "");
-
-    const summary = document.createElement("summary");
-    summary.textContent = text;
-    summary.title = "Inspect server response";
-    details.appendChild(summary);
-
-    const pre = document.createElement("pre");
-    pre.className = "log-json";
-    pre.textContent = JSON.stringify(response, null, 2);
-    details.appendChild(pre);
-
-    logsEl.appendChild(details);
-  } else {
-    const div = document.createElement("div");
-    div.className = "log-line" + (kind ? " " + kind : "");
-    div.textContent = text;
-    logsEl.appendChild(div);
-  }
-
+  const div = document.createElement("div");
+  div.className = "log-line" + (kind ? " " + kind : "");
+  div.textContent = text;
+  logsEl.appendChild(div);
   logsEl.scrollTop = logsEl.scrollHeight;
-}
-
-// The scoped payload for a single operation line: just its own source, result, and time.
-function stepPayload(step) {
-  return {
-    line: step.line,
-    source: step.text,
-    result: step.result,
-    elapsed: step.elapsed
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -69,26 +153,14 @@ function renderVariables(vars) {
   variablesEmpty.hidden = list.length > 0;
   for (const v of list) {
     const tr = document.createElement("tr");
-
-    const nameTd = document.createElement("td");
-    nameTd.textContent = v.name;
-
-    const valueTd = document.createElement("td");
-    valueTd.textContent = v.display;
-    valueTd.title = v.display;
-
-    const kindTd = document.createElement("td");
-    kindTd.textContent = v.kind;
-    kindTd.className = "kind";
-
+    const nameTd = document.createElement("td"); nameTd.textContent = v.name;
+    const valueTd = document.createElement("td"); valueTd.textContent = v.display; valueTd.title = v.display;
+    const kindTd = document.createElement("td"); kindTd.textContent = v.kind; kindTd.className = "kind";
     const delTd = document.createElement("td");
     const delBtn = document.createElement("button");
-    delBtn.textContent = "×";
-    delBtn.className = "row-delete";
-    delBtn.title = "Delete " + v.name;
+    delBtn.textContent = "×"; delBtn.className = "row-delete"; delBtn.title = "Delete " + v.name;
     delBtn.addEventListener("click", () => deleteVariable(v.name));
     delTd.appendChild(delBtn);
-
     tr.append(nameTd, valueTd, kindTd, delTd);
     variablesTbody.appendChild(tr);
   }
@@ -100,17 +172,11 @@ function renderFunctions(fns) {
   functionsEmpty.hidden = list.length > 0;
   for (const f of list) {
     const tr = document.createElement("tr");
-
-    const nameTd = document.createElement("td");
-    nameTd.textContent = f.name;
-
-    const paramsTd = document.createElement("td");
-    paramsTd.textContent = (f.parameters || []).join(", ");
-
+    const nameTd = document.createElement("td"); nameTd.textContent = f.name;
+    const paramsTd = document.createElement("td"); paramsTd.textContent = (f.parameters || []).join(", ");
     const kindTd = document.createElement("td");
     kindTd.textContent = f.isBuiltin ? "builtin" : "user";
     kindTd.className = f.isBuiltin ? "kind builtin" : "kind user";
-
     tr.append(nameTd, paramsTd, kindTd);
     functionsTbody.appendChild(tr);
   }
@@ -119,182 +185,225 @@ function renderFunctions(fns) {
 function renderPlot(plot) {
   const existing = graphContainer.querySelector(".graph-svg");
   if (existing) existing.remove();
-
   if (plot && plot.svg) {
     graphPlaceholder.style.display = "none";
     const wrap = document.createElement("div");
     wrap.className = "graph-svg";
-    wrap.innerHTML = plot.svg; // inline SVG, inspectable in the DOM
+    wrap.innerHTML = plot.svg;
     graphContainer.appendChild(wrap);
   } else {
     graphPlaceholder.style.display = "";
   }
 }
 
-function setStatus(revision) {
-  statusEl.textContent = "rev " + revision;
-}
+function setStatus(revision) { statusEl.textContent = "rev " + revision; }
 
-// ---------------------------------------------------------------------------
-// Error highlighting
-// ---------------------------------------------------------------------------
-
-function highlightError(d) {
-  const text = editor.value;
-  let pos = typeof d.position === "number" ? d.position : 0;
-  pos = Math.max(0, Math.min(pos, text.length));
-
-  let lineStart = text.lastIndexOf("\n", pos - 1);
-  lineStart = lineStart < 0 ? 0 : lineStart + 1;
-  let lineEnd = text.indexOf("\n", pos);
-  if (lineEnd < 0) lineEnd = text.length;
-
-  // Scroll the caret into view, then highlight the offending line.
-  editor.focus();
-  editor.setSelectionRange(pos, pos);
-  editor.setSelectionRange(lineStart, lineEnd);
-
-  editor.classList.remove("editor-error");
-  void editor.offsetWidth; // restart the CSS transition
-  editor.classList.add("editor-error");
-  setTimeout(() => editor.classList.remove("editor-error"), 2500);
-}
-
-// ---------------------------------------------------------------------------
-// Response application
-// ---------------------------------------------------------------------------
-
-function applyResponse(data) {
+// Apply the workspace portion of a response (variables/functions/plot/status/precision).
+function applyWorkspace(data) {
+  if (!data) return;
   renderVariables(data.variables);
   renderFunctions(data.functions);
   renderPlot(data.plot);
   setStatus(data.revision);
+  if (data.precision !== undefined) setPrecisionReadout(data.precision);
+}
 
-  const steps = data.timings || [];
-  let lastResultStep = null;
-
-  for (const step of steps) {
-    if (step.output) {
-      appendLog(step.output, "output", stepPayload(step));
-    }
-    if (step.result !== null && step.result !== undefined) {
-      lastResultStep = step;
-    }
+// Append only newly-seen step outputs (dedupes across polls).
+function appendNewSteps(steps) {
+  for (let i = renderedSteps; i < steps.length; i++) {
+    if (steps[i].output) appendLog(steps[i].output, "output");
   }
+  renderedSteps = steps.length;
+}
 
-  if (data.result && data.result.kind !== "Void") {
-    appendLog("= " + data.result.typed, "result", lastResultStep ? stepPayload(lastResultStep) : null);
-  }
-
+function applyFinal(data) {
+  if (data.result && data.result.kind !== "Void") appendLog("= " + data.result.typed, "result");
   if (data.diagnostics && data.diagnostics.length > 0) {
     const d = data.diagnostics[0];
-    appendLog("error: " + d.message + " (line " + d.line + ", col " + d.column + ")", "error",
-      { error: d.message, line: d.line, column: d.column });
-    highlightError(d);
+    appendLog("error: " + d.message + " (line " + d.line + ", col " + d.column + ")", "error");
+    if (d.line) highlightError(d.line);
   }
-
   if (data.elapsed) {
-    appendLog("total: " + data.elapsed, "timing", { total: data.elapsed });
+    appendLog("done: " + data.elapsed + " (" + (data.reusedCount || 0) + " reused)", "timing");
   }
 }
 
 // ---------------------------------------------------------------------------
-// API calls
+// Progress dialog
 // ---------------------------------------------------------------------------
 
-async function run(source) {
-  if (running) return;
-  running = true;
+function showProgress() { $("#progress-overlay").classList.remove("hidden"); }
+function hideProgress() { $("#progress-overlay").classList.add("hidden"); }
+
+function statusText(status) {
+  if (status === "running") return "Running…";
+  if (status === "finished") return "Finished";
+  if (status === "error") return "Error";
+  if (status === "cancelled") return "Cancelled";
+  if (status === "queued") return "Queued…";
+  return status || "";
+}
+
+function updateProgress(data) {
+  $("#progress-status").textContent = statusText(data.status);
+  const total = data.totalStatements || 0;
+  const done = data.completedStatements || 0;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  $("#progress-fill").style.width = pct + "%";
+  let label = "";
+  if (data.currentLabel) label = "step " + (data.currentIndex + 1) + "/" + total + ": " + data.currentLabel;
+  if (data.subLabel && data.subProgress !== null && data.subProgress !== undefined) {
+    label = label + " — " + data.subLabel + " " + Math.round(data.subProgress * 100) + "%";
+  }
+  $("#progress-label").textContent = label;
+  $("#progress-meta").textContent = done + "/" + total + " · " + (data.reusedCount || 0) + " reused";
+}
+
+function finishPoll() {
+  currentRunId = null;
+  if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+  setTimeout(hideProgress, 500);
+}
+
+// ---------------------------------------------------------------------------
+// Run (async: start then poll)
+// ---------------------------------------------------------------------------
+
+async function pollRun(runId) {
   try {
-    const res = await fetch("/api/evaluate", {
+    const res = await api("/api/run/" + runId);
+    if (res.status === 404) { finishPoll(); return; }
+    const data = await res.json();
+    applyWorkspace(data.response);
+    appendNewSteps(data.response.timings || []);
+    updateProgress(data);
+    if (data.status === "finished" || data.status === "error" || data.status === "cancelled") {
+      applyFinal(data.response);
+      loadCompletions();
+      finishPoll();
+      return;
+    }
+    pollTimer = setTimeout(() => pollRun(runId), 150);
+  } catch (err) {
+    appendLog("poll failed: " + err, "error");
+    finishPoll();
+  }
+}
+
+async function runSource(source) {
+  if (currentRunId) return;
+  if (!source.trim()) return;
+  try {
+    const res = await api("/api/evaluate", {
       method: "POST",
-      cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source })
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      appendLog("HTTP " + res.status + ": " + text, "error");
-      return;
-    }
-
+    if (res.status === 409) { appendLog("a run is already in progress", "error"); return; }
+    if (!res.ok) { appendLog("HTTP " + res.status, "error"); return; }
     const data = await res.json();
-    applyResponse(data);
+    currentRunId = data.runId;
+    renderedSteps = 0;
+    logsEl.innerHTML = "";
+    clearError();
+    showProgress();
+    updateProgress({ status: "queued", totalStatements: 0, completedStatements: 0, reusedCount: 0 });
+    pollRun(data.runId);
   } catch (err) {
-    appendLog("request failed: " + err, "error");
-  } finally {
-    running = false;
+    appendLog("run failed: " + err, "error");
   }
 }
 
+function run() { runSource(editorValue()); }
+
+async function cancelRun() {
+  if (!currentRunId) return;
+  try { await api("/api/run/" + currentRunId + "/cancel", { method: "POST" }); }
+  catch (err) { appendLog("cancel failed: " + err, "error"); }
+}
+
+// ---------------------------------------------------------------------------
+// Precision
+// ---------------------------------------------------------------------------
+
+async function applyPrecision() {
+  const digits = parseInt(precisionInput.value, 10);
+  if (!digits || digits <= 0) { appendLog("precision must be a positive integer", "error"); return; }
+  try {
+    const res = await api("/api/precision", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ digits })
+    });
+    if (!res.ok) { appendLog("set precision failed: HTTP " + res.status, "error"); return; }
+    const data = await res.json();
+    renderVariables(data.variables);
+    renderFunctions(data.functions);
+    setStatus(data.revision);
+    setPrecisionReadout(data.precision);
+    appendLog("precision set to " + data.precision, "info");
+  } catch (err) { appendLog("set precision failed: " + err, "error"); }
+}
+
+// ---------------------------------------------------------------------------
+// Workspace + completions API
+// ---------------------------------------------------------------------------
+
 async function deleteVariable(name) {
   try {
-    const res = await fetch("/api/variables/" + encodeURIComponent(name), { method: "DELETE" });
-    if (!res.ok) {
-      appendLog("delete failed: HTTP " + res.status, "error");
-      return;
-    }
+    const res = await api("/api/variables/" + encodeURIComponent(name), { method: "DELETE" });
+    if (!res.ok) { appendLog("delete failed: HTTP " + res.status, "error"); return; }
     const data = await res.json();
     renderVariables(data.variables);
     renderFunctions(data.functions);
     setStatus(data.revision);
     appendLog("deleted " + name, "info");
-  } catch (err) {
-    appendLog("delete failed: " + err, "error");
-  }
+  } catch (err) { appendLog("delete failed: " + err, "error"); }
 }
 
 async function clearWorkspace() {
   try {
-    const res = await fetch("/api/state", { method: "DELETE" });
-    if (!res.ok) {
-      appendLog("clear failed: HTTP " + res.status, "error");
-      return;
-    }
+    const res = await api("/api/state", { method: "DELETE" });
+    if (!res.ok) { appendLog("clear failed: HTTP " + res.status, "error"); return; }
     const data = await res.json();
     renderVariables(data.variables);
     renderFunctions(data.functions);
     setStatus(data.revision);
     appendLog("workspace cleared (variables)", "info");
-  } catch (err) {
-    appendLog("clear failed: " + err, "error");
-  }
+  } catch (err) { appendLog("clear failed: " + err, "error"); }
 }
 
 async function loadState() {
   try {
-    const res = await fetch("/api/state");
+    const res = await api("/api/state");
+    if (!res.ok) return;
     const data = await res.json();
     renderVariables(data.variables);
     renderFunctions(data.functions);
     setStatus(data.revision);
-  } catch (err) {
-    appendLog("could not load state: " + err, "error");
-  }
+    setPrecisionReadout(data.precision);
+  } catch (err) { /* ignore */ }
+}
+
+async function loadCompletions() {
+  try {
+    const res = await api("/api/completions");
+    if (res.ok) completionCatalog = (await res.json()).items;
+  } catch (err) { /* ignore */ }
 }
 
 // ---------------------------------------------------------------------------
-// Editor helpers
+// Editor persistence
 // ---------------------------------------------------------------------------
-
-function updateCursorPos() {
-  const pos = editor.selectionStart;
-  const before = editor.value.slice(0, pos);
-  const line = before.split("\n").length;
-  const col = pos - before.lastIndexOf("\n");
-  cursorPos.textContent = "Ln " + line + ", Col " + col;
-}
 
 function saveEditor() {
-  localStorage.setItem(STORAGE_KEY, editor.value);
+  localStorage.setItem(EDITOR_KEY, editorValue());
   appendLog("editor saved to localStorage", "info");
 }
 
 function loadEditor() {
-  const value = localStorage.getItem(STORAGE_KEY);
-  editor.value = value !== null ? value : "";
-  updateCursorPos();
+  const value = localStorage.getItem(EDITOR_KEY);
+  setEditorValue(value !== null ? value : "");
   appendLog(value !== null ? "editor loaded from localStorage" : "no saved editor content", "info");
 }
 
@@ -302,24 +411,12 @@ function loadEditor() {
 // Wiring
 // ---------------------------------------------------------------------------
 
-$("#run-btn").addEventListener("click", () => run(editor.value));
+$("#run-btn").addEventListener("click", () => run());
 $("#clear-btn").addEventListener("click", clearWorkspace);
 $("#save-btn").addEventListener("click", saveEditor);
 $("#load-btn").addEventListener("click", loadEditor);
-
-editor.addEventListener("input", () => {
-  updateCursorPos();
-  localStorage.setItem(STORAGE_KEY, editor.value);
-});
-editor.addEventListener("keyup", updateCursorPos);
-editor.addEventListener("click", updateCursorPos);
-editor.addEventListener("select", updateCursorPos);
-editor.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    run(editor.value);
-  }
-});
+$("#precision-apply").addEventListener("click", applyPrecision);
+$("#progress-cancel").addEventListener("click", cancelRun);
 
 quickEval.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
@@ -328,27 +425,16 @@ quickEval.addEventListener("keydown", (e) => {
     quickEval.value = "";
     if (!src) return;
     appendLog(">> " + src, "echo");
-    run(src);
+    runSource(src);
   }
 });
 
-// ---------------------------------------------------------------------------
-// Boot
-// ---------------------------------------------------------------------------
-
-const saved = localStorage.getItem(STORAGE_KEY);
-if (saved !== null) editor.value = saved;
-updateCursorPos();
-renderPlot(null);
-loadState();
-appendLog("Lovelace.Studio ready — Run to evaluate.", "info");
 // ---------------------------------------------------------------------------
 // Resizable dividers + minimize/maximize panes
 // ---------------------------------------------------------------------------
 
 const SIZES_KEY = "lovelace.studio.sizes";
 const panes = Array.from(document.querySelectorAll(".pane"));
-
 const workspacePane = document.getElementById("workspace-pane");
 const graphPane = document.getElementById("graph-pane");
 const logsPane = document.getElementById("logs-pane");
@@ -457,8 +543,27 @@ function restoreSizes() {
     if (sizes.workspace) workspacePane.style.width = sizes.workspace;
     if (sizes.graph) graphPane.style.height = sizes.graph;
     if (sizes.logs) logsPane.style.height = sizes.logs;
-  } catch { /* ignore malformed sizes */ }
+  } catch { /* ignore */ }
 }
 
 restoreSizes();
 
+// ---------------------------------------------------------------------------
+// Boot
+// ---------------------------------------------------------------------------
+
+async function boot() {
+  const saved = localStorage.getItem(EDITOR_KEY);
+  if (saved !== null) setEditorValue(saved);
+  renderPlot(null);
+  try {
+    await ensureSession();
+    await loadCompletions();
+    await loadState();
+    appendLog("Lovelace.Studio ready — Run to evaluate.", "info");
+  } catch (err) {
+    appendLog("boot failed: " + err, "error");
+  }
+}
+
+boot();

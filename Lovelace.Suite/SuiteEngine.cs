@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using Rl = global::Lovelace.Real.Real;
 
 namespace Lovelace.Suite;
 
@@ -47,6 +48,44 @@ public sealed class SuiteEngine
     /// <summary>Clears the last-plot capture (used by hosts to detect plots per run).</summary>
     public void ResetPlotCapture() => _interpreter.ResetPlotCapture();
 
+    /// <summary>Computation precision (Real decimal places) for this engine.</summary>
+    public long ComputationDecimalPlaces
+    {
+        get => _interpreter.ComputationDecimalPlaces;
+        set => _interpreter.ComputationDecimalPlaces = value;
+    }
+
+    /// <summary>Display precision (Real fractional digits shown) for this engine.</summary>
+    public long DisplayDecimalPlaces
+    {
+        get => _interpreter.DisplayDecimalPlaces;
+        set => _interpreter.DisplayDecimalPlaces = value;
+    }
+
+    /// <summary>Sets both computation and display precision (the single precision knob).</summary>
+    public void SetPrecision(long decimalPlaces) => _interpreter.SetPrecision(decimalPlaces);
+
+    /// <summary>Optional sink for sub-operation progress, forwarded to the interpreter.</summary>
+    public IProgress<OperationProgress>? ProgressReporter
+    {
+        get => _interpreter.ProgressReporter;
+        set => _interpreter.ProgressReporter = value;
+    }
+
+    /// <summary>Formats a value at this engine's display precision.</summary>
+    public string FormatValue(Value value)
+    {
+        using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
+        return ValueFormatter.Format(value);
+    }
+
+    /// <summary>Formats a value with a type suffix at this engine's display precision.</summary>
+    public string FormatValueTyped(Value value)
+    {
+        using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
+        return ValueFormatter.FormatTyped(value);
+    }
+
     /// <summary>Elapsed wall-clock time of the most recent evaluation.</summary>
     public TimeSpan LastElapsed { get; private set; }
 
@@ -55,6 +94,9 @@ public sealed class SuiteEngine
 
     /// <summary>Per-statement elapsed times from the most recent evaluation, in statement order.</summary>
     public IReadOnlyList<OperationTiming> OperationTimings => _interpreter.OperationTimings;
+
+    /// <summary>Monotonic revision counter bumped on every state mutation.</summary>
+    public long Revision => _interpreter.Revision;
 
     // -----------------------------------------------------------------
     // Introspection
@@ -191,6 +233,7 @@ public sealed class SuiteEngine
     /// <summary>Captures an immutable snapshot of variables and functions.</summary>
     public StateSnapshot CaptureState()
     {
+        using var precisionScope = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
         var variables = new Dictionary<string, StateVariable>();
         foreach (var (name, value) in _interpreter.Variables)
             variables[name] = new StateVariable(name, value.Kind, ValueFormatter.Format(value));

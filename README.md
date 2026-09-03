@@ -61,7 +61,7 @@ is [Lovelace.Suite/docs/Language.md](Lovelace.Suite/docs/Language.md).
 | Surface | Command | More |
 |---|---|---|
 | **REPL** (interactive calculator) | `dotnet run --project Lovelace.Console` | [Lovelace.Console/README.md](Lovelace.Console/README.md) |
-| **Web IDE** (editor + variables/functions + inline SVG plots) | `make studio` | [Lovelace.Studio/README.md](Lovelace.Studio/README.md) |
+| **Web IDE** (CodeMirror editor + autocomplete, per-tab sessions, per-session precision, incremental compute, async progress, SVG plots) | `make studio` | [Lovelace.Studio/README.md](Lovelace.Studio/README.md) |
 | **DSH harness** (agent-callable `lovelace` tool) | `make runner` then load the plugin | [harness/README.md](harness/README.md) |
 
 All three share one engine (`Lovelace.Suite`). The Studio and the DSH tool are thin projections of
@@ -142,7 +142,7 @@ flowchart TB
 | `Lovelace.Array` | Generic `NdArray<T>` (shape/rank/strides, indexing, reshape/transpose/squeeze/concat) + all numeric algorithms, parameterized by an `IField<T>` so the element type stays abstract. |
 | `Lovelace.Suite` | The scripting engine: tokenizer → parser → interpreter, the `SuiteEngine` introspection API, `Value` (wrapping `NdArray<Value>`), and SVG plotting. |
 | `Lovelace.Console` | Interactive REPL front-end over `Lovelace.Suite`. |
-| `Lovelace.Studio` | Browser IDE over `Lovelace.Suite`: editor, variables/functions workspace, inline SVG plots, logs bar. |
+| `Lovelace.Studio` | Browser IDE over `Lovelace.Suite`: CodeMirror editor with autocomplete, per-tab sessions, per-session precision, incremental (hash-based) execution, async runs with a progress dialog, variables/functions workspace, inline SVG plots, logs bar. |
 | `Lovelace.Run` | Non-interactive JSON script runner; the engine behind the DSH `lovelace` tool. |
 
 Every library project has a matching `*.Tests` project (xUnit). A deeper, sourced map of module

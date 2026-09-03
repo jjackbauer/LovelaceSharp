@@ -11,6 +11,12 @@ namespace Lovelace.Studio;
 /// </summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(EvaluateRequest))]
+[JsonSerializable(typeof(SetPrecisionRequest))]
+[JsonSerializable(typeof(SessionResponse))]
+[JsonSerializable(typeof(StartRunResponse))]
+[JsonSerializable(typeof(RunStatusResponse))]
+[JsonSerializable(typeof(CompletionItem))]
+[JsonSerializable(typeof(CompletionResponse))]
 [JsonSerializable(typeof(EvaluateResponse))]
 [JsonSerializable(typeof(StateResponse))]
 [JsonSerializable(typeof(ValueResult))]
