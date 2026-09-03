@@ -1,6 +1,7 @@
 using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
+using Lovelace.Real;
 
 namespace Lovelace.Suite;
 
@@ -49,15 +50,69 @@ public static class NumericOps
             (BinaryOp.Power,    ValueKind.Integer) => new Value(left.AsInteger().Pow(right.AsInteger())),
 
             // ---- Real arithmetic ----
-            (BinaryOp.Add,      ValueKind.Real) => new Value(left.AsReal() + right.AsReal()),
-            (BinaryOp.Subtract, ValueKind.Real) => new Value(left.AsReal() - right.AsReal()),
-            (BinaryOp.Multiply, ValueKind.Real) => new Value(left.AsReal() * right.AsReal()),
-            (BinaryOp.Divide,   ValueKind.Real) => new Value(left.AsReal() / right.AsReal()),
+            (BinaryOp.Add,      ValueKind.Real) => ApplyRealBinary(BinaryOp.Add, left.AsReal(), right.AsReal()),
+            (BinaryOp.Subtract, ValueKind.Real) => ApplyRealBinary(BinaryOp.Subtract, left.AsReal(), right.AsReal()),
+            (BinaryOp.Multiply, ValueKind.Real) => ApplyRealBinary(BinaryOp.Multiply, left.AsReal(), right.AsReal()),
+            (BinaryOp.Divide,   ValueKind.Real) => ApplyRealBinary(BinaryOp.Divide, left.AsReal(), right.AsReal()),
             (BinaryOp.Modulo,   ValueKind.Real) => new Value(left.AsReal() % right.AsReal()),
             (BinaryOp.Power,    ValueKind.Real) => new Value(left.AsReal().Pow(right.AsReal())),
 
             _ => throw new InvalidOperationException(
                 $"Operator '{op}' is not supported for type '{left.Kind}'."),
+        };
+    }
+
+    /// <summary>
+    /// Real arithmetic fast path: try LReal64 (narrowest/fastest), then LReal128, falling back
+    /// to the arbitrary-precision class Real on any promotion. Exactness is preserved because the
+    /// limited types throw rather than round. Active only when limited precision is requested.
+    /// </summary>
+    private static Value ApplyRealBinary(BinaryOp op, Rl left, Rl right)
+    {
+        if (Rl.MaxComputationDecimalPlaces <= 37)
+        {
+            if (LReal64.TryFromReal(left, out var a64) && LReal64.TryFromReal(right, out var b64))
+            {
+                try
+                {
+                    LReal64 r = op switch
+                    {
+                        BinaryOp.Add => a64 + b64,
+                        BinaryOp.Subtract => a64 - b64,
+                        BinaryOp.Multiply => a64 * b64,
+                        BinaryOp.Divide => a64 / b64,
+                        _ => throw new LRealPromoteException("not a fast-path op")
+                    };
+                    return new Value(r.ToReal());
+                }
+                catch (LRealPromoteException) { }
+            }
+
+            if (LReal128.TryFromReal(left, out var a128) && LReal128.TryFromReal(right, out var b128))
+            {
+                try
+                {
+                    LReal128 r = op switch
+                    {
+                        BinaryOp.Add => a128 + b128,
+                        BinaryOp.Subtract => a128 - b128,
+                        BinaryOp.Multiply => a128 * b128,
+                        BinaryOp.Divide => a128 / b128,
+                        _ => throw new LRealPromoteException("not a fast-path op")
+                    };
+                    return new Value(r.ToReal());
+                }
+                catch (LRealPromoteException) { }
+            }
+        }
+
+        return op switch
+        {
+            BinaryOp.Add => new Value(left + right),
+            BinaryOp.Subtract => new Value(left - right),
+            BinaryOp.Multiply => new Value(left * right),
+            BinaryOp.Divide => new Value(left / right),
+            _ => throw new InvalidOperationException($"Operator '{op}' is not supported for Real.")
         };
     }
 
