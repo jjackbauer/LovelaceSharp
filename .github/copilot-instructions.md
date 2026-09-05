@@ -33,6 +33,8 @@ Lovelace.Representation  ←  Lovelace.Natural  ←  Lovelace.Integer  ←  Love
 
 5. **Interfaces**: C# types should implement the appropriate `System.Numerics` generic math interfaces (`INumber<T>`, `IComparable<T>`, `IEquatable<T>`, `IParsable<T>`, `ISpanFormattable`, etc.) where they apply.
 
+6. **Always verify end-to-end.** Unit tests are necessary but not sufficient. After any change to the engine, a builtin, a numeric type, or the Studio, exercise the change through the *real* host surface and confirm the observable output — `Lovelace.Run --eval "<expr>"`, the REPL, or the Studio HTTP API (`POST /api/session` → `POST /api/evaluate` → `GET /api/run/{id}`). For the Studio specifically, also confirm a Native-AOT publish (`dotnet publish -p:PublishAot=true`) still succeeds, because the Studio ships as an AOT binary.
+
 ## When Working on Migration Tasks
 
 Always load the legacy knowledge map and codebase patterns reference before writing code or tests:
