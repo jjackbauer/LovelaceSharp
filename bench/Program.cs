@@ -75,11 +75,11 @@ if (op == "verify")
 
     void Fail(string msg) { Console.Error.WriteLine("VERIFY FAIL: " + msg); Environment.Exit(1); }
 
-    if (Real.Pi(1).ToString() != "3.1") Fail("Pi(1) != 3.1");
-    if (Real.Pi(10).ToString() != "3.1415926535") Fail("Pi(10) != 3.1415926535");
-    if (Real.Pi(50).ToString() != pi50) Fail("Pi(50) mismatch: " + Real.Pi(50));
-    if (!Real.Pi(200).ToString().StartsWith(pi50)) Fail("Pi(200) prefix mismatch");
-    if (!Real.Pi(1000).ToString().StartsWith(pi50)) Fail("Pi(1000) prefix mismatch");
+    if (Real.PiTo(1).ToString() != "3.1") Fail("PiTo(1) != 3.1");
+    if (Real.PiTo(10).ToString() != "3.1415926535") Fail("PiTo(10) != 3.1415926535");
+    if (Real.PiTo(50).ToString() != pi50) Fail("PiTo(50) mismatch: " + Real.PiTo(50));
+    if (!Real.PiTo(200).ToString().StartsWith(pi50)) Fail("PiTo(200) prefix mismatch");
+    if (!Real.PiTo(1000).ToString().StartsWith(pi50)) Fail("PiTo(1000) prefix mismatch");
 
     if (Real.Sqrt(new Real("4")).ToString() != "2") Fail("Sqrt(4) != 2");
     if (Real.Sqrt(new Real("9")).ToString() != "3") Fail("Sqrt(9) != 3");
@@ -106,7 +106,7 @@ var c = new Natural(RandomDigits(Math.Max(1, digits / 4), 11111));
 // For division, ensure a > b so we exercise real long division.
 Natural bDiv = b < a ? b : new Natural(RandomDigits(digits / 2, 99999));
 
-// pi: lift the precision cap so Pi(digits) is legal at any requested size.
+// pi: lift the precision cap so PiTo(digits) is legal at any requested size.
 if (op == "pi")
 {
     Real.MaxComputationDecimalPlaces = Math.Max(digits, Real.MaxComputationDecimalPlaces);
@@ -151,7 +151,7 @@ for (int r = 0; r < reps; r++)
             ticks = Do(() => Natural.DivRem(a, bDiv, out _));
             break;
         case "pi":
-            ticks = Do(() => Real.Pi(digits));
+            ticks = Do(() => Real.PiTo(digits));
             break;
         case "pow":
             var smallExp = new Natural((ulong)Math.Min(digits, 2000));

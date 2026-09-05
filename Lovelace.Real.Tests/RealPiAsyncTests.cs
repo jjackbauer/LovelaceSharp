@@ -3,22 +3,25 @@ using Lovelace.Real;
 namespace Lovelace.Real.Tests;
 
 /// <summary>
-/// Functional tests for <see cref="Real.PiAsync(long)"/>.
-/// Checklist item: PiAsync — Task.Run wrapper over the parallel Pi implementation.
+/// Functional tests for <see cref="Real.PiToAsync(long)"/>.
+/// Checklist item: PiToAsync — Task.Run wrapper over the parallel Pi implementation.
 /// Tests 17–19 from the Lovelace.Real.Parallelism test plan.
 /// </summary>
-public class RealPiAsyncTests
+public class RealPiToAsyncTests
 {
     // -------------------------------------------------------------------------
     // Test 17 — correct value for one digit
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task PiAsync_GivenOneDigit_ReturnsCorrectValue()
+    public async Task PiToAsync_GivenOneDigit_ReturnsCorrectValue()
     {
-        // π = 3.1...; PiAsync is a Task.Run wrapper and must return the same result as Pi(1).
-        Real result = await Real.PiAsync(1);
-        Assert.Equal("3.1", result.ToString());
+        // π = 3.1...; PiToAsync is a Task.Run wrapper and must return the same result as PiTo(1).
+        using (Real.WithPrecision(1, 1))
+        {
+            Real result = await Real.PiToAsync(1);
+            Assert.Equal("3.1", result.ToString());
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -26,11 +29,11 @@ public class RealPiAsyncTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task PiAsync_GivenInvalidDigits_PropagatesArgumentOutOfRangeException()
+    public async Task PiToAsync_GivenInvalidDigits_PropagatesArgumentOutOfRangeException()
     {
-        // Pi(0) throws ArgumentOutOfRangeException; Task.Run captures it and
+        // PiTo(0) throws ArgumentOutOfRangeException; Task.Run captures it and
         // re-throws on await, so the caller sees ArgumentOutOfRangeException.
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Real.PiAsync(0));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => Real.PiToAsync(0));
     }
 
     // -------------------------------------------------------------------------
@@ -38,11 +41,16 @@ public class RealPiAsyncTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public async Task PiAsync_GivenConcurrentAwaits_AllReturnCorrectValues()
+    public async Task PiToAsync_GivenConcurrentAwaits_AllReturnCorrectValues()
     {
         // Two independently scheduled calls must both produce the same correct result.
-        Real[] results = await Task.WhenAll(Real.PiAsync(10), Real.PiAsync(10));
-        Assert.Equal("3.1415926535", results[0].ToString());
-        Assert.Equal("3.1415926535", results[1].ToString());
+        // Pin the computation/display precision in an AsyncLocal scope so concurrent tests
+        // mutating the global Real.DisplayDecimalPlaces static cannot truncate the result.
+        using (Real.WithPrecision(10, 10))
+        {
+            Real[] results = await Task.WhenAll(Real.PiToAsync(10), Real.PiToAsync(10));
+            Assert.Equal("3.1415926535", results[0].ToString());
+            Assert.Equal("3.1415926535", results[1].ToString());
+        }
     }
 }

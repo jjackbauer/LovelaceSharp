@@ -407,6 +407,18 @@ public class Real :
     public int CompareTo(Real? other)
     {
         if (other is null) return 1;
+
+        // Zero has no significant digits; the exponent-aligned integer-length comparison
+        // below mis-orders it otherwise (e.g. 0.5 vs 0, or -0 vs 0), so short-circuit zero.
+        bool thisZero = Int.IsZero(this);
+        bool otherZero = Int.IsZero(other);
+        if (thisZero || otherZero)
+        {
+            if (thisZero && otherZero) return 0;
+            if (thisZero) return Int.IsNegative(other) ? 1 : -1;
+            return Int.IsNegative(this) ? -1 : 1;
+        }
+
         // Delegate to arithmetic comparison (handles exponent alignment).
         // For now, use the inherited Integer comparison on the magnitude as a placeholder;
         // full exponent-aware comparison is implemented with the comparison operators checklist item.
@@ -637,7 +649,7 @@ public class Real :
     /// Divides two non-periodic <see cref="Real"/> values and truncates the quotient to
     /// exactly <paramref name="fracDigits"/> fractional digits, using a single fixed-point
     /// integer division (no period detection). This is the fast path used by
-    /// <see cref="Pi(long)"/> and <see cref="Sqrt(Real, long)"/>, whose operands are
+    /// <see cref="PiTo(long)"/> and <see cref="Sqrt(Real, long)"/>, whose operands are
     /// irrational truncations and never produce a true repeating period.
     /// </summary>
     /// <exception cref="DivideByZeroException">Thrown when <paramref name="right"/> is zero.</exception>
@@ -796,7 +808,7 @@ public class Real :
     /// <summary>
     /// Internal Newton-Raphson square root with caller-specified precision; imposes no
     /// additional cap on <paramref name="precision"/> beyond what the underlying arithmetic
-    /// provides.  Used exclusively by <see cref="Pi(long)"/> to compute <c>√10005</c> at
+    /// provides.  Used exclusively by <see cref="PiTo(long)"/> to compute <c>√10005</c> at
     /// guard-digit precision.
     /// </summary>
     /// <exception cref="ArithmeticException">Thrown when <paramref name="value"/> is negative.</exception>
@@ -925,7 +937,7 @@ public class Real :
     /// <c>-digits</c>.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="digits"/> is ≤ 0 or
     /// exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
-    public static Real Pi(long digits, IProgress<double>? progress = null)
+    public static Real PiTo(long digits, IProgress<double>? progress = null)
     {
         if (digits <= 0 || digits > MaxComputationDecimalPlaces)
             throw new ArgumentOutOfRangeException(nameof(digits));
@@ -1048,21 +1060,331 @@ public class Real :
     }
 
     /// <summary>
+    /// Computes Euler's number <c>e = Σ 1/k!</c> to <paramref name="digits"/> decimal places by
+    /// summing the Taylor series until terms fall below a guard-digit threshold, then truncating.
+    /// Mirrors <see cref="PiTo(long)"/> in structure (guard digits + final truncation).
+    /// </summary>
+    /// <param name="digits">The number of fractional decimal places to compute. Must be between 1 and
+    /// <see cref="MaxComputationDecimalPlaces"/> inclusive.</param>
+    /// <returns>A non-negative, non-periodic <see cref="Real"/> with <see cref="Exponent"/> equal to
+    /// <c>-digits</c>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="digits"/> is ≤ 0 or
+    /// exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
+    public static Real ETo(long digits, IProgress<double>? progress = null)
+    {
+        if (digits <= 0 || digits > MaxComputationDecimalPlaces)
+            throw new ArgumentOutOfRangeException(nameof(digits));
+
+        long guardDigits = digits + 10;
+
+        // Choose n so the tail 1/n! < 10^-(guardDigits+1): n! >= 10^(guardDigits+1).
+        Nat limit = new Nat(10UL).Pow(new Nat((ulong)(guardDigits + 1)));
+        Nat nFact = Nat.One;
+        long n = 1;
+        while (nFact < limit)
+        {
+            n++;
+            nFact = nFact * new Nat((ulong)n);
+        }
+
+        // e = Σ_{k=0}^{n} 1/k! = (Σ_{k=0}^{n} n!/k!) / n! — accumulate the exact rational,
+        // then perform a single non-periodic division (mirrors PiTo's structure).
+        Int sumNum = new Int(nFact, false);   // n!/0!
+        Nat term = nFact;                     // n!/k!, starts at n!/0!
+        for (long k = 1; k <= n; k++)
+        {
+            term = Nat.DivRem(term, new Nat((ulong)k), out _);   // n!/k!
+            sumNum = sumNum + new Int(term, false);
+        }
+
+        Real e = DivideNonPeriodic(new Real(sumNum), new Real(new Int(nFact, false)), guardDigits);
+
+        progress?.Report(1.0);
+        return TruncateFracDigits(e, digits);
+
+        static Real TruncateFracDigits(Real x, long maxFrac)
+        {
+            long storedFrac = -x.Exponent;
+            long toDrop = storedFrac - maxFrac;
+            if (toDrop <= 0L) return x;
+
+            string natStr = x.ToNatural().ToString();
+            int keepLen = (int)((long)natStr.Length - toDrop);
+            if (keepLen <= 0) return new Real("0");
+
+            string truncStr = natStr[..keepLen];
+            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+                return x;
+            return new Real(truncNat, false, x.Exponent + toDrop);
+        }
+    }
+
+    /// <summary>
+    /// Asynchronously computes Euler's number <c>e</c> to <paramref name="digits"/> decimal places
+    /// by offloading the CPU-bound <see cref="ETo(long)"/> call to the thread pool.
+    /// </summary>
+    public static Task<Real> EToAsync(long digits) => EToAsync(digits, null);
+
+    /// <summary>
+    /// Asynchronously computes Euler's number <c>e</c>, reporting series progress (0..1).
+    /// </summary>
+    public static Task<Real> EToAsync(long digits, IProgress<double>? progress) => Task.Run(() => ETo(digits, progress));
+
+    // -------------------------------------------------------------------------
+    // Cached transcendental constants (computed once at the configured max precision)
+    // -------------------------------------------------------------------------
+
+    private static readonly Lazy<Real> s_pi = new(() => PiTo(MaxComputationDecimalPlaces));
+    private static readonly Lazy<Real> s_e = new(() => ETo(MaxComputationDecimalPlaces));
+
+    /// <summary>π (pi), computed once at the configured maximum precision.</summary>
+    public static Real Pi => s_pi.Value;
+
+    /// <summary>Euler's number <c>e</c>, computed once at the configured maximum precision.</summary>
+    public static Real E => s_e.Value;
+
+    // -------------------------------------------------------------------------
+    // Domain-specific operations — Sin / Cos
+    // -------------------------------------------------------------------------
+
+    private static readonly Lazy<Real> s_sqrt2Half = new(() => Sqrt(new Real("2")) / new Real("2"));
+    private static readonly Lazy<Real> s_sqrt3Half = new(() => Sqrt(new Real("3")) / new Real("2"));
+
+    /// <summary>
+    /// Computes sin(x) to <see cref="MaxComputationDecimalPlaces"/> decimal places. Angles that are
+    /// exact rational multiples of the cached <see cref="Pi"/> hit the special-angle table and
+    /// return exact rational or <see cref="Sqrt(Real)"/>-based values; all other angles use a
+    /// Taylor series at the active precision. No IEEE floating point is used.
+    /// </summary>
+    public static Real Sin(Real value) => Sin(value, MaxComputationDecimalPlaces, null);
+
+    /// <summary>Computes sin(x) to <paramref name="digits"/> decimal places.</summary>
+    public static Real Sin(Real value, long digits) => Sin(value, digits, null);
+
+    /// <summary>
+    /// Computes cos(x) to <see cref="MaxComputationDecimalPlaces"/> decimal places, with the same
+    /// special-angle exactness as <see cref="Sin(Real)"/>.
+    /// </summary>
+    public static Real Cos(Real value) => Cos(value, MaxComputationDecimalPlaces, null);
+
+    /// <summary>Computes cos(x) to <paramref name="digits"/> decimal places.</summary>
+    public static Real Cos(Real value, long digits) => Cos(value, digits, null);
+
+    private static Real Sin(Real value, long digits, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (digits <= 0 || digits > MaxComputationDecimalPlaces)
+            throw new ArgumentOutOfRangeException(nameof(digits));
+
+        long guard = digits + 10;
+        Real pi = Pi;
+        Real twoPi = pi * new Real("2");
+        Real halfPi = pi / new Real("2");
+
+        Real x = ReduceToTwoPi(value, pi, twoPi);
+
+        if (TrySpecialAngle(x, pi, out Real sinValue, out _))
+            return sinValue;
+
+        bool negative = false;
+        if (x <= pi) { if (x > halfPi) x = pi - x; }
+        else if (x <= pi + halfPi) { x = x - pi; negative = true; }
+        else { x = twoPi - x; negative = true; }
+
+        Real sin = SinTaylor(x, guard);
+        return negative ? -sin : sin;
+    }
+
+    private static Real Cos(Real value, long digits, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (digits <= 0 || digits > MaxComputationDecimalPlaces)
+            throw new ArgumentOutOfRangeException(nameof(digits));
+
+        long guard = digits + 10;
+        Real pi = Pi;
+        Real twoPi = pi * new Real("2");
+        Real halfPi = pi / new Real("2");
+
+        Real x = ReduceToTwoPi(value, pi, twoPi);
+
+        if (TrySpecialAngle(x, pi, out _, out Real cosValue))
+            return cosValue;
+
+        bool negate = false;
+        if (x <= pi) { if (x > halfPi) { x = pi - x; negate = true; } }
+        else if (x <= pi + halfPi) { x = x - pi; negate = true; }
+        else { x = twoPi - x; }
+
+        Real cos = CosTaylor(x, guard);
+        return negate ? -cos : cos;
+    }
+
+    /// <summary>Reduces <paramref name="value"/> into [0, 2π) without truncating small angles.</summary>
+    private static Real ReduceToTwoPi(Real value, Real pi, Real twoPi)
+    {
+        if (value >= Zero && value < twoPi)
+            return value;
+        Real reduced = value - twoPi * Truncate(value / twoPi);
+        return reduced < Zero ? reduced + twoPi : reduced;
+    }
+
+    /// <summary>
+    /// Returns the exact sin/cos for the 16 special angles that are rational multiples of π
+    /// (multiples of π/6 and π/4 in [0, 2π)), or <see langword="false"/> for any other angle.
+    /// </summary>
+    private static bool TrySpecialAngle(Real x, Real pi, out Real sin, out Real cos)
+    {
+        sin = Zero;
+        cos = Zero;
+
+        Real half = new Real("0.5");
+        Real negHalf = new Real("-0.5");
+        Real negOne = new Real("-1");
+        Real sqrt2Half = s_sqrt2Half.Value;
+        Real sqrt3Half = s_sqrt3Half.Value;
+
+        // (numerator, denominator, sin, cos) for multiples of π/6 and π/4 in [0, 2π).
+        (long Num, long Den, Real Sin, Real Cos)[] table =
+        {
+            (0, 1, Zero, One),
+            (1, 6, half, sqrt3Half),
+            (1, 4, sqrt2Half, sqrt2Half),
+            (1, 3, sqrt3Half, half),
+            (1, 2, One, Zero),
+            (2, 3, sqrt3Half, negHalf),
+            (3, 4, sqrt2Half, -sqrt2Half),
+            (5, 6, half, -sqrt3Half),
+            (1, 1, Zero, negOne),
+            (7, 6, negHalf, -sqrt3Half),
+            (5, 4, -sqrt2Half, -sqrt2Half),
+            (4, 3, -sqrt3Half, negHalf),
+            (3, 2, negOne, Zero),
+            (5, 3, -sqrt3Half, half),
+            (7, 4, -sqrt2Half, sqrt2Half),
+            (11, 6, negHalf, sqrt3Half),
+        };
+
+        foreach (var (num, den, s, c) in table)
+        {
+            Real angle = num == 0 ? Zero : pi * new Real(new Int(num)) / new Real(new Int(den));
+            if (x.Equals(angle))
+            {
+                sin = s;
+                cos = c;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>sin(x) = x − x³/3! + x⁵/5! − … for |x| ≤ π/2.</summary>
+    private static Real SinTaylor(Real x, long guard)
+    {
+        Real x2 = x * x;
+        Real term = x;
+        Real sum = x;
+        Real threshold = new Real("0." + new string('0', (int)guard) + "1");
+
+        for (long k = 1; ; k++)
+        {
+            long denom = (2 * k) * (2 * k + 1);
+            term = DivideNonPeriodic(-term * x2, new Real(new Int(denom)), guard);
+            sum = sum + term;
+            if (Abs(term) < threshold)
+                break;
+        }
+        return sum;
+    }
+
+    /// <summary>cos(x) = 1 − x²/2! + x⁴/4! − … for |x| ≤ π/2.</summary>
+    private static Real CosTaylor(Real x, long guard)
+    {
+        Real x2 = x * x;
+        Real term = One;
+        Real sum = One;
+        Real threshold = new Real("0." + new string('0', (int)guard) + "1");
+
+        for (long k = 1; ; k++)
+        {
+            long denom = (2 * k - 1) * (2 * k);
+            term = DivideNonPeriodic(-term * x2, new Real(new Int(denom)), guard);
+            sum = sum + term;
+            if (Abs(term) < threshold)
+                break;
+        }
+        return sum;
+    }
+
+    // -------------------------------------------------------------------------
+    // Domain-specific operations — Exp
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Computes exp(x) = eˣ to <see cref="MaxComputationDecimalPlaces"/> decimal places using a
+    /// Taylor series with argument reduction. No IEEE floating point is used.
+    /// </summary>
+    public static Real Exp(Real value) => Exp(value, MaxComputationDecimalPlaces, null);
+
+    /// <summary>Computes exp(x) to <paramref name="digits"/> decimal places.</summary>
+    public static Real Exp(Real value, long digits) => Exp(value, digits, null);
+
+    private static Real Exp(Real value, long digits, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (digits <= 0 || digits > MaxComputationDecimalPlaces)
+            throw new ArgumentOutOfRangeException(nameof(digits));
+        long guard = digits + 10;
+
+        if (value.Equals(Zero))
+            return One;
+
+        // exp(x) = exp(x / 2^k)^(2^k): halve until |x/2^k| < 1 for fast Taylor convergence.
+        long n = 1;
+        Real y = value;
+        while (Abs(y) >= One)
+        {
+            y = y / new Real("2");
+            n <<= 1;
+        }
+
+        Real expY = ExpTaylor(y, guard);
+        return expY.Pow(new Real(new Int(n)));
+    }
+
+    /// <summary>exp(y) = Σ yᵏ/k! for |y| &lt; 1.</summary>
+    private static Real ExpTaylor(Real y, long guard)
+    {
+        Real term = One;
+        Real sum = One;
+        Real threshold = new Real("0." + new string('0', (int)guard) + "1");
+
+        for (long k = 1; ; k++)
+        {
+            term = DivideNonPeriodic(term * y, new Real(new Int(k)), guard);
+            sum = sum + term;
+            if (Abs(term) < threshold)
+                break;
+        }
+        return sum;
+    }
+
+    /// <summary>
     /// Asynchronously computes π to <paramref name="digits"/> decimal places by offloading
-    /// the CPU-bound <see cref="Pi(long)"/> call to the thread pool via <see cref="Task.Run"/>.
+    /// the CPU-bound <see cref="PiTo(long)"/> call to the thread pool via <see cref="Task.Run"/>.
     /// New C# addition with no C++ counterpart.
     /// </summary>
     /// <param name="digits">The number of fractional decimal places to compute. Must be between 1 and
     /// <see cref="MaxComputationDecimalPlaces"/> inclusive.</param>
-    /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="Pi(long)"/>.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Propagated from <see cref="Pi(long)"/> when
+    /// <returns>A <see cref="Task{Real}"/> that completes with the same value as <see cref="PiTo(long)"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Propagated from <see cref="PiTo(long)"/> when
     /// <paramref name="digits"/> is ≤ 0 or exceeds <see cref="MaxComputationDecimalPlaces"/>.</exception>
-    public static Task<Real> PiAsync(long digits) => PiAsync(digits, null);
+    public static Task<Real> PiToAsync(long digits) => PiToAsync(digits, null);
 
     /// <summary>
     /// Asynchronously computes π, reporting series-chunk progress (0..1).
     /// </summary>
-    public static Task<Real> PiAsync(long digits, IProgress<double>? progress) => Task.Run(() => Pi(digits, progress));
+    public static Task<Real> PiToAsync(long digits, IProgress<double>? progress) => Task.Run(() => PiTo(digits, progress));
 
     /// <summary>
     /// Asynchronously computes the square root of <paramref name="value"/> by offloading
