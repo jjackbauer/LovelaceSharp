@@ -1,5 +1,7 @@
 # LovelaceSharp
 
+[![CI](https://github.com/jjackbauer/LovelaceSharp/actions/workflows/ci.yml/badge.svg)](https://github.com/jjackbauer/LovelaceSharp/actions/workflows/ci.yml)
+
 > **Arbitrary-precision math, end to end** — a scripting language, a .NET library, and a Lean proof
 > that the digits are actually right.
 

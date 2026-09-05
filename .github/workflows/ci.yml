@@ -1,0 +1,66 @@
+# CI — fast test suites (third-party verification)
+#
+# Runs every test project that completes quickly, i.e. everything except the
+# slow Lovelace.Real.Tests (high-digit Pi/sqrt work — mirrors the `make test`
+# target). Lovelace.Real correctness is still covered here via
+# precbench.Tests (the xUnit accuracy verifier) and via the suites that
+# reference Lovelace.Real indirectly.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-tests:
+    name: Fast accuracy test suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          # Test projects target net10.0; installs the latest 10.0 SDK if the
+          # runner image does not already carry it.
+          dotnet-version: '10.0.x'
+
+      - name: Run fast test suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          suites=(
+            Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.csproj
+            Lovelace.Array.Tests/Lovelace.Array.Tests.csproj
+            Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
+            Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.csproj
+            Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj
+            Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.csproj
+            Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj
+            Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj
+            Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj
+            Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj
+            # Accuracy verifier: Lovelace.Real @ 8/16 digits vs float/double,
+            # asserted against a high-precision reference (fast — only the
+            # low-precision sqrt paths).
+            precbench.Tests/precbench.Tests.csproj
+          )
+          for project in "${suites[@]}"; do
+            echo "::group::dotnet test $project"
+            dotnet test "$project" --configuration Release --nologo
+            echo "::endgroup::"
+          done
