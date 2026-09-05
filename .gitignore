@@ -45,6 +45,7 @@ artifacts/
 
 # BenchmarkDotNet output (precbench)
 BenchmarkDotNet.Artifacts/
+dspbench-*-artifacts/
 
 # Plot output (default filename from the plot builtin)
 plot.svg

@@ -21,7 +21,9 @@ public class LanguageDocumentationTests
     {
         Assert.True(File.Exists(DocPath), $"Language.md not found at {DocPath}.");
 
+        // The CLI hosts opt into the DSP extension, so the reference surface includes it.
         var engine = new SuiteEngine();
+        engine.RegisterDspBuiltins();
         var tmp = Path.Combine(Path.GetTempPath(), "lovelace-doctest-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tmp);
 

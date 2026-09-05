@@ -57,6 +57,9 @@ public static class NumericOps
             (BinaryOp.Modulo,   ValueKind.Real) => new Value(left.AsReal() % right.AsReal()),
             (BinaryOp.Power,    ValueKind.Real) => new Value(left.AsReal().Pow(right.AsReal())),
 
+            (_, ValueKind.Complex) => throw new InvalidOperationException(
+                $"Operator '{op}' is not supported for Complex; use re()/im()/conj()/abs() to bridge back to Real."),
+
             _ => throw new InvalidOperationException(
                 $"Operator '{op}' is not supported for type '{left.Kind}'."),
         };
@@ -126,6 +129,8 @@ public static class NumericOps
             ValueKind.Natural => left.AsNatural().CompareTo(right.AsNatural()),
             ValueKind.Integer => left.AsInteger().CompareTo(right.AsInteger()),
             ValueKind.Real    => left.AsReal().CompareTo(right.AsReal()),
+            ValueKind.Complex => throw new InvalidOperationException(
+                "Cannot compare Complex values; use abs()/re()/im() to compare their Real parts."),
             _ => throw new InvalidOperationException($"Cannot compare values of kind '{left.Kind}'."),
         };
     }
@@ -136,6 +141,8 @@ public static class NumericOps
         ValueKind.Natural => new Value(-value.Widen(ValueKind.Integer).AsInteger()),
         ValueKind.Integer => new Value(-value.AsInteger()),
         ValueKind.Real    => new Value(-value.AsReal()),
+        ValueKind.Complex => throw new InvalidOperationException(
+            "Negation is not supported for Complex; use conj() or re()/im() instead."),
         _ => throw new InvalidOperationException($"Negation is not supported for kind '{value.Kind}'."),
     };
 
@@ -145,6 +152,8 @@ public static class NumericOps
         ValueKind.Natural => Nat.IsZero(value.AsNatural()),
         ValueKind.Integer => Int.IsZero(value.AsInteger()),
         ValueKind.Real    => Rl.IsZero(value.AsReal()),
+        ValueKind.Complex => throw new InvalidOperationException(
+            "Expected a numeric value; Complex is a domain type. Use re()/im()/abs() to bridge to Real."),
         _ => throw new InvalidOperationException($"Expected a numeric value, but got '{value.Kind}'."),
     };
 

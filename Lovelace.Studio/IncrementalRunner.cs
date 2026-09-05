@@ -149,6 +149,7 @@ internal static class ValueHasher
         ValueKind.Natural => "N:" + v.AsNatural().ToString(),
         ValueKind.Integer => "I:" + v.AsInteger().ToString(),
         ValueKind.Real => "R:" + v.AsReal().ToNatural().ToString() + ":" + v.AsReal().Exponent + ":" + v.AsReal().PeriodStart + ":" + v.AsReal().PeriodLength,
+        ValueKind.Complex => "C:" + v.AsComplex().ToString(),
         ValueKind.Boolean => "B:" + (v.AsBoolean() ? "1" : "0"),
         ValueKind.Text => "T:" + v.AsText(),
         ValueKind.Vector => "V[" + string.Join(",", v.AsVector().Select(Canonical)) + "]",

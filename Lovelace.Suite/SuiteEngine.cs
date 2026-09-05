@@ -237,6 +237,15 @@ public sealed class SuiteEngine
     public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation) =>
         _interpreter.RegisterBuiltin(name, parameters, implementation);
 
+    /// <summary>
+    /// Opts this engine into the DSP builtins (<c>fft</c>, <c>dft</c>, <c>conv</c>,
+    /// <c>filter</c>, <c>movingavg</c>, <c>cosine</c>, <c>exponential</c>, <c>powerseries</c>,
+    /// <c>noise</c>, <c>impulse</c>, <c>step</c>, <c>delay</c>, <c>scale</c>, <c>re</c>,
+    /// <c>im</c>, <c>conj</c>). Registration is opt-in so a bare engine stays dependency-free;
+    /// the CLI hosts call this during startup.
+    /// </summary>
+    public void RegisterDspBuiltins() => DspBuiltins.Register(_interpreter);
+
     /// <summary>Loads a Modus plugin, registering its builtins and kernels.</summary>
     public void LoadPlugin(IModusPlugin plugin) => _modus.Load(plugin);
 

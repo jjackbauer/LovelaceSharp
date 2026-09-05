@@ -102,6 +102,7 @@ static async Task<int> ProgramMain(string[] args)
     }
 
     var engine = new SuiteEngine();
+    engine.RegisterDspBuiltins();
     if (plotDir is not null) engine.PlotOutputDirectory = plotDir;
     if (plotFile is not null) engine.PlotFileName = plotFile;
 

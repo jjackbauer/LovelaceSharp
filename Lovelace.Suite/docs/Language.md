@@ -784,6 +784,35 @@ print("hi", 1..3)
 prints: hi [1, 2, 3]
 ```
 
+### DSP functions (loaded by the CLI hosts)
+
+The REPL, web IDE, and headless runner opt into the DSP extension via
+`engine.RegisterDspBuiltins()`. These return complex vectors; `re`, `im`, `conj`, and `abs` bridge
+a complex value back to the `Real` lattice. `conv`, `dft`, `fft`, `filter`, `movingavg`,
+`impulse`, `step`, `cosine`, `exponential`, `powerseries`, `noise`, `delay`, and `scale` complete
+the surface.
+
+```lovelace
+fft([1, 0, 0, 0])
+```
+```result
+[1, 1, 1, 1] (Vector)
+```
+
+```lovelace
+conv([1, 1], [1, 1])
+```
+```result
+[1, 2, 1] (Vector)
+```
+
+```lovelace
+z = fft([0, 1, 0, 0])[1]; [re(z), im(z), abs(z)]
+```
+```result
+[0, -1, 1] (Vector)
+```
+
 ---
 
 ## 12. Plotting

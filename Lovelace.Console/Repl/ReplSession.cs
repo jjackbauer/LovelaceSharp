@@ -17,6 +17,11 @@ public sealed class ReplSession
     private readonly LineEditor _lineEditor = new();
     private bool _exitRequested;
 
+    public ReplSession()
+    {
+        _engine.RegisterDspBuiltins();
+    }
+
     // -----------------------------------------------------------------
     // Help text
     // -----------------------------------------------------------------
@@ -55,6 +60,12 @@ public sealed class ReplSession
         Built-in functions:
           abs(x)  inv(x)  divrem(a, b)  is_even(x)  is_odd(x)  sign(x)
           sqrt(x)  pi([digits])  setprecision(n)  print(x)  plot(y) / plot(x, y[, "title"])
+
+        DSP functions:
+          conv(x, h)  dft(x)  fft(x)  filter(a, b, n)  movingavg(x, w)
+          impulse(n)  step(n)  cosine(freq, phase, n)  exponential(c, n)
+          powerseries(k, a, n)  noise(scale, disp, seed, n)
+          delay(x, k)  scale(x, k)  re(z)  im(z)  conj(z)
 
         Special commands:
           vars                     list all variables

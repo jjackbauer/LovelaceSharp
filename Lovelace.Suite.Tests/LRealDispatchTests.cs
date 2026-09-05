@@ -17,26 +17,21 @@ public class LRealDispatchTests
 {
     private static async Task<string> EngineResult(string source, long prec)
     {
-        long savedMax = Rl.MaxComputationDecimalPlaces;
-        long savedDisp = Rl.DisplayDecimalPlaces;
-        try
-        {
-            Rl.MaxComputationDecimalPlaces = prec;
-            Rl.DisplayDecimalPlaces = prec;
-            var engine = new SuiteEngine();
-            var result = await engine.EvaluateAsync(source);
-            return ValueFormatter.Format(result);
-        }
-        finally
-        {
-            Rl.MaxComputationDecimalPlaces = savedMax;
-            Rl.DisplayDecimalPlaces = savedDisp;
-        }
+        // Set the engine's own precision (not the process-global Real precision). The interpreter
+        // wraps each evaluation in Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces),
+        // so the LReal64/LReal128 fast path in NumericOps sees the engine's precision — the global
+        // setting would be overridden by that AsyncLocal scope and the fallback would never run.
+        var engine = new SuiteEngine();
+        engine.SetPrecision(prec);
+        var result = await engine.EvaluateAsync(source);
+        return engine.FormatValue(result);
     }
 
-    private static string ClassReal(string expr)
+    private static string ClassReal(string expr, long prec)
     {
-        // Minimal: just compare a few known expressions via direct class-Real arithmetic.
+        // Compute with the class Real type and render at the SAME display precision as the engine,
+        // inside an AsyncLocal scope so parallel tests cannot clobber the global display precision.
+        using var scope = Rl.WithPrecision(prec, prec);
         return expr switch
         {
             "0.1 + 0.2" => (Rl.Parse("0.1") + Rl.Parse("0.2")).ToString(),
@@ -54,9 +49,9 @@ public class LRealDispatchTests
     [InlineData("3.14 * 2.71", 18L)]
     [InlineData("10 / 7", 18L)]
     [InlineData("2.345678901234567 * 1.234567890123456", 37L)] // 32 digits — LReal128 tier
-    public void Arithmetic_AtLowPrecision_MatchesClassReal(string expr, long prec)
+    public async Task Arithmetic_AtLowPrecision_MatchesClassReal(string expr, long prec)
     {
-        Assert.Equal(ClassReal(expr), EngineResult(expr, prec).Result);
+        Assert.Equal(ClassReal(expr, prec), await EngineResult(expr, prec));
     }
 
     [Fact]

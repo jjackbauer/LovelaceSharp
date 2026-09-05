@@ -33,8 +33,9 @@ public sealed class Session
 
     public Session()
     {
-        // A new session starts at the single "precision" knob default.
+        // A new session starts at the single "precision" knob default and exposes the DSP builtins.
         Engine.SetPrecision(DefaultPrecision);
+        Engine.RegisterDspBuiltins();
         // Track (re)definitions so cached statements depending on a function are invalidated.
         Engine.FunctionDefined += (_, e) => Cache.NoteFunctionDefined(e.Definition.Name);
     }

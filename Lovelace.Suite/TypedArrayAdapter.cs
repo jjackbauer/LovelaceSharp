@@ -52,6 +52,8 @@ internal static class TypedArrayAdapter
         var max = ValueKind.Natural;
         foreach (var v in data)
         {
+            if (v.Kind == ValueKind.Complex)
+                return DType.Complex;
             if (v.Kind == ValueKind.Real)
                 return DType.Real;
             if (v.Kind == ValueKind.Integer && max == ValueKind.Natural)

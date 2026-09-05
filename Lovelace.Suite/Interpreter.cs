@@ -257,6 +257,14 @@ public sealed class Interpreter
     {
         if (scope.TryGet(var.Name, out var value))
             return value;
+
+        // Mathematical constants, computed once at the configured maximum precision (lazily).
+        // A user assignment shadows these (TryGet above wins).
+        if (var.Name == "pi")
+            return new Value(Rl.Pi);
+        if (var.Name == "e")
+            return new Value(Rl.E);
+
         throw new InvalidOperationException($"Undefined variable '{var.Name}'.");
     }
 
@@ -925,6 +933,7 @@ public sealed class Interpreter
                 ValueKind.Natural => new Value(Nat.Abs(arg.AsNatural())),
                 ValueKind.Integer => new Value(Int.Abs(arg.AsInteger())),
                 ValueKind.Real    => new Value(Rl.Abs(arg.AsReal())),
+                ValueKind.Complex => new Value(arg.AsComplex().Magnitude),
                 _ => throw new InvalidOperationException($"abs() is not supported for values of kind '{arg.Kind}'."),
             });
         });
@@ -1015,7 +1024,7 @@ public sealed class Interpreter
             switch (args.Count)
             {
                 case 0:
-                    return new Value(await Rl.PiAsync(Rl.DisplayDecimalPlaces, SubProgress("pi")));
+                    return new Value(Rl.Pi);
 
                 case 1:
                 {
@@ -1026,11 +1035,36 @@ public sealed class Interpreter
                         ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
                         _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
                     };
-                    return new Value(await Rl.PiAsync(digits, SubProgress("pi")));
+                    return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
                 }
 
                 default:
                     throw new InvalidOperationException($"pi() expects 0 or 1 argument, but got {args.Count}.");
+            }
+        });
+
+        // e() / e(digits)
+        Register("e", ["digits"], async args =>
+        {
+            switch (args.Count)
+            {
+                case 0:
+                    return new Value(Rl.E);
+
+                case 1:
+                {
+                    var arg = args[0];
+                    long digits = arg.Kind switch
+                    {
+                        ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+                        ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+                        _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+                    };
+                    return new Value(await Rl.EToAsync(digits, SubProgress("e")));
+                }
+
+                default:
+                    throw new InvalidOperationException($"e() expects 0 or 1 argument, but got {args.Count}.");
             }
         });
 

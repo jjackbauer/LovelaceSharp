@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Optimize>true</Optimize>
+    <TieredPGO>true</TieredPGO>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <AssemblyName>dspbench</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Lovelace.Dsp\Lovelace.Dsp.csproj" />
+    <ProjectReference Include="..\Lovelace.Complex\Lovelace.Complex.csproj" />
+    <ProjectReference Include="..\Lovelace.Real\Lovelace.Real.csproj" />
+    <ProjectReference Include="..\Lovelace.Suite\Lovelace.Suite.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,6 +1,7 @@
 using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
+using Cplx = global::Lovelace.Complex.Complex;
 using Lovelace.Arrays;
 using Lovelace.Abstractions;
 
@@ -14,6 +15,7 @@ namespace Lovelace.Suite;
 /// Identifies which type a <see cref="Value"/> holds.
 /// The numeric kinds are ordered from narrowest (Natural=0) to widest (Real=2);
 /// the remaining kinds are non-numeric and are excluded from widening arithmetic.
+/// <see cref="Complex"/> is a domain type outside the widening lattice.
 /// </summary>
 public enum ValueKind
 {
@@ -26,6 +28,7 @@ public enum ValueKind
     Function,
     Void,
     Array,
+    Complex,
 }
 
 // -------------------------------------------------------------------------
@@ -67,6 +70,13 @@ public sealed class Value
     {
         _inner = value;
         Kind = ValueKind.Real;
+    }
+
+    /// <summary>Wraps a complex value.</summary>
+    public Value(Cplx value)
+    {
+        _inner = value;
+        Kind = ValueKind.Complex;
     }
 
     /// <summary>Wraps a <see cref="bool"/> value.</summary>
@@ -142,6 +152,8 @@ public sealed class Value
     /// <summary>Returns the stored value cast to <see cref="Rl"/>.</summary>
     public Rl AsReal() => (Rl)_inner;
 
+    public Cplx AsComplex() => (Cplx)_inner;
+
     /// <summary>Returns the stored value cast to <see cref="bool"/>.</summary>
     public bool AsBoolean() => (bool)_inner;
 
@@ -175,8 +187,13 @@ public sealed class Value
             return this;
 
         if (!IsNumeric(Kind) || !IsNumeric(target))
+        {
+            string hint = Kind == ValueKind.Complex || target == ValueKind.Complex
+                ? " Complex is a domain type; use re()/im()/conj()/abs() to bridge back to Real."
+                : string.Empty;
             throw new InvalidOperationException(
-                $"Cannot widen from {Kind} to {target}: only numeric kinds (Natural, Integer, Real) support widening.");
+                $"Cannot widen from {Kind} to {target}: only numeric kinds (Natural, Integer, Real) support widening.{hint}");
+        }
 
         if (target < Kind)
             throw new InvalidOperationException(
@@ -224,6 +241,7 @@ public sealed class Value
         ValueKind.Natural => $"Natural: {_inner}",
         ValueKind.Integer => $"Integer: {_inner}",
         ValueKind.Real    => $"Real: {_inner}",
+        ValueKind.Complex => $"Complex: {_inner}",
         ValueKind.Boolean => $"Boolean: {_inner}",
         ValueKind.Text    => (string)_inner,
         ValueKind.Vector  => $"Vector: {ValueFormatter.Format(this)}",
