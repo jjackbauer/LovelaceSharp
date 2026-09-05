@@ -92,3 +92,29 @@ tests and scripts can assert on the raw JSON.
 - This is a per-session dynamic plugin. To make it a permanent, always-on tool for a
   machine, publish it as an npm package and reference it from an agent preset
   (`agent.cordis.yml`) — the dynamic-plugin form here is the repo-local, zero-publish path.
+
+---
+
+## MGIR behavioral graph discovery — the `mgir` tool
+
+A second, thin bridge ([knowledge.host.js](./knowledge.host.js)) exposes the **observation-driven
+behavioral graph discovery** tooling from [`.github/requirements/MGIR-Knowledge-Compilation.md`](../.github/requirements/MGIR-Knowledge-Compilation.md).
+It registers a `mgir` tool that marshals a JSON request and spawns the
+[`Lovelace.Knowledge.Run`](../Lovelace.Knowledge.Run) CLI via the DSH `subprocess` service — transport
+only, no sampling/reduction/graph logic (that all lives in C#).
+
+Build the CLI and the runner, then load the plugin exactly like `lovelace`:
+
+```bash
+make knowledge   # publishes Lovelace.Knowledge.Run (Native AOT)
+make runner      # publishes Lovelace.Run (the sample executor)
+````
+
+```text
+mgir { "command": "converge", "graphPath": "knowledge-graph.json" }
+mgir { "command": "query", "graphPath": "knowledge-graph.json", "query": "boundaries" }
+```
+
+Commands: `config`, `sample`, `reduce`, `converge` (the autonomous loop), `query`. The persisted
+graph JSON (`knowledge-graph.json` by default) is the durable product; `converge` may be run as a DSH
+background job. The tool registrations belong to the plugin fiber (reversible on stop/update).
