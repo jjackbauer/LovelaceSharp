@@ -1,11 +1,10 @@
 # CI — fast test suites (third-party verification)
 #
-# Runs the fast test suites on the committed tree, i.e. everything except
-# the slow Lovelace.Real.Tests (high-digit Pi/sqrt work — mirrors the
-# `make test` target). Suites whose projects are not committed yet
-# (Lovelace.Complex/Dsp/Knowledge) are excluded until they land on main.
-# Lovelace.Real correctness is still covered via precbench.Tests (the xUnit
-# accuracy verifier) and the suites that reference Lovelace.Real indirectly.
+# Runs every test project that completes quickly, i.e. everything except the
+# slow Lovelace.Real.Tests (high-digit Pi/sqrt work — mirrors the `make test`
+# target). Lovelace.Real correctness is still covered via precbench.Tests (the
+# xUnit accuracy verifier) and the suites that reference Lovelace.Real
+# indirectly.
 
 name: CI
 
@@ -47,7 +46,10 @@ jobs:
           suites=(
             Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.csproj
             Lovelace.Array.Tests/Lovelace.Array.Tests.csproj
+            Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
+            Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.csproj
             Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj
+            Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.csproj
             Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj
             Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj
             Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj
@@ -56,10 +58,6 @@ jobs:
             # asserted against a high-precision reference (fast — only the
             # low-precision sqrt paths).
             precbench.Tests/precbench.Tests.csproj
-            # NOTE: Lovelace.Complex.Tests, Lovelace.Dsp.Tests, and
-            # Lovelace.Knowledge.Tests are intentionally absent: those
-            # projects are not committed yet. Re-add them here once they
-            # land on main.
           )
           for project in "${suites[@]}"; do
             echo "::group::dotnet test $project"
