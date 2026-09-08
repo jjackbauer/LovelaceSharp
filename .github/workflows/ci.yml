@@ -61,6 +61,14 @@ jobs:
           )
           for project in "${suites[@]}"; do
             echo "::group::dotnet test $project"
-            dotnet test "$project" --configuration Release --nologo
+            dotnet test "$project" --configuration Release --nologo \
+              --collect:"XPlat Code Coverage"
             echo "::endgroup::"
           done
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: '**/TestResults/**/coverage.cobertura.xml'
+          # Public repo: authenticates via GitHub OIDC, no CODECOV_TOKEN needed.
+          fail_ci_if_error: true
