@@ -72,6 +72,14 @@ public sealed class SuiteEngine
     /// <summary>Sets both computation and display precision (the single precision knob).</summary>
     public void SetPrecision(long decimalPlaces) => _interpreter.SetPrecision(decimalPlaces);
 
+    /// <summary>
+    /// True once this engine's precision knob has been explicitly changed from its defaults
+    /// (via <see cref="SetPrecision"/>, <see cref="ComputationDecimalPlaces"/>, or
+    /// <see cref="DisplayDecimalPlaces"/>). Plugin builtins run at their fast default budget
+    /// while this is false and silently follow the knob once it is true.
+    /// </summary>
+    public bool PrecisionExplicitlySet => _interpreter.PrecisionExplicitlySet;
+
     /// <summary>Optional sink for sub-operation progress, forwarded to the interpreter.</summary>
     public IProgress<OperationProgress>? ProgressReporter
     {
@@ -238,20 +246,14 @@ public sealed class SuiteEngine
         _interpreter.RegisterBuiltin(name, parameters, implementation);
 
     /// <summary>
-    /// Opts this engine into the DSP builtins (<c>fft</c>, <c>dft</c>, <c>conv</c>,
-    /// <c>filter</c>, <c>movingavg</c>, <c>cosine</c>, <c>exponential</c>, <c>powerseries</c>,
-    /// <c>noise</c>, <c>impulse</c>, <c>step</c>, <c>delay</c>, <c>scale</c>, <c>re</c>,
-    /// <c>im</c>, <c>conj</c>). Registration is opt-in so a bare engine stays dependency-free;
-    /// the CLI hosts call this during startup.
+    /// Loads a Modus plugin, registering its builtins and kernels. Extensions opt in through
+    /// this seam (e.g. <c>LoadPlugin(...)</c>); a bare engine loads none of them.
     /// </summary>
-    public void RegisterDspBuiltins() => DspBuiltins.Register(_interpreter);
-
-    /// <summary>Loads a Modus plugin, registering its builtins and kernels.</summary>
     public void LoadPlugin(IModusPlugin plugin) => _modus.Load(plugin);
 
     /// <summary>Fallible kernel dispatch; returns false when no plugin kernel handles the request.</summary>
-    public bool TryDispatchKernel<T>(ArrayOp op, ReadOnlySpan<T> left, ReadOnlySpan<T> right, Span<T> result)
-        where T : unmanaged => _modus.TryDispatch(op, left, right, result);
+    public bool TryDispatchKernel<T>(ArrayOp op, ReadOnlySpan<T> left, ReadOnlySpan<T> right, Span<T> result) =>
+        _modus.TryDispatch(op, left, right, result);
 
     /// <summary>Captures an immutable snapshot of variables and functions.</summary>
     public StateSnapshot CaptureState()

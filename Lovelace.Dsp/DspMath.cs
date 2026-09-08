@@ -60,6 +60,44 @@ public static class DspMath
         => DifferenceEquation(a, b, n, stepInput: true);
 
     /// <summary>
+    /// IIR/FIR difference-equation filter of an arbitrary input sequence (direct form, zero
+    /// initial state; D8 fixed — pure function, no hidden state):
+    /// <c>y[n] = (Σ_j b[j]·x[n−j] − Σ_j a[j]·y[n−j]) / a[0]</c>.
+    /// </summary>
+    public static Cplx[] Filter(IReadOnlyList<Cplx> a, IReadOnlyList<Cplx> b, IReadOnlyList<Cplx> x)
+        => DifferenceEquation(a, b, x);
+
+    private static Cplx[] DifferenceEquation(IReadOnlyList<Cplx> a, IReadOnlyList<Cplx> b, IReadOnlyList<Cplx> x)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
+        ArgumentNullException.ThrowIfNull(x);
+        if (a.Count == 0)
+            throw new ArgumentException("The denominator coefficient vector 'a' must not be empty.", nameof(a));
+
+        var xHist = new Cplx[b.Count];   // input history
+        var yHist = new Cplx[a.Count];   // output history
+        for (int i = 0; i < xHist.Length; i++) xHist[i] = Cplx.Zero;
+        for (int i = 0; i < yHist.Length; i++) yHist[i] = Cplx.Zero;
+        var result = new Cplx[x.Count];
+        for (long n = 0; n < x.Count; n++)
+        {
+            for (int j = b.Count - 1; j > 0; j--) xHist[j] = xHist[j - 1];
+            if (b.Count > 0) xHist[0] = x[(int)n];
+
+            Cplx acc = Cplx.Zero;
+            for (int j = 1; j < a.Count; j++) acc -= a[j] * yHist[j - 1];
+            for (int j = 0; j < b.Count; j++) acc += b[j] * xHist[j];
+            acc /= a[0];
+            result[n] = acc;
+
+            for (int j = a.Count - 1; j > 0; j--) yHist[j] = yHist[j - 1];
+            if (a.Count > 0) yHist[0] = acc;
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Direct-form IIR/FIR difference equation driven by an impulse or a unit step, with zero
     /// initial state. Shared by <see cref="ImpulseResponse"/> and <see cref="StepResponse"/>.
     /// </summary>

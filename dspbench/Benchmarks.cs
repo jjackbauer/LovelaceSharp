@@ -307,7 +307,7 @@ public class DspScriptBenchmarks
     public void GlobalSetup()
     {
         _engine = new SuiteEngine();
-        _engine.RegisterDspBuiltins();
+        _engine.LoadPlugin(new DspPlugin());
         _script = $"setprecision({Precision}); conv(1..512, 1..128)";
     }
 

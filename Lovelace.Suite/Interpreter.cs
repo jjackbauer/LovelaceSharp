@@ -52,10 +52,29 @@ public sealed class Interpreter
     public void ResetPlotCapture() => LastPlot = null;
 
     /// <summary>Computation precision (Real decimal places). Default 1000.</summary>
-    public long ComputationDecimalPlaces { get; set; } = 1000L;
+    public long ComputationDecimalPlaces
+    {
+        get => _computationDecimalPlaces;
+        set { _computationDecimalPlaces = value; PrecisionExplicitlySet = true; }
+    }
 
     /// <summary>Display precision (Real fractional digits shown). Default 100.</summary>
-    public long DisplayDecimalPlaces { get; set; } = 100L;
+    public long DisplayDecimalPlaces
+    {
+        get => _displayDecimalPlaces;
+        set { _displayDecimalPlaces = value; PrecisionExplicitlySet = true; }
+    }
+
+    /// <summary>
+    /// True once the precision knob has been explicitly changed from its defaults (via
+    /// <see cref="SetPrecision"/>, <see cref="ComputationDecimalPlaces"/>, or
+    /// <see cref="DisplayDecimalPlaces"/>). <see cref="ModusHost"/> reads it to decide whether
+    /// plugin-registered builtins keep their fast default budget or follow the engine knob.
+    /// </summary>
+    public bool PrecisionExplicitlySet { get; private set; }
+
+    private long _computationDecimalPlaces = 1000L;
+    private long _displayDecimalPlaces = 100L;
 
     /// <summary>Sets both computation and display precision (the single "precision" knob).</summary>
     public void SetPrecision(long decimalPlaces)
@@ -921,6 +940,19 @@ public sealed class Interpreter
             throw new InvalidOperationException($"{name}() expects exactly {expected} argument(s), but got {args.Count}.");
     }
 
+    /// <summary>Elementwise magnitude for complex arrays (the magnitude-spectrum idiom).</summary>
+    private static Value AbsArray(ArrayValue array)
+    {
+        if (array.DType != DType.Complex)
+            throw new InvalidOperationException(
+                $"abs() on arrays requires a Complex array (got DType.{array.DType}); use abs() on individual scalars for Natural/Integer/Real.");
+        var elements = TypedArrayAdapter.ToElements(array);
+        var magnitudes = new Value[elements.Count];
+        for (int i = 0; i < elements.Count; i++)
+            magnitudes[i] = new Value(elements[i].AsComplex().Magnitude);
+        return WrapArrayValue(TypedArrayAdapter.FromElements(magnitudes));
+    }
+
     private void RegisterBuiltins()
     {
         // abs(x)
@@ -934,6 +966,7 @@ public sealed class Interpreter
                 ValueKind.Integer => new Value(Int.Abs(arg.AsInteger())),
                 ValueKind.Real    => new Value(Rl.Abs(arg.AsReal())),
                 ValueKind.Complex => new Value(arg.AsComplex().Magnitude),
+                ValueKind.Vector or ValueKind.Array => AbsArray(arg.AsArrayValue()),
                 _ => throw new InvalidOperationException($"abs() is not supported for values of kind '{arg.Kind}'."),
             });
         });

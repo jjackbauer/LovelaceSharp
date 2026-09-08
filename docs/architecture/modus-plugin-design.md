@@ -73,7 +73,11 @@ arithmetic.
   `Precision`, `Slice`/`IndexSpec`, and the *current* plugin contract
   (`ArrayOp`, `IArrayKernel<T> where T : unmanaged`, `IModusContext`, `IModusPlugin`).
 - `Lovelace.Suite/ModusHost.cs`: the interpreter-aware adapter; `SuiteEngine.LoadPlugin` +
-  `TryDispatchKernel`.
+  `TryDispatchKernel`. Implements the general multi-arg channel (`IModusContext.RegisterBuiltin`,
+  §5.3 note) and owns the `Value ↔ payload` mapping for it.
+- `Lovelace.Dsp/DspPlugin.cs`: `DspPlugin : IModusPlugin` — the DSP extension loads through
+  the same seam (`LoadPlugin(new DspPlugin())`) and registers `conv`/`fft`/`dft`/`filter`/
+  `cosine`/… via `IModusContext.RegisterBuiltin`.
 - `Lovelace.Statistics/StatisticsPlugin.cs` + `Lovelace.Suite.Tests/ModusTests.cs` (both
   `double`-based, to be replaced).
 
@@ -85,6 +89,9 @@ arithmetic.
 4. No production `IField<Real>` / `IField<Integer>` / `IField<Natural>` (§9.2).
 5. Arrays are still stored as `DenseArray<Value>` (boxed), not `DenseArray<Real>` etc. (§9.3).
 6. No scalar / multi-argument builtin channel (`mean`, `dot`) — only unary array→array (§5.4).
+   *(Partially landed since: `IModusContext.RegisterBuiltin` — multi-arg, `Value`-free, with an
+   `object` payload contract; `DspPlugin` is the proof consumer. The named
+   `RegisterScalarBuiltin`/`ScalarResult` surface is still open.)*
 7. No linear-algebra / reduction backend interface (§5.5).
 8. No machine-type dtype distinct from `DType.Real` (§8).
 
@@ -190,6 +197,23 @@ public interface IModusPlugin
     void Register(IModusContext context);
 }
 ```
+
+> **Landed state note (D2 resolution).** The general multi-arg channel **does** live on
+> `IModusContext` itself, staying `Value`-free via an `object` payload contract:
+>
+> ```csharp
+> void RegisterBuiltin(string name, IReadOnlyList<string> parameters,
+>                      Func<IReadOnlyList<object?>, object?> implementation);
+> ```
+>
+> Scalar arguments arrive as `Natural`/`Integer`/`Real`/`Complex`; vector/array arguments as a
+> flat list of those scalars (row-major); the implementation returns one of those scalars or an
+> array of them. `ModusHost` owns the `Value ↔ payload` mapping, so plugins never see `Value`.
+> `DspPlugin` (in `Lovelace.Dsp`, which references only `Abstractions` + the scalar projects)
+> registers its 15 builtins through it, and hosts opt in with `LoadPlugin(new DspPlugin())` —
+> the same `IModusPlugin`/`LoadPlugin` flow as any package. The named
+> `RegisterScalarBuiltin`/`ScalarResult` wrappers below remain an option to type the payload
+> further; typed `DenseArray<T>` arguments arrive with typed storage (§9.3).
 
 ### 5.4 `ScalarResult` — non-array results without importing `Value`
 

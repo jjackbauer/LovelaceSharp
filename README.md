@@ -179,6 +179,8 @@ The repo documents are deliberately split — this README is the map, the links 
 
 **Knowledge base** (journal-distilled, sourced) — [system overview](.github/distilled/system-overview.md) · [module map](.github/distilled/module-map.md) · [domain concepts](.github/distilled/domain-concepts.md) · [trusted facts](.github/distilled/trusted-facts.md) · [glossary](.github/distilled/glossary.md) · [dependencies](.github/distilled/dependencies.md).
 
+**Symbolics (planning)** — [SYMBOLICS-ROADMAP.md](SYMBOLICS-ROADMAP.md) · [architecture](docs/symbolics/architecture.md) · [implementation plan](docs/symbolics/implementation-plan.md) · [testing & validation](docs/symbolics/testing-and-validation.md) · [risk register](docs/symbolics/risk-register.md) · [DSH execution plan](docs/symbolics/dsh-execution-plan.md).
+
 ---
 
 ## Build & test

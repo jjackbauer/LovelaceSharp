@@ -137,12 +137,14 @@ public sealed class Noise : ISignal
     private readonly Random _random;
     private readonly int _digits;
 
-    public Noise(Rl scale, Rl disp, int seed, int digits = 30)
+    public Noise(Rl scale, Rl disp, int seed = 0, long? digits = null)
     {
         _scale = scale ?? throw new ArgumentNullException(nameof(scale));
         _disp = disp ?? throw new ArgumentNullException(nameof(disp));
         _random = new Random(seed);
-        _digits = digits;
+        // The active precision governs the drawn digit count unless an explicit budget is given —
+        // no hard-coded default remains.
+        _digits = checked((int)(digits ?? Rl.MaxComputationDecimalPlaces));
     }
 
     public Cplx Get(long n)

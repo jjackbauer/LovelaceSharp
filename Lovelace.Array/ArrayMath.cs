@@ -1,3 +1,5 @@
+using Lovelace.Abstractions;
+
 namespace Lovelace.Arrays;
 
 /// <summary>

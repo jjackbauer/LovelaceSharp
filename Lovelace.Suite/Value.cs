@@ -188,9 +188,11 @@ public sealed class Value
 
         if (!IsNumeric(Kind) || !IsNumeric(target))
         {
-            string hint = Kind == ValueKind.Complex || target == ValueKind.Complex
-                ? " Complex is a domain type; use re()/im()/conj()/abs() to bridge back to Real."
-                : string.Empty;
+            string hint = target == ValueKind.Complex
+                ? " Reductions over Complex arrays (sum/mean/dot/norm/matmul) are not supported; use re()/im()/conj()/abs() to bridge back to Real."
+                : Kind == ValueKind.Complex
+                    ? " Complex is a domain type; use re()/im()/conj()/abs() to bridge back to Real."
+                    : string.Empty;
             throw new InvalidOperationException(
                 $"Cannot widen from {Kind} to {target}: only numeric kinds (Natural, Integer, Real) support widening.{hint}");
         }

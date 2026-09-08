@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\\Lovelace.Abstractions\\Lovelace.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Lovelace.Natural\Lovelace.Natural.csproj" />
   </ItemGroup>
 

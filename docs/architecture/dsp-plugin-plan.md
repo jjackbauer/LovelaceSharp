@@ -83,14 +83,14 @@ DSPcpp is a compositional `std::complex<double>` signal model. We port the **mod
 | `scalar` | `scale(x, k)` | `k·x(n)` |
 | `sum` | `x + y` / `add(x,y)` | elementwise add |
 | `product` | `x * y` / `mul(x,y)` | elementwise multiply |
-| `cosine` | `cosine(freq, phase)` | `cos(2π·freq·n + phase)` — phase in **radians** (D6 fixed) |
-| `exponential` | `exponential(c)` | `exp(c·n)` at precision |
-| `powerSeries` | `powerseries(k, a)` | `k·n·aⁿ` (D1 copy bug moot — value types) |
-| `noise` | `noise(scale, disp, seed?)` | seeded, reproducible (D7 fixed) |
+| `cosine` | `cosine(freq, phase, n)` | `cos(2π·freq·n + phase)` — phase in **radians** (D6 fixed) |
+| `exponential` | `exponential(c, n)` | `exp(c·n)` at precision |
+| `powerSeries` | `powerseries(k, a, n)` | `k·n·aⁿ` (D1 copy bug moot — value types) |
+| `noise` | `noise(scale, disp, n)` / `noise(scale, disp, seed, n)` | seeded, reproducible (D7 fixed); digits at the active precision |
 | `movingAverage` | `movingavg(x, w)` | exact `w`-sample window (D3 fixed) |
 | `convolution` | `conv(x, h)` | standard linear convolution (D9 fixed) |
-| `differenceEquation` | `filter(a, b, x)` | IIR/FIR, pure function (D8 fixed) |
-| `fourierTransformation` | `dft(x, n)` | forward DFT `e^{−j2πkn/n}` (D4 fixed) |
+| `differenceEquation` | `filter(a, b, x)` / `filter(a, b, n)` | IIR/FIR, pure function (D8 fixed); `x` filters the signal, scalar `n` yields the impulse response of length `n` |
+| `fourierTransformation` | `dft(x)` / `dft(x, n)` | forward DFT `e^{−j2πkn/n}` (D4 fixed); `n` zero-pads/truncates |
 
 Defect list (D1–D9) carried over from the DSPcpp source review: `powerSeries` copy loses `k`;
 `movingAverage` self-assign + off-by-one window; DFT uses `+j`; `sequence` silent no-op on size
@@ -128,11 +128,16 @@ Lovelace.Dsp/                  # the extension (Lovelace-native, AOT-compatible)
   Complex.cs                   # Complex over Real (domain type)
   Signals/                     # impulse, step, cosine, exponential, powerseries, noise
   Ops/                         # delay, scale, add, mul, movingavg, conv, filter, dft
-  DspPlugin.cs                 # IModusPlugin: Register(IModusContext) → builtins + kernels
   DEVIATIONS.md                # D1–D9 + exact-vs-transcendental notes
 
 Lovelace.Dsp.Tests/            # parity + exactness tests
 ```
+
+> **Landed status.** `DspPlugin.cs` lives in `Lovelace.Dsp` (as this layout specifies), referencing
+> only `Lovelace.Abstractions` + the scalar projects. It registers the DSP builtins through
+> `IModusContext.RegisterBuiltin` — a `Value`-free `object` payload channel the core (`ModusHost`)
+> maps to/from `Value`; the Real ↔ Complex coercion lives in the plugin. Hosts opt in via
+> `LoadPlugin(new DspPlugin())`, and `Lovelace.Suite` holds no DSP references.
 
 ### 4.2 Modus platform plugin (optional, later)
 
@@ -197,6 +202,12 @@ Results are `Real` at the active precision — no IEEE.
   Phase A is deliverable and useful without them.
 - **Performance**: arbitrary-precision DFT is slow. Acceptable as the exact/correct path; a
   machine-precision fast path, if ever added, must be an explicit opt-in (`DType.F64`) — never the
-  default, never `DType.Real`.
+  default, never `DType.Real`. **Measured (post-remediation):** `Real.Exp` ≈ 96–116 s and
+  `Real.Cos` ≈ 19–31 s per sample at the 1000-digit default — quadratic big-number arithmetic.
+  Plugin builtins therefore run at a fast default budget (30 computation digits, via a nested
+  AsyncLocal scope in `ModusHost`) and silently promote when `setprecision` raises the knob;
+  whole-array ops additionally use the `LComplex128` fixed-width path with promote-on-overflow
+  (`dsp-plugin-remediation-plan.md` D5). At the fast budget, `exponential(1, 3)` ≈ 0.2 s and
+  `dft([1,2,3])` ≈ 0.1 s.
 - **Two "Modus" concepts**: `Modus.Core`/`Modus.Host` (platform) vs `Lovelace.Abstractions`
   (language seam). The DSP targets the **latter**; the platform is optional.

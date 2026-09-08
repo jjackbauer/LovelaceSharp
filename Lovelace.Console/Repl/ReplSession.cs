@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using Lovelace.Dsp;
 using Lovelace.Suite;
 using Nat = global::Lovelace.Natural.Natural;
 using Rl = global::Lovelace.Real.Real;
@@ -19,7 +20,7 @@ public sealed class ReplSession
 
     public ReplSession()
     {
-        _engine.RegisterDspBuiltins();
+        _engine.LoadPlugin(new DspPlugin());
     }
 
     // -----------------------------------------------------------------

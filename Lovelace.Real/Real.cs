@@ -1131,24 +1131,79 @@ public class Real :
     public static Task<Real> EToAsync(long digits, IProgress<double>? progress) => Task.Run(() => ETo(digits, progress));
 
     // -------------------------------------------------------------------------
-    // Cached transcendental constants (computed once at the configured max precision)
+    // Cached transcendental constants (upgrade-on-demand: the cache keeps the highest
+    // precision computed so far; lower-precision scopes receive a partial version)
     // -------------------------------------------------------------------------
 
-    private static readonly Lazy<Real> s_pi = new(() => PiTo(MaxComputationDecimalPlaces));
-    private static readonly Lazy<Real> s_e = new(() => ETo(MaxComputationDecimalPlaces));
+    private static readonly object s_constantsLock = new();
+    private static Real? s_pi;
+    private static long s_piDigits;
+    private static Real? s_e;
+    private static long s_eDigits;
 
-    /// <summary>π (pi), computed once at the configured maximum precision.</summary>
-    public static Real Pi => s_pi.Value;
+    /// <summary>
+    /// π (pi). Computed lazily at the active computation precision. The cache keeps the highest
+    /// precision computed so far and upgrades on demand, so a low-precision scope (e.g. a plugin's
+    /// fast default budget) can never pin the process-wide constant at a low digit count.
+    /// Lower-precision scopes receive a partial (truncated) version of the cached value — the
+    /// prefix of a higher-precision computation is exactly what computing at the lower precision
+    /// would produce, so the result is identical to <see cref="PiTo(long)"/> at that precision.
+    /// </summary>
+    public static Real Pi => CachedConstant(ref s_pi, ref s_piDigits, digits => PiTo(digits));
 
-    /// <summary>Euler's number <c>e</c>, computed once at the configured maximum precision.</summary>
-    public static Real E => s_e.Value;
+    /// <summary>Euler's number <c>e</c>, cached with the same upgrade-on-demand policy as <see cref="Pi"/>.</summary>
+    public static Real E => CachedConstant(ref s_e, ref s_eDigits, digits => ETo(digits));
+
+    /// <summary>
+    /// Shared cached-constant accessor. Upgrades the cache by computing at the active precision
+    /// when the cached value is shorter, and serves a truncated partial version when the active
+    /// precision is lower than the cached one (a lower-precision constant is just a prefix of the
+    /// higher-precision one).
+    /// </summary>
+    private static Real CachedConstant(ref Real? cache, ref long cachedDigits, Func<long, Real> compute)
+    {
+        long need = MaxComputationDecimalPlaces;
+        lock (s_constantsLock)
+        {
+            if (cachedDigits < need)
+            {
+                cache = compute(need);
+                cachedDigits = need;
+            }
+            return need >= cachedDigits ? cache! : PartialFracDigits(cache!, need);
+        }
+    }
+
+    /// <summary>Truncates <paramref name="x"/> to at most <paramref name="maxFrac"/> fractional digits by dropping the tail.</summary>
+    private static Real PartialFracDigits(Real x, long maxFrac)
+    {
+        long storedFrac = -x.Exponent;
+        long toDrop = storedFrac - maxFrac;
+        if (toDrop <= 0L) return x;
+
+        string natStr = x.ToNatural().ToString();
+        long keepLen = natStr.Length - toDrop;
+        if (keepLen <= 0) return new Real("0");
+
+        string truncStr = natStr.Substring(0, (int)keepLen);
+        if (!Nat.TryParse(truncStr, null, out Nat truncNat)) return x;
+        return new Real(truncNat, false, x.Exponent + toDrop);
+    }
 
     // -------------------------------------------------------------------------
     // Domain-specific operations — Sin / Cos
     // -------------------------------------------------------------------------
 
-    private static readonly Lazy<Real> s_sqrt2Half = new(() => Sqrt(new Real("2")) / new Real("2"));
-    private static readonly Lazy<Real> s_sqrt3Half = new(() => Sqrt(new Real("3")) / new Real("2"));
+    private static Real? s_sqrt2Half;
+    private static long s_sqrt2HalfDigits;
+    private static Real? s_sqrt3Half;
+    private static long s_sqrt3HalfDigits;
+
+    private static Real Sqrt2Half => CachedConstant(ref s_sqrt2Half, ref s_sqrt2HalfDigits,
+        _ => Sqrt(new Real("2")) / new Real("2"));
+
+    private static Real Sqrt3Half => CachedConstant(ref s_sqrt3Half, ref s_sqrt3HalfDigits,
+        _ => Sqrt(new Real("3")) / new Real("2"));
 
     /// <summary>
     /// Computes sin(x) to <see cref="MaxComputationDecimalPlaces"/> decimal places. Angles that are
@@ -1241,8 +1296,8 @@ public class Real :
         Real half = new Real("0.5");
         Real negHalf = new Real("-0.5");
         Real negOne = new Real("-1");
-        Real sqrt2Half = s_sqrt2Half.Value;
-        Real sqrt3Half = s_sqrt3Half.Value;
+        Real sqrt2Half = Sqrt2Half;
+        Real sqrt3Half = Sqrt3Half;
 
         // (numerator, denominator, sin, cos) for multiples of π/6 and π/4 in [0, 2π).
         (long Num, long Den, Real Sin, Real Cos)[] table =

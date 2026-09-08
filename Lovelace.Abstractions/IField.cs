@@ -1,11 +1,12 @@
-namespace Lovelace.Arrays;
+namespace Lovelace.Abstractions;
 
 /// <summary>
-/// Supplies the element-level arithmetic that the N-dimensional algorithms in
-/// <see cref="ArrayMath"/> require. Because <see cref="NdArray{T}"/> is generic over
-/// the element type, the field abstraction lets a consumer (e.g. Lovelace.Suite over its
-/// widened <c>Value</c> union) provide the exact arithmetic without the array project
-/// depending on any concrete numeric type.
+/// Supplies the element-level arithmetic that generic array algorithms require. Because the
+/// typed containers are generic over the element type, the field abstraction lets a consumer
+/// (e.g. Lovelace.Suite over its widened <c>Value</c> union, or a plugin kernel over
+/// <c>Natural</c>/<c>Integer</c>/<c>Real</c>) provide the exact arithmetic without the
+/// algorithm depending on any concrete numeric type. Lives in <c>Lovelace.Abstractions</c>
+/// (MOD-001/006) so plugins can target it without a second dependency.
 /// </summary>
 public interface IField<T>
 {

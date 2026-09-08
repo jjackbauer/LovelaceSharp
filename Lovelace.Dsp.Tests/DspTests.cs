@@ -135,4 +135,38 @@ public class DspTests
         Assert.Equal(Cplx.Zero, s.Get(-1));
         Assert.Equal(Cplx.Zero, s.Get(2));
     }
+
+    [Fact]
+    public void Filter_GivenFir_MatchesConvolution()
+    {
+        var b = new[] { C("1"), C("2"), C("3") };
+        var a = new[] { C("1") };
+        var x = new[] { C("1"), C("1"), C("1"), C("1") };
+
+        var filtered = DspMath.Filter(a, b, x);
+        var viaConv = DspMath.Convolve(x, b);
+
+        // Filtering returns len(x) samples; convolution returns len(x)+len(b)-1 — compare the prefix.
+        Assert.True(filtered.Length <= viaConv.Length);
+        for (int i = 0; i < filtered.Length; i++)
+            Assert.Equal(viaConv[i], filtered[i]);
+    }
+
+    [Fact]
+    public void Filter_GivenIir_MatchesImpulseResponseConvolution()
+    {
+        var a = new[] { C("1"), C("-0.5") };
+        var b = new[] { C("1") };
+        var x = new[] { C("1"), C("1"), C("1"), C("1") };
+
+        var filtered = DspMath.Filter(a, b, x);
+        var h = DspMath.ImpulseResponse(a, b, filtered.Length);
+        var viaConv = DspMath.Convolve(x, h);
+
+        // Prefix equality: filtering with zero initial state matches convolving with the
+        // impulse response up to the input length.
+        Assert.True(filtered.Length <= viaConv.Length);
+        for (int i = 0; i < filtered.Length; i++)
+            Assert.Equal(viaConv[i], filtered[i]);
+    }
 }

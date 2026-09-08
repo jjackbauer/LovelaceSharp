@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
     <RootNamespace>Lovelace.Abstractions</RootNamespace>
+    <!-- Contract is additive-only; bump per semver (modus-plugin-design.md §11.2). -->
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
 </Project>

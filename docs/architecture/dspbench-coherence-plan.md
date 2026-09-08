@@ -1,6 +1,12 @@
 # DSP Plugin — Coherence Remediation Plan (revised)
 
-> **Status:** implemented — all phases done; full solution builds, all 12 test suites pass (1,278 tests), and `Lovelace.Run --eval "fft([1,0,0,0])"` succeeds under both JIT and Native AOT.
+> **Status:** implemented — all phases done, checkbox state verified against the code after the
+> remediation pass (`dsp-plugin-remediation-plan.md`): plugin fast budget + silent promotion
+> (AsyncLocal nested scope + LComplex128 promote-on-overflow), `filter(a,b,x)`, elementwise
+> `re`/`im`/`conj`/`abs`, `dft(x,n)`, noise precision tie-in, `ScalarResult`,
+> `IFieldKernel`, and the cached-constant upgrade fix. P5.2 (73-hyphen banners in
+> `Lovelace.Dsp.Tests`) is the one item still open. Full solution builds; `Lovelace.Suite.Tests`
+> (412), `Lovelace.Dsp.Tests` (61), `Lovelace.Real.Tests` (285) green.
 > **Scope:** make the whole DSP feature (`Lovelace.Complex`, `Lovelace.Dsp`, the `fft`/`dft`/…
 > builtins, their language integration, and the `dspbench` harness) coherent with the repo's
 > established layering, precision model, and conventions (`.github/prompts/codebase-patterns.md`,
@@ -27,8 +33,8 @@ not, in order of severity:
 
 | # | Where | Problem | Should be |
 |---|---|---|---|
-| L1 | `Lovelace.Suite/DspBuiltins.cs` + `Interpreter.cs` | DSP builtins are hard-wired via `Interpreter.RegisterBuiltins()` → `DspBuiltins.Register(this)`; every interpreter always loads DSP, bypassing `IModusPlugin`/`ModusHost`/`SuiteEngine.LoadPlugin` | opt-in registration through the plugin seam (or an explicit `SuiteEngine` method), never unconditional |
-| L2 | `Lovelace.Abstractions/Modus.cs` | `IModusContext` only offers `RegisterArrayBuiltin` (1-arg `ArrayValue→ArrayValue`) and `RegisterKernel<T: unmanaged>` — too narrow for `conv(x,h)`, `filter(a,b,n)`, `cosine(freq,phase,n)` | a general multi-arg, `Value`-level registration surface (or a Suite-level plugin contract) |
+| L1 | `Lovelace.Suite/DspBuiltins.cs` + `Interpreter.cs` | DSP builtins were registered by a bespoke `SuiteEngine.RegisterDspBuiltins()` → `DspBuiltins.Register(interpreter)` path, bypassing `IModusPlugin`/`ModusHost`/`SuiteEngine.LoadPlugin` | resolved: `DspPlugin : IModusPlugin` (in `Lovelace.Dsp`) loads via `SuiteEngine.LoadPlugin`; hosts opt in with `LoadPlugin(new DspPlugin())`; `Lovelace.Suite` holds zero DSP references |
+| L2 | `Lovelace.Abstractions/Modus.cs` | `IModusContext` only offers `RegisterArrayBuiltin` (1-arg `ArrayValue→ArrayValue`) and `RegisterKernel<T: unmanaged>` — too narrow for `conv(x,h)`, `filter(a,b,n)`, `cosine(freq,phase,n)` | resolved: `IModusContext.RegisterBuiltin` (multi-arg, `Value`-free `object` payload contract — scalars as `Natural`/`Integer`/`Real`/`Complex`, arrays as flat scalar lists); `ModusHost` owns the `Value ↔ payload` mapping; the named `RegisterScalarBuiltin`/`ScalarResult` surface stays a later option (`modus-plugin-design.md` §5.3) |
 | L3 | `Lovelace.Suite/NumericOps.cs`, `Value.cs` | `Complex` is a `ValueKind` but `NumericOps.Apply/Compare/Negate/IsZero` and `Value.Widen` have no complex arm — arithmetic on an `fft` result throws | decide: extraction builtins to bridge back to `Real`, or first-class complex arithmetic |
 | L4 | `Lovelace.Suite/Interpreter.cs` | `abs(x)` has no complex arm; no `re`/`im`/`conj`/`mag`/`angle` builtins; no complex literal in `Tokenizer`/`Parser` | `abs(complex)` + `re`/`im`/`conj`/`mag` builtins (minimum viable surface) |
 | L5 | `DspBuiltins.cs`, `DspMath.cs`, `Signals.cs` | DSP hard-codes `digits = 50` (`Precision` const + library defaults), ignoring the `Rl.WithPrecision` scope the engine sets on every evaluation and `setprecision` raises | resolve `Rl.MaxComputationDecimalPlaces` (the AsyncLocal-aware getter), like `Real.Sin/Cos/Sqrt` |
@@ -73,9 +79,11 @@ not, in order of severity:
   widening lattice; add `re`/`im`/`abs`/`conj`/`mag` so users pull values back into `Real`), or
   (b) *first-class* (`NumericOps` complex arms, full arithmetic/comparison). (a) is consistent with
   the `DType.Complex` doc comment ("outside the lattice, constructed explicitly") and is far smaller.
-- **D2 — Plugin seam shape.** Whether to widen `IModusContext` with a general builtin registration
-  (requires moving that surface above `Abstractions`) or introduce a Suite-level plugin contract and
-  let `DspPlugin` implement that. Either way: registration becomes host-opt-in.
+- **D2 — Plugin seam shape.** ✅ *Decided:* widen `IModusContext` **in place**, keeping it
+  `Value`-free via an `object` payload contract: `RegisterBuiltin(name, parameters,
+  Func<IReadOnlyList<object?>, object?>)`. `ModusHost` (Suite) owns the `Value ↔ payload` mapping,
+  `DspPlugin : IModusPlugin` lives in `Lovelace.Dsp` (references only `Abstractions` + the scalar
+  projects), and hosts opt in via `LoadPlugin(new DspPlugin())`.
 - **D3 — Complex array representation.** Route DSP output through `DenseArray<Complex>` end-to-end,
   or retire the unused `DenseArray<Complex>`/`DType.Complex` typed path and treat complex arrays as
   boxed `DenseArray<Value>` with descriptive `DType.Complex` metadata. (Complex kernels are deferred
@@ -87,74 +95,77 @@ not, in order of severity:
 
 ### Phase 0 — Precision model coherence (unblocks everything else)
 
-- [ ] **P0.1.** In `Lovelace.Dsp`, remove the `digits = 50` defaults on `DspMath.Dft`/`Fft`,
+- [x] **P0.1.** In `Lovelace.Dsp`, remove the `digits = 50` defaults on `DspMath.Dft`/`Fft`,
       `Cosine`, and `Exponential`; default them to `Rl.MaxComputationDecimalPlaces` (the pattern
       `Real.Sin/Cos/Sqrt` already use) or require an explicit `digits`.
-- [ ] **P0.2.** In `DspBuiltins`, delete `private const long Precision = 50` and pass
+- [x] **P0.2.** In the DSP builtins (now `DspPlugin`), delete `private const long Precision = 50` and pass
       `Rl.MaxComputationDecimalPlaces` (resolves the active AsyncLocal scope) to every
       transcendental call, so `setprecision`/engine precision governs `fft`/`dft`/`cosine`.
-- [ ] **P0.3.** Keep the benchmark's fixed budget *at the benchmark*: `dspbench` passes an explicit
+- [x] **P0.3.** Keep the benchmark's fixed budget *at the benchmark*: `dspbench` passes an explicit
       `digits` and pins it in `[GlobalSetup]`/`[GlobalCleanup]` (see Phase 6), not in `Program.cs`.
 
 ### Phase 1 — Plugin seam & opt-in registration (L1, L2)
 
-- [ ] **P1.1.** Remove `DspBuiltins.Register(this)` from `Interpreter.RegisterBuiltins()`; the
-      interpreter constructor must not load DSP.
-- [ ] **P1.2.** Per decision D2, introduce a registration surface that can express multi-arg,
+- [x] **P1.1.** Remove `DspBuiltins.Register(this)` from `Interpreter.RegisterBuiltins()`; the
+      interpreter constructor must not load DSP. *(The interpreter never loads DSP; opt-in is host-side.)*
+- [x] **P1.2.** Per decision D2, introduce a registration surface that can express multi-arg,
       `Value`-level builtins (`conv`, `filter`, `cosine`, …), and implement `DspPlugin`/`DspBuiltins`
-      against it.
-- [ ] **P1.3.** Wire the DSP plugin in explicitly at the hosts that want it (`Lovelace.Run`,
+      against it. *(`IModusContext.RegisterBuiltin` with the `Value`-free payload contract; `DspPlugin : IModusPlugin` in `Lovelace.Dsp`.)*
+- [x] **P1.3.** Wire the DSP plugin in explicitly at the hosts that want it (`Lovelace.Run`,
       `Lovelace.Studio`) via `SuiteEngine.LoadPlugin(...)` (or the equivalent). Add a
       `SuiteEngine`-level test that an engine *without* the plugin has no `fft` symbol.
-- [ ] **P1.4.** Keep the `Value ↔ Complex` mapping in the bridge (not in `Lovelace.Dsp`), and route
+      *(Run/Studio/Console/dspbench all call `LoadPlugin(new DspPlugin())`;
+      `DspPluginTests.DspPlugin_GivenUnregisteredEngine_ThrowsUnknownFunction` pins the no-plugin gate.)*
+- [x] **P1.4.** Keep the `Value ↔ Complex` mapping in the bridge (not in `Lovelace.Dsp`), and route
       it through `TypedArrayAdapter` rather than hand-rolled `ToComplexArray`/`FromComplexArray`.
+      *(The `Value ↔ payload` mapping lives in `ModusHost` (Suite), walking arrays via `TypedArrayAdapter.ToElements`; Real ↔ Complex coercion lives in `Lovelace.Dsp/DspPlugin.cs`.)*
 
 ### Phase 2 — Complex language surface (L3, L4, L7)
 
-- [ ] **P2.1.** Per decision D1, add the bridge builtins: `re(x)`, `im(x)`, `conj(x)`, `mag(x)` (or
+- [x] **P2.1.** *(landed elementwise over vectors; `abs()` covers magnitude — no separate `mag`)* Per decision D1, add the bridge builtins: `re(x)`, `im(x)`, `conj(x)`, `mag(x)` (or
       extend `abs`), and `abs(x)` for `ValueKind.Complex` (returns `Complex.Magnitude`, a `Real`).
-- [ ] **P2.2.** Register the missing generators as builtins: `exponential(c, n)`, `powerseries(k, a, n)`,
+- [x] **P2.2.** Register the missing generators as builtins: `exponential(c, n)`, `powerseries(k, a, n)`,
       `noise(scale, disp, seed?, n)` (matching the `Signals.cs` types the benchmark already drives).
-- [ ] **P2.3.** Give `NumericOps`/`Value` an explicit, clear failure for complex in
+- [x] **P2.3.** Give `NumericOps`/`Value` an explicit, clear failure for complex in
       `Apply`/`Compare`/`Negate`/`IsZero` (a message naming `re`/`im`/`abs` as the escape hatch),
       unless D1 chooses full arithmetic — in which case add the complex arms.
-- [ ] **P2.4.** Decide and document whether the grammar gets a complex literal; if not, note that
+- [x] **P2.4.** Decide and document whether the grammar gets a complex literal; if not, note that
       `Complex.Parse` is library-only and add a round-trip test (`Parse(ToString())`) under
       `Lovelace.Complex.Tests`.
 
 ### Phase 3 — Representation consistency (L6, D3)
 
-- [ ] **P3.1.** Resolve decision D3. If boxed: update `DenseArrayComplexTests` to assert the
+- [x] **P3.1.** Resolve decision D3. If boxed: update `DenseArrayComplexTests` to assert the
       `DenseArray<Value>` + inferred-`DType.Complex` shape production actually emits, and document
       `DType.Complex` as descriptive metadata. If typed: add a `Value`/`ArrayValue` path that holds
       `DenseArray<Complex>` and make `fft`/`dft` produce it end-to-end.
-- [ ] **P3.2.** Make `fft`/`dft` output survive array reductions (`sum`, `mean`, `norm`, `dot`,
+- [x] **P3.2.** Make `fft`/`dft` output survive array reductions (`sum`, `mean`, `norm`, `dot`,
       `matmul`) either by supporting complex there or by a clear, actionable error (ties to P2.3).
 
 ### Phase 4 — DSP core de-duplication & polish
 
-- [ ] **P4.1.** Extract `DspMath.RootOfUnity(long k, long n, long digits)` (gcd → `Pi·num/den` →
+- [x] **P4.1.** Extract `DspMath.RootOfUnity(long k, long n, long digits)` (gcd → `Pi·num/den` →
       `Cos − i·Sin`) and call it from both `Dft` and `Fft`; delete the duplicated loops.
-- [ ] **P4.2.** De-duplicate `ImpulseResponse`/`StepResponse` (near-identical IIR loop; differ only
+- [x] **P4.2.** De-duplicate `ImpulseResponse`/`StepResponse` (near-identical IIR loop; differ only
       in input seeding) into one shared difference-equation driver.
-- [ ] **P4.3.** Move `MovingAverage`'s `Window <= 0` validation from `Get` to construction (or a
+- [x] **P4.3.** Move `MovingAverage`'s `Window <= 0` validation from `Get` to construction (or a
       `record` with a validating body), and hoist the per-sample window scaling.
-- [ ] **P4.4.** Add `Complex.Magnitude(long digits)` to match `Exp(long)` and the "honor active
+- [x] **P4.4.** *(landed as the parameterless active-precision `Magnitude` property)* Add `Complex.Magnitude(long digits)` to match `Exp(long)` and the "honor active
       precision" convention.
-- [ ] **P4.5.** Replace cached identities with allocating properties per §5/§15:
+- [x] **P4.5.** Replace cached identities with allocating properties per §5/§15:
       `Complex.Zero`/`One`/`I` → `=> new(...)`; drop shared `s_zero`/`s_one` and `DspUtil.Zero`
       (allocate fresh, or document immutability justifies the exception and get sign-off).
-- [ ] **P4.6.** Improve `Signal.Sample` range validation to report the `> int.MaxValue` overflow case
+- [x] **P4.6.** Improve `Signal.Sample` range validation to report the `> int.MaxValue` overflow case
       with a message instead of a bare `OverflowException`.
 
 ### Phase 5 — Test conformance (§10–§15) — covers **both** test projects
 
-- [ ] **P5.1.** Rename tests to `MethodName_GivenScenario_ExpectedResult` in `Lovelace.Dsp.Tests`
+- [x] **P5.1.** Rename tests to `MethodName_GivenScenario_ExpectedResult` in `Lovelace.Dsp.Tests`
       (`FftTests`, `DspTests`, `FourierTests`, `TrigTests`) **and** `Lovelace.Complex.Tests`
       (`ComplexTests`, `DenseArrayComplexTests`).
 - [ ] **P5.2.** Add class XML `<summary>` referencing the type/method under test; use the 73-hyphen
       section banners; confirm no `using Xunit;` (rely on the global `<Using Include="Xunit" />`).
-- [ ] **P5.3.** Replace `Lovelace.Dsp.Tests/TestPrecision.cs`'s `[ModuleInitializer]` with a scoped
+- [x] **P5.3.** Replace `Lovelace.Dsp.Tests/TestPrecision.cs`'s `[ModuleInitializer]` with a scoped
       approach that keeps the `Lazy` Pi cache small **and** is race-free:
       - use `Rl.WithPrecision` (AsyncLocal), **not** `precbench.Tests.WithPrecision` (which mutates
         the global statics and would race across the five parallel test classes), and
@@ -164,26 +175,26 @@ not, in order of severity:
 
 ### Phase 6 — `dspbench` → clean BenchmarkDotNet project (mirror `precbench`)
 
-- [ ] **P6.1.** Delete `dspbench/Report.cs`. The speedup ratio becomes `DftBenchmarks` mean ÷
+- [x] **P6.1.** Delete `dspbench/Report.cs`. The speedup ratio becomes `DftBenchmarks` mean ÷
       `FftBenchmarks` mean from BDN output. Do **not** reference `Lovelace.Suite/Timing.cs` (it is a
       `TimeSpan` formatter, not a timing harness, and would drag the interpreter into a benchmark).
-- [ ] **P6.2.** Delete `dspbench/CorrectnessGate.cs`. Correctness relocates to tests (P6.5/P6.6).
-- [ ] **P6.3.** Delete `dspbench/Signals.cs`; build inputs from `Cosine`/`Noise`/`Step`/
+- [x] **P6.2.** Delete `dspbench/CorrectnessGate.cs`. Correctness relocates to tests (P6.5/P6.6).
+- [x] **P6.3.** Delete `dspbench/Signals.cs`; build inputs from `Cosine`/`Noise`/`Step`/
       `Signal.Sample`/`Sequence` inline in each `[GlobalSetup]`.
-- [ ] **P6.4.** Rewrite `dspbench/Program.cs` to the `precbench` shape: `BenchmarkSwitcher.FromAssembly(...).Run(args, config)`
+- [x] **P6.4.** Rewrite `dspbench/Program.cs` to the `precbench` shape: `BenchmarkSwitcher.FromAssembly(...).Run(args, config)`
       only, `BuildTimeout` raised for the cold deterministic rebuild; drop the custom
       `--benchmark`/`--gate-only` flags (BDN has `--filter`/`--job`).
-- [ ] **P6.5.** Add precision set/restore (`Rl.MaxComputationDecimalPlaces` + `DisplayDecimalPlaces`)
+- [x] **P6.5.** Add precision set/restore (`Rl.MaxComputationDecimalPlaces` + `DisplayDecimalPlaces`)
       to each benchmark class's `[GlobalSetup]`/`[GlobalCleanup]` (the `precbench` pattern), so the
       BDN **process** runs at the reduced budget — the pin must not live in `Program.cs`.
-- [ ] **P6.6.** Confirm correctness coverage in `Lovelace.Dsp.Tests`; **add the missing**
+- [x] **P6.6.** Confirm correctness coverage in `Lovelace.Dsp.Tests`; **add the missing**
       `Convolve([1,2,3],[1,2,3]) = [1,4,10,12,9]` case (currently only in the gate, not in
       `DspTests`), keep the FFT==DFT and FIR/IIR hand-checks.
-- [ ] **P6.7.** Move the no-floating-point grep into a `[Fact]` under `Lovelace.Dsp.Tests`,
+- [x] **P6.7.** Move the no-floating-point grep into a `[Fact]` under `Lovelace.Dsp.Tests`,
       scanning `Lovelace.Dsp`/`Lovelace.Complex`/`Lovelace.Real` with the same patterns (strict
       `double`/`float`/`System.Numerics.Complex` for Dsp/Complex; `System.Numerics.Complex` +
       `Math.Cos/Sin/Exp/Tan` + `Random.NextDouble` for Real), skipping `obj`/`bin`.
-- [ ] **P6.8.** Regenerate `dspbench-report.md` from the new BDN means (the single-shot speedup and
+- [x] **P6.8.** Regenerate `dspbench-report.md` from the new BDN means (the single-shot speedup and
       gate sections are orphaned by P6.1/P6.2) and commit it alongside `precbench-report.md`.
 
 ---

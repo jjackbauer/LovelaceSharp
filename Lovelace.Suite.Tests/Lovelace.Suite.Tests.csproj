@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Lovelace.Dsp\Lovelace.Dsp.csproj" />
     <ProjectReference Include="..\Lovelace.Suite\Lovelace.Suite.csproj" />
     <ProjectReference Include="..\Lovelace.Statistics\Lovelace.Statistics.csproj" />
   </ItemGroup>

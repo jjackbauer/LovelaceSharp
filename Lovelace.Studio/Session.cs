@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Lovelace.Dsp;
 using Lovelace.Suite;
 
 namespace Lovelace.Studio;
@@ -35,7 +36,7 @@ public sealed class Session
     {
         // A new session starts at the single "precision" knob default and exposes the DSP builtins.
         Engine.SetPrecision(DefaultPrecision);
-        Engine.RegisterDspBuiltins();
+        Engine.LoadPlugin(new DspPlugin());
         // Track (re)definitions so cached statements depending on a function are invalidated.
         Engine.FunctionDefined += (_, e) => Cache.NoteFunctionDefined(e.Definition.Name);
     }

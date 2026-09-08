@@ -786,11 +786,28 @@ prints: hi [1, 2, 3]
 
 ### DSP functions (loaded by the CLI hosts)
 
-The REPL, web IDE, and headless runner opt into the DSP extension via
-`engine.RegisterDspBuiltins()`. These return complex vectors; `re`, `im`, `conj`, and `abs` bridge
-a complex value back to the `Real` lattice. `conv`, `dft`, `fft`, `filter`, `movingavg`,
-`impulse`, `step`, `cosine`, `exponential`, `powerseries`, `noise`, `delay`, and `scale` complete
-the surface.
+The REPL, web IDE, and headless runner opt into the DSP extension through the Modus plugin
+seam: `engine.LoadPlugin(new DspPlugin())`. These return complex vectors; `re`, `im`, `conj`, and `abs`
+bridge a complex value back to the `Real` lattice — scalar or elementwise over vectors
+(`abs(fft(x))` is the magnitude spectrum). `conv(x, h)`, `dft(x)` / `dft(x, n)`, `fft(x)`,
+`filter(a, b, x)` / `filter(a, b, n)`, `movingavg(x, w)`, `impulse(n)`, `step(n)`,
+`cosine(freq, phase, n)`, `exponential(c, n)`, `powerseries(k, a, n)`,
+`noise(scale, disp, n)` / `noise(scale, disp, seed, n)`, `delay(x, k)`, and `scale(x, k)`
+complete the surface.
+
+- `filter(a, b, x)` filters the signal `x` through the difference equation with denominator
+  coefficients `a` and numerator coefficients `b` (zero initial state); `filter(a, b, n)`
+  returns the impulse response of length `n`. Filtering equals the first `len(x)` samples of
+  `conv(x, filter(a, b, n))`.
+- `dft(x, n)` zero-pads (or truncates) `x` to `n` samples before transforming.
+- `noise(scale, disp, n)` draws `n` uniform [0,1) samples scaled by `scale` and displaced
+  by `disp`, reproducibly seeded (default seed 0); pass an explicit seed with
+  `noise(scale, disp, seed, n)`.
+- Complex has no literal in the grammar; `Complex.Parse` is library-only, and complex values
+  enter the language through the DSP builtins (or `conj`/`re`/`im` round-trips).
+- While the engine's precision knob is untouched, plugin builtins compute at a fast default
+  budget (30 computation digits) and silently promote when `setprecision` raises the knob —
+  exact operations never lose digits; transcendentals truncate at the active budget.
 
 ```lovelace
 fft([1, 0, 0, 0])

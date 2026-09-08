@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using Lovelace.Dsp;
 using Lovelace.Suite;
 
 return await ProgramMain(args);
@@ -102,7 +103,7 @@ static async Task<int> ProgramMain(string[] args)
     }
 
     var engine = new SuiteEngine();
-    engine.RegisterDspBuiltins();
+    engine.LoadPlugin(new DspPlugin());
     if (plotDir is not null) engine.PlotOutputDirectory = plotDir;
     if (plotFile is not null) engine.PlotFileName = plotFile;
 

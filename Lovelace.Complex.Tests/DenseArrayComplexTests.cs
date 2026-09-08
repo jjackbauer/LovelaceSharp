@@ -9,7 +9,7 @@ namespace Lovelace.Complex.Tests;
 /// <see cref="DenseArray{Complex}"/> carries complex elements with correct metadata. This is the
 /// typed-array form (the kernel/`IArrayKernel&lt;T&gt;` surface); the language layer's DSP builtins
 /// instead return a boxed <c>DenseArray&lt;Value&gt;</c> whose <see cref="DType"/> is inferred as
-/// <see cref="DType.Complex"/> (see <c>Lovelace.Suite.Tests.DspBuiltinsTests</c>).
+/// <see cref="DType.Complex"/> (see <c>Lovelace.Suite.Tests.DspPluginTests</c>).
 /// </summary>
 public class DenseArrayComplexTests
 {

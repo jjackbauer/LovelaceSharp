@@ -1,3 +1,4 @@
+using Lovelace.Abstractions;
 using Lovelace.Arrays;
 
 namespace Lovelace.Array.Tests;
