@@ -182,6 +182,8 @@ The repo documents are deliberately split — this README is the map, the links 
 
 **Symbolics (planning)** — [SYMBOLICS-ROADMAP.md](SYMBOLICS-ROADMAP.md) · [architecture](docs/symbolics/architecture.md) · [implementation plan](docs/symbolics/implementation-plan.md) · [testing & validation](docs/symbolics/testing-and-validation.md) · [risk register](docs/symbolics/risk-register.md) · [DSH execution plan](docs/symbolics/dsh-execution-plan.md).
 
+**Symbolics (implemented)** — [usage guide](Lovelace.Symbolics/README.md) (every example machine-verified) · `Lovelace.Symbolics` · `Lovelace.MathIR` · `Lovelace.Rational`.
+
 ---
 
 ## Build & test

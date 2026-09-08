@@ -37,6 +37,9 @@ public sealed class Session
         // A new session starts at the single "precision" knob default and exposes the DSP builtins.
         Engine.SetPrecision(DefaultPrecision);
         Engine.LoadPlugin(new DspPlugin());
+        var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
+        Engine.LoadPlugin(symbolics);
+        Engine.LoadPlugin(new Lovelace.MathIR.MathIRPlugin(symbolics));
         // Track (re)definitions so cached statements depending on a function are invalidated.
         Engine.FunctionDefined += (_, e) => Cache.NoteFunctionDefined(e.Definition.Name);
     }

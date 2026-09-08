@@ -304,6 +304,52 @@ public class Integer :
         return new Integer(quotMag, !sameSign && !Nat.IsZero(quotMag));
     }
 
+    /// <summary>
+    /// Greatest common divisor (non-negative result). <c>Gcd(a, 0) = |a|</c>, <c>Gcd(0, 0) = 0</c>.
+    /// </summary>
+    public static Integer Gcd(Integer a, Integer b) => new(Nat.Gcd(a.ToNatural(), b.ToNatural()), false);
+
+    /// <summary>Least common multiple (non-negative result); zero iff either operand is zero.</summary>
+    public static Integer Lcm(Integer a, Integer b) => new(Nat.Lcm(a.ToNatural(), b.ToNatural()), false);
+
+    /// <summary>
+    /// Extended Euclid: returns <c>Gcd(a, b)</c> and sets <paramref name="x"/>/<paramref name="y"/>
+    /// so that <c>a·x + b·y = Gcd(a, b)</c> (Bezout identity).
+    /// </summary>
+    public static Integer GcdExt(Integer a, Integer b, out Integer x, out Integer y)
+    {
+        var oldR = a;
+        var r = b;
+        var oldS = One;
+        var s = Zero;
+        var oldT = Zero;
+        var t = One;
+        while (!IsZero(r))
+        {
+            // quotient truncated toward zero; remainder computed consistently: r = a - q*b
+            var q = oldR / r;
+            var next = oldR - q * r;
+            oldR = r;
+            r = next;
+            var nextS = oldS - q * s;
+            oldS = s;
+            s = nextS;
+            var nextT = oldT - q * t;
+            oldT = t;
+            t = nextT;
+        }
+        x = oldS;
+        y = oldT;
+        // normalize the gcd to be non-negative (magnitude invariant)
+        if (IsNegative(oldR))
+        {
+            oldR = oldR.Negate();
+            x = x.Negate();
+            y = y.Negate();
+        }
+        return oldR;
+    }
+
     /// <inheritdoc/>
     public static Integer operator /(Integer left, Integer right) => left.DivRem(right, out _);
 

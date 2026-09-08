@@ -147,6 +147,7 @@ public sealed class ModusHost : IModusContext
         ValueKind.Integer => value.AsInteger(),
         ValueKind.Real => value.AsReal(),
         ValueKind.Complex => value.AsComplex(),
+        ValueKind.Symbolic => value.AsSymbolic(),
         ValueKind.Boolean => value.AsBoolean(),
         ValueKind.Text => value.AsText(),
         ValueKind.Vector or ValueKind.Array => UnwrapArray(value.AsArrayValue()),
@@ -169,6 +170,7 @@ public sealed class ModusHost : IModusContext
         Int integer => new Value(integer),
         Nat natural => new Value(natural),
         Cplx complex => new Value(complex),
+        Lovelace.Symbolics.Expr expr => new Value(expr),
         bool boolean => new Value(boolean),
         string text => new Value(text),
         ArrayValue array => new Value(array, array.Rank == 1 ? ValueKind.Vector : ValueKind.Array),
@@ -187,6 +189,7 @@ public sealed class ModusHost : IModusContext
                 Int integer => new Value(integer),
                 Nat natural => new Value(natural),
                 Cplx complex => new Value(complex),
+                Lovelace.Symbolics.Expr expr => new Value(expr),
                 _ => throw new InvalidOperationException($"A plugin builtin returned an unsupported array element type '{elements[i]?.GetType().Name ?? "null"}'."),
             };
         }

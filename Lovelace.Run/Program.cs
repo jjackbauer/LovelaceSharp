@@ -104,6 +104,9 @@ static async Task<int> ProgramMain(string[] args)
 
     var engine = new SuiteEngine();
     engine.LoadPlugin(new DspPlugin());
+    var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
+    engine.LoadPlugin(symbolics);
+    engine.LoadPlugin(new Lovelace.MathIR.MathIRPlugin(symbolics));
     if (plotDir is not null) engine.PlotOutputDirectory = plotDir;
     if (plotFile is not null) engine.PlotFileName = plotFile;
 

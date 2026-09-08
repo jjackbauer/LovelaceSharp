@@ -18,6 +18,36 @@ against - changing one after it has dependents requires an architecture re-revie
 
 ---
 
+### 1.1 Post-remediation contract baseline (2026-09-08) - code against this state
+
+A DSP plugin remediation (`docs/architecture/dsp-plugin-remediation-plan.md`, Phases A-E) landed
+after this plan was written and changed the seams Phase-0/Phase-1 packages target. Agents
+implementing SYM packages must code against the post-remediation state:
+
+- `IField<T>` now lives in `Lovelace.Abstractions` (namespace `Lovelace.Abstractions`), not
+  `Lovelace.Array`; `ArrayMath`/`NdArray` consume it from there.
+- Production field implementations exist: `Lovelace.Natural/NaturalField.cs`,
+  `Lovelace.Integer/IntegerField.cs`, `Lovelace.Real/RealField.cs` (singleton, exact, decline
+  unsupported members with `NotSupportedException`). `SymbolicField` (SYM-34) follows this
+  pattern.
+- The kernel seam is `IFieldKernel<T>` (field injected, no `unmanaged` constraint);
+  `IArrayKernel<T> where T : unmanaged` no longer exists. `StatisticsPlugin` is now an exact
+  `RealAddKernel : IFieldKernel<Real>` proof package.
+- `ScalarResult` landed in `Lovelace.Abstractions` (opaque wrapper + typed factories + an
+  additive `RegisterBuiltin` overload; the raw-`object` overload remains). The contract states
+  that a novel *element* type still requires a core bridge - which is exactly what
+  `ValueKind.Symbolic` + the `ModusHost` mapping in SYM-10 provides.
+- `ModusHost` throws on duplicate plugin or builtin registration (`ModusHost.cs:87`); SYM-10
+  loads `SymbolicsPlugin` next to `DspPlugin` and must keep names distinct.
+- Plugin builtins are wrapped in `Real.WithPrecision(30, 15)` when the session precision knob
+  was not explicitly set. SYM-10/SYM-13 must make symbolic evaluation open its own precision
+  scope (explicit `digits` or session precision), per architecture section 18.1 - tested, not
+  assumed.
+- Kernel dispatch into the interpreter's elementwise path remains explicitly deferred
+  (remediation E2 note; blocked on typed storage ARR-001) - the plan never depended on it.
+
+---
+
 ## 2. Phase 0 - Kernel constitution (the critical path)
 
 ### SYM-01 - GCD/LCM on Natural/Integer
@@ -163,7 +193,7 @@ against - changing one after it has dependents requires an architecture re-revie
 - **Purpose:** ValueKind.Symbolic, operator arms, Modus payload, formatter branches, and the plugin exposing symbol/assume (+ domain atoms) with doctests.
 - **Deps:** SYM-05, SYM-06; SYM-13 for anything that evaluates at the language level (basic substitution can land first).
 - **Files:** Lovelace.Suite/Value.cs, NumericOps.cs, Interpreter.cs, ModusHost.cs, ValueFormatter.cs, Lovelace.Suite.csproj, docs/Language.md; Lovelace.Symbolics/SymbolicsPlugin.cs; host Program.cs files (opt-in LoadPlugin).
-- **Contracts:** ValueKind.Symbolic semantics (non-widening domain kind - architecture section 18.1); symbolic operator behavior; Modus symbolic payload mapping.
+- **Contracts:** ValueKind.Symbolic semantics (non-widening domain kind - architecture section 18.1); symbolic operator behavior; Modus symbolic payload mapping (the ScalarResult-documented "novel element type" core bridge, section 1.1 baseline); evalf precision-scope behavior under the plugin precision wrapper.
 - **Notes:** comparison operators on symbolic operands return RelationExpr values (minimal change, no grammar); numeric comparisons unchanged (backward compat gate).
 - **Tests:** doctests (Language.md); operator-dispatch matrix incl. mixed numeric/symbolic; widening rejection diagnostics; AOT publish smoke for Lovelace.Run.
 - **Acceptance:** the acceptance-scenario first lines run in the REPL/Run/Studio; 100% existing Suite.Tests still green.
@@ -307,7 +337,7 @@ against - changing one after it has dependents requires an architecture re-revie
 - **Purpose:** SymbolicMatrix, Bareiss determinant, fraction-free inverse, fraction-free linear solve with pivot conditions (architecture section 12).
 - **Deps:** SYM-05, SYM-06 (provable-zero pivots), SYM-19 (polynomial detection for pivot heuristics - optional).
 - **Files:** Lovelace.Symbolics/Matrices/SymbolicMatrix.cs, Bareiss.cs, SymbolicSolve.cs, SymbolicField.cs (IField<Expr> adapter).
-- **Contracts:** SymbolicMatrix, Det/Inverse/Solve, SymbolicField : IField<Expr>.
+- **Contracts:** SymbolicMatrix, Det/Inverse/Solve, SymbolicField : IField<Expr> (over the Abstractions IField, mirroring NaturalField/IntegerField/RealField - see section 1.1 baseline).
 - **Tests:** det of 2x2/3x3/4x4 fixtures (incl. acceptance A = [[x,1],[y,x]] -> x^2-y); A*A^-1 = I verified by evaluation (not expansion); Bareiss vs cofactor agreement on random small matrices; pivot-condition attachment (unknown pivots).
 - **Benchmarks:** symbolic det 4x4/6x6 (Bareiss vs naive cofactor).
 - **Parallel with:** SYM-11/12/17/18-24 (independent), SYM-28/29 depend on it.

@@ -493,6 +493,31 @@ public sealed class Natural :
     public Natural DivRem(Natural divisor, out Natural remainder) => DivRem(this, divisor, out remainder);
 
     /// <summary>
+    /// Greatest common divisor (Euclidean algorithm). <c>Gcd(a, 0) = a</c>,
+    /// <c>Gcd(0, 0) = 0</c>.
+    /// </summary>
+    public static Natural Gcd(Natural a, Natural b)
+    {
+        a = new Natural(a);
+        b = new Natural(b);
+        while (!IsZero(b))
+        {
+            _ = DivRem(a, b, out var r);
+            a = b;
+            b = r;
+        }
+        return a;
+    }
+
+    /// <summary>Least common multiple. <c>Lcm(a, b) = a / Gcd(a, b) * b</c>; zero iff either is zero.</summary>
+    public static Natural Lcm(Natural a, Natural b)
+    {
+        if (IsZero(a) || IsZero(b))
+            return s_zero;
+        return DivRem(a, Gcd(a, b), out _) * b;
+    }
+
+    /// <summary>
     /// Raises this instance to the power of <paramref name="exponent"/> using binary
     /// (repeated-squaring) exponentiation.
     /// </summary>

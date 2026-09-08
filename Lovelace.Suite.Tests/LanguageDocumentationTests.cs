@@ -1,5 +1,7 @@
 using Lovelace.Dsp;
+using Lovelace.MathIR;
 using Lovelace.Suite;
+using Lovelace.Symbolics;
 
 namespace Lovelace.Suite.Tests;
 
@@ -22,10 +24,13 @@ public class LanguageDocumentationTests
     {
         Assert.True(File.Exists(DocPath), $"Language.md not found at {DocPath}.");
 
-        // The CLI hosts opt into the DSP extension through the Modus seam, so the
-        // reference surface includes it.
+        // The CLI hosts opt into the extensions through the Modus seam, so the
+        // reference surface includes them.
         var engine = new SuiteEngine();
         engine.LoadPlugin(new DspPlugin());
+        var symbolics = new SymbolicsPlugin();
+        engine.LoadPlugin(symbolics);
+        engine.LoadPlugin(new MathIRPlugin(symbolics));
         var tmp = Path.Combine(Path.GetTempPath(), "lovelace-doctest-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tmp);
 

@@ -23,8 +23,10 @@ Lovelace.Suite (SuiteEngine)         — tokenizer → recursive-descent parser 
    ├── TypedArrayOps.cs              — array ops incl. det/inv/matmul over Value
    ├── ModusHost.cs                  — Value↔plugin-payload mapping (IModusPlugin seam)
    └── Value.cs                      — boxed tagged union (object _inner + ValueKind)
-Lovelace.Array (NdArray<T>, ArrayMath, IField<T>) — generic N-D arrays + algorithms
-Lovelace.Abstractions (DenseArray<T>, ArrayValue, DType, Modus contracts) — language array layer
+Lovelace.Array (NdArray<T>, ArrayMath) — generic N-D arrays + generic algorithms
+Lovelace.Abstractions (IField<T>, DenseArray<T>, ArrayValue, DType, Modus contracts) —
+                                       element seam + language array layer (IField moved here
+                                       by the 2026-09-08 DSP remediation, E2)
 Lovelace.Natural/Integer/Real/Complex — arbitrary-precision numerics (binary-limb Natural)
 Lovelace.Knowledge(+.Run)           — MGIR behavioral graph discovery (Monte Carlo, boundaries)
 Lovelace.Proofs                     — Lean 4 core-only proofs of digit arithmetic
@@ -38,12 +40,12 @@ Hosts: Lovelace.Console (REPL) · Lovelace.Run (JSON runner, DSH tool) · Lovela
 | `Natural` / `Integer` (binary-limb arbitrary precision) | **REUSE** as exact coefficients | `Lovelace.Natural/Natural.cs`, `Lovelace.Integer/Integer.cs`; immutable; `INumber<T>`; `DivRem`/`Pow`/`Factorial` | Coefficient type for polynomials/Rational. Note: the BCD `DigitStore` in `Lovelace.Representation` is legacy (Natural no longer uses it) |
 | `Real` (exact periodic decimals + arbitrary precision) | **WRAP, do not reuse as exact coefficient** | `Lovelace.Real/Real.cs`; division with period detection; `AsyncLocal` precision; equality is string/precision-based | Use only as an *approximate* leaf constant (RealConstant). Never as a canonicalization key. Convert exact finite/periodic decimal literals to Rational at symbolic-construction time |
 | `Complex` (pair of Reals) | **EXTEND** | `Lovelace.Complex/Complex.cs`: `IEquatable` only, operators +/−/×/÷, `Exp`; no log/sqrt/sin/cos/pow | Add complex elementary functions (needed by the numeric evaluator for complex samples); keep `LComplex64/128` fast paths untouched |
-| `IField<T>` (`Lovelace.Array/IField.cs`) | **WRAP** (new `IField<Expr>`), not modify | `Zero/One/FromLong/Add/Subtract/Multiply/Divide/Negate/IsZero/Compare/Sqrt` | Gives `MatMul/Dot/Cross/Trace/Sum/Prod` for symbolic elements for free; `IsZero` must be conservative-structural; `Compare`/`Sqrt` throw or stay unevaluated |
+| `IField<T>` (`Lovelace.Abstractions/IField.cs` since the 2026-09-08 remediation) | **WRAP** (new `IField<Expr>`), not modify | same 11 members; production `NaturalField`/`IntegerField`/`RealField` landed alongside the move (`Lovelace.Natural/NaturalField.cs` etc.) — the exact pattern `SymbolicField` will follow | Gives `MatMul/Dot/Cross/Trace/Sum/Prod` for symbolic elements for free; `IsZero` must be conservative-structural; `Compare`/`Sqrt` throw or stay unevaluated |
 | `NdArray<T>` / `ArrayMath` | **REUSE for safe ops, BYPASS for Det/Inverse** | `Lovelace.Array/ArrayMath.cs`: `Det` is division-based Gaussian elim (`:209-244`), `Inverse` Gauss–Jordan (`:247-298`); first-nonzero pivot via `IsZero` | Symbolic `det`/`inv`/`solve` need fraction-free (Bareiss) algorithms in Symbolics; generic division-based Gaussian is a liability for symbolic elements (expression swell, undecidable pivots) |
 | `DenseArray<T>` / `ArrayValue` / `DType` | **REUSE** (language array container) | `Lovelace.Abstractions/DenseArray.cs`; language arrays are `DenseArray<Value>` (boxed) today | Symbolic values ride the existing boxed path as `Value(Symbolic)` elements; no `DType` change needed in v1 |
 | Suite AST (`Ast.cs`) | **KEEP SEPARATE** | Immutable records; raw-text literals; no per-node spans; no Symbol node; `VariableExpr` is name lookup | The symbolic IR must be a dedicated semantic DAG in Lovelace.Symbolics. Suite AST stays the language/source representation; a *converter* (literal/variable/binary/call → symbolic nodes) bridges them |
 | `Value` / `ValueKind` (`Value.cs:20-49`) | **EXTEND** (append `ValueKind.Symbolic`) | Boxed tagged union; widening `Natural→Integer→Real` by enum ordinal; `Complex` precedent as domain type outside the lattice | Append `Symbolic` after `Complex` as a non-widening domain kind; add `Value(Symbolic)`/`AsSymbolic()`; extend the `(op, kind)` switches in `NumericOps.cs` and the Modus payload mapping |
-| Modus plugin seam (`IModusPlugin`/`IModusContext`, `ModusHost`) | **REUSE** for the language surface | `Lovelace.Abstractions/Modus.cs`; `DspPlugin` precedent (`DspPlugin.cs`); compile-time-linked; AOT-safe; Suite holds zero Dsp refs | `SymbolicsPlugin : IModusPlugin` registers the CAS builtins; Suite's core gains only the minimal domain-kind support (like it has for Complex) |
+| Modus plugin seam (`IModusPlugin`/`IModusContext`, `ModusHost`) | **REUSE** for the language surface | `Lovelace.Abstractions/Modus.cs` — post-remediation shape: `IFieldKernel<T>` (no `unmanaged` constraint, field injected), `ScalarResult` channel, duplicate-registration guards (`ModusHost.cs:87`); `DspPlugin` precedent; compile-time-linked; AOT-safe; Suite holds zero Dsp refs | `SymbolicsPlugin : IModusPlugin` registers the CAS builtins; symbolic values are a *novel element type*, which the contract explicitly says requires a core bridge — exactly the `ValueKind.Symbolic` + `ModusHost` mapping this plan adds |
 | `Lovelace.Knowledge` (MGIR) | **REUSE (adapt) as falsification engine** | `SplitMix64` (`Randomness.cs`), `Proposal` (sweeps/random/bisection/held-out probes), `ExactNumber` (BigInteger-based rational, +/- only), `Reducer` (finite-difference boundaries, guard fitting), `Convergence` (C1–C4), `Confidence` ladder, `Graph`/`GraphStore` | New `Lovelace.Symbolics.Validation` reuses the pipeline pattern + PRNG + boundary model against rewrite rules; adds an expression-term shrinker and in-process high-precision evaluation |
 | `Lovelace.Proofs` (Lean) | **EXTEND (linkage manifest)** | Core-Lean 4.33.1; digit-list theorems; no C#↔proof linkage today | Add a `RuleId → (module, theorem, hash)` manifest + CI staleness check; first proofs: Rational normalization, canonicalization soundness, polynomial arithmetic |
 | Benchmark house style | **REUSE** | BenchmarkDotNet 0.15.8 in `precbench`/`dspbench` with `[MemoryDiagnoser]`, precision-pinning `[GlobalSetup]`, 10-min build timeout | New `symbench`/`optbench` mirror `dspbench` conventions |
@@ -88,6 +90,17 @@ Hosts: Lovelace.Console (REPL) · Lovelace.Run (JSON runner, DSH tool) · Lovela
     zero-runtime-dependency policy.
 12. **Studio is a minimal-API + vanilla-JS app** (not Blazor) — symbolic UI is new endpoints,
     DTOs, and a pane in `wwwroot/index.html` + `app.js`, plus `EngineHost.GetCompletions`.
+13. **Post-remediation baseline (2026-09-08, after this plan was written).** The DSP plugin
+    remediation (`docs/architecture/dsp-plugin-remediation-plan.md`) landed after this document
+    and changed the seams it describes: (a) `IField<T>` moved from `Lovelace.Array` into
+    `Lovelace.Abstractions` with production `NaturalField`/`IntegerField`/`RealField`;
+    (b) the kernel seam is now `IFieldKernel<T>` (the `unmanaged`-constrained `IArrayKernel<T>`
+    is gone); (c) `ScalarResult` landed as the typed return channel with the raw-`object`
+    overload retained; (d) `ModusHost` rejects duplicate plugin/builtin registration;
+    (e) plugin builtins now run under a default `Real.WithPrecision(30, 15)` scope whenever the
+    session precision knob was not explicitly set. All of this is *favorable* to the plan —
+    the seam this plan wanted already exists — with one new decision recorded in §18.1:
+    symbolic evaluation must not silently inherit the plugin fast-standard precision.
 
 ---
 
@@ -927,7 +940,10 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
   as a condition on the result (INV-12-style honesty: solutions carry their pivot conditions).
 - **IField<Expr> adapter** (`SymbolicField`) is provided so `MatMul/Dot/Cross/Trace/Sum/Prod`
   work through `ArrayMath` as-is; `Min/Max/Norm/Det/Inverse` are redirected to the symbolic
-  path.
+  path. It follows the post-remediation production pattern of
+  `Lovelace.Natural/NaturalField.cs`, `Lovelace.Integer/IntegerField.cs`, and
+  `Lovelace.Real/RealField.cs` (singleton, AOT-safe, decline-with-`NotSupportedException` for
+  unsupported members — the same policy a symbolic field uses for `Compare`/`Sqrt`).
 - **Suite surface:** symbolic elements travel as `Value(Symbolic)` inside the existing
   `DenseArray<Value>` arrays; `det`/`inv`/`matmul`/`dot` builtins dispatch to the symbolic
   algorithms when any element is symbolic. `gradient`/`jacobian`/`hessian` builtins return
@@ -1156,7 +1172,7 @@ precludes them.
 | `Lovelace.Suite/Value.cs` | append `ValueKind.Symbolic` after `Complex` (non-widening domain kind); `Value(SymbolicExpr)` ctor; `AsSymbolic()`; display branch in `Value.ToString` |
 | `Lovelace.Suite/NumericOps.cs` | `(op, ValueKind.Symbolic)` arms in `Apply`/`Compare`/`Negate`/`IsZero` delegating to `Lovelace.Symbolics` constructors; comparisons on symbolic operands build `RelationExpr` (in `Interpreter`'s comparison path) |
 | `Lovelace.Suite/Interpreter.cs` | `ValueKind.Symbolic` cases in unary/postfix/display dispatch; no new grammar |
-| `Lovelace.Suite/ModusHost.cs` | unwrap/wrap `SymbolicExpr` payloads (the plugin never sees `Value`) |
+| `Lovelace.Suite/ModusHost.cs` | unwrap/wrap `SymbolicExpr` payloads (the plugin never sees `Value`); symbolic values are the "novel element type" the post-remediation `ScalarResult` contract explicitly routes to a core bridge — this mapping *is* that bridge. Mind the new duplicate-registration guards (`ModusHost.cs:87`) when loading `SymbolicsPlugin` next to `DspPlugin` |
 | `Lovelace.Suite/ValueFormatter.cs` | `Format`/`FormatTyped` branches for symbolic values (canonical or pretty print) |
 | `Lovelace.Suite/Lovelace.Suite.csproj` | add `Lovelace.Symbolics` project reference (mirrors the existing Complex/Array references) |
 | `Lovelace.Suite/docs/Language.md` | symbolic section with doctests (the language reference is machine-checked — ships with the feature) |
@@ -1164,6 +1180,17 @@ precludes them.
 Hosts (`Lovelace.Console`, `Lovelace.Run`, `Lovelace.Studio`) opt in with
 `engine.LoadPlugin(new SymbolicsPlugin())` — exactly the `DspPlugin` pattern
 (`Lovelace.Run/Program.cs:106`).
+
+**Plugin precision governance (post-remediation fact, decision required).**
+`ModusHost.RegisterBuiltin` wraps every plugin builtin in a default
+`Real.WithPrecision(30, 15)` scope whenever the session precision knob was not explicitly set
+(`Interpreter.PrecisionExplicitlySet`, `ModusHost.cs:97-99`). Decision: `SymbolicsPlugin` must
+**not** let symbolic results silently inherit that plugin fast-standard. Exact symbolic
+operations are unaffected (they never touch `Real` precision); for evaluation builtins
+(`evalf`/`evaluate`), the implementation opens its own inner precision scope — explicit
+`digits` argument, else the session precision (explicitly set or engine default 1000) — and the
+plugin documents the deviation from the shared plugin standard. This is tested explicitly
+(package SYM-10): `evalf(..., 50)` must agree to 50 digits regardless of the plugin wrapper.
 
 ### 18.2 Language ergonomics (no new grammar in v1)
 

@@ -21,6 +21,9 @@ public sealed class ReplSession
     public ReplSession()
     {
         _engine.LoadPlugin(new DspPlugin());
+        var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
+        _engine.LoadPlugin(symbolics);
+        _engine.LoadPlugin(new Lovelace.MathIR.MathIRPlugin(symbolics));
     }
 
     // -----------------------------------------------------------------

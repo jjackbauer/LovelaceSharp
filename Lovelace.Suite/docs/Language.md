@@ -1046,3 +1046,83 @@ append([1, 2], [3, 4])
 [1, 2, 3, 4] (Vector)
 ```
 
+## Symbolic mathematics
+
+Symbolic values are a domain type (like Complex): they do not widen to numeric kinds, and
+exactness is preserved until you explicitly evaluate. Enable the symbolic builtins by loading
+`SymbolicsPlugin` (the REPL, `Lovelace.Run`, and Studio all do).
+
+```lovelace
+x = symbol("x")
+f = x^3 + 2*x^2 + 5*x + 7
+diff(f, x)
+```
+```result
+5 + 3*x^2 + 4*x (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+factor(x^4 - 5*x^2 + 4)
+```
+```result
+(-2 + x)*(-1 + x)*(1 + x)*(2 + x) (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+solve(x^4 - 5*x^2 + 4 == 0, x)
+```
+```result
+[-2, -1, 1, 2] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+series(sin(x)/x, x, 0, 6)
+```
+```result
+1 - 1/6*x^2 + 1/120*x^4 (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+limit(sin(x)/x, x, 0)
+```
+```result
+1 (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+integrate(2*x*cos(x^2), x)
+```
+```result
+sin(x^2) (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+det([[x, 1], [y, x]])
+```
+```result
+x^2 - y (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+assume_positive(x)
+simplify(sqrt(x^2))
+```
+```result
+x (Symbolic)
+```
+
+```lovelace
+evalf(1/3, 25)
+```
+```result
+0.(3) (Real)
+```
+

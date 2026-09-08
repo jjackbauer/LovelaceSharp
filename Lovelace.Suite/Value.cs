@@ -29,6 +29,7 @@ public enum ValueKind
     Void,
     Array,
     Complex,
+    Symbolic,
 }
 
 // -------------------------------------------------------------------------
@@ -77,6 +78,13 @@ public sealed class Value
     {
         _inner = value;
         Kind = ValueKind.Complex;
+    }
+
+    /// <summary>Wraps a symbolic expression (Lovelace.Symbolics).</summary>
+    public Value(Lovelace.Symbolics.Expr symbolic)
+    {
+        _inner = symbolic;
+        Kind = ValueKind.Symbolic;
     }
 
     /// <summary>Wraps a <see cref="bool"/> value.</summary>
@@ -154,6 +162,8 @@ public sealed class Value
 
     public Cplx AsComplex() => (Cplx)_inner;
 
+    public Lovelace.Symbolics.Expr AsSymbolic() => (Lovelace.Symbolics.Expr)_inner;
+
     /// <summary>Returns the stored value cast to <see cref="bool"/>.</summary>
     public bool AsBoolean() => (bool)_inner;
 
@@ -192,7 +202,9 @@ public sealed class Value
                 ? " Reductions over Complex arrays (sum/mean/dot/norm/matmul) are not supported; use re()/im()/conj()/abs() to bridge back to Real."
                 : Kind == ValueKind.Complex
                     ? " Complex is a domain type; use re()/im()/conj()/abs() to bridge back to Real."
-                    : string.Empty;
+                    : Kind == ValueKind.Symbolic || target == ValueKind.Symbolic
+                        ? " Symbolic is a domain type; use subs()/evalf() to bridge back to numeric values."
+                        : string.Empty;
             throw new InvalidOperationException(
                 $"Cannot widen from {Kind} to {target}: only numeric kinds (Natural, Integer, Real) support widening.{hint}");
         }
@@ -244,6 +256,7 @@ public sealed class Value
         ValueKind.Integer => $"Integer: {_inner}",
         ValueKind.Real    => $"Real: {_inner}",
         ValueKind.Complex => $"Complex: {_inner}",
+        ValueKind.Symbolic => $"Symbolic: {Lovelace.Symbolics.Printing.PrettyPrint(AsSymbolic())}",
         ValueKind.Boolean => $"Boolean: {_inner}",
         ValueKind.Text    => (string)_inner,
         ValueKind.Vector  => $"Vector: {ValueFormatter.Format(this)}",

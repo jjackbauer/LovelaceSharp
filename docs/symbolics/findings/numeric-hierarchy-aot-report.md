@@ -2,6 +2,19 @@
 *Evidence-based inspection of the LovelaceSharp repository for planning `Lovelace.Symbolics`.*
 *All line numbers are from the current working tree (`C:\Users\ricar\dev\LovelaceSharp`). Generated `obj\` files and the `.worktrees\binary` mirror are excluded.*
 
+> **POST-REMEDIATION NOTE (2026-09-08).** This report predates the DSP plugin remediation
+> (`docs/architecture/dsp-plugin-remediation-plan.md`) that landed the same day. Superseded
+> facts in this file: (1) §7's `IArrayKernel<T> where T : unmanaged` is gone — the kernel seam
+> is now `IFieldKernel<T>` (field injected, no `unmanaged` constraint); (2) `IField<T>` moved
+> from `Lovelace.Array` to `Lovelace.Abstractions`, and production `NaturalField`/`IntegerField`/
+> `RealField` implementations now exist (`Lovelace.Natural/NaturalField.cs` etc.);
+> (3) `ScalarResult` landed in `Lovelace.Abstractions/Modus.cs` with duplicate-registration
+> guards in `ModusHost`; (4) plugin builtins run under a default `Real.WithPrecision(30, 15)`
+> scope when the session precision knob is untouched. See
+> [../architecture.md](../architecture.md) §1.3 (correction 13) and
+> [../implementation-plan.md](../implementation-plan.md) §1.1 for the authoritative
+> post-remediation baseline.
+
 ---
 
 ## 1. Lovelace.Representation

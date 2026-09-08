@@ -127,7 +127,9 @@ record for every new rule; doctests if the user surface changes.
 - Use the journal system for decisions/risks; use .github/requirements/ for contracts
   (the repo treats requirements as the pre-implementation gate).
 - Follow the dsp-plugin-rewire-plan.md discipline for any cross-project change: state the
-  problem, the contract change, the steps, and the grep-gate verification.
+  problem, the contract change, the steps, and the grep-gate verification. The most recent
+  worked example is dsp-plugin-remediation-plan.md (2026-09-08) - read it as the model for
+  how a contract correction is planned, phased, and verified against this repo.
 
 ## 6. Merge checklist and merge ordering
 

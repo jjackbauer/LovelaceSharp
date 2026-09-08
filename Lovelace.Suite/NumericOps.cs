@@ -2,6 +2,9 @@ using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
 using Lovelace.Real;
+using Lovelace.Symbolics;
+using SymExpr = Lovelace.Symbolics.Expr;
+using Cplx = global::Lovelace.Complex.Complex;
 
 namespace Lovelace.Suite;
 
@@ -29,6 +32,9 @@ public static class NumericOps
     /// </summary>
     public static Value Apply(BinaryOp op, Value left, Value right)
     {
+        if (left.Kind == ValueKind.Symbolic || right.Kind == ValueKind.Symbolic)
+            return ApplySymbolic(op, left, right);
+
         (left, right) = Value.WidenPair(left, right);
 
         return (op, left.Kind) switch
@@ -119,6 +125,47 @@ public static class NumericOps
         };
     }
 
+    /// <summary>Converts a language value into a symbolic expression (canonical factories).</summary>
+    public static SymExpr ToExpr(Value v) => v.Kind switch
+    {
+        ValueKind.Natural => Exprs.Integer(new Int(v.AsNatural())),
+        ValueKind.Integer => Exprs.Integer(v.AsInteger()),
+        ValueKind.Real => RealToExpr(v.AsReal()),
+        ValueKind.Complex => Exprs.Add(
+            RealToExpr(v.AsComplex().Re),
+            Exprs.Multiply(RealToExpr(v.AsComplex().Im), Exprs.I)),
+        ValueKind.Symbolic => v.AsSymbolic(),
+        _ => throw new InvalidOperationException($"Cannot convert '{v.Kind}' to a symbolic expression."),
+    };
+
+    /// <summary>Exact Real literals become rationals (INV-09); truncated values stay approximate.</summary>
+    private static SymExpr RealToExpr(Rl r) =>
+        r.IsPeriodic || -r.Exponent <= 18
+            ? Exprs.Rational(RationalReal.FromReal(r))
+            : Exprs.Real(RealLiteral.FromRealExact(r));
+
+    private static Value ApplySymbolic(BinaryOp op, Value left, Value right)
+    {
+        var l = ToExpr(left);
+        var r = ToExpr(right);
+        SymExpr result = op switch
+        {
+            BinaryOp.Add => Exprs.Add(l, r),
+            BinaryOp.Subtract => Exprs.Subtract(l, r),
+            BinaryOp.Multiply => Exprs.Multiply(l, r),
+            BinaryOp.Divide => Exprs.Divide(l, r),
+            BinaryOp.Power => Exprs.Power(l, r),
+            BinaryOp.Equal => Exprs.Relation(RelOp.Eq, l, r),
+            BinaryOp.NotEqual => Exprs.Relation(RelOp.Ne, l, r),
+            BinaryOp.Greater => Exprs.Relation(RelOp.Gt, l, r),
+            BinaryOp.Less => Exprs.Relation(RelOp.Lt, l, r),
+            BinaryOp.GreaterEqual => Exprs.Relation(RelOp.Ge, l, r),
+            BinaryOp.LessEqual => Exprs.Relation(RelOp.Le, l, r),
+            _ => throw new InvalidOperationException($"Operator '{op}' is not supported for symbolic values."),
+        };
+        return new Value(result);
+    }
+
     /// <summary>Numeric comparison: -1, 0, or 1.</summary>
     public static int Compare(Value left, Value right)
     {
@@ -131,6 +178,8 @@ public static class NumericOps
             ValueKind.Real    => left.AsReal().CompareTo(right.AsReal()),
             ValueKind.Complex => throw new InvalidOperationException(
                 "Cannot compare Complex values; use abs()/re()/im() to compare their Real parts."),
+            ValueKind.Symbolic => throw new InvalidOperationException(
+                "Cannot order symbolic values; comparisons on symbolic values produce symbolic relations."),
             _ => throw new InvalidOperationException($"Cannot compare values of kind '{left.Kind}'."),
         };
     }
@@ -143,6 +192,7 @@ public static class NumericOps
         ValueKind.Real    => new Value(-value.AsReal()),
         ValueKind.Complex => throw new InvalidOperationException(
             "Negation is not supported for Complex; use conj() or re()/im() instead."),
+        ValueKind.Symbolic => new Value(Exprs.Negate(value.AsSymbolic())),
         _ => throw new InvalidOperationException($"Negation is not supported for kind '{value.Kind}'."),
     };
 
@@ -154,6 +204,7 @@ public static class NumericOps
         ValueKind.Real    => Rl.IsZero(value.AsReal()),
         ValueKind.Complex => throw new InvalidOperationException(
             "Expected a numeric value; Complex is a domain type. Use re()/im()/abs() to bridge to Real."),
+        ValueKind.Symbolic => false,
         _ => throw new InvalidOperationException($"Expected a numeric value, but got '{value.Kind}'."),
     };
 

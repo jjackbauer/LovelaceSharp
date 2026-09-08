@@ -283,6 +283,8 @@ public sealed class Interpreter
             return new Value(Rl.Pi);
         if (var.Name == "e")
             return new Value(Rl.E);
+        if (var.Name == "inf")
+            return new Value(Lovelace.Symbolics.Exprs.Infinity);
 
         throw new InvalidOperationException($"Undefined variable '{var.Name}'.");
     }
@@ -490,6 +492,9 @@ public sealed class Interpreter
 
     private static Value EvaluateComparison(Value left, Value right, BinaryOp op)
     {
+        if (left.Kind == ValueKind.Symbolic || right.Kind == ValueKind.Symbolic)
+            return NumericOps.Apply(op, left, right);
+
         int cmp = NumericOps.Compare(left, right);
 
         bool result = op switch
@@ -524,6 +529,7 @@ public sealed class Interpreter
                 ValueKind.Natural => new Value(-operand.Widen(ValueKind.Integer).AsInteger()),
                 ValueKind.Integer => new Value(-operand.AsInteger()),
                 ValueKind.Real    => new Value(-operand.AsReal()),
+                ValueKind.Symbolic => NumericOps.Negate(operand),
                 _ => throw new InvalidOperationException($"Unary negation is not supported for type '{operand.Kind}'."),
             },
 
@@ -931,6 +937,21 @@ public sealed class Interpreter
     // Built-in registration
     // -----------------------------------------------------------------
 
+    private static bool IsSymbolicMatrix(ArrayValue a) =>
+        a.Rank == 2 && a.Numel > 0 && TypedArrayAdapter.ToElements(a).Any(v => v.Kind == ValueKind.Symbolic);
+
+    private static Lovelace.Symbolics.SymbolicMatrix ToSymbolicMatrix(ArrayValue a)
+    {
+        var elements = TypedArrayAdapter.ToElements(a);
+        int rows = checked((int)a.Shape.Span[0]);
+        int cols = checked((int)a.Shape.Span[1]);
+        var m = new Lovelace.Symbolics.Expr[rows, cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                m[r, c] = NumericOps.ToExpr(elements[r * cols + c]);
+        return Lovelace.Symbolics.SymbolicMatrix.From(m);
+    }
+
     private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl) =>
         _functions[name] = new FunctionDefinition(name, parameters, impl);
 
@@ -977,7 +998,23 @@ public sealed class Interpreter
             RequireArity("inv", args, 1);
             var arg = args[0];
             if (arg.Kind == ValueKind.Array)
-                return Task.FromResult(WrapArrayValue(TypedArrayOps.Inverse(arg.AsArrayValue())));
+            {
+                var av = arg.AsArrayValue();
+                if (IsSymbolicMatrix(av))
+                {
+                    var inv = ToSymbolicMatrix(av).Inverse(Lovelace.Symbolics.Exprs.Current);
+                    var rows = new List<Value>();
+                    for (int r = 0; r < inv.Rows; r++)
+                    {
+                        var row = new List<Value>();
+                        for (int c = 0; c < inv.Columns; c++)
+                            row.Add(new Value(inv[r, c]));
+                        rows.Add(new Value(row));
+                    }
+                    return Task.FromResult<Value>(new Value(rows));
+                }
+                return Task.FromResult(WrapArrayValue(TypedArrayOps.Inverse(av)));
+            }
             var real = arg.Widen(ValueKind.Real).AsReal();
             return Task.FromResult<Value>(new Value(real.Invert()));
         });
@@ -1047,6 +1084,8 @@ public sealed class Interpreter
         {
             RequireArity("sqrt", args, 1);
             var arg = args[0];
+            if (arg.Kind == ValueKind.Symbolic)
+                return new Value(Lovelace.Symbolics.Exprs.Power(arg.AsSymbolic(), Lovelace.Symbolics.Exprs.Rational(1, 2)));
             var real = arg.Widen(ValueKind.Real).AsReal();
             return new Value(await Rl.SqrtAsync(real, SubProgress("sqrt")));
         });
@@ -1428,7 +1467,10 @@ public sealed class Interpreter
         Register("det", ["m"], args =>
         {
             RequireArity("det", args, 1);
-            return Task.FromResult<Value>(TypedArrayOps.Det(args[0].AsArrayValue()));
+            var av = args[0].AsArrayValue();
+            if (IsSymbolicMatrix(av))
+                return Task.FromResult<Value>(new Value(ToSymbolicMatrix(av).Det(Lovelace.Symbolics.Exprs.Current)));
+            return Task.FromResult<Value>(TypedArrayOps.Det(av));
         });
 
         // trace(m)
