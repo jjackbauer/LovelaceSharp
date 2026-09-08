@@ -222,7 +222,7 @@ public sealed class EngineHost
     private static FunctionRow[] ToFunctions(StateSnapshot snapshot) =>
         snapshot.Functions.Values
             .OrderBy(f => f.Name, StringComparer.Ordinal)
-            .Select(f => new FunctionRow(f.Name, f.Parameters.ToArray(), f.IsBuiltin, f.Span))
+            .Select(f => new FunctionRow(f.Name, f.Parameters.ToArray(), f.IsBuiltin, f.Span, f.Plugin))
             .ToArray();
 
     private static (int Line, int Column) ComputeLineColumn(string source, int position)

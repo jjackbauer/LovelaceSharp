@@ -108,5 +108,11 @@ public class ModusTests
         Assert.Equal("Lovelace.Dsp", new DspPlugin().Name);
         var result = await engine.EvaluateAsync("fft([1, 0, 0, 0])");
         Assert.Equal("[1, 1, 1, 1] (Vector)", ValueFormatter.FormatTyped(result));
+
+        // Plugin-registered builtins carry the plugin's name; core builtins carry none.
+        Assert.True(engine.Functions.TryGetValue("fft", out var fftDefinition));
+        Assert.Equal("Lovelace.Dsp", fftDefinition.PluginName);
+        Assert.True(engine.Functions.TryGetValue("abs", out var absDefinition));
+        Assert.Null(absDefinition.PluginName);
     }
 }

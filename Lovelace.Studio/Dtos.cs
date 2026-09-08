@@ -18,7 +18,7 @@ public sealed record ValueResult(string Kind, string Display, string Typed);
 public sealed record VariableRow(string Name, string Kind, string Display);
 
 /// <summary>A function row for the workspace panel.</summary>
-public sealed record FunctionRow(string Name, string[] Parameters, bool IsBuiltin, SourceSpan? Span);
+public sealed record FunctionRow(string Name, string[] Parameters, bool IsBuiltin, SourceSpan? Span, string? Plugin);
 
 /// <summary>An error diagnostic with its source position.</summary>
 public sealed record DiagnosticRow(string Message, int Position, int Line, int Column);

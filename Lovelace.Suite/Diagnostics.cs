@@ -40,7 +40,8 @@ public sealed record StateFunction(
     string Name,
     IReadOnlyList<string> Parameters,
     bool IsBuiltin,
-    SourceSpan? Span);
+    SourceSpan? Span,
+    string? Plugin);
 
 /// <summary>
 /// An immutable capture of the engine's variables and functions, with a revision

@@ -175,8 +175,8 @@ function renderFunctions(fns) {
     const nameTd = document.createElement("td"); nameTd.textContent = f.name;
     const paramsTd = document.createElement("td"); paramsTd.textContent = (f.parameters || []).join(", ");
     const kindTd = document.createElement("td");
-    kindTd.textContent = f.isBuiltin ? "builtin" : "user";
-    kindTd.className = f.isBuiltin ? "kind builtin" : "kind user";
+    kindTd.textContent = f.plugin || (f.isBuiltin ? "builtin" : "user");
+    kindTd.className = "kind " + (f.plugin ? "plugin" : f.isBuiltin ? "builtin" : "user");
     tr.append(nameTd, paramsTd, kindTd);
     functionsTbody.appendChild(tr);
   }

@@ -33,6 +33,13 @@ public sealed class FunctionDefinition
     /// <summary>Optional documentation text.</summary>
     public string? Documentation { get; }
 
+    /// <summary>
+    /// The Modus plugin that registered this builtin, when it arrived through the plugin seam
+    /// (<see langword="null"/> for core builtins and user functions). Stamped by
+    /// <see cref="ModusHost"/>.
+    /// </summary>
+    public string? PluginName { get; internal set; }
+
     /// <summary>Creates a user-defined function definition.</summary>
     public FunctionDefinition(
         string name,

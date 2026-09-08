@@ -18,6 +18,7 @@ public sealed class ModusHost : IModusContext
     private readonly Interpreter _interpreter;
     private readonly List<object> _kernels = [];
     private readonly HashSet<Type> _loadedPlugins = [];
+    private string? _loadingPluginName;
 
     internal ModusHost(Interpreter interpreter) => _interpreter = interpreter;
 
@@ -26,7 +27,23 @@ public sealed class ModusHost : IModusContext
         ArgumentNullException.ThrowIfNull(plugin);
         if (!_loadedPlugins.Add(plugin.GetType()))
             throw new InvalidOperationException($"Plugin '{plugin.Name}' ({plugin.GetType().Name}) is already loaded.");
-        plugin.Register(this);
+        string? previous = _loadingPluginName;
+        _loadingPluginName = plugin.Name;
+        try
+        {
+            plugin.Register(this);
+        }
+        finally
+        {
+            _loadingPluginName = previous;
+        }
+    }
+
+    /// <summary>Attributes a just-registered builtin to the plugin currently loading.</summary>
+    private void StampPlugin(string name)
+    {
+        if (_loadingPluginName is not null && _interpreter.Functions.TryGetValue(name, out var definition))
+            definition.PluginName = _loadingPluginName;
     }
 
     /// <summary>Computation budget for plugin builtins while the engine knob is untouched.</summary>
@@ -46,6 +63,7 @@ public sealed class ModusHost : IModusContext
             var result = implementation(args[0].AsArrayValue());
             return new Value(result, result.Rank == 1 ? ValueKind.Vector : ValueKind.Array);
         });
+        StampPlugin(name);
     }
 
     public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<object?>, object?> implementation)
@@ -59,6 +77,7 @@ public sealed class ModusHost : IModusContext
             using var scope = PluginPrecisionScope();
             return WrapResult(implementation(UnwrapArguments(args)));
         });
+        StampPlugin(name);
     }
 
     private void GuardName(string name)

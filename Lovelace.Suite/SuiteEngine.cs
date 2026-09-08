@@ -265,7 +265,7 @@ public sealed class SuiteEngine
 
         var functions = new Dictionary<string, StateFunction>();
         foreach (var (name, fn) in _interpreter.Functions)
-            functions[name] = new StateFunction(fn.Name, fn.Parameters, fn.IsBuiltin, fn.Span);
+            functions[name] = new StateFunction(fn.Name, fn.Parameters, fn.IsBuiltin, fn.Span, fn.PluginName);
 
         return new StateSnapshot(_interpreter.Revision, variables, functions);
     }
