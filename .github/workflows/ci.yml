@@ -76,5 +76,6 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: '**/TestResults/**/coverage.cobertura.xml'
-          # Public repo: authenticates via GitHub OIDC, no CODECOV_TOKEN needed.
+          # Public repo: authenticate via GitHub OIDC instead of a token.
+          use_oidc: true
           fail_ci_if_error: true
