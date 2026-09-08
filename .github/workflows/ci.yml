@@ -24,6 +24,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # id-token: write lets codecov-action exchange a GitHub OIDC token for
+    # tokenless uploads (public repo); contents: read is needed by checkout.
+    permissions:
+      contents: read
+      id-token: write
+
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
