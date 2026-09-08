@@ -101,6 +101,7 @@ public class RealSqrtTests
     // Perfect squares remain exact under guard-digit computation
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Theory]
     [InlineData("4",  "2")]
     [InlineData("9",  "3")]
@@ -126,6 +127,7 @@ public class RealSqrtTests
     // Fractional perfect square: √0.25 = 0.5
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenQuarter_ReturnsExactlyHalf()
     {
@@ -148,6 +150,7 @@ public class RealSqrtTests
     // Known-prefix + digit-count checks for irrational square roots at 1000 digits
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenTwo_Matches1000KnownDigitsOfSqrtTwo()
     {
@@ -172,6 +175,7 @@ public class RealSqrtTests
         }
     }
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenThree_Matches1000KnownDigitsOfSqrtThree()
     {
@@ -193,6 +197,7 @@ public class RealSqrtTests
         }
     }
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenFive_Matches1000KnownDigitsOfSqrtFive()
     {
@@ -214,6 +219,7 @@ public class RealSqrtTests
         }
     }
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenTen_Matches1000KnownDigitsOfSqrtTen()
     {
@@ -239,6 +245,7 @@ public class RealSqrtTests
     // Truncation contract: result has exactly the requested number of digits
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenTwo_ResultHasExactly1000FractionalDigits()
     {
@@ -261,6 +268,7 @@ public class RealSqrtTests
     // Self-consistency: Sqrt(2)² ≈ 2 within 10⁻⁹⁹⁹
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenTwo_SquaredApproximatesInput()
     {
@@ -288,6 +296,7 @@ public class RealSqrtTests
     // Result contract at 1000-digit precision
     // -------------------------------------------------------------------------
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenIrrational_ResultIsNotPeriodicAt1000Digits()
     {
@@ -305,6 +314,7 @@ public class RealSqrtTests
         }
     }
 
+    [Trait("Category", "Heavy")]
     [Fact]
     public void Sqrt_GivenPositiveInput_ResultIsPositiveAt1000Digits()
     {

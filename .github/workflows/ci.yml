@@ -1,10 +1,10 @@
 # CI — fast test suites (third-party verification)
 #
-# Runs every test project that completes quickly, i.e. everything except the
-# slow Lovelace.Real.Tests (high-digit Pi/sqrt work — mirrors the `make test`
-# target). Lovelace.Real correctness is still covered via precbench.Tests (the
-# xUnit accuracy verifier) and the suites that reference Lovelace.Real
-# indirectly.
+# Runs every test suite with coverage collection and uploads the merged reports
+# to Codecov (see the coverage badge in README.md). The 1000-digit Pi/sqrt tests
+# in Lovelace.Real.Tests carry [Trait("Category", "Heavy")] and are filtered out
+# here so the job stays fast; the full high-precision suite remains runnable
+# locally with `dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj`.
 
 name: CI
 
@@ -60,6 +60,7 @@ jobs:
             Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj
             Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj
             Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj
+            Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj
             # Accuracy verifier: Lovelace.Real @ 8/16 digits vs float/double,
             # asserted against a high-precision reference (fast — only the
             # low-precision sqrt paths).
@@ -71,6 +72,17 @@ jobs:
               --collect:"XPlat Code Coverage"
             echo "::endgroup::"
           done
+
+      - name: Run Lovelace.Real.Tests (correctness subset)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Heavy 1000-digit Pi/sqrt tests are tagged [Trait("Category", "Heavy")]
+          # and skipped here so the job stays fast.
+          dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category!=Heavy" \
+            --collect:"XPlat Code Coverage"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
