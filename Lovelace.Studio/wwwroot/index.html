@@ -107,9 +107,13 @@
     </div>
     <div class="pane-body">
       <div id="logs" class="log-output" aria-live="polite"></div>
+      <details id="symbols-details" class="symbols-details">
+        <summary>Symbolic inspection <span class="hint">(last expression: canonical form, tree, assumptions, trace, MathIR)</span></summary>
+        <pre id="symbolic-inspect" class="symbolic-inspect">no symbolic result yet</pre>
+      </details>
     </div>
   </section>
 
-  <script type="module" src="app.js?v=10"></script>
+  <script type="module" src="app.js?v=11"></script>
 </body>
 </html>

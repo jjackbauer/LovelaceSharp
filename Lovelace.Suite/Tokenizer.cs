@@ -108,6 +108,7 @@ public sealed class Tokenizer
                     ']' => TokenKind.RBracket,
                     ';' => TokenKind.Semicolon,
                     ':' => TokenKind.Colon,
+                    '.' => TokenKind.Dot,
                     _   => (TokenKind?)null,
                 };
 

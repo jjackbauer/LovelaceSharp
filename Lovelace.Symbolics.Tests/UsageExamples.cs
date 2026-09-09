@@ -19,7 +19,7 @@ var ctx = new ExprContext();
 Exprs.Current = ctx;
 var x = ctx.Symbol("x");
 Expr f = Exprs.Add(Exprs.Power(x, 2), Exprs.Multiply(2, x), 1);
-Assert.Equal("1 + x^2 + 2*x", Printing.PrettyPrint(f));
+Assert.Equal("x^2 + 2*x + 1", Printing.PrettyPrint(f));
     }
 
     [Fact]

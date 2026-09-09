@@ -226,6 +226,55 @@ function applyFinal(data) {
   if (data.elapsed) {
     appendLog("done: " + data.elapsed + " (" + (data.reusedCount || 0) + " reused)", "timing");
   }
+  refreshSymbolicInspection();
+}
+
+// ---------------------------------------------------------------------------
+// Symbolic inspection (consumes POST /api/symbolic/inspect — the same semantic
+// objects the kernel produced; no Studio-only model)
+// ---------------------------------------------------------------------------
+
+function lastExpression(source) {
+  const parts = source.split(/;|\n/).map(s => s.trim()).filter(Boolean);
+  return parts.length ? parts[parts.length - 1] : "";
+}
+
+function renderTree(node) {
+  if (!node) return "";
+  let text = node.kind + (node.label ? " " + node.label : "");
+  if (node.children && node.children.length) {
+    text += "[" + node.children.map(renderTree).join(", ") + "]";
+  }
+  return text;
+}
+
+async function refreshSymbolicInspection() {
+  const el = $("#symbolic-inspect");
+  const expr = lastExpression(editorValue());
+  if (!expr) { el.textContent = "no expression"; return; }
+  try {
+    const res = await api("/api/symbolic/inspect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: expr })
+    });
+    if (!res.ok) { el.textContent = "inspection unavailable (HTTP " + res.status + ")"; return; }
+    const data = await res.json();
+    if (data.diagnostics && data.diagnostics.length) {
+      el.textContent = "not symbolic: " + data.diagnostics[0].message;
+      return;
+    }
+    const parts = [];
+    if (data.pretty) parts.push("pretty:     " + data.pretty);
+    if (data.canonical) parts.push("canonical:  " + data.canonical);
+    if (data.tree) parts.push("tree:       " + renderTree(data.tree));
+    parts.push("assumptions: " + (data.assumptions && data.assumptions.length ? data.assumptions.join("; ") : "(none)"));
+    parts.push("trace:      " + (data.traceSteps && data.traceSteps.length ? data.traceSteps.join(" | ") : "(none)"));
+    parts.push("mathir:\n" + (data.mathir || "(none)"));
+    el.textContent = parts.join("\n");
+  } catch (err) {
+    el.textContent = "inspection failed: " + err;
+  }
 }
 
 // ---------------------------------------------------------------------------

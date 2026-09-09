@@ -51,8 +51,30 @@ public interface IModusContext
                          Func<IReadOnlyList<object?>, ScalarResult> implementation) =>
         RegisterBuiltin(name, parameters, args => implementation(args).Payload);
 
+    /// <summary>
+    /// Registers a builtin together with its discoverability metadata (help, funcs listings,
+    /// Studio autocomplete, DSH tool schemas — one source of truth). Hosts that do not store
+    /// descriptors keep the default behavior: the registration proceeds, metadata is dropped.
+    /// </summary>
+    void RegisterBuiltin(BuiltinDescriptor descriptor,
+                         Func<IReadOnlyList<object?>, object?> implementation) =>
+        RegisterBuiltin(descriptor.Name, descriptor.Parameters, implementation);
+
+    /// <summary>Descriptor-carrying registration over the typed <see cref="ScalarResult"/>
+    /// channel (mirrors the raw-object descriptor overload).</summary>
+    void RegisterBuiltin(BuiltinDescriptor descriptor,
+                         Func<IReadOnlyList<object?>, ScalarResult> implementation) =>
+        RegisterBuiltin(descriptor, args => implementation(args).Payload);
+
     /// <summary>Registers an optimized elementwise kernel over an exact scalar type.</summary>
     void RegisterKernel<T>(IFieldKernel<T> kernel);
+
+    /// <summary>
+    /// Registers the symbolic-matrix bridge (determinant/rank/inverse/solve dispatch). The
+    /// core falls back to non-symbolic behavior when no bridge is registered; hosts that do
+    /// not store bridges keep the default no-op.
+    /// </summary>
+    void RegisterSymbolicMatrixBridge(ISymbolicMatrixBridge bridge) { }
 }
 
 /// <summary>

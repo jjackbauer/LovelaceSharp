@@ -27,62 +27,25 @@ public sealed class ReplSession
     }
 
     // -----------------------------------------------------------------
-    // Help text
+    // Help / discoverability (derived from the live builtin registry —
+    // no hard-coded help text; HelpService is the single renderer)
     // -----------------------------------------------------------------
 
-    private const string HelpText = """
-        LovelaceSharp REPL — help
-        ─────────────────────────────────────────────────────────────────
-        Statements:
-          func name(a, b) { … }   define a function (or: func f(x) = expr)
-          if (c) { … } else { … } conditional
-          while (c) { … }         loop          for i in a..b { … }  loop
-          return [expr]           return from a function
-          print(expr)             write a value (interpolate with $"{expr}")
+    private void PrintHelp(string? arg)
+    {
+        var help = _engine.Help;
+        if (arg is null)
+        {
+            System.Console.WriteLine(help.Overview());
+            return;
+        }
+        System.Console.WriteLine(help.Lookup(arg.Trim()) ?? $"No help for '{arg}'. Try 'help' for the category list.");
+    }
 
-        Operators (high to low precedence):
-          !         postfix factorial              e.g.  5!
-          [i]       index (0-based)                e.g.  v[0], m[i, j]
-          - +       unary negation / identity      e.g.  -x
-          ..        range (inclusive)              e.g.  1..5, 1..2..7
-          ^         power (right-associative)      e.g.  2 ^ 10
-          * / %     multiplicative                 e.g.  a * b
-          + -       additive                       e.g.  a + b
-          == != > < >= <=   comparison             e.g.  a > b
-          =         assignment (right-assoc)       e.g.  x = 42
-
-        Arrays:
-          [1, 2, 3]  vector          [[1, 2], [3, 4]]  matrix
-          [[[1,2],[3,4]],[[5,6],[7,8]]]  rank-3 (N-D)
-          sum(a[, axis])  prod(a[, axis])  min(a[, axis])  max(a[, axis])
-          mean(a[, axis])  norm(a[, axis])
-          dot(a, b)  cross(a, b)  matmul(a, b)  det(m)  inv(m)  trace(m)
-          zeros(d…)  ones(d…)  eye(n)  reshape(a, d…)  shape(a)  rank(a)
-          numel(a)  len(a)  flatten(a)  transpose(a[, perm])  squeeze(a)
-          concat(a, b[, axis])  append(a, b)
-
-        Built-in functions:
-          abs(x)  inv(x)  divrem(a, b)  is_even(x)  is_odd(x)  sign(x)
-          sqrt(x)  pi([digits])  setprecision(n)  print(x)  plot(y) / plot(x, y[, "title"])
-
-        DSP functions:
-          conv(x, h)  dft(x)  fft(x)  filter(a, b, n)  movingavg(x, w)
-          impulse(n)  step(n)  cosine(freq, phase, n)  exponential(c, n)
-          powerseries(k, a, n)  noise(scale, disp, seed, n)
-          delay(x, k)  scale(x, k)  re(z)  im(z)  conj(z)
-
-        Special commands:
-          vars                     list all variables
-          funcs                    list all functions
-          clear                    delete all variables
-          delete <name>            delete one variable
-          run <file>               execute a script file
-          set precision <n>        Real computation decimal places
-          set display <n>          Real / Natural display digits
-          help                     show this text
-          exit / quit              leave the REPL
-        ─────────────────────────────────────────────────────────────────
-        """;
+    private void PrintFuncs(string? category)
+    {
+        System.Console.WriteLine(_engine.Help.Funcs(category));
+    }
 
     // -----------------------------------------------------------------
     // Public entry point
@@ -148,7 +111,13 @@ public sealed class ReplSession
 
         if (source is "help")
         {
-            System.Console.WriteLine(HelpText);
+            PrintHelp(null);
+            return true;
+        }
+
+        if (source.StartsWith("help ", StringComparison.Ordinal))
+        {
+            PrintHelp(source["help ".Length..]);
             return true;
         }
 
@@ -160,7 +129,27 @@ public sealed class ReplSession
 
         if (source is "funcs")
         {
-            PrintFuncs();
+            PrintFuncs(null);
+            return true;
+        }
+
+        if (source.StartsWith("funcs ", StringComparison.Ordinal))
+        {
+            PrintFuncs(source["funcs ".Length..].Trim());
+            return true;
+        }
+
+        if (source is "set pretty unicode")
+        {
+            _engine.UnicodeOutput = true;
+            System.Console.WriteLine("Pretty output: unicode.");
+            return true;
+        }
+
+        if (source is "set pretty ascii")
+        {
+            _engine.UnicodeOutput = false;
+            System.Console.WriteLine("Pretty output: ascii.");
             return true;
         }
 
@@ -250,22 +239,6 @@ public sealed class ReplSession
 
         foreach (var (name, value) in vars.OrderBy(kv => kv.Key))
             System.Console.WriteLine($"  {name} = {ValueFormatter.FormatTyped(value)}");
-    }
-
-    private void PrintFuncs()
-    {
-        var funcs = _engine.Functions;
-        if (funcs.Count == 0)
-        {
-            System.Console.WriteLine("(no functions defined)");
-            return;
-        }
-
-        foreach (var (name, fn) in funcs.OrderBy(kv => kv.Key))
-        {
-            string suffix = fn.IsBuiltin ? " [builtin]" : string.Empty;
-            System.Console.WriteLine($"  {fn.Name}({string.Join(", ", fn.Parameters)}){suffix}");
-        }
     }
 
     /// <summary>

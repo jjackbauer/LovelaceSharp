@@ -183,12 +183,18 @@ public class KernelHardeningTests
     }
 
     [Fact]
-    public void ExpLog_Simplifies_Universally()
+    public void ExpLog_SafeSimplify_RequiresDefinednessConditions()
     {
         var ctx = NewCtx();
         var x = ctx.Symbol("x");
         var e = Exprs.Function(ctx.Function("exp"), Exprs.Function(ctx.Function("log"), x));
-        Assert.Equal(x, Simplify.SimplifyExpr(e, ctx));
+        // the safe convenience API keeps exp(log(x)) unevaluated: the rewrite expands
+        // definedness exactly like x/x → 1 and its condition is not proven
+        Assert.Equal(e, Simplify.SimplifyExpr(e, ctx));
+        // the full transform applies it and carries the definedness requirement
+        var result = Simplify.Transform(e, ctx, new Simplify.Options(Trace: true));
+        Assert.Equal(x, result.Expression);
+        Assert.Contains(result.Steps, s => s.RuleId == "logexp.exp-log" && s.Classification == Rewriting.RuleClassification.Conditional);
     }
 
     [Fact]
@@ -323,12 +329,19 @@ public class KernelHardeningTests
     }
 
     [Fact]
-    public void Solve_NoRealRoots_ReportsEmptyNotInvented()
+    public void Solve_QuarticNoRealRoots_DefaultDomain_Unevaluated_RealDomain_Empty()
     {
         var ctx = NewCtx();
         var x = ctx.Symbol("x");
-        var set = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exprs.Add(Exprs.Power(x, 4), Exprs.One), Exprs.Zero), x, ctx);
-        Assert.Equal(SolutionKind.Empty, set.Kind);
+        var eq = Exprs.Relation(RelOp.Eq, Exprs.Add(Exprs.Power(x, 4), Exprs.One), Exprs.Zero);
+        // the default domain is Complex; the equation has four complex roots the kernel
+        // cannot represent (RootOf is real-only) — reported Unevaluated, never "no solutions"
+        var complex = Solvers.Solve(eq, x, ctx);
+        Assert.Equal(SolutionKind.Unevaluated, complex.Kind);
+        Assert.Contains("complex algebraic roots", complex.Note);
+        // under the explicit real domain the answer is Empty — no real roots
+        var real = Solvers.Solve(eq, x, ctx, SolveDomain.Real);
+        Assert.Equal(SolutionKind.Empty, real.Kind);
     }
 
     [Theory]

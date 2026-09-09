@@ -429,6 +429,14 @@ public sealed class Parser
                 continue;
             }
 
+            if (Current.Kind == TokenKind.Dot)
+            {
+                Advance(); // consume '.'
+                var member = Expect(TokenKind.Identifier);
+                operand = new MemberExpr(operand, member.Text);
+                continue;
+            }
+
             break;
         }
 

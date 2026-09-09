@@ -78,6 +78,9 @@ public sealed record RangeExpr(Expr Start, Expr? Step, Expr End) : Expr;
 /// <summary>An element access <c>target[i]</c> or <c>target[i, j, …]</c>.</summary>
 public sealed record IndexExpr(Expr Target, List<Expr> Indices) : Expr;
 
+/// <summary>A record member access <c>target.name</c> (e.g. <c>r.solutions</c>).</summary>
+public sealed record MemberExpr(Expr Target, string MemberName) : Expr;
+
 /// <summary>A slice <c>start:stop:step</c>; each part is optional.</summary>
 public sealed record SliceExpr(Expr? Start, Expr? Stop, Expr? Step) : Expr;
 

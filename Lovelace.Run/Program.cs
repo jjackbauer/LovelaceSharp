@@ -28,6 +28,7 @@ static async Task<int> ProgramMain(string[] args)
     string? plotFile = null;
     bool stdinMode = false;
     bool json = true;
+    bool omitFunctions = false;
 
     for (int i = 0; i < args.Length; i++)
     {
@@ -43,6 +44,10 @@ static async Task<int> ProgramMain(string[] args)
                 break;
             case "--stdin":
                 stdinMode = true;
+                break;
+            case "--omit-functions":
+                // the registry dump (~100 entries) is payload noise for agent loops
+                omitFunctions = true;
                 break;
             case "--plot-dir":
                 if (++i >= args.Length) return Usage("--plot-dir requires a directory argument.");
@@ -123,10 +128,12 @@ static async Task<int> ProgramMain(string[] args)
             .OrderBy(v => v.Name, StringComparer.Ordinal)
             .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
             .ToArray();
-        var functions = snapshot.Functions.Values
-            .OrderBy(f => f.Name, StringComparer.Ordinal)
-            .Select(f => new FunctionDto(f.Name, f.Parameters.ToArray(), f.IsBuiltin))
-            .ToArray();
+        var functions = omitFunctions
+            ? Array.Empty<FunctionDto>()
+            : snapshot.Functions.Values
+                .OrderBy(f => f.Name, StringComparer.Ordinal)
+                .Select(f => new FunctionDto(f.Name, f.Parameters.ToArray(), f.IsBuiltin))
+                .ToArray();
 
         PlotDto? plot = null;
         if (engine.LastPlot is { } capture)
@@ -135,9 +142,11 @@ static async Task<int> ProgramMain(string[] args)
             plot = new PlotDto(path, capture.Title ?? string.Empty, capture.Svg ?? string.Empty);
         }
 
+        // the structured view: records (and vectors of records) serialize as typed fields so
+        // agents read status/conditions/steps without parsing the display strings
         ResultDto? resultPayload = result.Kind == ValueKind.Void
             ? null
-            : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result));
+            : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result), ToStructured(result));
 
         var envelope = new RunEnvelopeDto(
             true,
@@ -173,6 +182,35 @@ static async Task<int> ProgramMain(string[] args)
 static void PrintText(RunEnvelopeDto envelope) =>
     Console.WriteLine(JsonSerializer.Serialize(envelope, RunJsonPrettyContext.Default.RunEnvelopeDto));
 
+/// <summary>Builds the machine-readable structured view of a record result (recursive over
+/// record fields and vectors of records). Returns null for non-record values.</summary>
+static StructuredDto? ToStructured(Value value)
+{
+    if (value.Kind == ValueKind.Record)
+    {
+        var record = value.AsRecord();
+        return new StructuredDto(record.TypeName, record.Fields.Select(f =>
+        {
+            var field = (Value)f.Value!;
+            return new StructuredFieldDto(
+                f.Name,
+                field.Kind == ValueKind.Record ? field.AsRecord().TypeName : field.Kind.ToString(),
+                ValueFormatter.Format(field),
+                ToStructured(field));
+        }).ToArray());
+    }
+    if (value.Kind == ValueKind.Vector)
+    {
+        var elements = value.AsVector();
+        return new StructuredDto("Vector", elements.Select((e, i) => new StructuredFieldDto(
+            i.ToString(),
+            e.Kind == ValueKind.Record ? e.AsRecord().TypeName : e.Kind.ToString(),
+            ValueFormatter.Format(e),
+            ToStructured(e))).ToArray());
+    }
+    return null;
+}
+
 static void WriteJson(object value, JsonTypeInfo typeInfo) =>
     Console.WriteLine(JsonSerializer.Serialize(value, typeInfo));
 
@@ -199,6 +237,7 @@ static void PrintUsage(TextWriter writer)
         "  --stdin              read the script from standard input\n" +
         "  --plot-dir <dir>     directory for plot() SVG output\n" +
         "  --plot-file <name>   filename for plot() SVG output (default: plot.svg)\n" +
+        "  --omit-functions     omit the builtin registry from the envelope (agent loops)\n" +
         "  --json               emit JSON (default)\n" +
         "  --text               emit a human-readable form\n" +
         "  --help, -h           show this help");
@@ -211,7 +250,9 @@ static void PrintUsage(TextWriter writer)
 internal sealed record VariableDto(string Name, string Kind, string Display);
 internal sealed record FunctionDto(string Name, string[] Parameters, bool Builtin);
 internal sealed record PlotDto(string Path, string Title, string Svg);
-internal sealed record ResultDto(string Kind, string Display, string Typed);
+internal sealed record StructuredDto(string Kind, StructuredFieldDto[] Fields);
+internal sealed record StructuredFieldDto(string Name, string Kind, string Display, StructuredDto? Structured);
+internal sealed record ResultDto(string Kind, string Display, string Typed, StructuredDto? Structured);
 internal sealed record DiagnosticDto(string Message, int Position, int Line, int Column);
 internal sealed record RunEnvelopeDto(
     bool Ok,
@@ -229,6 +270,8 @@ internal sealed record FileReadErrorDto(bool Ok, string Message);
 [JsonSerializable(typeof(RunErrorDto))]
 [JsonSerializable(typeof(FileReadErrorDto))]
 [JsonSerializable(typeof(ResultDto))]
+[JsonSerializable(typeof(StructuredDto))]
+[JsonSerializable(typeof(StructuredFieldDto))]
 [JsonSerializable(typeof(VariableDto))]
 [JsonSerializable(typeof(FunctionDto))]
 [JsonSerializable(typeof(PlotDto))]

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 using Int = global::Lovelace.Integer.Integer;
 using Rat = global::Lovelace.Rational.Rational;
@@ -303,7 +304,52 @@ public static class Printing
     // Pretty print (display only — never used for identity)
     // -----------------------------------------------------------------
 
-    public static string PrettyPrint(Expr e) => Pretty(e, 0, false);
+    public enum PrintMode { Canonical, Pretty, Debug }
+
+    /// <summary>
+    /// Formatting options. <see cref="PrintMode.Canonical"/> is the byte-stable versioned
+    /// S-expression form; <see cref="PrintMode.Pretty"/> is the human-oriented infix form
+    /// (REPL default); <see cref="PrintMode.Debug"/> is a kind-annotated structural form for
+    /// agents. <c>Unicode</c> switches the human form to ∞ √ π ≤ ≥ ≠ (ASCII stays the default).
+    /// </summary>
+    public sealed record PrintOptions(PrintMode Mode = PrintMode.Pretty, bool Unicode = false);
+
+    public static string PrettyPrint(Expr e) => PrettyPrint(e, new PrintOptions());
+
+    public static string PrettyPrint(Expr e, PrintOptions options) => options.Mode switch
+    {
+        PrintMode.Canonical => CanonicalPrint(e),
+        PrintMode.Debug => DebugPrint(e),
+        _ => Pretty(e, 0, false, options.Unicode),
+    };
+
+    /// <summary>Structural (kind-annotated) print for agent debugging: every node carries its
+    /// kind, so agents never have to infer structure from the infix form.</summary>
+    public static string DebugPrint(Expr e) => e switch
+    {
+        IntegerConstantExpr i => "int(" + i.Value + ")",
+        RationalConstantExpr r => "rat(" + r.Value + ")",
+        RealConstantExpr rl => "real(" + rl.Value + ")",
+        ComplexConstantExpr c => "cplx(" + c.Re + ", " + c.Im + ")",
+        SymbolExpr s => "sym(" + s.Symbol.Name + ")",
+        NamedConstantExpr n => "named(" + n.Constant + ")",
+        AddExpr a => "add[" + string.Join(", ", a.Terms.Select(DebugPrint)) + "]",
+        MultiplyExpr m => "mul[" + string.Join(", ", m.Factors.Select(DebugPrint)) + "]",
+        PowerExpr p => "pow[" + DebugPrint(p.Base) + ", " + DebugPrint(p.Exponent) + "]",
+        FunctionExpr f => "fn:" + f.Function.Name + "(" + string.Join(", ", f.Arguments.Select(DebugPrint)) + ")",
+        RelationExpr r => "rel:" + r.Op + "(" + DebugPrint(r.Left) + ", " + DebugPrint(r.Right) + ")",
+        PiecewiseExpr pw => "piecewise[" +
+            string.Join(", ", pw.Branches.Select(b => DebugPrint(b.Guard) + " -> " + DebugPrint(b.Value))) +
+            "; " + DebugPrint(pw.Otherwise) + "]",
+        DerivativeExpr d => "der[" + DebugPrint(d.Operand) + ", " + string.Join(", ", d.Variables.Select(v => v.Name)) + "]",
+        IntegralExpr i2 => "integral[" + DebugPrint(i2.Operand) + ", " + string.Join(", ", i2.Variables.Select(v => v.Name)) + "]",
+        RootOfExpr r2 => "rootof[" + DebugPrint(r2.DefiningPolynomial.ToExpr()) + ", " + r2.RootIndex + "]",
+        AndExpr an => "and[" + string.Join(", ", an.Operands.Select(DebugPrint)) + "]",
+        OrExpr or2 => "or[" + string.Join(", ", or2.Operands.Select(DebugPrint)) + "]",
+        NotExpr nt => "not[" + DebugPrint(nt.Operand) + "]",
+        OrderExpr o => "order[" + DebugPrint(o.Variable) + ", " + DebugPrint(o.Point) + ", " + DebugPrint(o.Degree) + "]",
+        _ => "?" + e.Kind,
+    };
 
     private static int Prec(Expr e) => e switch
     {
@@ -316,7 +362,10 @@ public static class Printing
         _ => 4,
     };
 
-    private static string Pretty(Expr e, int parentPrec, bool rightOfPower)
+    private static readonly Rat OneHalf = Rat.From(1, 2);
+    private static readonly Rat MinusOneHalf = Rat.From(-1, 2);
+
+    private static string Pretty(Expr e, int parentPrec, bool rightOfPower, bool unicode)
     {
         switch (e)
         {
@@ -327,64 +376,97 @@ public static class Printing
             case SymbolExpr s: return s.Symbol.Name;
             case NamedConstantExpr n: return n.Constant switch
             {
-                NamedConstant.Pi => "pi",
+                NamedConstant.Pi => unicode ? "π" : "pi",
                 NamedConstant.E => "e",
                 NamedConstant.I => "i",
-                _ => "inf",
+                _ => unicode ? "∞" : "inf",
             };
             case AddExpr a:
             {
+                var terms = OrderTermsForDisplay(a.Terms);
                 var sb = new StringBuilder();
-                for (int i = 0; i < a.Terms.Length; i++)
+                if (terms.Length > 0 && IsNegativeConstant(terms[0], out var leadMag))
                 {
-                    var t = a.Terms[i];
-                    if (i == 0)
+                    // leading negative constant renders as "rest - |c|" (x - 1, not -1 + x)
+                    if (terms.Length == 1)
                     {
-                        sb.Append(Pretty(t, 1, false));
-                        continue;
+                        var single = "-" + Pretty(leadMag, 1, false, unicode);
+                        return parentPrec > 1 ? "(" + single + ")" : single;
                     }
-                    if (IsNegativeTerm(t, out var inner))
-                    {
-                        sb.Append(" - ");
-                        sb.Append(Pretty(inner, 1, false));
-                    }
-                    else
-                    {
-                        sb.Append(" + ");
-                        sb.Append(Pretty(t, 1, false));
-                    }
+                    sb.Append(Pretty(terms[1], 1, false, unicode));
+                    for (int i = 2; i < terms.Length; i++)
+                        AppendSigned(sb, terms[i], unicode);
+                    sb.Append(" - ");
+                    sb.Append(Pretty(leadMag, 1, false, unicode));
+                }
+                else
+                {
+                    sb.Append(Pretty(terms[0], 1, false, unicode));
+                    for (int i = 1; i < terms.Length; i++)
+                        AppendSigned(sb, terms[i], unicode);
                 }
                 var s = sb.ToString();
                 return parentPrec > 1 ? "(" + s + ")" : s;
             }
             case MultiplyExpr m:
             {
-                var nums = new List<string>();
-                var dens = new List<string>();
+                Rat? coef = null;
                 bool negative = false;
                 int first = 0;
-                if (m.Factors.Length > 0 && TermOrder.IsNumericConstant(m.Factors[0]) && m.Factors[0] is RationalConstantExpr rc && rc.Value.IsMinusOne)
+                if (m.Factors.Length > 0 && m.Factors[0] is RationalConstantExpr rc0)
                 {
-                    negative = true;
+                    coef = rc0.Value;
                     first = 1;
+                    if (coef.IsNegative)
+                    {
+                        negative = true;
+                        coef = Rat.Negate(coef);
+                    }
                 }
+                var nums = new List<string>();
+                var dens = new List<string>();
                 for (int i = first; i < m.Factors.Length; i++)
                 {
                     var f = m.Factors[i];
                     if (f is PowerExpr p && p.Exponent is RationalConstantExpr pe && pe.Value.IsMinusOne)
-                        dens.Add(Pretty(p.Base, 2, false));
+                    {
+                        var dText = Pretty(p.Base, 0, false, unicode);
+                        dens.Add(Prec(p.Base) < 3 ? "(" + dText + ")" : dText);
+                    }
                     else
-                        nums.Add(Pretty(f, 2, false));
+                    {
+                        nums.Add(Pretty(f, 2, false, unicode));
+                    }
                 }
                 string text;
                 if (dens.Count == 0)
                 {
-                    text = string.Join("*", nums);
+                    var body = string.Join("*", nums);
+                    if (coef is { } c0 && !c0.IsOne)
+                        text = nums.Count == 0 ? c0.ToString() : c0.ToString() + "*" + body;
+                    else
+                        text = nums.Count == 0 ? "1" : body;
                 }
                 else
                 {
-                    var numText = nums.Count == 0 ? "1" : string.Join("*", nums);
-                    var denText = string.Join("*", dens.Select(d => d.Contains('+') || d.Contains('-') || d.Contains('*') ? "(" + d + ")" : d));
+                    // fractions render as num/(den): a rational coefficient folds into the
+                    // fraction instead of producing num/coef/den chains (-1/(2*(x + 1)))
+                    var numParts = new List<string>();
+                    if (coef is { } c1 && !c1.IsOne)
+                    {
+                        if (c1.IsInteger)
+                        {
+                            numParts.Add(c1.ToInteger().ToString());
+                        }
+                        else
+                        {
+                            numParts.Add(c1.Numerator.ToString());
+                            dens.Insert(0, c1.Denominator.ToString());
+                        }
+                    }
+                    numParts.AddRange(nums);
+                    var numText = numParts.Count == 0 ? "1" : string.Join("*", numParts);
+                    var denText = dens.Count == 1 ? dens[0] : "(" + string.Join("*", dens) + ")";
                     text = numText + "/" + denText;
                 }
                 if (negative) text = "-" + text;
@@ -392,11 +474,25 @@ public static class Printing
             }
             case PowerExpr p:
             {
-                var b = Pretty(p.Base, 3, false);
+                // radical rendering: x^(1/2) → sqrt(x), x^(-1/2) → 1/sqrt(x) (human form only)
+                if (p.Exponent is RationalConstantExpr sq)
+                {
+                    if (sq.Value == OneHalf)
+                    {
+                        var rt = "sqrt(" + Pretty(p.Base, 0, false, unicode) + ")";
+                        return parentPrec > 3 ? "(" + rt + ")" : rt;
+                    }
+                    if (sq.Value == MinusOneHalf)
+                    {
+                        var rt = "1/sqrt(" + Pretty(p.Base, 0, false, unicode) + ")";
+                        return parentPrec > 3 ? "(" + rt + ")" : rt;
+                    }
+                }
+                var b = Pretty(p.Base, 3, false, unicode);
                 // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2))
                 if (Prec(p.Base) <= 3)
                     b = "(" + b + ")";
-                var ex = Pretty(p.Exponent, 4, true);
+                var ex = Pretty(p.Exponent, 4, true, unicode);
                 if (p.Exponent is RationalConstantExpr rce && !rce.Value.IsInteger)
                     ex = "(" + ex + ")";
                 else if (p.Exponent is PowerExpr)
@@ -406,7 +502,7 @@ public static class Printing
             }
             case FunctionExpr f:
             {
-                var args = string.Join(", ", f.Arguments.Select(a => Pretty(a, 3, false)));
+                var args = string.Join(", ", f.Arguments.Select(a => Pretty(a, 3, false, unicode)));
                 return f.Function.Name + "(" + args + ")";
             }
             case RelationExpr r:
@@ -414,38 +510,38 @@ public static class Printing
                 var op = r.Op switch
                 {
                     RelOp.Eq => " = ",
-                    RelOp.Ne => " != ",
+                    RelOp.Ne => unicode ? " ≠ " : " != ",
                     RelOp.Lt => " < ",
-                    RelOp.Le => " <= ",
+                    RelOp.Le => unicode ? " ≤ " : " <= ",
                     RelOp.Gt => " > ",
-                    _ => " >= ",
+                    _ => unicode ? " ≥ " : " >= ",
                 };
-                return Pretty(r.Left, 0, false) + op + Pretty(r.Right, 0, false);
+                return Pretty(r.Left, 0, false, unicode) + op + Pretty(r.Right, 0, false, unicode);
             }
             case PiecewiseExpr pw:
             {
-                var parts = pw.Branches.Select(b => Pretty(b.Value, 0, false) + " if " + Pretty(b.Guard, 0, false));
-                return "piecewise(" + string.Join(", ", parts) + ", " + Pretty(pw.Otherwise, 0, false) + ")";
+                var parts = pw.Branches.Select(b => Pretty(b.Value, 0, false, unicode) + " if " + Pretty(b.Guard, 0, false, unicode));
+                return "piecewise(" + string.Join(", ", parts) + ", " + Pretty(pw.Otherwise, 0, false, unicode) + ")";
             }
             case DerivativeExpr d:
-                return "diff(" + Pretty(d.Operand, 4, false) + ", " + string.Join(", ", d.Variables.Select(v => v.Name)) + ")";
+                return "diff(" + Pretty(d.Operand, 4, false, unicode) + ", " + string.Join(", ", d.Variables.Select(v => v.Name)) + ")";
             case IntegralExpr i:
-                return "integrate(" + Pretty(i.Operand, 4, false) + ", " + string.Join(", ", i.Variables.Select(v => v.Name)) + ")";
+                return "integrate(" + Pretty(i.Operand, 4, false, unicode) + ", " + string.Join(", ", i.Variables.Select(v => v.Name)) + ")";
             case RootOfExpr r:
-                return "rootof(" + Pretty(r.DefiningPolynomial.ToExpr(), 4, false) + ", " + r.RootIndex + ")";
+                return "rootof(" + Pretty(r.DefiningPolynomial.ToExpr(), 4, false, unicode) + ", " + r.RootIndex + ")";
             case AndExpr an:
             {
-                var text = string.Join(" and ", an.Operands.Select(o => Pretty(o, 0, false)));
+                var text = string.Join(" and ", an.Operands.Select(o => Pretty(o, 0, false, unicode)));
                 return parentPrec > 0 ? "(" + text + ")" : text;
             }
             case OrExpr or2:
             {
-                var text = string.Join(" or ", or2.Operands.Select(o => Pretty(o, -1, false)));
+                var text = string.Join(" or ", or2.Operands.Select(o => Pretty(o, -1, false, unicode)));
                 return parentPrec > -1 ? "(" + text + ")" : text;
             }
             case NotExpr nt:
             {
-                var text = "not " + Pretty(nt.Operand, 4, false);
+                var text = "not " + Pretty(nt.Operand, 4, false, unicode);
                 return parentPrec > 4 ? "(" + text + ")" : text;
             }
             case OrderExpr o:
@@ -453,18 +549,213 @@ public static class Printing
                 bool zeroPoint = o.Point is RationalConstantExpr rp && rp.Value.IsZero
                               || o.Point is IntegerConstantExpr ip && Int.IsZero(ip.Value);
                 var baseExpr = zeroPoint ? o.Variable : Exprs.Subtract(o.Variable, o.Point);
-                var baseText = Pretty(baseExpr, 3, false);
+                var baseText = Pretty(baseExpr, 3, false, unicode);
                 bool degreeOne = o.Degree is RationalConstantExpr rd && rd.Value.IsOne
                               || o.Degree is IntegerConstantExpr id && id.Value == Int.One;
                 if (degreeOne)
                     return "O(" + baseText + ")";
                 var body = zeroPoint ? baseText : "(" + baseText + ")";
-                return "O(" + body + "^" + Pretty(o.Degree, 3, false) + ")";
+                return "O(" + body + "^" + Pretty(o.Degree, 3, false, unicode) + ")";
             }
             default:
                 return e.Kind.ToString();
         }
     }
+
+    private static void AppendSigned(StringBuilder sb, Expr t, bool unicode)
+    {
+        if (IsNegativeTerm(t, out var inner))
+        {
+            sb.Append(" - ");
+            sb.Append(Pretty(inner, 1, false, unicode));
+        }
+        else
+        {
+            sb.Append(" + ");
+            sb.Append(Pretty(t, 1, false, unicode));
+        }
+    }
+
+    private static bool IsNegativeConstant(Expr t, out Expr magnitude)
+    {
+        if (t is RationalConstantExpr r && r.Value.IsNegative)
+        {
+            magnitude = Exprs.Rational(Rat.Negate(r.Value));
+            return true;
+        }
+        if (t is IntegerConstantExpr i && Int.IsNegative(i.Value))
+        {
+            magnitude = Exprs.Integer(-i.Value);
+            return true;
+        }
+        magnitude = t;
+        return false;
+    }
+
+    /// <summary>
+    /// Human-facing term ordering: a sum containing an Order term renders in ascending powers
+    /// around the expansion point (O-term last); a single-symbol polynomial renders in
+    /// descending degree; anything else keeps the canonical order. Bounded: sums above 64
+    /// terms are left canonical (determinism and cost).
+    /// </summary>
+    private static ImmutableArray<Expr> OrderTermsForDisplay(ImmutableArray<Expr> terms)
+    {
+        if (terms.Length is 0 or > 64)
+            return terms;
+
+        // series: the O-term declares the expansion variable and point
+        foreach (var t in terms)
+        {
+            if (t is OrderExpr o && o.Variable is SymbolExpr sv)
+            {
+                var offset = IsZeroExpr(o.Point) ? (Expr)sv : Exprs.Subtract(sv, o.Point);
+                return ImmutableArray.CreateRange(terms
+                    .OrderBy(t => t, Comparer<Expr>.Create((x, y) => CompareSeriesTerms(x, y, offset))));
+            }
+        }
+
+        // polynomial: every non-constant term must be a monomial in one common symbol
+        Symbol? polySymbol = null;
+        foreach (var t in terms)
+        {
+            if (t is RationalConstantExpr or IntegerConstantExpr or RealConstantExpr)
+                continue;
+            if (!TryMonomial(t, out var sym, out _))
+                return terms;
+            if (polySymbol is null)
+                polySymbol = sym;
+            else if (polySymbol.Value.Name != sym.Name)
+                return terms;
+        }
+        if (polySymbol is { } ps)
+        {
+            return ImmutableArray.CreateRange(terms
+                .OrderByDescending(t => DegreeOf(t, ps))
+                .ThenBy(t => t, Comparer<Expr>.Create(TermOrder.Compare)));
+        }
+        return terms;
+    }
+
+    private static int CompareSeriesTerms(Expr x, Expr y, Expr offset)
+    {
+        bool xo = x is OrderExpr, yo = y is OrderExpr;
+        if (xo || yo)
+            return xo == yo ? 0 : (xo ? 1 : -1);   // the O-term is always last
+        var dx = TryDegreeOf(x, offset, out var xd);
+        var dy = TryDegreeOf(y, offset, out var yd);
+        if (dx && dy && xd != yd)
+            return xd < yd ? -1 : 1;               // ascending powers around the point
+        return TermOrder.Compare(x, y);
+    }
+
+    private static bool TryDegreeOf(Expr t, Expr offset, out Rat degree)
+    {
+        switch (t)
+        {
+            case RationalConstantExpr or IntegerConstantExpr or RealConstantExpr:
+                degree = Rat.Zero;
+                return true;
+            case SymbolExpr s when s.Equals(offset):
+                degree = Rat.One;
+                return true;
+            case PowerExpr p when p.Base.Equals(offset) && p.Exponent is RationalConstantExpr pr:
+                degree = pr.Value;
+                return true;
+            case MultiplyExpr m:
+            {
+                Rat total = Rat.Zero;
+                bool any = false;
+                foreach (var f in m.Factors)
+                {
+                    if (f is PowerExpr fp && fp.Base.Equals(offset) && fp.Exponent is RationalConstantExpr fr)
+                    {
+                        total = total + fr.Value;
+                        any = true;
+                    }
+                    else if (f is SymbolExpr fs && fs.Equals(offset))
+                    {
+                        total = total + Rat.One;
+                        any = true;
+                    }
+                    else if (f is not (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
+                    {
+                        degree = Rat.Zero;
+                        return false;
+                    }
+                }
+                degree = any ? total : Rat.Zero;
+                return true;
+            }
+            default:
+                degree = Rat.Zero;
+                return false;
+        }
+    }
+
+    private static bool TryMonomial(Expr t, out Symbol symbol, out Rat degree)
+    {
+        switch (t)
+        {
+            case SymbolExpr s:
+                symbol = s.Symbol;
+                degree = Rat.One;
+                return true;
+            case PowerExpr p when p.Base is SymbolExpr sb && p.Exponent is RationalConstantExpr pr:
+                symbol = sb.Symbol;
+                degree = pr.Value;
+                return true;
+            case MultiplyExpr m:
+            {
+                Symbol? found = null;
+                Rat total = Rat.Zero;
+                foreach (var f in m.Factors)
+                {
+                    if (f is SymbolExpr ms)
+                    {
+                        found ??= ms.Symbol;
+                        if (ms.Symbol.Name != found.Value.Name)
+                            goto fail;
+                        total = total + Rat.One;
+                    }
+                    else if (f is PowerExpr mp && mp.Base is SymbolExpr mb && mp.Exponent is RationalConstantExpr mr)
+                    {
+                        found ??= mb.Symbol;
+                        if (mb.Symbol.Name != found.Value.Name)
+                            goto fail;
+                        total = total + mr.Value;
+                    }
+                    else if (f is not (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
+                    {
+                        goto fail;
+                    }
+                }
+                symbol = found!.Value;
+                degree = total;
+                return true;
+            fail:
+                symbol = default;
+                degree = Rat.Zero;
+                return false;
+            }
+            default:
+                symbol = default;
+                degree = Rat.Zero;
+                return false;
+        }
+    }
+
+    private static Rat DegreeOf(Expr t, Symbol s) => t switch
+    {
+        RationalConstantExpr or IntegerConstantExpr or RealConstantExpr => Rat.Zero,
+        _ => TryMonomial(t, out var sym, out var d) && sym.Name == s.Name ? d : Rat.Zero,
+    };
+
+    private static bool IsZeroExpr(Expr e) => e switch
+    {
+        RationalConstantExpr r => r.Value.IsZero,
+        IntegerConstantExpr i => Int.IsZero(i.Value),
+        _ => false,
+    };
 
     private static string ComplexToText(ComplexConstantExpr c)
     {

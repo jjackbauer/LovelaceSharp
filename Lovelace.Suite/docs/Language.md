@@ -1058,7 +1058,7 @@ f = x^3 + 2*x^2 + 5*x + 7
 diff(f, x)
 ```
 ```result
-5 + 3*x^2 + 4*x (Symbolic)
+3*x^2 + 4*x + 5 (Symbolic)
 ```
 
 ```lovelace
@@ -1066,7 +1066,7 @@ x = symbol("x")
 factor(x^4 - 5*x^2 + 4)
 ```
 ```result
-(-2 + x)*(-1 + x)*(1 + x)*(2 + x) (Symbolic)
+(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)
 ```
 
 ```lovelace
@@ -1124,5 +1124,32 @@ evalf(1/3, 25)
 ```
 ```result
 0.3333333333333333333333333 (Real)
+```
+
+The `*_full` builtins return structured records; read their fields with member access:
+
+```lovelace
+x = symbol("x")
+solve_full(x^2 - 4 == 0, x).status
+```
+```result
+Solved
+```
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+jacobian([x*y, x+y], [x, y])
+```
+```result
+[[y, x], [1, 1]] (Array)
+```
+
+```lovelace
+x = symbol("x")
+type(solve_full(x^2 - 4 == 0, x))
+```
+```result
+SolveResult
 ```
 

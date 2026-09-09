@@ -342,63 +342,144 @@ public sealed class MathIRPlugin : IModusPlugin
 
     public void Register(IModusContext c)
     {
-        c.RegisterBuiltin("lower", new[] { "f", "params" }, args =>
+        c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
+            "lower", new[] { "f", "params" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
+            "Lowers a symbolic expression to MathIR (the typed, validated computational DAG).",
+            ["lower(x^2 + 1, [x])"], "Text", ["compile"]), args =>
         {
+            var previous = Exprs.Current;
             Exprs.Current = _symbolics.Context;
-            var f = AsExpr(args[0]!);
-            var names = (IReadOnlyList<object?>)args[1]!;
-            var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
-            var prog = Lowering.Lower(f, Exprs.Current, ps);
-            return prog.Serialize().TrimEnd('\n');
-        });
-        c.RegisterBuiltin("compile", new[] { "f", "params" }, args =>
-        {
-            Exprs.Current = _symbolics.Context;
-            var f = AsExpr(args[0]!);
-            var names = (IReadOnlyList<object?>)args[1]!;
-            var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
-            return Compilation.Compile(f, Exprs.Current, ps).IrText.TrimEnd('\n');
-        });
-        c.RegisterBuiltin("evalir_batch", new[] { "ir", "values", "digits" }, args =>
-        {
-            Exprs.Current = _symbolics.Context;
-            var prog = IrProgram.Deserialize((string)args[0]!);
-            var values = (IReadOnlyList<object?>)args[1]!;
-            var digits = (int)AsLong(args[2]!);
-            // flat row-major values: width = number of parameters, one row per width entries
-            int width = prog.Parameters.Count;
-            if (values.Count == 0 || values.Count % width != 0)
-                throw new InvalidOperationException($"Values must be a multiple of {width} (the parameter count).");
-            int rows = values.Count / width;
-            var columns = new Dictionary<string, Num[]>(width);
-            for (int p = 0; p < width; p++)
-                columns[prog.Parameters[p]] = new Num[rows];
-            for (int row = 0; row < rows; row++)
-                for (int p = 0; p < width; p++)
-                    columns[prog.Parameters[p]][row] = ToNum(values[row * width + p]!);
-            using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
+            try
             {
-                var results = new CompiledKernel(prog, prog.Parameters.Select(n => Exprs.Current.Symbol(n)).ToArray(), Exprs.Current)
-                    .EvaluateBatch(columns);
-                return results.Select(ToPayload).ToArray();
+                var f = AsExpr(args[0]!);
+                var names = (IReadOnlyList<object?>)args[1]!;
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                var prog = Lowering.Lower(f, Exprs.Current, ps);
+                return prog.Serialize().TrimEnd('\n');
+            }
+            finally
+            {
+                Exprs.Current = previous;
             }
         });
-        c.RegisterBuiltin("evalir", new[] { "ir", "values", "digits" }, args =>
+        c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
+            "compile", new[] { "f", "params" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
+            "Compiles a symbolic expression to a validated MathIR kernel (serialized IR text). Use compile_full for the structured kernel metadata.",
+            ["compile(x^2 + 1, [x])"], "Text", ["compile_full", "evalir", "evalir_batch"]), args =>
         {
+            var previous = Exprs.Current;
             Exprs.Current = _symbolics.Context;
-            var prog = IrProgram.Deserialize((string)args[0]!);
-            var values = (IReadOnlyList<object?>)args[1]!;
-            var digits = (int)AsLong(args[2]!);
-            var bindings = new Dictionary<Symbol, Num>();
-            for (int i = 0; i < prog.Parameters.Count && i < values.Count; i++)
-                bindings[Exprs.Current.Symbol(prog.Parameters[i])] = ToNum(values[i]!);
-            using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
+            try
             {
-                var result = IrEvaluator.Evaluate(prog, bindings, Exprs.Current);
-                return ToPayload(result);
+                var f = AsExpr(args[0]!);
+                var names = (IReadOnlyList<object?>)args[1]!;
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                return Compilation.Compile(f, Exprs.Current, ps).IrText.TrimEnd('\n');
+            }
+            finally
+            {
+                Exprs.Current = previous;
+            }
+        });
+        c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
+            "compile_full", new[] { "f", "params" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
+            "Structured compile: a CompilationResult record with the IR, parameters, result type, target, MathIR version, and exactness.",
+            ["compile_full(x^2 + 1, [x])"], "CompilationResult", ["compile", "evalir_batch"]), args =>
+        {
+            var previous = Exprs.Current;
+            Exprs.Current = _symbolics.Context;
+            try
+            {
+                var f = AsExpr(args[0]!);
+                var names = (IReadOnlyList<object?>)args[1]!;
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                var res = Compilation.Compile(f, Exprs.Current, ps);
+                var types = IrTyping.Infer(res.Program);
+                var resultType = types.Length > 0 && types[^1] is { } rt ? rt.ToString() : "unknown";
+                return new global::Lovelace.Abstractions.RecordValue("CompilationResult",
+                    new global::Lovelace.Abstractions.RecordField("ir", res.IrText.TrimEnd('\n')),
+                    new global::Lovelace.Abstractions.RecordField("parameters", ps.Select(p => (object)p.Name).ToArray()),
+                    new global::Lovelace.Abstractions.RecordField("result_type", resultType),
+                    new global::Lovelace.Abstractions.RecordField("target", "mathir"),
+                    new global::Lovelace.Abstractions.RecordField("mathir_version", 2),
+                    new global::Lovelace.Abstractions.RecordField("exact", f.IsExact));
+            }
+            finally
+            {
+                Exprs.Current = previous;
+            }
+        });
+        c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
+            "evalir_batch", new[] { "ir", "values", "digits" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
+            "Batch-evaluates a compiled kernel (IR text or CompilationResult) over flat row-major values at the given precision.",
+            ["k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)"], "Vector", ["compile", "evalir"]), args =>
+        {
+            var previous = Exprs.Current;
+            Exprs.Current = _symbolics.Context;
+            try
+            {
+                var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
+                var values = (IReadOnlyList<object?>)args[1]!;
+                var digits = (int)AsLong(args[2]!);
+                // flat row-major values: width = number of parameters, one row per width entries
+                int width = prog.Parameters.Count;
+                if (values.Count == 0 || values.Count % width != 0)
+                    throw new InvalidOperationException($"Values must be a multiple of {width} (the parameter count).");
+                int rows = values.Count / width;
+                var columns = new Dictionary<string, Num[]>(width);
+                for (int p = 0; p < width; p++)
+                    columns[prog.Parameters[p]] = new Num[rows];
+                for (int row = 0; row < rows; row++)
+                    for (int p = 0; p < width; p++)
+                        columns[prog.Parameters[p]][row] = ToNum(values[row * width + p]!);
+                using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
+                {
+                    var results = new CompiledKernel(prog, prog.Parameters.Select(n => Exprs.Current.Symbol(n)).ToArray(), Exprs.Current)
+                        .EvaluateBatch(columns);
+                    return results.Select(ToPayload).ToArray();
+                }
+            }
+            finally
+            {
+                Exprs.Current = previous;
+            }
+        });
+        c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
+            "evalir", new[] { "ir", "values", "digits" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
+            "Evaluates a compiled kernel (IR text or CompilationResult) at one point at the given precision.",
+            ["evalir(compile(x^2 + 1, [x]), [3], 40)"], "Real | Complex", ["evalir_batch", "compile"]), args =>
+        {
+            var previous = Exprs.Current;
+            Exprs.Current = _symbolics.Context;
+            try
+            {
+                var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
+                var values = (IReadOnlyList<object?>)args[1]!;
+                var digits = (int)AsLong(args[2]!);
+                var bindings = new Dictionary<Symbol, Num>();
+                for (int i = 0; i < prog.Parameters.Count && i < values.Count; i++)
+                    bindings[Exprs.Current.Symbol(prog.Parameters[i])] = ToNum(values[i]!);
+                using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
+                {
+                    var result = IrEvaluator.Evaluate(prog, bindings, Exprs.Current);
+                    return ToPayload(result);
+                }
+            }
+            finally
+            {
+                Exprs.Current = previous;
             }
         });
     }
+
+    /// <summary>Accepts the IR text from compile() or the CompilationResult record from
+    /// compile_full() (its <c>ir</c> field).</summary>
+    private static string IrTextOf(object? ir) => ir switch
+    {
+        string s => s,
+        global::Lovelace.Abstractions.RecordValue r when r.TryGetField("ir", out var f) && f is string s => s,
+        _ => throw new InvalidOperationException("evalir/evalir_batch expect the IR from compile() or compile_full()."),
+    };
 
     private static Num ToNum(object? o) => o switch
     {

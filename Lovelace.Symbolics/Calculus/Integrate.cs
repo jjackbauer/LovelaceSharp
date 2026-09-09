@@ -90,48 +90,43 @@ public static class Integration
 
     internal static bool Verify(Expr antiderivative, Expr integrand, Symbol x, ExprContext ctx)
     {
+        // Differentiation is total over the expression DAG: exceptions here are defects and
+        // must surface, not be swallowed into "verification failed".
+        var d = Calculus.Diff(antiderivative, x, ctx);
+        if (d == integrand)
+            return true;
+        // algebraic equivalence: expansion collapses like terms (e.g. e^x + (x-1)e^x = x·e^x)
         try
         {
-            var d = Calculus.Diff(antiderivative, x, ctx);
-            if (d == integrand)
+            if (Algebra.Expand(d, ctx) == Algebra.Expand(integrand, ctx))
                 return true;
-            // algebraic equivalence: expansion collapses like terms (e.g. e^x + (x-1)e^x = x·e^x)
-            try
-            {
-                if (Algebra.Expand(d, ctx) == Algebra.Expand(integrand, ctx))
-                    return true;
-            }
-            catch (Exception)
-            {
-                // fall through to the rational check
-            }
-            // rational functions: bring the derivative's terms over the integrand's
-            // denominator and compare polynomials (sum of fractions equality)
-            var (in_, id) = SplitFraction(integrand);
-            if (Polynomial.TryFromExpr(in_, ctx, new[] { x }, out var inP, out _) &&
-                Polynomial.TryFromExpr(id, ctx, new[] { x }, out var idP, out _))
-            {
-                var terms = d is AddExpr da ? da.Terms.ToArray() : new[] { d };
-                var sum = Polynomial.Zero(idP.Order);
-                foreach (var t in terms)
-                {
-                    var (tn, td) = SplitFraction(t);
-                    if (!Polynomial.TryFromExpr(tn, ctx, new[] { x }, out var tnP, out _) ||
-                        !Polynomial.TryFromExpr(td, ctx, new[] { x }, out var tdP, out _))
-                        return false;
-                    var (q, rem) = idP.DivRem(tdP, MonomialOrder.Lex);
-                    if (!rem.IsZero)
-                        return false;
-                    sum = Polynomial.Add(sum, Polynomial.Multiply(tnP, q));
-                }
-                return sum.Equals(inP);
-            }
-            return false;
         }
         catch (Exception)
         {
-            return false;
+            // fall through to the rational check
         }
+        // rational functions: bring the derivative's terms over the integrand's
+        // denominator and compare polynomials (sum of fractions equality)
+        var (in_, id) = SplitFraction(integrand);
+        if (Polynomial.TryFromExpr(in_, ctx, new[] { x }, out var inP, out _) &&
+            Polynomial.TryFromExpr(id, ctx, new[] { x }, out var idP, out _))
+        {
+            var terms = d is AddExpr da ? da.Terms.ToArray() : new[] { d };
+            var sum = Polynomial.Zero(idP.Order);
+            foreach (var t in terms)
+            {
+                var (tn, td) = SplitFraction(t);
+                if (!Polynomial.TryFromExpr(tn, ctx, new[] { x }, out var tnP, out _) ||
+                    !Polynomial.TryFromExpr(td, ctx, new[] { x }, out var tdP, out _))
+                    return false;
+                var (q, rem) = idP.DivRem(tdP, MonomialOrder.Lex);
+                if (!rem.IsZero)
+                    return false;
+                sum = Polynomial.Add(sum, Polynomial.Multiply(tnP, q));
+            }
+            return sum.Equals(inP);
+        }
+        return false;
     }
 
     private static (Expr Numerator, Expr Denominator) SplitFraction(Expr f)

@@ -54,6 +54,7 @@ public enum TokenKind
     InterpolatedString, // 26 — $"..." (Text = raw content between quotes)
     Semicolon,        // 27 — ;
     Colon,            // 28 — :
+    Dot,              // 29 — .  (record member access: r.solutions)
 }
 
 // -------------------------------------------------------------------------

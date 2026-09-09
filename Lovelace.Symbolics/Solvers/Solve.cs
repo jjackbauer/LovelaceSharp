@@ -6,6 +6,15 @@ namespace Lovelace.Symbolics;
 
 public enum SolutionKind { Exact, Empty, Unevaluated }
 
+/// <summary>
+/// The field the solution set ranges over. The default is <see cref="Complex"/> (unconstrained
+/// symbols range over the complex field per the kernel constitution). Deg ≤ 3 radical formulas
+/// are complex-capable; complex algebraic roots (deg ≥ 4 irreducible factors) are not
+/// representable in v1 (RootOf is real-only) and are reported Unevaluated under the Complex
+/// domain rather than silently switching domains.
+/// </summary>
+public enum SolveDomain { Real, Complex }
+
 public sealed record Solution(Expr Value, AssumptionSet Conditions);
 
 /// <summary>Domain of a solution-family parameter.</summary>
@@ -37,7 +46,7 @@ public sealed class SolutionSet
 /// <summary>Equation solving: structural dispatch over polynomials, rationals, and elementary compositions.</summary>
 public static class Solvers
 {
-    public static SolutionSet Solve(Expr equation, Symbol x, ExprContext? ctx = null)
+    public static SolutionSet Solve(Expr equation, Symbol x, ExprContext? ctx = null, SolveDomain domain = SolveDomain.Complex)
     {
         ctx ??= Exprs.Current;
         Expr f;
@@ -50,7 +59,7 @@ public static class Solvers
 
         // 1. polynomial in x
         if (Polynomial.TryFromExpr(f, ctx, new[] { x }, out var poly, out _))
-            return SolvePolynomial(poly, x, ctx);
+            return SolvePolynomial(poly, x, ctx, domain);
 
         // 2. rational function: solve numerator == 0, keep denominator != 0 conditions
         if (RationalFunctions.TryRationalize(f, ctx, out var num, out var den) &&
@@ -59,12 +68,21 @@ public static class Solvers
         {
             if (!np.IsZero)
             {
-                var inner = SolvePolynomial(np, x, ctx);
+                var inner = SolvePolynomial(np, x, ctx, domain);
+                if (inner.Kind != SolutionKind.Exact)
+                    return inner;
                 var denExpr = dp.ToExpr();
                 var cond = AssumptionSet.Empty.Add(new ExpressionPropertyAssumption(denExpr, SymbolPredicate.NonZero));
                 var set = new SolutionSet(SolutionKind.Exact);
                 foreach (var sol in inner.Solutions)
-                    set.Solutions.Add(sol with { Conditions = Merge(sol.Conditions, cond) });
+                {
+                    var merged = Merge(sol.Conditions, cond);
+                    if (merged.IsUnsatisfiable)
+                        continue;   // a numerator root that also zeroes the denominator is not a solution
+                    set.Solutions.Add(sol with { Conditions = merged });
+                }
+                if (set.Solutions.Count == 0)
+                    return new SolutionSet(SolutionKind.Empty, "every root violates the denominator condition.");
                 return set;
             }
             return new SolutionSet(SolutionKind.Empty);
@@ -86,15 +104,19 @@ public static class Solvers
         }
 
         // 4. elementary compositions
-        var elementary = SolveElementary(f, x, ctx);
+        var elementary = SolveElementary(f, x, ctx, domain);
         if (elementary is not null)
             return elementary;
 
         return new SolutionSet(SolutionKind.Unevaluated, "No solver for this structure.");
     }
 
+    /// <summary>Merges condition sets; contradictory requirements make the branch
+    /// unsatisfiable rather than silently keeping the first set.</summary>
     private static AssumptionSet Merge(AssumptionSet a, AssumptionSet b)
     {
+        if (a.IsUnsatisfiable || b.IsUnsatisfiable)
+            return AssumptionSet.Unsatisfiable;
         var result = a;
         foreach (var atom in b.Atoms)
         {
@@ -104,14 +126,18 @@ public static class Solvers
             }
             catch (AssumptionContradictionException)
             {
-                // contradictory conditions keep the first set (solver-level best effort)
+                return AssumptionSet.Unsatisfiable;
             }
         }
         return result;
     }
 
-    /// <summary>Univariate polynomial solving: linear/quadratic/cubic formulas, RootOf otherwise.</summary>
-    public static SolutionSet SolvePolynomial(Polynomial poly, Symbol x, ExprContext ctx)
+    /// <summary>Univariate polynomial solving: linear/quadratic/cubic formulas, RootOf otherwise.
+    /// The domain is explicit: radical formulas (deg ≤ 3) are complex-capable and are filtered
+    /// to real roots under <see cref="SolveDomain.Real"/>; deg ≥ 4 factors use the real-only
+    /// RootOf and report Unevaluated under the Complex domain instead of silently changing
+    /// domains.</summary>
+    public static SolutionSet SolvePolynomial(Polynomial poly, Symbol x, ExprContext ctx, SolveDomain domain = SolveDomain.Complex)
     {
         if (poly.IsZero)
             return new SolutionSet(SolutionKind.Unevaluated, "0 = 0: every value is a solution.");
@@ -125,25 +151,32 @@ public static class Solvers
             var roots = deg switch
             {
                 1 => new[] { LinearRoot(factor) },
-                2 => QuadraticRoots(factor),
-                3 => CubicRoots(factor, ctx),
+                2 => QuadraticRoots(factor, domain),
+                3 => CubicRoots(factor, ctx, domain),
                 // degree >= 4: RootOf over the exact Sturm count of real roots — never deg
                 // assumed-real roots (that invented nonexistent roots and shifted indices)
-                _ => HighDegreeRoots(factor),
+                _ => HighDegreeRoots(factor, domain),
             };
+            if (roots is null)
+                return new SolutionSet(SolutionKind.Unevaluated,
+                    "complex algebraic roots not supported (RootOf is real-only in v1).");
             foreach (var r in roots)
                 set.Solutions.Add(new Solution(r, AssumptionSet.Empty));
         }
         if (set.Solutions.Count == 0)
-            return new SolutionSet(SolutionKind.Empty, "No real roots.");
+            return new SolutionSet(SolutionKind.Empty, "no real solutions");
         return set;
     }
 
-    private static Expr[] HighDegreeRoots(Polynomial p)
+    private static Expr[]? HighDegreeRoots(Polynomial p, SolveDomain domain)
     {
         var count = Roots.RealRootCount(p);
         if (count == 0)
+        {
+            if (domain == SolveDomain.Complex)
+                return null;   // complex algebraic roots are not representable in v1
             return Array.Empty<Expr>();
+        }
         return Enumerable.Range(0, count).Select(i => (Expr)Exprs.RootOf(p, i)).ToArray();
     }
 
@@ -154,7 +187,7 @@ public static class Solvers
         return Exprs.Divide(Exprs.Rational(Rat.Negate(c0)), Exprs.Rational(c1));
     }
 
-    private static Expr[] QuadraticRoots(Polynomial p)
+    private static Expr[] QuadraticRoots(Polynomial p, SolveDomain domain)
     {
         // a x^2 + b x + c
         var c = p.ConstantTerm;
@@ -166,6 +199,8 @@ public static class Solvers
             else if (d == 2) a = coef;
         }
         var disc = b * b - Rat.FromLong(4L) * a * c;
+        if (domain == SolveDomain.Real && disc < Rat.Zero)
+            return Array.Empty<Expr>();   // no real roots
         var sqrtDisc = Exprs.Power(Exprs.Rational(disc), Exprs.Rational(1, 2));
         var twoA = Exprs.Rational(Rat.FromLong(2L) * a);
         var negB = Exprs.Rational(Rat.Negate(b));
@@ -176,7 +211,7 @@ public static class Solvers
         };
     }
 
-    private static Expr[] CubicRoots(Polynomial p, ExprContext ctx)
+    private static Expr[] CubicRoots(Polynomial p, ExprContext ctx, SolveDomain domain)
     {
         // normalize to monic x^3 + A x^2 + B x + C
         Rat A = Rat.Zero, B = Rat.Zero, C = Rat.Zero;
@@ -217,12 +252,28 @@ public static class Solvers
             var omega2 = Exprs.Subtract(
                 Exprs.Rational(-1, 2),
                 Exprs.Multiply(Exprs.Divide(Exprs.Power(Exprs.Rational(3L), Exprs.Rational(1, 2)), Exprs.Rational(2L)), Exprs.I));
-            ts = new[]
+            if (domain == SolveDomain.Real)
             {
-                Exprs.Add(u, v),
-                Exprs.Add(Exprs.Multiply(omega, u), Exprs.Multiply(omega2, v)),
-                Exprs.Add(Exprs.Multiply(omega2, u), Exprs.Multiply(omega, v)),
-            };
+                // disc > 0: exactly one real root (the Cardano real branch); disc == 0: all
+                // three roots are real and coincide pairwise
+                ts = disc > Rat.Zero
+                    ? new[] { Exprs.Add(u, v) }
+                    : new[]
+                    {
+                        Exprs.Add(u, v),
+                        Exprs.Add(Exprs.Multiply(omega, u), Exprs.Multiply(omega2, v)),
+                        Exprs.Add(Exprs.Multiply(omega2, u), Exprs.Multiply(omega, v)),
+                    };
+            }
+            else
+            {
+                ts = new[]
+                {
+                    Exprs.Add(u, v),
+                    Exprs.Add(Exprs.Multiply(omega, u), Exprs.Multiply(omega2, v)),
+                    Exprs.Add(Exprs.Multiply(omega2, u), Exprs.Multiply(omega, v)),
+                };
+            }
         }
         else
         {
@@ -247,12 +298,12 @@ public static class Solvers
     private static Expr ExprsSqrt(Expr e) => Exprs.Power(e, Exprs.Rational(1, 2));
 
     /// <summary>Solves exp(u)=c, log(u)=c, u^n=c, sin/cos/tan(u)=c via registry inverses (principal branches).</summary>
-    private static SolutionSet? SolveElementary(Expr f, Symbol x, ExprContext ctx)
+    private static SolutionSet? SolveElementary(Expr f, Symbol x, ExprContext ctx, SolveDomain domain)
     {
         // bare h(u) = 0 with h invertible (e.g. sin(x) = 0)
         if (f is (FunctionExpr or PowerExpr))
         {
-            var direct = SolveInverse(f, Exprs.Zero, x, ctx);
+            var direct = SolveInverse(f, Exprs.Zero, x, ctx, domain);
             if (direct is not null)
                 return direct;
         }
@@ -273,7 +324,7 @@ public static class Solvers
                 var u = Exprs.Subtract(f, term);   // h(u-part)
                 if (u is not (FunctionExpr or PowerExpr))
                     continue;
-                var result = SolveInverse(u, rhs, x, ctx);
+                var result = SolveInverse(u, rhs, x, ctx, domain);
                 if (result is not null)
                     return result;
             }
@@ -281,7 +332,7 @@ public static class Solvers
         return null;
     }
 
-    private static SolutionSet? SolveInverse(Expr h, Expr c, Symbol x, ExprContext ctx)
+    private static SolutionSet? SolveInverse(Expr h, Expr c, Symbol x, ExprContext ctx, SolveDomain domain)
     {
         Expr? u = null;
         Expr? inverse = null;
@@ -329,7 +380,7 @@ public static class Solvers
             return null;
         // u is the part containing x: solve u == inverse for x recursively
         var eq = Exprs.Subtract(u, inverse);
-        var inner = Solve(eq, x, ctx);
+        var inner = Solve(eq, x, ctx, domain);
         if (inner.Kind == SolutionKind.Exact)
         {
             var set = new SolutionSet(SolutionKind.Exact);
@@ -520,7 +571,8 @@ public static class SystemSolvers
             return;
         }
 
-        // lex Gröbner basis; eliminate all but the last variable
+        // lex Gröbner basis; eliminate all but the last variable. Only expected typed failures
+        // degrade to "not enumerated" — defects surface instead of being masked as no-solution.
         var last = vars[n - 1];
         List<Polynomial> basis;
         try
@@ -528,7 +580,7 @@ public static class SystemSolvers
             var gens = polys.Select(p => Polynomial.FromExpr(p, ctx, vars)).ToList();
             basis = Groebner.Basis(gens, MonomialOrder.Lex);
         }
-        catch (Exception)
+        catch (NotPolynomialException)
         {
             return;
         }

@@ -91,15 +91,33 @@ public sealed class SuiteEngine
     public string FormatValue(Value value)
     {
         using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
-        return ValueFormatter.Format(value);
+        return ValueFormatter.Format(value, UnicodeOutput);
     }
 
     /// <summary>Formats a value with a type suffix at this engine's display precision.</summary>
     public string FormatValueTyped(Value value)
     {
         using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
-        return ValueFormatter.FormatTyped(value);
+        return ValueFormatter.FormatTyped(value, UnicodeOutput);
     }
+
+    /// <summary>Whether display formatting prefers Unicode (∞ √ π ≤ ≥ ≠). ASCII default.</summary>
+    public bool UnicodeOutput
+    {
+        get => _interpreter.UnicodeOutput;
+        set => _interpreter.UnicodeOutput = value;
+    }
+
+    private HelpService? _help;
+
+    /// <summary>The plugin-aware help/introspection surface (categories, funcs listings,
+    /// per-function help) derived from the live builtin registry.</summary>
+    public HelpService Help => _help ??= new HelpService(this);
+
+    /// <summary>Descriptor metadata of plugin-registered builtins (core builtins resolve
+    /// through <see cref="CoreBuiltinMetadata"/>).</summary>
+    public IReadOnlyDictionary<string, Lovelace.Abstractions.BuiltinDescriptor> InterpreterBuiltinDescriptors =>
+        _interpreter.BuiltinDescriptors;
 
     /// <summary>Elapsed wall-clock time of the most recent evaluation.</summary>
     public TimeSpan LastElapsed { get; private set; }
@@ -161,6 +179,14 @@ public sealed class SuiteEngine
     }
 
     /// <summary>
+    /// Serializes evaluations per engine so session-scoped state (variables, assumptions held
+    /// by plugins, precision scopes) cannot interleave across concurrent requests — the
+    /// <c>Studio.Session.Gate</c> precedent. Cross-engine isolation is structural (each engine
+    /// hosts its own plugin instances).
+    /// </summary>
+    private readonly SemaphoreSlim _evaluationGate = new(1, 1);
+
+    /// <summary>
     /// Evaluates <paramref name="source"/> as a script/expression. On success the
     /// result (unless <c>void</c>) is stored in the <c>_</c> variable.
     /// </summary>
@@ -176,16 +202,17 @@ public sealed class SuiteEngine
         _lastSource = source;
 
         var stopwatch = Stopwatch.StartNew();
+        await _evaluationGate.WaitAsync().ConfigureAwait(false);
         try
         {
             if (output is null)
-                return await EvaluateCoreAsync(source);
+                return await EvaluateCoreAsync(source).ConfigureAwait(false);
 
             var previous = _interpreter.Output;
             _interpreter.Output = output;
             try
             {
-                return await EvaluateCoreAsync(source);
+                return await EvaluateCoreAsync(source).ConfigureAwait(false);
             }
             finally
             {
@@ -194,6 +221,7 @@ public sealed class SuiteEngine
         }
         finally
         {
+            _evaluationGate.Release();
             stopwatch.Stop();
             LastElapsed = stopwatch.Elapsed;
         }

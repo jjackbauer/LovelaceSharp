@@ -43,6 +43,18 @@ return {
           }
           const lines = []
           lines.push(value.result ? ('result: ' + value.result.typed) : 'result: (void)')
+          // structured records render field-by-field (agents can also consume the raw JSON)
+          const s = value.result && value.result.structured
+          if (s && s.kind) {
+            lines.push('structured: ' + s.kind)
+            for (const f of s.fields || []) {
+              if (f.structured && f.structured.kind) {
+                lines.push('  ' + f.name + ': ' + f.structured.kind + '[' + (f.structured.fields || []).length + ']')
+              } else {
+                lines.push('  ' + f.name + ': ' + f.display + '  (' + f.kind + ')')
+              }
+            }
+          }
           const vars = value.variables || []
           const shown = vars.filter(v => v.name !== '_')
           for (const v of shown) lines.push('  ' + v.name + ' = ' + v.display + '  (' + v.kind + ')')
@@ -80,7 +92,7 @@ return {
         }
 
         const runner = (args.runner !== undefined && args.runner !== '') ? args.runner : ws + '\\Lovelace.Run\\bin\\Release\\net10.0\\publish\\Lovelace.Run.exe'
-        const argv = [runner, '--stdin', '--json']
+        const argv = [runner, '--stdin', '--json', '--omit-functions']
         if (args.plotDir !== undefined && args.plotDir !== '') argv.push('--plot-dir', args.plotDir)
         if (args.plotFile !== undefined && args.plotFile !== '') argv.push('--plot-file', args.plotFile)
 

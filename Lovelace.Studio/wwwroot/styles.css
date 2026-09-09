@@ -421,3 +421,12 @@ button.danger:hover { background: #e04a57; }
 .cm-tooltip-autocomplete .cm-completionDetail { color: var(--muted); font-size: 12px; margin-left: 6px; }
 .cm-tooltip-autocomplete .cm-completionMatchedText { text-decoration: none; color: var(--accent); }
 
+
+/* Symbolic inspection panel (Logs pane) */
+.symbols-details { margin-top: 6px; border-top: 1px solid var(--border, #333); padding-top: 4px; }
+.symbols-details summary { cursor: pointer; user-select: none; }
+.symbols-details .hint { opacity: 0.6; font-size: 0.85em; }
+.symbolic-inspect {
+  margin: 6px 0 0 0; padding: 6px; font-family: monospace; font-size: 0.85em;
+  white-space: pre-wrap; overflow-x: auto; background: rgba(0, 0, 0, 0.15);
+}

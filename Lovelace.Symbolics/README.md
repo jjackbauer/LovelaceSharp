@@ -24,7 +24,7 @@ f = x^3 + 2*x^2 + 5*x + 7
 diff(f, x)
 ```
 ```result
-5 + 3*x^2 + 4*x (Symbolic)
+3*x^2 + 4*x + 5 (Symbolic)
 ```
 
 Symbolic values are a **domain type** (like `Complex`): they do not widen to numeric kinds,
@@ -96,11 +96,21 @@ x/x (Symbolic)
 ```
 
 Canonical construction preserves definedness: `x/x` is undefined at 0 while `1` is not,
-so the kernel keeps the pole visible. `simplify(x/x)` cancels it and reports the side
-condition `x != 0`:
+so the kernel keeps the pole visible. `simplify` is **safe by default**: it applies only
+rules whose side conditions are already provable from the active assumptions, so the bare
+convenience form never silently discards a condition:
 
 ```lovelace
 x = symbol("x")
+simplify(x/x)
+```
+```result
+x/x (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+assume(x != 0)
 simplify(x/x)
 ```
 ```result
@@ -112,7 +122,7 @@ x = symbol("x")
 x^2 - 2*x + 1
 ```
 ```result
-1 + x^2 - 2*x (Symbolic)
+x^2 - 2*x + 1 (Symbolic)
 ```
 
 ```lovelace
@@ -187,7 +197,7 @@ y = symbol("y")
 simplify(sqrt(y^2))
 ```
 ```result
-(y^2)^(1/2) (Symbolic)
+sqrt(y^2) (Symbolic)
 ```
 
 ```lovelace
@@ -201,7 +211,9 @@ simplify(sqrt(4))
 ## 4. Simplification
 
 `simplify` runs budgeted, assumption-aware rewrite groups. The v1 groups cover the
-Pythagorean identity, power rules, and exp/log inverses.
+Pythagorean identity, power rules, and exp/log inverses. Conditional rules — cancellation
+and the exp/log inverses — fire only when their side conditions are provable; otherwise the
+expression is left untouched:
 
 ```lovelace
 x = symbol("x")
@@ -216,6 +228,15 @@ x = symbol("x")
 simplify(exp(log(x)))
 ```
 ```result
+exp(log(x)) (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+assume(x > 0)
+simplify(exp(log(x)))
+```
+```result
 x (Symbolic)
 ```
 
@@ -227,7 +248,7 @@ x = symbol("x")
 expand((x+1)^3)
 ```
 ```result
-1 + x^3 + 3*x + 3*x^2 (Symbolic)
+x^3 + 3*x^2 + 3*x + 1 (Symbolic)
 ```
 
 ```lovelace
@@ -236,7 +257,7 @@ y = symbol("y")
 collect(x*y + x + 2, x)
 ```
 ```result
-2 + x*(1 + y) (Symbolic)
+2 + x*(y + 1) (Symbolic)
 ```
 
 `factor` works over Q[x] (square-free decomposition + rational-root linear factors).
@@ -246,7 +267,7 @@ x = symbol("x")
 factor(x^4 - 5*x^2 + 4)
 ```
 ```result
-(-2 + x)*(-1 + x)*(1 + x)*(2 + x) (Symbolic)
+(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)
 ```
 
 ```lovelace
@@ -254,7 +275,7 @@ x = symbol("x")
 cancel((x^2 - 1)/(x - 1))
 ```
 ```result
-1 + x (Symbolic)
+x + 1 (Symbolic)
 ```
 
 ```lovelace
@@ -262,7 +283,7 @@ x = symbol("x")
 apart(1/(x^2 - 1), x)
 ```
 ```result
--1/2/((1 + x)) + 1/2/((-1 + x)) (Symbolic)
+-1/(2*(x + 1)) + 1/(2*(x - 1)) (Symbolic)
 ```
 
 Non-polynomial input passes through unchanged (honesty: nothing is forced):
@@ -307,7 +328,7 @@ x = symbol("x")
 diff(x^2, 3)
 ```
 ```result
-error: Expected a symbol.
+error: Expected a symbolic symbol, got Natural.
 ```
 
 
@@ -319,7 +340,7 @@ y = symbol("y")
 jacobian([x*y, x+y], [x, y])
 ```
 ```result
-[y, x, 1, 1] (Vector)
+[[y, x], [1, 1]] (Array)
 ```
 
 ```lovelace
@@ -328,7 +349,7 @@ y = symbol("y")
 hessian(x*y, [x, y])
 ```
 ```result
-[0, 1, 1, 0] (Vector)
+[[0, 1], [1, 0]] (Array)
 ```
 
 
@@ -339,7 +360,7 @@ x = symbol("x")
 series(sin(x)/x, x, 0, 8)
 ```
 ```result
-1 - 1/6*x^2 - 1/5040*x^6 + 1/120*x^4 + O(x^8) (Symbolic)
+1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)
 ```
 
 ```lovelace
@@ -347,7 +368,7 @@ x = symbol("x")
 series(exp(x), x, 0, 5)
 ```
 ```result
-1 + x + 1/24*x^4 + 1/6*x^3 + 1/2*x^2 + O(x^5) (Symbolic)
+1 + x + 1/2*x^2 + 1/6*x^3 + 1/24*x^4 + O(x^5) (Symbolic)
 ```
 
 The trailing `O(x^n)` marks the truncation order explicitly.
@@ -472,7 +493,7 @@ x = symbol("x")
 integrate(1/(x^2 - 1), x)
 ```
 ```result
--1/2*log((1 + x)) + 1/2*log((-1 + x)) (Symbolic)
+-1/2*log((x + 1)) + 1/2*log((x - 1)) (Symbolic)
 ```
 
 ```lovelace
@@ -529,7 +550,7 @@ x = symbol("x")
 solve(x^3 - 1 == 0, x)
 ```
 ```result
-[1, 1/2*(-1 + -3^(1/2)), 1/2*(-1 - -3^(1/2))] (Vector)
+[1, 1/2*(sqrt(-3) - 1), 1/2*(-sqrt(-3) - 1)] (Vector)
 ```
 
 (In the cubic roots above, `-3^(1/2)` denotes the principal complex square root, i.e.
@@ -582,7 +603,7 @@ x = symbol("x")
 solve(x - x + 1 == 0, x)
 ```
 ```result
-no solutions: the equation reduces to a nonzero constant.
+the equation reduces to a nonzero constant.
 ```
 
 ```lovelace
@@ -590,7 +611,7 @@ x = symbol("x")
 solve(exp(x) + x == 0, x)
 ```
 ```result
-x + exp(x) = 0
+unevaluated: No solver for this structure.
 ```
 
 
@@ -614,7 +635,7 @@ y = symbol("y")
 inv([[x, 1], [0, y]])
 ```
 ```result
-[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Vector)
+[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Array)
 ```
 
 The zero entry stays `0/(x*y)`: the inverse exists only where `det = x*y` is nonzero, and
@@ -657,7 +678,7 @@ x = symbol("x")
 optimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])
 ```
 ```result
-x^2*(1 + x*(3 + x*(2 + x))) (Symbolic)
+x^2*(1 + x*(3 + x*(x + 2))) (Symbolic)
 ```
 
 `lower` compiles the optimized expression to MathIR (a typed DAG with a constant pool,
@@ -740,7 +761,7 @@ y = symbol("y")
 linsolve([[x, 1], [0, y]], [0, 1])
 ```
 ```result
-[-x/x*(x*y), x/(x*y)] (Vector)
+[-x/(x*(x*y)), x/(x*y)] (Vector)
 ```
 
 Entries keep their definedness-preserving form (`x/(x*y)` is `1/y` away from `x*y = 0`,
@@ -807,6 +828,143 @@ byte-identical output on every run and platform — including under Native AOT
 
 ---
 
+## 18b. Structured results (the `*_full` APIs)
+
+The convenience forms keep their concise projections; the `*_full` builtins return
+first-class structured records. Property access (`r.solutions`) reads the fields, and the
+same records serialize structurally through the DSH runner — no prose parsing anywhere.
+
+```lovelace
+x = symbol("x")
+solve_full(x^2 - 4 == 0, x).status
+```
+```result
+Solved
+```
+
+```lovelace
+x = symbol("x")
+solve_full((x^2 - 1)/(x - 1) == 0, x).solutions
+```
+```result
+[-1] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+solve_full((x^2 - 1)/(x - 1) == 0, x).conditions
+```
+```result
+[x - 1 != 0] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+simplify_full(x/x).expression
+```
+```result
+1 (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+simplify_full(x/x).conditions
+```
+```result
+[x != 0] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+simplify_full(x/x).steps[0].rule_id
+```
+```result
+rat.cancel-x-over-x
+```
+
+```lovelace
+x = symbol("x")
+limit_full(1/x, x, 0).exists
+```
+```result
+False (Boolean)
+```
+
+```lovelace
+x = symbol("x")
+limit_full(1/x, x, 0).left
+```
+```result
+-inf (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+integrate_full(x^2, x).status
+```
+```result
+SolvedExact
+```
+
+```lovelace
+x = symbol("x")
+integrate_full(x^2, x).verified
+```
+```result
+True (Boolean)
+```
+
+```lovelace
+x = symbol("x")
+compile_full(x^2 + 1, [x]).mathir_version
+```
+```result
+2 (Integer)
+```
+
+```lovelace
+x = symbol("x")
+compile_full(x^2 + 1, [x]).parameters
+```
+```result
+[x] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+linsolve_full([[x, 1], [0, y]], [0, 1]).conditions
+```
+```result
+[x*y != 0] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+type(solve_full(x^2 - 4 == 0, x))
+```
+```result
+SolveResult
+```
+
+```lovelace
+x = symbol("x")
+inspect(x^2 + 1).free_symbols
+```
+```result
+[x] (Vector)
+```
+
+Solver domains are first-class values (never magic strings); the default is Complex:
+
+```lovelace
+x = symbol("x")
+solve(x^2 + 1 == 0, x, real)
+```
+```result
+no real solutions
+```
+
 ## 19. Library usage (C#)
 
 The same kernel is a plain .NET library. The snippets below are compiled and executed by
@@ -819,7 +977,7 @@ var ctx = new ExprContext();
 Exprs.Current = ctx;
 var x = ctx.Symbol("x");
 Expr f = Exprs.Add(Exprs.Power(x, 2), Exprs.Multiply(2, x), 1);
-Assert.Equal("1 + x^2 + 2*x", Printing.PrettyPrint(f));
+Assert.Equal("x^2 + 2*x + 1", Printing.PrettyPrint(f));
 ```
 
 ### 16.2 Equality and hash-consing

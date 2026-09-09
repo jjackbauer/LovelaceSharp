@@ -211,10 +211,13 @@ public sealed class DspPlugin : IModusPlugin
 
     /// <summary>
     /// Registers a builtin through the typed <see cref="ScalarResult"/> channel — the plugin's
-    /// results flow through the wrapper the core unwraps at the boundary.
+    /// results flow through the wrapper the core unwraps at the boundary. A synthesized
+    /// descriptor attributes every DSP builtin to the DSP category so help/funcs list it.
     /// </summary>
     private static void Register(IModusContext context, string name, string[] parameters, Func<IReadOnlyList<object?>, object?> implementation) =>
-        context.RegisterBuiltin(name, parameters, args => ScalarResult.From(implementation(args)));
+        context.RegisterBuiltin(
+            new BuiltinDescriptor(name, parameters, BuiltinCategories.Dsp, "(no summary registered)", Array.Empty<string>(), "Vector | Real"),
+            args => ScalarResult.From(implementation(args)));
 
     /// <summary>
     /// Runs the whole-array fixed-width fast path (<see cref="FixedDsp"/> over <see cref="Cplx128"/>)

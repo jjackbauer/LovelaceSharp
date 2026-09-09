@@ -80,6 +80,35 @@ public sealed class ModusHost : IModusContext
         StampPlugin(name);
     }
 
+    /// <summary>Descriptor-carrying registration: the metadata is stored next to the function
+    /// so help/funcs/Studio/DSH all derive from the same source of truth.</summary>
+    public void RegisterBuiltin(BuiltinDescriptor descriptor, Func<IReadOnlyList<object?>, object?> implementation)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(implementation);
+        GuardName(descriptor.Name);
+        _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
+        {
+            using var scope = PluginPrecisionScope();
+            return WrapResult(implementation(UnwrapArguments(args)));
+        }, descriptor);
+        StampPlugin(descriptor.Name);
+    }
+
+    /// <summary>Descriptor-carrying registration over the typed ScalarResult channel.</summary>
+    public void RegisterBuiltin(BuiltinDescriptor descriptor, Func<IReadOnlyList<object?>, ScalarResult> implementation)
+    {
+        ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(implementation);
+        GuardName(descriptor.Name);
+        _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
+        {
+            using var scope = PluginPrecisionScope();
+            return WrapResult(implementation(UnwrapArguments(args)).Payload);
+        }, descriptor);
+        StampPlugin(descriptor.Name);
+    }
+
     private void GuardName(string name)
     {
         if (_interpreter.Functions.ContainsKey(name))
@@ -99,6 +128,14 @@ public sealed class ModusHost : IModusContext
             : Rl.WithPrecision(PluginStandardComputationPrecision, PluginStandardDisplayPrecision);
 
     public void RegisterKernel<T>(IFieldKernel<T> kernel) => _kernels.Add(kernel);
+
+    /// <summary>Stores the symbolic-matrix bridge and hands it to the interpreter for
+    /// inv/linsolve/matrix_rank/det dispatch (the D14 layering seam).</summary>
+    public void RegisterSymbolicMatrixBridge(ISymbolicMatrixBridge bridge)
+    {
+        ArgumentNullException.ThrowIfNull(bridge);
+        _interpreter.SymbolicMatrixBridge = bridge;
+    }
 
     /// <summary>
     /// Fallible dispatch: tries each registered kernel for <typeparamref name="T"/>, injecting
@@ -137,62 +174,9 @@ public sealed class ModusHost : IModusContext
     {
         var payloads = new object?[args.Count];
         for (int i = 0; i < args.Count; i++)
-            payloads[i] = Unwrap(args[i]);
+            payloads[i] = PayloadMap.Unwrap(args[i]);
         return payloads;
     }
 
-    private static object? Unwrap(Value value) => value.Kind switch
-    {
-        ValueKind.Natural => value.AsNatural(),
-        ValueKind.Integer => value.AsInteger(),
-        ValueKind.Real => value.AsReal(),
-        ValueKind.Complex => value.AsComplex(),
-        ValueKind.Symbolic => value.AsSymbolic(),
-        ValueKind.Boolean => value.AsBoolean(),
-        ValueKind.Text => value.AsText(),
-        ValueKind.Vector or ValueKind.Array => UnwrapArray(value.AsArrayValue()),
-        _ => throw new InvalidOperationException($"A plugin builtin received an unsupported argument kind '{value.Kind}'."),
-    };
-
-    private static IReadOnlyList<object?> UnwrapArray(ArrayValue array)
-    {
-        var elements = TypedArrayAdapter.ToElements(array);
-        var payloads = new object?[elements.Count];
-        for (int i = 0; i < elements.Count; i++)
-            payloads[i] = Unwrap(elements[i]);
-        return payloads;
-    }
-
-    private static Value WrapResult(object? result) => result switch
-    {
-        // Real derives from Integer, so match the narrowest reference types first.
-        Rl real => new Value(real),
-        Int integer => new Value(integer),
-        Nat natural => new Value(natural),
-        Cplx complex => new Value(complex),
-        Lovelace.Symbolics.Expr expr => new Value(expr),
-        bool boolean => new Value(boolean),
-        string text => new Value(text),
-        ArrayValue array => new Value(array, array.Rank == 1 ? ValueKind.Vector : ValueKind.Array),
-        IReadOnlyList<object?> elements => WrapArray(elements),
-        _ => throw new InvalidOperationException($"A plugin builtin returned an unsupported result type '{result?.GetType().Name ?? "null"}'."),
-    };
-
-    private static Value WrapArray(IReadOnlyList<object?> elements)
-    {
-        var boxed = new Value[elements.Count];
-        for (int i = 0; i < elements.Count; i++)
-        {
-            boxed[i] = elements[i] switch
-            {
-                Rl real => new Value(real),
-                Int integer => new Value(integer),
-                Nat natural => new Value(natural),
-                Cplx complex => new Value(complex),
-                Lovelace.Symbolics.Expr expr => new Value(expr),
-                _ => throw new InvalidOperationException($"A plugin builtin returned an unsupported array element type '{elements[i]?.GetType().Name ?? "null"}'."),
-            };
-        }
-        return new Value(boxed);
-    }
+    private static Value WrapResult(object? result) => PayloadMap.Wrap(result);
 }

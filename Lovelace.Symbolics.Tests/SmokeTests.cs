@@ -22,7 +22,7 @@ public class AcceptanceTests : IDisposable
         var x = _ctx.Symbol("x");
         var f = Exprs.Add(Exprs.Power(x, 3), Exprs.Multiply(2, Exprs.Power(x, 2)), Exprs.Multiply(5, x), 7);
         var d = Calculus.Diff(f, x, _ctx);
-        Assert.Equal("5 + 3*x^2 + 4*x", Printing.PrettyPrint(d));
+        Assert.Equal("3*x^2 + 4*x + 5", Printing.PrettyPrint(d));
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public class AcceptanceTests : IDisposable
         var f = Factoring.Factor(p, _ctx);
         var expanded = Algebra.Expand(f, _ctx);
         Assert.Equal(p, expanded);
-        Assert.Equal("(-2 + x)*(-1 + x)*(1 + x)*(2 + x)", Printing.PrettyPrint(f));
+        Assert.Equal("(x - 2)*(x - 1)*(x + 1)*(x + 2)", Printing.PrettyPrint(f));
     }
 
     [Fact]

@@ -187,60 +187,69 @@ public static class RewriteEngine
     }
 
     public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget = null)
-        => Apply(e, ctx, rules, budget, trace: null);
+        => Apply(e, ctx, rules, budget, trace: null, appliedConditions: null);
 
     /// <summary>Apply with optional provenance collection (zero cost when <paramref name="trace"/> is null).</summary>
     public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget, List<RewriteStep>? trace)
+        => Apply(e, ctx, rules, budget, trace, appliedConditions: null);
+
+    /// <summary>Apply with optional provenance and per-application condition sinks. The
+    /// condition sink is semantic bookkeeping and can be enabled independently of the trace.</summary>
+    public static Expr Apply(
+        Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget,
+        List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions)
     {
         budget ??= new Budget();
-        return Walk(e, ctx, rules, budget, trace);
+        return Walk(e, ctx, rules, budget, trace, appliedConditions);
     }
 
-    private static Expr Walk(Expr node, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget budget, List<RewriteStep>? trace)
+    private static Expr Walk(
+        Expr node, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget budget,
+        List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions)
     {
         // rebuild children bottom-up
         switch (node)
         {
             case AddExpr a:
-                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget, trace)));
+                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget, trace, appliedConditions)));
                 break;
             case MultiplyExpr m:
-                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget, trace)));
+                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget, trace, appliedConditions)));
                 break;
             case PowerExpr p:
-                node = Exprs.Power(Walk(p.Base, ctx, rules, budget, trace), Walk(p.Exponent, ctx, rules, budget, trace));
+                node = Exprs.Power(Walk(p.Base, ctx, rules, budget, trace, appliedConditions), Walk(p.Exponent, ctx, rules, budget, trace, appliedConditions));
                 break;
             case FunctionExpr f:
-                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget, trace)).ToArray());
+                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget, trace, appliedConditions)).ToArray());
                 break;
             case RelationExpr r:
-                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget, trace), Walk(r.Right, ctx, rules, budget, trace));
+                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget, trace, appliedConditions), Walk(r.Right, ctx, rules, budget, trace, appliedConditions));
                 break;
             case PiecewiseExpr pw:
                 node = Exprs.Piecewise(
-                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget, trace), Walk(b.Value, ctx, rules, budget, trace))),
-                    Walk(pw.Otherwise, ctx, rules, budget, trace));
+                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget, trace, appliedConditions), Walk(b.Value, ctx, rules, budget, trace, appliedConditions))),
+                    Walk(pw.Otherwise, ctx, rules, budget, trace, appliedConditions));
                 break;
             case DerivativeExpr d:
-                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget, trace), d.Variables.ToArray());
+                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget, trace, appliedConditions), d.Variables.ToArray());
                 break;
             case IntegralExpr i:
-                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace), i.Variables.ToArray());
+                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace, appliedConditions), i.Variables.ToArray());
                 break;
             case AndExpr an:
-                node = Exprs.And(an.Operands.Select(o => Walk(o, ctx, rules, budget, trace)));
+                node = Exprs.And(an.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions)));
                 break;
             case OrExpr or2:
-                node = Exprs.Or(or2.Operands.Select(o => Walk(o, ctx, rules, budget, trace)));
+                node = Exprs.Or(or2.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions)));
                 break;
             case NotExpr nt:
-                node = Exprs.Not(Walk(nt.Operand, ctx, rules, budget, trace));
+                node = Exprs.Not(Walk(nt.Operand, ctx, rules, budget, trace, appliedConditions));
                 break;
             case OrderExpr o:
                 node = Exprs.Order(
-                    Walk(o.Variable, ctx, rules, budget, trace),
-                    Walk(o.Point, ctx, rules, budget, trace),
-                    Walk(o.Degree, ctx, rules, budget, trace));
+                    Walk(o.Variable, ctx, rules, budget, trace, appliedConditions),
+                    Walk(o.Point, ctx, rules, budget, trace, appliedConditions),
+                    Walk(o.Degree, ctx, rules, budget, trace, appliedConditions));
                 break;
         }
 
@@ -273,6 +282,7 @@ public static class RewriteEngine
                 {
                     var conds = rule.ConditionBuilder?.Invoke(m, ctx) ?? rule.DeclaredConditions;
                     trace?.Add(new RewriteStep(rule.Id, rule.Classification, node, next, conds));
+                    appliedConditions?.Add(conds);
                     node = next;
                     fired = true;
                     break;

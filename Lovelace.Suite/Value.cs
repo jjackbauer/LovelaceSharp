@@ -30,6 +30,8 @@ public enum ValueKind
     Array,
     Complex,
     Symbolic,
+    Record,
+    Domain,
 }
 
 // -------------------------------------------------------------------------
@@ -131,6 +133,24 @@ public sealed class Value
         Kind = ValueKind.Function;
     }
 
+    /// <summary>Wraps a structured record value (e.g. SolveResult). Field payloads are
+    /// mapped onto <see cref="Value"/> at construction so property access sees Values.</summary>
+    public Value(RecordValue record)
+    {
+        var fields = record.Fields
+            .Select(f => new RecordField(f.Name, PayloadMap.Wrap(f.Value)))
+            .ToArray();
+        _inner = new RecordValue(record.TypeName, fields);
+        Kind = ValueKind.Record;
+    }
+
+    /// <summary>Wraps a first-class mathematical domain (<c>real</c>, <c>complex</c>, …).</summary>
+    public Value(MathDomain domain)
+    {
+        _inner = domain;
+        Kind = ValueKind.Domain;
+    }
+
     private Value(ValueKind voidKind)
     {
         _inner = null!;
@@ -181,6 +201,12 @@ public sealed class Value
 
     /// <summary>Returns the stored value cast to a <see cref="FunctionDefinition"/>.</summary>
     public FunctionDefinition AsFunction() => (FunctionDefinition)_inner;
+
+    /// <summary>Returns the stored value cast to a <see cref="RecordValue"/>.</summary>
+    public RecordValue AsRecord() => (RecordValue)_inner;
+
+    /// <summary>Returns the stored value cast to a <see cref="MathDomain"/>.</summary>
+    public MathDomain AsDomain() => (MathDomain)_inner;
 
     // -----------------------------------------------------------------
     // Widening
@@ -262,6 +288,8 @@ public sealed class Value
         ValueKind.Vector  => $"Vector: {ValueFormatter.Format(this)}",
         ValueKind.Array   => $"Array: {ValueFormatter.Format(this)}",
         ValueKind.Function => $"Function: {AsFunction().Name}",
+        ValueKind.Record   => $"Record: {AsRecord().TypeName}",
+        ValueKind.Domain   => $"Domain: {AsDomain().ToString().ToLowerInvariant()}",
         ValueKind.Void    => "Void",
         _                 => throw new InvalidOperationException($"Unknown kind: {Kind}"),
     };

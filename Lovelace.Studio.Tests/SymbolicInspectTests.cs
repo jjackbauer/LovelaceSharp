@@ -18,7 +18,7 @@ public class SymbolicInspectTests
         var response = await host.InspectSymbolicAsync(session, "x^2 + 2*x + 1");
 
         Assert.Equal("(add (rat 1 1) (pow (sym x) (rat 2 1)) (mul (rat 2 1) (sym x)))", response.Canonical);
-        Assert.Equal("1 + x^2 + 2*x", response.Pretty);
+        Assert.Equal("x^2 + 2*x + 1", response.Pretty);
         Assert.NotNull(response.Tree);
         Assert.Equal("Add", response.Tree!.Kind);
         Assert.Equal(3, response.Tree.Children.Length);

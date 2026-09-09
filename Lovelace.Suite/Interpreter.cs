@@ -29,6 +29,7 @@ public sealed class Interpreter
 
     private readonly Scope _global = new();
     private readonly Dictionary<string, FunctionDefinition> _functions = new();
+    private readonly Dictionary<string, BuiltinDescriptor> _builtinDescriptors = new(StringComparer.Ordinal);
     private long _revision;
     private readonly List<OperationTiming> _timings = [];
 
@@ -117,6 +118,18 @@ public sealed class Interpreter
     /// <summary>A read-only view of all functions (user + built-in).</summary>
     public IReadOnlyDictionary<string, FunctionDefinition> Functions => _functions;
 
+    /// <summary>Discoverability metadata for builtins registered with a descriptor
+    /// (plugin-provided entries; core builtins resolve through <see cref="CoreBuiltinMetadata"/>).</summary>
+    public IReadOnlyDictionary<string, BuiltinDescriptor> BuiltinDescriptors => _builtinDescriptors;
+
+    /// <summary>The symbolic-matrix bridge (registered by the Symbolics plugin) for
+    /// determinant/rank/inverse/solve dispatch; null on a bare engine.</summary>
+    internal Lovelace.Abstractions.ISymbolicMatrixBridge? SymbolicMatrixBridge { get; set; }
+
+    /// <summary>Whether display formatting prefers Unicode (∞ √ π ≤ ≥ ≠). ASCII is the default;
+    /// set via the REPL's <c>set pretty unicode|ascii</c> command.</summary>
+    public bool UnicodeOutput { get; set; }
+
     /// <summary>Monotonic revision counter bumped on every state mutation.</summary>
     public long Revision => _revision;
 
@@ -165,10 +178,17 @@ public sealed class Interpreter
     }
 
     /// <summary>Registers a host-provided native function.</summary>
-    public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation)
+    public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation) =>
+        RegisterBuiltin(name, parameters, implementation, descriptor: null);
+
+    /// <summary>Registers a builtin; when a <see cref="BuiltinDescriptor"/> is supplied it is
+    /// stored in <see cref="BuiltinDescriptors"/> for the help/funcs/completion surfaces.</summary>
+    public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation, BuiltinDescriptor? descriptor)
     {
         BuiltinFunction impl = args => Task.FromResult(implementation(args));
         _functions[name] = new FunctionDefinition(name, parameters, impl);
+        if (descriptor is not null)
+            _builtinDescriptors[name] = descriptor;
         RaiseFunctionDefined(_functions[name]);
     }
 
@@ -258,6 +278,7 @@ public sealed class Interpreter
             case StringExpr str: return new Value(str.Value);
             case RangeExpr range: return await EvaluateRangeAsync(range, scope);
             case IndexExpr idx: return await EvaluateIndexAsync(idx, scope);
+            case MemberExpr member: return await EvaluateMemberAsync(member, scope);
             case ListExpr list: return await EvaluateListAsync(list, scope);
             case InterpolatedStringExpr interp: return await EvaluateInterpolatedAsync(interp, scope);
             default: throw new NotImplementedException($"Unsupported expression type: {expr.GetType().Name}");
@@ -285,6 +306,16 @@ public sealed class Interpreter
             return new Value(Rl.E);
         if (var.Name == "inf")
             return new Value(Lovelace.Symbolics.Exprs.Infinity);
+
+        // First-class mathematical domains (solve/symbol options; also callable as builtins).
+        if (var.Name == "real")
+            return new Value(MathDomain.Real);
+        if (var.Name == "complex")
+            return new Value(MathDomain.Complex);
+        if (var.Name == "integer")
+            return new Value(MathDomain.Integer);
+        if (var.Name == "rational")
+            return new Value(MathDomain.Rational);
 
         throw new InvalidOperationException($"Undefined variable '{var.Name}'.");
     }
@@ -631,6 +662,26 @@ public sealed class Interpreter
         return IndexValue(target, specs);
     }
 
+    /// <summary>Member access on structured record results (e.g. <c>r.solutions</c>).</summary>
+    private async Task<Value> EvaluateMemberAsync(MemberExpr member, Scope scope)
+    {
+        var target = await EvaluateAsync(member.Target, scope);
+        if (target.Kind != ValueKind.Record)
+        {
+            string hint = target.Kind == ValueKind.Symbolic
+                ? " Symbolic expressions have no members; call the *_full builtin (e.g. solve_full) for structured results."
+                : string.Empty;
+            throw new InvalidOperationException(
+                $"member '{member.MemberName}' is not available on type '{target.Kind}': member access requires a record result.{hint}");
+        }
+        var record = target.AsRecord();
+        if (record.TryGetField(member.MemberName, out var field))
+            return (Value)field!;
+        var names = string.Join(", ", record.Fields.Select(f => f.Name));
+        throw new InvalidOperationException(
+            $"record '{record.TypeName}' has no member '{member.MemberName}'. Available members: {names}.");
+    }
+
     /// <summary>Indexes a vector or N-D array with scalar coordinates and/or slices.</summary>
     private static Value IndexValue(Value target, IReadOnlyList<IndexSpec> specs)
     {
@@ -937,22 +988,113 @@ public sealed class Interpreter
     // Built-in registration
     // -----------------------------------------------------------------
 
-    private static Lovelace.Symbolics.Expr SymbolicFromValue(Value v)
-        => NumericOps.ToExpr(v);
-
-    private static bool IsSymbolicMatrix(ArrayValue a) =>
-        a.Rank == 2 && a.Numel > 0 && TypedArrayAdapter.ToElements(a).Any(v => v.Kind == ValueKind.Symbolic);
-
-    private static Lovelace.Symbolics.SymbolicMatrix ToSymbolicMatrix(ArrayValue a)
+    /// <summary>Flattens an array value to plugin payloads (row-major) with its shape — the
+    /// <see cref="Lovelace.Abstractions.ISymbolicMatrixBridge"/> argument convention.</summary>
+    private static (IReadOnlyList<object?> Elements, long[] Shape) PayloadElements(ArrayValue av)
     {
-        var elements = TypedArrayAdapter.ToElements(a);
-        int rows = checked((int)a.Shape.Span[0]);
-        int cols = checked((int)a.Shape.Span[1]);
-        var m = new Lovelace.Symbolics.Expr[rows, cols];
-        for (int r = 0; r < rows; r++)
-            for (int c = 0; c < cols; c++)
-                m[r, c] = NumericOps.ToExpr(elements[r * cols + c]);
-        return Lovelace.Symbolics.SymbolicMatrix.From(m);
+        var elements = TypedArrayAdapter.ToElements(av);
+        var payloads = new object?[elements.Count];
+        for (int i = 0; i < elements.Count; i++)
+            payloads[i] = PayloadMap.Unwrap(elements[i]);
+        return (payloads, av.Shape.ToArray());
+    }
+
+    private static string TypeNameOf(Value v) => v.Kind switch
+    {
+        ValueKind.Record => v.AsRecord().TypeName,
+        ValueKind.Domain => v.AsDomain().ToString().ToLowerInvariant(),
+        _ => v.Kind.ToString(),
+    };
+
+    /// <summary>Builds the structural <c>Inspection</c> record for <see cref="Value"/> values.</summary>
+    private static RecordValue Inspect(Value v)
+    {
+        switch (v.Kind)
+        {
+            case ValueKind.Symbolic:
+            {
+                var e = v.AsSymbolic();
+                var names = new List<string>();
+                CollectSymbols(e, names);
+                return new RecordValue("Inspection",
+                    new RecordField("type", new Value("Symbolic")),
+                    new RecordField("domain", new Value(Lovelace.Symbolics.Domains
+                        .DomainOf(e, Lovelace.Symbolics.Exprs.Current).ToString().ToLowerInvariant())),
+                    new RecordField("exact", new Value(e.IsExact)),
+                    new RecordField("free_symbols", new Value(names.Distinct().Select(n => new Value(n)).ToArray())),
+                    new RecordField("node_count", new Value(new global::Lovelace.Natural.Natural(e.NodeCount))));
+            }
+            case ValueKind.Record:
+            {
+                var r = v.AsRecord();
+                return new RecordValue("Inspection",
+                    new RecordField("type", new Value(r.TypeName)),
+                    new RecordField("members", new Value(r.Fields.Select(f => new Value(f.Name)).ToArray())));
+            }
+            case ValueKind.Vector or ValueKind.Array:
+            {
+                var av = v.AsArrayValue();
+                return new RecordValue("Inspection",
+                    new RecordField("type", new Value(v.Kind.ToString())),
+                    new RecordField("shape", new Value(av.Shape.ToArray().Select(s => new Value(new global::Lovelace.Natural.Natural((ulong)s))).ToArray())),
+                    new RecordField("rank", new Value(new global::Lovelace.Natural.Natural(av.Rank))));
+            }
+            default:
+                return new RecordValue("Inspection", new RecordField("type", new Value(TypeNameOf(v))));
+        }
+    }
+
+    private static void CollectSymbols(Lovelace.Symbolics.Expr e, List<string> into)
+    {
+        switch (e)
+        {
+            case Lovelace.Symbolics.SymbolExpr s:
+                into.Add(s.Symbol.Name);
+                break;
+            case Lovelace.Symbolics.AddExpr a:
+                foreach (var t in a.Terms) CollectSymbols(t, into);
+                break;
+            case Lovelace.Symbolics.MultiplyExpr m:
+                foreach (var f in m.Factors) CollectSymbols(f, into);
+                break;
+            case Lovelace.Symbolics.PowerExpr p:
+                CollectSymbols(p.Base, into);
+                CollectSymbols(p.Exponent, into);
+                break;
+            case Lovelace.Symbolics.FunctionExpr f:
+                foreach (var arg in f.Arguments) CollectSymbols(arg, into);
+                break;
+            case Lovelace.Symbolics.RelationExpr r:
+                CollectSymbols(r.Left, into);
+                CollectSymbols(r.Right, into);
+                break;
+            case Lovelace.Symbolics.PiecewiseExpr pw:
+                foreach (var b in pw.Branches)
+                {
+                    CollectSymbols(b.Guard, into);
+                    CollectSymbols(b.Value, into);
+                }
+                CollectSymbols(pw.Otherwise, into);
+                break;
+            case Lovelace.Symbolics.DerivativeExpr d:
+                CollectSymbols(d.Operand, into);
+                break;
+            case Lovelace.Symbolics.IntegralExpr i:
+                CollectSymbols(i.Operand, into);
+                break;
+            case Lovelace.Symbolics.AndExpr an:
+                foreach (var o in an.Operands) CollectSymbols(o, into);
+                break;
+            case Lovelace.Symbolics.OrExpr or2:
+                foreach (var o in or2.Operands) CollectSymbols(o, into);
+                break;
+            case Lovelace.Symbolics.NotExpr nt:
+                CollectSymbols(nt.Operand, into);
+                break;
+            case Lovelace.Symbolics.OrderExpr o:
+                CollectSymbols(o.Variable, into);
+                break;
+        }
     }
 
     private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl) =>
@@ -979,7 +1121,21 @@ public sealed class Interpreter
 
     private void RegisterBuiltins()
     {
-        // abs(x)
+        // type(x): the value-kind name; structured records report their type name
+        Register("type", ["x"], args =>
+        {
+            RequireArity("type", args, 1);
+            return Task.FromResult<Value>(new Value(TypeNameOf(args[0])));
+        });
+
+        // inspect(x): structural introspection as a record (machine-readable — no prose parsing)
+        Register("inspect", ["x"], args =>
+        {
+            RequireArity("inspect", args, 1);
+            return Task.FromResult<Value>(new Value(Inspect(args[0])));
+        });
+
+    // abs(x)
         Register("abs", ["x"], args =>
         {
             RequireArity("abs", args, 1);
@@ -1003,18 +1159,14 @@ public sealed class Interpreter
             if (arg.Kind == ValueKind.Array)
             {
                 var av = arg.AsArrayValue();
-                if (IsSymbolicMatrix(av))
+                var (elements, shape) = PayloadElements(av);
+                var bridge = SymbolicMatrixBridge;
+                if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
                 {
-                    var inv = ToSymbolicMatrix(av).Inverse(Lovelace.Symbolics.Exprs.Current);
-                    var rows = new List<Value>();
-                    for (int r = 0; r < inv.Rows; r++)
-                    {
-                        var row = new List<Value>();
-                        for (int c = 0; c < inv.Columns; c++)
-                            row.Add(new Value(inv[r, c]));
-                        rows.Add(new Value(row));
-                    }
-                    return Task.FromResult<Value>(new Value(rows));
+                    var inv = bridge.TryInverse(elements, shape, out _);
+                    if (inv is null)
+                        throw new InvalidOperationException("Matrix is singular (det = 0).");
+                    return Task.FromResult<Value>(PayloadMap.Wrap(inv));
                 }
                 return Task.FromResult(WrapArrayValue(TypedArrayOps.Inverse(av)));
             }
@@ -1022,15 +1174,43 @@ public sealed class Interpreter
             return Task.FromResult<Value>(new Value(real.Invert()));
         });
 
+        // inv_full(A): structured inverse with the det != 0 condition
+        Register("inv_full", ["x"], args =>
+        {
+            RequireArity("inv_full", args, 1);
+            var av = args[0].AsArrayValue();
+            var (elements, shape) = PayloadElements(av);
+            var bridge = SymbolicMatrixBridge;
+            if (bridge is null || !bridge.IsSymbolicMatrix(elements, shape))
+                throw new InvalidOperationException("inv_full() requires a symbolic matrix.");
+            var inv = bridge.TryInverse(elements, shape, out var conditions);
+            if (inv is null)
+                return Task.FromResult<Value>(new Value(new RecordValue("MatrixInverseResult",
+                    new RecordField("status", "NoSolutions"),
+                    new RecordField("inverse", PayloadMap.Wrap(Array.Empty<object?>())),
+                    new RecordField("conditions", PayloadMap.Wrap(Array.Empty<object?>())),
+                    new RecordField("diagnostics", "matrix is singular"))));
+            return Task.FromResult<Value>(new Value(new RecordValue("MatrixInverseResult",
+                new RecordField("status", "Solved"),
+                new RecordField("inverse", PayloadMap.Wrap(inv)),
+                new RecordField("conditions", PayloadMap.Wrap(conditions ?? Array.Empty<object?>())),
+                new RecordField("diagnostics", ""))));
+        });
+
         // matrix_rank(A): generic rank of a symbolic matrix (an exact integer constant)
         Register("matrix_rank", ["a"], args =>
         {
             RequireArity("matrix_rank", args, 1);
             var av = args[0].AsArrayValue();
-            if (!IsSymbolicMatrix(av))
-                throw new InvalidOperationException("matrix_rank() requires a symbolic matrix.");
-            var rank = ToSymbolicMatrix(av).Rank(Lovelace.Symbolics.Exprs.Current);
-            return Task.FromResult<Value>(new Value(new Lovelace.Integer.Integer(rank)));
+            var (elements, shape) = PayloadElements(av);
+            var bridge = SymbolicMatrixBridge;
+            if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
+            {
+                var rank = bridge.TryRank(elements, shape);
+                if (rank is int r)
+                    return Task.FromResult<Value>(new Value(new Lovelace.Integer.Integer(r)));
+            }
+            throw new InvalidOperationException("matrix_rank() requires a symbolic matrix.");
         });
 
         // linsolve(A, b): exact linear system solve over a symbolic matrix (Bareiss),
@@ -1039,15 +1219,36 @@ public sealed class Interpreter
         {
             RequireArity("linsolve", args, 2);
             var av = args[0].AsArrayValue();
-            if (!IsSymbolicMatrix(av))
-                throw new InvalidOperationException("linsolve() requires a symbolic matrix A.");
             var bv = args[1].AsArrayValue();
-            var elements = TypedArrayAdapter.ToElements(bv);
-            var b = new Lovelace.Symbolics.Expr[elements.Count];
-            for (int i = 0; i < elements.Count; i++)
-                b[i] = SymbolicFromValue(elements[i]);
-            var solution = Lovelace.Symbolics.SymbolicMatrix.Solve(ToSymbolicMatrix(av), b, Lovelace.Symbolics.Exprs.Current);
-            return Task.FromResult<Value>(new Value(solution.Select(s => new Value(s)).ToList()));
+            var (elements, shape) = PayloadElements(av);
+            var bridge = SymbolicMatrixBridge;
+            if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
+            {
+                var solution = bridge.TrySolve(elements, shape, PayloadElements(bv).Elements, out _);
+                if (solution is null)
+                    throw new InvalidOperationException("System is singular or underdetermined.");
+                return Task.FromResult<Value>(PayloadMap.Wrap(solution));
+            }
+            throw new InvalidOperationException("linsolve() requires a symbolic matrix A.");
+        });
+
+        // linsolve_full(A, b): structured linear solve with the det(A) != 0 condition
+        Register("linsolve_full", ["a", "b"], args =>
+        {
+            RequireArity("linsolve_full", args, 2);
+            var av = args[0].AsArrayValue();
+            var bv = args[1].AsArrayValue();
+            var (elements, shape) = PayloadElements(av);
+            var bridge = SymbolicMatrixBridge;
+            if (bridge is null || !bridge.IsSymbolicMatrix(elements, shape))
+                throw new InvalidOperationException("linsolve_full() requires a symbolic matrix A.");
+            var solution = bridge.TrySolveFull(elements, shape, PayloadElements(bv).Elements,
+                out var conditions, out var note, out var singular);
+            return Task.FromResult<Value>(new Value(new RecordValue("MatrixSolveResult",
+                new RecordField("status", singular ? "NoSolutions" : "Solved"),
+                new RecordField("solutions", PayloadMap.Wrap(solution ?? Array.Empty<object?>())),
+                new RecordField("conditions", PayloadMap.Wrap(conditions ?? Array.Empty<object?>())),
+                new RecordField("diagnostics", note ?? ""))));
         });
 
         // divrem(a, b)
@@ -1192,7 +1393,7 @@ public sealed class Interpreter
         // print(values...)
         Register("print", ["values"], args =>
         {
-            Output.WriteLine(string.Join(" ", args.Select(ValueFormatter.Format)));
+            Output.WriteLine(string.Join(" ", args.Select(v => ValueFormatter.Format(v, UnicodeOutput))));
             return Task.FromResult(Value.Void);
         });
 
@@ -1499,8 +1700,14 @@ public sealed class Interpreter
         {
             RequireArity("det", args, 1);
             var av = args[0].AsArrayValue();
-            if (IsSymbolicMatrix(av))
-                return Task.FromResult<Value>(new Value(ToSymbolicMatrix(av).Det(Lovelace.Symbolics.Exprs.Current)));
+            var (elements, shape) = PayloadElements(av);
+            var bridge = SymbolicMatrixBridge;
+            if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
+            {
+                var det = bridge.TryDet(elements, shape);
+                if (det is not null)
+                    return Task.FromResult<Value>(PayloadMap.Wrap(det));
+            }
             return Task.FromResult<Value>(TypedArrayOps.Det(av));
         });
 
