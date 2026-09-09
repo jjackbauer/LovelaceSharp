@@ -1,9 +1,12 @@
 # Lovelace.Symbolics — Roadmap and Product Statement
 
-> **Status:** Planning document. This is the root-level summary of the Lovelace.Symbolics
-> design work. The five detailed planning documents live in [docs/symbolics/](docs/symbolics/).
-> No production symbolics code exists yet; this document explains *why the project is
-> happening* and *what it changes about LovelaceSharp*.
+> **Status:** SHIPPED AND HARDENED. The kernel described here is implemented in
+> `Lovelace.Symbolics` + `Lovelace.MathIR` (commits `f36dd06`, `13c61a0`, `1af7272`,
+> `50ac339`) and shipped through Suite/Studio. The five detailed planning documents in
+> [docs/symbolics/](docs/symbolics/) carry post-cycle status annotations; the binding
+> change log is [docs/symbolics/hardening-alignment-plan.md](docs/symbolics/hardening-alignment-plan.md).
+> This document remains the *why*; the delivered reality is described in
+> [Lovelace.Symbolics/README.md](Lovelace.Symbolics/README.md).
 
 ---
 

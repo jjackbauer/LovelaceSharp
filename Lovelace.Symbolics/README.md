@@ -798,7 +798,7 @@ error: No value for symbol 'x'.
 ```
 
 
-## 15. Determinism
+## 18. Determinism
 
 The kernel never iterates in hash order, never uses culture-dependent formatting for
 identity, and never relies on reflection. The same script, assumptions, and seed produce
@@ -807,7 +807,7 @@ byte-identical output on every run and platform — including under Native AOT
 
 ---
 
-## 16. Library usage (C#)
+## 19. Library usage (C#)
 
 The same kernel is a plain .NET library. The snippets below are compiled and executed by
 `Lovelace.Symbolics.Tests/UsageExamples.cs`; `DocsSyncTests.cs` keeps them in sync with this
@@ -874,23 +874,29 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
 
 ---
 
-## 17. Limitations (v1, by design)
+## 20. Limitations (v1, by design)
 
-- `factor` is univariate over Q (multivariate factorization and Gröbner bases are the
-  next layer); non-univariate input passes through unchanged.
-- Cubic roots use the principal complex form (`sqrt(-3)` denotes `i*sqrt(3)`); quartic and
-  higher-degree factors yield unevaluated `RootOf` roots, numerically evaluated on request.
+- `factor` is univariate over Q; multivariate factorization is deferred. Gröbner bases
+  (`Groebner.Basis/Reduce/Eliminate` over lex/grlex/grevlex) and polynomial-systems
+  solving (`solve_system`, via lex elimination + back-substitution) are available in the
+  C# API; a standalone language `groebner` builtin is not exposed yet.
+- Cubic roots use the branch-coupled Cardano form (`u·v = −P/3`), verified against their
+  polynomial; quartic and higher-degree factors yield unevaluated `RootOf` roots over the
+  exact Sturm count of REAL roots (complex algebraic numbers are deferred), numerically
+  evaluated on request.
 - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
-  compositions; polynomial systems and inequality solving are not yet implemented.
-- The simplifier's rule groups are deliberately small; it never invents identities.
-- Series expansion points must be numeric constants; one-sided limits are exposed as
-  `limit_left`/`limit_right` and two-sided limits report side disagreement explicitly.
-- The e-graph optimizer, Monte-Carlo falsification harness, agent CLI, and Lean proofs are
-  tracked as the next work packages (`docs/symbolics/implementation-plan.md`, SYM-24..48).
+  compositions (with parametric families for periodic inverses); inequality solving is not
+  yet implemented.
+- The simplifier's rule groups are deliberately small and condition-carrying; it never
+  invents identities.
+- Series expansion points must be numeric constants; truncation is explicit (`O(x^n)` terms).
+- The e-graph optimizer, an agent CLI, and Lean proofs remain deferred; the Monte-Carlo
+  falsification harness, seeded property suites, and the SymPy differential oracle ship in
+  `Lovelace.Symbolics.Tests`.
 
 ---
 
-## 18. How this document is verified
+## 21. How this document is verified
 
 | Check | Mechanism |
 |---|---|

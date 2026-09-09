@@ -1,8 +1,11 @@
 # Lovelace.Symbolics - DSH + DeepSeek V4 Execution Plan
 
-> **Status:** How follow-up agentic SWE sessions implement the packages in
-> [implementation-plan.md](implementation-plan.md) against the contracts in
-> [architecture.md](architecture.md) - with maximum throughput and no architectural drift.
+> Post-cycle status: the plan below was executed across the hardening + API-advancement cycle (commits f36dd06, 13c61a0, 1af7272, 50ac339). Constitutional components were centralized in one workstream per the ownership rules; parallel subagents delivered the polynomial facade, series O-term, and matrix rank/conditions; MathIR typing/validation, vectorized batch evaluation, the symbench project, and the Studio inspection surface followed. Two delegated implementation runs (MathIR typing, symbench) stalled and their work was re-implemented directly — no partial agent output was merged. Frozen contracts were respected; the binding record is docs/symbolics/hardening-alignment-plan.md.
+
+> **Status:** Executed. This document records how follow-up agentic SWE sessions
+> implemented the packages in [implementation-plan.md](implementation-plan.md) against
+> the contracts in [architecture.md](architecture.md) - with maximum throughput and no
+> architectural drift. The sections below are a historical record of that execution.
 
 ---
 
