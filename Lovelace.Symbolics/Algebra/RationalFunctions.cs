@@ -151,11 +151,12 @@ public static class RationalFunctions
         var (q, r) = n.DivRem(d, MonomialOrder.Lex);
         var polyPart = q.ToExpr();
         var partial = ApartProper(r, d, x);
-        var result = Exprs.Add(polyPart, partial);
-        return result;
+        // on any internal fallback the decomposition is the original rational part —
+        // never a silently wrong 0
+        return partial is { } p ? Exprs.Add(polyPart, p) : Exprs.Add(polyPart, Exprs.Divide(r.ToExpr(), d.ToExpr()));
     }
 
-    private static Expr ApartProper(Polynomial r, Polynomial d, Symbol x)
+    private static Expr? ApartProper(Polynomial r, Polynomial d, Symbol x)
     {
         // denominator factors: full factorization over Q (rational-root linear factors)
         var factored = Factoring.FactorPoly(d);
@@ -165,50 +166,39 @@ public static class RationalFunctions
         if (denFactors.Count == 0)
             denFactors.Add((d, 1));
 
-        // unknowns: A_{i,k} for each factor i, power k=1..m_i
-        var unknowns = new List<(int FactorIdx, int Power)>();
-        foreach (var (idx, (_, m)) in denFactors.Select((f, i) => (i, f)))
+        // unknowns: A_{i,k,j}·x^j over each factor i, power k=1..m_i, j=0..deg(f_i)-1
+        // (quadratic denominators need two unknowns per power)
+        var unknowns = new List<(int FactorIdx, int Power, int CoefIdx)>();
+        foreach (var (idx, (f, m)) in denFactors.Select((f, i) => (i, f)))
             for (int k = 1; k <= m; k++)
-                unknowns.Add((idx, k));
+                for (int j = 0; j < f.TotalDegree; j++)
+                    unknowns.Add((idx, k, j));
 
         int nUnknowns = unknowns.Count;
         int denomDegree = d.TotalDegree;
         if (nUnknowns == 0)
             return Exprs.Zero;
+        if (nUnknowns != denomDegree)
+            return null;   // factorization was incomplete: refuse rather than guess
 
-        // build linear system: r = sum A_{i,k} * (D / f_i^k)  ⇒ multiply by D:
-        // r = sum A_{i,k} * f_i^{m_i-k} * (D / f_i^{m_i}) … simpler: multiply everything by D:
-        // r * D / D ... We equate polynomials:  r == sum A_{i,k} * (D / f_i^k).
-        // Each side is a polynomial in x; equate coefficients of x^j for j = 0..denomDegree-1.
-        var rows = new List<Rat[]>();
-        var rhs = new List<Rat>();
-        var rCoeffs = CoeffList(r, denomDegree);
-        for (int j = 0; j < denomDegree; j++)
+        // equate polynomial coefficients: r(x) == Σ A_{i,k,j} · x^j · (D / f_i^k)
+        var a = new Rat[denomDegree, nUnknowns];
+        var b = new Rat[denomDegree];
+        for (int t = 0; t < denomDegree; t++)
         {
-            var row = new Rat[nUnknowns];
+            b[t] = CoefficientAt(r, t);
             for (int u = 0; u < nUnknowns; u++)
             {
-                var (fi, k) = unknowns[u];
+                var (fi, k, j) = unknowns[u];
                 var fPow = Polynomial.Pow(denFactors[fi].Factor, k);
                 var (quot, rem) = d.DivRem(fPow, MonomialOrder.Lex);
                 if (!rem.IsZero)
-                {
-                    // factors may not be exact powers of d when multiplicities combine; fall back:
-                    return Exprs.Zero;
-                }
-                row[u] = CoefficientAt(quot, j);
+                    return null;   // factors not exact divisors: incomplete factorization
+                a[t, u] = CoefficientAt(quot, t - j);
             }
-            rows.Add(row);
-            rhs.Add(CoefficientAt(r, j));
         }
-
-        var a = new Rat[nUnknowns, nUnknowns];
-        for (int i = 0; i < rows.Count; i++)
-            for (int j = 0; j < nUnknowns; j++)
-                a[i, j] = rows[i][j];
-        var b = rhs.ToArray();
         if (!RationalLinear.TrySolve(a, b, out var sol))
-            return Exprs.Zero;
+            return null;
 
         // assemble the decomposition
         var terms = new List<Expr>();
@@ -216,10 +206,11 @@ public static class RationalFunctions
         {
             if (sol[u].IsZero)
                 continue;
-            var (fi, k) = unknowns[u];
+            var (fi, k, j) = unknowns[u];
             var factorExpr = denFactors[fi].Factor.ToExpr();
+            var num = j == 0 ? Exprs.Rational(sol[u]) : Exprs.Multiply(Exprs.Rational(sol[u]), Exprs.Power(Exprs.Symbol(x), Exprs.Integer(j)));
             var denom = k == 1 ? factorExpr : Exprs.Power(factorExpr, Exprs.Integer(k));
-            terms.Add(Exprs.Divide(Exprs.Rational(sol[u]), denom));
+            terms.Add(Exprs.Divide(num, denom));
         }
         return terms.Count == 0 ? Exprs.Zero : Exprs.Add(terms);
     }

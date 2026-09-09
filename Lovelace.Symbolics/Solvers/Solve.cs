@@ -112,14 +112,24 @@ public static class Solvers
                 1 => new[] { LinearRoot(factor) },
                 2 => QuadraticRoots(factor),
                 3 => CubicRoots(factor, ctx),
-                _ => Enumerable.Range(0, deg).Select(i => (Expr)Exprs.RootOf(factor, i)).ToArray(),
+                // degree >= 4: RootOf over the exact Sturm count of real roots — never deg
+                // assumed-real roots (that invented nonexistent roots and shifted indices)
+                _ => HighDegreeRoots(factor),
             };
             foreach (var r in roots)
                 set.Solutions.Add(new Solution(r, AssumptionSet.Empty));
         }
         if (set.Solutions.Count == 0)
-            return new SolutionSet(SolutionKind.Empty);
+            return new SolutionSet(SolutionKind.Empty, "No real roots.");
         return set;
+    }
+
+    private static Expr[] HighDegreeRoots(Polynomial p)
+    {
+        var count = Roots.RealRootCount(p);
+        if (count == 0)
+            return Array.Empty<Expr>();
+        return Enumerable.Range(0, count).Select(i => (Expr)Exprs.RootOf(p, i)).ToArray();
     }
 
     private static Expr LinearRoot(Polynomial p)
@@ -173,11 +183,18 @@ public static class Solvers
         Expr[] ts;
         if (disc >= Rat.Zero)
         {
-            // one real root via Cardano
+            // one real root via Cardano. The pair (u, v) is BRANCH-COUPLED: u is the principal
+            // cube root of the positive radicand −Q/2 + √disc, and v is chosen so that
+            // u·v = −P/3 exactly. Choosing both roots independently with principal branches
+            // breaks the coupling for negative radicands and yields roots that do not satisfy
+            // the polynomial.
             var halfQ = Rat.Negate(Q) / Rat.FromLong(2L);
             var sqrtD = Exprs.Power(Exprs.Rational(disc), Exprs.Rational(1, 2));
-            var u = Exprs.Power(Exprs.Add(Exprs.Rational(halfQ), sqrtD), Exprs.Rational(1, 3));
-            var v = Exprs.Power(Exprs.Subtract(Exprs.Rational(halfQ), sqrtD), Exprs.Rational(1, 3));
+            var r1 = Exprs.Add(Exprs.Rational(halfQ), sqrtD);
+            var u = Exprs.Power(r1, Exprs.Rational(1, 3));
+            var v = P.IsZero
+                ? Exprs.Zero
+                : Exprs.Multiply(Exprs.Rational(Rat.Negate(P) / Rat.FromLong(3L)), Exprs.Power(r1, Exprs.Rational(-1, 3)));
             // omega = -1/2 + i*sqrt(3)/2
             var omega = Exprs.Add(
                 Exprs.Rational(-1, 2),
@@ -312,79 +329,169 @@ public static class Solvers
     }
 }
 
-/// <summary>Numeric evaluation of RootOf via real-root isolation (bisection + Newton).</summary>
+/// <summary>
+/// Rigorous real-root isolation and evaluation for RootOf: Sturm sequences with exact
+/// rational coefficient arithmetic and bisection over rational intervals. No sampling grids,
+/// no sign-scan heuristics — closely spaced and multiple roots cannot be missed or reordered.
+/// RootOf(p, i) denotes the i-th real root of the square-free part of p in ascending order.
+/// </summary>
 public static class Roots
 {
+    /// <summary>Sturm sequence of the square-free part of p (exact rational coefficients).</summary>
+    public static List<Polynomial> SturmSequence(Polynomial p)
+    {
+        var seq = new List<Polynomial>();
+        var sf = Polynomial.SquareFreePart(p);
+        if (sf.IsZero)
+            return seq;
+        seq.Add(Monic(sf));
+        var d = sf.Derivative(0);
+        if (!d.IsZero)
+            seq.Add(Monic(d));
+        while (seq[^1].TotalDegree > 0)
+        {
+            var (_, rem) = seq[^2].DivRem(seq[^1], MonomialOrder.Lex);
+            if (rem.IsZero)
+                break;
+            seq.Add(Monic(Polynomial.Negate(rem)));
+        }
+        return seq;
+    }
+
+    /// <summary>Scales to a leading coefficient of ±1 by a POSITIVE factor. Sturm sequences
+    /// are invariant under positive scaling only — dividing by a negative leading coefficient
+    /// would flip signs and corrupt the variation counts.</summary>
+    private static Polynomial Monic(Polynomial p)
+    {
+        if (p.IsZero)
+            return p;
+        var lc = p.LeadingCoefficient(MonomialOrder.Lex);
+        if (lc.IsOne)
+            return p;
+        var scale = lc.IsNegative ? Rat.Negate(lc) : lc;
+        var r = new Polynomial(p.Order);
+        foreach (var (m, c) in p.Terms)
+            r = Polynomial.Add(r, Polynomial.FromMonomial(p.Order, m, c / scale));
+        return r;
+    }
+
+    /// <summary>Number of distinct real roots (Sturm's theorem, exact).</summary>
+    public static int RealRootCount(Polynomial p)
+    {
+        if (p.IsZero)
+            return 0;
+        var seq = SturmSequence(p);
+        return SignVariationsAtInfinity(seq, plus: false) - SignVariationsAtInfinity(seq, plus: true);
+    }
+
+    /// <summary>Cauchy bound: every real root satisfies |x| &lt; 1 + max |a_i / a_n|.</summary>
+    public static Rat CauchyBound(Polynomial p)
+    {
+        var an = p.LeadingCoefficient(MonomialOrder.Lex);
+        Rat m = Rat.Zero;
+        foreach (var (mon, c) in p.Terms)
+        {
+            if (mon.TotalDegree < p.TotalDegree)
+            {
+                var t = Rat.Abs(c / an);
+                if (t > m)
+                    m = t;
+            }
+        }
+        return m + Rat.One;
+    }
+
+    private static int SignVariationsAt(List<Polynomial> seq, Rat x)
+    {
+        int variations = 0;
+        int prev = 0;
+        for (int i = 0; i < seq.Count; i++)
+        {
+            var v = seq[i].EvaluateAt(new[] { x });
+            int s = v.IsZero ? 0 : (v.IsNegative ? -1 : 1);
+            if (s == 0 && i == 0)
+            {
+                // x is a root of p0 (after square-free normalization only p0 can vanish at a
+                // root): use the left-hand sign −sign(p1(x)) so variation counts behave as if
+                // x were evaluated slightly to the left — Sturm's theorem needs non-root points
+                var p1v = seq.Count > 1 ? seq[1].EvaluateAt(new[] { x }) : Rat.One;
+                s = p1v.IsZero ? 0 : (p1v.IsNegative ? 1 : -1);
+            }
+            if (s != 0)
+            {
+                if (prev != 0 && s != prev)
+                    variations++;
+                prev = s;
+            }
+        }
+        return variations;
+    }
+
+    private static int SignVariationsAtInfinity(List<Polynomial> seq, bool plus)
+    {
+        int variations = 0;
+        int prev = 0;
+        foreach (var p in seq)
+        {
+            if (p.IsZero)
+                continue;
+            var lc = p.LeadingCoefficient(MonomialOrder.Lex);
+            int s = lc.IsNegative ? -1 : 1;
+            if (!plus && p.TotalDegree % 2 == 1)
+                s = -s;
+            if (prev != 0 && s != prev)
+                variations++;
+            prev = s;
+        }
+        return variations;
+    }
+
+    private static bool IsRootAt(List<Polynomial> seq, Rat x) => seq[0].EvaluateAt(new[] { x }).IsZero;
+
+    /// <summary>Distinct real roots in (−∞, x], exact — including the endpoint when x is a root.
+    /// Standard Sturm count for (a, b) plus the endpoint membership; consistent even when the
+    /// bisection endpoints land exactly on roots.</summary>
+    private static int CountRootsLE(List<Polynomial> seq, Rat x) =>
+        SignVariationsAtInfinity(seq, plus: false)
+        - SignVariationsAt(seq, x)
+        + (IsRootAt(seq, x) ? 1 : 0);
+
+    private static (Rat Lo, Rat Hi) IsolateIndex(List<Polynomial> seq, Rat bound, int k, int bits)
+    {
+        Rat a = Rat.Negate(bound);
+        Rat b = bound;
+        // invariant: the k-th root (0-based globally) lies in (a, b]; each step halves the width
+        for (int i = 0; i < bits + 16; i++)
+        {
+            var mid = (a + b) / Rat.FromLong(2L);
+            int offset = CountRootsLE(seq, a);                       // roots already passed
+            int inHalfOpen = CountRootsLE(seq, mid) - offset;        // roots in (a, mid]
+            if (inHalfOpen > k - offset)
+                b = mid;
+            else
+                a = mid;
+        }
+        return (a, b);
+    }
+
+    /// <summary>Evaluates RootOf(p, i) to about <paramref name="digits"/> decimal digits.</summary>
     public static Rl N(Expr rootOf, long digits, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
         if (rootOf is not RootOfExpr r)
             throw new InvalidOperationException("N() requires a RootOf expression.");
-        var poly = r.DefiningPolynomial;
-        var (sqfree, _) = Factoring.PrimitivePart(poly);
-        // Cauchy bound
-        Rat bound = Rat.One;
-        foreach (var (_, c) in sqfree.Terms)
-        {
-            var t = Rat.Abs(c / poly.LeadingCoefficient(MonomialOrder.Lex));
-            if (t + Rat.One > bound)
-                bound = t + Rat.One;
-        }
-        var realRoots = new List<Rl>();
-        using (Rl.WithPrecision(digits + 10, Math.Min(digits, 50)))
-        {
-            long steps = 400;
-            var lo = RationalReal.ToReal(Rat.Negate(bound), (int)Math.Min(digits, 100));
-            var hi = RationalReal.ToReal(bound, (int)Math.Min(digits, 100));
-            var prevSign = SignAt(sqfree, lo);
-            var x = lo;
-            var step = (hi - lo) / Rl.Parse(steps.ToString(), null);
-            for (long i = 0; i <= steps; i++)
-            {
-                var next = i == steps ? hi : lo + step * Rl.Parse(i.ToString(), null);
-                var sign = SignAt(sqfree, next);
-                if (sign == 0)
-                {
-                    realRoots.Add(next);
-                }
-                else if (prevSign != 0 && sign != prevSign)
-                {
-                    realRoots.Add(RefineRoot(sqfree, x, next, digits + 6));
-                }
-                if (sign != 0)
-                {
-                    prevSign = sign;
-                    x = next;
-                }
-            }
-        }
-        realRoots.Sort();
-        if (r.RootIndex >= realRoots.Count)
+        var p = r.DefiningPolynomial;
+        var seq = SturmSequence(p);
+        int count = SignVariationsAtInfinity(seq, plus: false) - SignVariationsAtInfinity(seq, plus: true);
+        if (r.RootIndex < 0 || r.RootIndex >= count)
             throw new InvalidOperationException(
-                $"RootOf index {r.RootIndex} is out of range: the polynomial has {realRoots.Count} real roots; complex-root isolation is not supported in v1.");
-        return realRoots[r.RootIndex];
-    }
+                $"RootOf index {r.RootIndex} is out of range: the polynomial has {count} real root(s).");
 
-    private static int SignAt(Polynomial p, Rl x)
-    {
-        var r = p.EvaluateAt(new[] { RationalReal.FromReal(x) });
-        return r.IsZero ? 0 : (r.IsNegative ? -1 : 1);
-    }
-
-    private static Rl RefineRoot(Polynomial p, Rl lo, Rl hi, long digits)
-    {
-        var two = Rl.Parse("2", null);
-        for (int i = 0; i < 1000; i++)
-        {
-            var mid = (lo + hi) / two;
-            var s = SignAt(p, mid);
-            if (s == 0)
-                return mid;
-            if (SignAt(p, lo) * s < 0)
-                hi = mid;
-            else
-                lo = mid;
-        }
-        return (lo + hi) / two;
+        // isolate the index-th root by exact rational bisection, then convert the dyadic
+        // midpoint (a finite decimal) to a Real at the requested precision
+        int bits = (int)Math.Min(int.MaxValue / 2, digits * 4 + 16);
+        var (lo, hi) = IsolateIndex(seq, CauchyBound(p), r.RootIndex, bits);
+        var mid = (lo + hi) / Rat.FromLong(2L);
+        return RationalReal.ToReal(mid, (int)Math.Min(digits + 2, int.MaxValue));
     }
 }

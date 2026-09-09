@@ -10,6 +10,9 @@ public sealed class FunctionDefinition
     public FunctionId Id { get; }
     public int Arity { get; }
 
+    /// <summary>True when any argument count is accepted (variadic); Arity is then a minimum.</summary>
+    public bool Variadic { get; }
+
     /// <summary>f'(arg) as an expression template: given the argument expression, returns the derivative of f at it.</summary>
     public Func<Expr, Expr>? DerivativeTemplate { get; }
 
@@ -24,7 +27,8 @@ public sealed class FunctionDefinition
         int arity,
         Func<Expr, Expr>? derivativeTemplate = null,
         Func<Num[], ExprContext, Num>? numericEvaluator = null,
-        RewriteRule[]? rules = null)
+        RewriteRule[]? rules = null,
+        bool variadic = false)
     {
         Name = name;
         Id = id;
@@ -32,6 +36,7 @@ public sealed class FunctionDefinition
         DerivativeTemplate = derivativeTemplate;
         NumericEvaluator = numericEvaluator;
         Rules = rules;
+        Variadic = variadic;
     }
 }
 
@@ -91,15 +96,27 @@ public static class CoreFunctions
             (args, c) => NumOps.Acosh(args[0], c));
         Add("atanh", 1, a => Exprs.Divide(Exprs.One, Exprs.Subtract(Exprs.One, Exprs.Power(a, Exprs.Integer(2)))),
             (args, c) => NumOps.Atanh(args[0], c));
-        Add("abs", 1, a => Exprs.Function(ctx.Function("sign"), a),
+        Add("re", 1, null,
+            (args, c) => NumOps.Re(args[0], c));
+        Add("im", 1, null,
+            (args, c) => NumOps.Im(args[0], c));
+        // abs has no template here: its derivative is sign(x) only away from 0, so Diff
+        // constructs a conditional piecewise itself. sign/floor/ceil are nondifferentiable
+        // on sets and therefore have NO derivative template — differentiation leaves
+        // Derivative(...) unevaluated instead of silently claiming a smooth 0.
+        Add("abs", 1, null,
             (args, c) => NumOps.Abs(args[0], c));
-        Add("sign", 1, _ => Exprs.Zero,
+        Add("sign", 1, null,
             (args, c) => NumOps.Sign(args[0], c));
-        Add("floor", 1, _ => Exprs.Zero,
+        Add("floor", 1, null,
             (args, c) => NumOps.Floor(args[0], c));
-        Add("ceil", 1, _ => Exprs.Zero,
+        Add("ceil", 1, null,
             (args, c) => NumOps.Ceil(args[0], c));
-        Add("min", 2, null, (args, c) => NumOps.Min(args, c));
-        Add("max", 2, null, (args, c) => NumOps.Max(args, c));
+        reg.Register(new FunctionDefinition(
+            "min", ctx.Function("min"), 2,
+            null, (args, c) => NumOps.Min(args, c), null, variadic: true));
+        reg.Register(new FunctionDefinition(
+            "max", ctx.Function("max"), 2,
+            null, (args, c) => NumOps.Max(args, c), null, variadic: true));
     }
 }

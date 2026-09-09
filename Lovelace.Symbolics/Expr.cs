@@ -26,9 +26,9 @@ public sealed record PiecewiseBranch(Expr Guard, Expr Value);
 public readonly struct RealLiteral : IEquatable<RealLiteral>
 {
     public Int Digits { get; }
-    public int Exponent10 { get; }
+    public long Exponent10 { get; }
 
-    public RealLiteral(Int digits, int exponent10)
+    public RealLiteral(Int digits, long exponent10)
     {
         // normalize: strip trailing decimal zeros when exponent < 0
         if (!Int.IsZero(digits) && exponent10 < 0)
@@ -47,11 +47,18 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
 
     public static RealLiteral Parse(string text)
     {
-        // plain decimal: "-3.14", "2", "0.5"
+        // plain decimal: "-3.14", "2", "0.5" — or exact compact form "<digits>e<exp>"
         var neg = text.StartsWith('-');
         if (neg) text = text[1..];
+        long extra = 0;
+        var ePos = text.IndexOf('e');
+        if (ePos >= 0)
+        {
+            extra = long.Parse(text[(ePos + 1)..], System.Globalization.CultureInfo.InvariantCulture);
+            text = text[..ePos];
+        }
         var dot = text.IndexOf('.');
-        int exp = 0;
+        long exp = extra;
         string digits;
         if (dot < 0)
         {
@@ -60,59 +67,94 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
         else
         {
             digits = text[..dot] + text[(dot + 1)..];
-            exp = -(text.Length - dot - 1);
+            exp += -(text.Length - dot - 1);
         }
         var d = Int.Parse(digits, null);
         if (neg) d = d.Negate();
         return new RealLiteral(d, exp);
     }
 
-    public static RealLiteral FromReal(Rl value)
-    {
-        var s = value.ToString();
-        if (s.Contains('('))
-            throw new InvalidOperationException("Periodic Real values convert to Rational, not RealLiteral.");
-        return Parse(s);
-    }
-
     /// <summary>
-    /// Exact conversion from the Real's full-precision magnitude and exponent — never the
-    /// display-truncated string (ToString respects the ambient display scope).
+    /// Conversion from the Real's full-precision magnitude and exponent — never the
+    /// display-truncated string (ToString respects the ambient display scope). Periodic
+    /// values have no finite literal and must convert through Rational instead.
     /// </summary>
     public static RealLiteral FromRealExact(Rl value)
     {
+        if (value.IsPeriodic)
+            throw new InvalidOperationException("Periodic Real values convert to Rational, not RealLiteral.");
         var d = new Int(value.ToNatural());
         if (Rl.IsNegative(value))
             d = d.Negate();
-        long exp = value.Exponent;
-        return new RealLiteral(d, (int)Math.Clamp(exp, int.MinValue, int.MaxValue));
+        return new RealLiteral(d, value.Exponent);
     }
 
-    /// <summary>Exact value as a rational (finite decimal ⇒ exact).</summary>
-    public Rat ToRational()
+    /// <summary>Exact value as a rational (finite decimal ⇒ exact). O(log |exp|) in the exponent.</summary>
+    public Rat ToRational() => Rat.From(Digits) * Pow10(Exponent10);
+
+    private static Rat Pow10(long n)
     {
-        var r = Rat.From(Digits);
-        if (Exponent10 >= 0)
+        var result = Rat.One;
+        var pow = Rat.FromLong(10);
+        long e = n;
+        while (e > 0)
         {
-            var ten = Rat.FromLong(10);
-            for (int i = 0; i < Exponent10; i++)
-                r = r * ten;
-            return r;
+            if ((e & 1) == 1)
+                result = result * pow;
+            e >>= 1;
+            if (e > 0)
+                pow = pow * pow;
         }
-        else
-        {
-            var ten = Rat.FromLong(10);
-            for (int i = 0; i < -Exponent10; i++)
-                r = r / ten;
-            return r;
-        }
+        if (n < 0)
+            return Rat.One / Pow10(-n);
+        return result;
     }
 
     public static RealLiteral FromRational(Rat value, int maxFractionalDigits = 64)
     {
-        // finite decimal approximation of a rational (used only in the approximate tier)
+        // finite decimal approximation of a rational (used only at explicit approximate boundaries)
         var s = value.ToDecimalString(maxFractionalDigits);
         return Parse(s);
+    }
+
+    /// <summary>
+    /// Exact conversion of a rational with denominator 2^a·5^b (every finite decimal) to a
+    /// literal. Throws for other rationals: a periodic value has no finite-decimal literal,
+    /// and silently truncating would violate precision integrity.
+    /// </summary>
+    public static RealLiteral FromRationalExact(Rat value)
+    {
+        if (value.IsZero)
+            return new RealLiteral(Int.Zero, 0);
+        var neg = value.IsNegative;
+        var n = Int.Abs(value.Numerator);
+        var den = value.Denominator;
+        var two = new Int(2L);
+        var five = new Int(5L);
+        long exp = 0;
+        while (true)
+        {
+            if (den % two == Int.Zero)
+            {
+                den = den / two;
+                n = n * five;
+                exp--;
+                continue;
+            }
+            if (den % five == Int.Zero)
+            {
+                den = den / five;
+                n = n * two;
+                exp--;
+                continue;
+            }
+            break;
+        }
+        if (den != Int.One)
+            throw new InvalidOperationException("Rational has no finite decimal expansion (denominator is not 2^a·5^b).");
+        if (neg)
+            n = n.Negate();
+        return new RealLiteral(n, exp);
     }
 
     public Rl ToReal() => Rl.Parse(ToString(), null);
@@ -128,18 +170,25 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
 
     public int CompareTo(RealLiteral other) => ToRational().CompareTo(other.ToRational());
 
+    // expanded forms are capped so extreme exponents cannot allocate unbounded strings;
+    // beyond the cap the exact compact form <digits>e<exp> is emitted instead.
+    private const long MaxExpansionChars = 1_000_000;
+
     public override string ToString()
     {
         var sign = Int.IsNegative(Digits) ? "-" : "";
         var abs = Int.Abs(Digits).ToString();
+        long expandedLen = Exponent10 > 0 ? abs.Length + Exponent10 : abs.Length - Exponent10;
+        if (expandedLen > MaxExpansionChars || Exponent10 > int.MaxValue || Exponent10 < int.MinValue)
+            return sign + abs + "e" + Exponent10;
         if (Exponent10 == 0)
             return sign + abs;
         if (Exponent10 > 0)
-            return sign + abs + new string('0', Exponent10);
+            return sign + abs + new string('0', (int)Exponent10);
         var point = abs.Length + Exponent10;
         if (point > 0)
-            return sign + abs[..point] + "." + abs[point..];
-        return sign + "0." + new string('0', -point) + abs;
+            return sign + abs[..(int)point] + "." + abs[(int)point..];
+        return sign + "0." + new string('0', (int)-point) + abs;
     }
 }
 

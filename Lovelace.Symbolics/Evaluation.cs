@@ -143,21 +143,30 @@ public static class NumOps
         return ToReal(a).CompareTo(ToReal(b));
     }
 
-    /// <summary>Exact/repeated-squaring integer power; negative exponents via reciprocal.</summary>
-    public static Num PowInt(Num b, int e)
+    /// <summary>Exact/repeated-squaring integer power; negative exponents via reciprocal.
+    /// The exponent is an arbitrary-precision Int — never narrowed through int/long.</summary>
+    /// <summary>Integer-power entry taking an exponent value: exact integer exponents only.</summary>
+    public static Num PowInt(Num b, Num e)
     {
-        if (e == 0)
+        if (Tier(e) > 1 || !RatOf(e).IsInteger)
+            throw new InvalidOperationException("PowInt requires an exact integer exponent.");
+        return PowInt(b, RatOf(e).ToInteger());
+    }
+
+    public static Num PowInt(Num b, Int e)
+    {
+        if (Int.IsZero(e))
             return FromInt(Int.One);
-        bool negExp = e < 0;
-        int abs = negExp ? -e : e;
+        bool negExp = e < Int.Zero;
+        var n = negExp ? Int.Abs(e) : e;
         Num result = FromInt(Int.One);
         var x = b;
-        int n = abs;
-        while (n > 0)
+        var two = new Int(2L);
+        while (n > Int.Zero)
         {
-            if ((n & 1) == 1) result = Multiply(result, x);
+            if (Int.IsOddInteger(n)) result = Multiply(result, x);
             x = Multiply(x, x);
-            n >>= 1;
+            n = n / two;
         }
         return negExp ? Divide(FromInt(Int.One), result) : result;
     }
@@ -165,7 +174,7 @@ public static class NumOps
     public static Num Pow(Num b, Num e)
     {
         if (Tier(e) <= 1 && RatOf(e).IsInteger)
-            return PowInt(b, (int)RatOf(e).ToInteger().ToInt64Saturating());
+            return PowInt(b, RatOf(e).ToInteger());
         // b^e = exp(e ln b): real path for b > 0, complex principal branch otherwise
         if (Tier(b) <= 2 && Tier(e) <= 2)
         {
@@ -210,15 +219,30 @@ public static class NumOps
 
     private static Rl RealFloor(Rl x)
     {
-        var s = x.ToString();
-        var dot = s.IndexOf('.');
-        var neg = s.StartsWith('-');
-        var intPart = dot < 0 ? s : s[..dot];
-        var i = Rl.Parse(intPart, null);
-        if (!neg || intPart == "0" || s == intPart)
-            return i;
-        return i - Rl.Parse("1", null);
+        // digit-exact floor: operate on the full-precision magnitude, never the
+        // display-truncated ToString form
+        var neg = Rl.IsNegative(x);
+        if (x.Exponent >= 0)
+            return x;   // already integral
+        var mag = new Int(x.ToNatural());
+        var p = new Int(10).Pow(new Int(-x.Exponent));
+        var q = mag / p;
+        if (neg && q * p != mag)
+            q = q - Int.One;
+        return new Rl(q);
     }
+
+    public static Num Re(Num a, ExprContext ctx) => a switch
+    {
+        NumComplex c => FromReal(c.V.Re),
+        _ => a,
+    };
+
+    public static Num Im(Num a, ExprContext ctx) => a switch
+    {
+        NumComplex c => FromReal(c.V.Im),
+        _ => FromInt(Int.Zero),
+    };
 
     public static Num Min(Num[] args, ExprContext ctx)
     {
@@ -308,10 +332,10 @@ public static class Evaluation
         {
             NumInt i => Exprs.Integer(i.V),
             NumRat r => Exprs.Rational(r.V),
-            NumReal rl => Exprs.Real(RealLiteral.FromReal(rl.V)),
+            NumReal rl => Exprs.Real(RealLiteral.FromRealExact(rl.V)),
             NumComplex c => Exprs.Add(
-                Exprs.Real(RealLiteral.FromReal(c.V.Re)),
-                Exprs.Multiply(Exprs.Real(RealLiteral.FromReal(c.V.Im)), Exprs.I)),
+                Exprs.Real(RealLiteral.FromRealExact(c.V.Re)),
+                Exprs.Multiply(Exprs.Real(RealLiteral.FromRealExact(c.V.Im)), Exprs.I)),
             _ => throw new InvalidOperationException(),
         };
     }
@@ -383,9 +407,65 @@ public static class Evaluation
                     return NumOps.Pow(args[0], new NumRat(Rat.From(1, 2)));
                 throw new EvaluationException($"Function '{f.Function.Name}' has no numeric evaluator.");
             }
+            case PiecewiseExpr pw:
+            {
+                foreach (var br in pw.Branches)
+                {
+                    var g = EvaluateRelation(br.Guard, ctx, bindings);
+                    if (g == Tristate.True)
+                        return EvaluateToNum(br.Value, ctx, bindings);
+                    if (g == Tristate.False)
+                        continue;
+                    throw new EvaluationException("Piecewise guard cannot be decided numerically.");
+                }
+                return EvaluateToNum(pw.Otherwise, ctx, bindings);
+            }
+            case RootOfExpr ro:
+                return new NumReal(Roots.N(ro, Rl.MaxComputationDecimalPlaces, ctx));
             default:
                 throw new EvaluationException($"Node of kind {e.Kind} cannot be evaluated numerically.");
         }
+    }
+
+    /// <summary>
+    /// Three-valued evaluation of a relation guard: True/False when both sides evaluate and
+    /// compare (exact compare for exact tiers, approximate at the precision scope otherwise),
+    /// Unknown when a side cannot be evaluated or is complex. Unknown is never coerced to
+    /// False.
+    /// </summary>
+    public static Tristate EvaluateRelation(Expr guard, ExprContext ctx, IReadOnlyDictionary<Symbol, Num> bindings)
+    {
+        if (guard is not RelationExpr r)
+            return Tristate.Unknown;
+        Num l, right;
+        try
+        {
+            l = EvaluateToNum(r.Left, ctx, bindings);
+            right = EvaluateToNum(r.Right, ctx, bindings);
+        }
+        catch (EvaluationException)
+        {
+            return Tristate.Unknown;
+        }
+        int cmp;
+        try
+        {
+            cmp = NumOps.Compare(l, right);
+        }
+        catch (Exception)
+        {
+            return Tristate.Unknown;   // unordered (complex) values are not False, they are unknown
+        }
+        bool result = r.Op switch
+        {
+            RelOp.Eq => cmp == 0,
+            RelOp.Ne => cmp != 0,
+            RelOp.Lt => cmp < 0,
+            RelOp.Le => cmp <= 0,
+            RelOp.Gt => cmp > 0,
+            _ => cmp >= 0,
+        };
+        return result ? Tristate.True : Tristate.False;
     }
 
     /// <summary>

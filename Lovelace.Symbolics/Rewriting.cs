@@ -2,6 +2,35 @@ using System.Collections.Immutable;
 
 namespace Lovelace.Symbolics.Rewriting;
 
+/// <summary>
+/// Rewrite-rule classification (kernel constitution): Universal rules are mathematically
+/// valid over the represented domain with no side conditions; Conditional rules fire only
+/// when their preconditions are proven True; DomainSpecific rules additionally require a
+/// declared domain assumption; Approximate rules change values within a tolerance and must
+/// be surfaced as approximate; OptimizationOnly rules may change evaluation order or
+/// floating-point error characteristics without changing the intended algorithm class.
+/// </summary>
+public enum RuleClassification
+{
+    Universal,
+    Conditional,
+    DomainSpecific,
+    Approximate,
+    OptimizationOnly,
+}
+
+/// <summary>One applied rewrite: machine-readable provenance for traces and falsification.</summary>
+public sealed record RewriteStep(
+    string RuleId,
+    RuleClassification Classification,
+    Expr Before,
+    Expr After,
+    AssumptionSet Conditions)
+{
+    public override string ToString() =>
+        $"{RuleId} [{Classification}]: {Before} -> {After}{(Conditions.Atoms.Length > 0 ? " given " + string.Join("; ", Conditions.Atoms) : "")}";
+}
+
 // ---------------------------------------------------------------------------
 // Patterns
 // ---------------------------------------------------------------------------
@@ -101,6 +130,17 @@ public sealed class RewriteRule
     public Func<Match, ExprContext, bool> Precondition { get; }
     public Func<Match, ExprContext, Expr> Replacement { get; }
 
+    /// <summary>Semantic classification (kernel constitution). Defaults to Conditional: a rule
+    /// must opt into Universal explicitly.</summary>
+    public RuleClassification Classification { get; init; } = RuleClassification.Conditional;
+
+    /// <summary>Declarative side conditions the rule's semantics depend on (for traces,
+    /// falsification, and documentation).</summary>
+    public AssumptionSet DeclaredConditions { get; init; } = AssumptionSet.Empty;
+
+    /// <summary>Builds the concrete side conditions for a specific match (trace/provenance only).</summary>
+    public Func<Match, ExprContext, AssumptionSet>? ConditionBuilder { get; init; }
+
     public RewriteRule(
         string id,
         string group,
@@ -147,41 +187,45 @@ public static class RewriteEngine
     }
 
     public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget = null)
+        => Apply(e, ctx, rules, budget, trace: null);
+
+    /// <summary>Apply with optional provenance collection (zero cost when <paramref name="trace"/> is null).</summary>
+    public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget, List<RewriteStep>? trace)
     {
         budget ??= new Budget();
-        return Walk(e, ctx, rules, budget);
+        return Walk(e, ctx, rules, budget, trace);
     }
 
-    private static Expr Walk(Expr node, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget budget)
+    private static Expr Walk(Expr node, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget budget, List<RewriteStep>? trace)
     {
         // rebuild children bottom-up
         switch (node)
         {
             case AddExpr a:
-                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget)));
+                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget, trace)));
                 break;
             case MultiplyExpr m:
-                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget)));
+                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget, trace)));
                 break;
             case PowerExpr p:
-                node = Exprs.Power(Walk(p.Base, ctx, rules, budget), Walk(p.Exponent, ctx, rules, budget));
+                node = Exprs.Power(Walk(p.Base, ctx, rules, budget, trace), Walk(p.Exponent, ctx, rules, budget, trace));
                 break;
             case FunctionExpr f:
-                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget)).ToArray());
+                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget, trace)).ToArray());
                 break;
             case RelationExpr r:
-                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget), Walk(r.Right, ctx, rules, budget));
+                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget, trace), Walk(r.Right, ctx, rules, budget, trace));
                 break;
             case PiecewiseExpr pw:
                 node = Exprs.Piecewise(
-                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget), Walk(b.Value, ctx, rules, budget))),
-                    Walk(pw.Otherwise, ctx, rules, budget));
+                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget, trace), Walk(b.Value, ctx, rules, budget, trace))),
+                    Walk(pw.Otherwise, ctx, rules, budget, trace));
                 break;
             case DerivativeExpr d:
-                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget), d.Variables.ToArray());
+                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget, trace), d.Variables.ToArray());
                 break;
             case IntegralExpr i:
-                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget), i.Variables.ToArray());
+                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace), i.Variables.ToArray());
                 break;
         }
 
@@ -209,8 +253,11 @@ public static class RewriteEngine
                     continue;
                 var next = rule.Replacement(m, ctx);
                 budget.Steps++;
-                if (next != node)
+                // structural equality — nodes may come from different context pools
+                if (!node.Equals(next))
                 {
+                    var conds = rule.ConditionBuilder?.Invoke(m, ctx) ?? rule.DeclaredConditions;
+                    trace?.Add(new RewriteStep(rule.Id, rule.Classification, node, next, conds));
                     node = next;
                     fired = true;
                     break;
@@ -227,7 +274,7 @@ public static class RewriteEngine
         switch (p)
         {
             case LiteralPat lit:
-                return lit.E == e;
+                return lit.E.Equals(e);
             case WildPat w:
                 return m.Bind(w.Name, e);
             case AddPat ap when e is AddExpr add:

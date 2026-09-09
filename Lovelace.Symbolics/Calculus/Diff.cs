@@ -25,11 +25,14 @@ public static class Calculus
             MultiplyExpr m => DiffProduct(m.Factors, x, ctx, memo),
             PowerExpr p => DiffPower(p, x, ctx, memo),
             FunctionExpr f => DiffFunction(f, x, ctx, memo),
+            PiecewiseExpr pw => Exprs.Piecewise(
+                pw.Branches.Select(b => new PiecewiseBranch(b.Guard, DiffWithMemo(b.Value, x, ctx, memo))),
+                DiffWithMemo(pw.Otherwise, x, ctx, memo)),
             IntegralExpr i => i.Variables.Any(v => v.Name == x.Name)
                 ? i.Operand   // fundamental theorem of calculus
                 : Exprs.Integral(DiffWithMemo(i.Operand, x, ctx, memo), i.Variables.ToArray()),
             DerivativeExpr d => Exprs.Derivative(d.Operand, d.Variables.Add(x).ToArray()),
-            _ => Exprs.Derivative(e, x),   // relations/piecewise/rootof stay unevaluated
+            _ => Exprs.Derivative(e, x),   // relations/rootof stay unevaluated
         };
 
         memo[key] = result;
@@ -76,11 +79,24 @@ public static class Calculus
         var def = ctx.Functions.Get(f.Function.Name);
         var arg = f.Arguments[0];
         var dArg = DiffWithMemo(arg, x, ctx, memo);
+
+        // d|x|/dx = sign(x) for x ≠ 0, undefined at 0 — the condition is carried explicitly
+        if (f.Function.Name == "abs")
+        {
+            var sign = Exprs.Function(ctx.Function("sign"), arg);
+            var guard = Exprs.Relation(RelOp.Ne, arg, Exprs.Zero);
+            var conditional = Exprs.Piecewise(
+                new[] { new PiecewiseBranch(guard, sign) },
+                Exprs.Derivative(f, x));
+            return Exprs.Multiply(conditional, dArg);
+        }
+
         if (def?.DerivativeTemplate is { } tpl)
             return Exprs.Multiply(tpl(arg), dArg);
-        // unknown function: unevaluated derivative of the application
+        // unknown or nondifferentiable function (sign/floor/ceil/min/max): unevaluated
+        // derivative of the full application — never a silent 0 and never a dropped argument
         if (arg is SymbolExpr sarg)
-            return Exprs.Multiply(Exprs.Derivative(Exprs.Function(f.Function, arg), sarg.Symbol), dArg);
+            return Exprs.Multiply(Exprs.Derivative(Exprs.Function(f.Function, f.Arguments.ToArray()), sarg.Symbol), dArg);
         return Exprs.Derivative(f, x);
     }
 
@@ -99,6 +115,17 @@ public static class Calculus
                 return FreeOf(p.Base, x) && FreeOf(p.Exponent, x);
             case FunctionExpr f:
                 return f.Arguments.All(a => FreeOf(a, x));
+            case RelationExpr r:
+                return FreeOf(r.Left, x) && FreeOf(r.Right, x);
+            case PiecewiseExpr pw:
+                return pw.Branches.All(b => FreeOf(b.Guard, x) && FreeOf(b.Value, x))
+                       && FreeOf(pw.Otherwise, x);
+            case DerivativeExpr d:
+                return d.Variables.All(v => v.Name != x.Name) && FreeOf(d.Operand, x);
+            case IntegralExpr i:
+                return i.Variables.All(v => v.Name != x.Name) && FreeOf(i.Operand, x);
+            case RootOfExpr ro:
+                return ro.DefiningPolynomial.Order.Variables.All(v => v.Name != x.Name);
             default:
                 return true;
         }

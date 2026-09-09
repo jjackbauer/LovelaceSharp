@@ -92,6 +92,18 @@ x = symbol("x")
 x/x
 ```
 ```result
+x/x (Symbolic)
+```
+
+Canonical construction preserves definedness: `x/x` is undefined at 0 while `1` is not,
+so the kernel keeps the pole visible. `simplify(x/x)` cancels it and reports the side
+condition `x != 0`:
+
+```lovelace
+x = symbol("x")
+simplify(x/x)
+```
+```result
 1 (Symbolic)
 ```
 
@@ -175,7 +187,7 @@ y = symbol("y")
 simplify(sqrt(y^2))
 ```
 ```result
-y^2^(1/2) (Symbolic)
+(y^2)^(1/2) (Symbolic)
 ```
 
 ```lovelace
@@ -357,9 +369,38 @@ limit((1 - cos(x))/x^2, x, 0)
 1/2 (Symbolic)
 ```
 
+Two-sided limits report disagreement between the one-sided limits instead of forcing a
+value:
+
 ```lovelace
 x = symbol("x")
 limit(1/x, x, 0)
+```
+```result
+does not exist (left: -inf, right: +inf)
+```
+
+One-sided limits are first-class (`limit_left`, `limit_right`):
+
+```lovelace
+x = symbol("x")
+limit_left(1/x, x, 0)
+```
+```result
+-inf (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+limit_right(1/x, x, 0)
+```
+```result
+inf (Symbolic)
+```
+
+```lovelace
+x = symbol("x")
+limit(1/x^2, x, 0)
 ```
 ```result
 inf (Symbolic)
@@ -557,8 +598,11 @@ y = symbol("y")
 inv([[x, 1], [0, y]])
 ```
 ```result
-[[y/(x*y), -1/(x*y)], [0, x/(x*y)]] (Vector)
+[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Vector)
 ```
+
+The zero entry stays `0/(x*y)`: the inverse exists only where `det = x*y` is nonzero, and
+the kernel does not silently define `0/det` at `det = 0`.
 
 ```lovelace
 x = symbol("x")
@@ -609,22 +653,23 @@ k = optimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])
 lower(k, [x])
 ```
 ```result
-#!mathir 1
+#!mathir 2
 param x
+const (rat 2 1)
 const (rat 1 1)
 const (rat 3 1)
-const (rat 2 1)
 Parameter 0 0
-Mul 0 0,0
 Constant 0 0
+PowInt 0 0,1
 Constant 0 1
 Constant 0 2
-Add 0 4,0
-Mul 0 0,5
-Add 0 3,6
-Mul 0 0,7
-Add 0 2,8
-Mul 0 1,9
+Constant 0 0
+Add 0 5,0
+Mul 0 0,6
+Add 0 4,7
+Mul 0 0,8
+Add 0 3,9
+Mul 0 2,10
 ```
 
 ```lovelace
@@ -655,7 +700,7 @@ stay exact (periodic), and irrationals come back to the requested digits:
 evalf(1/3, 25)
 ```
 ```result
-0.(3) (Real)
+0.3333333333333333333333333 (Real)
 ```
 
 ```lovelace
@@ -762,8 +807,8 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
 - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
   compositions; polynomial systems and inequality solving are not yet implemented.
 - The simplifier's rule groups are deliberately small; it never invents identities.
-- Series expansion points must be numeric constants; one-sided limits are the limit
-  machinery's principal behavior for poles.
+- Series expansion points must be numeric constants; one-sided limits are exposed as
+  `limit_left`/`limit_right` and two-sided limits report side disagreement explicitly.
 - The e-graph optimizer, Monte-Carlo falsification harness, agent CLI, and Lean proofs are
   tracked as the next work packages (`docs/symbolics/implementation-plan.md`, SYM-24..48).
 

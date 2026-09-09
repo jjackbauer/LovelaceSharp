@@ -114,6 +114,10 @@ public static class Exprs
             if (imm.Length != 1) throw new ArgumentException("sqrt takes one argument.");
             return Power(imm[0], Rational(1, 2));
         }
+        // arity contract: registered definitions are enforced; unknown function names remain
+        // open so plugins/extensions can introduce functions before registering them
+        if (Current.Functions.Get(id.Name) is { } def && !def.Variadic && def.Arity != imm.Length)
+            throw new ArgumentException($"Function '{id.Name}' takes {def.Arity} argument(s), got {imm.Length}.");
         // numeric constant folding for total functions
         var folded = Evaluation.FoldFunction(id, imm);
         if (folded is not null)
@@ -181,14 +185,20 @@ public static class Exprs
         if (!exact.IsZero)
             terms.Add(Rational(exact));
         if (hasReal && !real.IsZero)
-            terms.Add(Real(RealLiteral.FromRational(real, 64)));
+            terms.Add(Real(RealLiteral.FromRationalExact(real)));
         if (!(cplxRe.IsZero && cplxIm.IsZero))
             terms.Add(Complex(cplxRe, cplxIm));
 
         foreach (var (rest, coef) in like)
         {
             if (coef.IsZero)
+            {
+                // a zero coefficient over a pole-carrying remainder must not vanish:
+                // dropping 0·x⁻¹ would define the sum at 0 where it is undefined
+                if (HasPoleRisk(rest))
+                    terms.Add(Multiply(Rational(coef), rest));
                 continue;
+            }
             terms.Add(coef.IsOne ? rest : Multiply(Rational(coef), rest));
         }
 
@@ -230,6 +240,26 @@ public static class Exprs
         _ => null,
     };
 
+    /// <summary>
+    /// True when the expression may be undefined somewhere because of a negative power, or a
+    /// power whose exponent is not a provably nonnegative rational. Conservative: unknown
+    /// exponents count as pole risks.
+    /// </summary>
+    internal static bool HasPoleRisk(Expr e) => e switch
+    {
+        PowerExpr p => NumericToRational(p.Exponent) is { } er
+            ? er.IsNegative || HasPoleRisk(p.Base)
+            : true,
+        AddExpr a => a.Terms.Any(HasPoleRisk),
+        MultiplyExpr m => m.Factors.Any(HasPoleRisk),
+        FunctionExpr f => f.Arguments.Any(HasPoleRisk),
+        PiecewiseExpr pw => pw.Branches.Any(b => HasPoleRisk(b.Guard) || HasPoleRisk(b.Value)) || HasPoleRisk(pw.Otherwise),
+        DerivativeExpr d => HasPoleRisk(d.Operand),
+        IntegralExpr i => HasPoleRisk(i.Operand),
+        RelationExpr r => HasPoleRisk(r.Left) || HasPoleRisk(r.Right),
+        _ => false,
+    };
+
     public static Expr Multiply(params Expr[] children) => MultiplyImpl(children);
 
     public static Expr Multiply(IEnumerable<Expr> children) => MultiplyImpl(children.ToArray());
@@ -249,7 +279,13 @@ public static class Exprs
         Rat real = Rat.One;
         bool hasReal = false;
         Rat cplxRe = Rat.One, cplxIm = Rat.Zero;
-        var powers = new Dictionary<Expr, Rat>();
+        // Definedness-preserving merge: nonnegative and negative integer exponents accumulate
+        // separately per base, so x·x⁻¹ can never collapse to 1 (that would define the
+        // product at 0 where x⁻¹ is undefined). Negative sums merge with each other because
+        // the pole set is unchanged.
+        var posPowers = new Dictionary<Expr, Rat>();
+        var negPowers = new Dictionary<Expr, Rat>();
+        bool anyPoleRisk = flat.Any(HasPoleRisk);
 
         foreach (var c in flat)
         {
@@ -258,14 +294,25 @@ public static class Exprs
                 case IntegerConstantExpr i:
                 {
                     var v = Rat.From(i.Value);
-                    if (v.IsZero) return Rational(Rat.Zero);
+                    if (v.IsZero)
+                    {
+                        // 0·(pole) must stay visible: 0/x is undefined at 0 while 0 is defined
+                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        exact = Rat.Zero;
+                        break;
+                    }
                     if (v.IsOne) break;
                     exact = exact * v;
                     break;
                 }
                 case RationalConstantExpr r:
                 {
-                    if (r.Value.IsZero) return Rational(Rat.Zero);
+                    if (r.Value.IsZero)
+                    {
+                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        exact = Rat.Zero;
+                        break;
+                    }
                     if (r.Value.IsOne) break;
                     exact = exact * r.Value;
                     break;
@@ -273,7 +320,13 @@ public static class Exprs
                 case RealConstantExpr rl:
                 {
                     var v = rl.Value.ToRational();
-                    if (v.IsZero) return Rational(Rat.Zero);
+                    if (v.IsZero)
+                    {
+                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        real = Rat.Zero;
+                        hasReal = true;
+                        break;
+                    }
                     if (v.IsOne) break;
                     real = real * v;
                     hasReal = true;
@@ -281,7 +334,13 @@ public static class Exprs
                 }
                 case ComplexConstantExpr cx:
                 {
-                    if (cx.Re.IsZero && cx.Im.IsZero) return Rational(Rat.Zero);
+                    if (cx.Re.IsZero && cx.Im.IsZero)
+                    {
+                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        cplxRe = Rat.Zero;
+                        cplxIm = Rat.Zero;
+                        break;
+                    }
                     var nr = cplxRe * cx.Re - cplxIm * cx.Im;
                     var ni = cplxRe * cx.Im + cplxIm * cx.Re;
                     cplxRe = nr;
@@ -291,14 +350,23 @@ public static class Exprs
                 case PowerExpr p when ExponentIsInteger(p.Exponent):
                 {
                     var e = NumericToRational(p.Exponent) ?? Rat.One;
-                    if (!powers.TryGetValue(p.Base, out var prev)) prev = Rat.Zero;
-                    powers[p.Base] = prev + e;
+                    if (e.IsNegative)
+                    {
+                        if (!negPowers.TryGetValue(p.Base, out var prev)) prev = Rat.Zero;
+                        negPowers[p.Base] = prev + e;
+                    }
+                    else
+                    {
+                        if (!posPowers.TryGetValue(p.Base, out var prev)) prev = Rat.Zero;
+                        posPowers[p.Base] = prev + e;
+                    }
                     break;
                 }
                 default:
                 {
-                    if (!powers.TryGetValue(c, out var prev)) prev = Rat.Zero;
-                    powers[c] = prev + Rat.One;
+                    // a bare factor contributes a nonnegative exponent 1 over its own base
+                    if (!posPowers.TryGetValue(c, out var prev)) prev = Rat.Zero;
+                    posPowers[c] = prev + Rat.One;
                     break;
                 }
             }
@@ -308,15 +376,28 @@ public static class Exprs
         if (!exact.IsOne)
             factors.Add(Rational(exact));
         if (hasReal && !real.IsOne)
-            factors.Add(Real(RealLiteral.FromRational(real, 64)));
+            factors.Add(Real(RealLiteral.FromRationalExact(real)));
         if (!(cplxRe.IsOne && cplxIm.IsZero))
             factors.Add(Complex(cplxRe, cplxIm));
 
-        foreach (var (b, e) in powers)
+        // per base: merge a positive and a negative exponent only when the combined exponent
+        // stays negative (the pole set is unchanged); otherwise keep them separate so that
+        // x·x⁻¹ can never collapse to 1 (that would define the product at 0)
+        foreach (var b in posPowers.Keys.Concat(negPowers.Keys).Distinct())
         {
-            if (e.IsZero)
+            var pe = posPowers.TryGetValue(b, out var pv) ? pv : Rat.Zero;
+            var ne = negPowers.TryGetValue(b, out var nv) ? nv : Rat.Zero;
+            if (pe.IsZero && ne.IsZero)
                 continue;
-            factors.Add(e.IsOne ? b : Power(b, Rational(e)));
+            if (!pe.IsZero && ne.IsNegative && (pe + ne).IsNegative)
+            {
+                factors.Add(Power(b, Rational(pe + ne)));
+                continue;
+            }
+            if (!pe.IsZero)
+                factors.Add(pe.IsOne ? b : Power(b, Rational(pe)));
+            if (!ne.IsZero)
+                factors.Add(Power(b, Rational(ne)));
         }
 
         if (factors.Count == 0)
@@ -345,9 +426,11 @@ public static class Exprs
         if (b is IntegerConstantExpr bi && bi.Value == Int.One) return Rational(Rat.One);
         if (b is RationalConstantExpr br && br.Value.IsOne) return Rational(Rat.One);
 
-        // (b2^e1)^k → b2^(e1*k) when k is an integer (e1 any rational; principal branch convention)
-        if (b is PowerExpr inner && eRat is { } ek && ek.IsInteger)
-            return Power(inner.Base, Rational((NumericToRational(inner.Exponent) ?? Rat.One) * ek));
+        // (b^e1)^k → b^(e1*k) only when both exponents are numeric constants.
+        // A symbolic inner exponent (x^y)^k must never be replaced by a guessed exponent:
+        // the previous form lost y entirely when y was not a rational constant.
+        if (b is PowerExpr inner && eRat is { } ek && ek.IsInteger && NumericToRational(inner.Exponent) is { } e1)
+            return Power(inner.Base, Rational(e1 * ek));
 
         // base 0: positive exponent → 0
         if (b is RationalConstantExpr b0 && b0.Value.IsZero)
@@ -361,11 +444,12 @@ public static class Exprs
         if (b is RationalConstantExpr bm1 && bm1.Value.IsMinusOne && eRat is { IsInteger: true } ep)
             return ep.ToInteger().IsEvenInteger() ? Rational(Rat.One) : Rational(Rat.MinusOne);
 
-        // rational base with integer exponent
+        // rational base with integer exponent: the exponent is an arbitrary-precision Int —
+        // never narrowed through int/long (huge exponents must not wrap into a different value)
         if (b is (IntegerConstantExpr or RationalConstantExpr) && eRat is { IsInteger: true } ei)
         {
             var bv = NumericToRational(b) ?? Rat.Zero;
-            return Rational(RationalPowerInt(bv, (int)ei.ToInteger().ToInt64Saturating()));
+            return Rational(RationalPowerInt(bv, ei.ToInteger()));
         }
 
         // rational base with unit-fraction exponent: exact root test
@@ -377,8 +461,7 @@ public static class Exprs
                 var inv = Rat.One / eu;   // = n (eu = 1/n)
                 if (inv.IsInteger && inv.ToInteger() > Int.One)
                 {
-                    int n = (int)inv.ToInteger().ToInt64Saturating();
-                    var root = RationalRoot(bv, n);
+                    var root = RationalRoot(bv, inv.ToInteger());
                     if (root is { } r)
                         return Rational(r);
                 }
@@ -387,18 +470,28 @@ public static class Exprs
                 return MakePower(b, e);   // complex-valued: leave unevaluated
         }
 
-        // complex constant base with integer exponent
+        // complex constant base with integer exponent: exact binary exponentiation over Int
         if (b is ComplexConstantExpr cb && eRat is { IsInteger: true } eci)
         {
-            var n = (int)eci.ToInteger().ToInt64Saturating();
+            var n = eci.ToInteger();
             Rat re = Rat.One, im = Rat.Zero;
-            for (int i = 0; i < Math.Abs(n); i++)
+            Rat xr = cb.Re, xi = cb.Im;
+            var k = Int.Abs(n);
+            var two = new Int(2L);
+            while (k > Int.Zero)
             {
-                var nr = re * cb.Re - im * cb.Im;
-                var ni = re * cb.Im + im * cb.Re;
-                re = nr; im = ni;
+                if (Int.IsOddInteger(k))
+                {
+                    var nr = re * xr - im * xi;
+                    var ni = re * xi + im * xr;
+                    re = nr; im = ni;
+                }
+                var sr = xr * xr - xi * xi;
+                var si = Rat.FromLong(2L) * xr * xi;
+                xr = sr; xi = si;
+                k = k / two;
             }
-            if (n < 0)
+            if (n < Int.Zero)
             {
                 var mag2 = cb.Re * cb.Re + cb.Im * cb.Im;
                 re = re / mag2;
@@ -470,11 +563,19 @@ public static class Exprs
         return Current.Intern(node);
     }
 
+    /// <summary>
+    /// RootOf(p, i): the i-th real root (ascending) of the square-free part of the univariate
+    /// polynomial p. Construction normalizes to the square-free part, so multiplicities never
+    /// shift root indices.
+    /// </summary>
     public static Expr RootOf(Polynomial definingPolynomial, int rootIndex)
     {
-        var node = new RootOfExpr(definingPolynomial, rootIndex);
-        node._hash = Expr.Combine((int)NodeKind.RootOf, definingPolynomial.GetHashCode(), rootIndex);
-        node._nodeCount = 1 + definingPolynomial.TermCount;
+        var sf = Polynomial.SquareFreePart(definingPolynomial);
+        if (sf.IsZero || sf.IsOne || sf.TotalDegree <= 0)
+            throw new ArgumentException("RootOf requires a non-constant univariate polynomial.", nameof(definingPolynomial));
+        var node = new RootOfExpr(sf, rootIndex);
+        node._hash = Expr.Combine((int)NodeKind.RootOf, sf.GetHashCode(), rootIndex);
+        node._nodeCount = 1 + sf.TermCount;
         node._isExact = true;
         return Current.Intern(node);
     }
@@ -495,9 +596,11 @@ public static class Exprs
     // Helpers
     // -----------------------------------------------------------------
 
-    public static readonly Expr Zero = Rational(Rat.Zero);
-    public static readonly Expr One = Rational(Rat.One);
-    public static readonly Expr MinusOne = Rational(Rat.MinusOne);
+    // Per-ambient-context interned constants: static readonly fields would be interned in a
+    // throwaway context, breaking reference identity against the caller's context pool.
+    public static Expr Zero => Rational(Rat.Zero);
+    public static Expr One => Rational(Rat.One);
+    public static Expr MinusOne => Rational(Rat.MinusOne);
 
     internal static int CombineHashes(ImmutableArray<Expr> items)
     {
@@ -513,59 +616,63 @@ public static class Exprs
         return c;
     }
 
-    private static Rat RationalPowerInt(Rat b, int e)
+    private static Rat RationalPowerInt(Rat b, Int e)
     {
-        if (e == 0) return Rat.One;
-        if (e < 0)
+        if (Int.IsZero(e)) return Rat.One;
+        if (e < Int.Zero)
         {
             if (b.IsZero) throw new DivideByZeroException("0 raised to a negative power.");
-            return Rat.One / RationalPowerInt(b, -e);
+            return Rat.One / RationalPowerInt(b, Int.Abs(e));
         }
         var r = Rat.One;
         var x = b;
-        int n = e;
-        while (n > 0)
+        var n = e;
+        var two = new Int(2L);
+        while (n > Int.Zero)
         {
-            if ((n & 1) == 1) r = r * x;
+            if (Int.IsOddInteger(n)) r = r * x;
             x = x * x;
-            n >>= 1;
+            n = n / two;
         }
         return r;
     }
 
-    /// <summary>Exact integer n-th root of a non-negative Integer, or null.</summary>
-    internal static Int? IntegerRoot(Int x, int n)
+    /// <summary>Exact integer n-th root of a non-negative Integer, or null. n is arbitrary precision.</summary>
+    internal static Int? IntegerRoot(Int x, Int n)
     {
-        if (x < Int.Zero || n < 1)
+        if (x < Int.Zero || n < Int.One)
             return null;
         if (x == Int.Zero || x == Int.One)
             return x;
         // initial guess: 10^(digits/n)
         int digits = x.ToString().Length;
-        var guess = new Int(10).Pow(new Int(Math.Max(1, digits / n)));
-        var nm1 = new Int(n - 1L);
+        long nLong = n.ToInt64Saturating();
+        var guess = new Int(10).Pow(new Int(Math.Max(1, digits / Math.Max(1, nLong))));
+        var nm1 = n - Int.One;
         while (true)
         {
             var gnm1 = guess.Pow(nm1);
-            var next = (guess * nm1 + x / gnm1) / new Int(n);
-            if (next == guess)
+            var next = (guess * nm1 + x / gnm1) / n;
+            // Newton iterates for integer roots oscillate between floor and floor+1 for
+            // non-perfect powers (n=3: 10,5,2,1,2,1,...) — stop on either fixed point
+            if (next == guess || next == guess + Int.One)
                 break;
             guess = next;
         }
-        if (guess.Pow(new Int(n)) == x)
+        if (guess.Pow(n) == x)
             return guess;
-        if ((guess + Int.One).Pow(new Int(n)) == x)
+        if ((guess + Int.One).Pow(n) == x)
             return guess + Int.One;
         return null;
     }
 
-    /// <summary>Exact n-th root of a rational (Gaussian handling for negative values with odd n), or null.</summary>
-    private static Rat? RationalRoot(Rat b, int n)
+    /// <summary>Exact n-th root of a rational (odd n handles negative values), or null.</summary>
+    private static Rat? RationalRoot(Rat b, Int n)
     {
         var neg = b.IsNegative;
         var p = Rat.Abs(b).Numerator;
         var q = Rat.Abs(b).Denominator;
-        if (neg && n % 2 == 0)
+        if (neg && Int.IsEvenInteger(n))
             return null;   // even root of negative → complex
         var rp = IntegerRoot(p, n);
         if (rp is null) return null;

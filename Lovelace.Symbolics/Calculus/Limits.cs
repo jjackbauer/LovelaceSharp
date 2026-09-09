@@ -3,7 +3,7 @@ using Int = global::Lovelace.Integer.Integer;
 
 namespace Lovelace.Symbolics;
 
-public enum LimitStatus { Value, PlusInfinity, MinusInfinity, Unevaluated, Failed }
+public enum LimitStatus { Value, PlusInfinity, MinusInfinity, DoesNotExist, Unevaluated, Failed }
 
 public enum LimitDirection { TwoSided, FromLeft, FromRight }
 
@@ -17,26 +17,29 @@ public sealed record LimitResult(
     public static LimitResult Of(Expr v) => new(LimitStatus.Value, v);
     public static LimitResult PlusInf => new(LimitStatus.PlusInfinity);
     public static LimitResult MinusInf => new(LimitStatus.MinusInfinity);
+    public static LimitResult Dne(LimitResult left, LimitResult right) =>
+        new(LimitStatus.DoesNotExist, FromLeft: left, FromRight: right);
     public static LimitResult Uneval(string reason) => new(LimitStatus.Unevaluated, FailureReason: reason);
 }
 
-/// <summary>Symbolic limits via direct substitution, rational cancellation, and series.</summary>
+/// <summary>
+/// Symbolic limits: direct substitution, exact rational-infinity degree comparison, and local
+/// series analysis. Pole directions come from the local leading-order behavior — denominator
+/// multiplicity parity plus the leading coefficient ratio sign — never from the numerator sign
+/// alone. One-sided limits are first-class; a two-sided limit whose sides disagree is reported
+/// as DoesNotExist with both one-sided results attached.
+/// </summary>
 public static class Limits
 {
     public static LimitResult Limit(Expr f, Symbol x, Expr point, LimitDirection direction, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
 
-        // infinite limit: rational functions by degree comparison, else t = 1/x
+        // infinite limits: rational functions by degree comparison, else t = 1/x substitution
         if (point is NamedConstantExpr { Constant: NamedConstant.Infinity })
-        {
-            var rational = RationalInfinity(f, x, ctx);
-            if (rational is not null)
-                return rational;
-            var t = ctx.Symbol("__t");
-            var g = Evaluation.Substitute(f, ctx, new Dictionary<Symbol, Expr> { [x] = Exprs.Divide(Exprs.One, Exprs.Symbol(t)) });
-            return Limit(g, t, Exprs.Zero, LimitDirection.FromRight, ctx);
-        }
+            return AtInfinity(f, x, plus: true, direction, ctx);
+        if (IsNegInfinity(point))
+            return AtInfinity(f, x, plus: false, direction, ctx);
 
         // 1. direct substitution (numerator/denominator separately: 0/0 must not fold to 0)
         try
@@ -46,64 +49,19 @@ public static class Limits
             var dSub = Evaluation.Substitute(d, ctx, new Dictionary<Symbol, Expr> { [x] = point });
             var nv = Evaluation.EvaluateToNum(nSub, ctx, new Dictionary<Symbol, Num>());
             var dv = Evaluation.EvaluateToNum(dSub, ctx, new Dictionary<Symbol, Num>());
-            if (NumOps.IsZero(dv))
-            {
-                if (NumOps.IsZero(nv))
-                    throw new InvalidOperationException("0/0 indeterminate form.");
-                // nonzero / zero: infinite, sign from numerator and direction
-                bool pos = NumOps.Compare(nv, new NumInt(new Int(0L))) > 0;
-                return pos ? LimitResult.PlusInf : LimitResult.MinusInf;
-            }
-            return LimitResult.Of(Evaluation.NumToExpr(NumOps.Divide(nv, dv)));
+            if (!NumOps.IsZero(dv))
+                return LimitResult.Of(Evaluation.NumToExpr(NumOps.Divide(nv, dv)));
+            // nonzero/zero or 0/0: local series decides (pole analysis handles direction)
+            return SeriesLimit(f, n, d, x, point, direction, ctx);
         }
         catch (Exception)
         {
-            // fall through to series
+            // fall through to the series path
         }
-
-        // 2. series at the point: numerator and denominator separately, then divide
-        //    (canonical 0/0 -> 0 folding would destroy the information otherwise)
         try
         {
-            Series s;
             var (n, d) = SplitFraction(f);
-            if (d is RationalConstantExpr { Value.IsOne: true })
-            {
-                s = Series.Of(f, x, point, 8, ctx);
-            }
-            else
-            {
-                var sn = Series.Of(n, x, point, 8, ctx);
-                var sd = Series.Of(d, x, point, 8, ctx);
-                s = Series.Divide(sn, sd);
-            }
-            int lead = s.LeadingIndex();
-            if (lead >= 0)
-            {
-                var c = s.Coefficients[lead];
-                if (lead == 0)
-                {
-                    // the coefficient must be an actual constant, not a degenerate
-                    // expression that failed to evaluate at the point
-                    if (Evaluation.ConstantToNum(c) is null)
-                        return LimitResult.Uneval("coefficient does not evaluate at the point");
-                    return LimitResult.Of(c);
-                }
-                if (lead > 0)
-                    return LimitResult.Of(Exprs.Zero);
-                // negative leading order: infinite; the coefficient sign decides the side
-                try
-                {
-                    var num = Evaluation.EvaluateToNum(c, ctx, new Dictionary<Symbol, Num>());
-                    bool positive = NumOps.Compare(num, new NumInt(new Int(0L))) > 0;
-                    return positive ? LimitResult.PlusInf : LimitResult.MinusInf;
-                }
-                catch (Exception)
-                {
-                    return LimitResult.Uneval("leading coefficient is symbolic");
-                }
-            }
-            return LimitResult.Of(Exprs.Zero);
+            return SeriesLimit(f, n, d, x, point, direction, ctx);
         }
         catch (Exception ex)
         {
@@ -111,8 +69,81 @@ public static class Limits
         }
     }
 
-    /// <summary>Limit of a rational function as x → +∞ by degree comparison.</summary>
-    private static LimitResult? RationalInfinity(Expr f, Symbol x, ExprContext ctx)
+    private static bool IsNegInfinity(Expr e) =>
+        e is MultiplyExpr m && m.Factors.Length == 2 &&
+        m.Factors[0] is RationalConstantExpr rc && rc.Value.IsMinusOne &&
+        m.Factors[1] is NamedConstantExpr { Constant: NamedConstant.Infinity };
+
+    /// <summary>Limit at ±∞: exact degree comparison for rational functions, else t = 1/x.</summary>
+    private static LimitResult AtInfinity(Expr f, Symbol x, bool plus, LimitDirection direction, ExprContext ctx)
+    {
+        var rational = RationalInfinity(f, x, ctx, plus);
+        if (rational is not null)
+            return rational;
+        var t = ctx.Symbol("__t");
+        var g = Evaluation.Substitute(f, ctx, new Dictionary<Symbol, Expr> { [x] = Exprs.Divide(Exprs.One, Exprs.Symbol(t)) });
+        // x → +∞ ⟺ t → 0⁺ ; x → −∞ ⟺ t → 0⁻
+        return Limit(g, t, Exprs.Zero, plus ? LimitDirection.FromRight : LimitDirection.FromLeft, ctx);
+    }
+
+    /// <summary>
+    /// Local series analysis at the point. Leading orders of numerator (on) and denominator (od):
+    /// od == on → finite value cn/cd; od > on → 0; od &lt; on → pole whose side depends on the
+    /// multiplicity parity m = on − od, the leading ratio sign, and the direction.
+    /// </summary>
+    private static LimitResult SeriesLimit(Expr f, Expr n, Expr d, Symbol x, Expr point, LimitDirection direction, ExprContext ctx)
+    {
+        bool denIsOne = d is RationalConstantExpr { Value.IsOne: true };
+        var sn = Series.Of(denIsOne ? f : n, x, point, 10, ctx);
+        var sd = denIsOne ? null : Series.Of(d, x, point, 10, ctx);
+        int on = sn.LeadingOrder();
+        int od = denIsOne ? 0 : sd!.LeadingOrder();
+
+        // f ≈ cn·(x−a)^on / (cd·(x−a)^od)
+        if (od < on)
+            return LimitResult.Of(Exprs.Zero);
+
+        if (od == on)
+        {
+            var cn = sn.Coefficients[sn.LeadingIndex()];
+            var cd = denIsOne ? Exprs.One : sd!.Coefficients[sd.LeadingIndex()];
+            var ratio = Exprs.Divide(cn, cd);
+            if (Evaluation.ConstantToNum(ratio) is null)
+                return LimitResult.Uneval("coefficient does not evaluate at the point");
+            return LimitResult.Of(ratio);
+        }
+
+        // pole of order m = od − on > 0
+        int m = od - on;
+        var cn2 = sn.Coefficients[sn.LeadingIndex()];
+        var cd2 = denIsOne ? Exprs.One : sd!.Coefficients[sd.LeadingIndex()];
+        var ratio2 = Exprs.Divide(cn2, cd2);
+        Num rv;
+        try
+        {
+            rv = Evaluation.EvaluateToNum(ratio2, ctx, new Dictionary<Symbol, Num>());
+        }
+        catch (Exception)
+        {
+            return LimitResult.Uneval("leading coefficient is symbolic");
+        }
+        bool pos = NumOps.Compare(rv, NumOps.FromLong(0L)) > 0;
+        // x → a⁺: sign = sign(ratio); x → a⁻: sign = sign(ratio)·(−1)^m
+        LimitResult FromRight() => pos ? LimitResult.PlusInf : LimitResult.MinusInf;
+        LimitResult FromLeft() => (m % 2 == 0 ? pos : !pos) ? LimitResult.PlusInf : LimitResult.MinusInf;
+
+        return direction switch
+        {
+            LimitDirection.FromRight => FromRight(),
+            LimitDirection.FromLeft => FromLeft(),
+            _ => m % 2 == 1
+                ? LimitResult.Dne(FromLeft(), FromRight())   // odd pole: sides disagree
+                : FromRight(),                               // even pole: both sides agree
+        };
+    }
+
+    /// <summary>Limit of a rational function as x → ±∞ by degree comparison.</summary>
+    private static LimitResult? RationalInfinity(Expr f, Symbol x, ExprContext ctx, bool plus)
     {
         var (n, d) = SplitFraction(f);
         if (!Polynomial.TryFromExpr(n, ctx, new[] { x }, out var nP, out _) ||
@@ -127,7 +158,12 @@ public static class Limits
         if (degN > degD)
         {
             var ratio = ln / ld;
-            return ratio.IsNegative ? LimitResult.MinusInf : LimitResult.PlusInf;
+            // x → +∞: sign is sign(ratio) regardless of degree parity (x^m → +∞).
+            // x → −∞: sign(ratio)·(−1)^m.
+            bool positive = plus
+                ? !ratio.IsNegative
+                : (ratio.IsNegative ? (degN - degD) % 2 == 1 : (degN - degD) % 2 == 0);
+            return positive ? LimitResult.PlusInf : LimitResult.MinusInf;
         }
         return LimitResult.Of(Exprs.Rational(ln / ld));
     }

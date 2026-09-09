@@ -24,7 +24,7 @@ public sealed record IrNode(IrOpKind Op, int[] Operands, int Aux);
 /// </summary>
 public sealed class IrProgram
 {
-    public const int FormatVersion = 1;
+    public const int FormatVersion = 2;
 
     public List<string> Constants { get; } = new();
     public List<string> Parameters { get; } = new();
@@ -51,7 +51,16 @@ public sealed class IrProgram
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.Trim();
-            if (line.Length == 0 || line.StartsWith('#'))
+            if (line.Length == 0)
+                continue;
+            if (line.StartsWith("#!mathir ", StringComparison.Ordinal))
+            {
+                var version = line["#!mathir ".Length..];
+                if (version != FormatVersion.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    throw new FormatException($"Unsupported MathIR format version '{version}' (expected {FormatVersion}).");
+                continue;
+            }
+            if (line.StartsWith('#'))
                 continue;
             if (line.StartsWith("param ", StringComparison.Ordinal))
             {
@@ -151,8 +160,9 @@ public static class Lowering
                         result = AddNode(prog, new IrNode(IrOpKind.Sqrt, new[] { b }, 0));
                     else if (re.Value.IsInteger)
                     {
-                        int exp = (int)re.Value.ToInteger().ToInt64Saturating();
-                        result = EmitPowInt(prog, b, exp);
+                        // arbitrary-precision exponent as a constant operand — never narrowed
+                        var expConst = AddConstant(prog, Printing.CanonicalPrint(Exprs.Integer(re.Value.ToInteger())));
+                        result = AddNode(prog, new IrNode(IrOpKind.PowInt, new[] { b, expConst }, 0));
                     }
                     else
                     {
@@ -247,28 +257,6 @@ public static class Lowering
         for (int i = 1; i < emitted.Length; i++)
             acc = AddNode(prog, new IrNode(op, new[] { acc, emitted[i] }, 0));
         return acc;
-    }
-
-    private static int EmitPowInt(IrProgram prog, int b, int exp)
-    {
-        // binary exponentiation chain: x^n via squaring (the power-chain optimization)
-        if (exp == 0)
-            return AddConstant(prog, "1");
-        if (exp == 1)
-            return b;
-        var neg = exp < 0;
-        var n = neg ? -exp : exp;
-        int result = -1;
-        int x = b;
-        while (n > 0)
-        {
-            if ((n & 1) == 1)
-                result = result < 0 ? x : AddNode(prog, new IrNode(IrOpKind.Mul, new[] { result, x }, 0));
-            n >>= 1;
-            if (n > 0)
-                x = AddNode(prog, new IrNode(IrOpKind.Mul, new[] { x, x }, 0));
-        }
-        return neg ? AddNode(prog, new IrNode(IrOpKind.Reciprocal, new[] { result }, 0)) : result;
     }
 
     private static int AddConstant(IrProgram prog, string canon)

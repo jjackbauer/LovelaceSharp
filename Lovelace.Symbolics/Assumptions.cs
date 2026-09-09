@@ -22,6 +22,13 @@ public sealed record SymbolRelationAssumption(Symbol S, RelOp Op, Expr Bound) : 
 
 public sealed record ExpressionPropertyAssumption(Expr E, SymbolPredicate P) : Assumption;
 
+/// <summary>
+/// Interval membership condition: lower &lt; e &lt; upper (open/closed ends optional). Bounds are
+/// expressions (typically constants like Pi). Proved True by an identical assumed atom, or by
+/// constant evaluation when e is provably constant (e.g. Im(z) = 0 for provably real z).
+/// </summary>
+public sealed record IntervalAssumption(Expr E, Expr? Lower, bool LowerOpen, Expr? Upper, bool UpperOpen) : Assumption;
+
 /// <summary>Thrown when adding an assumption that contradicts the current set.</summary>
 public sealed class AssumptionContradictionException : Exception
 {
@@ -126,10 +133,6 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                     Ask(new SymbolPropertyAssumption(s, SymbolPredicate.Negative)),
                     Ask(new SymbolPropertyAssumption(s, SymbolPredicate.Odd)),
                     Ask(new SymbolRelationAssumption(s, RelOp.Ne, Exprs.Zero))),
-            SymbolPropertyAssumption { S: var s, P: SymbolPredicate.Even } =>
-                Ask(new SymbolDomainAssumption(s, Domain.Integer)),
-            SymbolPropertyAssumption { S: var s, P: SymbolPredicate.Odd } =>
-                Ask(new SymbolDomainAssumption(s, Domain.Integer)),
             SymbolPropertyAssumption { P: SymbolPredicate.Finite } =>
                 Or(
                     Ask(new SymbolDomainAssumption(((SymbolPropertyAssumption)predicate).S, Domain.Real)),
@@ -137,6 +140,11 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                     Ask(new SymbolDomainAssumption(((SymbolPropertyAssumption)predicate).S, Domain.Integer))),
 
             // ---- domain lattice (only narrower domains infer wider ones) ----
+            // Even/Odd imply Integer (never the reverse)
+            SymbolDomainAssumption { S: var s, D: Domain.Integer } =>
+                Or(
+                    Ask(new SymbolPropertyAssumption(s, SymbolPredicate.Even)),
+                    Ask(new SymbolPropertyAssumption(s, SymbolPredicate.Odd))),
             SymbolDomainAssumption { S: var s, D: Domain.Complex } =>
                 Or(
                     Ask(new SymbolDomainAssumption(s, Domain.Real)),
@@ -156,6 +164,7 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                 AskExprPredicate(predicate, SymbolPredicate.Positive),
             ExpressionPropertyAssumption { P: SymbolPredicate.NonZero } =>
                 AskExprPredicate(predicate, SymbolPredicate.NonZero),
+            IntervalAssumption i => AskInterval(i),
 
             _ => Tristate.Unknown,
         };
@@ -165,15 +174,19 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
 
     private static Tristate Or(params Tristate[] states)
     {
+        bool anyUnknown = false;
         foreach (var s in states)
+        {
             if (s == Tristate.True) return Tristate.True;
-        return Tristate.Unknown;
+            if (s == Tristate.Unknown) anyUnknown = true;
+        }
+        return anyUnknown ? Tristate.Unknown : Tristate.False;
     }
 
     private Tristate AskExprPredicate(Assumption predicate, SymbolPredicate p)
     {
         var e = ((ExpressionPropertyAssumption)predicate).E;
-        // abs(x) is nonnegative; positive iff x ≠ 0
+        // abs(x) is nonnegative; positive iff x ≠ 0 — valid over C as well
         if (e is FunctionExpr f && f.Function.Name == "abs")
         {
             if (p == SymbolPredicate.NonNegative) return Tristate.True;
@@ -185,15 +198,56 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                     : Tristate.Unknown;
             }
         }
-        // exp(x) is positive (and nonzero)
+        // exp(x) is positive (and nonzero) — only when x is provably real: over C, exp(z) is
+        // not an ordered real (exp(i·π) = -1)
         if (e is FunctionExpr fe && fe.Function.Name == "exp" && p is SymbolPredicate.Positive or SymbolPredicate.NonZero)
-            return Tristate.True;
-        // sqrt(x) is nonnegative (principal branch)
+            return ProvablyReal(fe.Arguments[0]) ? Tristate.True : Tristate.Unknown;
+        // sqrt(x) is nonnegative (principal branch) — only under provable real nonnegativity
         if (e is PowerExpr pw && pw.Exponent is RationalConstantExpr r && r.Value == RatOneHalf && p == SymbolPredicate.NonNegative)
-            return Tristate.True;
-        // x^2 is nonnegative
+        {
+            var b = pw.Base;
+            if (!ProvablyReal(b))
+                return Tristate.Unknown;
+            if (b is SymbolExpr sb)
+                return Ask(new SymbolPropertyAssumption(sb.Symbol, SymbolPredicate.NonNegative));
+            if (Exprs.NumericToRational(b) is { } bv)
+                return bv.IsNegative ? Tristate.False : Tristate.True;
+            return Tristate.Unknown;
+        }
+        // x^even is nonnegative — only for provably real bases (over C, z^2 is not ordered)
         if (e is PowerExpr pw2 && pw2.Exponent is RationalConstantExpr r2 && r2.Value.IsInteger && r2.Value.ToInteger().IsEvenInteger() && p == SymbolPredicate.NonNegative)
-            return Tristate.True;
+            return ProvablyReal(pw2.Base) ? Tristate.True : Tristate.Unknown;
+        return Tristate.Unknown;
+    }
+
+    /// <summary>True when the expression is provably real-valued under the current assumptions.</summary>
+    internal bool ProvablyReal(Expr e) => e switch
+    {
+        IntegerConstantExpr or RationalConstantExpr or RealConstantExpr => true,
+        ComplexConstantExpr => false,
+        NamedConstantExpr n => n.Constant != NamedConstant.I,
+        SymbolExpr s => Ask(new SymbolDomainAssumption(s.Symbol, Domain.Real)) == Tristate.True,
+        AddExpr a => a.Terms.All(ProvablyReal),
+        MultiplyExpr m => m.Factors.All(ProvablyReal),
+        PowerExpr p when p.Exponent is RationalConstantExpr re && re.Value.IsInteger => ProvablyReal(p.Base),
+        FunctionExpr f => f.Function.Name is "re" or "im" or "abs" or "sign" or "floor" or "ceil"
+            && f.Arguments.Length > 0 && ProvablyReal(f.Arguments[0]),
+        _ => false,
+    };
+
+    private Tristate AskInterval(IntervalAssumption i)
+    {
+        // Im(z) = 0 when z is provably real: membership reduces to a constant check
+        if (i.E is FunctionExpr f && f.Function.Name == "im" && f.Arguments.Length == 1 && ProvablyReal(f.Arguments[0]))
+        {
+            var zero = Exprs.Zero;
+            bool ok = true;
+            if (i.Lower is { } lo && Exprs.NumericToRational(lo) is { } loV)
+                ok &= i.LowerOpen ? loV < Rat.Zero : loV <= Rat.Zero;
+            if (i.Upper is { } up && Exprs.NumericToRational(up) is { } upV)
+                ok &= i.UpperOpen ? Rat.Zero < upV : Rat.Zero <= upV;
+            return ok ? Tristate.True : Tristate.False;
+        }
         return Tristate.Unknown;
     }
 
@@ -215,7 +269,23 @@ public static class Domains
             case SymbolExpr s: return DomainOfSymbol(s.Symbol, ctx);
             case AddExpr a: return Combine(a.Terms, ctx);
             case MultiplyExpr m: return Combine(m.Factors, ctx);
-            case PowerExpr p: return DomainOf(p.Base, ctx);
+            case PowerExpr p:
+            {
+                var bd = DomainOf(p.Base, ctx);
+                if (p.Exponent is RationalConstantExpr re && re.Value.IsInteger)
+                    return bd;
+                // non-integer exponent: the principal value is real only under provable
+                // real nonnegativity of the base; otherwise the value is complex-valued
+                if (bd != Domain.Complex && ProvablyReal(p.Base, ctx))
+                {
+                    if (p.Base is SymbolExpr sb &&
+                        ctx.Assumptions.Ask(new SymbolPropertyAssumption(sb.Symbol, SymbolPredicate.NonNegative)) == Tristate.True)
+                        return Domain.Real;
+                    if (Exprs.NumericToRational(p.Base) is { } bv)
+                        return bv.IsNegative ? Domain.Complex : Domain.Real;
+                }
+                return Domain.Complex;
+            }
             case FunctionExpr f: return DomainOfFunction(f, ctx);
             case PiecewiseExpr pw:
             {
@@ -241,6 +311,21 @@ public static class Domains
 
     public static Domain Max(Domain a, Domain b) => (Domain)Math.Max((int)a, (int)b);
 
+    /// <summary>True when the expression is provably real-valued under the context assumptions.</summary>
+    public static bool ProvablyReal(Expr e, ExprContext ctx) => e switch
+    {
+        IntegerConstantExpr or RationalConstantExpr or RealConstantExpr => true,
+        ComplexConstantExpr => false,
+        NamedConstantExpr n => n.Constant != NamedConstant.I,
+        SymbolExpr s => ctx.Assumptions.Ask(new SymbolDomainAssumption(s.Symbol, Domain.Real)) == Tristate.True,
+        AddExpr a => a.Terms.All(t => ProvablyReal(t, ctx)),
+        MultiplyExpr m => m.Factors.All(t => ProvablyReal(t, ctx)),
+        PowerExpr p when p.Exponent is RationalConstantExpr re && re.Value.IsInteger => ProvablyReal(p.Base, ctx),
+        FunctionExpr f => f.Function.Name is "re" or "im" or "abs" or "sign" or "floor" or "ceil"
+            && f.Arguments.Length > 0 && ProvablyReal(f.Arguments[0], ctx),
+        _ => false,
+    };
+
     public static Domain DomainOfSymbol(Symbol s, ExprContext ctx)
     {
         foreach (var atom in ctx.Assumptions.Atoms)
@@ -258,11 +343,18 @@ public static class Domains
             return arg == Domain.Complex ? Domain.Real : Domain.Real;
         return f.Function.Name switch
         {
+            // transcendental functions of real arguments produce real (transcendental) values —
+            // never the argument's narrower domain (sin(integer) is not an integer)
             "sin" or "cos" or "tan" or "exp" or "log" or "sinh" or "cosh" or "tanh"
                 or "asin" or "acos" or "atan" or "asinh" or "acosh" or "atanh"
-                or "floor" or "ceil" or "sign" => arg == Domain.Complex ? Domain.Complex : arg,
+                => arg == Domain.Complex ? Domain.Complex : Domain.Real,
+            // floor/ceil of a real argument stay Real (the evaluator returns Real); sign of a
+            // real argument is an exact integer value
+            "floor" or "ceil" => arg == Domain.Complex ? Domain.Complex : (arg == Domain.Integer ? Domain.Integer : Domain.Real),
+            "re" or "im" => Domain.Real,
+            "sign" => arg == Domain.Complex ? Domain.Complex : Domain.Integer,
             "min" or "max" => Combine(f.Arguments, ctx),
-            _ => arg == Domain.Complex ? Domain.Complex : arg,
+            _ => arg == Domain.Complex ? Domain.Complex : Domain.Real,
         };
     }
 }

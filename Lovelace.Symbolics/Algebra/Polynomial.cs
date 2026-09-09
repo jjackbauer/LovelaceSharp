@@ -380,20 +380,33 @@ public sealed class Polynomial : IEquatable<Polynomial>, IComparable<Polynomial>
         while (!b.IsOne && !b.IsZero)
         {
             var g = GcdUnivariate(b, d);
-            var fi = b.DivRem(g, MonomialOrder.Lex).Quotient;
-            if (!fi.IsOne)
-                result.Add((fi, i));
-            b = g;
+            // Yun: the gcd a_i IS the square-free factor of multiplicity i; the loop state
+            // advances along the quotient b/a_i. Emitting the quotient instead corrupts
+            // every multiplicity (e.g. x^2(x-1) yielded [(x,1),(x-1,3)]).
+            if (!g.IsOne)
+                result.Add((NormalizeUnivariate(g), i));
+            b = b.DivRem(g, MonomialOrder.Lex).Quotient;
             c = d.DivRem(g, MonomialOrder.Lex).Quotient;
             d = Subtract(c, b.Derivative(0));
             i++;
         }
         if (result.Count == 0)
-            result.Add((f, 1));
+            result.Add((NormalizeUnivariate(f), 1));
         return result;
     }
 
-    /// <summary>Rational roots of a univariate polynomial (rational root theorem, bounded divisor search).</summary>
+    /// <summary>Product of the distinct irreducible square-free factors (the square-free part).</summary>
+    public static Polynomial SquareFreePart(Polynomial f)
+    {
+        if (f.IsZero)
+            return f;
+        var acc = FromConstant(f.Order, Rat.One);
+        foreach (var (fac, _) in SquareFreeUnivariate(f))
+            acc = Multiply(acc, fac);
+        return acc;
+    }
+
+    /// <summary>Rational roots of a univariate polynomial (rational root theorem, complete divisor search).</summary>
     public List<Rat> RationalRoots()
     {
         var roots = new List<Rat>();
@@ -402,8 +415,31 @@ public sealed class Polynomial : IEquatable<Polynomial>, IComparable<Polynomial>
         var scaled = ToIntegerCoefficients();
         var ints = scaled._terms;
         if (ints.Count == 0) return roots;
-        var a0 = ints.TryGetValue(Monomial.Unit(Order.Variables.Length), out var c0) ? c0 : Rat.Zero;
-        var an = scaled.LeadingCoefficient(MonomialOrder.Lex);
+
+        // strip the x^k factor: with a zero constant term the rational root theorem's
+        // p | a0 condition is vacuous, so other rational roots would be missed (e.g.
+        // x(x-1/1000)(x-1) missed 1/1000 and 1)
+        var reduced = new Polynomial(Order);
+        long minExp = long.MaxValue;
+        foreach (var (m, _) in ints)
+            minExp = Math.Min(minExp, m.Exps.Length > 0 ? m.Exps[0] : 0);
+        if (minExp > 0)
+        {
+            roots.Add(Rat.Zero);
+            foreach (var (m, c) in ints)
+            {
+                var e = m.Exps.ToArray();
+                e[0] -= (int)minExp;
+                reduced = Add(reduced, FromMonomial(Order, new Monomial(e), c));
+            }
+        }
+        else
+        {
+            reduced = scaled;
+        }
+
+        var a0 = reduced._terms.TryGetValue(Monomial.Unit(Order.Variables.Length), out var c0) ? c0 : Rat.Zero;
+        var an = reduced.LeadingCoefficient(MonomialOrder.Lex);
         foreach (var p in DivisorsOf(a0.Numerator))
         {
             foreach (var q in DivisorsOf(an.Numerator))
@@ -413,7 +449,7 @@ public sealed class Polynomial : IEquatable<Polynomial>, IComparable<Polynomial>
                 foreach (var r in new[] { cand, Rat.Negate(cand) })
                 {
                     if (roots.Contains(r)) continue;
-                    if (scaled.EvaluateAt(new[] { r }).IsZero)
+                    if (reduced.EvaluateAt(new[] { r }).IsZero)
                         roots.Add(r);
                 }
             }
@@ -451,14 +487,33 @@ public sealed class Polynomial : IEquatable<Polynomial>, IComparable<Polynomial>
         var result = new List<Int>();
         if (Int.IsZero(n)) return result;
         var abs = Int.Abs(n);
-        var limit = new Int(1_000_000L);   // bounded divisor search (documented v1 limit)
-        var cap = abs < limit ? abs : limit;
-        for (var d = Int.One; d <= cap; d = d + Int.One)
+        var limit = IntSqrt(abs);
+        for (var d = Int.One; d <= limit; d = d + Int.One)
         {
             if (abs % d == Int.Zero)
+            {
                 result.Add(d);
+                var pair = abs / d;
+                if (pair != d)
+                    result.Add(pair);
+            }
         }
+        result.Sort();
         return result;
+    }
+
+    private static Int IntSqrt(Int n)
+    {
+        if (n < Int.One) return Int.Zero;
+        var x = new Int(10).Pow(new Int(Math.Max(1, n.ToString().Length / 2)));
+        var two = new Int(2L);
+        while (true)
+        {
+            var next = (x + n / x) / two;
+            if (next == x || next == x + Int.One)
+                return next;
+            x = next;
+        }
     }
 
     // -----------------------------------------------------------------

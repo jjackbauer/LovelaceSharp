@@ -51,6 +51,11 @@ public sealed class SymbolicsPlugin : IModusPlugin
         Add("assume_negative", new[] { "x" }, args => AssumePred(args, SymbolPredicate.Negative));
         Add("assume_real", new[] { "x" }, args => AssumeDomain(args, Domain.Real));
         Add("assume_integer", new[] { "x" }, args => AssumeDomain(args, Domain.Integer));
+        Add("assume_clear", Array.Empty<string>(), _ =>
+        {
+            _assumptions = AssumptionSet.Empty;
+            return "assumptions cleared";
+        });
         Add("assumptions", Array.Empty<string>(), _ =>
             string.Join("; ", _assumptions.Atoms.Select(a => a switch
             {
@@ -80,12 +85,29 @@ public sealed class SymbolicsPlugin : IModusPlugin
             Series.Of(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), AsInt(args[3]), Context).ToExpression());
         Add("limit", new[] { "f", "x", "x0" }, args =>
             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.TwoSided, Context)));
+        Add("limit_left", new[] { "f", "x", "x0" }, args =>
+            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromLeft, Context)));
+        Add("limit_right", new[] { "f", "x", "x0" }, args =>
+            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
         Add("solve", new[] { "f", "x" }, args =>
         {
-            var set = Solvers.Solve(AsExpr(args[0]), AsSymbol(args[1]), Context);
-            return set.Kind == SolutionKind.Exact
-                ? (object)set.Solutions.Select(s => s.Value).ToArray()
-                : Printing.PrettyPrint(AsExpr(args[0]));
+            var fx = AsExpr(args[0]);
+            var sx = AsSymbol(args[1]);
+            var set = Solvers.Solve(fx, sx, Context);
+            if (set.Kind == SolutionKind.Exact)
+            {
+                // conditions are part of the solution: a value violating a provable
+                // excluded-domain condition (e.g. the pole of a cancelled denominator) is dropped
+                var kept = new List<Expr>();
+                foreach (var sol in set.Solutions)
+                {
+                    if (ViolatesConditions(sol, sx))
+                        continue;
+                    kept.Add(sol.Value);
+                }
+                return (object)kept.ToArray();
+            }
+            return Printing.PrettyPrint(fx);
         });
         Add("subs", new[] { "f", "x", "value" }, args =>
             Evaluation.Substitute(AsExpr(args[0]), Context,
@@ -186,8 +208,34 @@ public sealed class SymbolicsPlugin : IModusPlugin
         LimitStatus.Value => r.Value!,
         LimitStatus.PlusInfinity => Exprs.Infinity,
         LimitStatus.MinusInfinity => Exprs.Negate(Exprs.Infinity),
+        LimitStatus.DoesNotExist =>
+            $"does not exist (left: {SideText(r.FromLeft)}, right: {SideText(r.FromRight)})",
         _ => "unevaluated: " + (r.FailureReason ?? "no limit"),
     };
+
+    private static string SideText(LimitResult? r) => r?.Status switch
+    {
+        LimitStatus.PlusInfinity => "+inf",
+        LimitStatus.MinusInfinity => "-inf",
+        LimitStatus.Value => Printing.PrettyPrint(r.Value!),
+        _ => "unknown",
+    };
+
+    /// <summary>True when the solution provably violates one of its excluded-domain conditions.</summary>
+    private static bool ViolatesConditions(Solution sol, Symbol x)
+    {
+        foreach (var atom in sol.Conditions.Atoms)
+        {
+            if (atom is ExpressionPropertyAssumption { P: SymbolPredicate.NonZero } ep)
+            {
+                var sub = Evaluation.Substitute(ep.E, Exprs.Current,
+                    new Dictionary<Symbol, Expr> { [x] = sol.Value });
+                if (Evaluation.ConstantToNum(sub) is { } nv && NumOps.IsZero(nv))
+                    return true;
+            }
+        }
+        return false;
+    }
 
     private static Symbol AsSymbol(object? o)
     {

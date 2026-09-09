@@ -56,25 +56,67 @@ public sealed class ExprContext
 
     public ExprContext() => CoreFunctions.Register(this);
 
-    /// <summary>Interns a symbol by canonical name.</summary>
+    private readonly object _symbolLock = new();
+    private readonly object _fnLock = new();
+
+    /// <summary>Interns a symbol by canonical name. ID allocation is race-free: two threads
+    /// creating different names can never receive the same id.</summary>
     public Symbol Symbol(string name)
     {
-        int id = _symbolIds.GetOrAdd(name, static (n, d) => d.Count, _symbolIds);
-        _symbolNames[id] = name;
-        return new Symbol(id, name);
+        lock (_symbolLock)
+        {
+            if (_symbolIds.TryGetValue(name, out var existing))
+                return new Symbol(existing, name);
+            int id = _symbolIds.Count;
+            _symbolIds[name] = id;
+            _symbolNames[id] = name;
+            return new Symbol(id, name);
+        }
     }
 
     public Symbol Symbol(int id) => new(id, _symbolNames[id]);
 
-    /// <summary>Interns a function identity by canonical name.</summary>
+    /// <summary>Interns a function identity by canonical name (race-free id allocation).</summary>
     public FunctionId Function(string name)
     {
-        int id = _fnIds.GetOrAdd(name, static (n, d) => d.Count, _fnIds);
-        _fnNames[id] = name;
-        return new FunctionId(id, name);
+        lock (_fnLock)
+        {
+            if (_fnIds.TryGetValue(name, out var existing))
+                return new FunctionId(existing, name);
+            int id = _fnIds.Count;
+            _fnIds[name] = id;
+            _fnNames[id] = name;
+            return new FunctionId(id, name);
+        }
     }
 
     public FunctionId Function(int id) => new(id, _fnNames[id]);
+
+    /// <summary>
+    /// Scoped assumption override: installs <paramref name="assumptions"/> for the lifetime of
+    /// the returned scope, restoring the previous set on dispose. Composable and flow-local.
+    /// </summary>
+    public IDisposable WithAssumptions(AssumptionSet assumptions)
+    {
+        var previous = Assumptions;
+        Assumptions = assumptions;
+        return new AssumptionScope(this, previous);
+    }
+
+    private sealed class AssumptionScope : IDisposable
+    {
+        private ExprContext? _ctx;
+        private readonly AssumptionSet _previous;
+        public AssumptionScope(ExprContext ctx, AssumptionSet previous) { _ctx = ctx; _previous = previous; }
+        public void Dispose()
+        {
+            if (_ctx is { } ctx)
+            {
+                ctx.Assumptions = _previous;
+                _ctx = null;
+            }
+        }
+    }
 
     /// <summary>Hash-conses a canonical node: returns the existing equal instance when present.</summary>
     internal Expr Intern(Expr node) => _pool.GetOrAdd(node, node);

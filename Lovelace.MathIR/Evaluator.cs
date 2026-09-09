@@ -27,7 +27,7 @@ public static class IrEvaluator
                 IrOpKind.Div => NumOps.Divide(stack[n.Operands[0]], stack[n.Operands[1]]),
                 IrOpKind.Negate => NumOps.Negate(stack[n.Operands[0]]),
                 IrOpKind.Reciprocal => NumOps.Divide(NumOps.FromLong(1), stack[n.Operands[0]]),
-                IrOpKind.PowInt => NumOps.PowInt(stack[n.Operands[0]], n.Aux),
+                IrOpKind.PowInt => NumOps.PowInt(stack[n.Operands[0]], stack[n.Operands[1]]),
                 IrOpKind.Pow => NumOps.Pow(stack[n.Operands[0]], stack[n.Operands[1]]),
                 IrOpKind.Sqrt => NumOps.Pow(stack[n.Operands[0]], new NumRat(Rat.From(1, 2))),
                 IrOpKind.Exp => NumOps.Exp(stack[n.Operands[0]], ctx),

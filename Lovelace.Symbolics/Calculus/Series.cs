@@ -14,12 +14,20 @@ public sealed class Series
     public Expr[] Coefficients { get; }
     public int Order => Coefficients.Length;
 
-    public Series(Symbol variable, Expr point, Expr[] coefficients)
+    /// <summary>Power of (x − point) multiplying Coefficients[0] (0 for Taylor series;
+    /// negative for Laurent tails; positive after dividing by vanishing denominators).</summary>
+    public int LeadingPower { get; }
+
+    public Series(Symbol variable, Expr point, Expr[] coefficients, int leadingPower = 0)
     {
         Variable = variable;
         Point = point;
         Coefficients = coefficients;
+        LeadingPower = leadingPower;
     }
+
+    /// <summary>True leading order of the expansion: LeadingPower + first nonzero coefficient index.</summary>
+    public int LeadingOrder() => LeadingPower + LeadingIndex();
 
     public static Series Of(Expr f, Symbol x, Expr x0, int order, ExprContext? ctx = null)
     {
@@ -97,23 +105,35 @@ public sealed class Series
             var c = Coefficients[k];
             if (c is RationalConstantExpr rc && rc.Value.IsZero)
                 continue;
-            terms.Add(k == 0 ? c : Exprs.Multiply(c, Exprs.Power(dx, Exprs.Integer(k))));
+            var pow = LeadingPower + k;
+            terms.Add(pow == 0 ? c : Exprs.Multiply(c, Exprs.Power(dx, Exprs.Integer(pow))));
         }
         return terms.Count == 0 ? Exprs.Zero : Exprs.Add(terms);
     }
 
     public static Series Add(Series a, Series b)
     {
-        int n = Math.Min(a.Order, b.Order);
+        // align on the smaller leading power
+        int lp = Math.Min(a.LeadingPower, b.LeadingPower);
+        int n = Math.Min(a.Order + (a.LeadingPower - lp), b.Order + (b.LeadingPower - lp));
         var c = new Expr[n];
         for (int i = 0; i < n; i++)
-            c[i] = Exprs.Add(a.Coefficients[i], b.Coefficients[i]);
-        return new Series(a.Variable, a.Point, c);
+        {
+            Expr sum = Exprs.Zero;
+            int ia = i - (a.LeadingPower - lp);
+            int ib = i - (b.LeadingPower - lp);
+            if (ia >= 0 && ia < a.Order)
+                sum = Exprs.Add(sum, a.Coefficients[ia]);
+            if (ib >= 0 && ib < b.Order)
+                sum = Exprs.Add(sum, b.Coefficients[ib]);
+            c[i] = sum;
+        }
+        return new Series(a.Variable, a.Point, c, lp);
     }
 
     public static Series Negate(Series a)
     {
-        return new Series(a.Variable, a.Point, a.Coefficients.Select(c => Exprs.Negate(c)).ToArray());
+        return new Series(a.Variable, a.Point, a.Coefficients.Select(c => Exprs.Negate(c)).ToArray(), a.LeadingPower);
     }
 
     public static Series Multiply(Series a, Series b)
@@ -128,12 +148,13 @@ public sealed class Series
                     sum = Exprs.Add(sum, Exprs.Multiply(a.Coefficients[i], b.Coefficients[k - i]));
             c[k] = sum;
         }
-        return new Series(a.Variable, a.Point, c);
+        return new Series(a.Variable, a.Point, c, a.LeadingPower + b.LeadingPower);
     }
 
     /// <summary>
-    /// Power-series division a/b, Laurent-aware: the leading indices of a and b are
-    /// aligned so quotients like sin(x)/x work.
+    /// Power-series division a/b, Laurent-aware: the quotient carries the leading-power
+    /// offset (leading powers subtract), so (1−cos x)/x yields the correct first term x/2
+    /// instead of a misindexed constant.
     /// </summary>
     public static Series Divide(Series a, Series b)
     {
@@ -156,7 +177,7 @@ public sealed class Series
             }
             q[k] = Exprs.Divide(sum, b0);
         }
-        return new Series(a.Variable, a.Point, q);
+        return new Series(a.Variable, a.Point, q, a.LeadingPower - b.LeadingPower);
     }
 
     /// <summary>Leading (first nonzero) coefficient index, or -1 when all coefficients are zero.</summary>

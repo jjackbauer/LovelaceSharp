@@ -365,10 +365,13 @@ public static class Printing
             case PowerExpr p:
             {
                 var b = Pretty(p.Base, 3, false);
-                if (Prec(p.Base) < 3)
+                // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2))
+                if (Prec(p.Base) <= 3)
                     b = "(" + b + ")";
                 var ex = Pretty(p.Exponent, 4, true);
                 if (p.Exponent is RationalConstantExpr rce && !rce.Value.IsInteger)
+                    ex = "(" + ex + ")";
+                else if (p.Exponent is PowerExpr)
                     ex = "(" + ex + ")";
                 var text = b + "^" + ex;
                 return parentPrec > 3 ? "(" + text + ")" : text;
