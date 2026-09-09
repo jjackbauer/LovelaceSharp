@@ -339,7 +339,7 @@ x = symbol("x")
 series(sin(x)/x, x, 0, 8)
 ```
 ```result
-1 - 1/6*x^2 - 1/5040*x^6 + 1/120*x^4 (Symbolic)
+1 - 1/6*x^2 - 1/5040*x^6 + 1/120*x^4 + O(x^8) (Symbolic)
 ```
 
 ```lovelace
@@ -347,8 +347,10 @@ x = symbol("x")
 series(exp(x), x, 0, 5)
 ```
 ```result
-1 + x + 1/24*x^4 + 1/6*x^3 + 1/2*x^2 (Symbolic)
+1 + x + 1/24*x^4 + 1/6*x^3 + 1/2*x^2 + O(x^5) (Symbolic)
 ```
+
+The trailing `O(x^n)` marks the truncation order explicitly.
 
 
 ## 9. Limits
@@ -541,12 +543,14 @@ solve(exp(x) == 5, x)
 [log(5)] (Vector)
 ```
 
+Periodic inverses return parametric families rather than a single principal branch:
+
 ```lovelace
 x = symbol("x")
 solve(sin(x) == 0, x)
 ```
 ```result
-[0] (Vector)
+k*pi for integer k
 ```
 
 ```lovelace
@@ -566,7 +570,7 @@ x = symbol("x")
 solve(x - x + 1 == 0, x)
 ```
 ```result
-1 = 0
+no solutions: the equation reduces to a nonzero constant.
 ```
 
 ```lovelace
@@ -683,7 +687,67 @@ evalir(ir, [2], 40)
 ```
 
 
-## 14. Substitution and evaluation
+## 14. Relations, conditions, and parametric solutions
+
+Comparisons build first-class relations, and the logical combinators compose them:
+
+```lovelace
+x = symbol("x")
+cond = and(x > 0, x < 1)
+```
+```result
+x < 1 and x > 0 (Symbolic)
+```
+
+`assume` accepts conjunctions and negations of relations:
+
+```lovelace
+x = symbol("x")
+assume(and(x > 0, x < 5))
+assume(not(x == 2))
+assumptions()
+```
+```result
+x > 0; x < 5; x != 2
+```
+
+## 15. Symbolic matrices: rank and linear systems
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+matrix_rank([[x, 1], [y, x]])
+```
+```result
+2 (Integer)
+```
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+linsolve([[x, 1], [0, y]], [0, 1])
+```
+```result
+[-x/x*(x*y), x/(x*y)] (Vector)
+```
+
+Entries keep their definedness-preserving form (`x/(x*y)` is `1/y` away from `x*y = 0`,
+which is exactly the condition the solution requires).
+
+## 16. Compilation and batch evaluation
+
+`compile` lowers to MathIR; `evalir_batch` evaluates many points in one call:
+
+```lovelace
+x = symbol("x")
+k = compile(x^2 + 1, [x])
+evalir_batch(k, [1, 2, 3], 40)
+```
+```result
+[2, 5, 10] (Vector)
+```
+
+## 17. Substitution and evaluation
 
 ```lovelace
 x = symbol("x")

@@ -38,13 +38,18 @@ public sealed class SymbolicsPlugin : IModusPlugin
         Add("assume", new[] { "relation" }, args =>
         {
             var rel = (Expr)args[0]!;
-            if (rel is RelationExpr r)
-            {
-                Expr bound = r.Right;
-                if (r.Left is SymbolExpr sx && bound is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
-                    _assumptions = _assumptions.Add(new SymbolRelationAssumption(sx.Symbol, r.Op, bound));
-            }
+            if (!AssumeRecursive(rel))
+                throw new InvalidOperationException("assume() accepts relations and their conjunctions/negations with constant bounds.");
             return rel;
+        });
+        Add("and", new[] { "a", "b" }, args => LogicalOp(args, isAnd: true));
+        Add("or", new[] { "a", "b" }, args => LogicalOp(args, isAnd: false));
+        Add("not", new[] { "a" }, args =>
+        {
+            if (args[0] is bool b)
+                return !b;
+            var e = AsExpr(args[0]);
+            return Exprs.Not(e);
         });
         Add("assume_positive", new[] { "x" }, args => AssumePred(args, SymbolPredicate.Positive));
         Add("assume_nonnegative", new[] { "x" }, args => AssumePred(args, SymbolPredicate.NonNegative));
@@ -105,8 +110,15 @@ public sealed class SymbolicsPlugin : IModusPlugin
                         continue;
                     kept.Add(sol.Value);
                 }
-                return (object)kept.ToArray();
+                if (kept.Count > 0)
+                    return (object)kept.ToArray();
+                if (set.Families.Count > 0)
+                    return string.Join("; ", set.Families.Select(f =>
+                        Printing.PrettyPrint(f.Template) + " for integer " + f.Parameter.Name));
+                return "no solutions";
             }
+            if (set.Kind == SolutionKind.Empty)
+                return "no solutions" + (set.Note is { } n ? ": " + n : "");
             return Printing.PrettyPrint(fx);
         });
         Add("subs", new[] { "f", "x", "value" }, args =>
@@ -154,6 +166,52 @@ public sealed class SymbolicsPlugin : IModusPlugin
             else
                 throw new InvalidOperationException("Expected symbol names.");
         }
+    }
+
+    /// <summary>Adds assumption atoms: relations, conjunctions of relations, and negations of
+    /// relations (mapped to their complement relation). Disjunctions are rejected: the atom
+    /// lattice has no disjunction.</summary>
+    private bool AssumeRecursive(Expr rel)
+    {
+        switch (rel)
+        {
+            case RelationExpr r:
+            {
+                if (r.Left is SymbolExpr sx && r.Right is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
+                {
+                    _assumptions = _assumptions.Add(new SymbolRelationAssumption(sx.Symbol, r.Op, r.Right));
+                    return true;
+                }
+                return false;
+            }
+            case AndExpr an:
+            {
+                var ok = true;
+                foreach (var o in an.Operands)
+                    ok &= AssumeRecursive(o);
+                return ok;
+            }
+            case NotExpr nt when nt.Operand is RelationExpr nr && nr.Left is SymbolExpr nx &&
+                                   nr.Right is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr):
+            {
+                var negated = AssumptionSet.Negate(new SymbolRelationAssumption(nx.Symbol, nr.Op, nr.Right));
+                if (negated is SymbolRelationAssumption sra)
+                {
+                    _assumptions = _assumptions.Add(sra);
+                    return true;
+                }
+                return false;
+            }
+            default:
+                return false;
+        }
+    }
+
+    private object LogicalOp(IReadOnlyList<object?> args, bool isAnd)
+    {
+        if (args[0] is bool l0 && args[1] is bool r0)
+            return isAnd ? l0 && r0 : l0 || r0;
+        return isAnd ? Exprs.And(AsExpr(args[0]), AsExpr(args[1])) : Exprs.Or(AsExpr(args[0]), AsExpr(args[1]));
     }
 
     private object Run(Func<object?> impl)

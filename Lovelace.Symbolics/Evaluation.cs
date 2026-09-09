@@ -411,7 +411,7 @@ public static class Evaluation
             {
                 foreach (var br in pw.Branches)
                 {
-                    var g = EvaluateRelation(br.Guard, ctx, bindings);
+                    var g = EvaluateCondition(br.Guard, ctx, bindings);
                     if (g == Tristate.True)
                         return EvaluateToNum(br.Value, ctx, bindings);
                     if (g == Tristate.False)
@@ -420,23 +420,67 @@ public static class Evaluation
                 }
                 return EvaluateToNum(pw.Otherwise, ctx, bindings);
             }
+            case AndExpr or OrExpr or NotExpr:
+            {
+                var v = EvaluateCondition(e, ctx, bindings);
+                if (v == Tristate.Unknown)
+                    throw new EvaluationException("Logical condition cannot be decided numerically.");
+                return NumOps.FromLong(v == Tristate.True ? 1L : 0L);
+            }
             case RootOfExpr ro:
                 return new NumReal(Roots.N(ro, Rl.MaxComputationDecimalPlaces, ctx));
+            case OrderExpr:
+                throw new EvaluationException("Big-O terms have no numeric value.");
             default:
                 throw new EvaluationException($"Node of kind {e.Kind} cannot be evaluated numerically.");
         }
     }
 
     /// <summary>
-    /// Three-valued evaluation of a relation guard: True/False when both sides evaluate and
-    /// compare (exact compare for exact tiers, approximate at the precision scope otherwise),
-    /// Unknown when a side cannot be evaluated or is complex. Unknown is never coerced to
-    /// False.
+    /// Three-valued (Kleene) evaluation of a boolean-valued expression: relations, And/Or/Not,
+    /// and the constants 0/1. True/False only when decided; Unknown is never coerced to False.
     /// </summary>
-    public static Tristate EvaluateRelation(Expr guard, ExprContext ctx, IReadOnlyDictionary<Symbol, Num> bindings)
+    public static Tristate EvaluateCondition(Expr guard, ExprContext ctx, IReadOnlyDictionary<Symbol, Num> bindings)
     {
-        if (guard is not RelationExpr r)
-            return Tristate.Unknown;
+        switch (guard)
+        {
+            case RationalConstantExpr rc when rc.Value.IsZero:
+                return Tristate.False;
+            case RationalConstantExpr rc when rc.Value.IsOne:
+                return Tristate.True;
+            case NotExpr nt:
+            {
+                var inner = EvaluateCondition(nt.Operand, ctx, bindings);
+                return inner == Tristate.Unknown ? Tristate.Unknown : (inner == Tristate.True ? Tristate.False : Tristate.True);
+            }
+            case AndExpr an:
+            {
+                bool anyUnknown = false;
+                foreach (var o in an.Operands)
+                {
+                    var v = EvaluateCondition(o, ctx, bindings);
+                    if (v == Tristate.False) return Tristate.False;
+                    if (v == Tristate.Unknown) anyUnknown = true;
+                }
+                return anyUnknown ? Tristate.Unknown : Tristate.True;
+            }
+            case OrExpr or2:
+            {
+                bool anyUnknown = false;
+                foreach (var o in or2.Operands)
+                {
+                    var v = EvaluateCondition(o, ctx, bindings);
+                    if (v == Tristate.True) return Tristate.True;
+                    if (v == Tristate.Unknown) anyUnknown = true;
+                }
+                return anyUnknown ? Tristate.Unknown : Tristate.False;
+            }
+            case RelationExpr:
+                break;
+            default:
+                return Tristate.Unknown;
+        }
+        var r = (RelationExpr)guard;
         Num l, right;
         try
         {
@@ -467,6 +511,10 @@ public static class Evaluation
         };
         return result ? Tristate.True : Tristate.False;
     }
+
+    /// <summary>Back-compat alias: relation evaluation via the full condition evaluator.</summary>
+    public static Tristate EvaluateRelation(Expr guard, ExprContext ctx, IReadOnlyDictionary<Symbol, Num> bindings)
+        => EvaluateCondition(guard, ctx, bindings);
 
     /// <summary>
     /// Structural substitution: replaces symbols with expressions and rebuilds canonically.
@@ -501,6 +549,14 @@ public static class Evaluation
                     return Exprs.Derivative(Sub(d.Operand), d.Variables.ToArray());
                 case IntegralExpr i:
                     return Exprs.Integral(Sub(i.Operand), i.Variables.ToArray());
+                case AndExpr an:
+                    return Exprs.And(an.Operands.Select(Sub));
+                case OrExpr or2:
+                    return Exprs.Or(or2.Operands.Select(Sub));
+                case NotExpr nt:
+                    return Exprs.Not(Sub(nt.Operand));
+                case OrderExpr o:
+                    return Exprs.Order(Sub(o.Variable), Sub(o.Point), Sub(o.Degree));
                 default:
                     return x;
             }
@@ -554,6 +610,8 @@ public static class Evaluation
                     }
                     return Exprs.Function(f.Function, args);
                 }
+                case OrderExpr o:
+                    return Exprs.Order(Ev(o.Variable), Ev(o.Point), Ev(o.Degree));
                 default:
                     return x;
             }

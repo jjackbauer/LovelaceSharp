@@ -211,6 +211,27 @@ SIMD/GPU/native backends, parametric solution families, Im-interval branch predi
 
 ---
 
+## Execution status (rolling)
+
+- **Phase 1 (trusted semantics): DONE and committed** (`f36dd06`, 25 files, +2632/−406). All
+  reported semantic bugs fixed with regression/property/concurrency/falsification suites;
+  full solution suites green; Native AOT publish smoke passed.
+- **Phase 2 (correctness infrastructure): in progress** — provenance/classification/traces,
+  property suites, falsification harness, and the SymPy differential oracle (skip-when-absent)
+  are in place.
+- **Phase 3 (API advancement): in progress this round** — And/Or/Not relations with Kleene
+  evaluation, `TransformResult`/`IntegrationResult`/`LimitResult`/`OptimizationResult`
+  structured results, parametric solution families (sin/cos/tan), the `Polynomials` facade
+  with resultant/discriminant, series O-terms, matrix Rank + condition-carrying
+  Inverse/Solve, `Compilation.Compile`/`CompiledKernel` with column-wise batch, optimization
+  policies (PrecisionAware Horner), Suite `and`/`or`/`not`/`assume`-conjunction,
+  `matrix_rank`/`linsolve`, `compile`/`evalir_batch`.
+- **Phase 4 (algebraic depth): in progress** — Buchberger Gröbner (lex/grlex/grevlex) with
+  `Groebner.Basis/Reduce/Eliminate` + invariant tests landed.
+- **Phase 5 (compiler advancement): pending** — MathIR typing/validation, Vector/Matrix IR,
+  lazy Select, benchmarks, Studio surfaces.
+- **Phase 6 (e-graph): deferred** per the approved plan.
+
 ## Approval
 
 > **Alignment complete. Please approve this implementation plan or specify changes before

@@ -153,6 +153,10 @@ public static class TermOrder
         NodeKind.Derivative => 9,
         NodeKind.Integral => 10,
         NodeKind.RootOf => 11,
+        NodeKind.And => 12,
+        NodeKind.Or => 13,
+        NodeKind.Not => 14,
+        NodeKind.Order => 15,
         _ => 0,
     };
 
@@ -226,6 +230,20 @@ public static class TermOrder
                 var ra2 = (RootOfExpr)a; var rb2 = (RootOfExpr)b;
                 int c = ra2.DefiningPolynomial.CompareTo(rb2.DefiningPolynomial);
                 return c != 0 ? c : ra2.RootIndex.CompareTo(rb2.RootIndex);
+            }
+            case NodeKind.And:
+                return CompareSeq(((AndExpr)a).Operands, ((AndExpr)b).Operands);
+            case NodeKind.Or:
+                return CompareSeq(((OrExpr)a).Operands, ((OrExpr)b).Operands);
+            case NodeKind.Not:
+                return Compare(((NotExpr)a).Operand, ((NotExpr)b).Operand);
+            case NodeKind.Order:
+            {
+                var oa = (OrderExpr)a; var ob = (OrderExpr)b;
+                int c = Compare(oa.Variable, ob.Variable);
+                if (c != 0) return c;
+                c = Compare(oa.Point, ob.Point);
+                return c != 0 ? c : Compare(oa.Degree, ob.Degree);
             }
             default:
                 return 0;

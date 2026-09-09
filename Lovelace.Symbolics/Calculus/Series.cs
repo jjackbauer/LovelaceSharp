@@ -14,6 +14,9 @@ public sealed class Series
     public Expr[] Coefficients { get; }
     public int Order => Coefficients.Length;
 
+    /// <summary>Order of the dropped tail: the truncation is O((x − point)^TruncationOrder).</summary>
+    public int TruncationOrder => LeadingPower + Order;
+
     /// <summary>Power of (x − point) multiplying Coefficients[0] (0 for Taylor series;
     /// negative for Laurent tails; positive after dividing by vanishing denominators).</summary>
     public int LeadingPower { get; }
@@ -108,7 +111,10 @@ public sealed class Series
             var pow = LeadingPower + k;
             terms.Add(pow == 0 ? c : Exprs.Multiply(c, Exprs.Power(dx, Exprs.Integer(pow))));
         }
-        return terms.Count == 0 ? Exprs.Zero : Exprs.Add(terms);
+        if (terms.Count == 0)
+            return Exprs.Zero;
+        terms.Add(Exprs.Order(Exprs.Symbol(Variable), Point, Exprs.Integer(TruncationOrder)));
+        return Exprs.Add(terms);
     }
 
     public static Series Add(Series a, Series b)

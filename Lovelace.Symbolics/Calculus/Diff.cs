@@ -126,6 +126,14 @@ public static class Calculus
                 return i.Variables.All(v => v.Name != x.Name) && FreeOf(i.Operand, x);
             case RootOfExpr ro:
                 return ro.DefiningPolynomial.Order.Variables.All(v => v.Name != x.Name);
+            case AndExpr an:
+                return an.Operands.All(o => FreeOf(o, x));
+            case OrExpr or2:
+                return or2.Operands.All(o => FreeOf(o, x));
+            case NotExpr nt:
+                return FreeOf(nt.Operand, x);
+            case OrderExpr o:
+                return FreeOf(o.Variable, x) && FreeOf(o.Point, x) && FreeOf(o.Degree, x);
             default:
                 return true;
         }

@@ -204,6 +204,8 @@ public static class Lowering
                 result = AddNode(prog, new IrNode(op, args, 0));
                 break;
             }
+            case OrderExpr:
+                throw new InvalidOperationException("Big-O terms cannot be lowered to MathIR.");
             case PiecewiseExpr pw:
             {
                 var otherwise = Emit(pw.Otherwise, ctx, prog, cache, paramIndex);
@@ -240,8 +242,44 @@ public static class Lowering
             };
             return AddNode(prog, new IrNode(op, new[] { l, rr }, 0));
         }
-        throw new InvalidOperationException("Piecewise guards must be relations.");
+        if (guard is AndExpr an)
+        {
+            // a ∧ b = Select(a, b, 0)
+            var result = EmitGuard(an.Operands[0], ctx, prog, cache, paramIndex);
+            for (int i = 1; i < an.Operands.Length; i++)
+            {
+                var next = EmitGuard(an.Operands[i], ctx, prog, cache, paramIndex);
+                result = AddNode(prog, new IrNode(IrOpKind.Select, new[] { result, next, ZeroConst(prog) }, 0));
+            }
+            return result;
+        }
+        if (guard is OrExpr or2)
+        {
+            // a ∨ b = Select(a, 1, b)
+            var result = EmitGuard(or2.Operands[0], ctx, prog, cache, paramIndex);
+            for (int i = 1; i < or2.Operands.Length; i++)
+            {
+                var next = EmitGuard(or2.Operands[i], ctx, prog, cache, paramIndex);
+                result = AddNode(prog, new IrNode(IrOpKind.Select, new[] { result, OneConst(prog), next }, 0));
+            }
+            return result;
+        }
+        if (guard is NotExpr nt)
+        {
+            // ¬a = Select(a, 0, 1)
+            var inner = EmitGuard(nt.Operand, ctx, prog, cache, paramIndex);
+            return AddNode(prog, new IrNode(IrOpKind.Select, new[] { inner, ZeroConst(prog), OneConst(prog) }, 0));
+        }
+        if (guard is RationalConstantExpr rc)
+        {
+            // boolean constant guard (0 = False, 1 = True) — stored as canonical symbolic text
+            return AddConstant(prog, Printing.CanonicalPrint(rc.Value.IsZero ? Exprs.Zero : Exprs.One));
+        }
+        throw new InvalidOperationException("Piecewise guards must be boolean-valued expressions.");
     }
+
+    private static int ZeroConst(IrProgram prog) => AddConstant(prog, Printing.CanonicalPrint(Exprs.Zero));
+    private static int OneConst(IrProgram prog) => AddConstant(prog, Printing.CanonicalPrint(Exprs.One));
 
     private static int EmitNAry(IEnumerable<Expr> items, IrOpKind op, Expr whole, ExprContext ctx, IrProgram prog, Dictionary<Expr, int> cache, Dictionary<string, int> paramIndex)
     {

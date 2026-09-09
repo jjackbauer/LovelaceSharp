@@ -2,6 +2,23 @@ using Rat = global::Lovelace.Rational.Rational;
 
 namespace Lovelace.Symbolics;
 
+public enum IntegrationKind { SolvedExact, SolvedConditional, Unevaluated }
+
+/// <summary>
+/// Structured integration outcome. Conditional results carry the conditions under which the
+/// antiderivative is valid (e.g. ∫1/x dx = log(x) requires x > 0 over the reals).
+/// </summary>
+public sealed record IntegrationResult(
+    IntegrationKind Kind,
+    Expr Expression,
+    AssumptionSet Conditions,
+    string? Note = null)
+{
+    public static IntegrationResult Exact(Expr e) => new(IntegrationKind.SolvedExact, e, AssumptionSet.Empty);
+    public static IntegrationResult Conditional(Expr e, AssumptionSet conditions) => new(IntegrationKind.SolvedConditional, e, conditions);
+    public static IntegrationResult Unevaluated(Expr e) => new(IntegrationKind.Unevaluated, e, AssumptionSet.Empty);
+}
+
 /// <summary>
 /// Tiered symbolic integration with mandatory self-verification: every closed form is
 /// differentiated and checked against the integrand by canonical equality before being
@@ -11,12 +28,64 @@ namespace Lovelace.Symbolics;
 public static class Integration
 {
     public static Expr Integrate(Expr e, Symbol x, ExprContext? ctx = null)
+        => IntegrateResult(e, x, ctx).Expression;
+
+    /// <summary>Structured integration with status and the conditions its antiderivative needs.</summary>
+    public static IntegrationResult IntegrateResult(Expr e, Symbol x, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
         var result = TryIntegrate(e, x, ctx, 0);
         if (result is not null && Verify(result, e, x, ctx))
-            return result;
-        return Exprs.Integral(e, x);
+        {
+            // log(f) antiderivatives are real-valued only where f > 0
+            var conditions = AssumptionSet.Empty;
+            foreach (var logArg in LogArguments(result))
+            {
+                try
+                {
+                    conditions = conditions.Add(new ExpressionPropertyAssumption(logArg, SymbolPredicate.Positive));
+                }
+                catch (AssumptionContradictionException)
+                {
+                }
+            }
+            return conditions.Atoms.Length > 0
+                ? IntegrationResult.Conditional(result, conditions)
+                : IntegrationResult.Exact(result);
+        }
+        return IntegrationResult.Unevaluated(Exprs.Integral(e, x));
+    }
+
+    /// <summary>Collects the arguments of every log(f) in the expression.</summary>
+    private static IEnumerable<Expr> LogArguments(Expr e)
+    {
+        switch (e)
+        {
+            case FunctionExpr f when f.Function.Name == "log" && f.Arguments.Length == 1:
+                yield return f.Arguments[0];
+                foreach (var inner in LogArguments(f.Arguments[0]))
+                    yield return inner;
+                break;
+            case AddExpr a:
+                foreach (var t in a.Terms)
+                    foreach (var inner in LogArguments(t))
+                        yield return inner;
+                break;
+            case MultiplyExpr m:
+                foreach (var f2 in m.Factors)
+                    foreach (var inner in LogArguments(f2))
+                        yield return inner;
+                break;
+            case PowerExpr p:
+                foreach (var inner in LogArguments(p.Base)) yield return inner;
+                foreach (var inner in LogArguments(p.Exponent)) yield return inner;
+                break;
+            case FunctionExpr f2:
+                foreach (var arg in f2.Arguments)
+                    foreach (var inner in LogArguments(arg))
+                        yield return inner;
+                break;
+        }
     }
 
     internal static bool Verify(Expr antiderivative, Expr integrand, Symbol x, ExprContext ctx)

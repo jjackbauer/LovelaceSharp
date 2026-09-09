@@ -90,10 +90,14 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
         return Exprs.Add(terms);
     }
 
-    /// <summary>True when the expression is the zero constant (structural zero test).</summary>
+    /// <summary>
+    /// True when the expression is a provably-zero numeric constant (structural zero test):
+    /// a rational/integer zero, the canonical zero, or any numeric constant evaluating to zero.
+    /// </summary>
     private static bool IsProvablyZero(Expr e) =>
         e is RationalConstantExpr r && r.Value.IsZero ||
-        e is IntegerConstantExpr i && Int.IsZero(i.Value);
+        e is IntegerConstantExpr i && Int.IsZero(i.Value) ||
+        Evaluation.ConstantToNum(e) is { } n && NumOps.IsZero(n);
 
     /// <summary>
     /// Exact division when provable (polynomial division over the union of symbols);
@@ -168,14 +172,73 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
         return sign < 0 ? Exprs.Negate(det) : det;
     }
 
-    /// <summary>Inverse via the adjugate over the determinant.</summary>
-    public SymbolicMatrix Inverse(ExprContext ctx)
+    /// <summary>
+    /// Generic rank over Q(x): fraction-free (Bareiss) elimination with full pivoting. Each
+    /// pivot that is not a provably-zero constant contributes one to the rank; symbolic
+    /// pivots count (generic rank), so the result is the rank over the rational-function field.
+    /// </summary>
+    public int Rank(ExprContext ctx)
+    {
+        int n = Rows, m = Columns;
+        if (n == 0 || m == 0)
+            return 0;
+        var vars = CollectSymbols();
+        var a = new Expr[n, m];
+        for (int i = 0; i < n; i++)
+            for (int j = 0; j < m; j++)
+                a[i, j] = _data[i * m + j];
+        Expr prev = Exprs.One;
+        int rank = 0;
+        int r = 0, c = 0;
+        while (r < n && c < m)
+        {
+            int pr = -1, pc = -1;
+            for (int i = r; i < n && pr < 0; i++)
+                for (int j = c; j < m; j++)
+                    if (!IsProvablyZero(a[i, j]))
+                    {
+                        pr = i;
+                        pc = j;
+                        break;
+                    }
+            if (pr < 0)
+                break;
+            if (pr != r)
+                for (int j = 0; j < m; j++)
+                    (a[r, j], a[pr, j]) = (a[pr, j], a[r, j]);
+            if (pc != c)
+                for (int i = 0; i < n; i++)
+                    (a[i, c], a[i, pc]) = (a[i, pc], a[i, c]);
+            rank++;
+            var pivot = a[r, c];
+            for (int i = r + 1; i < n; i++)
+            {
+                for (int j = c + 1; j < m; j++)
+                {
+                    a[i, j] = ExactDiv(
+                        Exprs.Subtract(Exprs.Multiply(a[i, j], pivot), Exprs.Multiply(a[i, c], a[r, j])),
+                        prev, vars, ctx);
+                }
+                a[i, c] = Exprs.Zero;
+            }
+            prev = pivot;
+            r++;
+            c++;
+        }
+        return rank;
+    }
+
+    /// <summary>
+    /// Inverse via the adjugate over the determinant, carrying the det ≠ 0 condition.
+    /// Returns a null <see cref="MatrixSolveResult.Matrix"/> with a note when singular.
+    /// </summary>
+    public MatrixSolveResult InverseWithConditions(ExprContext ctx)
     {
         var det = Det(ctx);
         if (IsProvablyZero(det))
-            throw new InvalidOperationException("Matrix is singular (determinant is provably zero).");
+            return new MatrixSolveResult(null, null, AssumptionSet.Empty, "matrix is singular");
+        var conditions = AssumptionSet.Empty.Add(new ExpressionPropertyAssumption(det, SymbolPredicate.NonZero));
         var adj = new Expr[Rows, Columns];
-        var vars = CollectSymbols();
         for (int i = 0; i < Rows; i++)
         {
             for (int j = 0; j < Columns; j++)
@@ -189,7 +252,14 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
         for (int i = 0; i < Rows; i++)
             for (int j = 0; j < Columns; j++)
                 data[i * Columns + j] = Exprs.Divide(adj[i, j], det);
-        return new SymbolicMatrix(Rows, Columns, data);
+        return new MatrixSolveResult(new SymbolicMatrix(Rows, Columns, data), null, conditions, null);
+    }
+
+    /// <summary>Inverse via the adjugate over the determinant (throws when singular).</summary>
+    public SymbolicMatrix Inverse(ExprContext ctx)
+    {
+        var result = InverseWithConditions(ctx);
+        return result.Matrix ?? throw new InvalidOperationException("Matrix is singular (det = 0).");
     }
 
     private SymbolicMatrix Minor(int skipRow, int skipCol)
@@ -208,6 +278,30 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
 
     /// <summary>Fraction-free linear solve A·x = b (augmented Bareiss elimination).</summary>
     public static Expr[] Solve(SymbolicMatrix a, Expr[] b, ExprContext ctx)
+    {
+        var result = a.SolveWithConditions(b, ctx);
+        return result.Vector ?? throw new InvalidOperationException("System is singular or underdetermined.");
+    }
+
+    /// <summary>
+    /// Fraction-free linear solve A·x = b (augmented Bareiss elimination), carrying the
+    /// det ≠ 0 condition. Returns a null <see cref="MatrixSolveResult.Vector"/> with a note
+    /// when singular.
+    /// </summary>
+    public MatrixSolveResult SolveWithConditions(Expr[] b, ExprContext ctx)
+    {
+        var det = Det(ctx);
+        if (IsProvablyZero(det))
+            return new MatrixSolveResult(null, null, AssumptionSet.Empty, "matrix is singular");
+        var conditions = AssumptionSet.Empty.Add(new ExpressionPropertyAssumption(det, SymbolPredicate.NonZero));
+        return new MatrixSolveResult(null, SolveCore(this, b, ctx), conditions, null);
+    }
+
+    /// <summary>Static convenience for a structured linear solve A·x = b.</summary>
+    public static MatrixSolveResult LinearSystem(SymbolicMatrix a, Expr[] b, ExprContext ctx) =>
+        a.SolveWithConditions(b, ctx);
+
+    private static Expr[] SolveCore(SymbolicMatrix a, Expr[] b, ExprContext ctx)
     {
         int n = a.Rows;
         var vars = a.CollectSymbols();
@@ -235,9 +329,12 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
             if (pivot != k)
                 for (int j = k; j <= n; j++)
                     (m[pivot, j], m[k, j]) = (m[k, j], m[pivot, j]);
-            for (int i = 0; i < n; i++)
+            // Forward Bareiss elimination: rows BELOW the pivot only. The exact-divisibility
+            // guarantee of Bareiss holds for the trailing submatrix; eliminating rows above
+            // the pivot with the previous-pivot division is not exact and produces wrong
+            // solutions (e.g. [[x,1],[0,y]]·v = [0,1] yielded v1 = -1/x instead of -1/(x·y)).
+            for (int i = k + 1; i < n; i++)
             {
-                if (i == k) continue;
                 for (int j = k + 1; j <= n; j++)
                 {
                     m[i, j] = ExactDiv(
@@ -248,9 +345,15 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
             }
             prev = m[k, k];
         }
+        // back-substitution over the upper-triangular system
         var x = new Expr[n];
-        for (int i = 0; i < n; i++)
-            x[i] = ExactDiv(m[i, n], m[i, i], vars, ctx);
+        for (int i = n - 1; i >= 0; i--)
+        {
+            Expr acc = m[i, n];
+            for (int j = i + 1; j < n; j++)
+                acc = Exprs.Subtract(acc, Exprs.Multiply(m[i, j], x[j]));
+            x[i] = Exprs.Divide(acc, m[i, i]);
+        }
         return x;
     }
 
@@ -316,3 +419,9 @@ public sealed class SymbolicMatrix : IEquatable<SymbolicMatrix>
         return From(data);
     }
 }
+
+/// <summary>
+/// Result of a structured matrix operation: the computed matrix (inverse) or vector (solution),
+/// the condition set under which the result is valid (e.g. det ≠ 0), and an optional note.
+/// </summary>
+public sealed record MatrixSolveResult(SymbolicMatrix? Matrix, Expr[]? Vector, AssumptionSet Conditions, string? Note);

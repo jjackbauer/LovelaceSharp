@@ -42,6 +42,10 @@ public static class Printing
         DerivativeExpr d => "(der (" + string.Join(" ", d.Variables.Select(v => v.Name)) + ") " + PrintExpr(d.Operand) + ")",
         IntegralExpr i => "(integ (" + string.Join(" ", i.Variables.Select(v => v.Name)) + ") " + PrintExpr(i.Operand) + ")",
         RootOfExpr r => "(rootof " + PrintExpr(r.DefiningPolynomial.ToExpr()) + " " + r.RootIndex + ")",
+        AndExpr an => "(and " + string.Join(" ", an.Operands.Select(PrintExpr)) + ")",
+        OrExpr or2 => "(or " + string.Join(" ", or2.Operands.Select(PrintExpr)) + ")",
+        NotExpr nt => "(not " + PrintExpr(nt.Operand) + ")",
+        OrderExpr o => "(order " + PrintExpr(o.Variable) + " " + PrintExpr(o.Point) + " " + PrintExpr(o.Degree) + ")",
         _ => throw new InvalidOperationException($"Unknown node kind {e.Kind}."),
     };
 
@@ -243,6 +247,28 @@ public static class Printing
                     throw new FormatException("RootOf operand is not a polynomial.");
                 return Exprs.RootOf(poly, index);
             }
+            case "and" or "or":
+            {
+                var ops = new List<Expr>();
+                while (tokens[pos] != ")")
+                    ops.Add(ParseExpr(tokens, ref pos, ctx));
+                pos++;
+                return tag == "and" ? Exprs.And(ops) : Exprs.Or(ops);
+            }
+            case "not":
+            {
+                var operand = ParseExpr(tokens, ref pos, ctx);
+                ExpectClose(tokens, ref pos);
+                return Exprs.Not(operand);
+            }
+            case "order":
+            {
+                var variable = ParseExpr(tokens, ref pos, ctx);
+                var point = ParseExpr(tokens, ref pos, ctx);
+                var degree = ParseExpr(tokens, ref pos, ctx);
+                ExpectClose(tokens, ref pos);
+                return Exprs.Order(variable, point, degree);
+            }
             default:
                 throw new FormatException($"Unknown tag '{tag}'.");
         }
@@ -281,6 +307,8 @@ public static class Printing
 
     private static int Prec(Expr e) => e switch
     {
+        OrExpr => -1,
+        AndExpr => 0,
         RelationExpr => 0,
         AddExpr => 1,
         MultiplyExpr => 2,
@@ -405,6 +433,34 @@ public static class Printing
                 return "integrate(" + Pretty(i.Operand, 4, false) + ", " + string.Join(", ", i.Variables.Select(v => v.Name)) + ")";
             case RootOfExpr r:
                 return "rootof(" + Pretty(r.DefiningPolynomial.ToExpr(), 4, false) + ", " + r.RootIndex + ")";
+            case AndExpr an:
+            {
+                var text = string.Join(" and ", an.Operands.Select(o => Pretty(o, 0, false)));
+                return parentPrec > 0 ? "(" + text + ")" : text;
+            }
+            case OrExpr or2:
+            {
+                var text = string.Join(" or ", or2.Operands.Select(o => Pretty(o, -1, false)));
+                return parentPrec > -1 ? "(" + text + ")" : text;
+            }
+            case NotExpr nt:
+            {
+                var text = "not " + Pretty(nt.Operand, 4, false);
+                return parentPrec > 4 ? "(" + text + ")" : text;
+            }
+            case OrderExpr o:
+            {
+                bool zeroPoint = o.Point is RationalConstantExpr rp && rp.Value.IsZero
+                              || o.Point is IntegerConstantExpr ip && Int.IsZero(ip.Value);
+                var baseExpr = zeroPoint ? o.Variable : Exprs.Subtract(o.Variable, o.Point);
+                var baseText = Pretty(baseExpr, 3, false);
+                bool degreeOne = o.Degree is RationalConstantExpr rd && rd.Value.IsOne
+                              || o.Degree is IntegerConstantExpr id && id.Value == Int.One;
+                if (degreeOne)
+                    return "O(" + baseText + ")";
+                var body = zeroPoint ? baseText : "(" + baseText + ")";
+                return "O(" + body + "^" + Pretty(o.Degree, 3, false) + ")";
+            }
             default:
                 return e.Kind.ToString();
         }

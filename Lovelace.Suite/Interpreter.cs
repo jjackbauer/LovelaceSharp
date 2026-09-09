@@ -937,6 +937,9 @@ public sealed class Interpreter
     // Built-in registration
     // -----------------------------------------------------------------
 
+    private static Lovelace.Symbolics.Expr SymbolicFromValue(Value v)
+        => NumericOps.ToExpr(v);
+
     private static bool IsSymbolicMatrix(ArrayValue a) =>
         a.Rank == 2 && a.Numel > 0 && TypedArrayAdapter.ToElements(a).Any(v => v.Kind == ValueKind.Symbolic);
 
@@ -1017,6 +1020,34 @@ public sealed class Interpreter
             }
             var real = arg.Widen(ValueKind.Real).AsReal();
             return Task.FromResult<Value>(new Value(real.Invert()));
+        });
+
+        // matrix_rank(A): generic rank of a symbolic matrix (an exact integer constant)
+        Register("matrix_rank", ["a"], args =>
+        {
+            RequireArity("matrix_rank", args, 1);
+            var av = args[0].AsArrayValue();
+            if (!IsSymbolicMatrix(av))
+                throw new InvalidOperationException("matrix_rank() requires a symbolic matrix.");
+            var rank = ToSymbolicMatrix(av).Rank(Lovelace.Symbolics.Exprs.Current);
+            return Task.FromResult<Value>(new Value(new Lovelace.Integer.Integer(rank)));
+        });
+
+        // linsolve(A, b): exact linear system solve over a symbolic matrix (Bareiss),
+        // valid under det(A) != 0 (the condition is implicit in the returned entries)
+        Register("linsolve", ["a", "b"], args =>
+        {
+            RequireArity("linsolve", args, 2);
+            var av = args[0].AsArrayValue();
+            if (!IsSymbolicMatrix(av))
+                throw new InvalidOperationException("linsolve() requires a symbolic matrix A.");
+            var bv = args[1].AsArrayValue();
+            var elements = TypedArrayAdapter.ToElements(bv);
+            var b = new Lovelace.Symbolics.Expr[elements.Count];
+            for (int i = 0; i < elements.Count; i++)
+                b[i] = SymbolicFromValue(elements[i]);
+            var solution = Lovelace.Symbolics.SymbolicMatrix.Solve(ToSymbolicMatrix(av), b, Lovelace.Symbolics.Exprs.Current);
+            return Task.FromResult<Value>(new Value(solution.Select(s => new Value(s)).ToList()));
         });
 
         // divrem(a, b)

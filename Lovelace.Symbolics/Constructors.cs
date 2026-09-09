@@ -512,6 +512,112 @@ public static class Exprs
         return Current.Intern(node);
     }
 
+    // -----------------------------------------------------------------
+    // Logical connectives (boolean-valued operands; 0 = False, 1 = True)
+    // -----------------------------------------------------------------
+
+    public static Expr And(params Expr[] operands) => AndImpl(operands);
+
+    public static Expr And(IEnumerable<Expr> operands) => AndImpl(operands.ToArray());
+
+    private static Expr AndImpl(Expr[] operands)
+    {
+        var flat = new List<Expr>();
+        foreach (var o in operands)
+        {
+            if (o is AndExpr a)
+                flat.AddRange(a.Operands);
+            else
+                flat.Add(o);
+        }
+        var set = new List<Expr>();
+        foreach (var o in flat)
+        {
+            if (o is RationalConstantExpr rc)
+            {
+                if (rc.Value.IsZero) return Zero;      // False ∧ … = False
+                if (rc.Value.IsOne) continue;          // True is the identity
+            }
+            if (!set.Any(e => e.Equals(o)))
+                set.Add(o);
+        }
+        if (set.Count == 0) return One;
+        if (set.Count == 1) return set[0];
+        set.Sort(TermOrder.Compare);
+        var node = new AndExpr(ImmutableArray.CreateRange(set));
+        node._hash = Expr.Combine((int)NodeKind.And, CombineHashes(node.Operands));
+        node._nodeCount = 1 + SumCounts(node.Operands);
+        node._isExact = node.Operands.All(o => o.IsExact);
+        return Current.Intern(node);
+    }
+
+    public static Expr Or(params Expr[] operands) => OrImpl(operands);
+
+    public static Expr Or(IEnumerable<Expr> operands) => OrImpl(operands.ToArray());
+
+    private static Expr OrImpl(Expr[] operands)
+    {
+        var flat = new List<Expr>();
+        foreach (var o in operands)
+        {
+            if (o is OrExpr or2)
+                flat.AddRange(or2.Operands);
+            else
+                flat.Add(o);
+        }
+        var set = new List<Expr>();
+        foreach (var o in flat)
+        {
+            if (o is RationalConstantExpr rc)
+            {
+                if (rc.Value.IsOne) return One;        // True ∨ … = True
+                if (rc.Value.IsZero) continue;         // False is the identity
+            }
+            if (!set.Any(e => e.Equals(o)))
+                set.Add(o);
+        }
+        if (set.Count == 0) return Zero;
+        if (set.Count == 1) return set[0];
+        set.Sort(TermOrder.Compare);
+        var node = new OrExpr(ImmutableArray.CreateRange(set));
+        node._hash = Expr.Combine((int)NodeKind.Or, CombineHashes(node.Operands));
+        node._nodeCount = 1 + SumCounts(node.Operands);
+        node._isExact = node.Operands.All(o => o.IsExact);
+        return Current.Intern(node);
+    }
+
+    public static Expr Not(Expr operand) => operand switch
+    {
+        RationalConstantExpr rc when rc.Value.IsZero => One,
+        RationalConstantExpr rc when rc.Value.IsOne => Zero,
+        NotExpr n => n.Operand,
+        _ => MakeNot(operand),
+    };
+
+    private static Expr MakeNot(Expr operand)
+    {
+        var node = new NotExpr(operand);
+        node._hash = Expr.Combine((int)NodeKind.Not, operand._hash);
+        node._nodeCount = 1 + operand._nodeCount;
+        node._isExact = operand.IsExact;
+        return Current.Intern(node);
+    }
+
+    /// <summary>
+    /// Big-O truncation term: O((variable − point)^degree). The degree is normalized to a
+    /// canonical integer constant when it is a numeric constant; no folding is performed.
+    /// </summary>
+    public static Expr Order(Expr variable, Expr point, Expr degree)
+    {
+        if (NumericToRational(degree) is { IsInteger: true } dr)
+            degree = Integer(dr.ToInteger());
+        var node = new OrderExpr(variable, point, degree);
+        node._hash = Expr.Combine((int)NodeKind.Order, variable._hash, point._hash, degree._hash);
+        node._nodeCount = 1 + variable._nodeCount + point._nodeCount + degree._nodeCount;
+        node._isExact = variable.IsExact && point.IsExact && degree.IsExact;
+        return Current.Intern(node);
+    }
+
     /// <summary>a / b → a · b⁻¹ (canonical division).</summary>
     public static Expr Divide(Expr a, Expr b) => Multiply(a, Power(b, Rational(Rat.MinusOne)));
 

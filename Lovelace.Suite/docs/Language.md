@@ -1082,7 +1082,7 @@ x = symbol("x")
 series(sin(x)/x, x, 0, 6)
 ```
 ```result
-1 - 1/6*x^2 + 1/120*x^4 (Symbolic)
+1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)
 ```
 
 ```lovelace
@@ -1123,6 +1123,6 @@ x (Symbolic)
 evalf(1/3, 25)
 ```
 ```result
-0.(3) (Real)
+0.3333333333333333333333333 (Real)
 ```
 

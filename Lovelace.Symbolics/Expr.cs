@@ -9,7 +9,7 @@ public enum NodeKind
 {
     Symbol, IntegerConstant, RationalConstant, RealConstant, ComplexConstant,
     NamedConstant, Add, Multiply, Power, Function, Relation, Piecewise,
-    Derivative, Integral, RootOf,
+    Derivative, Integral, RootOf, And, Or, Not, Order,
 }
 
 public enum RelOp { Eq, Ne, Lt, Le, Gt, Ge }
@@ -354,6 +354,47 @@ public sealed class IntegralExpr : Expr
     { Operand = operand; Variables = variables; Kind = NodeKind.Integral; }
     public override bool Equals(Expr? other) =>
         other is IntegralExpr i && i.Operand == Operand && i.Variables.SequenceEqual(Variables);
+}
+
+/// <summary>Logical conjunction of boolean-valued operands (Kleene three-valued semantics).</summary>
+public sealed class AndExpr : Expr
+{
+    public ImmutableArray<Expr> Operands { get; }
+    internal AndExpr(ImmutableArray<Expr> operands) { Operands = operands; Kind = NodeKind.And; }
+    public override bool Equals(Expr? other) =>
+        other is AndExpr a && a.Operands.Length == Operands.Length && Operands.SequenceEqual(a.Operands);
+}
+
+/// <summary>Logical disjunction of boolean-valued operands (Kleene three-valued semantics).</summary>
+public sealed class OrExpr : Expr
+{
+    public ImmutableArray<Expr> Operands { get; }
+    internal OrExpr(ImmutableArray<Expr> operands) { Operands = operands; Kind = NodeKind.Or; }
+    public override bool Equals(Expr? other) =>
+        other is OrExpr o && o.Operands.Length == Operands.Length && Operands.SequenceEqual(o.Operands);
+}
+
+/// <summary>Logical negation of a boolean-valued operand.</summary>
+public sealed class NotExpr : Expr
+{
+    public Expr Operand { get; }
+    internal NotExpr(Expr operand) { Operand = operand; Kind = NodeKind.Not; }
+    public override bool Equals(Expr? other) => other is NotExpr n && n.Operand == Operand;
+}
+
+/// <summary>
+/// A first-class Big-O truncation term: O((variable − point)^degree). <see cref="Variable"/>
+/// is a <see cref="SymbolExpr"/>; <see cref="Degree"/> is an integer power n.
+/// </summary>
+public sealed class OrderExpr : Expr
+{
+    public Expr Variable { get; }
+    public Expr Point { get; }
+    public Expr Degree { get; }
+    internal OrderExpr(Expr variable, Expr point, Expr degree)
+    { Variable = variable; Point = point; Degree = degree; Kind = NodeKind.Order; }
+    public override bool Equals(Expr? other) =>
+        other is OrderExpr o && o.Variable == Variable && o.Point == Point && o.Degree == Degree;
 }
 
 /// <summary>An algebraic number: the <see cref="RootIndex"/>-th root of a square-free defining polynomial.</summary>

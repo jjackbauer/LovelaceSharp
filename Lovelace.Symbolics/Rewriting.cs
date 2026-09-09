@@ -227,6 +227,21 @@ public static class RewriteEngine
             case IntegralExpr i:
                 node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace), i.Variables.ToArray());
                 break;
+            case AndExpr an:
+                node = Exprs.And(an.Operands.Select(o => Walk(o, ctx, rules, budget, trace)));
+                break;
+            case OrExpr or2:
+                node = Exprs.Or(or2.Operands.Select(o => Walk(o, ctx, rules, budget, trace)));
+                break;
+            case NotExpr nt:
+                node = Exprs.Not(Walk(nt.Operand, ctx, rules, budget, trace));
+                break;
+            case OrderExpr o:
+                node = Exprs.Order(
+                    Walk(o.Variable, ctx, rules, budget, trace),
+                    Walk(o.Point, ctx, rules, budget, trace),
+                    Walk(o.Degree, ctx, rules, budget, trace));
+                break;
         }
 
         // fixed-point rule application at this node

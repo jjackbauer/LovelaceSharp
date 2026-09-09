@@ -8,10 +8,23 @@ public enum SolutionKind { Exact, Empty, Unevaluated }
 
 public sealed record Solution(Expr Value, AssumptionSet Conditions);
 
+/// <summary>Domain of a solution-family parameter.</summary>
+public enum ParameterDomain { Integers, NonNegativeIntegers }
+
+/// <summary>
+/// A parametric solution family: Template(parameter) for parameter in the domain, e.g.
+/// Template = k·π with parameter k ∈ ℤ covers every solution of sin(x) = 0.
+/// </summary>
+public sealed record SolutionFamily(Expr Template, Symbol Parameter, Expr Period, ParameterDomain Domain);
+
 public sealed class SolutionSet
 {
     public SolutionKind Kind { get; }
     public List<Solution> Solutions { get; } = new();
+
+    /// <summary>Parametric families (e.g. periodic inverses).</summary>
+    public List<SolutionFamily> Families { get; } = new();
+
     public string? Note { get; }
 
     public SolutionSet(SolutionKind kind, string? note = null)
@@ -102,6 +115,8 @@ public static class Solvers
     {
         if (poly.IsZero)
             return new SolutionSet(SolutionKind.Unevaluated, "0 = 0: every value is a solution.");
+        if (poly.TotalDegree <= 0)
+            return new SolutionSet(SolutionKind.Empty, "the equation reduces to a nonzero constant.");
         var factors = Factoring.FactorPoly(poly);
         var set = new SolutionSet(SolutionKind.Exact);
         foreach (var (factor, mult) in factors.Factors)
@@ -276,17 +291,26 @@ public static class Solvers
             case FunctionExpr f when f.Arguments.Length == 1:
             {
                 u = f.Arguments[0];
-                inverse = f.Function.Name switch
+                switch (f.Function.Name)
                 {
-                    "exp" => Exprs.Function(ctx.Function("log"), c),
-                    "log" => Exprs.Function(ctx.Function("exp"), c),
-                    "sin" => Exprs.Function(ctx.Function("asin"), c),
-                    "cos" => Exprs.Function(ctx.Function("acos"), c),
-                    "tan" => Exprs.Function(ctx.Function("atan"), c),
-                    _ => null,
-                };
-                if (f.Function.Name == "exp")
-                    conditionExpr = c;   // c != 0 for principal log? exp(u) = 0 has no solution
+                    case "sin" or "cos" or "tan":
+                        return SolvePeriodic(f.Function.Name, u, c, x, ctx);
+                    case "exp":
+                        // exp(u) = c: unique real solution for c > 0, none for c <= 0
+                        if (Evaluation.ConstantToNum(c) is { } cv)
+                        {
+                            if (NumOps.Compare(cv, NumOps.FromLong(0L)) <= 0)
+                                return new SolutionSet(SolutionKind.Empty, "exp(u) = c has no real solution for c <= 0.");
+                        }
+                        inverse = Exprs.Function(ctx.Function("log"), c);
+                        break;
+                    case "log":
+                        inverse = Exprs.Function(ctx.Function("exp"), c);
+                        break;
+                    default:
+                        inverse = null;
+                        break;
+                }
                 break;
             }
             case PowerExpr p when p.Exponent is RationalConstantExpr pe && pe.Value != Rat.One:
@@ -295,7 +319,8 @@ public static class Solvers
                 var n = pe.Value;
                 if (n.IsZero)
                     return null;
-                // u^n = c → u = c^(1/n) (principal branch)
+                // u^n = c → u = c^(1/n) (principal branch; the remaining roots are a
+                // complex-root-of-unity family, deferred with the complex algebraic numbers)
                 inverse = Exprs.Power(c, Exprs.Rational(Rat.One / n));
                 break;
             }
@@ -326,6 +351,99 @@ public static class Solvers
             return set;
         }
         return inner;
+    }
+
+    /// <summary>
+    /// Periodic inverses produce parametric families: sin/cos have period 2π, tan has π.
+    /// Families are returned only when the inner argument is the bare solved symbol (nested
+    /// arguments would need nested families).
+    /// </summary>
+    private static SolutionSet SolvePeriodic(string name, Expr u, Expr c, Symbol x, ExprContext ctx)
+    {
+        if (u is not SymbolExpr)
+            return new SolutionSet(SolutionKind.Unevaluated,
+                $"{name}(u) = c with composite u is not supported in v1.");
+        if (Evaluation.ConstantToNum(c) is not { } cv)
+            return new SolutionSet(SolutionKind.Unevaluated,
+                $"{name}(x) = c with symbolic c is not supported in v1.");
+
+        var k = FreshParameter(ctx, c, u);
+        Expr principal = name switch
+        {
+            "sin" => Exprs.Function(ctx.Function("asin"), c),
+            "cos" => Exprs.Function(ctx.Function("acos"), c),
+            _ => Exprs.Function(ctx.Function("atan"), c),
+        };
+        var twoPi = Exprs.Multiply(2, Exprs.Pi);
+        var pi = Exprs.Pi;
+        var kExpr = Exprs.Symbol(k);
+        var set = new SolutionSet(SolutionKind.Exact);
+
+        if (name == "tan")
+        {
+            set.Families.Add(new SolutionFamily(
+                Exprs.Add(principal, Exprs.Multiply(kExpr, pi)), k, pi, ParameterDomain.Integers));
+            return set;
+        }
+
+        // sin/cos: classify |c| against 1
+        bool cZero = NumOps.IsZero(cv);
+        int cmp1 = NumOps.Compare(NumOps.Abs(cv, ctx), NumOps.FromLong(1L));
+        if (cmp1 > 0)
+            return new SolutionSet(SolutionKind.Empty, $"{name}(x) = c has no real solution for |c| > 1.");
+
+        if (cZero)
+        {
+            // sin(x) = 0 → x = kπ; cos(x) = 0 → x = π/2 + kπ
+            var template = name == "sin"
+                ? Exprs.Multiply(kExpr, pi)
+                : Exprs.Add(Exprs.Divide(pi, 2), Exprs.Multiply(kExpr, pi));
+            set.Families.Add(new SolutionFamily(template, k, pi, ParameterDomain.Integers));
+            return set;
+        }
+
+        if (cmp1 == 0)
+        {
+            // |c| = 1: the two branches merge into one family
+            set.Families.Add(new SolutionFamily(
+                Exprs.Add(principal, Exprs.Multiply(kExpr, twoPi)), k, twoPi, ParameterDomain.Integers));
+            return set;
+        }
+
+        // |c| < 1: two families, one per branch
+        set.Families.Add(new SolutionFamily(
+            Exprs.Add(principal, Exprs.Multiply(kExpr, twoPi)), k, twoPi, ParameterDomain.Integers));
+        set.Families.Add(new SolutionFamily(
+            name == "sin"
+                ? Exprs.Add(Exprs.Subtract(pi, principal), Exprs.Multiply(kExpr, twoPi))
+                : Exprs.Add(Exprs.Negate(principal), Exprs.Multiply(kExpr, twoPi)),
+            k, twoPi, ParameterDomain.Integers));
+        return set;
+    }
+
+    /// <summary>Chooses a family parameter symbol not colliding with the equation's symbols.</summary>
+    private static Symbol FreshParameter(ExprContext ctx, params Expr[] avoid)
+    {
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var e in avoid)
+            CollectNames(e, used);
+        string name = "k";
+        int i = 1;
+        while (used.Contains(name))
+            name = "k" + i++;
+        return ctx.Symbol(name);
+    }
+
+    private static void CollectNames(Expr e, HashSet<string> into)
+    {
+        switch (e)
+        {
+            case SymbolExpr s: into.Add(s.Symbol.Name); break;
+            case AddExpr a: foreach (var t in a.Terms) CollectNames(t, into); break;
+            case MultiplyExpr m: foreach (var f in m.Factors) CollectNames(f, into); break;
+            case PowerExpr p: CollectNames(p.Base, into); CollectNames(p.Exponent, into); break;
+            case FunctionExpr f: foreach (var arg in f.Arguments) CollectNames(arg, into); break;
+        }
     }
 }
 
