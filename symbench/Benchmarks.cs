@@ -19,11 +19,12 @@ public class ConstructionBenchmarks
         _ctx = new ExprContext();
         Exprs.Current = _ctx;
         var x = _ctx.Symbol("x");
-        // nested binomial-like DAG: repeatedly (expr + 1) * (expr + x) — ~10k shared nodes
-        Expr e = x;
-        for (int i = 0; i < 400; i++)
-            e = Exprs.Multiply(Exprs.Add(e, 1), Exprs.Add(e, x));
-        _canonical = Printing.CanonicalPrint(e);
+        // a large shared DAG with LINEAR growth: a 5000-term sum of x^i + i (≈15k nodes);
+        // nested doubling would grow exponentially and never terminate
+        var terms = new List<Expr>(5000);
+        for (int i = 0; i < 5000; i++)
+            terms.Add(Exprs.Add(Exprs.Power(x, i % 64), i));
+        _canonical = Printing.CanonicalPrint(Exprs.Add(terms));
     }
 
     [Benchmark]
