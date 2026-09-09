@@ -219,15 +219,18 @@ SIMD/GPU/native backends, parametric solution families, Im-interval branch predi
 - **Phase 2 (correctness infrastructure): in progress** — provenance/classification/traces,
   property suites, falsification harness, and the SymPy differential oracle (skip-when-absent)
   are in place.
-- **Phase 3 (API advancement): in progress this round** — And/Or/Not relations with Kleene
-  evaluation, `TransformResult`/`IntegrationResult`/`LimitResult`/`OptimizationResult`
+- **Phase 3 (API advancement): DONE and committed** (`13c61a0`): And/Or/Not relations with
+  Kleene evaluation, `TransformResult`/`IntegrationResult`/`LimitResult`/`OptimizationResult`
   structured results, parametric solution families (sin/cos/tan), the `Polynomials` facade
   with resultant/discriminant, series O-terms, matrix Rank + condition-carrying
-  Inverse/Solve, `Compilation.Compile`/`CompiledKernel` with column-wise batch, optimization
-  policies (PrecisionAware Horner), Suite `and`/`or`/`not`/`assume`-conjunction,
-  `matrix_rank`/`linsolve`, `compile`/`evalir_batch`.
-- **Phase 4 (algebraic depth): in progress** — Buchberger Gröbner (lex/grlex/grevlex) with
-  `Groebner.Basis/Reduce/Eliminate` + invariant tests landed.
+  Inverse/Solve (plus a P0 fix: the solve was an invalid Gauss-Jordan Bareiss — replaced by
+  forward Bareiss + back-substitution, verified by substitution), `Compilation.Compile`/
+  `CompiledKernel` with column-wise batch, optimization policies (PrecisionAware Horner),
+  Suite `and`/`or`/`not`/`assume`-conjunction, `matrix_rank`/`linsolve`, `compile`/
+  `evalir_batch`, lazy Select in the IR evaluator.
+- **Phase 4 (algebraic depth): first tranche committed** — Buchberger Gröbner (lex/grlex/
+  grevlex) with `Groebner.Basis/Reduce/Eliminate` + invariant tests; polynomial-systems
+  solving via Gröbner is the next tranche.
 - **Phase 5 (compiler advancement): pending** — MathIR typing/validation, Vector/Matrix IR,
   lazy Select, benchmarks, Studio surfaces.
 - **Phase 6 (e-graph): deferred** per the approved plan.
