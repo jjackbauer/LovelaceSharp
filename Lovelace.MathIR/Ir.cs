@@ -84,6 +84,7 @@ public sealed class IrProgram
                 : Array.Empty<int>();
             p.Nodes.Add(new IrNode(op, ops, aux));
         }
+        IrTyping.Validate(p);
         return p;
     }
 }

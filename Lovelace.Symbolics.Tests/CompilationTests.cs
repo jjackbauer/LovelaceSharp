@@ -92,6 +92,45 @@ public class CompilationTests
     }
 
     [Fact]
+    public void Kernel_BatchLazySelect_MixedGuards()
+    {
+        var ctx = NewCtx();
+        var x = ctx.Symbol("x");
+        var pw = Exprs.Piecewise(
+            new[] { new PiecewiseBranch(Exprs.Relation(RelOp.Gt, x, Exprs.Zero), Exprs.Divide(Exprs.One, x)) },
+            Exprs.Negate(x));
+        var kernel = Compilation.CompileKernel(pw, new[] { x }, ctx);
+        var columns = new Dictionary<string, Num[]>();
+        columns["x"] = new Num[] { NumOps.FromLong(2), NumOps.FromLong(-3), NumOps.FromRat(Rat.From(1, 2)) };
+        var results = kernel.EvaluateBatch(columns);
+        Assert.Equal(0, NumOps.Compare(results[0], NumOps.FromRat(Rat.From(1, 2))));
+        Assert.Equal(0, NumOps.Compare(results[1], NumOps.FromLong(3)));
+        Assert.Equal(0, NumOps.Compare(results[2], NumOps.FromLong(2)));
+    }
+
+    [Fact]
+    public void Kernel_BatchMatchesScalarEvaluation()
+    {
+        var ctx = NewCtx();
+        var x = ctx.Symbol("x");
+        var y = ctx.Symbol("y");
+        var e = Exprs.Add(Exprs.Function(ctx.Function("sin"), Exprs.Multiply(x, y)), Exprs.Power(x, 2));
+        var kernel = Compilation.CompileKernel(e, new[] { x, y }, ctx);
+        using var scope = Lovelace.Real.Real.WithPrecision(40, 20);
+        Num[] xs = { NumOps.FromRat(Rat.From(1, 2)), NumOps.FromRat(Rat.From(-3, 4)), NumOps.FromRat(Rat.From(7, 5)) };
+        Num[] ys = { NumOps.FromRat(Rat.From(2, 3)), NumOps.FromRat(Rat.From(5, 4)), NumOps.FromRat(Rat.From(-1, 3)) };
+        var columns = new Dictionary<string, Num[]>();
+        columns["x"] = xs;
+        columns["y"] = ys;
+        var batch = kernel.EvaluateBatch(columns);
+        for (int i = 0; i < xs.Length; i++)
+        {
+            var scalar = kernel.Evaluate(xs[i], ys[i]);
+            Assert.Equal(0, NumOps.Compare(batch[i], scalar));
+        }
+    }
+
+    [Fact]
     public void Kernel_LazySelect_UntakenBranchNeverEvaluates()
     {
         var ctx = NewCtx();

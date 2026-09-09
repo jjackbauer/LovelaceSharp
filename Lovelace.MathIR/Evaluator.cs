@@ -82,6 +82,181 @@ public static class IrEvaluator
         return memo[root] ?? throw new InvalidOperationException("Empty IR program.");
     }
 
+    /// <summary>
+    /// Vectorized batch evaluation (Q8): one traversal of the DAG carrying Num[] lanes per node
+    /// instead of re-evaluating per lane. Elementwise semantics per lane; Select is lazy per
+    /// branch set (when every lane takes the same branch only that branch is evaluated; mixed
+    /// guards evaluate both). Constants broadcast across lanes.
+    /// </summary>
+    public static Num[] EvaluateBatch(
+        IrProgram prog, IReadOnlyDictionary<string, Num[]> columns, ExprContext ctx)
+    {
+        int lanes = columns.Count == 0 ? 0 : columns.Values.Select(c => c.Length).Max();
+        foreach (var (name, column) in columns)
+        {
+            if (column.Length != lanes)
+                throw new ArgumentException($"Column '{name}' has {column.Length} lanes; expected {lanes}.");
+        }
+        if (lanes == 0)
+            return Array.Empty<Num>();
+
+        var memo = new Num[]?[prog.Nodes.Count];
+        var constants = new Num[prog.Constants.Count];
+        for (int i = 0; i < prog.Constants.Count; i++)
+            constants[i] = ParseConstant(prog.Constants[i], ctx);
+
+        int root = prog.Nodes.Count - 1;
+        var work = new Stack<int>();
+        work.Push(root);
+        long pushes = 1;
+        while (work.Count > 0)
+        {
+            if (++pushes > (long)prog.Nodes.Count * 64 + 64)
+                throw new InvalidOperationException($"IR evaluator cycle near node {work.Peek()}.");
+            int i = work.Peek();
+            if (memo[i] is not null)
+            {
+                work.Pop();
+                continue;
+            }
+            var n = prog.Nodes[i];
+
+            if (n.Op is IrOpKind.Constant or IrOpKind.Parameter)
+            {
+                memo[i] = ComputeVector(prog, n, memo, constants, columns, ctx, lanes);
+                work.Pop();
+                continue;
+            }
+
+            if (n.Op == IrOpKind.Select)
+            {
+                int guard = n.Operands[0];
+                if (memo[guard] is null)
+                {
+                    work.Push(guard);
+                    continue;
+                }
+                var cond = memo[guard]!;
+                bool anyLeft = false, anyRight = false;
+                for (int lane = 0; lane < lanes; lane++)
+                {
+                    if (NumOps.IsZero(cond[lane])) anyRight = true;
+                    else anyLeft = true;
+                }
+                if (anyLeft && memo[n.Operands[1]] is null)
+                {
+                    work.Push(n.Operands[1]);
+                    continue;
+                }
+                if (anyRight && memo[n.Operands[2]] is null)
+                {
+                    work.Push(n.Operands[2]);
+                    continue;
+                }
+                var result = new Num[lanes];
+                for (int lane = 0; lane < lanes; lane++)
+                {
+                    if (NumOps.IsZero(cond[lane]))
+                        result[lane] = anyRight ? memo[n.Operands[2]]![lane] : NumOps.FromLong(0);
+                    else
+                        result[lane] = anyLeft ? memo[n.Operands[1]]![lane] : NumOps.FromLong(0);
+                }
+                memo[i] = result;
+                work.Pop();
+                continue;
+            }
+
+            bool ready = true;
+            foreach (var o in n.Operands)
+            {
+                if (memo[o] is null)
+                {
+                    work.Push(o);
+                    ready = false;
+                }
+            }
+            if (!ready)
+                continue;
+
+            memo[i] = ComputeVector(prog, n, memo, constants, columns, ctx, lanes);
+            work.Pop();
+        }
+        return memo[root]!;
+    }
+
+    private static Num[] ComputeVector(
+        IrProgram prog, IrNode n, Num[]?[] memo, Num[] constants,
+        IReadOnlyDictionary<string, Num[]> columns, ExprContext ctx, int lanes)
+    {
+        Num[]? O(int idx) => memo[n.Operands[idx]];
+        Num[] Fill(Num scalar)
+        {
+            var v = new Num[lanes];
+            for (int i = 0; i < lanes; i++)
+                v[i] = scalar;
+            return v;
+        }
+        switch (n.Op)
+        {
+            case IrOpKind.Constant:
+                return Fill(constants[n.Operands[0]]);
+            case IrOpKind.Parameter:
+                return columns.TryGetValue(prog.Parameters[n.Operands[0]], out var col)
+                    ? col
+                    : throw new InvalidOperationException($"Missing column for parameter '{prog.Parameters[n.Operands[0]]}'.");
+            case IrOpKind.Add: return Zip(O(0)!, O(1)!, (a, b) => NumOps.Add(a, b));
+            case IrOpKind.Sub: return Zip(O(0)!, O(1)!, NumOps.Subtract);
+            case IrOpKind.Mul: return Zip(O(0)!, O(1)!, NumOps.Multiply);
+            case IrOpKind.Div: return Zip(O(0)!, O(1)!, NumOps.Divide);
+            case IrOpKind.Negate: return Map(O(0)!, NumOps.Negate);
+            case IrOpKind.Reciprocal: return Map(O(0)!, v => NumOps.Divide(NumOps.FromLong(1), v));
+            case IrOpKind.PowInt: return Zip(O(0)!, O(1)!, NumOps.PowInt);
+            case IrOpKind.Pow: return Zip(O(0)!, O(1)!, NumOps.Pow);
+            case IrOpKind.Sqrt: return Map(O(0)!, v => NumOps.Pow(v, new NumRat(Rat.From(1, 2))));
+            case IrOpKind.Exp: return Map(O(0)!, v => NumOps.Exp(v, ctx));
+            case IrOpKind.Log: return Map(O(0)!, v => NumOps.Ln(v, ctx));
+            case IrOpKind.Sin: return Map(O(0)!, v => NumOps.Sin(v, ctx));
+            case IrOpKind.Cos: return Map(O(0)!, v => NumOps.Cos(v, ctx));
+            case IrOpKind.Tan: return Map(O(0)!, v => NumOps.Tan(v, ctx));
+            case IrOpKind.Asin: return Map(O(0)!, v => NumOps.Asin(v, ctx));
+            case IrOpKind.Acos: return Map(O(0)!, v => NumOps.Acos(v, ctx));
+            case IrOpKind.Atan: return Map(O(0)!, v => NumOps.Atan(v, ctx));
+            case IrOpKind.Sinh: return Map(O(0)!, v => NumOps.Sinh(v, ctx));
+            case IrOpKind.Cosh: return Map(O(0)!, v => NumOps.Cosh(v, ctx));
+            case IrOpKind.Tanh: return Map(O(0)!, v => NumOps.Tanh(v, ctx));
+            case IrOpKind.Abs: return Map(O(0)!, v => NumOps.Abs(v, ctx));
+            case IrOpKind.Sign: return Map(O(0)!, v => NumOps.Sign(v, ctx));
+            case IrOpKind.Floor: return Map(O(0)!, v => NumOps.Floor(v, ctx));
+            case IrOpKind.Ceil: return Map(O(0)!, v => NumOps.Ceil(v, ctx));
+            case IrOpKind.Min: return Zip(O(0)!, O(1)!, (a, b) => NumOps.Min(new[] { a, b }, ctx));
+            case IrOpKind.Max: return Zip(O(0)!, O(1)!, (a, b) => NumOps.Max(new[] { a, b }, ctx));
+            case IrOpKind.Eq: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) == 0));
+            case IrOpKind.Ne: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) != 0));
+            case IrOpKind.Lt: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) < 0));
+            case IrOpKind.Le: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) <= 0));
+            case IrOpKind.Gt: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) > 0));
+            case IrOpKind.Ge: return Zip(O(0)!, O(1)!, (a, b) => BoolNum(NumOps.Compare(a, b) >= 0));
+            default:
+                throw new InvalidOperationException($"Unsupported vectorized IR op {n.Op}.");
+        }
+    }
+
+    private static Num[] Map(Num[] v, Func<Num, Num> f)
+    {
+        var r = new Num[v.Length];
+        for (int i = 0; i < v.Length; i++)
+            r[i] = f(v[i]);
+        return r;
+    }
+
+    private static Num[] Zip(Num[] a, Num[] b, Func<Num, Num, Num> f)
+    {
+        var r = new Num[a.Length];
+        for (int i = 0; i < a.Length; i++)
+            r[i] = f(a[i], b[i]);
+        return r;
+    }
+
     private static Num Compute(
         IrProgram prog, IrNode n, Num?[] memo, Num[] constants,
         IReadOnlyDictionary<Symbol, Num> bindings, ExprContext ctx)

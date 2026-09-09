@@ -55,9 +55,9 @@ public sealed class CompiledKernel
     }
 
     /// <summary>
-    /// Batch evaluation: one lane per row of the provided columns. Every column must have the
-    /// same length; the kernel is evaluated lane-wise at full precision (no vector-width or
-    /// precision shortcuts in v1).
+    /// Batch evaluation: one lane per row of the provided columns, executed by the vectorized
+    /// MathIR evaluator (a single DAG traversal carrying Num[] lanes). Every column must have
+    /// the same length; no vector-width or precision shortcuts.
     /// </summary>
     public Num[] EvaluateBatch(IReadOnlyDictionary<string, Num[]> columns)
     {
@@ -69,22 +69,12 @@ public sealed class CompiledKernel
             if (column.Length != lanes)
                 throw new ArgumentException($"Column '{name}' has {column.Length} lanes; expected {lanes}.");
         }
-        var results = new Num[lanes];
-        var symbols = new Symbol[lanes > 0 ? _parameters.Length : 0];
-        for (int i = 0; i < _parameters.Length; i++)
-            symbols[i] = _parameters[i];
-        for (int lane = 0; lane < lanes; lane++)
+        foreach (var p in _parameters)
         {
-            var bindings = new Dictionary<Symbol, Num>(_parameters.Length);
-            foreach (var p in symbols)
-            {
-                if (!columns.TryGetValue(p.Name, out var column))
-                    throw new ArgumentException($"Missing column for parameter '{p.Name}'.");
-                bindings[p] = column[lane];
-            }
-            results[lane] = IrEvaluator.Evaluate(_program, bindings, _ctx);
+            if (!columns.ContainsKey(p.Name))
+                throw new ArgumentException($"Missing column for parameter '{p.Name}'.");
         }
-        return results;
+        return IrEvaluator.EvaluateBatch(_program, columns, _ctx);
     }
 }
 
@@ -100,6 +90,7 @@ public static class Compilation
         if (parameters.Length == 0)
             throw new ArgumentException("Compilation requires at least one parameter.", nameof(parameters));
         var program = Lowering.Lower(e, ctx, parameters);
+        IrTyping.Validate(program);
         return new CompilationResult(program, parameters);
     }
 

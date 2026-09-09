@@ -233,13 +233,17 @@ SIMD/GPU/native backends, parametric solution families, Im-interval branch predi
   triangular form, univariate solving (incl. RootOf), recursive back-substitution, and
   per-solution verification (`SystemSolvers.Solve`, `solve_system` builtin; circle/hyperbola
   yields all 4 solutions; inconsistent systems report none).
-- **Phase 5 (compiler advancement): in progress** — lazy Select (landed with Phase 3),
-  MathIR type inference + validation (IrTyping: Integer/Rational/Real/Complex/Bool with
-  arity/topology/ordered-comparison/Select-guard checks, wired into Deserialize and
-  Compilation), Studio symbolic inspection surface (canonical form, expression tree,
-  assumptions, simplification trace, MathIR — `POST /api/symbolic/inspect` + EngineHost),
-  and the symbench BenchmarkDotNet project. Remaining: Vector/Matrix IR ops (Q8) and
-  benchmark publication.
+- **Phase 5 (compiler advancement): committed** — lazy Select (with Phase 3); MathIR type
+  inference + validation (`IrTyping`: Integer/Rational/Real/Complex/Bool; arity, operand
+  range, pool/parameter range, ordered-comparison, and Select-guard checks, wired into
+  Deserialize and Compilation); the VECTORIZED batch evaluator (Q8's vector side: one DAG
+  traversal carrying Num[] lanes, lazy Select over per-lane branch demand, wired into
+  CompiledKernel.EvaluateBatch); Studio symbolic inspection surface (canonical form,
+  expression tree, assumptions, simplification trace, MathIR — POST /api/symbolic/inspect +
+  EngineHost); and the symbench BenchmarkDotNet project (construction, calculus, polynomial,
+  Gröbner, compile/batch/tree-vs-MathIR, 64/256/1024-digit rows). Remaining (deferred,
+  documented): Matrix-literal IR ops (MatMul consumers), benchmark publication runs,
+  frontend panes for the Studio endpoint.
 - **Phase 6 (e-graph): deferred** per the approved plan.
 
 ## Approval
