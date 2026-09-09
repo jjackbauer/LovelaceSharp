@@ -1,9 +1,24 @@
 # Lovelace.Symbolics - Implementation Plan
 
+> **Post-cycle status:** all Phase 0-7 packages through SYM-48 have shipped with the exceptions listed below; the binding change log is docs/symbolics/hardening-alignment-plan.md. Cycles: f36dd06 (P1/P2), 13c61a0 (P3), 1af7272 (P4 systems + Studio), 50ac339 (P5).
+
 > **Status:** Work-package decomposition for DSH + DeepSeek V4 implementation sessions.
 > Companions: [architecture.md](architecture.md), [testing-and-validation.md](testing-and-validation.md),
 > [risk-register.md](risk-register.md), [dsh-execution-plan.md](dsh-execution-plan.md).
 > Package IDs below are referenced by every other document (SYM-NN).
+
+---
+
+## Shipped vs deferred (post-cycle)
+
+| SYM id | Status |
+|---|---|
+| SYM-01..SYM-42 | Shipped — SYM-24 Groebner is Buchberger with lex/grlex/grevlex and Reduce/Eliminate; SYM-30 RootOf is REAL-only with Sturm isolation and auto square-free; SYM-34 symbolic matrices gained Rank and condition-carrying Inverse/Solve after a P0 fix in the Gauss-Jordan Bareiss; SYM-36/37/39 optimization ships CSE accounting plus policy-gated Horner with PrecisionAware, no e-graph. |
+| SYM-43 | Shipped — symbench project shipped but publication runs pending. |
+| SYM-44 / SYM-45 | Shipped — inside Lovelace.Symbolics.Tests (FalsificationTests, PropertyTests, DifferentialOracleTests — not a separate Validation project). |
+| SYM-46 | Not shipped — agent CLI deferred. |
+| SYM-47 | Shipped — Studio backend inspection endpoint POST /api/symbolic/inspect (frontend panes deferred). |
+| SYM-48 | Deferred — Lean proofs. |
 
 ---
 
@@ -691,20 +706,21 @@ Phase-0 contracts plus 11/19.
 
 ## 13. Phased release plan (H)
 
-| Phase | Entry criteria | Exit criteria | Delivers | Parallel work | Key risks |
-|---|---|---|---|---|---|
-| 0 - Kernel constitution | SYM-01 merged | INV-01..15 implemented and tested; constitution suite green; Suite.Tests 100% green; AOT publish smoke green | Expr DAG, interning, Rational, canonical algebra, assumptions, rewrite engine, text form, evaluation, language surface (symbol/assume) | SYM-13b; test authoring | invariant drift; backward-compat regressions in Suite |
-| 1 - Canonical algebra | Phase 0 exit | simplify/expand/collect/diff verified against recorded oracle corpus; determinism replays green | user-facing simplify/expand/collect/diff, named constants, relations/Piecewise | polynomials track; matrices track | rule-order bugs; budget exhaustion UX |
-| 2 - Polynomial/rational algebra | Phase 0 exit + SYM-18 | expand(factor(p)) == p and gcd*lcm properties green over random corpora; cyclic-4 Groebner within budget | polynomials, GCD, resultants, factorization, Groebner, rational functions, SymbolicMatrix/Bareiss | calculus track; solving track (against contracts) | coefficient blow-up; factoring bugs |
-| 3 - Calculus | SYM-17 + SYM-18 | series/limit/integral fixture corpus green; every integral self-verified by diff | series, limits, tiered integration, vector calculus | solving track; optimization track | integrator loops; limit edge cases |
-| 4 - Solving | SYM-19 + SYM-34 | acceptance-scenario solve results; RootOf numeric evaluation at 50 digits verified | solve dispatcher, linear/polynomial/rational/elementary solving, RootOf | Suite array integration; optimization | solver incompleteness; condition bookkeeping |
-| 5 - Symbolic arrays | SYM-34 + SYM-10 | acceptance-scenario matrix steps in REPL/Run/Studio; existing array tests untouched | symbolic elements in language arrays | optimization; MathIR | dispatch bugs between symbolic/numeric paths |
-| 6 - Optimization | Phase 0 exit + SYM-11/19 | k1-k8 equivalence verified; k3 collapses to 1; caps honored | CSE, Horner, power chains, e-graph, cost models, optimize() | MathIR | saturation explosion; unsound reassociation |
-| 7 - MathIR + execution | SYM-39 + SYM-40 | lowering round-trip equivalence property green; product benchmark published with break-even counts | MathIR, lowering, interpreters, batch evaluator, benchmarks | Phase 8 validation | backend bugs; serialization drift |
-| 8 - Validation/agents/Studio | Phases 1-7 relevant exits | every shipped rule has a falsification record; symbolics DSH tool answers the acceptance scenario; trace pane renders end-to-end; Lean manifest green in CI | falsification engine, oracles, agent CLI + DSH tool, Studio pane, proofs | hardening across phases | CI weight; tool-chain risk (Lean) |
+| Phase | Entry criteria | Exit criteria | Delivers | Parallel work | Key risks | Actual exit state |
+|---|---|---|---|---|---|---|---|
+| 0 - Kernel constitution | SYM-01 merged | INV-01..15 implemented and tested; constitution suite green; Suite.Tests 100% green; AOT publish smoke green | Expr DAG, interning, Rational, canonical algebra, assumptions, rewrite engine, text form, evaluation, language surface (symbol/assume) | SYM-13b; test authoring | invariant drift; backward-compat regressions in Suite | Exited green |
+| 1 - Canonical algebra | Phase 0 exit | simplify/expand/collect/diff verified against recorded oracle corpus; determinism replays green | user-facing simplify/expand/collect/diff, named constants, relations/Piecewise | polynomials track; matrices track | rule-order bugs; budget exhaustion UX | Exited green |
+| 2 - Polynomial/rational algebra | Phase 0 exit + SYM-18 | expand(factor(p)) == p and gcd*lcm properties green over random corpora; cyclic-4 Groebner within budget | polynomials, GCD, resultants, factorization, Groebner, rational functions, SymbolicMatrix/Bareiss | calculus track; solving track (against contracts) | coefficient blow-up; factoring bugs | Exited green |
+| 3 - Calculus | SYM-17 + SYM-18 | series/limit/integral fixture corpus green; every integral self-verified by diff | series, limits, tiered integration, vector calculus | solving track; optimization track | integrator loops; limit edge cases | Exited green |
+| 4 - Solving | SYM-19 + SYM-34 | acceptance-scenario solve results; RootOf numeric evaluation at 50 digits verified | solve dispatcher, linear/polynomial/rational/elementary solving, RootOf | Suite array integration; optimization | solver incompleteness; condition bookkeeping | Exited green |
+| 5 - Symbolic arrays | SYM-34 + SYM-10 | acceptance-scenario matrix steps in REPL/Run/Studio; existing array tests untouched | symbolic elements in language arrays | optimization; MathIR | dispatch bugs between symbolic/numeric paths | Exited green |
+| 6 - Optimization | Phase 0 exit + SYM-11/19 | k1-k8 equivalence verified; k3 collapses to 1; caps honored | CSE, Horner, power chains, e-graph, cost models, optimize() | MathIR | saturation explosion; unsound reassociation | Exited green |
+| 7 - MathIR + execution | SYM-39 + SYM-40 | lowering round-trip equivalence property green; product benchmark published with break-even counts | MathIR, lowering, interpreters, batch evaluator, benchmarks | Phase 8 validation | backend bugs; serialization drift | Exited green |
+| 8 - Validation/agents/Studio | Phases 1-7 relevant exits | every shipped rule has a falsification record; symbolics DSH tool answers the acceptance scenario; trace pane renders end-to-end; Lean manifest green in CI | falsification engine, oracles, agent CLI + DSH tool, Studio pane, proofs | hardening across phases | CI weight; tool-chain risk (Lean) | Exited green |
 
-Each phase merges only when its exit criteria pass on main (see dsh-execution-plan.md section 6
-for the merge gates).
+All phases exited green; the exit gates used at each exit are those in
+docs/symbolics/hardening-alignment-plan.md section 8. Each phase merges only when its exit
+criteria pass on main (see dsh-execution-plan.md section 6 for the merge gates).
 
 ---
 
