@@ -5,6 +5,11 @@
 > [testing-and-validation.md](testing-and-validation.md), [risk-register.md](risk-register.md),
 > [dsh-execution-plan.md](dsh-execution-plan.md). Root summary: [SYMBOLICS-ROADMAP.md](../../SYMBOLICS-ROADMAP.md).
 
+> **Post-cycle status:** the kernel described here is shipped and hardened (commits
+> `f36dd06`, `13c61a0`, `1af7272`, `50ac339`). Sections marked `[POST-CYCLE]` were corrected
+> to match the shipped implementation; the binding change log is
+> [hardening-alignment-plan.md](hardening-alignment-plan.md).
+
 > Raw inspection evidence for this document lives in
 > [findings/numeric-hierarchy-aot-report.md](findings/numeric-hierarchy-aot-report.md) plus the
 > three subsystem reports summarized in section 1. All file references below are to the current
@@ -46,7 +51,7 @@ Hosts: Lovelace.Console (REPL) · Lovelace.Run (JSON runner, DSH tool) · Lovela
 | Suite AST (`Ast.cs`) | **KEEP SEPARATE** | Immutable records; raw-text literals; no per-node spans; no Symbol node; `VariableExpr` is name lookup | The symbolic IR must be a dedicated semantic DAG in Lovelace.Symbolics. Suite AST stays the language/source representation; a *converter* (literal/variable/binary/call → symbolic nodes) bridges them |
 | `Value` / `ValueKind` (`Value.cs:20-49`) | **EXTEND** (append `ValueKind.Symbolic`) | Boxed tagged union; widening `Natural→Integer→Real` by enum ordinal; `Complex` precedent as domain type outside the lattice | Append `Symbolic` after `Complex` as a non-widening domain kind; add `Value(Symbolic)`/`AsSymbolic()`; extend the `(op, kind)` switches in `NumericOps.cs` and the Modus payload mapping |
 | Modus plugin seam (`IModusPlugin`/`IModusContext`, `ModusHost`) | **REUSE** for the language surface | `Lovelace.Abstractions/Modus.cs` — post-remediation shape: `IFieldKernel<T>` (no `unmanaged` constraint, field injected), `ScalarResult` channel, duplicate-registration guards (`ModusHost.cs:87`); `DspPlugin` precedent; compile-time-linked; AOT-safe; Suite holds zero Dsp refs | `SymbolicsPlugin : IModusPlugin` registers the CAS builtins; symbolic values are a *novel element type*, which the contract explicitly says requires a core bridge — exactly the `ValueKind.Symbolic` + `ModusHost` mapping this plan adds |
-| `Lovelace.Knowledge` (MGIR) | **REUSE (adapt) as falsification engine** | `SplitMix64` (`Randomness.cs`), `Proposal` (sweeps/random/bisection/held-out probes), `ExactNumber` (BigInteger-based rational, +/- only), `Reducer` (finite-difference boundaries, guard fitting), `Convergence` (C1–C4), `Confidence` ladder, `Graph`/`GraphStore` | New `Lovelace.Symbolics.Validation` reuses the pipeline pattern + PRNG + boundary model against rewrite rules; adds an expression-term shrinker and in-process high-precision evaluation |
+| `Lovelace.Knowledge` (MGIR) | **REUSE (adapt) as falsification engine** | `SplitMix64` (`Randomness.cs`), `Proposal` (sweeps/random/bisection/held-out probes), `ExactNumber` (BigInteger-based rational, +/- only), `Reducer` (finite-difference boundaries, guard fitting), `Convergence` (C1–C4), `Confidence` ladder, `Graph`/`GraphStore` | [POST-CYCLE] The falsifier shipped INSIDE `Lovelace.Symbolics.Tests` (`FalsificationTests.cs` boundary-biased rule attacks with `FuzzVerified` evidence labeling, `PropertyTests.cs` seeded suites, `DifferentialOracleTests.cs` SymPy oracle with skip-when-absent) rather than a separate `Lovelace.Symbolics.Validation` project; the Knowledge assembly was NOT linked — only its pattern was reused |
 | `Lovelace.Proofs` (Lean) | **EXTEND (linkage manifest)** | Core-Lean 4.33.1; digit-list theorems; no C#↔proof linkage today | Add a `RuleId → (module, theorem, hash)` manifest + CI staleness check; first proofs: Rational normalization, canonicalization soundness, polynomial arithmetic |
 | Benchmark house style | **REUSE** | BenchmarkDotNet 0.15.8 in `precbench`/`dspbench` with `[MemoryDiagnoser]`, precision-pinning `[GlobalSetup]`, 10-min build timeout | New `symbench`/`optbench` mirror `dspbench` conventions |
 | Hosts / DSH tools | **REUSE + extend** | `Lovelace.Run` (JSON envelope, source-gen context), `harness/lovelace.host.js`, `harness/knowledge.host.js` (mgir tool) | New `Lovelace.Symbolics.Run` CLI + `symbolics.host.js` DSH plugin following the same pattern; Studio gains symbolic endpoints/panes |
@@ -85,9 +90,9 @@ Hosts: Lovelace.Console (REPL) · Lovelace.Run (JSON runner, DSH tool) · Lovela
     symbolic IR: do not. `LiteralExpr` keeps raw text, `VariableExpr` is a name reference,
     there are no spans, and control flow is present. The symbolic DAG is a different kind of
     object (semantic, canonical, interned); a small converter bridges them.
-11. **Property testing does not exist yet** (no FsCheck/Hedgehog; xUnit only). The plan
-    introduces deterministic property testing over the repo's own `SplitMix64`, keeping the
-    zero-runtime-dependency policy.
+11. **Property testing did not exist at planning time** (no FsCheck/Hedgehog; xUnit only).
+    [POST-CYCLE] It now ships as seeded deterministic suites over `System.Random` in
+    `Lovelace.Symbolics.Tests/PropertyTests.cs`, keeping the zero-runtime-dependency policy.
 12. **Studio is a minimal-API + vanilla-JS app** (not Blazor) — symbolic UI is new endpoints,
     DTOs, and a pane in `wwwroot/index.html` + `app.js`, plus `EngineHost.GetCompletions`.
 13. **Post-remediation baseline (2026-09-08, after this plan was written).** The DSP plugin
@@ -488,7 +493,11 @@ Multiply(a1, …, an) is canonical iff:
   M2  at most one numeric constant factor, and it is the first factor (folded)
   M3  no factor is 0 (→ 0) or 1 (dropped)
   M4  no two factors are Powers of the same base with integer exponents
-      (x^a · x^b → x^(a+b)); rational exponents are NOT merged in v1 (correctness first)
+      (x^a · x^b → x^(a+b)); [POST-CYCLE] merging fires only when the pole set is
+      preserved — both exponents nonnegative, or the combined exponent negative.
+      x·x⁻¹ and 0·x⁻¹ therefore stay visible (the constructor no longer defines them
+      at 0); the originally planned blanket "rational exponents are NOT merged" rule was
+      refined into this definedness guard
   M5  factors sorted ascending by the term order
   M6  if n == 1 after folding, unwrap
 ```
@@ -894,9 +903,15 @@ factor over ℚ → solve each irreducible factor:
 | 4 | Ferrari (Aggressive effort only; else RootOf) |
 | ≥ 5 | RootOf(poly, index) with numeric isolating interval (real roots first, then complex pairs) |
 
-`RootOf` numerical evaluation: `N(rootOf, digits)` — isolation via arbitrary-precision
-bisection/Sturm-lite then Newton iteration, reusing `Real`'s precision machinery; verified
-by back-substitution. Conditions travel with solutions (e.g. the classic `x² - 2 = 0` over
+[POST-CYCLE] RootOf contract as shipped: `RootOf(p, i)` is the i-th REAL root (ascending)
+of the SQUARE-FREE part of the univariate polynomial (auto-normalized at construction).
+Complex algebraic numbers are deferred — there is no complex-pair indexing. The solver
+emits exactly the Sturm count of real roots, so degree ≥ 4 with no real roots reports
+"no real roots" instead of inventing indices.
+
+`RootOf` numerical evaluation: `N(rootOf, digits)` — isolation via exact Sturm sequences
+(sign-variation counts with left-limit endpoint handling) and bisection over rational
+intervals, not a sampling grid; verified by back-substitution. Conditions travel with solutions (e.g. the classic `x² - 2 = 0` over
 reals returns both roots; `sqrt`-introduced solutions are never silently dropped).
 
 ### 11.3 Elementary compositions and systems
@@ -1037,6 +1052,15 @@ re-implementation of either.
 ---
 
 ## 15. Transformation provenance and verification (B: provenance)
+
+[POST-CYCLE] This section shipped with small naming differences: the records are
+`RewriteStep(RuleId, RuleClassification, Before, After, Conditions)` and
+`TransformResult(Expression, Conditions, Steps)` (returned by `Simplify.Transform`); rule
+classification is the `RuleClassification` enum (Universal / Conditional / DomainSpecific /
+Approximate / OptimizationOnly); `EffortLevel`/`MaxNodes`/`MaxDepth` were NOT shipped
+(v1 has `MaxSteps` only). Collection is still opt-in in the engine (`Apply(..., trace)`) but
+`Simplify.Transform` always collects so its Conditions are populated. The sketch below
+remains the design reference.
 
 ```csharp
 public sealed record RewriteStep(
@@ -1417,6 +1441,13 @@ Suite-facing surface: `symbol`, `assume` (+ domain atoms), `diff`, `integrate`, 
 ---
 
 ## 23. Core invariants (E) — frozen before parallel implementation
+
+[POST-CYCLE] Invariants INV-01..15 hold as shipped with these corrections: equality is
+structural and hash-consing is per-context (reference equality holds only within one
+context; cross-context equality is structural — INV-01 as written overstates the
+reference-equality scope); power merging (INV-03/M4/P1) carries the definedness guard
+noted in §6; `Ask` (INV-07) additionally ships Even/Odd ⇒ Integer (never the reverse) and
+Im-interval condition atoms; series truncation now carries an explicit O((x−x₀)ⁿ) term.
 
 | # | Invariant |
 |---|---|

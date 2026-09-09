@@ -1,8 +1,13 @@
 # Lovelace.Symbolics — Testing and Validation
 
-> **Status:** Planning document. Defines the correctness program, falsification strategy,
-> regression policy, and benchmark plan for the symbolic-numeric compiler kernel.
-> Companion documents: [architecture.md](architecture.md), [implementation-plan.md](implementation-plan.md),
+> **Status:** Planning document — executed; see the [POST-CYCLE] annotations below.
+> The correctness program shipped inside `Lovelace.Symbolics.Tests` (`PropertyTests.cs`,
+> `FalsificationTests.cs`, `DifferentialOracleTests.cs`, `KernelHardeningTests.cs`,
+> `ConcurrencyTests.cs`, `MathIrTypingTests.cs`, `LinsolveCheckTests.cs`, `SystemSolveTests.cs`);
+> the binding change log is [hardening-alignment-plan.md](hardening-alignment-plan.md).
+> Defines the correctness program, falsification strategy, regression policy, and benchmark
+> plan for the symbolic-numeric compiler kernel. Companion documents:
+> [architecture.md](architecture.md), [implementation-plan.md](implementation-plan.md),
 > [risk-register.md](risk-register.md), [dsh-execution-plan.md](dsh-execution-plan.md).
 
 ---
@@ -75,6 +80,14 @@ every example an assertion). This forces the user-facing surface to stay in sync
 
 ## 3. Property-based testing
 
+[POST-CYCLE] Shipped with seeded deterministic System.Random PRNGs (no external property
+framework, per the repo policy): canonical-text round-trip and re-interning, simplify-value
+equivalence under declared assumptions, symbolic derivative vs high-precision central
+differences, integrate-to-diff round-trip, solve-to-substitute-to-zero, optimize-value
+equivalence, MathIR-vs-tree equivalence, concurrency (parallel symbol creation/parse/
+simplify/diff/compile), and precision integrity (500-digit round-trips, huge exponents).
+The catalog below was the source; not every listed family has a suite yet.
+
 The repo currently has almost no property-style testing (xUnit `Fact`s dominate; a handful of
 `Theory`/`MemberData` uses in `Lovelace.Suite.Tests`). Symbolics changes that *within xUnit* — a
 small deterministic generator layer over the repo's own `SplitMix64` PRNG
@@ -124,6 +137,11 @@ layer separately attacks the rule *outside* those assumptions.
 
 ## 4. Differential oracles (SymPy / AngouriMath)
 
+[POST-CYCLE] The SymPy oracle shipped exactly as constrained here: tests-only, invoked as a
+child process, and auto-SKIPPED when python3/sympy is absent (DifferentialOracleTests.cs
+probes for the interpreter first). AngouriMath was not used. Disagreements are adjudicated
+by independent numeric evaluation, never trusted blindly.
+
 Mature CAS systems are used **only as development-time oracles**, never as runtime
 dependencies — matching the repo's zero-third-party-runtime-dependency policy.
 
@@ -166,6 +184,14 @@ human-oriented pretty-print.
 ---
 
 ## 5. Monte Carlo and boundary falsification (the MGIR reuse)
+
+[POST-CYCLE] Implemented inside Lovelace.Symbolics.Tests rather than a separate
+Lovelace.Symbolics.Validation project, and WITHOUT linking the Knowledge assembly — only
+its pattern (seeded deterministic PRNG, boundary-biased points, bisection-style probing) was
+reused. FalsificationTests.cs attacks every shipped rewrite rule over its declared domain
+with points biased toward the singular/ordering boundaries (0, ±1, ±1/1000, ±1/3, ±3/2, ±100)
+and labels evidence FuzzVerified; sampling is never used to upgrade an identity to a proven
+theorem. The section below remains the design reference.
 
 `Lovelace.Knowledge` already implements the exact machinery this layer needs, pointed today at
 the arithmetic lattice. It is repurposed to attack **rewrite rules**:

@@ -1,7 +1,14 @@
 # Lovelace.Symbolics - Risk Register
 
 > **Status:** Technical and architectural risks with mitigations and explicit scope cuts.
-> Companions: [architecture.md](architecture.md), [implementation-plan.md](implementation-plan.md),
+> **Post-cycle:** R2/R3 MITIGATED (conditional branch-cut rules + classification + the
+> falsification suite); R6 partially mitigated (Groebner shipped Buchberger-first, no F4 yet);
+> R8 FIXED where it materialized (denominator conditions honored; the Gauss-Jordan Bareiss
+> solve P0 was replaced by forward Bareiss + back-substitution); R11 shipped (MathIR v2 with
+> enforced versioning); R14 held (full Suite.Tests stayed green throughout); R16 held
+> (e-graph and Lean deferred; no breadth creep). R4 (pool retention), R7 (e-graph, deferred
+> with it), R15 (Lean) remain open. Companions: [architecture.md](architecture.md),
+> [implementation-plan.md](implementation-plan.md),
 > [testing-and-validation.md](testing-and-validation.md), [dsh-execution-plan.md](dsh-execution-plan.md).
 
 ---
@@ -45,16 +52,20 @@ table - cutting it would invalidate the coherence the whole plan exists to guara
   functions; Bareiss symbolic matrices; linear + polynomial (<=3) solving + RootOf;
 - tiered integration with self-verification; series; limits (bounded scope);
 - deterministic optimizer (CSE/Horner/power chains) + MathIR interpreter + batch evaluator;
-- falsification engine + property suites + regression policy; agent CLI + DSH tool.
+- falsification engine + property suites + regression policy (shipped in
+  Lovelace.Symbolics.Tests); the agent CLI + DSH tool were cut and remain deferred.
 
 ### High-value (cut only under serious schedule pressure)
 
-- Groebner bases (SYM-24/32) - keep if any multivariate solving is needed; drop keeps
-  univariate completeness;
-- e-graph (SYM-38) - the deterministic optimizer covers v1 value;
-- quartic formulas (behind Aggressive) - RootOf covers correctness;
-- Studio trace pane (SYM-47) - agent APIs carry the same information;
-- Lean proofs beyond P1/P2 (SYM-48 partial).
+- Groebner bases (SYM-24/32) - SHIPPED (Buchberger, lex/grlex/grevlex, Reduce/Eliminate;
+  polynomial systems solving landed on top);
+- e-graph (SYM-38) - DEFERRED; the deterministic optimizer covers v1 value;
+- quartic formulas (behind Aggressive) - DEFERRED; real-root RootOf (Sturm-isolated) covers
+  correctness;
+- Studio trace pane (SYM-47) - SHIPPED as the backend inspection endpoint
+  (`POST /api/symbolic/inspect`: canonical form, tree, assumptions, trace, MathIR); the
+  frontend panes are deferred;
+- Lean proofs beyond P1/P2 (SYM-48 partial) - DEFERRED.
 
 ### Optional (nice-to-have)
 
