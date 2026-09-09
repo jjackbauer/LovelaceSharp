@@ -228,11 +228,18 @@ SIMD/GPU/native backends, parametric solution families, Im-interval branch predi
   `CompiledKernel` with column-wise batch, optimization policies (PrecisionAware Horner),
   Suite `and`/`or`/`not`/`assume`-conjunction, `matrix_rank`/`linsolve`, `compile`/
   `evalir_batch`, lazy Select in the IR evaluator.
-- **Phase 4 (algebraic depth): first tranche committed** — Buchberger Gröbner (lex/grlex/
-  grevlex) with `Groebner.Basis/Reduce/Eliminate` + invariant tests; polynomial-systems
-  solving via Gröbner is the next tranche.
-- **Phase 5 (compiler advancement): pending** — MathIR typing/validation, Vector/Matrix IR,
-  lazy Select, benchmarks, Studio surfaces.
+- **Phase 4 (algebraic depth): committed** — Buchberger Gröbner (lex/grlex/grevlex) with
+  `Groebner.Basis/Reduce/Eliminate`, plus polynomial-SYSTEM solving: lex-elimination into
+  triangular form, univariate solving (incl. RootOf), recursive back-substitution, and
+  per-solution verification (`SystemSolvers.Solve`, `solve_system` builtin; circle/hyperbola
+  yields all 4 solutions; inconsistent systems report none).
+- **Phase 5 (compiler advancement): in progress** — lazy Select (landed with Phase 3),
+  MathIR type inference + validation (IrTyping: Integer/Rational/Real/Complex/Bool with
+  arity/topology/ordered-comparison/Select-guard checks, wired into Deserialize and
+  Compilation), Studio symbolic inspection surface (canonical form, expression tree,
+  assumptions, simplification trace, MathIR — `POST /api/symbolic/inspect` + EngineHost),
+  and the symbench BenchmarkDotNet project. Remaining: Vector/Matrix IR ops (Q8) and
+  benchmark publication.
 - **Phase 6 (e-graph): deferred** per the approved plan.
 
 ## Approval

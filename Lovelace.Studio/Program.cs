@@ -99,6 +99,14 @@ app.MapPut("/api/precision", (SetPrecisionRequest request, HttpContext ctx, Engi
     }
 });
 
+app.MapPost("/api/symbolic/inspect", async (SymbolicInspectRequest request, HttpContext ctx, EngineHost host) =>
+{
+    var session = host.TryGetSession(SessionId(ctx) ?? string.Empty);
+    if (session is null)
+        return Results.NotFound();
+    return Results.Ok(await host.InspectSymbolicAsync(session, request.Source));
+});
+
 app.MapGet("/api/completions", (HttpContext ctx, EngineHost host) =>
 {
     var session = host.TryGetSession(SessionId(ctx) ?? string.Empty);

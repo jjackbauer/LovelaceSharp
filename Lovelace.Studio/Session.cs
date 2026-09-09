@@ -32,12 +32,16 @@ public sealed class Session
     /// <summary>Runs (in-flight and recent) keyed by run id.</summary>
     internal ConcurrentDictionary<string, RunState> Runs { get; } = new();
 
+    /// <summary>The symbolic plugin backing this session (inspection surfaces use it).</summary>
+    public Lovelace.Symbolics.SymbolicsPlugin Symbolics { get; }
+
     public Session()
     {
         // A new session starts at the single "precision" knob default and exposes the DSP builtins.
         Engine.SetPrecision(DefaultPrecision);
         Engine.LoadPlugin(new DspPlugin());
         var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
+        Symbolics = symbolics;
         Engine.LoadPlugin(symbolics);
         Engine.LoadPlugin(new Lovelace.MathIR.MathIRPlugin(symbolics));
         // Track (re)definitions so cached statements depending on a function are invalidated.

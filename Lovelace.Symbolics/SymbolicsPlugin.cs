@@ -94,6 +94,16 @@ public sealed class SymbolicsPlugin : IModusPlugin
             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromLeft, Context)));
         Add("limit_right", new[] { "f", "x", "x0" }, args =>
             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
+        Add("solve_system", new[] { "eqs", "vars" }, args =>
+        {
+            var eqs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
+            var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
+            var result = SystemSolvers.Solve(eqs, vs, Context);
+            if (result.Solutions.Count == 0)
+                return "no solutions" + (result.Note is { } note ? ": " + note : "");
+            return string.Join("; ", result.Solutions.Select(sol =>
+                string.Join(", ", vs.Select(v => v.Name + " = " + Printing.PrettyPrint(sol.Assignment[v])))));
+        });
         Add("solve", new[] { "f", "x" }, args =>
         {
             var fx = AsExpr(args[0]);
@@ -217,8 +227,13 @@ public sealed class SymbolicsPlugin : IModusPlugin
     private object Run(Func<object?> impl)
     {
         Exprs.Current = Context;
+        // install the pre-call set for the builtin's own reads, then re-sync after the call
+        // so assumption updates made during the call (assume/assume_*) become visible
+        // immediately — including to direct (non-builtin) kernel callers like Studio
         Context.Assumptions = _assumptions;
-        return impl() ?? throw new InvalidOperationException("Symbolic builtin returned null.");
+        var result = impl() ?? throw new InvalidOperationException("Symbolic builtin returned null.");
+        Context.Assumptions = _assumptions;
+        return result;
     }
 
     private object AssumePred(IReadOnlyList<object?> args, SymbolPredicate pred)

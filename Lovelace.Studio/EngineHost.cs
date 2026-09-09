@@ -99,6 +99,98 @@ public sealed class EngineHost
         return true;
     }
 
+    /// <summary>
+    /// Symbolic inspection surface: evaluates a single statement, then projects the resulting
+    /// symbolic value onto its canonical/pretty forms, expression tree, assumptions, the
+    /// simplification trace, and the lowered MathIR.
+    /// </summary>
+    public async Task<SymbolicInspectResponse> InspectSymbolicAsync(Session session, string source)
+    {
+        await session.Gate.WaitAsync();
+        try
+        {
+            var result = await session.Engine.EvaluateAsync(source);
+            if (result.Kind != ValueKind.Symbolic)
+                return new SymbolicInspectResponse(null, null, null, Array.Empty<string>(), Array.Empty<string>(), null,
+                    new[] { $"The last value is {result.Kind}, not a symbolic expression." });
+
+            var expr = result.AsSymbolic();
+            var ctx = session.Symbolics.Context;
+            var trace = Lovelace.Symbolics.Simplify.Transform(expr, ctx, new Lovelace.Symbolics.Simplify.Options(Trace: true));
+
+            string? mathir = null;
+            try
+            {
+                var symbols = CollectSymbols(expr).Select(ctx.Symbol).ToArray();
+                var program = Lovelace.MathIR.Lowering.Lower(expr, ctx, symbols);
+                mathir = program.Serialize().TrimEnd('\n');
+            }
+            catch (Exception)
+            {
+                // not lowerable (e.g. an unevaluated integral): leave the MathIR view empty
+            }
+
+            return new SymbolicInspectResponse(
+                Lovelace.Symbolics.Printing.CanonicalPrint(expr),
+                Lovelace.Symbolics.Printing.PrettyPrint(expr),
+                BuildTree(expr),
+                session.Symbolics.Context.Assumptions.Atoms.Select(a => a.ToString()!).ToArray(),
+                trace.Steps.Select(s => s.ToString()).ToArray(),
+                mathir,
+                Array.Empty<string>());
+        }
+        catch (Exception ex)
+        {
+            return new SymbolicInspectResponse(null, null, null, Array.Empty<string>(), Array.Empty<string>(), null,
+                new[] { ex.Message });
+        }
+        finally
+        {
+            session.Gate.Release();
+        }
+    }
+
+    private static SymbolicTreeNode BuildTree(Lovelace.Symbolics.Expr e)
+    {
+        var children = new List<SymbolicTreeNode>();
+        switch (e)
+        {
+            case Lovelace.Symbolics.AddExpr a: children.AddRange(a.Terms.Select(BuildTree)); break;
+            case Lovelace.Symbolics.MultiplyExpr m: children.AddRange(m.Factors.Select(BuildTree)); break;
+            case Lovelace.Symbolics.PowerExpr p: children.Add(BuildTree(p.Base)); children.Add(BuildTree(p.Exponent)); break;
+            case Lovelace.Symbolics.FunctionExpr f: children.AddRange(f.Arguments.Select(BuildTree)); break;
+            case Lovelace.Symbolics.RelationExpr r: children.Add(BuildTree(r.Left)); children.Add(BuildTree(r.Right)); break;
+            case Lovelace.Symbolics.PiecewiseExpr pw:
+                children.AddRange(pw.Branches.Select(b => new SymbolicTreeNode("branch", "if " + Lovelace.Symbolics.Printing.PrettyPrint(b.Guard), new[] { BuildTree(b.Value) })));
+                children.Add(BuildTree(pw.Otherwise));
+                break;
+        }
+        return new SymbolicTreeNode(e.Kind.ToString(), Lovelace.Symbolics.Printing.PrettyPrint(e), children.ToArray());
+    }
+
+    private static SortedSet<string> CollectSymbols(Lovelace.Symbolics.Expr e)
+    {
+        var set = new SortedSet<string>(StringComparer.Ordinal);
+        void Walk(Lovelace.Symbolics.Expr x)
+        {
+            switch (x)
+            {
+                case Lovelace.Symbolics.SymbolExpr s: set.Add(s.Symbol.Name); break;
+                case Lovelace.Symbolics.AddExpr a: foreach (var t in a.Terms) Walk(t); break;
+                case Lovelace.Symbolics.MultiplyExpr m: foreach (var f in m.Factors) Walk(f); break;
+                case Lovelace.Symbolics.PowerExpr p: Walk(p.Base); Walk(p.Exponent); break;
+                case Lovelace.Symbolics.FunctionExpr f: foreach (var arg in f.Arguments) Walk(arg); break;
+                case Lovelace.Symbolics.RelationExpr r: Walk(r.Left); Walk(r.Right); break;
+                case Lovelace.Symbolics.PiecewiseExpr pw:
+                    foreach (var b in pw.Branches) { Walk(b.Guard); Walk(b.Value); }
+                    Walk(pw.Otherwise);
+                    break;
+            }
+        }
+        Walk(e);
+        return set;
+    }
+
     private static readonly string[] Keywords = ["func", "if", "else", "while", "for", "in", "return", "break", "continue"];
 
     /// <summary>Returns the autocomplete catalog: keywords, built-ins, user functions, and live variables.</summary>

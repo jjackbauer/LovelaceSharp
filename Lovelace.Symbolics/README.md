@@ -562,6 +562,18 @@ solve(x + y == 0, x)
 [-y] (Vector)
 ```
 
+Polynomial systems solve via Gröbner-basis elimination and back-substitution
+(`solve_system`):
+
+```lovelace
+x = symbol("x")
+y = symbol("y")
+solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
+```
+```result
+x = 0, y = -1; x = -1, y = 0; x = 1, y = 0; x = 0, y = 1
+```
+
 An inconsistent equation returns the equation itself (no solutions); an unsupported
 structure is reported unevaluated:
 

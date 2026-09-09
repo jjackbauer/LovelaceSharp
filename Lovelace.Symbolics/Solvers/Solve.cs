@@ -447,6 +447,164 @@ public static class Solvers
     }
 }
 
+/// <summary>Structured system solution: one assignment per solution map.</summary>
+public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment, AssumptionSet Conditions);
+
+public sealed class SystemSolveResult
+{
+    public List<SystemSolution> Solutions { get; } = new();
+    public string? Note { get; }
+
+    public SystemSolveResult(string? note = null) => Note = note;
+}
+
+/// <summary>
+/// Polynomial systems: Gröbner-basis elimination into a triangular system, then univariate
+/// solving and recursive back-substitution. Solutions are returned as variable assignments
+/// and are verified where feasible.
+/// </summary>
+public static class SystemSolvers
+{
+    private const int MaxSolutions = 128;
+
+    public static SystemSolveResult Solve(
+        IReadOnlyList<Expr> equations, IReadOnlyList<Symbol> variables, ExprContext? ctx = null)
+    {
+        ctx ??= Exprs.Current;
+        var polys = new List<Expr>();
+        foreach (var eq in equations)
+        {
+            var f = eq is RelationExpr r && r.Op == RelOp.Eq ? Exprs.Subtract(r.Left, r.Right) : eq;
+            if (!Polynomial.TryFromExpr(f, ctx, variables.ToArray(), out _, out _))
+                return new SystemSolveResult("Only polynomial systems are supported in v1.");
+            polys.Add(f);
+        }
+        var result = new SystemSolveResult();
+        SolveRecursive(polys, variables.ToArray(), ctx, AssumptionSet.Empty, new Dictionary<Symbol, Expr>(), result, 0);
+        return result;
+    }
+
+    private static void SolveRecursive(
+        IReadOnlyList<Expr> polys, Symbol[] vars, ExprContext ctx,
+        AssumptionSet conditions, Dictionary<Symbol, Expr> partial, SystemSolveResult result, int depth)
+    {
+        if (result.Solutions.Count >= MaxSolutions)
+            return;
+        int n = vars.Length;
+        if (n == 0)
+        {
+            // no variables left: every remaining equation must vanish identically
+            foreach (var p in polys)
+            {
+                if (Evaluation.ConstantToNum(p) is { } cv && !NumOps.IsZero(cv))
+                    return;   // an inconsistent constant remains
+            }
+            result.Solutions.Add(new SystemSolution(new Dictionary<Symbol, Expr>(partial), conditions));
+            return;
+        }
+        if (n == 1)
+        {
+            var x = vars[0];
+            if (!Polynomial.TryFromExpr(polys[0], ctx, new[] { x }, out var poly, out _))
+                return;
+            var set = Solvers.SolvePolynomial(poly, x, ctx);
+            foreach (var sol in set.Solutions)
+            {
+                if (!SatisfiesAll(sol.Value, polys.Skip(1), x, ctx))
+                    continue;
+                var assignment = new Dictionary<Symbol, Expr>(partial) { [x] = sol.Value };
+                result.Solutions.Add(new SystemSolution(assignment, conditions));
+                if (result.Solutions.Count >= MaxSolutions)
+                    return;
+            }
+            return;
+        }
+
+        // lex Gröbner basis; eliminate all but the last variable
+        var last = vars[n - 1];
+        List<Polynomial> basis;
+        try
+        {
+            var gens = polys.Select(p => Polynomial.FromExpr(p, ctx, vars)).ToList();
+            basis = Groebner.Basis(gens, MonomialOrder.Lex);
+        }
+        catch (Exception)
+        {
+            return;
+        }
+        var eliminated = basis
+            .Where(p => FreeOfVariables(p, vars[..^1]))
+            .OrderBy(p => p.TotalDegree)
+            .ToList();
+        if (eliminated.Count == 0)
+            return;   // no elimination polynomial: not enumerated in v1
+        if (eliminated[0].IsOne)
+            return;   // ideal is the whole ring: no solutions
+        var univariate = eliminated[0];
+        if (!Polynomial.TryFromExpr(univariate.ToExpr(), ctx, new[] { last }, out var lastPoly, out _))
+            return;
+        var lastSet = Solvers.SolvePolynomial(lastPoly, last, ctx);
+        foreach (var sol in lastSet.Solutions)
+        {
+            var substituted = polys
+                .Select(p => Evaluation.Substitute(p, ctx, new Dictionary<Symbol, Expr> { [last] = sol.Value }))
+                .ToList();
+            var nextPartial = new Dictionary<Symbol, Expr>(partial) { [last] = sol.Value };
+            SolveRecursive(substituted, vars[..^1], ctx, conditions, nextPartial, result, depth + 1);
+            if (result.Solutions.Count >= MaxSolutions)
+                return;
+        }
+    }
+
+    /// <summary>True when the solution satisfies every remaining equation (symbolically where the
+    /// simplifier can prove it, numerically at high precision otherwise).</summary>
+    private static bool SatisfiesAll(Expr value, IEnumerable<Expr> equations, Symbol x, ExprContext ctx)
+    {
+        using var scope = global::Lovelace.Real.Real.WithPrecision(40, 20);
+        var tolerance = NumOps.FromReal(global::Lovelace.Real.Real.Parse("0." + new string('0', 24) + "1", null));
+        foreach (var eq in equations)
+        {
+            var at = Evaluation.Substitute(eq, ctx, new Dictionary<Symbol, Expr> { [x] = value });
+            if (Evaluation.ConstantToNum(at) is { } cv)
+            {
+                if (!NumOps.IsZero(cv))
+                    return false;
+                continue;
+            }
+            var expanded = Algebra.Expand(at, ctx);
+            if (expanded is RationalConstantExpr rc && rc.Value.IsZero)
+                continue;
+            try
+            {
+                var residual = Evaluation.EvaluateToNum(at, ctx, new Dictionary<Symbol, Num>());
+                if (NumOps.Compare(NumOps.Abs(residual, ctx), tolerance) >= 0)
+                    return false;
+            }
+            catch (Exception)
+            {
+                return false;   // cannot verify: refuse rather than guess
+            }
+        }
+        return true;
+    }
+
+    private static bool FreeOfVariables(Polynomial p, Symbol[] vars)
+    {
+        foreach (var v in vars)
+        {
+            int idx = p.Order.IndexOf(v.Name);
+            if (idx < 0)
+                continue;
+            foreach (var (m, _) in p.Terms)
+            {
+                if (idx < m.Exps.Length && m.Exps[idx] != 0)
+                    return false;
+            }
+        }
+        return true;
+    }
+}
+
 /// <summary>
 /// Rigorous real-root isolation and evaluation for RootOf: Sturm sequences with exact
 /// rational coefficient arithmetic and bisection over rational intervals. No sampling grids,

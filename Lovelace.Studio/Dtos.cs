@@ -8,6 +8,26 @@ public sealed record EvaluateRequest(string Source);
 /// <summary>Body for <c>PUT /api/precision</c>.</summary>
 public sealed record SetPrecisionRequest(long Digits);
 
+/// <summary>Body for <c>POST /api/symbolic/inspect</c>.</summary>
+public sealed record SymbolicInspectRequest(string Source);
+
+/// <summary>A node of the symbolic expression tree.</summary>
+public sealed record SymbolicTreeNode(string Kind, string Label, SymbolicTreeNode[] Children);
+
+/// <summary>
+/// The symbolic inspection surface: canonical/pretty forms, the expression tree, the active
+/// assumptions, the simplification trace, and the lowered MathIR — all without privileged
+/// access to kernel internals.
+/// </summary>
+public sealed record SymbolicInspectResponse(
+    string? Canonical,
+    string? Pretty,
+    SymbolicTreeNode? Tree,
+    string[] Assumptions,
+    string[] TraceSteps,
+    string? MathIR,
+    string[] Diagnostics);
+
 /// <summary>Session metadata returned on create/resume.</summary>
 public sealed record SessionResponse(string SessionId, long Precision, long Revision);
 
