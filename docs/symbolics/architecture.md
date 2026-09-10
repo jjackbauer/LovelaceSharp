@@ -533,11 +533,17 @@ assumptions.
 
 Expressions denote values over the complex field under standard totalizations: every function
 has a documented principal-branch convention (log's cut on the negative real axis, sqrt's
-principal branch, 0⁰ and 0^negative undefined-but-represented). Consequently `x·0 → 0` and
-`x/x → 1` are accepted canonical rules (undefinedness is not a first-class value in v1; the
-assumption engine's `Finite`/domain predicates plus `Unevaluated` nodes are the honesty
-mechanism instead). Any identity that genuinely needs "x ≠ 0" carries that as an explicit
-rule precondition and as solver conditions — never as a silent canonical rule.
+principal branch, 0⁰ and 0^negative undefined-but-represented). Any identity that genuinely
+needs "x ≠ 0" carries that as an explicit rule precondition and as solver conditions — never
+as a silent canonical rule.
+
+[POST-CYCLE] The hardening cycle refined this further: canonical constructors preserve pole
+sets structurally (`x·x⁻¹` and `0·x⁻¹` stay visible — they are undefined at 0, unlike `1`),
+and the DX convergence cycle (`dx-convergence-alignment-plan.md`, D2/D3) made `simplify`
+safe-by-default: conditional rewrites — including `exp(log x) → x`, which carries the
+finiteness of `log(x)` — fire only when their side conditions are provable from the active
+assumptions, while `simplify_full` returns the expression together with its conditions and
+the applied rule trace.
 
 ### 6.7 Printing/parsing (canonical text form)
 
@@ -908,6 +914,11 @@ of the SQUARE-FREE part of the univariate polynomial (auto-normalized at constru
 Complex algebraic numbers are deferred — there is no complex-pair indexing. The solver
 emits exactly the Sturm count of real roots, so degree ≥ 4 with no real roots reports
 "no real roots" instead of inventing indices.
+[POST-CYCLE] The DX convergence cycle (`dx-convergence-alignment-plan.md`, D4) added the
+explicit `SolveDomain` contract: the default solve domain is Complex, under which degree ≥ 4
+factors with no real roots report Unevaluated ("complex algebraic roots not supported"),
+while `solve(expr, x, real)` reports "no real solutions" — domains never switch silently
+between degrees.
 
 `RootOf` numerical evaluation: `N(rootOf, digits)` — isolation via exact Sturm sequences
 (sign-variation counts with left-limit endpoint handling) and bisection over rational

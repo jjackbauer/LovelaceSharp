@@ -53,18 +53,25 @@ prints results via `ValueFormatter.FormatTyped`.
 
 | Command | Description |
 |---|---|
-| `help` | Print statements, operators, functions, and commands. |
+| `help` | Print the category overview (Language, Arrays, Numerics, Symbolics, Calculus, Solving, Linear Algebra, Optimization, Compilation, DSP, Plugins). |
+| `help <category>` | List a category's functions with signatures. |
+| `help <function>` | Show a function's signature, summary, examples, return kind, and see-also. |
 | `vars` | List all variables with types and values. |
-| `funcs` | List all functions (user + built-in). |
+| `funcs` | List all functions, categorized (built-ins grouped by category). |
+| `funcs <category>` | List only the functions of one category. |
 | `clear` | Delete all variables (functions remain). |
 | `delete <name>` | Remove one variable. |
 | `run <file>` | Execute a script file. |
 | `set precision <n>` | Set `Real.MaxComputationDecimalPlaces`. |
 | `set display <n>` | Set `Real.DisplayDecimalPlaces` and `Natural.DisplayDigits`. |
+| `set pretty unicode` / `set pretty ascii` | Toggle Unicode math glyphs (∞ √ π ≤ ≥ ≠) in symbolic output (ASCII default). |
 | `exit` / `quit` | Terminate the REPL. |
 
 The `_` (last result) variable is maintained by the engine: after each successful non-void
 evaluation the result is stored in `_`.
+
+The help surface is plugin-aware: it is derived at runtime from the builtin descriptor
+registry (`Lovelace.Suite/HelpService.cs`), not hard-coded text.
 
 ---
 
@@ -79,7 +86,7 @@ Sample session:
 ```
 LovelaceSharp REPL v1.0.0
 Arbitrary-precision math scripting, vector math, and plotting.
-Type 'help' for a list of statements, operators, functions, and commands.
+Type 'help' for the category overview; 'help symbolics' lists symbolic builtins.
 
 > func square(x) = x ^ 2
 > square(5)

@@ -5,6 +5,11 @@
 > `50ac339`) and shipped through Suite/Studio. The five detailed planning documents in
 > [docs/symbolics/](docs/symbolics/) carry post-cycle status annotations; the binding
 > change log is [docs/symbolics/hardening-alignment-plan.md](docs/symbolics/hardening-alignment-plan.md).
+> The DX + semantic-surface convergence cycle (`358ce89`,
+> [docs/symbolics/dx-convergence-alignment-plan.md](docs/symbolics/dx-convergence-alignment-plan.md))
+> then shipped structured `*_full` results with language property access, the safe simplify
+> contract, explicit solver domains, the record/help/metadata surface, the pretty printer,
+> matrix shape preservation, and the structured DSH envelope.
 > This document remains the *why*; the delivered reality is described in
 > [Lovelace.Symbolics/README.md](Lovelace.Symbolics/README.md).
 

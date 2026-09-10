@@ -90,6 +90,10 @@ Studio has no symbolic UI surfaces.
   abs(x)^2->x^2 conditional on x in Real; exp(log x)->x universal; sqrt(x^2) rules keep
   their gates. Domain-aware property inference (real-domain guards); transcendental
   values are Real not Integer; Power domain accounts for exponent.
+  [POST-CYCLE] The DX convergence cycle (`dx-convergence-alignment-plan.md`, D3)
+  reclassified `exp(log x) → x` from Universal to Conditional: it carries the finiteness
+  of `log(x)`, so the safe `simplify` no longer applies it without a proven condition —
+  superseding this decision.
 - **Exact vs approximate:** RealConstant keeps approximate flag; arithmetic on it computed
   exactly on the literal's rational value, re-emitted at full precision (no 64-digit truncation,
   no display-scoped ToString). All exponent paths arbitrary-precision Int or explicit failure;

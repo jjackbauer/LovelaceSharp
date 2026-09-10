@@ -562,14 +562,16 @@ without the owner; rule IDs stay stable; status enums are closed this cycle.
 
 ### 7.2 DX contract tests (product contracts, per assessment §39)
 
-`help` contains all categories; `help symbolics` lists `symbol/simplify/diff/solve`;
+`help` contains all categories; `help symbolics` lists `symbol/simplify/expand/factor`;
 `help solve` contains signature + example; `funcs calculus` lists calculus functions;
 `jacobian`/`hessian` result shape `[2,2]`; structured conditions survive Suite (`simplify_full`
 `x != 0`); `limit_full` left/right fields accessible; pretty printer emits no redundant
 `((...))`; series terms render in power order; unicode off by default; record serialization
 round-trips; member-access error messages name the type; descriptor arity drives error
-messages. These live in a new `Lovelace.Console.Tests` (help/funcs text) plus Suite/Symbolics
-tests.
+messages. These live in `Lovelace.Suite.Tests` (HelpServiceTests, RecordValueTests) and
+`Lovelace.Symbolics.Tests` (DxSemanticClosureTests, DxStructuredResultsTests) — the REPL
+renders through the same HelpService, so the console text is covered without a separate
+console test project.
 
 ### 7.3 Doctest expansion (assessment §38)
 

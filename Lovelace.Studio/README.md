@@ -2,7 +2,9 @@
 
 A browser IDE over the [Lovelace.Suite](../Lovelace.Suite/README.md) scripting engine: a CodeMirror
 script editor with autocomplete, a variables table + functions panel, an inline SVG graph display,
-a logs bar, a **session-per-tab** model, **per-session precision**, **incremental (hash-based)
+a logs bar, a **symbolic inspection panel** (canonical form, expression tree, assumptions,
+simplification trace, and MathIR for the last expression via `POST /api/symbolic/inspect`),
+a **session-per-tab** model, **per-session precision**, **incremental (hash-based)
 script execution**, and an **async run model with a progress dialog**.
 
 It is a thin HTTP/JSON projection of the engine — the front-end renders engine DTOs only, and all

@@ -595,7 +595,7 @@ solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
 x = 0, y = -1; x = -1, y = 0; x = 1, y = 0; x = 0, y = 1
 ```
 
-An inconsistent equation returns the equation itself (no solutions); an unsupported
+An inconsistent equation reports why (no solutions); an unsupported
 structure is reported unevaluated:
 
 ```lovelace
@@ -1041,7 +1041,9 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
 - Cubic roots use the branch-coupled Cardano form (`u·v = −P/3`), verified against their
   polynomial; quartic and higher-degree factors yield unevaluated `RootOf` roots over the
   exact Sturm count of REAL roots (complex algebraic numbers are deferred), numerically
-  evaluated on request.
+  evaluated on request. The solver domain is explicit: the default is Complex (so a degree
+  ≥ 4 factor with no real roots reports `unevaluated: complex algebraic roots not
+  supported…`), and `solve(expr, x, real)` reports `no real solutions` for it.
 - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
   compositions (with parametric families for periodic inverses); inequality solving is not
   yet implemented.
@@ -1060,4 +1062,4 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
 |---|---|
 | Every `lovelace`/`result` pair | `UsageDocumentationTests` runs each script in a fresh `SuiteEngine` with `SymbolicsPlugin`/`MathIRPlugin` loaded and asserts the exact rendered result, print output, or error message |
 | Every C# snippet | `UsageExamples.cs` contains the identical code in compiling, asserting `[Fact]`s; `DocsSyncTests` fails if any snippet here does not appear (whitespace-normalized) in that file |
-| The whole kernel | `Lovelace.Symbolics.Tests` (acceptance + invariants), `Lovelace.Suite.Tests` (412 incl. the language reference doctests), and the full solution suites run green in CI; `make runner` publishes the engine as a Native AOT binary |
+| The whole kernel | `Lovelace.Symbolics.Tests` (acceptance + invariants + DX contracts), `Lovelace.Suite.Tests` (438 incl. the language-reference doctests and the help/record DX contracts), and the full solution suites run green in CI; `make runner` publishes the engine as a Native AOT binary |

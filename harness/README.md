@@ -75,8 +75,11 @@ plot: C:\…\plot.svg
   svg bytes: 3470
 ```
 
-The canonical (logged) value also includes the full SVG and the functions in scope, so
-tests and scripts can assert on the raw JSON.
+The canonical (logged) value also includes the full SVG; structured results (records from the
+`*_full` builtins) additionally carry a recursive `result.structured` payload
+(`{kind, fields[{name, kind, display, structured}]}`) so agents read status/conditions/steps
+as typed fields instead of parsing text. The registry dump is omitted from the envelope by
+default (`--omit-functions`).
 
 ## Example scripts
 
@@ -86,8 +89,9 @@ tests and scripts can assert on the raw JSON.
 
 - Each tool call runs a fresh `SuiteEngine` (no state carries between calls) — keep each
   script self-contained.
-- The `lovelace` tool returns a JSON envelope (`ok`, `result`, `variables`, `functions`,
-  `plot`, `diagnostics`) produced by `Lovelace.Run`; see
+- The `lovelace` tool returns a JSON envelope (`ok`, `result` — with an optional
+  `result.structured` view — `variables`, `functions` (empty unless requested), `plot`,
+  `diagnostics`) produced by `Lovelace.Run`; see
   [`../Lovelace.Run/Program.cs`](../Lovelace.Run/Program.cs) for the exact shape.
 - This is a per-session dynamic plugin. To make it a permanent, always-on tool for a
   machine, publish it as an npm package and reference it from an agent preset
