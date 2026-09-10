@@ -70,6 +70,12 @@ prints results via `ValueFormatter.FormatTyped`.
 The `_` (last result) variable is maintained by the engine: after each successful non-void
 evaluation the result is stored in `_`.
 
+Every example shown by `help <function>` is executed by the test suite, so an example that does
+not run is a build failure rather than stale documentation. Examples are evaluated against a
+documented prelude — the bindings `x = symbol("x")`, `y = symbol("y")` and `t = symbol("t")` —
+and nothing else; an example needing any other binding must define it itself. The prelude is
+listed by `help` (see `HelpService.ExamplePrelude`, the single source of truth).
+
 The help surface is plugin-aware: it is derived at runtime from the builtin descriptor
 registry (`Lovelace.Suite/HelpService.cs`), not hard-coded text.
 

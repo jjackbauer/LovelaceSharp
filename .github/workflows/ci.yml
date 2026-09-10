@@ -45,6 +45,15 @@ jobs:
           # runner image does not already carry it.
           dotnet-version: '10.0.x'
 
+      # Build-only gate. The benchmark itself is a ShortRun sweep that takes many
+      # minutes, so CI compiles the harness (and its new Suite/Dsp rows) but never
+      # runs it; the recorded baseline lives in benchmarks/symbench-baseline.md.
+      - name: Build symbench (benchmark harness)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build symbench/symbench.csproj --configuration Release --nologo
+
       - name: Run fast test suites
         shell: bash
         run: |
@@ -91,3 +100,152 @@ jobs:
           # Public repo: authenticate via GitHub OIDC instead of a token.
           use_oidc: true
           fail_ci_if_error: true
+
+  # ---------------------------------------------------------------------------
+  # Native AOT publish + published-runner execution smoke.
+  #
+  # The runner is published as a Native AOT binary and then EXERCISED: the
+  # published executable must emit a versioned JSON envelope whose structured
+  # fields an agent can read without parsing display text. This is the gate that
+  # keeps the protocol honest — the unit suites cannot see a packaging regression.
+  # ---------------------------------------------------------------------------
+  aot-smoke:
+    name: Native AOT publish + runner smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install AOT toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang zlib1g-dev
+
+      - name: Publish Lovelace.Run (Native AOT)
+        run: |
+          dotnet publish Lovelace.Run/Lovelace.Run.csproj \
+            --configuration Release \
+            -p:PublishAot=true \
+            -p:InvariantGlobalization=true \
+            -o out/aot
+
+      - name: Upload the published runner (self-contained linux-x64 artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lovelace-run-linux-x64
+          path: out/aot/Lovelace.Run
+          if-no-files-found: error
+
+      - name: Smoke — the published runner answers protocol questions
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe=out/aot/Lovelace.Run
+          chmod +x "$exe"
+
+          # 1. a complete solve reports Solved / Complete with per-solution conditions
+          cat > /tmp/solve.ls <<'EOF'
+          x = symbol("x")
+          solve_full(x^2 - 4 == 0, x)
+          EOF
+          "$exe" --file /tmp/solve.ls --omit-functions > /tmp/solve.json
+          python3 - <<'PY'
+          import json
+          env = json.load(open('/tmp/solve.json'))
+          assert env['ok'] is True, env
+          assert env['protocolVersion'] == 1
+          assert env['symbolicFormatVersion'].startswith('#!lovelace-sym')
+          assert env['mathIrVersion'] >= 1
+          s = env['result']['structured']
+          assert s['kind'] == 'Record' and s['type'] == 'SolveResult', s
+          fields = {f['name']: f['value'] for f in s['fields']}
+          assert fields['status']['value'] == 'Solved'
+          assert fields['complete']['value'] is True
+          assert fields['domain']['kind'] == 'Domain' and fields['domain']['domain'] == 'complex'
+          sols = fields['solutions']
+          assert sols['kind'] == 'Array' and sols['shape'] == [2], sols
+          first = sols['elements'][0]
+          sf = {f['name']: f['value'] for f in first['fields']}
+          assert sf['value']['kind'] == 'Symbolic'
+          assert sf['value']['canonical'].startswith('(rat'), sf['value']['canonical']
+          assert sf['exactness']['value'] in ('Exact', 'AlgebraicExact')
+          print('solve envelope OK')
+          PY
+
+          # 2. an incomplete solve over the complex field must NOT claim completeness
+          cat > /tmp/partial.ls <<'EOF'
+          x = symbol("x")
+          solve_full(x^4 - x^2 - 1 == 0, x)
+          EOF
+          "$exe" --file /tmp/partial.ls --omit-functions > /tmp/partial.json
+          python3 - <<'PY'
+          import json
+          env = json.load(open('/tmp/partial.json'))
+          fields = {f['name']: f['value'] for f in env['result']['structured']['fields']}
+          assert fields['status']['value'] == 'Partial', fields['status']
+          assert fields['complete']['value'] is False
+          assert int(fields['unrepresented_count']['value']) == 2
+          print('completeness envelope OK')
+          PY
+
+          # 3. arrays preserve shape into the protocol
+          cat > /tmp/jac.ls <<'EOF'
+          x = symbol("x")
+          y = symbol("y")
+          jacobian([x*y, x+y], [x, y])
+          EOF
+          "$exe" --file /tmp/jac.ls --omit-functions > /tmp/jac.json
+          python3 - <<'PY'
+          import json
+          env = json.load(open('/tmp/jac.json'))
+          s = env['result']['structured']
+          # rank-2 arrays serialize row-major with an explicit shape
+          assert s['kind'] == 'Array' and s['shape'] == [2, 2], s
+          assert len(s['elements']) == 4
+          assert s['elements'][0]['kind'] == 'Symbolic'
+          assert s['elements'][0]['canonical'] == '(sym y)', s['elements'][0]
+          print('array envelope OK')
+          PY
+
+          # 4. stdout carries the envelope and nothing else, even when the script prints
+          cat > /tmp/print.ls <<'EOF'
+          print("hello from the script")
+          1 + 1
+          EOF
+          "$exe" --file /tmp/print.ls --omit-functions > /tmp/print.json
+          python3 - <<'PY'
+          import json
+          env = json.load(open('/tmp/print.json'))
+          assert env['output'] == ['hello from the script'], env['output']
+          assert env['result']['structured']['value'] == '2'
+          print('stdout purity OK')
+          PY
+
+          # 5. errors are structural: code + category, never message matching
+          cat > /tmp/err.ls <<'EOF'
+          x = symbol("x")
+          solve(x^2 + 1 == 0, x, integer)
+          EOF
+          if "$exe" --file /tmp/err.ls --omit-functions > /tmp/err.json; then
+            echo "expected a non-zero exit for an unsupported domain"; exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          env = json.load(open('/tmp/err.json'))
+          assert env['ok'] is False
+          assert 'got integer' in env['message']
+          assert env['code'] and env['category'], env
+          print('error envelope OK')
+          PY
+

@@ -12,19 +12,55 @@ namespace Lovelace.Console.Repl;
 /// input (with multi-line block accumulation), dispatches special commands, and
 /// prints results. All language logic lives in <c>Lovelace.Suite</c>.
 /// </summary>
+/// <remarks>
+/// The session is host-agnostic: input comes from the <see cref="LineEditor"/>
+/// seam and every line of output goes to the injected <see cref="TextWriter"/>.
+/// The parameterless constructor keeps the original console behaviour
+/// (<see cref="System.Console.In"/> / <see cref="System.Console.Out"/> and
+/// key-by-key interactive editing); injecting a <see cref="StringReader"/> and a
+/// <see cref="StringWriter"/> yields a fully headless session whose transcript can
+/// be asserted on.
+/// </remarks>
 public sealed class ReplSession
 {
     private readonly SuiteEngine _engine = new();
-    private readonly LineEditor _lineEditor = new();
+    private readonly LineEditor _lineEditor;
+    private readonly TextWriter _output;
     private bool _exitRequested;
 
+    /// <summary>Creates a session bound to the real console (interactive editing,
+    /// output to <see cref="System.Console.Out"/>).</summary>
     public ReplSession()
+        : this(null, null)
     {
+    }
+
+    /// <summary>
+    /// Creates a session over an injected input/output pair. Passing <c>null</c> for
+    /// either stream falls back to <see cref="System.Console.In"/> /
+    /// <see cref="System.Console.Out"/> and keeps the interactive console behaviour.
+    /// With a real <paramref name="input"/> the line editor reads with
+    /// <see cref="TextReader.ReadLine"/> instead of <c>Console.ReadKey</c>, so the
+    /// REPL can be driven headlessly.
+    /// </summary>
+    /// <param name="input">Command source, or <c>null</c> for the real console.</param>
+    /// <param name="output">Transcript sink, or <c>null</c> for the real console.</param>
+    public ReplSession(TextReader? input, TextWriter? output)
+    {
+        _output = output ?? System.Console.Out;
+        _lineEditor = input is null ? new LineEditor() : new LineEditor(input, _output);
+
+        // Script-level 'print' output belongs to the same transcript as REPL output.
+        _engine.Output = _output;
+
         _engine.LoadPlugin(new DspPlugin());
         var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
         _engine.LoadPlugin(symbolics);
         _engine.LoadPlugin(new Lovelace.MathIR.MathIRPlugin(symbolics));
     }
+
+    /// <summary>The sink every line of session output is written to.</summary>
+    public TextWriter Output => _output;
 
     // -----------------------------------------------------------------
     // Help / discoverability (derived from the live builtin registry —
@@ -36,15 +72,15 @@ public sealed class ReplSession
         var help = _engine.Help;
         if (arg is null)
         {
-            System.Console.WriteLine(help.Overview());
+            _output.WriteLine(help.Overview());
             return;
         }
-        System.Console.WriteLine(help.Lookup(arg.Trim()) ?? $"No help for '{arg}'. Try 'help' for the category list.");
+        _output.WriteLine(help.Lookup(arg.Trim()) ?? $"No help for '{arg}'. Try 'help' for the category list.");
     }
 
     private void PrintFuncs(string? category)
     {
-        System.Console.WriteLine(_engine.Help.Funcs(category));
+        _output.WriteLine(_engine.Help.Funcs(category));
     }
 
     // -----------------------------------------------------------------
@@ -68,7 +104,7 @@ public sealed class ReplSession
                 string? more = _lineEditor.ReadLine("… ");
                 if (more is null)
                 {
-                    System.Console.WriteLine("Bye!");
+                    _output.WriteLine("Bye!");
                     return;
                 }
                 buffer.Append('\n').Append(more);
@@ -94,7 +130,7 @@ public sealed class ReplSession
             }
         }
 
-        System.Console.WriteLine("Bye!");
+        _output.WriteLine("Bye!");
     }
 
     // -----------------------------------------------------------------
@@ -142,21 +178,21 @@ public sealed class ReplSession
         if (source is "set pretty unicode")
         {
             _engine.UnicodeOutput = true;
-            System.Console.WriteLine("Pretty output: unicode.");
+            _output.WriteLine("Pretty output: unicode.");
             return true;
         }
 
         if (source is "set pretty ascii")
         {
             _engine.UnicodeOutput = false;
-            System.Console.WriteLine("Pretty output: ascii.");
+            _output.WriteLine("Pretty output: ascii.");
             return true;
         }
 
         if (source is "clear")
         {
             _engine.Clear();
-            System.Console.WriteLine("All variables cleared.");
+            _output.WriteLine("All variables cleared.");
             return true;
         }
 
@@ -164,9 +200,9 @@ public sealed class ReplSession
         {
             string name = source["delete ".Length..].Trim();
             if (_engine.RemoveVariable(name))
-                System.Console.WriteLine($"Variable '{name}' deleted.");
+                _output.WriteLine($"Variable '{name}' deleted.");
             else
-                System.Console.WriteLine($"Variable '{name}' is not defined.");
+                _output.WriteLine($"Variable '{name}' is not defined.");
             return true;
         }
 
@@ -176,11 +212,12 @@ public sealed class ReplSession
             if (long.TryParse(rest, out long n) && n > 0)
             {
                 _engine.ComputationDecimalPlaces = n;
-                System.Console.WriteLine($"Computation precision set to {n} decimal places.");
+                _engine.DisplayDecimalPlaces = n;
+                _output.WriteLine($"Computation precision set to {n} decimal places.");
             }
             else
             {
-                System.Console.WriteLine($"Invalid argument '{rest}': expected a positive integer.");
+                _output.WriteLine($"Invalid argument '{rest}': expected a positive integer.");
             }
             return true;
         }
@@ -191,12 +228,11 @@ public sealed class ReplSession
             if (long.TryParse(rest, out long n) && n > 0)
             {
                 _engine.DisplayDecimalPlaces = n;
-                Nat.DisplayDigits = n;
-                System.Console.WriteLine($"Display digits set to {n}.");
+                _output.WriteLine($"Display digits set to {n}.");
             }
             else
             {
-                System.Console.WriteLine($"Invalid argument '{rest}': expected a positive integer.");
+                _output.WriteLine($"Invalid argument '{rest}': expected a positive integer.");
             }
             return true;
         }
@@ -225,36 +261,39 @@ public sealed class ReplSession
     // Output helpers
     // -----------------------------------------------------------------
 
-    private static void PrintResult(Value result, string elapsed) =>
-        System.Console.WriteLine($"= {ValueFormatter.FormatTyped(result)}   [{elapsed}]");
+    /// <summary>Results render through the ENGINE's formatting context: the host's Unicode and
+    /// display-precision settings are honoured instead of being silently bypassed by the static
+    /// formatter's defaults.</summary>
+    private void PrintResult(Value result, string elapsed) =>
+        _output.WriteLine($"= {_engine.FormatValueTyped(result)}   [{elapsed}]");
 
     private void PrintVars()
     {
         var vars = _engine.Variables;
         if (vars.Count == 0)
         {
-            System.Console.WriteLine("(no variables defined)");
+            _output.WriteLine("(no variables defined)");
             return;
         }
 
-        foreach (var (name, value) in vars.OrderBy(kv => kv.Key))
-            System.Console.WriteLine($"  {name} = {ValueFormatter.FormatTyped(value)}");
+        foreach (var (name, value) in vars.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            _output.WriteLine($"  {name} = {_engine.FormatValueTyped(value)}");
     }
 
     /// <summary>
     /// Prints an error message, with a caret under the error position when one
     /// can be extracted from the message.
     /// </summary>
-    private static void PrintError(string input, string message, string elapsed)
+    private void PrintError(string input, string message, string elapsed)
     {
         var match = Regex.Match(message, @"at position (\d+)", RegexOptions.IgnoreCase);
         if (match.Success && int.TryParse(match.Groups[1].Value, out int pos))
         {
-            System.Console.WriteLine(input);
-            System.Console.WriteLine(new string(' ', pos) + "^");
+            _output.WriteLine(input);
+            _output.WriteLine(new string(' ', pos) + "^");
         }
 
-        System.Console.WriteLine($"Error: {message}   [{elapsed}]");
+        _output.WriteLine($"Error: {message}   [{elapsed}]");
     }
 
     /// <summary>True when braces are balanced (used for multi-line accumulation).</summary>

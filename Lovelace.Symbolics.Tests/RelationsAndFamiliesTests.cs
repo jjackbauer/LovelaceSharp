@@ -142,9 +142,15 @@ public class RelationsAndFamiliesTests
     {
         var ctx = NewCtx();
         var x = ctx.Symbol("x");
-        var set = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exprs.Function(ctx.Function("sin"), x), Exprs.Integer(2)), x, ctx);
-        Assert.Equal(SolutionKind.Empty, set.Kind);
-        Assert.NotNull(set.Note);
+        var eq = Exprs.Relation(RelOp.Eq, Exprs.Function(ctx.Function("sin"), x), Exprs.Integer(2));
+        // over the reals there is no solution
+        var real = Solvers.Solve(eq, x, ctx, SolveDomain.Real);
+        Assert.Equal(SolveStatus.NoSolutions, real.Status);
+        Assert.NotNull(real.Note);
+        // over the complexes the solutions exist but are not representable: not "no solutions"
+        var complex = Solvers.Solve(eq, x, ctx);
+        Assert.Equal(SolveStatus.Unevaluated, complex.Status);
+        Assert.NotNull(complex.Note);
     }
 
     [Fact]

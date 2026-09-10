@@ -38,6 +38,7 @@ public static class Algebra
                     var x = b;
                     while (n > 0)
                     {
+                        Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
                         if ((n & 1) == 1)
                             result = Distribute(result, x, ctx, maxTerms);
                         x = Distribute(x, x, ctx, maxTerms);

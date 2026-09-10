@@ -19,6 +19,40 @@ public enum RuleClassification
     OptimizationOnly,
 }
 
+/// <summary>
+/// Explicit rule-applicability protocol. A rule mismatch is a VALUE, never an exception: only a
+/// genuinely expected probe failure (see <see cref="RuleEvaluationException"/>) is caught, and any
+/// other exception is a defect that propagates.
+/// </summary>
+public enum RuleApplicability
+{
+    /// <summary>The pattern/precondition does not hold for this node.</summary>
+    NotApplicable,
+
+    /// <summary>The rule holds unconditionally for this node.</summary>
+    Applicable,
+
+    /// <summary>The rule holds only under the conditions returned by the rule's condition builder.</summary>
+    ApplicableWithConditions,
+
+    /// <summary>Applicability cannot be decided. Unknown never licenses a rewrite in any mode.</summary>
+    Unknown,
+}
+
+/// <summary>Thrown by a precondition probe for a state the rule deliberately handles as "cannot
+/// decide". This is the ONLY exception the rewrite engine catches.</summary>
+public sealed class RuleEvaluationException : Exception
+{
+    public RuleEvaluationException(string message) : base(message) { }
+}
+
+/// <summary>Optional per-attempt diagnostics (enabled only when tracing is requested).</summary>
+public sealed record RuleAttemptDiagnostic(
+    string RuleId,
+    bool PatternMatched,
+    RuleApplicability Precondition,
+    string? RejectionReason);
+
 /// <summary>One applied rewrite: machine-readable provenance for traces and falsification.</summary>
 public sealed record RewriteStep(
     string RuleId,
@@ -127,7 +161,10 @@ public sealed class RewriteRule
     public string Id { get; }
     public string Group { get; }
     public Pattern Pattern { get; }
-    public Func<Match, ExprContext, bool> Precondition { get; }
+
+    /// <summary>The rule's applicability decision. Never exception-based control flow.</summary>
+    public Func<Match, ExprContext, RuleApplicability> Applicability { get; }
+
     public Func<Match, ExprContext, Expr> Replacement { get; }
 
     /// <summary>Semantic classification (kernel constitution). Defaults to Conditional: a rule
@@ -145,14 +182,27 @@ public sealed class RewriteRule
         string id,
         string group,
         Pattern pattern,
-        Func<Match, ExprContext, bool> precondition,
+        Func<Match, ExprContext, RuleApplicability> applicability,
         Func<Match, ExprContext, Expr> replacement)
     {
         Id = id;
         Group = group;
         Pattern = pattern;
-        Precondition = precondition;
+        Applicability = applicability;
         Replacement = replacement;
+    }
+
+    /// <summary>Convenience overload for rules that only need a yes/no precondition.</summary>
+    public RewriteRule(
+        string id,
+        string group,
+        Pattern pattern,
+        Func<Match, ExprContext, bool> precondition,
+        Func<Match, ExprContext, Expr> replacement)
+        : this(id, group, pattern,
+            (m, c) => precondition(m, c) ? RuleApplicability.Applicable : RuleApplicability.NotApplicable,
+            replacement)
+    {
     }
 }
 
@@ -184,12 +234,17 @@ public static class RewriteEngine
         public int MaxSteps { get; init; } = 400;
         public int Steps { get; set; }
         public bool Exhausted => Steps >= MaxSteps;
+
+        /// <summary>Machine-readable budget identity for structured diagnostics.</summary>
+        public string Kind { get; init; } = "rewrite_steps";
     }
 
     public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget = null)
         => Apply(e, ctx, rules, budget, trace: null, appliedConditions: null);
 
-    /// <summary>Apply with optional provenance collection (zero cost when <paramref name="trace"/> is null).</summary>
+    /// <summary>Apply with optional provenance collection. Rule objects are not allocated when
+    /// <paramref name="trace"/> is null, but a rule's condition builder is still consulted: the
+    /// conditions are semantics, not provenance.</summary>
     public static Expr Apply(Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget, List<RewriteStep>? trace)
         => Apply(e, ctx, rules, budget, trace, appliedConditions: null);
 
@@ -198,58 +253,68 @@ public static class RewriteEngine
     public static Expr Apply(
         Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget,
         List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions)
+        => Apply(e, ctx, rules, budget, trace, appliedConditions, diagnostics: null);
+
+    /// <summary>Apply with optional per-attempt diagnostics (only allocated by the caller when
+    /// tracing is enabled, so normal simplification pays nothing).</summary>
+    public static Expr Apply(
+        Expr e, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget? budget,
+        List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions,
+        List<RuleAttemptDiagnostic>? diagnostics)
     {
         budget ??= new Budget();
-        return Walk(e, ctx, rules, budget, trace, appliedConditions);
+        Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
+        return Walk(e, ctx, rules, budget, trace, appliedConditions, diagnostics);
     }
 
     private static Expr Walk(
         Expr node, ExprContext ctx, IReadOnlyList<RewriteRule> rules, Budget budget,
-        List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions)
+        List<RewriteStep>? trace, List<AssumptionSet>? appliedConditions,
+        List<RuleAttemptDiagnostic>? diagnostics)
     {
         // rebuild children bottom-up
         switch (node)
         {
             case AddExpr a:
-                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget, trace, appliedConditions)));
+                node = Exprs.Add(a.Terms.Select(t => Walk(t, ctx, rules, budget, trace, appliedConditions, diagnostics)));
                 break;
             case MultiplyExpr m:
-                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget, trace, appliedConditions)));
+                node = Exprs.Multiply(m.Factors.Select(f => Walk(f, ctx, rules, budget, trace, appliedConditions, diagnostics)));
                 break;
             case PowerExpr p:
-                node = Exprs.Power(Walk(p.Base, ctx, rules, budget, trace, appliedConditions), Walk(p.Exponent, ctx, rules, budget, trace, appliedConditions));
+                node = Exprs.Power(Walk(p.Base, ctx, rules, budget, trace, appliedConditions, diagnostics), Walk(p.Exponent, ctx, rules, budget, trace, appliedConditions, diagnostics));
                 break;
             case FunctionExpr f:
-                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget, trace, appliedConditions)).ToArray());
+                node = Exprs.Function(f.Function, f.Arguments.Select(x => Walk(x, ctx, rules, budget, trace, appliedConditions, diagnostics)).ToArray());
                 break;
             case RelationExpr r:
-                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget, trace, appliedConditions), Walk(r.Right, ctx, rules, budget, trace, appliedConditions));
+                node = Exprs.Relation(r.Op, Walk(r.Left, ctx, rules, budget, trace, appliedConditions, diagnostics), Walk(r.Right, ctx, rules, budget, trace, appliedConditions, diagnostics));
                 break;
             case PiecewiseExpr pw:
                 node = Exprs.Piecewise(
-                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget, trace, appliedConditions), Walk(b.Value, ctx, rules, budget, trace, appliedConditions))),
-                    Walk(pw.Otherwise, ctx, rules, budget, trace, appliedConditions));
+                    pw.Branches.Select(b => new PiecewiseBranch(Walk(b.Guard, ctx, rules, budget, trace, appliedConditions, diagnostics), Walk(b.Value, ctx, rules, budget, trace, appliedConditions, diagnostics))),
+                    Walk(pw.Otherwise, ctx, rules, budget, trace, appliedConditions, diagnostics));
                 break;
             case DerivativeExpr d:
-                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget, trace, appliedConditions), d.Variables.ToArray());
+                node = Exprs.Derivative(Walk(d.Operand, ctx, rules, budget, trace, appliedConditions, diagnostics), d.Variables.ToArray());
                 break;
             case IntegralExpr i:
-                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace, appliedConditions), i.Variables.ToArray());
+                node = Exprs.Integral(Walk(i.Operand, ctx, rules, budget, trace, appliedConditions, diagnostics), i.Variables.ToArray());
                 break;
             case AndExpr an:
-                node = Exprs.And(an.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions)));
+                node = Exprs.And(an.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions, diagnostics)));
                 break;
             case OrExpr or2:
-                node = Exprs.Or(or2.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions)));
+                node = Exprs.Or(or2.Operands.Select(o => Walk(o, ctx, rules, budget, trace, appliedConditions, diagnostics)));
                 break;
             case NotExpr nt:
-                node = Exprs.Not(Walk(nt.Operand, ctx, rules, budget, trace, appliedConditions));
+                node = Exprs.Not(Walk(nt.Operand, ctx, rules, budget, trace, appliedConditions, diagnostics));
                 break;
             case OrderExpr o:
                 node = Exprs.Order(
-                    Walk(o.Variable, ctx, rules, budget, trace, appliedConditions),
-                    Walk(o.Point, ctx, rules, budget, trace, appliedConditions),
-                    Walk(o.Degree, ctx, rules, budget, trace, appliedConditions));
+                    Walk(o.Variable, ctx, rules, budget, trace, appliedConditions, diagnostics),
+                    Walk(o.Point, ctx, rules, budget, trace, appliedConditions, diagnostics),
+                    Walk(o.Degree, ctx, rules, budget, trace, appliedConditions, diagnostics));
                 break;
         }
 
@@ -263,23 +328,34 @@ public static class RewriteEngine
                     break;
                 var m = new Match();
                 if (!TryMatch(rule.Pattern, node, m))
+                {
+                    diagnostics?.Add(new RuleAttemptDiagnostic(rule.Id, false, RuleApplicability.NotApplicable, "pattern did not match"));
                     continue;
-                bool ok;
+                }
+                RuleApplicability applicability;
                 try
                 {
-                    ok = rule.Precondition(m, ctx);
+                    applicability = rule.Applicability(m, ctx);
                 }
-                catch (Exception)
+                catch (RuleEvaluationException ex)
                 {
-                    ok = false;
-                }
-                if (!ok)
+                    // the ONLY expected exceptional state: the rule itself declared that it
+                    // cannot decide. Everything else is a defect and must propagate.
+                    diagnostics?.Add(new RuleAttemptDiagnostic(rule.Id, true, RuleApplicability.Unknown, ex.Message));
                     continue;
+                }
+                if (applicability is RuleApplicability.NotApplicable or RuleApplicability.Unknown)
+                {
+                    diagnostics?.Add(new RuleAttemptDiagnostic(rule.Id, true, applicability,
+                        applicability == RuleApplicability.Unknown ? "applicability unknown" : "precondition false"));
+                    continue;
+                }
                 var next = rule.Replacement(m, ctx);
-                budget.Steps++;
                 // structural equality — nodes may come from different context pools
                 if (!node.Equals(next))
                 {
+                    // the budget counts APPLIED rewrites, not matching attempts
+                    budget.Steps++;
                     var conds = rule.ConditionBuilder?.Invoke(m, ctx) ?? rule.DeclaredConditions;
                     trace?.Add(new RewriteStep(rule.Id, rule.Classification, node, next, conds));
                     appliedConditions?.Add(conds);
@@ -372,3 +448,4 @@ public static class RewriteEngine
         return false;
     }
 }
+

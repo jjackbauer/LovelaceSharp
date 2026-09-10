@@ -83,6 +83,10 @@ internal static class PayloadMap
         ValueKind.Record => UnwrapRecord(value.AsRecord()),
         ValueKind.Domain => value.AsDomain(),
         ValueKind.Vector or ValueKind.Array => UnwrapArray(value.AsArrayValue()),
+        // an absent structured field (Value.Void) round-trips as null: Wrap(null) produced it,
+        // so Unwrap must invert it instead of rejecting the payload
+        ValueKind.Void => null,
+        ValueKind.Function => value.AsFunction(),
         _ => throw new InvalidOperationException($"A plugin builtin received an unsupported argument kind '{value.Kind}'."),
     };
 
@@ -102,6 +106,8 @@ internal static class PayloadMap
         var payloads = new object?[elements.Count];
         for (int i = 0; i < elements.Count; i++)
             payloads[i] = Unwrap(elements[i]);
-        return payloads;
+        // carry the shape across the boundary: a plugin that must validate the caller's structure
+        // (evalir_batch rows) can, while list-only consumers see the same flat sequence as before
+        return new PayloadArray(payloads, array.Shape.ToArray().Select(s => (long)s).ToArray());
     }
 }

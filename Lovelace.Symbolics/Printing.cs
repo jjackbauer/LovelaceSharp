@@ -282,7 +282,10 @@ public static class Printing
         pos++;
     }
 
-    private static Symbol[] CollectSymbols(Expr e)
+    /// <summary>Every free symbol of an expression, in deterministic name order. Total over the
+    /// node kinds: relations, piecewise guards, derivatives, integrals, RootOf, logic and order
+    /// terms are all traversed (agent-facing introspection must not under-report).</summary>
+    public static Symbol[] CollectSymbols(Expr e)
     {
         var set = new SortedSet<Symbol>();
         void Walk(Expr x)
@@ -294,11 +297,26 @@ public static class Printing
                 case MultiplyExpr m: foreach (var f in m.Factors) Walk(f); break;
                 case PowerExpr p: Walk(p.Base); Walk(p.Exponent); break;
                 case FunctionExpr f: foreach (var a in f.Arguments) Walk(a); break;
+                case RelationExpr r: Walk(r.Left); Walk(r.Right); break;
+                case PiecewiseExpr pw:
+                    foreach (var b in pw.Branches) { Walk(b.Guard); Walk(b.Value); }
+                    Walk(pw.Otherwise);
+                    break;
+                case DerivativeExpr d: Walk(d.Operand); break;
+                case IntegralExpr i: Walk(i.Operand); break;
+                case AndExpr an: foreach (var o in an.Operands) Walk(o); break;
+                case OrExpr or: foreach (var o in or.Operands) Walk(o); break;
+                case NotExpr nt: Walk(nt.Operand); break;
+                case OrderExpr od: Walk(od.Variable); Walk(od.Point); Walk(od.Degree); break;
             }
         }
         Walk(e);
         return set.ToArray();
     }
+
+    /// <summary>Free symbol names of an expression, in deterministic order.</summary>
+    public static IReadOnlyList<string> FreeSymbolNames(Expr e) =>
+        CollectSymbols(e).Select(s => s.Name).ToArray();
 
     // -----------------------------------------------------------------
     // Pretty print (display only — never used for identity)
@@ -312,7 +330,92 @@ public static class Printing
     /// (REPL default); <see cref="PrintMode.Debug"/> is a kind-annotated structural form for
     /// agents. <c>Unicode</c> switches the human form to ∞ √ π ≤ ≥ ≠ (ASCII stays the default).
     /// </summary>
-    public sealed record PrintOptions(PrintMode Mode = PrintMode.Pretty, bool Unicode = false);
+    public sealed record PrintOptions(
+        PrintMode Mode = PrintMode.Pretty, bool Unicode = false, PrintBudget? Budget = null);
+
+    /// <summary>
+    /// A display budget. <c>null</c> on either limit means "no limit", so the default behaviour is
+    /// unbounded and byte-identical to before. A rendering that exceeds the budget is abbreviated
+    /// (never silently truncated mid-token) and the caller receives a
+    /// <see cref="PrintTruncation"/> describing exactly what was dropped.
+    /// </summary>
+    public sealed record PrintBudget(int? MaxNodes = null, int? MaxDepth = null);
+
+    /// <summary>Why a rendering was abbreviated, how big the expression actually is, the budget
+    /// that stopped it, and the abbreviated text (the partial result the caller may show).</summary>
+    public sealed record PrintTruncation(string Reason, int NodeCount, int Budget, string PartialResult);
+
+    /// <summary>The outcome of a budgeted rendering: the text plus, when the budget stopped a full
+    /// rendering, the structured reason. Canonical full output stays available by asking for no
+    /// budget.</summary>
+    public sealed record PrintOutcome(string Text, bool Truncated, PrintTruncation? Truncation);
+
+    /// <summary>
+    /// Renders <paramref name="e"/> under <paramref name="options"/>' budget. Without a budget this
+    /// is exactly <see cref="PrettyPrint(Expr, PrintOptions)"/> and reports no truncation.
+    /// </summary>
+    public static PrintOutcome Print(Expr e, PrintOptions options)
+    {
+        if (options.Budget is not { } budget)
+            return new PrintOutcome(PrettyPrint(e, options), false, null);
+
+        int nodes = e.NodeCount;
+        string? reason = null;
+        int limit = 0;
+        if (budget.MaxNodes is { } maxNodes && nodes > maxNodes)
+        {
+            reason = "node-budget";
+            limit = maxNodes;
+        }
+        else if (budget.MaxDepth is { } maxDepth && ExprDepth(e) > maxDepth)
+        {
+            reason = "depth-limit";
+            limit = maxDepth;
+        }
+
+        if (reason is null)
+            return new PrintOutcome(PrettyPrint(e, options), false, null);
+
+        // The rendering always goes through the normal printer, so ordering, precedence and
+        // operator spacing are exactly the ones the caller would otherwise see; the budget bounds
+        // how much of it is returned. A prefix is never passed off as the whole expression: the
+        // trailing ellipsis is emitted here and the structured diagnostic says what was dropped.
+        var full = PrettyPrint(e, options);
+        int charBudget = Math.Max(48, limit * CharsPerNode);
+        // nothing was dropped, so nothing is reported: "truncated" means the caller is NOT looking
+        // at the whole expression
+        if (full.Length <= charBudget)
+            return new PrintOutcome(full, false, null);
+
+        string text = full[..SafeCut(full, charBudget)] + " …";
+        return new PrintOutcome(text, true, new PrintTruncation(reason, nodes, limit, text));
+    }
+
+    /// <summary>Characters of rendering allowed per budgeted node. A budget is expressed in nodes
+    /// because that is the property of the expression; this is the documented conversion used to
+    /// bound the returned text.</summary>
+    private const int CharsPerNode = 6;
+
+    /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token.</summary>
+    private static int SafeCut(string text, int cut)
+    {
+        int i = Math.Min(cut, text.Length);
+        while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '.'))
+            i--;
+        return i > 0 ? i : cut;
+    }
+
+    private static int ExprDepth(Expr e) => e switch
+    {
+        AddExpr a => a.Terms.Length == 0 ? 1 : 1 + a.Terms.Max(ExprDepth),
+        MultiplyExpr m => m.Factors.Length == 0 ? 1 : 1 + m.Factors.Max(ExprDepth),
+        PowerExpr p => 1 + Math.Max(ExprDepth(p.Base), ExprDepth(p.Exponent)),
+        FunctionExpr f => f.Arguments.Length == 0 ? 1 : 1 + f.Arguments.Max(ExprDepth),
+        RelationExpr r => 1 + Math.Max(ExprDepth(r.Left), ExprDepth(r.Right)),
+        _ => 1,
+    };
+
+
 
     public static string PrettyPrint(Expr e) => PrettyPrint(e, new PrintOptions());
 

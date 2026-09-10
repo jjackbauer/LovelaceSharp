@@ -35,6 +35,7 @@ public class FalsificationTests
         using var scope = Rl.WithPrecision(40, 20);
         var tol = NumOps.FromReal(Rl.Parse("0." + new string('0', 11) + "1", null));
         using var assumeScope = ctx.WithAssumptions(assumptions);
+        var unexpected = new List<string>();
         foreach (var p in points)
         {
             Num lv, rv;
@@ -43,14 +44,24 @@ public class FalsificationTests
                 lv = Evaluation.EvaluateToNum(lhs, ctx, new Dictionary<Symbol, Num> { [x] = NumOps.FromRat(p) });
                 rv = Evaluation.EvaluateToNum(rhs, ctx, new Dictionary<Symbol, Num> { [x] = NumOps.FromRat(p) });
             }
-            catch (Exception)
+            catch (EvaluationException)
             {
                 continue;   // outside the rule's definedness domain — not a counterexample
+            }
+            catch (Exception ex)
+            {
+                // A rule is wrong by throwing too: an unexpected exception type is a defect, not
+                // "not applicable". Only the kernel's typed domain failure licenses a skip.
+                unexpected.Add($"{ruleId} at x={p}: {ex.GetType().Name}: {ex.Message}");
+                continue;
             }
             var delta = NumOps.Abs(NumOps.Subtract(lv, rv), ctx);
             Assert.True(NumOps.Compare(delta, tol) < 0,
                 $"Rule '{ruleId}' falsified: {Printing.PrettyPrint(lhs)} != {Printing.PrettyPrint(rhs)} at x={p}");
         }
+
+        Assert.True(unexpected.Count == 0,
+            "rule(s) threw an unexpected exception instead of being falsified: " + string.Join(" | ", unexpected));
     }
 
     [Fact]

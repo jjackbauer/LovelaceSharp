@@ -126,6 +126,10 @@ public sealed class Interpreter
     /// determinant/rank/inverse/solve dispatch; null on a bare engine.</summary>
     internal Lovelace.Abstractions.ISymbolicMatrixBridge? SymbolicMatrixBridge { get; set; }
 
+    /// <summary>Optional introspection bridge: supplies the structured assumptions that constrain
+    /// an expression's symbols for <c>inspect()</c>.</summary>
+    internal Lovelace.Abstractions.ISymbolicInspectionBridge? SymbolicInspectionBridge { get; set; }
+
     /// <summary>Whether display formatting prefers Unicode (∞ √ π ≤ ≥ ≠). ASCII is the default;
     /// set via the REPL's <c>set pretty unicode|ascii</c> command.</summary>
     public bool UnicodeOutput { get; set; }
@@ -216,6 +220,9 @@ public sealed class Interpreter
         {
             for (int i = 0; i < program.Statements.Count; i++)
             {
+                // statement granularity: a cancelled script stops between statements, so the
+                // result it already produced (variables, captured output) stays readable
+                Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
                 var statement = program.Statements[i];
                 int position = i < program.StatementPositions.Count ? program.StatementPositions[i] : 0;
 
@@ -999,50 +1006,128 @@ public sealed class Interpreter
         return (payloads, av.Shape.ToArray());
     }
 
+    /// <summary>
+    /// The one type-name convention: the <see cref="ValueKind"/> name, except that a record
+    /// reports its record type name (<c>SolveResult</c>) because that is what a consumer switches
+    /// on. A domain value is the kind <c>Domain</c> — its domain (<c>real</c>, <c>complex</c>) is
+    /// available from <c>inspect(...).domain</c>, not from <c>type()</c>. Never a lowercased
+    /// domain name: <c>type(complex)</c> is <c>Domain</c>, not <c>complex</c>.
+    /// </summary>
     private static string TypeNameOf(Value v) => v.Kind switch
     {
         ValueKind.Record => v.AsRecord().TypeName,
-        ValueKind.Domain => v.AsDomain().ToString().ToLowerInvariant(),
         _ => v.Kind.ToString(),
     };
 
-    /// <summary>Builds the structural <c>Inspection</c> record for <see cref="Value"/> values.</summary>
-    private static RecordValue Inspect(Value v)
+    /// <summary>
+    /// Builds the structural <c>Inspection</c> record. The shape is uniform across kinds — every
+    /// field is present, with <c>Null</c> where it does not apply — so a consumer never has to
+    /// probe which fields a kind happens to carry. <c>domain</c> is a Domain value (never text),
+    /// <c>canonical</c>/<c>pretty</c> are both forms, arrays report <c>shape</c>/<c>rank</c>, and
+    /// <c>assumptions</c> carries the structured conditions that constrain the free symbols.
+    /// </summary>
+    private RecordValue Inspect(Value v)
     {
-        switch (v.Kind)
+        var fields = new List<RecordField>
         {
-            case ValueKind.Symbolic:
-            {
-                var e = v.AsSymbolic();
-                var names = new List<string>();
-                CollectSymbols(e, names);
-                return new RecordValue("Inspection",
-                    new RecordField("type", new Value("Symbolic")),
-                    new RecordField("domain", new Value(Lovelace.Symbolics.Domains
-                        .DomainOf(e, Lovelace.Symbolics.Exprs.Current).ToString().ToLowerInvariant())),
-                    new RecordField("exact", new Value(e.IsExact)),
-                    new RecordField("free_symbols", new Value(names.Distinct().Select(n => new Value(n)).ToArray())),
-                    new RecordField("node_count", new Value(new global::Lovelace.Natural.Natural(e.NodeCount))));
-            }
-            case ValueKind.Record:
-            {
-                var r = v.AsRecord();
-                return new RecordValue("Inspection",
-                    new RecordField("type", new Value(r.TypeName)),
-                    new RecordField("members", new Value(r.Fields.Select(f => new Value(f.Name)).ToArray())));
-            }
-            case ValueKind.Vector or ValueKind.Array:
-            {
-                var av = v.AsArrayValue();
-                return new RecordValue("Inspection",
-                    new RecordField("type", new Value(v.Kind.ToString())),
-                    new RecordField("shape", new Value(av.Shape.ToArray().Select(s => new Value(new global::Lovelace.Natural.Natural((ulong)s))).ToArray())),
-                    new RecordField("rank", new Value(new global::Lovelace.Natural.Natural(av.Rank))));
-            }
-            default:
-                return new RecordValue("Inspection", new RecordField("type", new Value(TypeNameOf(v))));
-        }
+            new("type", new Value(TypeNameOf(v))),
+            new("domain", DomainValueOf(v)),
+            new("exact", ExactOf(v)),
+            new("free_symbols", new Value(FreeSymbolsOf(v))),
+            new("node_count", NodeCountOf(v)),
+            new("canonical", CanonicalOf(v)),
+            new("pretty", PrettyOf(v)),
+            new("shape", InspectionShapeOf(v)),
+            new("rank", RankOf(v)),
+            new("element_domain", ElementDomainOf(v)),
+            new("assumptions", new Value(RelevantAssumptions(v))),
+            new("members", MembersOf(v)),
+        };
+        return new RecordValue("Inspection", fields.ToArray());
     }
+
+    private static Value DomainValueOf(Value v) => v.Kind switch
+    {
+        ValueKind.Domain => v,
+        ValueKind.Symbolic => new Value(Lovelace.Symbolics.Domains.ToMathDomain(
+            Lovelace.Symbolics.Domains.DomainOf(v.AsSymbolic(), Lovelace.Symbolics.Exprs.Current))),
+        _ => Value.Void,
+    };
+
+    private static Value ExactOf(Value v) => v.Kind switch
+    {
+        ValueKind.Symbolic => new Value(v.AsSymbolic().IsExact),
+        ValueKind.Natural or ValueKind.Integer => new Value(true),
+        _ => Value.Void,
+    };
+
+    private static Value[] FreeSymbolsOf(Value v)
+    {
+        if (v.Kind != ValueKind.Symbolic)
+            return Array.Empty<Value>();
+        var names = new List<string>();
+        CollectSymbols(v.AsSymbolic(), names);
+        return names.Distinct().Select(n => new Value(n)).ToArray();
+    }
+
+    private static Value NodeCountOf(Value v) => v.Kind == ValueKind.Symbolic
+        ? new Value(new global::Lovelace.Natural.Natural(v.AsSymbolic().NodeCount))
+        : Value.Void;
+
+    private static Value CanonicalOf(Value v) => v.Kind == ValueKind.Symbolic
+        ? new Value(Lovelace.Symbolics.Printing.CanonicalPrint(v.AsSymbolic()))
+        : Value.Void;
+
+    private static Value PrettyOf(Value v) => v.Kind == ValueKind.Symbolic
+        ? new Value(Lovelace.Symbolics.Printing.PrettyPrint(v.AsSymbolic()))
+        : Value.Void;
+
+    private static Value InspectionShapeOf(Value v) => v.Kind is ValueKind.Vector or ValueKind.Array
+        ? new Value(v.AsArrayValue().Shape.ToArray()
+            .Select(s => new Value(new global::Lovelace.Natural.Natural((ulong)s))).ToArray())
+        : Value.Void;
+
+    private static Value RankOf(Value v) => v.Kind is ValueKind.Vector or ValueKind.Array
+        ? new Value(new global::Lovelace.Natural.Natural(v.AsArrayValue().Rank))
+        : Value.Void;
+
+    /// <summary>The domain every element shares (arrays) or the expression's own domain.</summary>
+    private static Value ElementDomainOf(Value v)
+    {
+        if (v.Kind is ValueKind.Vector or ValueKind.Array)
+        {
+            var elements = v.AsVector();
+            if (elements.Count == 0)
+                return Value.Void;
+            var first = elements[0];
+            return first.Kind switch
+            {
+                ValueKind.Symbolic => new Value(Lovelace.Symbolics.Domains.ToMathDomain(
+                    Lovelace.Symbolics.Domains.DomainOf(first.AsSymbolic(), Lovelace.Symbolics.Exprs.Current))),
+                ValueKind.Natural or ValueKind.Integer => new Value(
+                    Lovelace.Abstractions.MathDomain.Integer),
+                ValueKind.Real => new Value(Lovelace.Abstractions.MathDomain.Real),
+                ValueKind.Complex => new Value(Lovelace.Abstractions.MathDomain.Complex),
+                _ => Value.Void,
+            };
+        }
+        return DomainValueOf(v);
+    }
+
+    private Value[] RelevantAssumptions(Value v)
+    {
+        if (v.Kind != ValueKind.Symbolic || SymbolicInspectionBridge is not { } bridge)
+            return Array.Empty<Value>();
+        var leaves = bridge.RelevantAssumptions(v.AsSymbolic());
+        var wrapped = new Value[leaves.Length];
+        for (int i = 0; i < leaves.Length; i++)
+            wrapped[i] = PayloadMap.Wrap(leaves[i]);
+        return wrapped;
+    }
+
+    private static Value MembersOf(Value v) => v.Kind == ValueKind.Record
+        ? new Value(v.AsRecord().Fields.Select(f => new Value(f.Name)).ToArray())
+        : Value.Void;
 
     private static void CollectSymbols(Lovelace.Symbolics.Expr e, List<string> into)
     {

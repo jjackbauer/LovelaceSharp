@@ -237,6 +237,9 @@ public static class Exprs
     {
         IntegerConstantExpr i => Rat.From(i.Value),
         RationalConstantExpr r => r.Value,
+        // exact Real literals (e.g. 1.5) are rationals; without this, bound reasoning silently
+        // stops working for real-typed bounds while the term order still compares them
+        RealConstantExpr rl => rl.Value.ToRational(),
         _ => null,
     };
 

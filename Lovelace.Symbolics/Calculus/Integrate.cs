@@ -14,6 +14,15 @@ public sealed record IntegrationResult(
     AssumptionSet Conditions,
     string? Note = null)
 {
+    /// <summary>The strategy that produced the closed form (a stable token such as
+    /// <c>table</c>, <c>substitution</c>, <c>by-parts</c>, <c>partial-fractions</c>), or null
+    /// when nothing was found.</summary>
+    public string? Method { get; init; }
+
+    /// <summary>How the closed form was verified. Always a differentiation-based check; the
+    /// token names the equivalence test that closed it.</summary>
+    public string? VerificationMethod { get; init; }
+
     public static IntegrationResult Exact(Expr e) => new(IntegrationKind.SolvedExact, e, AssumptionSet.Empty);
     public static IntegrationResult Conditional(Expr e, AssumptionSet conditions) => new(IntegrationKind.SolvedConditional, e, conditions);
     public static IntegrationResult Unevaluated(Expr e) => new(IntegrationKind.Unevaluated, e, AssumptionSet.Empty);
@@ -34,8 +43,8 @@ public static class Integration
     public static IntegrationResult IntegrateResult(Expr e, Symbol x, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
-        var result = TryIntegrate(e, x, ctx, 0);
-        if (result is not null && Verify(result, e, x, ctx))
+        var result = TryIntegrate(e, x, ctx, 0, out var method);
+        if (result is not null && Verify(result, e, x, ctx, out var verification))
         {
             // log(f) antiderivatives are real-valued only where f > 0
             var conditions = AssumptionSet.Empty;
@@ -49,9 +58,10 @@ public static class Integration
                 {
                 }
             }
-            return conditions.Atoms.Length > 0
+            var outcome = conditions.Atoms.Length > 0
                 ? IntegrationResult.Conditional(result, conditions)
                 : IntegrationResult.Exact(result);
+            return outcome with { Method = method, VerificationMethod = verification };
         }
         return IntegrationResult.Unevaluated(Exprs.Integral(e, x));
     }
@@ -89,21 +99,36 @@ public static class Integration
     }
 
     internal static bool Verify(Expr antiderivative, Expr integrand, Symbol x, ExprContext ctx)
+        => Verify(antiderivative, integrand, x, ctx, out _);
+
+    /// <summary>Verification by differentiation, reporting which equivalence test closed it:
+    /// <c>differentiation+canonical</c>, <c>differentiation+expansion</c> or
+    /// <c>differentiation+rational-terms</c> (empty when verification fails).</summary>
+    internal static bool Verify(
+        Expr antiderivative, Expr integrand, Symbol x, ExprContext ctx, out string method)
     {
+        method = "";
         // Differentiation is total over the expression DAG: exceptions here are defects and
         // must surface, not be swallowed into "verification failed".
         var d = Calculus.Diff(antiderivative, x, ctx);
         if (d == integrand)
+        {
+            method = "differentiation+canonical";
             return true;
+        }
         // algebraic equivalence: expansion collapses like terms (e.g. e^x + (x-1)e^x = x·e^x)
         try
         {
             if (Algebra.Expand(d, ctx) == Algebra.Expand(integrand, ctx))
+            {
+                method = "differentiation+expansion";
                 return true;
+            }
         }
-        catch (Exception)
+        catch (BudgetExceededException)
         {
-            // fall through to the rational check
+            // expansion budget exhausted: degrade to the rational-term check. Any other
+            // failure is a defect and must not be read as "verification fell through".
         }
         // rational functions: bring the derivative's terms over the integrand's
         // denominator and compare polynomials (sum of fractions equality)
@@ -124,7 +149,11 @@ public static class Integration
                     return false;
                 sum = Polynomial.Add(sum, Polynomial.Multiply(tnP, q));
             }
-            return sum.Equals(inP);
+            if (sum.Equals(inP))
+            {
+                method = "differentiation+rational-terms";
+                return true;
+            }
         }
         return false;
     }
@@ -152,7 +181,15 @@ public static class Integration
     }
 
     internal static Expr? TryIntegrate(Expr e, Symbol x, ExprContext ctx, int depth)
+        => TryIntegrate(e, x, ctx, depth, out _);
+
+    /// <summary>Tiered closed-form search. <paramref name="method"/> names the strategy that
+    /// succeeded (a stable token), so the outcome can report how the antiderivative was found
+    /// rather than only that it was.</summary>
+    internal static Expr? TryIntegrate(Expr e, Symbol x, ExprContext ctx, int depth, out string method)
     {
+        method = "";
+        Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
         if (depth > 24)
             return null;
 
@@ -167,40 +204,59 @@ public static class Integration
                     return null;
                 parts.Add(part);
             }
+            method = "linearity";
             return Exprs.Add(parts);
         }
 
         // constant term (free of x)
         if (Calculus.FreeOf(e, x))
+        {
+            method = "constant";
             return Exprs.Multiply(e, Exprs.Symbol(x));
+        }
 
         // tier 1: monomial and table entries
         var table = TryTable(e, x, ctx);
         if (table is not null)
+        {
+            method = "table";
             return table;
+        }
 
         // tier 2/5: substitution patterns on products
         if (e is MultiplyExpr m)
         {
             var sub = TrySubstitution(m, x, ctx, depth);
             if (sub is not null)
+            {
+                method = "substitution";
                 return sub;
+            }
         }
 
         // tier 6: integration by parts patterns
         var byParts = TryByParts(e, x, ctx, depth);
         if (byParts is not null)
+        {
+            method = "by-parts";
             return byParts;
+        }
 
         // tier 2: rational functions via partial fractions
         var rational = TryRational(e, x, ctx);
         if (rational is not null)
+        {
+            method = "partial-fractions";
             return rational;
+        }
 
         // tier 7: trig identities
         var trig = TryTrigIdentities(e, x, ctx, depth);
         if (trig is not null)
+        {
+            method = "trig-identity";
             return trig;
+        }
 
         return null;
     }

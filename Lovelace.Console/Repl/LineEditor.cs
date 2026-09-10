@@ -13,6 +13,49 @@ public sealed class LineEditor
 
     private readonly List<string> _history = new();
 
+    /// <summary>Injected input, or <c>null</c> when this editor drives the real console.</summary>
+    private readonly TextReader? _input;
+
+    /// <summary>Sink for the prompt/echo. Defaults to <see cref="System.Console.Out"/>.</summary>
+    private readonly TextWriter _output;
+
+    // -----------------------------------------------------------------
+    // Construction
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// Creates an editor attached to the real console. Typed characters are read with
+    /// <c>Console.ReadKey(intercept: true)</c>, so every interactive editing feature
+    /// (manual echo, cursor movement, history recall) is active.
+    /// </summary>
+    public LineEditor()
+        : this(null, null)
+    {
+    }
+
+    /// <summary>
+    /// Creates an editor over an injected input/output pair, which makes the REPL headless:
+    /// lines are read with <see cref="TextReader.ReadLine"/> instead of the console key API
+    /// (so redirected input does not throw) and the prompt/echo is written to
+    /// <paramref name="output"/>. Passing <c>null</c> for either stream falls back to
+    /// <see cref="System.Console.In"/> / <see cref="System.Console.Out"/> and keeps the
+    /// original interactive console behaviour.
+    /// </summary>
+    /// <param name="input">Command source, or <c>null</c> for the real console.</param>
+    /// <param name="output">Prompt sink, or <c>null</c> for the real console.</param>
+    public LineEditor(TextReader? input, TextWriter? output)
+    {
+        _input = input;
+        _output = output ?? System.Console.Out;
+    }
+
+    /// <summary>
+    /// <c>true</c> when this editor is bound to the real console and therefore uses the
+    /// key-by-key interactive editing path; <c>false</c> when a <see cref="TextReader"/> was
+    /// injected and lines are read with <see cref="TextReader.ReadLine"/>.
+    /// </summary>
+    public bool IsInteractive => _input is null;
+
     // -----------------------------------------------------------------
     // Public API
     // -----------------------------------------------------------------
@@ -34,7 +77,33 @@ public sealed class LineEditor
     /// </summary>
     /// <param name="prompt">Text printed before the editing area.</param>
     /// <returns>The submitted input string, or <c>null</c> if Ctrl+C was pressed.</returns>
-    public string? ReadLine(string prompt)
+    public string? ReadLine(string prompt) =>
+        _input is null ? ReadInteractiveLine(prompt) : ReadInjectedLine(prompt);
+
+    /// <summary>
+    /// Headless path used when a <see cref="TextReader"/> was injected: reads one line with
+    /// <see cref="TextReader.ReadLine"/> and echoes it, so no console key API is touched and
+    /// redirected input works.
+    /// </summary>
+    /// <param name="prompt">Text printed before the input line.</param>
+    /// <returns>The line read, or <c>null</c> at end of input (exit intent).</returns>
+    private string? ReadInjectedLine(string prompt)
+    {
+        _output.Write(prompt);
+        string? line = _input!.ReadLine();
+        _output.WriteLine(line ?? string.Empty);
+        if (line is null)
+            return null;
+        if (!string.IsNullOrWhiteSpace(line))
+            _history.Add(line);
+        return line;
+    }
+
+    /// <summary>
+    /// Interactive path used for the real console: reads keys with
+    /// <c>Console.ReadKey(intercept: true)</c> and redraws the line itself.
+    /// </summary>
+    private string? ReadInteractiveLine(string prompt)
     {
         System.Console.Write(prompt);
 

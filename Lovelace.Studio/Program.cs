@@ -99,6 +99,15 @@ app.MapPut("/api/precision", (SetPrecisionRequest request, HttpContext ctx, Engi
     }
 });
 
+// Engine format setting: ASCII (default) or Unicode math glyphs for every rendered value.
+app.MapPut("/api/format", (SetFormatRequest request, HttpContext ctx, EngineHost host) =>
+{
+    var session = host.TryGetSession(SessionId(ctx) ?? string.Empty);
+    if (session is null)
+        return Results.NotFound();
+    return Results.Ok(host.SetFormat(session, request.Unicode));
+});
+
 app.MapPost("/api/symbolic/inspect", async (SymbolicInspectRequest request, HttpContext ctx, EngineHost host) =>
 {
     var session = host.TryGetSession(SessionId(ctx) ?? string.Empty);

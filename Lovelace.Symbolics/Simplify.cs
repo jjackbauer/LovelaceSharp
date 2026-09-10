@@ -14,7 +14,23 @@ public sealed record TransformResult(
     Expr Expression,
     AssumptionSet Conditions,
     IReadOnlyList<RewriteStep> Steps,
-    bool BudgetExceeded = false);
+    bool BudgetExceeded = false)
+{
+    /// <summary>The expression the transformation started from.</summary>
+    public Expr Original { get; init; } = Expression;
+
+    /// <summary>Structured status: Satisfied, BudgetExceeded, or Unsatisfiable.</summary>
+    public string Status => Conditions.IsUnsatisfiable
+        ? "Unsatisfiable"
+        : BudgetExceeded ? "BudgetExceeded" : "Satisfied";
+
+    /// <summary>Machine-readable budget identity when <see cref="BudgetExceeded"/> is set.</summary>
+    public string? BudgetKind { get; init; }
+
+    /// <summary>Per-attempt rule diagnostics; empty unless explicitly requested.</summary>
+    public IReadOnlyList<Rewriting.RuleAttemptDiagnostic> Attempts { get; init; }
+        = Array.Empty<Rewriting.RuleAttemptDiagnostic>();
+}
 
 /// <summary>
 /// simplify(): phase-ordered conditional rewrite groups over the canonical kernel
@@ -32,7 +48,7 @@ public sealed record TransformResult(
 /// </summary>
 public static class Simplify
 {
-    public sealed record Options(bool Trace = false, int MaxSteps = 400);
+    public sealed record Options(bool Trace = false, int MaxSteps = 400, bool Diagnose = false);
 
     public static Expr SimplifyExpr(Expr e, ExprContext? ctx = null, Options? options = null)
         => TransformCore(e, ctx, options, safe: true).Expression;
@@ -51,14 +67,22 @@ public static class Simplify
         // provenance and is collected only when requested
         var trace = options.Trace ? new List<RewriteStep>() : null;
         var appliedConditions = new List<AssumptionSet>();
+        var attempts = options.Diagnose ? new List<RuleAttemptDiagnostic>() : null;
 
         var cur = e;
         foreach (var group in new[] { "trig", "power", "rat", "logexp", "abs" })
         {
+            // a cancelled evaluation stops between passes; the caller keeps whatever partial
+            // state it can read rather than waiting for all five groups
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
+            // once the budget is exhausted there is nothing left to gain from another pass;
+            // continuing would only rebuild the tree five more times
+            if (budget.Exhausted)
+                break;
             var rules = registry.Group(group);
             if (safe)
                 rules = rules.Select(SafeWrap).ToArray();
-            cur = RewriteEngine.Apply(cur, ctx, rules, budget, trace, appliedConditions);
+            cur = RewriteEngine.Apply(cur, ctx, rules, budget, trace, appliedConditions, attempts);
         }
 
         // collect the declared side conditions of every applied rule; contradictory
@@ -78,16 +102,62 @@ public static class Simplify
             if (conditions.IsUnsatisfiable)
                 break;
         }
+
+        // §21: a requirement the ACTIVE assumptions already refute makes this branch
+        // unsatisfiable. Without this the transform reports "satisfied, provided x != 0" on a
+        // set that proves x == 0 — a condition set with no model presented as a live branch.
+        if (!conditions.IsUnsatisfiable)
+            conditions = RefutedByAssumptions(conditions, ctx.Assumptions)
+                ? AssumptionSet.Unsatisfiable
+                : conditions;
         return new TransformResult(cur, conditions,
             trace ?? (IReadOnlyList<RewriteStep>)Array.Empty<RewriteStep>(),
-            budget.Exhausted);
+            budget.Exhausted)
+        {
+            Original = e,
+            BudgetKind = budget.Exhausted ? budget.Kind : null,
+            Attempts = attempts ?? (IReadOnlyList<RuleAttemptDiagnostic>)Array.Empty<RuleAttemptDiagnostic>(),
+        };
+    }
+
+    /// <summary>True when the ambient assumption set proves the negation of one of
+    /// <paramref name="collected"/>'s atoms, so the collected branch has no model.</summary>
+    private static bool RefutedByAssumptions(AssumptionSet collected, AssumptionSet ambient)
+    {
+        if (ambient.IsUnsatisfiable)
+            return true;
+        foreach (var a in collected.Atoms)
+        {
+            // a property requirement is refuted by its relation form: NonZero(x) is refuted by
+            // an assumption set that proves x != 0 false (the property lattice has no "Zero"
+            // atom, so asking the property directly would answer Unknown)
+            if (a is SymbolPropertyAssumption { S: var s, P: var p } &&
+                AssumptionSet.RelationOf(s, p) is { } relation)
+            {
+                if (ambient.Ask(relation) == Tristate.False)
+                    return true;
+                continue;
+            }
+            var negation = AssumptionSet.Negate(a);
+            if (negation is not null && ambient.Ask(negation) == Tristate.True)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>Safe-mode rule wrapper: a rule fires only when its declared side conditions
     /// are already provable from the active assumptions (Unknown never licenses a rewrite).</summary>
     private static RewriteRule SafeWrap(RewriteRule rule) => new(
         rule.Id, rule.Group, rule.Pattern,
-        (m, c) => rule.Precondition(m, c) && ConditionsProvable(rule, m, c),
+        (m, c) =>
+        {
+            var a = rule.Applicability(m, c);
+            if (a is RuleApplicability.NotApplicable or RuleApplicability.Unknown)
+                return a;
+            // Unknown never licenses a rewrite: an unresolved conditional side condition is
+            // exactly what "safe" mode must refuse.
+            return ConditionsProvable(rule, m, c) ? a : RuleApplicability.NotApplicable;
+        },
         rule.Replacement)
     {
         Classification = rule.Classification,
@@ -107,6 +177,16 @@ public static class Simplify
         }
         return true;
     }
+
+    /// <summary>The shipped rule set, for validation, documentation and tests.</summary>
+    public static IReadOnlyList<RewriteRule> RulesForTesting(ExprContext? ctx = null) =>
+        BuildRegistry(ctx ?? Exprs.Current).All;
+
+    /// <summary>The ids of every shipped rewrite rule, for tooling (the proof bridge) and for the
+    /// invariant test that keeps <see cref="RewriteProofs"/> in step with the registry: a new rule
+    /// without an obligation entry fails the build rather than silently escaping the bridge.</summary>
+    public static IReadOnlyList<string> ShippedRuleIds(ExprContext ctx) =>
+        BuildRegistry(ctx).All.Select(r => r.Id).ToArray();
 
     private static RewriteRuleRegistry BuildRegistry(ExprContext ctx)
     {
@@ -136,7 +216,14 @@ public static class Simplify
             new PowPat(new PowPat(w, new LiteralPat(Exprs.Integer(2))), new LiteralPat(Exprs.Rational(1, 2))),
             (m, c) => m.Get("w") is SymbolExpr sx &&
                       c.Assumptions.Ask(new SymbolPropertyAssumption(sx.Symbol, SymbolPredicate.NonNegative)) == Tristate.True,
-            (m, c) => m.Get("w")));
+            (m, c) => m.Get("w"))
+        {
+            // sqrt(w^2) = w requires w >= 0: the condition is declared, not hidden in the lambda
+            ConditionBuilder = (m, c) => AssumptionSet.Empty.Add(
+                m.Get("w") is SymbolExpr sx
+                    ? new SymbolPropertyAssumption(sx.Symbol, SymbolPredicate.NonNegative)
+                    : new ExpressionPropertyAssumption(m.Get("w"), SymbolPredicate.NonNegative)),
+        });
         reg.Register(new RewriteRule(
             "pow.sqrt-square-real",
             "power",
@@ -144,7 +231,13 @@ public static class Simplify
             (m, c) => m.Get("w2") is SymbolExpr sx2 &&
                       c.Assumptions.Ask(new SymbolPropertyAssumption(sx2.Symbol, SymbolPredicate.NonNegative)) != Tristate.True &&
                       c.Assumptions.Ask(new SymbolDomainAssumption(sx2.Symbol, Domain.Real)) == Tristate.True,
-            (m, c) => Exprs.Function(c.Function("abs"), m.Get("w2"))));
+            (m, c) => Exprs.Function(c.Function("abs"), m.Get("w2")))
+        {
+            // sqrt(w^2) = |w| is only valid over the reals (over C, sqrt(z^2) != |z|)
+            Classification = RuleClassification.DomainSpecific,
+            ConditionBuilder = (m, c) => AssumptionSet.Empty.Add(
+                new SymbolDomainAssumption(((SymbolExpr)m.Get("w2")).Symbol, Domain.Real)),
+        });
 
         // rat: pointwise cancellation with retained side conditions.
         // x·x⁻¹ → 1 requires x ≠ 0 (x/x is undefined at 0; the constructor deliberately keeps it).
@@ -211,7 +304,12 @@ public static class Simplify
             new PowPat(new FunPat("abs", new Pattern[] { aw }), new LiteralPat(Exprs.Integer(2))),
             (m, c) => m.Get("aw") is SymbolExpr sax &&
                       c.Assumptions.Ask(new SymbolDomainAssumption(sax.Symbol, Domain.Real)) == Tristate.True,
-            (m, c) => Exprs.Power(m.Get("aw"), Exprs.Integer(2))));
+            (m, c) => Exprs.Power(m.Get("aw"), Exprs.Integer(2)))
+        {
+            Classification = RuleClassification.DomainSpecific,
+            ConditionBuilder = (m, c) => AssumptionSet.Empty.Add(
+                new SymbolDomainAssumption(((SymbolExpr)m.Get("aw")).Symbol, Domain.Real)),
+        });
         reg.Register(new RewriteRule(
             "abs.abs-neg",
             "abs",

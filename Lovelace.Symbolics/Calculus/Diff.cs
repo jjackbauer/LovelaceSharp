@@ -45,6 +45,7 @@ public static class Calculus
         var terms = new List<Expr>();
         for (int i = 0; i < factors.Length; i++)
         {
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
             var others = new List<Expr>();
             for (int j = 0; j < factors.Length; j++)
                 if (j != i) others.Add(factors[j]);

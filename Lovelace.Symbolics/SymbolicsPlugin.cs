@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Immutable;
 using Lovelace.Abstractions;
 using Rat = global::Lovelace.Rational.Rational;
 using Int = global::Lovelace.Integer.Integer;
@@ -13,11 +15,79 @@ namespace Lovelace.Symbolics;
 /// payload boundary as <see cref="Expr"/> objects via the Suite core bridge
 /// (ValueKind.Symbolic).
 /// </summary>
-public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
+public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymbolicInspectionBridge
 {
     public string Name => "Lovelace.Symbolics";
 
     public ExprContext Context { get; } = new();
+
+    /// <summary>The elementary symbolic functions exposed one-argument builtins.</summary>
+    internal static readonly string[] ElementaryFunctions =
+        { "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh" };
+
+    private static string ElementarySummary(string fn) => fn switch
+    {
+        "exp" => "The exponential function, exp(x).",
+        "log" => "The natural logarithm (principal branch).",
+        "sin" => "The sine function.",
+        "cos" => "The cosine function.",
+        "tan" => "The tangent function.",
+        "asin" => "The principal arcsine.",
+        "acos" => "The principal arccosine.",
+        "atan" => "The principal arctangent.",
+        "sinh" => "The hyperbolic sine.",
+        "cosh" => "The hyperbolic cosine.",
+        "tanh" => "The hyperbolic tangent.",
+        _ => "The " + fn + " function.",
+    };
+
+    /// <summary>Help metadata for the symbolic builtins that have no bespoke descriptor: no
+    /// user-facing function ships without a summary, parameters and a return kind.</summary>
+    private static readonly Dictionary<string, BuiltinDescriptor> Metadata = BuildMetadata();
+
+    private static Dictionary<string, BuiltinDescriptor> BuildMetadata()
+    {
+        var m = new Dictionary<string, BuiltinDescriptor>(StringComparer.Ordinal)
+        {
+            ["and"] = new("and", new[] { "a", "b" }, BuiltinCategories.Symbolics,
+                "Logical conjunction of two conditions.", ["assume(x > 0); and(x > 0, x < 1)"], "Boolean | Symbolic", ["or", "not"]),
+            ["or"] = new("or", new[] { "a", "b" }, BuiltinCategories.Symbolics,
+                "Logical disjunction of two conditions.", ["or(x > 0, x < -1)"], "Boolean | Symbolic", ["and", "not"]),
+            ["not"] = new("not", new[] { "a" }, BuiltinCategories.Symbolics,
+                "Logical negation of a condition.", ["not(x > 0)"], "Boolean | Symbolic", ["and", "or"]),
+            ["assume_positive"] = new("assume_positive", new[] { "x" }, BuiltinCategories.Symbolics,
+                "Assumes x > 0 for the rest of the session.", ["assume_positive(x)"], "Symbolic", ["assume", "assumptions", "assume_clear"]),
+            ["assume_nonnegative"] = new("assume_nonnegative", new[] { "x" }, BuiltinCategories.Symbolics,
+                "Assumes x >= 0 for the rest of the session.", ["assume_nonnegative(x)"], "Symbolic", ["assume", "assumptions"]),
+            ["assume_negative"] = new("assume_negative", new[] { "x" }, BuiltinCategories.Symbolics,
+                "Assumes x < 0 for the rest of the session.", ["assume_negative(x)"], "Symbolic", ["assume", "assumptions"]),
+            ["assume_real"] = new("assume_real", new[] { "x" }, BuiltinCategories.Symbolics,
+                "Assumes x is real-valued for the rest of the session.", ["assume_real(x)"], "Symbolic", ["assume", "real"]),
+            ["assume_integer"] = new("assume_integer", new[] { "x" }, BuiltinCategories.Symbolics,
+                "Assumes x is an integer for the rest of the session.", ["assume_integer(x)"], "Symbolic", ["assume", "integer"]),
+            ["assume_clear"] = new("assume_clear", Array.Empty<string>(), BuiltinCategories.Symbolics,
+                "Clears every active assumption.", ["assume_clear()"], "Text", ["assume", "assumptions"]),
+            ["assumptions"] = new("assumptions", Array.Empty<string>(), BuiltinCategories.Symbolics,
+                "Lists the active assumptions.", ["assumptions()"], "Text", ["assume", "assume_clear"]),
+            ["limit_left"] = new("limit_left", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+                "One-sided limit from the left as x approaches x0.", ["limit_left(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+            ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+                "One-sided limit from the right as x approaches x0.", ["limit_right(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+            ["solve_system_full"] = new("solve_system_full", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
+                "Structured system solve: a SystemSolveResult with status, completeness, per-solution variable bindings and conditions.",
+                ["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult", ["solve_system", "solve_full"]),
+            ["optimize_full"] = new("optimize_full", new[] { "f", "params" }, BuiltinCategories.Optimization,
+                "Structured optimization: an OptimizationResult with the original and optimized expressions, estimated costs before/after, and the applied transformations.",
+                ["optimize_full(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])"], "OptimizationResult", ["optimize", "compile"]),
+        };
+        foreach (var fn in ElementaryFunctions)
+        {
+            m[fn] = new BuiltinDescriptor(fn, new[] { "x" }, BuiltinCategories.Symbolics,
+                ElementarySummary(fn), new[] { fn + "(x)" }, "Symbolic",
+                new[] { "simplify", "diff", "integrate" });
+        }
+        return m;
+    }
 
     private AssumptionSet _assumptions = AssumptionSet.Empty;
 
@@ -25,11 +95,30 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
     {
         // the D14 seam: core inv/linsolve/matrix_rank/det dispatch symbolic matrices here
         c.RegisterSymbolicMatrixBridge(this);
+        c.RegisterSymbolicInspectionBridge(this);
 
         void Add(string name, string[] parameters, Func<IReadOnlyList<object?>, object?> impl, BuiltinDescriptor? descriptor = null)
-            => c.RegisterBuiltin(
-                descriptor ?? new BuiltinDescriptor(name, parameters, BuiltinCategories.Symbolics, "(no summary registered)", Array.Empty<string>(), "Symbolic"),
-                args => Run(() => impl(args)));
+        {
+            var resolved = descriptor
+                ?? (Metadata.TryGetValue(name, out var known)
+                    ? known
+                    : new BuiltinDescriptor(name, parameters, BuiltinCategories.Symbolics,
+                        "(no summary registered)", Array.Empty<string>(), "Symbolic"));
+            c.RegisterBuiltin(resolved, args =>
+            {
+                // a coercion failure is reported with the function, the argument position and the
+                // actual payload kind: "diff(): argument 2 must be a symbolic variable; got Integer."
+                var tracked = args as BuiltinArgs ?? new BuiltinArgs(args);
+                try
+                {
+                    return Run(() => impl(tracked));
+                }
+                catch (BuiltinArgumentError ex)
+                {
+                    throw new InvalidOperationException(DescribeArgument(name, tracked, ex));
+                }
+            });
+        }
 
         Add("symbol", new[] { "name", "domain" }, args =>
             args.Count >= 2 && args[1] is MathDomain md
@@ -61,7 +150,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                 ["integer", "real", "complex"]));
 
         // elementary functions as symbolic builtins (numeric versions do not exist in the core)
-        foreach (var fn in new[] { "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh" })
+        foreach (var fn in ElementaryFunctions)
         {
             var name = fn;
             Add(name, new[] { "x" }, args => Exprs.Function(Context.Function(name), AsExpr(args[0])));
@@ -75,7 +164,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         },
         new BuiltinDescriptor("assume", new[] { "relation" }, BuiltinCategories.Symbolics,
             "Assumes a relation (or conjunction of relations) with a constant bound for the session, e.g. x > 5.",
-            ["assume(x > 5)", "assume(x > 0 and x < 10)"], "Symbolic",
+            ["assume(x > 5)", "assume(and(x > 0, x < 10))"], "Symbolic",
             ["assume_positive", "assumptions", "assume_clear"]));
         Add("and", new[] { "a", "b" }, args => LogicalOp(args, isAnd: true));
         Add("or", new[] { "a", "b" }, args => LogicalOp(args, isAnd: false));
@@ -102,7 +191,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                 SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
                 SymbolDomainAssumption d => d.S.Name + " in " + d.D,
                 SymbolPropertyAssumption p => p.S.Name + " is " + p.P,
-                _ => a.ToString(),
+                _ => AssumptionSet.Describe(a),
             })));
 
         Add("diff", new[] { "f", "x" }, args =>
@@ -123,13 +212,25 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                 new RecordField("expression", r.Expression),
                 new RecordField("conditions", ConditionExprs(r.Conditions)),
                 new RecordField("verified", r.Kind != IntegrationKind.Unevaluated),
+                new RecordField("method", r.Method ?? ""),
+                new RecordField("verification_method", r.VerificationMethod ?? ""),
+                new RecordField("exactness", (r.Expression.IsExact
+                    ? SolutionExactness.Exact
+                    : SolutionExactness.Approximate).ToString()),
                 new RecordField("diagnostics", r.Note ?? ""));
         },
         new BuiltinDescriptor("integrate_full", new[] { "f", "x" }, BuiltinCategories.Calculus,
             "Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag.",
             ["integrate_full(x^2, x)"], "IntegrationResult", ["integrate"]));
         Add("simplify", new[] { "f" }, args =>
-            Simplify.SimplifyExpr(AsExpr(args[0]), Context),
+        {
+            var e = AsExpr(args[0]);
+            // a relation the active assumptions decide folds to a Boolean: the bound lattice is
+            // already sound, so refusing to expose it here would hide a decidable answer
+            if (e is RelationExpr rel && TryDecideRelation(rel, out bool truth))
+                return truth;
+            return Simplify.SimplifyExpr(e, Context);
+        },
         new BuiltinDescriptor("simplify", new[] { "f" }, BuiltinCategories.Symbolics,
             "Safe simplification: applies only universal rules and rules whose side conditions are already provable from the active assumptions (conditions are never silently discarded).",
             ["simplify(sin(x)^2 + cos(x)^2)", "simplify(x/x)"], "Symbolic", ["simplify_full", "expand", "factor"]));
@@ -138,6 +239,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
             var e = AsExpr(args[0]);
             var r = Simplify.Transform(e, Context, new Simplify.Options(Trace: true));
             return new RecordValue("TransformResult",
+                new RecordField("status", r.Status),
+                new RecordField("original", r.Original),
                 new RecordField("expression", r.Expression),
                 new RecordField("changed", !r.Expression.Equals(e)),
                 new RecordField("conditions", ConditionExprs(r.Conditions)),
@@ -147,7 +250,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                     new RecordField("before", s.Before),
                     new RecordField("after", s.After),
                     new RecordField("required_conditions", ConditionExprs(s.Conditions)))).ToArray()),
-                new RecordField("budget_exceeded", r.BudgetExceeded));
+                new RecordField("budget_exceeded", r.BudgetExceeded),
+                new RecordField("budget_kind", r.BudgetKind ?? ""));
         },
         new BuiltinDescriptor("simplify_full", new[] { "f" }, BuiltinCategories.Symbolics,
             "Structured simplify: a TransformResult record with the rewritten expression, required side conditions, and the applied rule steps (stable rule ids and classifications).",
@@ -186,18 +290,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
             ["limit_left", "limit_right", "limit_full"]));
         Add("limit_full", new[] { "f", "x", "x0" }, args =>
         {
-            var r = Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.TwoSided, Context);
+            var x = AsSymbol(args[1]);
+            var point = AsExpr(args[2]);
+            var r = Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context);
             bool exists = r.Status is LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity;
             return new RecordValue("LimitResult",
                 new RecordField("status", r.Status.ToString()),
                 new RecordField("exists", exists),
                 new RecordField("value", LimitSide(r)),
                 new RecordField("left", LimitSide(r.FromLeft)),
+                new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists)),
                 new RecordField("right", LimitSide(r.FromRight)),
+                new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists)),
+                new RecordField("conditions", ConditionExprs(r.Conditions)),
+                new RecordField("exactness", r.Exactness.ToString()),
                 new RecordField("diagnostics", r.FailureReason ?? ""));
         },
         new BuiltinDescriptor("limit_full", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
-            "Structured limit: a LimitResult record with status, exists, value, and the left/right one-sided values.",
+            "Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics.",
             ["limit_full(1/x, x, 0)"], "LimitResult", ["limit", "limit_left", "limit_right"]));
         Add("limit_left", new[] { "f", "x", "x0" }, args =>
             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromLeft, Context)));
@@ -236,77 +346,76 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
             var sx = AsSymbol(args[1]);
             var domain = SolveDomainOf(args);
             var set = Solvers.Solve(fx, sx, Context, domain);
-            if (set.Kind == SolutionKind.Exact)
-            {
-                // conditions are part of the solution: a value violating a provable
-                // excluded-domain condition (e.g. the pole of a cancelled denominator) is dropped
-                var kept = new List<Expr>();
-                foreach (var sol in set.Solutions)
-                {
-                    if (ViolatesConditions(sol, sx))
-                        continue;
-                    kept.Add(sol.Value);
-                }
-                if (kept.Count > 0)
-                    return (object)kept.ToArray();
-                if (set.Families.Count > 0)
-                    return string.Join("; ", set.Families.Select(f =>
-                        Printing.PrettyPrint(f.Template) + " for integer " + f.Parameter.Name));
+            var kept = AcceptedSolutions(set, sx);
+            if (set.Status == SolveStatus.Solved && kept.Count > 0)
+                return (object)kept.Select(s => s.Value).ToArray();
+            if (set.Status == SolveStatus.Solved && set.Families.Count > 0)
+                return string.Join("; ", set.Families.Select(f =>
+                    Printing.PrettyPrint(f.Template) + " for integer " + f.Parameter.Name));
+            if (set.Status == SolveStatus.Solved)
                 return "no solutions";
-            }
-            if (set.Kind == SolutionKind.Empty)
+            if (set.Status == SolveStatus.NoSolutions)
                 return set.Note ?? "no solutions";
-            // Unevaluated: prefer the diagnostic note (e.g. the domain-honesty message for
-            // deg ≥ 4 complex roots); fall back to the equation itself when there is no note
-            if (set.Note is { } note)
-                return "unevaluated: " + note;
-            return Printing.PrettyPrint(fx);
+            // A partial or unevaluated result must never be presented as a complete vector.
+            if (set.Status == SolveStatus.Partial)
+            {
+                var shown = kept.Count > 0
+                    ? string.Join(", ", kept.Select(s => Printing.PrettyPrint(s.Value)))
+                    : "none";
+                return $"partially representable ({set.UnrepresentedCount} root(s) missing: " +
+                       $"{set.UnrepresentedReason ?? "not representable"}); representable: [{shown}]";
+            }
+            return "unevaluated: " + (set.Note ?? "no solver for this structure");
         },
         new BuiltinDescriptor("solve", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
-            "Solves an equation for x. The default domain is Complex (deg ≤ 3 radicals are complex-capable; deg ≥ 4 complex algebraic roots are reported unevaluated); pass real for real solutions only. Use solve_full for the structured result.",
+            "Solves an equation for x. The default domain is Complex. A result is returned as a vector only when the solver can represent the COMPLETE solution set over the requested domain; partial results are reported as text (use solve_full for the structured form); pass real for real solutions only.",
             ["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"], "Vector | Text",
-            ["solve_full", "solve_system", "linsolve"]));
+            ["solve_full", "solve_system", "linsolve"], MinArity: 2));
         Add("solve_full", new[] { "f", "x", "domain" }, args =>
         {
             var fx = AsExpr(args[0]);
             var sx = AsSymbol(args[1]);
             var domain = SolveDomainOf(args);
             var set = Solvers.Solve(fx, sx, Context, domain);
-            var solutions = new List<object?>();
-            if (set.Kind == SolutionKind.Exact)
-            {
-                foreach (var sol in set.Solutions)
-                {
-                    if (sol.Conditions.IsUnsatisfiable || ViolatesConditions(sol, sx))
-                        continue;
-                    solutions.Add(sol.Value);
-                }
-            }
+            var accepted = AcceptedSolutions(set, sx);
+
+            // rejections after solving are what make a "solved" set empty
+            var status = set.Status;
+            if (status == SolveStatus.Solved && accepted.Count == 0 && set.Families.Count == 0)
+                status = SolveStatus.NoSolutions;
+
+            var solutions = accepted.Select(s => (object)new RecordValue("Solution",
+                new RecordField("value", s.Value),
+                new RecordField("conditions", ConditionExprs(s.Conditions)),
+                new RecordField("multiplicity", (long)s.Multiplicity),
+                new RecordField("exactness", s.Exactness.ToString()))).ToArray();
+
             var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
                 new RecordField("template", f.Template),
                 new RecordField("parameter", f.Parameter.Name),
                 new RecordField("period", f.Period),
-                new RecordField("parameter_domain", f.Domain.ToString()))).ToArray();
+                new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
+                new RecordField("conditions", ConditionExprs(f.Conditions)),
+                new RecordField("exactness", f.Exactness.ToString()))).ToArray();
+
             return new RecordValue("SolveResult",
-                new RecordField("status", set.Kind switch
-                {
-                    SolutionKind.Exact => "Solved",
-                    SolutionKind.Empty => "NoSolutions",
-                    _ => "Unevaluated",
-                }),
+                new RecordField("status", status.ToString()),
                 new RecordField("variable", sx.Name),
-                new RecordField("domain", domain.ToString()),
-                new RecordField("solutions", solutions.ToArray()),
-                new RecordField("conditions", ConditionExprs(set.Kind == SolutionKind.Exact
-                    ? UnionConditions(set.Solutions)
-                    : AssumptionSet.Empty)),
+                new RecordField("domain", DomainOf(domain)),
+                new RecordField("complete", status == SolveStatus.Solved),
+                new RecordField("completeness", (status == SolveStatus.Solved ? Completeness.Complete : set.Complete).ToString()),
+                new RecordField("solutions", solutions),
                 new RecordField("families", families),
+                new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
+                new RecordField("represented_count", (long)accepted.Count),
+                new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
+                new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
                 new RecordField("diagnostics", set.Note ?? ""));
         },
         new BuiltinDescriptor("solve_full", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
-            "Structured solve: a SolveResult record with status, domain, solutions, side conditions, parametric families, and diagnostics.",
-            ["solve_full(x^2 - 4 == 0, x)", "solve_full((x^2 - 1)/(x - 1) == 0, x)"], "SolveResult",
-            ["solve", "solve_system_full"]));
+            "Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain.",
+            ["solve_full(x^2 - 4 == 0, x)", "solve_full(x^4 - x^2 - 1 == 0, x)"], "SolveResult",
+            ["solve", "solve_system_full"], MinArity: 2));
         Add("subs", new[] { "f", "x", "value" }, args =>
             Evaluation.Substitute(AsExpr(args[0]), Context,
                 new Dictionary<Symbol, Expr> { [AsSymbol(args[1])] = AsExpr(args[2]) }),
@@ -357,6 +466,9 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
             var f = AsExpr(args[0]);
             var ps = NameList(args[1]).Select(Context.Symbol).ToArray();
             var r = Optimizer.OptimizeDetailed(f, ps, Context);
+            var transformations = new List<object?>();
+            if (r.SharedSubtrees > 0) transformations.Add("cse");
+            if (r.HornerRewrites > 0) transformations.Add("horner");
             return new RecordValue("OptimizationResult",
                 new RecordField("original", f),
                 new RecordField("optimized", r.Expression),
@@ -364,13 +476,16 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                 new RecordField("estimated_cost_after", r.NodesAfter),
                 new RecordField("shared_subtrees", r.SharedSubtrees),
                 new RecordField("horner_rewrites", r.HornerRewrites),
-                new RecordField("target", "mathir"));
+                new RecordField("transformations", transformations.ToArray()),
+                new RecordField("target", "mathir"),
+                new RecordField("policy", PolicyToken(r.Options)));
         });
     }
 
     private static IEnumerable<string> NameList(object? o)
     {
-        var list = (IReadOnlyList<object?>)o!;
+        if (o is not IReadOnlyList<object?> list)
+            throw new BuiltinArgumentError("a list of parameter symbols, e.g. [x]");
         foreach (var n in list)
         {
             if (n is string s)
@@ -378,13 +493,25 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
             else if (n is SymbolExpr sx)
                 yield return sx.Symbol.Name;
             else
-                throw new InvalidOperationException("Expected symbol names.");
+                throw new BuiltinArgumentError("a list of parameter symbols, e.g. [x]");
         }
     }
 
     /// <summary>Adds assumption atoms: relations, conjunctions of relations, and negations of
     /// relations (mapped to their complement relation). Disjunctions are rejected: the atom
     /// lattice has no disjunction.</summary>
+    /// <summary>The same relation read from the other side: a &lt; b is b &gt; a.</summary>
+    private static RelOp? Flipped(RelOp op) => op switch
+    {
+        RelOp.Lt => RelOp.Gt,
+        RelOp.Gt => RelOp.Lt,
+        RelOp.Le => RelOp.Ge,
+        RelOp.Ge => RelOp.Le,
+        RelOp.Eq => RelOp.Eq,
+        RelOp.Ne => RelOp.Ne,
+        _ => null,
+    };
+
     private bool AssumeRecursive(Expr rel)
     {
         switch (rel)
@@ -394,6 +521,16 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
                 if (r.Left is SymbolExpr sx && r.Right is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
                 {
                     _assumptions = _assumptions.Add(new SymbolRelationAssumption(sx.Symbol, r.Op, r.Right));
+                    return true;
+                }
+                // "1/2 < x" states the same fact as "x > 1/2": normalise the mirrored spelling.
+                // The atom lattice stores symbol-op-constant only, so without this the surface is
+                // shape-sensitive and rejects a perfectly ordinary way of writing a bound.
+                if (r.Right is SymbolExpr rs &&
+                    r.Left is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr) &&
+                    Flipped(r.Op) is { } flipped)
+                {
+                    _assumptions = _assumptions.Add(new SymbolRelationAssumption(rs.Symbol, flipped, r.Left));
                     return true;
                 }
                 return false;
@@ -428,10 +565,80 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         return isAnd ? Exprs.And(AsExpr(args[0]), AsExpr(args[1])) : Exprs.Or(AsExpr(args[0]), AsExpr(args[1]));
     }
 
-    private static SolveDomain SolveDomainOf(IReadOnlyList<object?> args) =>
-        args.Count >= 3 && args[2] is MathDomain { } md && md == MathDomain.Real
-            ? SolveDomain.Real
-            : SolveDomain.Complex;
+    /// <summary>Maps the requested domain value onto the solver's domain. Unsupported domains are
+    /// REJECTED: silently widening integer/rational requests to Complex would answer a different
+    /// question than the caller asked.</summary>
+    private static SolveDomain SolveDomainOf(IReadOnlyList<object?> args)
+    {
+        if (args.Count < 3 || args[2] is null)
+            return SolveDomain.Complex;
+        if (args[2] is MathDomain md)
+        {
+            return md switch
+            {
+                MathDomain.Real => SolveDomain.Real,
+                MathDomain.Complex => SolveDomain.Complex,
+                _ => throw new InvalidOperationException(
+                    "solve(): currently supports domains real and complex; got " +
+                    md.ToString().ToLowerInvariant() + "."),
+            };
+        }
+        throw new InvalidOperationException(
+            "solve(): argument 3 (domain) must be a domain value such as real or complex.");
+    }
+
+    /// <summary>Decides a single relation of the form symbol OP constant against the active
+    /// assumptions. Returns false when the relation is not of that shape or is not decided.</summary>
+    private bool TryDecideRelation(RelationExpr rel, out bool truth)
+    {
+        truth = false;
+        if (rel.Left is not SymbolExpr sx)
+            return false;
+        var answer = Context.Assumptions.Ask(new SymbolRelationAssumption(sx.Symbol, rel.Op, rel.Right));
+        if (answer == Tristate.True)
+        {
+            truth = true;
+            return true;
+        }
+        if (answer == Tristate.False)
+            return true;
+        return false;
+    }
+
+    private static MathDomain DomainOf(SolveDomain d) =>
+        d == SolveDomain.Real ? MathDomain.Real : MathDomain.Complex;
+
+    /// <summary>Family parameter domains are domain values, not prose.</summary>
+    private static MathDomain ParameterDomainOf(ParameterDomain p) => MathDomain.Integer;
+
+    /// <summary>Solutions that survive their own conditions (a value violating a provable
+    /// excluded-domain condition, e.g. the pole of a cancelled denominator, is not a solution).</summary>
+    private static List<Solution> AcceptedSolutions(SolutionSet set, Symbol x)
+    {
+        var kept = new List<Solution>();
+        foreach (var sol in set.Solutions)
+        {
+            if (sol.Conditions.IsUnsatisfiable || ViolatesConditions(sol, x))
+                continue;
+            kept.Add(sol);
+        }
+        return kept;
+    }
+
+    /// <summary>The conditions every solution shares (an intersection, never a union: a union of
+    /// branch conditions is not a condition any single branch satisfies).</summary>
+    private static AssumptionSet CommonConditions(IReadOnlyList<Solution> solutions)
+    {
+        if (solutions.Count == 0)
+            return AssumptionSet.Empty;
+        var common = solutions[0].Conditions.Atoms;
+        for (int i = 1; i < solutions.Count && common.Length > 0; i++)
+        {
+            var other = solutions[i].Conditions;
+            common = common.Where(other.Contains).ToImmutableArray();
+        }
+        return AssumptionSet.FromAtoms(common);
+    }
 
     // -----------------------------------------------------------------
     // ISymbolicMatrixBridge (the D14 Suite↔Symbolics seam)
@@ -467,6 +674,30 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         return rows;
     }
 
+    /// <summary>ISymbolicInspectionBridge: the active assumptions that constrain the symbols free
+    /// in the inspected expression, projected as structured condition leaves (the same projection
+    /// every other condition array uses).</summary>
+    public object?[] RelevantAssumptions(object expression)
+    {
+        if (expression is not Expr e)
+            return Array.Empty<object?>();
+        var names = new HashSet<string>(Printing.FreeSymbolNames(e), StringComparer.Ordinal);
+        if (names.Count == 0)
+            return Array.Empty<object?>();
+        var relevant = _assumptions.Atoms.Where(a => MentionsAny(a, names)).ToArray();
+        return relevant.Length == 0 ? Array.Empty<object?>() : ConditionExprs(AssumptionSet.FromAtoms(relevant));
+    }
+
+    private static bool MentionsAny(Assumption a, HashSet<string> names) => a switch
+    {
+        SymbolRelationAssumption r => names.Contains(r.S.Name),
+        SymbolPropertyAssumption p => names.Contains(p.S.Name),
+        SymbolDomainAssumption d => names.Contains(d.S.Name),
+        ExpressionPropertyAssumption e => Printing.FreeSymbolNames(e.E).Any(names.Contains),
+        IntervalAssumption i => Printing.FreeSymbolNames(i.E).Any(names.Contains),
+        _ => false,
+    };
+
     public object? TryDet(IReadOnlyList<object?> elements, long[] shape) =>
         MatrixOf(elements, shape).Det(Context);
 
@@ -498,77 +729,97 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         return result.Vector?.Select(e => (object)e).ToArray();
     }
 
-    private static Domain ToKernelDomain(MathDomain d) => d switch
-    {
-        MathDomain.Integer => Domain.Integer,
-        MathDomain.Rational => Domain.Rational,
-        MathDomain.Real => Domain.Real,
-        _ => Domain.Complex,
-    };
-
     private object SymbolWithDomain(string name, MathDomain domain)
     {
         var s = Context.Symbol(name);
-        _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, ToKernelDomain(domain)));
+        _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, Domains.ToKernelDomain(domain)));
         return Exprs.Symbol(s);
     }
 
-    /// <summary>Renders condition atoms as symbolic relations where representable (the
-    /// structured view); non-relation atoms fall back to their text form.</summary>
+    /// <summary>Marker payload for a provably contradictory condition set (no model exists).
+    /// Distinct from an empty condition array, which means "unconditional" — the two must never
+    /// be confused, so the contradiction is a value rather than the string "unsatisfiable".</summary>
+    internal static RecordValue UnsatisfiableConditions { get; } = new("UnsatisfiableConditions");
+
+    /// <summary>Projects condition atoms into structured payload leaves — never strings. A relation
+    /// stays a symbolic relation; a predicate without a relation form becomes an explicit
+    /// <c>FiniteCondition</c>/<c>PredicateCondition</c> record; a domain restriction becomes a
+    /// <c>DomainCondition</c> carrying a Domain value; an interval becomes an
+    /// <c>IntervalCondition</c>; a contradictory set becomes <see cref="UnsatisfiableConditions"/>.
+    /// The human-readable <c>finite(x)</c> spelling belongs to the pretty printer, not the payload.</summary>
     private static object?[] ConditionExprs(AssumptionSet conditions)
     {
         if (conditions.IsUnsatisfiable)
-            return new object?[] { "unsatisfiable" };
+            return new object?[] { UnsatisfiableConditions };
         var list = new List<object?>();
         foreach (var a in conditions.Atoms)
-        {
-            switch (a)
-            {
-                case SymbolRelationAssumption sr:
-                    list.Add(Exprs.Relation(sr.Op, Exprs.Symbol(sr.S), sr.Bound));
-                    break;
-                case SymbolPropertyAssumption { P: SymbolPredicate.Finite } sf:
-                    list.Add("finite(" + sf.S.Name + ")");
-                    break;
-                case ExpressionPropertyAssumption { P: SymbolPredicate.Finite } ef:
-                    list.Add("finite(" + Printing.PrettyPrint(ef.E) + ")");
-                    break;
-                case SymbolPropertyAssumption sp:
-                    list.Add((object?)PropertyRelation(Exprs.Symbol(sp.S), sp.P) ?? a.ToString());
-                    break;
-                case ExpressionPropertyAssumption ep:
-                    list.Add((object?)PropertyRelation(ep.E, ep.P) ?? a.ToString());
-                    break;
-                default:
-                    list.Add(a.ToString());
-                    break;
-            }
-        }
+            list.Add(ConditionLeaf(a));
         return list.ToArray();
     }
 
-    private static Expr? PropertyRelation(Expr e, SymbolPredicate p) => p switch
+    private static object ConditionLeaf(Assumption a) => a switch
     {
-        SymbolPredicate.NonZero => Exprs.Relation(RelOp.Ne, e, Exprs.Zero),
-        SymbolPredicate.Positive => Exprs.Relation(RelOp.Gt, e, Exprs.Zero),
-        SymbolPredicate.Negative => Exprs.Relation(RelOp.Lt, e, Exprs.Zero),
-        SymbolPredicate.NonNegative => Exprs.Relation(RelOp.Ge, e, Exprs.Zero),
-        SymbolPredicate.NonPositive => Exprs.Relation(RelOp.Le, e, Exprs.Zero),
-        _ => null,
+        SymbolRelationAssumption sr => Exprs.Relation(sr.Op, Exprs.Symbol(sr.S), sr.Bound),
+        SymbolPropertyAssumption sp =>
+            PredicateLeaf(PropertyRelation(Exprs.Symbol(sp.S), sp.P), sp.P, Exprs.Symbol(sp.S)),
+        ExpressionPropertyAssumption ep =>
+            PredicateLeaf(PropertyRelation(ep.E, ep.P), ep.P, ep.E),
+        SymbolDomainAssumption sd => new RecordValue("DomainCondition",
+            new RecordField("variable", Exprs.Symbol(sd.S)),
+            new RecordField("domain", Domains.ToMathDomain(sd.D))),
+        IntervalAssumption iv => new RecordValue("IntervalCondition",
+            new RecordField("expression", iv.E),
+            new RecordField("lower", iv.Lower),
+            new RecordField("lower_open", iv.LowerOpen),
+            new RecordField("upper", iv.Upper),
+            new RecordField("upper_open", iv.UpperOpen)),
+        _ => throw new InvalidOperationException(
+            $"Condition atom '{a.GetType().Name}' has no structured projection. Add one to " +
+            "SymbolicsPlugin.ConditionLeaf instead of letting a string reach the machine API."),
     };
 
-    private static AssumptionSet UnionConditions(IEnumerable<Solution> solutions)
+    /// <summary>A predicate leaf: the equivalent relation when one exists (NonZero ⇒ <c>x != 0</c>),
+    /// otherwise an explicit predicate record, so the payload never degrades to text.</summary>
+    private static object PredicateLeaf(Expr? relation, SymbolPredicate predicate, Expr subject)
     {
-        var result = AssumptionSet.Empty;
-        foreach (var sol in solutions)
+        if (relation is not null)
+            return relation;
+        if (predicate == SymbolPredicate.Finite)
+            return new RecordValue("FiniteCondition", new RecordField("expression", subject));
+        return new RecordValue("PredicateCondition",
+            new RecordField("predicate", predicate.ToString()),
+            new RecordField("expression", subject));
+    }
+
+    /// <summary>Rendering form of a predicate: the equivalent relation when one exists, so the
+    /// pretty view reads <c>x != 0</c>; the payload itself stays a structured predicate record
+    /// (<see cref="ConditionLeaf"/>). The operator mapping is shared with the kernel.</summary>
+    private static Expr? PropertyRelation(Expr e, SymbolPredicate p) =>
+        AssumptionSet.RelationOp(p) is { } op ? Exprs.Relation(op, e, Exprs.Zero) : null;
+
+    /// <summary>The constraint a one-sided value holds under — x &lt; x0 from the left,
+    /// x &gt; x0 from the right. Attached only when the two-sided limit does not exist, because
+    /// then the value genuinely holds on that side alone; a two-sided value needs no condition.</summary>
+    private static object?[] SideConditions(
+        Symbol x, Expr point, bool fromRight, LimitResult? side, bool twoSidedExists)
+    {
+        if (twoSidedExists || side is null || side.Status == LimitStatus.Unevaluated)
+            return Array.Empty<object?>();
+        return new object?[]
         {
-            foreach (var atom in sol.Conditions.Atoms)
-            {
-                try { result = result.Add(atom); }
-                catch (AssumptionContradictionException) { return AssumptionSet.Unsatisfiable; }
-            }
-        }
-        return result;
+            Exprs.Relation(fromRight ? RelOp.Gt : RelOp.Lt, Exprs.Symbol(x), point),
+        };
+    }
+
+    /// <summary>Stable optimization-policy token: the enabled flags in a fixed order.</summary>
+    private static string PolicyToken(OptimizeOptions o)
+    {
+        var parts = new List<string>();
+        if (o.CommonSubexpressionElimination) parts.Add("cse");
+        if (o.Horner) parts.Add("horner");
+        if (o.PrecisionAware) parts.Add("precision-aware");
+        if (o.PowerReduction) parts.Add("power-reduction");
+        return parts.Count == 0 ? "none" : string.Join("+", parts);
     }
 
     private static object? LimitSide(LimitResult? r) => r?.Status switch
@@ -673,13 +924,66 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         return false;
     }
 
+    /// <summary>Argument list that records which position a coercion helper last read, so a
+    /// failed coercion can be reported as
+    /// <c>diff(): argument 2 must be a symbolic variable; got Integer.</c> without threading the
+    /// index through every builtin implementation.</summary>
+    private sealed class BuiltinArgs : IReadOnlyList<object?>
+    {
+        private readonly IReadOnlyList<object?> _inner;
+        public BuiltinArgs(IReadOnlyList<object?> inner) => _inner = inner;
+
+        /// <summary>Index most recently read through the indexer, or -1.</summary>
+        public int LastIndex { get; private set; } = -1;
+
+        public object? this[int index]
+        {
+            get { LastIndex = index; return _inner[index]; }
+        }
+
+        public int Count => _inner.Count;
+        public IEnumerator<object?> GetEnumerator() => _inner.GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    /// <summary>Coercion failure carrying only the expectation; the registration wrapper adds the
+    /// function name, the argument position and the actual payload kind.</summary>
+    private sealed class BuiltinArgumentError(string expected) : Exception
+    {
+        public string Expected { get; } = expected;
+    }
+
+    private static string DescribeArgument(string name, BuiltinArgs args, BuiltinArgumentError error)
+    {
+        int index = args.LastIndex;
+        object? actual = index >= 0 && index < args.Count ? args[index] : null;
+        return $"{name}(): argument {index + 1} must be {error.Expected}; got {DescribePayload(actual)}.";
+    }
+
+    /// <summary>The payload kind as an agent sees it: the value-kind vocabulary, not a CLR type name.</summary>
+    private static string DescribePayload(object? payload) => payload switch
+    {
+        null => "nothing",
+        Expr => "Symbolic",
+        Rl => "Real",          // Real inherits Integer: check before Int
+        Int => "Integer",
+        Nat => "Natural",
+        Cplx => "Complex",
+        bool => "Boolean",
+        string => "Text",
+        MathDomain => "Domain",
+        RecordValue => "Record",
+        IReadOnlyList<object?> => "Vector",
+        _ => payload.GetType().Name,
+    };
+
     private static Symbol AsSymbol(object? o)
     {
         if (o is Expr e && e is SymbolExpr sx)
             return sx.Symbol;
         if (o is string s)
             return Exprs.Current.Symbol(s);
-        throw new InvalidOperationException($"Expected a symbolic symbol, got {o?.GetType().Name ?? "null"}.");
+        throw new BuiltinArgumentError("a symbolic variable");
     }
 
     private static Expr AsExpr(object? o) => o switch
@@ -690,7 +994,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         Nat n => Exprs.Integer(new Int(n)),
         Cplx c => Exprs.Add(RealToExpr(c.Re), Exprs.Multiply(RealToExpr(c.Im), Exprs.I)),
         string s => Exprs.Symbol(s),
-        _ => throw new InvalidOperationException($"Cannot convert payload of type {o?.GetType().Name} to an expression."),
+        _ => throw new BuiltinArgumentError("a symbolic expression"),
     };
 
     private static Expr RealToExpr(Rl r)
@@ -708,6 +1012,6 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge
         Nat n => long.Parse(n.ToString()),
         Int i => long.Parse(i.ToString()),
         long l => l,
-        _ => throw new InvalidOperationException("Expected an integer."),
+        _ => throw new BuiltinArgumentError("an integer"),
     };
 }

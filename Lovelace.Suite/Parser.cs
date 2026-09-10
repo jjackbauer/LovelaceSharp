@@ -7,8 +7,13 @@ namespace Lovelace.Suite;
 /// </summary>
 /// <remarks>
 /// Expression precedence, lowest to highest:
-/// assignment → comparison → additive → multiplicative → power → range (<c>..</c>) →
-/// unary prefix → postfix (factorial/index) → primary.
+/// assignment → comparison → additive → multiplicative → power (with a leading unary
+/// sign) → range (<c>..</c>) → unary prefix → postfix (factorial/index) → primary.
+///
+/// A leading sign binds <em>looser</em> than <c>^</c> (the mathematical convention:
+/// <c>-x^2</c> is <c>-(x^2)</c>, so <c>-2^2</c> is −4) but <em>tighter</em> than the
+/// range operator, so a signed range start keeps its natural reading
+/// (<c>-1..2</c> is the range from −1 to 2).
 /// </remarks>
 public sealed class Parser
 {
@@ -350,25 +355,46 @@ public sealed class Parser
         return left;
     }
 
-    // Power (right-associative)
+    // Power (right-associative), with a leading sign handled at this level so that the
+    // sign binds looser than '^' (the mathematical convention) but tighter than '..':
+    //     -x^2   ==  -(x^2)      (-2^2 is -4, not 4)
+    //     x^-2   ==  x^(-2)      (the exponent may carry its own sign)
+    //     -1..2  ==  (-1)..2     (a signed range start is not a negation of the range)
     private Expr ParsePower()
     {
-        var left = ParseRange();
-        if (Current.Kind == TokenKind.Caret)
+        if (Current.Kind is TokenKind.Minus or TokenKind.Plus)
         {
+            var op = Current.Kind == TokenKind.Minus ? UnaryOp.Negate : UnaryOp.Plus;
             Advance();
-            var right = ParsePower();
-            return new BinaryExpr(left, BinaryOp.Power, right);
+            var operand = ParseUnary();
+            // "-x^2" negates the whole power; "-1..2" signs only the first range element.
+            var signed = Current.Kind == TokenKind.Caret
+                ? new UnaryExpr(op, ParsePowerTail(operand))
+                : new UnaryExpr(op, operand);
+            return Current.Kind == TokenKind.DotDot
+                ? ParsePowerTail(ParseRangeTail(signed))
+                : signed;
         }
-        return left;
+
+        return ParsePowerTail(ParseRange());
+    }
+
+    private Expr ParsePowerTail(Expr left)
+    {
+        if (Current.Kind != TokenKind.Caret)
+            return left;
+
+        Advance();
+        // right-associative; the exponent may itself be signed or a power: x^-2, 2^3^2
+        return new BinaryExpr(left, BinaryOp.Power, ParsePower());
     }
 
     // Range — start..end and start..step..end. Binds tighter than power so a
     // range reads like an atomic value: `1..10 ^ 2` means `(1..10) ^ 2`.
-    private Expr ParseRange()
-    {
-        var first = ParseUnary();
+    private Expr ParseRange() => ParseRangeTail(ParseUnary());
 
+    private Expr ParseRangeTail(Expr first)
+    {
         if (Current.Kind != TokenKind.DotDot)
             return first;
 
@@ -385,7 +411,8 @@ public sealed class Parser
         return new RangeExpr(first, null, second);
     }
 
-    // Unary prefix (right-associative)
+    // Unary prefix (right-associative). Reached from the range operands and from the
+    // ParsePower sign branch; the sign is applied by the caller in the latter case.
     private Expr ParseUnary()
     {
         if (Current.Kind == TokenKind.Minus)

@@ -15,6 +15,7 @@ namespace Lovelace.Studio;
 [JsonSerializable(typeof(SymbolicInspectResponse))]
 [JsonSerializable(typeof(SymbolicTreeNode))]
 [JsonSerializable(typeof(SetPrecisionRequest))]
+[JsonSerializable(typeof(SetFormatRequest))]
 [JsonSerializable(typeof(SessionResponse))]
 [JsonSerializable(typeof(StartRunResponse))]
 [JsonSerializable(typeof(RunStatusResponse))]

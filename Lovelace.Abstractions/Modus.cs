@@ -66,6 +66,16 @@ public interface IModusContext
                          Func<IReadOnlyList<object?>, ScalarResult> implementation) =>
         RegisterBuiltin(descriptor, args => implementation(args).Payload);
 
+    /// <summary>
+    /// Cancellation-aware registration: the implementation receives the ambient
+    /// <see cref="Cancellation.Token"/> of the evaluation that invoked it, so a kernel can stop
+    /// promptly. The default implementation forwards to the token-less overload, so existing
+    /// registrations and hosts keep working unchanged.
+    /// </summary>
+    void RegisterBuiltin(BuiltinDescriptor descriptor,
+                         Func<IReadOnlyList<object?>, CancellationToken, object?> implementation) =>
+        RegisterBuiltin(descriptor, args => implementation(args, Cancellation.Token));
+
     /// <summary>Registers an optimized elementwise kernel over an exact scalar type.</summary>
     void RegisterKernel<T>(IFieldKernel<T> kernel);
 
@@ -75,6 +85,10 @@ public interface IModusContext
     /// not store bridges keep the default no-op.
     /// </summary>
     void RegisterSymbolicMatrixBridge(ISymbolicMatrixBridge bridge) { }
+
+    /// <summary>Registers the introspection bridge (inspect() assumption reporting). Hosts that do
+    /// not support it keep the default no-op behaviour.</summary>
+    void RegisterSymbolicInspectionBridge(ISymbolicInspectionBridge bridge) { }
 }
 
 /// <summary>

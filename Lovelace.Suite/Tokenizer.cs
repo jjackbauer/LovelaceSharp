@@ -149,8 +149,12 @@ public sealed class Tokenizer
 
         string content = input.Substring(contentStart, pos - contentStart);
 
-        if (pos < input.Length && input[pos] == '"')
-            pos++;                         // consume closing quote
+        // A string that runs to end-of-input without its closing quote is malformed input, not a
+        // string: accepting it silently turned a typo into a value (fuzz case, Cycle-2 round 28).
+        if (pos >= input.Length || input[pos] != '"')
+            throw new FormatException($"Unterminated string literal at position {start}.");
+
+        pos++;                             // consume closing quote
 
         return new Token(kind, content, start);
     }

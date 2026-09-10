@@ -68,3 +68,7 @@ Thumbs.db
 
 # Segregated git worktrees (implementation experiments)
 .worktrees/
+
+# symbench: BenchmarkDotNet writes per-class reports next to the project
+benchmarks/bdn-reports/
+SymBench.*-report.*

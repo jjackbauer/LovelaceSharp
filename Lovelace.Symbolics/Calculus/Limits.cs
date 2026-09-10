@@ -14,12 +14,29 @@ public sealed record LimitResult(
     LimitResult? FromRight = null,
     string? FailureReason = null)
 {
-    public static LimitResult Of(Expr v) => new(LimitStatus.Value, v);
+    /// <summary>Conditions under which <see cref="Value"/> holds. Usually empty (a limit at a
+    /// point is unconditional); a one-sided value at a branch point carries the side constraint.</summary>
+    public AssumptionSet Conditions { get; init; } = AssumptionSet.Empty;
+
+    /// <summary>Exactness of the reported value: an exact constant, an algebraic closed form, or
+    /// an approximation produced by numeric evaluation.</summary>
+    public SolutionExactness Exactness { get; init; } = SolutionExactness.Exact;
+
+    public static LimitResult Of(Expr v) =>
+        new(LimitStatus.Value, v) { Exactness = ExactnessOf(v) };
+
     public static LimitResult PlusInf => new(LimitStatus.PlusInfinity);
     public static LimitResult MinusInf => new(LimitStatus.MinusInfinity);
     public static LimitResult Dne(LimitResult left, LimitResult right) =>
         new(LimitStatus.DoesNotExist, FromLeft: left, FromRight: right);
     public static LimitResult Uneval(string reason) => new(LimitStatus.Unevaluated, FailureReason: reason);
+
+    private static SolutionExactness ExactnessOf(Expr v) => v switch
+    {
+        IntegerConstantExpr or RationalConstantExpr => SolutionExactness.Exact,
+        RealConstantExpr => SolutionExactness.Approximate,
+        _ => SolutionExactness.AlgebraicExact,
+    };
 }
 
 /// <summary>
@@ -54,17 +71,21 @@ public static class Limits
             // nonzero/zero or 0/0: local series decides (pole analysis handles direction)
             return SeriesLimit(f, n, d, x, point, direction, ctx);
         }
-        catch (Exception)
+        catch (EvaluationException)
         {
-            // fall through to the series path
+            // the point is not numerically substitutable (pole, branch cut, undefined at the
+            // point): the series path decides. Defects are not swallowed here.
         }
         try
         {
             var (n, d) = SplitFraction(f);
             return SeriesLimit(f, n, d, x, point, direction, ctx);
         }
-        catch (Exception ex)
+        catch (EvaluationException ex)
         {
+            // an expected mathematical non-answer (the series could not be evaluated at the
+            // point). Anything else is an internal defect and propagates (§76): an internal
+            // error must never masquerade as "unevaluated".
             return LimitResult.Uneval(ex.Message);
         }
     }
@@ -123,7 +144,7 @@ public static class Limits
         {
             rv = Evaluation.EvaluateToNum(ratio2, ctx, new Dictionary<Symbol, Num>());
         }
-        catch (Exception)
+        catch (EvaluationException)
         {
             return LimitResult.Uneval("leading coefficient is symbolic");
         }

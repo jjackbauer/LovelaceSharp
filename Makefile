@@ -74,8 +74,10 @@ studio:
 		--output $(STUDIO_DIR)
 	$(STUDIO_BINARY) --contentRoot $(abspath $(STUDIO_DIR))
 
-## test: Run the fast test suites (skips the slow Lovelace.Real.Tests).
+## test: Run the fast test suites (skips the slow Lovelace.Real.Tests) and build the
+## benchmark harness (built, never run here — a sweep takes many minutes).
 test:
+	dotnet build symbench/symbench.csproj -c Release
 	dotnet test Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj
 	dotnet test Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj
 	dotnet test Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj

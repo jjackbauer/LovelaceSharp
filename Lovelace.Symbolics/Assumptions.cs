@@ -1,9 +1,17 @@
 using System.Collections.Immutable;
+using Lovelace.Abstractions;
 using Rat = global::Lovelace.Rational.Rational;
 
 namespace Lovelace.Symbolics;
 
-public enum Tristate { True, False, Unknown }
+public enum Tristate
+{
+    True,
+    False,
+    Unknown,
+    /// <summary>The queried condition set has no model: nothing is provable because nothing holds.</summary>
+    Unsatisfiable,
+}
 
 public enum Domain { Integer, Rational, Real, Complex }
 
@@ -60,6 +68,20 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
 
     public ImmutableArray<Assumption> Atoms => _atoms;
 
+    /// <summary>Builds a set from an existing (already consistent) atom sequence, preserving the
+    /// canonical order. Never throws: use <see cref="Add"/> when contradiction detection is wanted.</summary>
+    public static AssumptionSet FromAtoms(IEnumerable<Assumption> atoms)
+    {
+        var builder = ImmutableArray.CreateBuilder<Assumption>();
+        foreach (var a in atoms)
+        {
+            if (!builder.Contains(a))
+                builder.Add(a);
+        }
+        builder.Sort(static (x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
+        return new AssumptionSet(builder.ToImmutable());
+    }
+
     /// <summary>True when this set is the <see cref="Unsatisfiable"/> sentinel.</summary>
     public bool IsUnsatisfiable => _unsatisfiable;
 
@@ -78,8 +100,65 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
         var negation = Negate(a);
         if (negation is not null && probe.Ask(negation) == Tristate.True)
             throw new AssumptionContradictionException(
-                $"Assumption {a} contradicts the existing assumptions (its negation {negation} is provable).");
+                $"Assumption {Describe(a)} contradicts the existing assumptions " +
+                $"(its negation {Describe(negation)} is provable).");
+        // An integer domain with fractional bounds can be empty even though every atom is
+        // individually consistent: no integer lies strictly between 1/2 and 1. The negation test
+        // above cannot see this, because the emptiness comes from the domain, not from a clash.
+        if (probe.IntegerIntervalIsEmpty(a))
+            throw new AssumptionContradictionException(
+                $"Assumption {Describe(a)} leaves no integer satisfying the existing assumptions.");
+
         return probe;
+    }
+
+    /// <summary>True when the symbol constrained by <paramref name="a"/> is known to be an integer
+    /// and the accumulated bounds admit no integer at all.
+    /// <para>Bounds are read from the relation atoms of this set: the tightest lower bound from
+    /// <c>&gt;</c>/<c>&gt;=</c> and the tightest upper bound from <c>&lt;</c>/<c>&lt;=</c>. The
+    /// smallest admissible integer is the ceiling (one past an integral open bound) and the
+    /// largest is the floor (one below an integral open bound); the set is empty when the former
+    /// exceeds the latter. Integers only: over the reals `1/2 &lt; x &lt; 1` is perfectly
+    /// satisfiable.</summary>
+    private bool IntegerIntervalIsEmpty(Assumption a)
+    {
+        if (a is not SymbolRelationAssumption added)
+            return false;
+        var name = added.S.Name;
+        if (!_atoms.OfType<SymbolDomainAssumption>().Any(d => d.S.Name == name && d.D == Domain.Integer))
+            return false;
+
+        Rat? lower = null, upper = null;
+        bool lowerOpen = false, upperOpen = false;
+        foreach (var atom in _atoms.OfType<SymbolRelationAssumption>())
+        {
+            if (atom.S.Name != name || Exprs.NumericToRational(atom.Bound) is not { } b)
+                continue;
+            switch (atom.Op)
+            {
+                case RelOp.Gt:
+                    if (lower is null || b > lower) { lower = b; lowerOpen = true; }
+                    else if (b == lower) lowerOpen = true;
+                    break;
+                case RelOp.Ge:
+                    if (lower is null || b > lower) { lower = b; lowerOpen = false; }
+                    break;
+                case RelOp.Lt:
+                    if (upper is null || b < upper) { upper = b; upperOpen = true; }
+                    else if (b == upper) upperOpen = true;
+                    break;
+                case RelOp.Le:
+                    if (upper is null || b < upper) { upper = b; upperOpen = false; }
+                    break;
+            }
+        }
+        if (lower is null || upper is null)
+            return false;
+
+        var one = new global::Lovelace.Integer.Integer(1L);
+        var lo = lower.IsInteger && !lowerOpen ? lower.ToInteger() : lower.Floor() + one;
+        var hi = upper.IsInteger && upperOpen ? upper.ToInteger() - one : upper.Floor();
+        return lo > hi;
     }
 
     public bool Equals(AssumptionSet? other) =>
@@ -94,6 +173,62 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
         foreach (var a in _atoms) h = System.HashCode.Combine(h, a.GetHashCode());
         return h;
     }
+
+    /// <summary>Human-readable rendering of one assumption atom — relations as relations, domains
+    /// as membership, predicates as words. Never C# record syntax: a diagnostic that prints
+    /// <c>SymbolRelationAssumption { S = x, Op = Le, Bound = … }</c> has leaked an implementation
+    /// detail into a user-facing message.</summary>
+    public static string Describe(Assumption a) => a switch
+    {
+        SymbolRelationAssumption r =>
+            Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
+        SymbolDomainAssumption d => $"{d.S.Name} in {d.D}",
+        SymbolPropertyAssumption p => $"{p.S.Name} is {p.P}",
+        ExpressionPropertyAssumption e => $"{Printing.PrettyPrint(e.E)} is {e.P}",
+        IntervalAssumption i => DescribeInterval(i),
+        _ => "an assumption",
+    };
+
+    private static string DescribeInterval(IntervalAssumption i)
+    {
+        var left = i.Lower is null ? "(-inf" : (i.LowerOpen ? "(" : "[") + Printing.PrettyPrint(i.Lower);
+        var right = i.Upper is null ? "inf)" : Printing.PrettyPrint(i.Upper) + (i.UpperOpen ? ")" : "]");
+        return $"{Printing.PrettyPrint(i.E)} in {left}, {right}";
+    }
+
+    /// <summary>The relation operator equivalent to a predicate when one exists
+    /// (<see cref="SymbolPredicate.NonZero"/> ⇒ <c>e != 0</c>); predicates with no single
+    /// relation form (<see cref="SymbolPredicate.Even"/>, <see cref="SymbolPredicate.Odd"/>,
+    /// <see cref="SymbolPredicate.Finite"/>) return <c>null</c>. One mapping, used by both the
+    /// payload projection and the refutation check.</summary>
+    public static RelOp? RelationOp(SymbolPredicate p) => p switch
+    {
+        SymbolPredicate.NonZero => RelOp.Ne,
+        SymbolPredicate.Positive => RelOp.Gt,
+        SymbolPredicate.Negative => RelOp.Lt,
+        SymbolPredicate.NonNegative => RelOp.Ge,
+        SymbolPredicate.NonPositive => RelOp.Le,
+        _ => null,
+    };
+
+    /// <summary>The same relation read from the other side: <c>a &lt; b</c> is <c>b &gt; a</c>.
+    /// The lattice stores symbol-op-constant only, so a mirrored spelling must be flipped before
+    /// it can be queried or stored.</summary>
+    public static RelOp? Flipped(RelOp op) => op switch
+    {
+        RelOp.Lt => RelOp.Gt,
+        RelOp.Gt => RelOp.Lt,
+        RelOp.Le => RelOp.Ge,
+        RelOp.Ge => RelOp.Le,
+        RelOp.Eq => RelOp.Eq,
+        RelOp.Ne => RelOp.Ne,
+        _ => null,
+    };
+
+    /// <summary>The relation atom equivalent to a property atom, or <c>null</c> when the
+    /// predicate has no relation form.</summary>
+    public static SymbolRelationAssumption? RelationOf(Symbol s, SymbolPredicate p) =>
+        RelationOp(p) is { } op ? new SymbolRelationAssumption(s, op, Exprs.Zero) : null;
 
     public static Assumption? Negate(Assumption a) => a switch
     {
@@ -127,6 +262,10 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
     /// detection in <see cref="Add"/>.</summary>
     public Tristate Ask(Assumption predicate)
     {
+        // an unsatisfiable set has no model: it proves nothing, and a consumer must be able to
+        // tell that apart from "no information" instead of silently treating it as empty
+        if (IsUnsatisfiable)
+            return Tristate.Unsatisfiable;
         if (_atoms.Contains(predicate))
             return Tristate.True;
 
@@ -211,10 +350,8 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
         if (Exprs.NumericToRational(q.Bound) is null)
             return Tristate.Unknown;
         bool anyImplies = false, allRefute = true, any = false;
-        foreach (var atom in _atoms)
+        foreach (var sr in RelationsOn(q.S))
         {
-            if (atom is not SymbolRelationAssumption sr || sr.S.Name != q.S.Name)
-                continue;
             if (Exprs.NumericToRational(sr.Bound) is null)
                 continue;
             any = true;
@@ -227,6 +364,40 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
         if (anyImplies)
             return Tristate.True;
         return allRefute ? Tristate.False : Tristate.Unknown;
+    }
+
+    /// <summary>
+    /// Every relation atom pinned on <paramref name="s"/>, including relations DERIVED from
+    /// property atoms (Positive means x &gt; 0, NonNegative means x ≥ 0, Negative means x &lt; 0,
+    /// NonPositive means x ≤ 0, NonZero means x ≠ 0). Without this, a property atom and a
+    /// contradicting relation could coexist and the set would still answer queries.
+    /// </summary>
+    private IEnumerable<SymbolRelationAssumption> RelationsOn(Symbol s)
+    {
+        foreach (var atom in _atoms)
+        {
+            switch (atom)
+            {
+                case SymbolRelationAssumption sr when sr.S.Name == s.Name:
+                    yield return sr;
+                    break;
+                case SymbolPropertyAssumption sp when sp.S.Name == s.Name:
+                {
+                    var op = sp.P switch
+                    {
+                        SymbolPredicate.Positive => RelOp.Gt,
+                        SymbolPredicate.NonNegative => RelOp.Ge,
+                        SymbolPredicate.Negative => RelOp.Lt,
+                        SymbolPredicate.NonPositive => RelOp.Le,
+                        SymbolPredicate.NonZero => RelOp.Ne,
+                        _ => (RelOp?)null,
+                    };
+                    if (op is { } o)
+                        yield return new SymbolRelationAssumption(s, o, Exprs.Zero);
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>Does the value set of the assumed relation imply / refute the query relation?</summary>
@@ -270,7 +441,9 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
     /// A ray never refutes a ≠ query: it always contains values different from qb.</summary>
     private static bool RefutesLower(Rat ab, bool strict, RelOp q, Rat qb) => q switch
     {
-        RelOp.Le or RelOp.Lt or RelOp.Eq => strict ? ab >= qb : ab > qb,
+        // x >= ab refutes x < qb as soon as ab >= qb (the boundary itself already violates it)
+        RelOp.Lt => ab >= qb,
+        RelOp.Le or RelOp.Eq => strict ? ab >= qb : ab > qb,
         _ => false,
     };
 
@@ -287,7 +460,8 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
     /// A ray never refutes a ≠ query: it always contains values different from qb.</summary>
     private static bool RefutesUpper(Rat ab, bool strict, RelOp q, Rat qb) => q switch
     {
-        RelOp.Ge or RelOp.Gt or RelOp.Eq => strict ? ab <= qb : ab < qb,
+        RelOp.Gt => ab <= qb,
+        RelOp.Ge or RelOp.Eq => strict ? ab <= qb : ab < qb,
         _ => false,
     };
 
@@ -367,15 +541,53 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
         // Im(z) = 0 when z is provably real: membership reduces to a constant check
         if (i.E is FunctionExpr f && f.Function.Name == "im" && f.Arguments.Length == 1 && ProvablyReal(f.Arguments[0]))
         {
-            var zero = Exprs.Zero;
-            bool ok = true;
-            if (i.Lower is { } lo && Exprs.NumericToRational(lo) is { } loV)
-                ok &= i.LowerOpen ? loV < Rat.Zero : loV <= Rat.Zero;
-            if (i.Upper is { } up && Exprs.NumericToRational(up) is { } upV)
-                ok &= i.UpperOpen ? Rat.Zero < upV : Rat.Zero <= upV;
-            return ok ? Tristate.True : Tristate.False;
+            if (i.Lower is { } lo)
+            {
+                var lower = CompareToZero(lo, isLower: true, i.LowerOpen);
+                if (lower == Tristate.Unknown)
+                    return Tristate.Unknown;   // an unevaluable bound is not a satisfied bound
+                if (lower == Tristate.False)
+                    return Tristate.False;
+            }
+            if (i.Upper is { } up)
+            {
+                var upper = CompareToZero(up, isLower: false, i.UpperOpen);
+                if (upper == Tristate.Unknown)
+                    return Tristate.Unknown;
+                if (upper == Tristate.False)
+                    return Tristate.False;
+            }
+            return Tristate.True;
         }
         return Tristate.Unknown;
+    }
+
+    /// <summary>Evaluates "0 satisfies this half-bound" exactly, falling back to a numeric
+    /// evaluation of the bound (so Pi-bounded intervals are decided correctly) and returning
+    /// Unknown when the bound cannot be evaluated at all. An unevaluable bound must NEVER be
+    /// treated as satisfied.</summary>
+    private static Tristate CompareToZero(Expr bound, bool isLower, bool open)
+    {
+        if (Exprs.NumericToRational(bound) is { } r)
+        {
+            bool ok = isLower
+                ? (open ? r < Rat.Zero : r <= Rat.Zero)
+                : (open ? Rat.Zero < r : Rat.Zero <= r);
+            return ok ? Tristate.True : Tristate.False;
+        }
+        try
+        {
+            var n = Evaluation.EvaluateToNum(bound, Exprs.Current, new Dictionary<Symbol, Num>());
+            int cmp = NumOps.Compare(n, NumOps.FromLong(0L));
+            bool ok = isLower
+                ? (open ? cmp < 0 : cmp <= 0)
+                : (open ? cmp > 0 : cmp >= 0);
+            return ok ? Tristate.True : Tristate.False;
+        }
+        catch (EvaluationException)
+        {
+            return Tristate.Unknown;
+        }
     }
 
     private static readonly Rat RatOneHalf = Rat.From(1, 2);
@@ -384,6 +596,25 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
 /// <summary>Structural best-known domain of an expression given a set of assumptions.</summary>
 public static class Domains
 {
+    /// <summary>The payload form of a kernel domain: what hosts serialize and plugins receive.
+    /// One lattice, one spelling — the kernel enum never crosses the Modus boundary.</summary>
+    public static MathDomain ToMathDomain(Domain d) => d switch
+    {
+        Domain.Integer => MathDomain.Integer,
+        Domain.Rational => MathDomain.Rational,
+        Domain.Real => MathDomain.Real,
+        _ => MathDomain.Complex,
+    };
+
+    /// <summary>The kernel form of a payload domain.</summary>
+    public static Domain ToKernelDomain(MathDomain d) => d switch
+    {
+        MathDomain.Integer => Domain.Integer,
+        MathDomain.Rational => Domain.Rational,
+        MathDomain.Real => Domain.Real,
+        _ => Domain.Complex,
+    };
+
     public static Domain DomainOf(Expr e, ExprContext ctx)
     {
         switch (e)
@@ -468,12 +699,16 @@ public static class Domains
 
     public static Domain DomainOfSymbol(Symbol s, ExprContext ctx)
     {
+        // the domains form a chain Integer < Rational < Real < Complex: several domain atoms are
+        // not contradictory, and the NARROWEST one is the best structural answer. Taking the
+        // first match in an arbitrary (string-sorted) order under-reports it.
+        Domain? best = null;
         foreach (var atom in ctx.Assumptions.Atoms)
         {
             if (atom is SymbolDomainAssumption d && d.S.Name == s.Name)
-                return d.D;
+                best = best is { } b ? (Domain)Math.Min((int)b, (int)d.D) : d.D;
         }
-        return Domain.Complex;   // unconstrained symbols range over the complex field
+        return best ?? Domain.Complex;   // unconstrained symbols range over the complex field
     }
 
     private static Domain DomainOfFunction(FunctionExpr f, ExprContext ctx)

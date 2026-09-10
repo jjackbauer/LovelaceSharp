@@ -328,7 +328,7 @@ x = symbol("x")
 diff(x^2, 3)
 ```
 ```result
-error: Expected a symbolic symbol, got Natural.
+error: diff(): argument 2 must be a symbolic variable; got Natural.
 ```
 
 
@@ -515,6 +515,41 @@ integrate(exp((-x^2)), x) (Symbolic)
 ```
 
 
+### 10b. Assumed bounds decide relations
+
+An assumption with a constant bound is a real decision procedure, not a remark: relations the
+assumptions decide fold to Booleans, and relations they do not decide stay symbolic (never a
+guess).
+
+```lovelace
+x = symbol("x")
+assume(x >= 5)
+simplify(x < 5)
+```
+```result
+False (Boolean)
+```
+
+```lovelace
+x = symbol("x")
+assume(x >= 5)
+simplify(x > 4)
+```
+```result
+True (Boolean)
+```
+
+Contradictory assumptions are rejected outright rather than silently kept:
+
+```lovelace
+x = symbol("x")
+assume(x > 0)
+assume(x <= 0)
+```
+```result
+error: Assumption x <= 0 contradicts the existing assumptions (its negation x > 0 is provable).
+```
+
 ## 11. Solving equations
 
 Dispatch is by mathematical structure: linear, polynomial (formulas to degree 3, then
@@ -550,7 +585,7 @@ x = symbol("x")
 solve(x^3 - 1 == 0, x)
 ```
 ```result
-[1, 1/2*(sqrt(-3) - 1), 1/2*(-sqrt(-3) - 1)] (Vector)
+[1/2*(-sqrt(-3) - 1), 1/2*(sqrt(-3) - 1), 1] (Vector)
 ```
 
 (In the cubic roots above, `-3^(1/2)` denotes the principal complex square root, i.e.
@@ -847,15 +882,50 @@ x = symbol("x")
 solve_full((x^2 - 1)/(x - 1) == 0, x).solutions
 ```
 ```result
-[-1] (Vector)
+[Solution(value: -1, conditions: [x - 1 != 0], multiplicity: 1, exactness: Exact)] (Vector)
 ```
 
 ```lovelace
 x = symbol("x")
-solve_full((x^2 - 1)/(x - 1) == 0, x).conditions
+solve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions
 ```
 ```result
 [x - 1 != 0] (Vector)
+```
+
+Every solution carries its own conditions — there is no cross-branch union. A result is
+`Solved` only when it is the complete solution set over the requested domain:
+
+```lovelace
+x = symbol("x")
+solve_full(x^4 - x^2 - 1 == 0, x).status
+```
+```result
+Partial
+```
+
+```lovelace
+x = symbol("x")
+solve_full(x^4 - x^2 - 1 == 0, x).complete
+```
+```result
+False (Boolean)
+```
+
+```lovelace
+x = symbol("x")
+solve_full(x^4 - x^2 - 1 == 0, x).domain
+```
+```result
+complex (Domain)
+```
+
+```lovelace
+x = symbol("x")
+solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count
+```
+```result
+2 (Integer)
 ```
 
 ```lovelace
@@ -927,7 +997,15 @@ x = symbol("x")
 compile_full(x^2 + 1, [x]).parameters
 ```
 ```result
-[x] (Vector)
+[ParameterInfo(name: x, domain: complex)] (Vector)
+```
+
+```lovelace
+x = symbol("x")
+compile_full(x^2 + 1, [x]).result_domain
+```
+```result
+complex (Domain)
 ```
 
 ```lovelace
@@ -1039,11 +1117,17 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
   solving (`solve_system`, via lex elimination + back-substitution) are available in the
   C# API; a standalone language `groebner` builtin is not exposed yet.
 - Cubic roots use the branch-coupled Cardano form (`u·v = −P/3`), verified against their
-  polynomial; quartic and higher-degree factors yield unevaluated `RootOf` roots over the
-  exact Sturm count of REAL roots (complex algebraic numbers are deferred), numerically
-  evaluated on request. The solver domain is explicit: the default is Complex (so a degree
-  ≥ 4 factor with no real roots reports `unevaluated: complex algebraic roots not
-  supported…`), and `solve(expr, x, real)` reports `no real solutions` for it.
+  polynomial; quartic and higher-degree factors yield `RootOf` roots over the exact Sturm
+  count of REAL roots (complex algebraic numbers are deferred), numerically evaluated on
+  request. The solver domain is explicit and never widened: the default is Complex, and a
+  `solve(…, integer)` or `solve(…, rational)` request is REJECTED rather than silently
+  answered over the complexes.
+- **A result is reported as a complete solution set only when it is one.** A degree ≥ 4
+  factor with real roots *and* non-real ones is reported `Partial` by `solve_full`
+  (`complete: False`, with `unrepresented_count` and `unrepresented_reason`); with no real
+  roots at all it is `Unevaluated`. The convenience `solve` returns a vector only for a
+  complete result and describes a partial one in words instead of showing a subset. Real
+  roots come back in ascending order; other roots follow a deterministic canonical order.
 - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
   compositions (with parametric families for periodic inverses); inequality solving is not
   yet implemented.

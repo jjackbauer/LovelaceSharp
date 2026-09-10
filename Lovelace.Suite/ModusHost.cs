@@ -131,6 +131,11 @@ public sealed class ModusHost : IModusContext
 
     /// <summary>Stores the symbolic-matrix bridge and hands it to the interpreter for
     /// inv/linsolve/matrix_rank/det dispatch (the D14 layering seam).</summary>
+    public void RegisterSymbolicInspectionBridge(ISymbolicInspectionBridge bridge)
+    {
+        _interpreter.SymbolicInspectionBridge = bridge;
+    }
+
     public void RegisterSymbolicMatrixBridge(ISymbolicMatrixBridge bridge)
     {
         ArgumentNullException.ThrowIfNull(bridge);

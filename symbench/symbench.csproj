@@ -17,5 +17,9 @@
     <ProjectReference Include="..\Lovelace.MathIR\Lovelace.MathIR.csproj" />
     <ProjectReference Include="..\Lovelace.Real\Lovelace.Real.csproj" />
     <ProjectReference Include="..\Lovelace.Rational\Lovelace.Rational.csproj" />
+    <!-- Suite/Dsp: the structured-record, help-catalog and host rows exercise the product
+         object model (Value/RecordValue) and the product plugin set through the real host. -->
+    <ProjectReference Include="..\Lovelace.Dsp\Lovelace.Dsp.csproj" />
+    <ProjectReference Include="..\Lovelace.Suite\Lovelace.Suite.csproj" />
   </ItemGroup>
 </Project>

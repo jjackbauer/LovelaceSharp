@@ -217,64 +217,221 @@ function appendNewSteps(steps) {
 }
 
 function applyFinal(data) {
-  if (data.result && data.result.kind !== "Void") appendLog("= " + data.result.typed, "result");
+  if (data.result && data.result.kind !== "Void") renderStructuredResult(data.result);
   if (data.diagnostics && data.diagnostics.length > 0) {
     const d = data.diagnostics[0];
     appendLog("error: " + d.message + " (line " + d.line + ", col " + d.column + ")", "error");
     if (d.line) highlightError(d.line);
   }
   if (data.elapsed) {
-    appendLog("done: " + data.elapsed + " (" + (data.reusedCount || 0) + " reused)", "timing");
+    const t = data.elapsedTime ? " (" + data.elapsedTime.value + " " + data.elapsedTime.unit + ")" : "";
+    appendLog("done: " + data.elapsed + t + " (" + (data.reusedCount || 0) + " reused)", "timing");
   }
-  refreshSymbolicInspection();
+  renderSymbolicPanel(data.result ? data.result.structured : null);
 }
 
 // ---------------------------------------------------------------------------
-// Symbolic inspection (consumes POST /api/symbolic/inspect — the same semantic
-// objects the kernel produced; no Studio-only model)
+// Structured results. Everything below renders from the kernel's own structured
+// payload (the same DTO the DSH runner emits); nothing is recovered by parsing a
+// display string, and the inspected subject is the run's result — never a
+// re-evaluation of the editor buffer.
 // ---------------------------------------------------------------------------
 
-function lastExpression(source) {
-  const parts = source.split(/;|\n/).map(s => s.trim()).filter(Boolean);
-  return parts.length ? parts[parts.length - 1] : "";
+// Field lookup on a structured record: { kind: "Record", type, fields: [{name, value}] }.
+function field(sv, name) {
+  if (!sv || sv.kind !== "Record" || !sv.fields) return null;
+  const hit = sv.fields.find(f => f.name === name);
+  return hit ? hit.value : null;
 }
 
-function renderTree(node) {
-  if (!node) return "";
-  let text = node.kind + (node.label ? " " + node.label : "");
-  if (node.children && node.children.length) {
-    text += "[" + node.children.map(renderTree).join(", ") + "]";
-  }
-  return text;
+function scalarText(sv) {
+  if (!sv) return "—";
+  if (sv.kind === "Null") return "—";
+  if (sv.value !== undefined && sv.value !== null) return String(sv.value);
+  if (sv.pretty !== undefined && sv.pretty !== null) return sv.pretty;
+  return sv.kind;
 }
 
-async function refreshSymbolicInspection() {
-  const el = $("#symbolic-inspect");
-  const expr = lastExpression(editorValue());
-  if (!expr) { el.textContent = "no expression"; return; }
-  try {
-    const res = await api("/api/symbolic/inspect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source: expr })
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined && text !== null) node.textContent = text;
+  return node;
+}
+
+// Structural rendering of an array: nested brackets from Shape/Elements, never flat JSON.
+function renderArray(sv, into) {
+  const shape = sv.shape || [];
+  const elements = sv.elements || [];
+  if (shape.length <= 1) {
+    const row = el("div", "sv-row");
+    row.appendChild(el("span", "sv-bracket", "["));
+    elements.forEach((e, i) => {
+      if (i) row.appendChild(el("span", "sv-sep", ", "));
+      row.appendChild(structuredNode(e));
     });
-    if (!res.ok) { el.textContent = "inspection unavailable (HTTP " + res.status + ")"; return; }
-    const data = await res.json();
-    if (data.diagnostics && data.diagnostics.length) {
-      el.textContent = "not symbolic: " + data.diagnostics[0].message;
-      return;
-    }
-    const parts = [];
-    if (data.pretty) parts.push("pretty:     " + data.pretty);
-    if (data.canonical) parts.push("canonical:  " + data.canonical);
-    if (data.tree) parts.push("tree:       " + renderTree(data.tree));
-    parts.push("assumptions: " + (data.assumptions && data.assumptions.length ? data.assumptions.join("; ") : "(none)"));
-    parts.push("trace:      " + (data.traceSteps && data.traceSteps.length ? data.traceSteps.join(" | ") : "(none)"));
-    parts.push("mathir:\n" + (data.mathir || "(none)"));
-    el.textContent = parts.join("\n");
-  } catch (err) {
-    el.textContent = "inspection failed: " + err;
+    row.appendChild(el("span", "sv-bracket", "]"));
+    into.appendChild(row);
+    return;
   }
+  const width = shape[shape.length - 1];
+  const rows = width ? elements.length / width : 0;
+  const table = el("div", "sv-matrix");
+  for (let r = 0; r < rows; r++) {
+    const row = el("div", "sv-row");
+    row.appendChild(el("span", "sv-bracket", r === 0 ? "[" : " "));
+    for (let c = 0; c < width; c++) {
+      if (c) row.appendChild(el("span", "sv-sep", ", "));
+      row.appendChild(structuredNode(elements[r * width + c]));
+    }
+    row.appendChild(el("span", "sv-bracket", r === rows - 1 ? "]" : " "));
+    table.appendChild(row);
+  }
+  into.appendChild(table);
+}
+
+// One structured value as DOM. Records recurse, arrays render structurally, symbolic
+// values show both print forms plus their domain/exactness, scalars show their kind.
+function structuredNode(sv) {
+  if (!sv) return el("span", "sv-null", "—");
+  switch (sv.kind) {
+    case "Record": {
+      const box = el("div", "sv-record");
+      box.appendChild(el("div", "sv-type", sv.type || "Record"));
+      for (const f of sv.fields || []) {
+        const line = el("div", "sv-field");
+        line.appendChild(el("span", "sv-name", f.name + ": "));
+        line.appendChild(structuredNode(f.value));
+        box.appendChild(line);
+      }
+      return box;
+    }
+    case "Array": {
+      const box = el("div", "sv-array");
+      box.appendChild(el("span", "sv-meta", (sv.type || "Array") + " shape [" + (sv.shape || []).join(", ") + "]"));
+      renderArray(sv, box);
+      return box;
+    }
+    case "Symbolic": {
+      const box = el("span", "sv-symbolic");
+      box.appendChild(el("span", "sv-pretty", sv.pretty));
+      if (sv.truncated) {
+        box.appendChild(el("span", "sv-warn",
+          " [abbreviated: " + sv.truncationReason + ", " + sv.nodeCount + " nodes, budget " + sv.budget + "]"));
+      }
+      if (sv.canonical) {
+        const det = el("details", "sv-canonical");
+        det.appendChild(el("summary", null, "canonical"));
+        det.appendChild(el("code", null, sv.canonical));
+        box.appendChild(det);
+      }
+      const meta = [];
+      if (sv.domain) meta.push("domain " + sv.domain);
+      if (sv.exact !== undefined && sv.exact !== null) meta.push(sv.exact ? "exact" : "approximate");
+      if (sv.nodeCount !== undefined && sv.nodeCount !== null) meta.push(sv.nodeCount + " nodes");
+      if (sv.freeSymbols && sv.freeSymbols.length) meta.push("free " + sv.freeSymbols.join(","));
+      if (meta.length) box.appendChild(el("span", "sv-meta", " (" + meta.join(" · ") + ")"));
+      return box;
+    }
+    default:
+      return el("span", "sv-scalar sv-" + sv.kind.toLowerCase(), scalarText(sv));
+  }
+}
+
+// The symbolic/detail panel. It reads the SAME structured payload as the result view:
+// provenance from TransformResult.steps, the IR from CompilationResult.ir, conditions and
+// solutions from the record's own fields. Nothing here re-evaluates the editor buffer.
+function renderSymbolicPanel(sv) {
+  const el0 = $("#symbolic-inspect");
+  el0.textContent = "";
+  if (!sv) { el0.textContent = "no structured result yet"; return; }
+  if (sv.kind === "Symbolic") {
+    el0.appendChild(named("pretty", el("code", null, sv.pretty)));
+    if (sv.canonical) el0.appendChild(named("canonical", el("code", null, sv.canonical)));
+    const meta = [];
+    if (sv.domain) meta.push("domain " + sv.domain);
+    if (sv.exact !== undefined && sv.exact !== null) meta.push(sv.exact ? "exact" : "approximate");
+    if (sv.nodeCount !== undefined && sv.nodeCount !== null) meta.push(sv.nodeCount + " nodes");
+    if (meta.length) el0.appendChild(el("div", "sv-meta", meta.join(" · ")));
+    return;
+  }
+  if (sv.kind !== "Record") { el0.appendChild(named(sv.kind.toLowerCase(), structuredNode(sv))); return; }
+
+  el0.appendChild(named("type", el("span", "sv-type", sv.type || "Record")));
+  for (const [label, name] of [["pretty", "original"], ["value", "value"], ["expression", "expression"]]) {
+    const v = field(sv, name);
+    if (v && (v.kind === "Symbolic")) el0.appendChild(named(label, el("code", null, v.pretty)));
+  }
+  appendSection(el0, sv, "conditions", "conditions");
+  appendSection(el0, sv, "common_conditions", "common conditions");
+  appendSection(el0, sv, "left_conditions", "left conditions");
+  appendSection(el0, sv, "right_conditions", "right conditions");
+  appendSection(el0, sv, "assumptions", "assumptions");
+  appendSection(el0, sv, "families", "families");
+
+  const solutions = field(sv, "solutions");
+  if (solutions && solutions.kind === "Array" && (solutions.elements || []).length) {
+    el0.appendChild(named("solutions (" + solutions.elements.length + ")", structuredNode(solutions)));
+  }
+  const steps = field(sv, "steps");
+  if (steps && steps.kind === "Array" && (steps.elements || []).length) {
+    const box = el("div", "sv-provenance");
+    box.appendChild(el("div", "sv-name", "provenance (" + steps.elements.length + " steps)"));
+    for (const step of steps.elements) {
+      const line = el("div", "sv-step");
+      line.appendChild(el("span", "sv-rule", scalarText(field(step, "rule_id")) + " "));
+      line.appendChild(el("span", "sv-class", scalarText(field(step, "classification")) + " "));
+      line.appendChild(el("span", null,
+        scalarText(field(step, "before")) + " → " + scalarText(field(step, "after"))));
+      const required = field(step, "required_conditions");
+      if (required && required.kind === "Array" && (required.elements || []).length) {
+        line.appendChild(el("span", "sv-meta", " requires " + required.elements.map(scalarText).join(", ")));
+      }
+      box.appendChild(line);
+    }
+    el0.appendChild(box);
+  }
+  const ir = field(sv, "ir");
+  if (ir) el0.appendChild(named("mathir", el("code", null, scalarText(ir))));
+  appendSection(el0, sv, "diagnostics", "diagnostics");
+  appendSection(el0, sv, "members", "members");
+}
+
+function named(label, node) {
+  const box = el("div", "sv-section");
+  box.appendChild(el("span", "sv-name", label + ": "));
+  box.appendChild(node);
+  return box;
+}
+
+function appendSection(host, sv, name, label) {
+  const v = field(sv, name);
+  if (!v || v.kind === "Null") return;
+  if (v.kind === "Array" && !(v.elements || []).length) return;
+  host.appendChild(named(label, v.kind === "Array" ? arrayInline(v) : structuredNode(v)));
+}
+
+function arrayInline(sv) {
+  const box = el("span", "sv-inline-array");
+  (sv.elements || []).forEach((e, i) => {
+    if (i) box.appendChild(el("span", "sv-sep", "; "));
+    box.appendChild(e.kind === "Symbolic" ? el("code", null, e.pretty) : structuredNode(e));
+  });
+  return box;
+}
+
+// The result line: type name, display form, and the structural view underneath.
+function renderStructuredResult(result) {
+  const line = el("div", "log-line result");
+  line.appendChild(el("span", "sv-typename", (result.typeName || result.structured && result.structured.type || result.kind) + " "));
+  line.appendChild(el("span", null, "= " + result.typed));
+  logsEl.appendChild(line);
+  if (result.structured) {
+    const box = el("div", "log-line structured");
+    box.appendChild(structuredNode(result.structured));
+    logsEl.appendChild(box);
+  }
+  logsEl.scrollTop = logsEl.scrollHeight;
 }
 
 // ---------------------------------------------------------------------------
@@ -387,6 +544,25 @@ async function applyPrecision() {
 }
 
 // ---------------------------------------------------------------------------
+// Value rendering mode (ASCII default / Unicode glyphs). The engine owns the
+// setting; every value Studio renders goes through it.
+// ---------------------------------------------------------------------------
+
+async function applyUnicode(unicode) {
+  try {
+    const res = await api("/api/format", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unicode })
+    });
+    if (!res.ok) { appendLog("set format failed: HTTP " + res.status, "error"); return; }
+    const data = await res.json();
+    applyWorkspace(data);
+    appendLog("rendering: " + (unicode ? "unicode" : "ascii"), "info");
+  } catch (err) { appendLog("set format failed: " + err, "error"); }
+}
+
+// ---------------------------------------------------------------------------
 // Workspace + completions API
 // ---------------------------------------------------------------------------
 
@@ -457,6 +633,7 @@ $("#clear-btn").addEventListener("click", clearWorkspace);
 $("#save-btn").addEventListener("click", saveEditor);
 $("#load-btn").addEventListener("click", loadEditor);
 $("#precision-apply").addEventListener("click", applyPrecision);
+$("#unicode-toggle").addEventListener("change", (e) => applyUnicode(e.target.checked));
 $("#progress-cancel").addEventListener("click", cancelRun);
 
 quickEval.addEventListener("keydown", (e) => {

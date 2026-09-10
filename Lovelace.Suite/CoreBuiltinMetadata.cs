@@ -30,7 +30,7 @@ public static class CoreBuiltinMetadata
 
         // ---- Numerics ----
         Add("abs", ["x"], BuiltinCategories.Numerics,
-            "Absolute value (magnitude for complex values).", ["abs(-3)", "abs(2 + 3i)"], "Natural | Integer | Real");
+            "Absolute value (magnitude for complex values).", ["abs(-3)", "abs(fft([0, 1, 0, 0]))"], "Natural | Integer | Real");
         Add("sqrt", ["x"], BuiltinCategories.Numerics,
             "Principal square root; symbolic arguments produce Power(x, 1/2).", ["sqrt(4)", "sqrt(x)"], "Real | Symbolic");
         Add("sign", ["x"], BuiltinCategories.Numerics, "Sign of a real value: -1, 0, or 1.", ["sign(-7)"], "Integer");
@@ -53,7 +53,10 @@ public static class CoreBuiltinMetadata
         Add("trace", ["m"], BuiltinCategories.LinearAlgebra, "Sum of the diagonal entries.", ["trace([[1, 2], [3, 4]])"], "Natural | Integer | Real");
         Add("inv", ["x"], BuiltinCategories.LinearAlgebra, "Reciprocal of a scalar or the inverse of a square matrix.", ["inv(2)", "inv([[1, 2], [3, 4]])"], "Real | Array", ["det", "linsolve"]);
         Add("matrix_rank", ["a"], BuiltinCategories.LinearAlgebra, "Exact rank of a symbolic matrix.", ["matrix_rank([[x, 1], [1, x]])"], "Integer", ["det", "linsolve"]);
-        Add("linsolve", ["a", "b"], BuiltinCategories.LinearAlgebra, "Exact linear system solve over a symbolic matrix (Bareiss); valid under det(a) != 0.", ["linsolve([[2, 1], [1, 2]], [5, 4])"], "Vector", ["matrix_rank", "solve_system"]);
+        Add("linsolve", ["a", "b"], BuiltinCategories.LinearAlgebra, "Exact linear system solve over a symbolic matrix (Bareiss); valid under det(a) != 0.", ["linsolve([[x, 1], [1, x]], [5, 4])"], "Vector", ["matrix_rank", "solve_system", "linsolve_full"]);
+        Add("linsolve_full", ["a", "b"], BuiltinCategories.LinearAlgebra, "Structured linear solve: a MatrixSolveResult with status, the solution vector, and the det(a) != 0 side condition.", ["linsolve_full([[x, 1], [1, x]], [5, 4])"], "MatrixSolveResult", ["linsolve", "inv_full"]);
+        Add("inv_full", ["a"], BuiltinCategories.LinearAlgebra, "Structured matrix inverse: a MatrixInverseResult with status, the inverse, and the det(a) != 0 side condition.", ["inv_full([[x, 1], [1, x]])"], "MatrixInverseResult", ["inv", "linsolve_full"]);
+        Add("ndims", ["a"], BuiltinCategories.Arrays, "Number of dimensions of an array (its rank).", ["ndims([[1, 2], [3, 4]])"], "Natural", ["shape", "rank"]);
         Add("zeros", ["dims"], BuiltinCategories.Arrays, "All-zero array of the given shape.", ["zeros(3)", "zeros(2, 2)"], "Vector | Array", ["ones", "eye"]);
         Add("ones", ["dims"], BuiltinCategories.Arrays, "All-one array of the given shape.", ["ones(3)"], "Vector | Array", ["zeros", "eye"]);
         Add("eye", ["rows", "cols"], BuiltinCategories.Arrays, "Identity matrix.", ["eye(3)"], "Array", ["zeros"]);
@@ -62,7 +65,7 @@ public static class CoreBuiltinMetadata
         Add("transpose", ["a", "perm"], BuiltinCategories.Arrays, "Transpose (or permute the axes) of an array.", ["transpose([[1, 2], [3, 4]])"], "Vector | Array");
         Add("squeeze", ["a"], BuiltinCategories.Arrays, "Remove length-1 axes.", ["squeeze([[[1]]])"], "Vector | Array");
         Add("concat", ["a", "b", "axis"], BuiltinCategories.Arrays, "Concatenate arrays along an axis.", ["concat([1, 2], [3, 4])"], "Vector | Array", ["append"]);
-        Add("append", ["a", "b"], BuiltinCategories.Arrays, "Append values to a vector.", ["append([1, 2], 3)"], "Vector", ["concat"]);
+        Add("append", ["a", "b"], BuiltinCategories.Arrays, "Append the values of one vector to another.", ["append([1, 2], [3])"], "Vector", ["concat"]);
         Add("sum", ["a", "axis"], BuiltinCategories.Arrays, "Sum of elements (optionally along an axis).", ["sum([1, 2, 3])"], "Natural | Integer | Real", ["prod", "mean"]);
         Add("prod", ["a", "axis"], BuiltinCategories.Arrays, "Product of elements (optionally along an axis).", ["prod([1, 2, 3])"], "Natural | Integer | Real", ["sum"]);
         Add("min", ["a", "axis"], BuiltinCategories.Arrays, "Minimum of elements (optionally along an axis).", ["min([3, 1, 2])"], "Natural | Integer | Real", ["max"]);
@@ -76,10 +79,18 @@ public static class CoreBuiltinMetadata
 
         // ---- Language / IO ----
         Add("plot", ["x", "y", "title"], BuiltinCategories.Language,
-            "Renders a 2D line plot to an SVG file; returns the output path.", ["plot([1, 2, 3])", "plot(x, y, \"title\")"], "Text");
+            "Renders a 2D line plot to an SVG file; returns the output path.", ["plot([1, 2, 3])", "plot([1, 2, 3], [1, 4, 9], \"title\")"], "Text");
     }
 
     /// <summary>Looks up the descriptor for a core builtin, or null when none is declared.</summary>
     public static BuiltinDescriptor? TryGet(string name) =>
         Table.TryGetValue(name, out var d) ? d : null;
+
+    /// <summary>
+    /// Every core descriptor, ordered by name. Unlike <see cref="TryGet"/> this does not depend
+    /// on the function being registered, so consumers that must see the whole declared table —
+    /// the descriptor doctests, generated documentation, tool schemas — enumerate here.
+    /// </summary>
+    public static IReadOnlyList<BuiltinDescriptor> Descriptors =>
+        Table.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Value).ToArray();
 }

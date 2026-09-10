@@ -27,8 +27,12 @@ public class HelpServiceTests
     {
         var engine = NewEngine();
         var overview = engine.Help.Overview();
-        foreach (var category in BuiltinCategories.Order)
+        // every category that actually has functions is listed with its count
+        var listed = engine.Help.Funcs(null);
+        foreach (var category in BuiltinCategories.Order.Where(c => listed.Contains(c, StringComparison.Ordinal)))
             Assert.Contains(category, overview);
+        Assert.Contains("Symbolics", overview);
+        Assert.Contains("Solving", overview);
         Assert.Contains("help <function>", overview);
     }
 
@@ -46,7 +50,8 @@ public class HelpServiceTests
     {
         var engine = NewEngine();
         var text = engine.Help.Function("solve")!;
-        Assert.Contains("solve(f, x, domain)", text);
+        // the domain parameter is optional, and the signature says so
+        Assert.Contains("solve(f, x [, domain])", text);
         Assert.Contains("Solve", text);
         Assert.Contains("solve(x^2 - 4 == 0, x)", text);
         Assert.Contains("Returns: Vector | Text", text);

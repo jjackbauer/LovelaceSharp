@@ -112,7 +112,8 @@ public sealed class EngineHost
             var result = await session.Engine.EvaluateAsync(source);
             if (result.Kind != ValueKind.Symbolic)
                 return new SymbolicInspectResponse(null, null, null, Array.Empty<string>(), Array.Empty<string>(), null,
-                    new[] { $"The last value is {result.Kind}, not a symbolic expression." });
+                    new[] { $"The last value is {result.Kind}, not a symbolic expression." },
+                    StructuredProjection.ToStructured(result));
 
             var expr = result.AsSymbolic();
             var ctx = session.Symbolics.Context;
@@ -137,12 +138,13 @@ public sealed class EngineHost
                 session.Symbolics.Context.Assumptions.Atoms.Select(a => a.ToString()!).ToArray(),
                 trace.Steps.Select(s => s.ToString()).ToArray(),
                 mathir,
-                Array.Empty<string>());
+                Array.Empty<string>(),
+                StructuredProjection.ToStructured(result));
         }
         catch (Exception ex)
         {
             return new SymbolicInspectResponse(null, null, null, Array.Empty<string>(), Array.Empty<string>(), null,
-                new[] { ex.Message });
+                new[] { ex.Message }, null);
         }
         finally
         {
@@ -241,6 +243,16 @@ public sealed class EngineHost
         return ToState(session);
     }
 
+    /// <summary>
+    /// Sets the engine's value-rendering mode (<c>engine.UnicodeOutput</c>). Values are unchanged,
+    /// so the computation cache stays valid; only the rendering of every value does.
+    /// </summary>
+    public StateResponse SetFormat(Session session, bool unicode)
+    {
+        session.UnicodeOutput = unicode;
+        return ToState(session);
+    }
+
     private static EvaluateResponse BuildResponse(
         SuiteEngine engine,
         string text,
@@ -252,7 +264,7 @@ public sealed class EngineHost
         TimeSpan elapsed,
         int reused)
     {
-        var variables = ToVariables(snapshot);
+        var variables = ToVariables(engine, snapshot);
         var functions = ToFunctions(snapshot);
 
         var plotPayload = plot?.Svg is null
@@ -272,16 +284,23 @@ public sealed class EngineHost
 
         var resultPayload = result is null
             ? null
-            : new ValueResult(result.Kind.ToString(), engine.FormatValue(result), engine.FormatValueTyped(result));
+            : new ValueResult(
+                result.Kind.ToString(),
+                engine.FormatValue(result),
+                engine.FormatValueTyped(result),
+                StructuredProjection.ToStructured(result),
+                TypeNameOf(result));
 
         var timings = steps
             .Select(s =>
             {
                 int line = ComputeLineColumn(text, s.Position).Line;
                 string src = line >= 1 && line <= sourceLines.Length ? sourceLines[line - 1].Trim() : string.Empty;
-                string? r = s.Result is null || s.Result.Kind == ValueKind.Void ? null : engine.FormatValue(s.Result);
+                bool hasValue = s.Result is not null && s.Result.Kind != ValueKind.Void;
+                string? r = hasValue ? engine.FormatValue(s.Result!) : null;
+                StructuredValueDto? structured = hasValue ? StructuredProjection.ToStructured(s.Result!) : null;
                 string? output = s.Output.Length == 0 ? null : s.Output.TrimEnd('\r', '\n');
-                return new TimingRow(line, src, r, output, Timing.Format(s.Elapsed), s.Mode);
+                return new TimingRow(line, src, r, output, Timing.Format(s.Elapsed), s.Mode, structured);
             })
             .ToArray();
 
@@ -293,7 +312,8 @@ public sealed class EngineHost
     private static StateResponse ToState(Session session)
     {
         var snapshot = session.Engine.CaptureState();
-        return new StateResponse(snapshot.Revision, ToVariables(snapshot), ToFunctions(snapshot), session.Precision);
+        return new StateResponse(snapshot.Revision, ToVariables(session.Engine, snapshot), ToFunctions(snapshot),
+            session.Precision, session.UnicodeOutput);
     }
 
     private static List<string> SplitLines(string text)
@@ -305,11 +325,23 @@ public sealed class EngineHost
         return lines.ToList();
     }
 
-    private static VariableRow[] ToVariables(StateSnapshot snapshot) =>
+    private static VariableRow[] ToVariables(SuiteEngine engine, StateSnapshot snapshot) =>
         snapshot.Variables.Values
             .OrderBy(v => v.Name, StringComparer.Ordinal)
-            .Select(v => new VariableRow(v.Name, v.Kind.ToString(), v.Display))
+            .Select(v =>
+            {
+                // The snapshot only carries rendered text; the live value supplies the one shared
+                // structured projection, and the display is re-rendered under the session's format.
+                if (engine.TryGetVariable(v.Name, out var value))
+                    return new VariableRow(v.Name, v.Kind.ToString(), engine.FormatValue(value),
+                        StructuredProjection.ToStructured(value), TypeNameOf(value));
+                return new VariableRow(v.Name, v.Kind.ToString(), v.Display, null, null);
+            })
             .ToArray();
+
+    /// <summary>The record type name a value carries (e.g. <c>"SolveResult"</c>), or null for every other kind.</summary>
+    private static string? TypeNameOf(Value value) =>
+        value.Kind == ValueKind.Record ? value.AsRecord().TypeName : null;
 
     private static FunctionRow[] ToFunctions(StateSnapshot snapshot) =>
         snapshot.Functions.Values

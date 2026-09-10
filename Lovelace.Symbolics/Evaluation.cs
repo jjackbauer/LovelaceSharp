@@ -107,7 +107,10 @@ public static class NumOps
     public static Num Divide(Num a, Num b)
     {
         if (IsZero(b))
-            throw new DivideByZeroException("Division by zero during numeric evaluation.");
+            // division by zero is a domain failure, and the kernel has exactly one vocabulary for
+            // those: the narrowed catches in the limit/integration/fold/solver paths catch
+            // EvaluationException, so a foreign exception type here would escape them
+            throw new EvaluationException("Division by zero during numeric evaluation.");
         if (Tier(a) == 0 && Tier(b) == 0)
         {
             // exact integer division: quotient is exact iff remainder is zero
@@ -143,6 +146,20 @@ public static class NumOps
         return ToReal(a).CompareTo(ToReal(b));
     }
 
+    /// <summary>Ordered comparison that reports an unordered (complex) pair as <c>false</c>
+    /// instead of throwing, so callers that treat "unordered" as "unknown" do not need an
+    /// exception guard. A defect inside the ordered paths still throws.</summary>
+    public static bool TryCompare(Num a, Num b, out int comparison)
+    {
+        if (Tier(a) >= 3 || Tier(b) >= 3)
+        {
+            comparison = 0;
+            return false;
+        }
+        comparison = Compare(a, b);
+        return true;
+    }
+
     /// <summary>Exact/repeated-squaring integer power; negative exponents via reciprocal.
     /// The exponent is an arbitrary-precision Int — never narrowed through int/long.</summary>
     /// <summary>Integer-power entry taking an exponent value: exact integer exponents only.</summary>
@@ -175,15 +192,25 @@ public static class NumOps
     {
         if (Tier(e) <= 1 && RatOf(e).IsInteger)
             return PowInt(b, RatOf(e).ToInteger());
-        // b^e = exp(e ln b): real path for b > 0, complex principal branch otherwise
-        if (Tier(b) <= 2 && Tier(e) <= 2)
+        try
         {
-            var br = ToReal(b);
-            if (br > Rl.Parse("0", null))
-                return FromReal(ComplexMath.Pow(br, ToReal(e)));
+            // b^e = exp(e ln b): real path for b > 0, complex principal branch otherwise
+            if (Tier(b) <= 2 && Tier(e) <= 2)
+            {
+                var br = ToReal(b);
+                if (br > Rl.Parse("0", null))
+                    return FromReal(ComplexMath.Pow(br, ToReal(e)));
+            }
+            var bc = ToComplex(b);
+            return FromComplex(ComplexMath.Pow(bc, ToComplex(e)));
         }
-        var bc = ToComplex(b);
-        return FromComplex(ComplexMath.Pow(bc, ToComplex(e)));
+        catch (ArgumentException ex)
+        {
+            // the principal branch goes through ln, which reports 0^negative / log(0) with a
+            // framework exception: the kernel's vocabulary for that domain failure is
+            // EvaluationException (see Ln above)
+            throw new EvaluationException(ex.Message);
+        }
     }
 
     public static Num Abs(Num a, ExprContext ctx) => a switch
@@ -262,7 +289,24 @@ public static class NumOps
 
     public static Num Exp(Num a, ExprContext ctx) => Tier(a) <= 2 ? FromReal(ComplexMath.Exp(ToReal(a))) : FromComplex(ComplexMath.Exp(ToComplex(a)));
 
-    public static Num Ln(Num a, ExprContext ctx) => Tier(a) <= 2 ? FromReal(ComplexMath.Ln(ToReal(a))) : FromComplex(ComplexMath.Log(ToComplex(a)));
+    public static Num Ln(Num a, ExprContext ctx)
+    {
+        try
+        {
+            return Tier(a) <= 2
+                ? FromReal(ComplexMath.Ln(ToReal(a)))
+                : FromComplex(ComplexMath.Log(ToComplex(a)));
+        }
+        catch (ArgumentException ex)
+        {
+            // The numeric layer reports a domain violation with a framework exception
+            // ("Ln(x) requires x > 0"), but the kernel's vocabulary for "not defined here" is
+            // EvaluationException — the narrowed catches in the limit, integration, fold and
+            // solver-verification paths rely on that type and would otherwise let a domain edge
+            // surface as an internal defect.
+            throw new EvaluationException(ex.Message);
+        }
+    }
 
     public static Num Sin(Num a, ExprContext ctx) => Tier(a) <= 2 ? FromReal(ComplexMath.Sin(ToReal(a))) : FromComplex(ComplexMath.Sin(ToComplex(a)));
 
@@ -436,6 +480,23 @@ public static class Evaluation
         }
     }
 
+    /// <summary>The assumption atom equivalent to a relation of the lattice's shape — a symbol
+    /// against a constant — or null when the relation is not of that shape. The lattice stores
+    /// symbol-op-constant only, so a mirrored spelling is flipped into it.</summary>
+    private static SymbolRelationAssumption? AssumptionRelationOf(Expr guard)
+    {
+        if (guard is not RelationExpr r)
+            return null;
+        if (r.Left is SymbolExpr s &&
+            r.Right is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
+            return new SymbolRelationAssumption(s.Symbol, r.Op, r.Right);
+        if (r.Right is SymbolExpr rs &&
+            r.Left is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr) &&
+            AssumptionSet.Flipped(r.Op) is { } flipped)
+            return new SymbolRelationAssumption(rs.Symbol, flipped, r.Left);
+        return null;
+    }
+
     /// <summary>
     /// Three-valued (Kleene) evaluation of a boolean-valued expression: relations, And/Or/Not,
     /// and the constants 0/1. True/False only when decided; Unknown is never coerced to False.
@@ -476,7 +537,21 @@ public static class Evaluation
                 return anyUnknown ? Tristate.Unknown : Tristate.False;
             }
             case RelationExpr:
+            {
+                // The assumption lattice is consulted BEFORE numeric evaluation for a
+                // symbol-against-constant relation. It is the only source that can decide a
+                // symbolic guard — "x >= 0" under assume(x < 0) is False, and under assume(x > 0)
+                // is True — where numeric evaluation has no binding for x and can only say
+                // Unknown. Without this a Piecewise guard over a symbolic value is always treated
+                // as undecidable, which is the §21 gap.
+                if (AssumptionRelationOf(guard) is { } atom)
+                {
+                    var known = ctx.Assumptions.Ask(atom);
+                    if (known != Tristate.Unknown)
+                        return known;
+                }
                 break;
+            }
             default:
                 return Tristate.Unknown;
         }
@@ -491,15 +566,11 @@ public static class Evaluation
         {
             return Tristate.Unknown;
         }
-        int cmp;
-        try
-        {
-            cmp = NumOps.Compare(l, right);
-        }
-        catch (Exception)
-        {
-            return Tristate.Unknown;   // unordered (complex) values are not False, they are unknown
-        }
+        // unordered (complex/symbolic) values are not False, they are unknown; the total-order
+        // protocol reports that as a value, so no exception guard is needed here (a defect in
+        // Compare must surface rather than be read as "unknown")
+        if (!NumOps.TryCompare(l, right, out int cmp))
+            return Tristate.Unknown;
         bool result = r.Op switch
         {
             RelOp.Eq => cmp == 0,
@@ -602,9 +673,11 @@ public static class Evaluation
                             {
                                 return NumToExpr(ev(nums, ctx));
                             }
-                            catch (Exception)
+                            catch (EvaluationException)
                             {
-                                // fall through to the symbolic node
+                                // the evaluator reports "not numerically defined here" (domain
+                                // edge, pole, branch cut): fall through to the symbolic node.
+                                // Any other failure is a defect and must surface.
                             }
                         }
                     }
@@ -683,8 +756,10 @@ public static class Evaluation
             {
                 return NumToExpr(def.NumericEvaluator(nums, ctx));
             }
-            catch (Exception)
+            catch (EvaluationException)
             {
+                // not numerically defined at this point: leave the node unfolded. A defect
+                // (any other exception type) propagates instead of masquerading as "no fold".
                 return null;
             }
         }

@@ -9,6 +9,16 @@ namespace Lovelace.Suite;
 /// The public façade of the Lovelace suite: a string-level entry point over the
 /// <see cref="Interpreter"/>, exposing the introspection interface (variables,
 /// functions, snapshots, events) and diagnostics with source positions.
+/// <para>
+/// A new engine carries only the <b>core</b> builtins. The language-level function packages
+/// arrive through plugins, which must be loaded explicitly — e.g.
+/// <c>engine.LoadPlugin(new Lovelace.Symbolics.SymbolicsPlugin())</c>, then
+/// <c>new Lovelace.MathIR.MathIRPlugin(symbolics)</c> and/or
+/// <c>new Lovelace.Dsp.DspPlugin()</c>. Without them a call like <c>evalf(...)</c> or
+/// <c>solve_full(...)</c> fails with "Unknown function", which is the intended behaviour but an
+/// easy first-run surprise: if a builtin the documentation mentions is missing, a plugin has not
+/// been loaded. <c>Lovelace.Run/Program.cs</c> is the reference wiring.
+/// </para>
 /// </summary>
 public sealed class SuiteEngine
 {
@@ -186,6 +196,9 @@ public sealed class SuiteEngine
     /// </summary>
     private readonly SemaphoreSlim _evaluationGate = new(1, 1);
 
+    /// <summary>Flow-local marker: true while this flow is inside <see cref="EvaluateAsync"/>.</summary>
+    private readonly AsyncLocal<bool> _inEvaluation = new();
+
     /// <summary>
     /// Evaluates <paramref name="source"/> as a script/expression. On success the
     /// result (unless <c>void</c>) is stored in the <c>_</c> variable.
@@ -195,35 +208,61 @@ public sealed class SuiteEngine
     /// to that writer for the duration of this call and the interpreter's previous
     /// <see cref="Output"/> is restored afterward.
     /// </remarks>
-    public async Task<Value> EvaluateAsync(string source, TextWriter? output = null)
+    public async Task<Value> EvaluateAsync(
+        string source, TextWriter? output = null, CancellationToken cancellationToken = default)
     {
-        _diagnostics.Clear();
-        _interpreter.ClearOperationTimings();
-        _lastSource = source;
+        // §23: a nested evaluation on this engine would block forever on the gate below. Report it
+        // as a structured, recoverable diagnostic instead of deadlocking. The marker is
+        // flow-local, so a concurrent caller on another flow is unaffected.
+        if (_inEvaluation.Value)
+            throw new ReentrancyNotSupportedException();
 
-        var stopwatch = Stopwatch.StartNew();
-        await _evaluationGate.WaitAsync().ConfigureAwait(false);
+        _inEvaluation.Value = true;
         try
         {
-            if (output is null)
-                return await EvaluateCoreAsync(source).ConfigureAwait(false);
-
-            var previous = _interpreter.Output;
-            _interpreter.Output = output;
+            using var cancellation = Lovelace.Abstractions.Cancellation.Scope(cancellationToken);
+            // diagnostics/timings are per-evaluation state: reset them under the gate so a
+            // concurrent caller cannot clobber the running evaluation's diagnostics
+            var stopwatch = Stopwatch.StartNew();
+            await _evaluationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                return await EvaluateCoreAsync(source).ConfigureAwait(false);
+                _diagnostics.Clear();
+                _interpreter.ClearOperationTimings();
+                _lastSource = source;
+
+                if (output is null)
+                    return await EvaluateCoreAsync(source).ConfigureAwait(false);
+
+                var previous = _interpreter.Output;
+                _interpreter.Output = output;
+                try
+                {
+                    return await EvaluateCoreAsync(source).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _interpreter.Output = previous;
+                }
             }
             finally
             {
-                _interpreter.Output = previous;
+                _evaluationGate.Release();
+                stopwatch.Stop();
+                LastElapsed = stopwatch.Elapsed;
             }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // structured cancellation: the host reports "Cancelled" and keeps the partial state.
+            // The cancellation itself is not a diagnostic — clear whatever the innermost catch
+            // recorded so the host does not report "The operation was canceled." as a defect.
+            _diagnostics.Clear();
+            throw new EvaluationCancelledException(cancellationToken);
         }
         finally
         {
-            _evaluationGate.Release();
-            stopwatch.Stop();
-            LastElapsed = stopwatch.Elapsed;
+            _inEvaluation.Value = false;
         }
     }
 

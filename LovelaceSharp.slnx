@@ -32,4 +32,5 @@
   <Project Path="dspbench/dspbench.csproj" />
   <Project Path="precbench/precbench.csproj" />
   <Project Path="precbench.Tests/precbench.Tests.csproj" />
+  <Project Path="symbench/symbench.csproj" />
 </Solution>

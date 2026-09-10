@@ -352,8 +352,8 @@ public sealed class MathIRPlugin : IModusPlugin
             try
             {
                 var f = AsExpr(args[0]!);
-                var names = (IReadOnlyList<object?>)args[1]!;
-                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                var names = ListArg(args[1], "lower", 2, "a list of parameter symbols, e.g. [x]");
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n, "lower"))).ToArray();
                 var prog = Lowering.Lower(f, Exprs.Current, ps);
                 return prog.Serialize().TrimEnd('\n');
             }
@@ -372,8 +372,8 @@ public sealed class MathIRPlugin : IModusPlugin
             try
             {
                 var f = AsExpr(args[0]!);
-                var names = (IReadOnlyList<object?>)args[1]!;
-                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                var names = ListArg(args[1], "compile", 2, "a list of parameter symbols, e.g. [x]");
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n, "compile"))).ToArray();
                 return Compilation.Compile(f, Exprs.Current, ps).IrText.TrimEnd('\n');
             }
             finally
@@ -383,7 +383,7 @@ public sealed class MathIRPlugin : IModusPlugin
         });
         c.RegisterBuiltin(new global::Lovelace.Abstractions.BuiltinDescriptor(
             "compile_full", new[] { "f", "params" }, global::Lovelace.Abstractions.BuiltinCategories.Compilation,
-            "Structured compile: a CompilationResult record with the IR, parameters, result type, target, MathIR version, and exactness.",
+            "Structured compile: a CompilationResult record with the IR, per-parameter name and domain, result domain and type, the precision and optimization policies, target, MathIR version, and exactness.",
             ["compile_full(x^2 + 1, [x])"], "CompilationResult", ["compile", "evalir_batch"]), args =>
         {
             var previous = Exprs.Current;
@@ -391,15 +391,26 @@ public sealed class MathIRPlugin : IModusPlugin
             try
             {
                 var f = AsExpr(args[0]!);
-                var names = (IReadOnlyList<object?>)args[1]!;
-                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n))).ToArray();
+                var names = ListArg(args[1], "compile_full", 2, "a list of parameter symbols, e.g. [x]");
+                var ps = names.Select(n => Exprs.Current.Symbol(NameOf(n, "compile_full"))).ToArray();
                 var res = Compilation.Compile(f, Exprs.Current, ps);
                 var types = IrTyping.Infer(res.Program);
                 var resultType = types.Length > 0 && types[^1] is { } rt ? rt.ToString() : "unknown";
+                var parameters = ps.Select(p => (object)new global::Lovelace.Abstractions.RecordValue(
+                    "ParameterInfo",
+                    new global::Lovelace.Abstractions.RecordField("name", p.Name),
+                    new global::Lovelace.Abstractions.RecordField(
+                        "domain", Lovelace.Symbolics.Domains.ToMathDomain(
+                            Lovelace.Symbolics.Domains.DomainOf(Exprs.Symbol(p), Exprs.Current))))).ToArray();
                 return new global::Lovelace.Abstractions.RecordValue("CompilationResult",
                     new global::Lovelace.Abstractions.RecordField("ir", res.IrText.TrimEnd('\n')),
-                    new global::Lovelace.Abstractions.RecordField("parameters", ps.Select(p => (object)p.Name).ToArray()),
+                    new global::Lovelace.Abstractions.RecordField("parameters", parameters),
+                    new global::Lovelace.Abstractions.RecordField(
+                        "result_domain", Lovelace.Symbolics.Domains.ToMathDomain(
+                            Lovelace.Symbolics.Domains.DomainOf(f, Exprs.Current))),
                     new global::Lovelace.Abstractions.RecordField("result_type", resultType),
+                    new global::Lovelace.Abstractions.RecordField("precision_policy", PrecisionPolicy),
+                    new global::Lovelace.Abstractions.RecordField("optimization_policy", OptimizationPolicy),
                     new global::Lovelace.Abstractions.RecordField("target", "mathir"),
                     new global::Lovelace.Abstractions.RecordField("mathir_version", 2),
                     new global::Lovelace.Abstractions.RecordField("exact", f.IsExact));
@@ -419,19 +430,19 @@ public sealed class MathIRPlugin : IModusPlugin
             try
             {
                 var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
-                var values = (IReadOnlyList<object?>)args[1]!;
                 var digits = (int)AsLong(args[2]!);
-                // flat row-major values: width = number of parameters, one row per width entries
                 int width = prog.Parameters.Count;
-                if (values.Count == 0 || values.Count % width != 0)
-                    throw new InvalidOperationException($"Values must be a multiple of {width} (the parameter count).");
-                int rows = values.Count / width;
+                var (values, rows) = BatchRows(args[1], width);
                 var columns = new Dictionary<string, Num[]>(width);
                 for (int p = 0; p < width; p++)
                     columns[prog.Parameters[p]] = new Num[rows];
                 for (int row = 0; row < rows; row++)
+                {
+                    // a cancelled batch stops between rows; the caller keeps the rows it has
+                    global::Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
                     for (int p = 0; p < width; p++)
                         columns[prog.Parameters[p]][row] = ToNum(values[row * width + p]!);
+                }
                 using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
                 {
                     var results = new CompiledKernel(prog, prog.Parameters.Select(n => Exprs.Current.Symbol(n)).ToArray(), Exprs.Current)
@@ -456,8 +467,11 @@ public sealed class MathIRPlugin : IModusPlugin
                 var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
                 var values = (IReadOnlyList<object?>)args[1]!;
                 var digits = (int)AsLong(args[2]!);
+                if (values.Count != prog.Parameters.Count)
+                    throw new InvalidOperationException(
+                        $"evalir(): kernel expects {prog.Parameters.Count} parameters; got {values.Count} values.");
                 var bindings = new Dictionary<Symbol, Num>();
-                for (int i = 0; i < prog.Parameters.Count && i < values.Count; i++)
+                for (int i = 0; i < prog.Parameters.Count; i++)
                     bindings[Exprs.Current.Symbol(prog.Parameters[i])] = ToNum(values[i]!);
                 using (global::Lovelace.Real.Real.WithPrecision(digits, Math.Min(digits, 50)))
                 {
@@ -471,6 +485,46 @@ public sealed class MathIRPlugin : IModusPlugin
             }
         });
     }
+
+    /// <summary>Splits the batch argument into (flat row-major values, row count). Row-oriented
+    /// input arrives with its shape (<c>[[1, 2], [3, 4]]</c> is rank 2), so a row whose width does
+    /// not match the kernel is rejected instead of being silently re-flowed into different rows.
+    /// A flat list is read as consecutive rows of <paramref name="width"/> values.</summary>
+    private static (IReadOnlyList<object?> Values, int Rows) BatchRows(object? payload, int width)
+    {
+        if (payload is not IReadOnlyList<object?> values)
+            throw new InvalidOperationException(
+                "evalir_batch(): values must be a list of numbers or a list of rows.");
+        if (values.Count == 0)
+            throw new InvalidOperationException("evalir_batch(): values must not be empty.");
+
+        if (payload is PayloadArray { Rank: >= 2 } shaped)
+        {
+            if (shaped.Rank > 2)
+                throw new InvalidOperationException(
+                    $"evalir_batch(): values must be a flat list or a list of rows (rank 2); got rank {shaped.Rank}.");
+            long rowWidth = shaped.RowWidth;
+            if (rowWidth != width)
+                throw new InvalidOperationException(
+                    $"evalir_batch(): kernel expects {width} parameters per row; row 0 contains {rowWidth}.");
+            int rowCount = (int)shaped.Shape[0];
+            return (values, rowCount);
+        }
+
+        if (values.Count % width != 0)
+            throw new InvalidOperationException(
+                $"evalir_batch(): kernel expects {width} parameters per row; got {values.Count} values, " +
+                "which is not a whole number of rows.");
+        return (values, values.Count / width);
+    }
+
+    /// <summary>The compiled kernel takes its precision per call, from the digits argument of
+    /// evalir/evalir_batch — it does not bake one in.</summary>
+    private const string PrecisionPolicy = "caller_supplied";
+
+    /// <summary>Lowering preserves the expression as written; optimize() applies an optimization
+    /// policy explicitly and reports it in OptimizationResult.policy.</summary>
+    private const string OptimizationPolicy = "none";
 
     /// <summary>Accepts the IR text from compile() or the CompilationResult record from
     /// compile_full() (its <c>ir</c> field).</summary>
@@ -499,11 +553,27 @@ public sealed class MathIRPlugin : IModusPlugin
         _ => throw new InvalidOperationException(),
     };
 
-    private static string NameOf(object? o) => o switch
+    /// <summary>Argument coercion with the function and position in the message: a wrong payload
+    /// kind must never surface as a raw cast failure.</summary>
+    private static IReadOnlyList<object?> ListArg(object? o, string function, int position, string expected) =>
+        o as IReadOnlyList<object?> ?? throw new InvalidOperationException(
+            $"{function}(): argument {position} must be {expected}; got {Describe(o)}.");
+
+    private static string Describe(object? payload) => payload switch
+    {
+        null => "nothing",
+        global::Lovelace.Symbolics.Expr => "Symbolic",
+        global::Lovelace.Abstractions.RecordValue => "Record",
+        string => "Text",
+        _ => payload.GetType().Name,
+    };
+
+    private static string NameOf(object? o, string function) => o switch
     {
         string s => s,
         SymbolExpr sx => sx.Symbol.Name,
-        _ => throw new InvalidOperationException("Expected symbol names."),
+        _ => throw new InvalidOperationException(
+            $"{function}(): argument 2 must contain parameter symbols; got {Describe(o)}."),
     };
 
     private static Expr AsExpr(object? o) => o switch

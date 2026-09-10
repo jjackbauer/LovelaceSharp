@@ -49,7 +49,23 @@ public sealed class ExprContext
     private readonly ConcurrentDictionary<Expr, Expr> _pool = new();
 
     /// <summary>The active assumption set (immutable; replace to extend).</summary>
-    public AssumptionSet Assumptions { get; set; } = AssumptionSet.Empty;
+    private AssumptionSet _assumptions = AssumptionSet.Empty;
+
+    /// <summary>
+    /// The active assumption set. A scope installed by <see cref="WithAssumptions"/> is
+    /// <b>flow-local</b>: it lives in an <see cref="AsyncLocal{T}"/> slot, so two concurrent
+    /// scopes on the same context do not interleave and the end of one scope cannot restore a
+    /// stale set for another. Setting the property updates the context's base set, which a scope
+    /// still overrides for its own flow.
+    /// </summary>
+    public AssumptionSet Assumptions
+    {
+        get => _scope.Value ?? _assumptions;
+        set => _assumptions = value;
+    }
+
+    /// <summary>Flow-local scope override; null means "no scope active, use the base set".</summary>
+    private readonly AsyncLocal<AssumptionSet?> _scope = new();
 
     /// <summary>Registered function definitions (name → definition).</summary>
     public FunctionRegistry Functions { get; } = new();
@@ -94,25 +110,27 @@ public sealed class ExprContext
 
     /// <summary>
     /// Scoped assumption override: installs <paramref name="assumptions"/> for the lifetime of
-    /// the returned scope, restoring the previous set on dispose. Composable and flow-local.
+    /// the returned scope. The scope is flow-local (an <see cref="AsyncLocal{T}"/> slot), so
+    /// concurrent scopes are isolated: each flow sees its own set and disposing one scope cannot
+    /// restore a stale value into another. Nested scopes restore the enclosing value on dispose.
     /// </summary>
     public IDisposable WithAssumptions(AssumptionSet assumptions)
     {
-        var previous = Assumptions;
-        Assumptions = assumptions;
+        var previous = _scope.Value;
+        _scope.Value = assumptions;
         return new AssumptionScope(this, previous);
     }
 
     private sealed class AssumptionScope : IDisposable
     {
         private ExprContext? _ctx;
-        private readonly AssumptionSet _previous;
-        public AssumptionScope(ExprContext ctx, AssumptionSet previous) { _ctx = ctx; _previous = previous; }
+        private readonly AssumptionSet? _previous;
+        public AssumptionScope(ExprContext ctx, AssumptionSet? previous) { _ctx = ctx; _previous = previous; }
         public void Dispose()
         {
             if (_ctx is { } ctx)
             {
-                ctx.Assumptions = _previous;
+                ctx._scope.Value = _previous;
                 _ctx = null;
             }
         }

@@ -209,14 +209,57 @@ public sealed class DspPlugin : IModusPlugin
         });
     }
 
+    /// <summary>Complete help metadata for every DSP builtin: no user-facing function may ship
+    /// without a summary, parameters and a return kind.</summary>
+    private static readonly Dictionary<string, BuiltinDescriptor> Metadata = new(StringComparer.Ordinal)
+    {
+        ["conv"] = new("conv", new[] { "x", "h" }, BuiltinCategories.Dsp,
+            "Linear convolution of two signals.", ["conv([1, 2], [1, 1])"], "Vector", ["filter", "fft"]),
+        ["dft"] = new("dft", new[] { "x", "n" }, BuiltinCategories.Dsp,
+            "Discrete Fourier transform; an optional length n zero-pads or truncates the signal.",
+            ["dft([0, 1, 0, 0])"], "Vector", ["fft"], MinArity: 1),
+        ["fft"] = new("fft", new[] { "x" }, BuiltinCategories.Dsp,
+            "Fast Fourier transform of a signal.", ["fft([0, 1, 0, 0])"], "Vector", ["dft", "conv"]),
+        ["filter"] = new("filter", new[] { "a", "b", "x" }, BuiltinCategories.Dsp,
+            "Difference-equation filter of a signal (or the impulse response of length n).",
+            ["filter([1], [1], [1, 2, 3])"], "Vector", ["conv", "movingavg"]),
+        ["movingavg"] = new("movingavg", new[] { "x", "w" }, BuiltinCategories.Dsp,
+            "Moving average of a signal with window w.", ["movingavg([1, 2, 3], 2)"], "Vector", ["filter"]),
+        ["impulse"] = new("impulse", new[] { "n" }, BuiltinCategories.Dsp,
+            "Unit impulse sequence of length n.", ["impulse(4)"], "Vector", ["step"]),
+        ["step"] = new("step", new[] { "n" }, BuiltinCategories.Dsp,
+            "Unit step sequence of length n.", ["step(4)"], "Vector", ["impulse"]),
+        ["cosine"] = new("cosine", new[] { "freq", "phase", "n" }, BuiltinCategories.Dsp,
+            "Cosine sequence of length n at the given frequency and phase.", ["cosine(0.25, 0, 8)"], "Vector", ["exponential"]),
+        ["exponential"] = new("exponential", new[] { "c", "n" }, BuiltinCategories.Dsp,
+            "Exponential sequence c^k of length n.", ["exponential(0.5, 4)"], "Vector", ["cosine", "powerseries"]),
+        ["powerseries"] = new("powerseries", new[] { "k", "a", "n" }, BuiltinCategories.Dsp,
+            "Geometric power series of length n.", ["powerseries(2, 0.5, 4)"], "Vector", ["exponential"]),
+        ["noise"] = new("noise", new[] { "scale", "disp", "n", "seed" }, BuiltinCategories.Dsp,
+            "Deterministic seeded noise sequence (the same seed always yields the same signal).",
+            ["noise(1, 0, 4, 3)"], "Vector", ["cosine"], MinArity: 3),
+        ["delay"] = new("delay", new[] { "x", "k" }, BuiltinCategories.Dsp,
+            "Delays a signal by k samples.", ["delay([1, 2, 3], 1)"], "Vector", ["scale"]),
+        ["scale"] = new("scale", new[] { "x", "k" }, BuiltinCategories.Dsp,
+            "Scales every sample of a signal by k.", ["scale([1, 2, 3], 2)"], "Vector", ["delay"]),
+        ["re"] = new("re", new[] { "x" }, BuiltinCategories.Dsp,
+            "Real part of a complex value or signal.", ["re(fft([0, 1, 0, 0])[1])"], "Real | Vector", ["im", "conj", "abs"]),
+        ["im"] = new("im", new[] { "x" }, BuiltinCategories.Dsp,
+            "Imaginary part of a complex value or signal.", ["im(fft([0, 1, 0, 0])[1])"], "Real | Vector", ["re", "conj"]),
+        ["conj"] = new("conj", new[] { "x" }, BuiltinCategories.Dsp,
+            "Complex conjugate of a complex value or signal.", ["conj(fft([0, 1, 0, 0])[1])"], "Complex | Vector", ["re", "im"]),
+    };
+
     /// <summary>
     /// Registers a builtin through the typed <see cref="ScalarResult"/> channel — the plugin's
-    /// results flow through the wrapper the core unwraps at the boundary. A synthesized
-    /// descriptor attributes every DSP builtin to the DSP category so help/funcs list it.
+    /// results flow through the wrapper the core unwraps at the boundary. Every DSP builtin
+    /// carries complete help metadata from <see cref="Metadata"/>.
     /// </summary>
     private static void Register(IModusContext context, string name, string[] parameters, Func<IReadOnlyList<object?>, object?> implementation) =>
         context.RegisterBuiltin(
-            new BuiltinDescriptor(name, parameters, BuiltinCategories.Dsp, "(no summary registered)", Array.Empty<string>(), "Vector | Real"),
+            Metadata.TryGetValue(name, out var descriptor)
+                ? descriptor
+                : new BuiltinDescriptor(name, parameters, BuiltinCategories.Dsp, "(no summary registered)", Array.Empty<string>(), "Vector | Real"),
             args => ScalarResult.From(implementation(args)));
 
     /// <summary>

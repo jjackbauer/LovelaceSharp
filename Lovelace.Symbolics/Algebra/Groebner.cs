@@ -27,6 +27,7 @@ public static class Groebner
         var seen = new HashSet<(int, int)>(pairs);
         while (pairs.Count > 0)
         {
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
             var (i, j) = pairs[0];
             pairs.RemoveAt(0);
             var s = SPolynomial(basis[i], basis[j], cmp);
@@ -132,6 +133,7 @@ public static class Groebner
         var cur = p;
         while (!cur.IsZero)
         {
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
             var (lt, lc) = LeadingTerm(cur, cmp);
             bool reduced = false;
             foreach (var b in basis)

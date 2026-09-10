@@ -20,28 +20,39 @@ public static class Timing
     /// </summary>
     public static string Format(TimeSpan elapsed)
     {
+        var (value, unit) = Scale(elapsed);
+        return FormatValue(value, unit == "ns" ? 0 : 2) + " " + unit;
+    }
+
+    /// <summary>
+    /// The auto-scaled <c>(value, unit)</c> pair behind <see cref="Format"/>. Agents read this
+    /// instead of parsing a unit suffix; one selector drives both forms, so the human string and
+    /// the structured duration can never disagree.
+    /// </summary>
+    public static (double Value, string Unit) Scale(TimeSpan elapsed)
+    {
         double totalNanoseconds = elapsed.Ticks * NsPerTick;
 
         if (totalNanoseconds < 1_000)
-            return FormatValue(totalNanoseconds, 0) + " ns";
+            return (Math.Round(totalNanoseconds), "ns");
 
         double totalMicroseconds = totalNanoseconds / 1_000;
         if (totalMicroseconds < 1_000)
-            return FormatValue(totalMicroseconds, 2) + " µs";
+            return (Math.Round(totalMicroseconds, 2), "µs");
 
         double totalMilliseconds = elapsed.TotalMilliseconds;
         if (totalMilliseconds < 1_000)
-            return FormatValue(totalMilliseconds, 2) + " ms";
+            return (Math.Round(totalMilliseconds, 2), "ms");
 
         double totalSeconds = elapsed.TotalSeconds;
         if (totalSeconds < 60)
-            return FormatValue(totalSeconds, 2) + " s";
+            return (Math.Round(totalSeconds, 2), "s");
 
         double totalMinutes = elapsed.TotalMinutes;
         if (totalMinutes < 60)
-            return FormatValue(totalMinutes, 2) + " min";
+            return (Math.Round(totalMinutes, 2), "min");
 
-        return FormatValue(elapsed.TotalHours, 2) + " h";
+        return (Math.Round(elapsed.TotalHours, 2), "h");
     }
 
     private static string FormatValue(double value, int maxDecimals)
@@ -59,4 +70,7 @@ public sealed record OperationTiming(int Position, Value Result, string Output, 
 {
     /// <summary><see cref="Elapsed"/> rendered with an auto-scaled unit (ns/µs/ms/…).</summary>
     public string ElapsedDisplay => Timing.Format(Elapsed);
+
+    /// <summary><see cref="Elapsed"/> as a unit-scaled value/unit pair (never a parsed suffix).</summary>
+    public (double Value, string Unit) ElapsedScale => Timing.Scale(Elapsed);
 }

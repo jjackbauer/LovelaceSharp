@@ -1,3 +1,4 @@
+using Lovelace.Abstractions;
 using Lovelace.MathIR;
 using Lovelace.Suite;
 using Lovelace.Symbolics;
@@ -288,6 +289,70 @@ public class DxSemanticClosureTests
         var result = engine.Evaluate("solve(x^4 + 1 == 0, x)");
         Assert.Equal("unevaluated: complex algebraic roots not supported (RootOf is real-only in v1).",
             ValueFormatter.FormatTyped(result));
+    }
+
+    [Fact]
+    public void Language_SolveQuartic_MixedRoots_IsPartial_NotComplete()
+    {
+        var engine = new SuiteEngine();
+        var symbolics = new SymbolicsPlugin();
+        engine.LoadPlugin(symbolics);
+        engine.LoadPlugin(new MathIRPlugin(symbolics));
+        engine.Evaluate("x = symbol(\"x\")");
+        // 0 < real roots < degree: the solver must not claim a complete complex solution set
+        Assert.Equal("Partial", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).status").AsText());
+        Assert.False(engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).complete").AsBoolean());
+        Assert.Equal("2", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count").AsInteger().ToString());
+        // and the convenience API must not hand back an apparently complete vector
+        Assert.Equal(ValueKind.Text, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x)").Kind);
+        // the real domain is complete and still returns a vector
+        Assert.Equal(ValueKind.Vector, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x, real)").Kind);
+    }
+
+    [Fact]
+    public void Language_SolveUnsupportedDomain_IsRejected()
+    {
+        var engine = new SuiteEngine();
+        var symbolics = new SymbolicsPlugin();
+        engine.LoadPlugin(symbolics);
+        engine.LoadPlugin(new MathIRPlugin(symbolics));
+        engine.Evaluate("x = symbol(\"x\")");
+        var ex = Assert.ThrowsAny<Exception>(() => engine.Evaluate("solve(x^2 + 1 == 0, x, integer)"));
+        Assert.Contains("currently supports domains real and complex; got integer", ex.Message);
+        var ex2 = Assert.ThrowsAny<Exception>(() => engine.Evaluate("solve(x^2 + 1 == 0, x, rational)"));
+        Assert.Contains("currently supports domains real and complex; got rational", ex2.Message);
+    }
+
+    [Fact]
+    public void Language_SolvePrincipalBranch_ReturnsAllRoots()
+    {
+        var engine = new SuiteEngine();
+        var symbolics = new SymbolicsPlugin();
+        engine.LoadPlugin(symbolics);
+        engine.LoadPlugin(new MathIRPlugin(symbolics));
+        engine.Evaluate("x = symbol(\"x\")");
+        // (x+1)^2 = 4 has TWO solutions: emitting only the principal root was a wrong answer
+        Assert.Equal("[-3, 1]", ValueFormatter.Format(engine.Evaluate("solve((x+1)^2 - 4 == 0, x)")));
+        // (x+1)^3 = 8 has three
+        var cube = engine.Evaluate("solve_full((x+1)^3 == 8, x)").AsRecord();
+        Assert.Equal("Solved", (string)((Value)cube.Fields[0].Value!).AsText());
+        Assert.Equal(3, ((Value)cube.Fields[5].Value!).AsVector().Count);
+    }
+
+    [Fact]
+    public void Language_SolveMultiplicityAndNoSolutions_AreHonest()
+    {
+        var engine = new SuiteEngine();
+        var symbolics = new SymbolicsPlugin();
+        engine.LoadPlugin(symbolics);
+        engine.LoadPlugin(new MathIRPlugin(symbolics));
+        engine.Evaluate("x = symbol(\"x\")");
+        // multiplicity survives the factor -> root projection
+        var repeated = engine.Evaluate("solve_full(x^2 - 2*x + 1 == 0, x)").AsRecord();
+        var sol = (RecordValue)((Value)((Value)repeated.Fields[5].Value!).AsVector()[0]).AsRecord();
+        Assert.Equal("2", ((Value)sol.Fields[2].Value!).AsInteger().ToString());
+        // every candidate excluded by a pole is NoSolutions, never Solved with an empty vector
+        Assert.Equal("NoSolutions", engine.Evaluate("solve_full((x^2-1)/(x^2-1) == 0, x).status").AsText());
     }
 
     [Fact]

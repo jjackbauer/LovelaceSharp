@@ -50,4 +50,15 @@ public sealed class Session
 
     /// <summary>The session's precision (computation == display, the single knob).</summary>
     public long Precision => Engine.ComputationDecimalPlaces;
+
+    /// <summary>
+    /// The session's value-rendering mode: <see langword="true"/> renders the Unicode math glyphs
+    /// (∞ √ π ≤ ≥ ≠), the default <see langword="false"/> stays ASCII. Forwarded to the engine so
+    /// every value Studio renders (result, variables, timings, records) uses the same setting.
+    /// </summary>
+    public bool UnicodeOutput
+    {
+        get => Engine.UnicodeOutput;
+        set => Engine.UnicodeOutput = value;
+    }
 }
