@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Lovelace.Abstractions;
 using Rat = global::Lovelace.Rational.Rational;
 
 namespace Lovelace.Symbolics;
@@ -136,8 +137,22 @@ public sealed class ExprContext
         }
     }
 
-    /// <summary>Hash-conses a canonical node: returns the existing equal instance when present.</summary>
-    internal Expr Intern(Expr node) => _pool.GetOrAdd(node, node);
+    /// <summary>
+    /// Hash-conses a canonical node: returns the existing equal instance when present.
+    /// <para>
+    /// This is the ONE funnel every factory in <see cref="Exprs"/> ends at, which makes it the one
+    /// place a nesting budget has to be enforced for canonical expressions: the depth is cached on
+    /// the node and a node deeper than <see cref="InputDepth.Max"/> is refused HERE, while it is
+    /// being built, long before printing, evaluation or rewriting could recurse over it.
+    /// </para>
+    /// </summary>
+    internal Expr Intern(Expr node)
+    {
+        node._depth = ExprDepth.Of(node);
+        if (node._depth > InputDepth.Max)
+            throw new InputDepthExceededException("symbolic expression", node._depth, InputDepth.Max);
+        return _pool.GetOrAdd(node, node);
+    }
 }
 
 /// <summary>

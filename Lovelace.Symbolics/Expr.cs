@@ -201,6 +201,7 @@ public abstract class Expr : IEquatable<Expr>
 {
     internal int _hash;
     internal int _nodeCount;
+    internal int _depth;
     internal bool _isExact;
 
     public NodeKind Kind { get; internal init; }
@@ -210,6 +211,12 @@ public abstract class Expr : IEquatable<Expr>
 
     /// <summary>Number of nodes in the DAG subtree (budgets use this).</summary>
     public int NodeCount => _nodeCount;
+
+    /// <summary>Length of the longest root-to-leaf path through this subtree, cached at
+    /// construction. Bounded by <see cref="Lovelace.Abstractions.InputDepth.Max"/> for every node a
+    /// factory returns: the recursive walks over expressions (printing, evaluation, rewriting) are
+    /// native recursions and nothing can be reported once one of them exhausts the stack.</summary>
+    public int Depth => _depth;
 
     /// <summary>True when the subtree contains no approximate RealConstant and no transcendental value.</summary>
     public bool IsExact => _isExact;

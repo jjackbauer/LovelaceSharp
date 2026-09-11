@@ -260,6 +260,10 @@ public static class Runner
         // a budget stop is a first-class outcome, not an invariant failure: the frozen contract makes
         // BudgetExceeded a status, and the caller can retry with a larger budget
         Lovelace.Symbolics.BudgetExceededException => ("BudgetExceeded", "BudgetExceeded", true),
+        // A nesting refusal is a budget stop too, but it gets its OWN code: a consumer must be able
+        // to tell "this input is nested too deeply" (a property of the input) from "the symbolic
+        // computation ran out of steps" (a property of the work), and neither is a DomainError.
+        Lovelace.Abstractions.InputDepthExceededException => ("DepthExceeded", "BudgetExceeded", true),
         Lovelace.Symbolics.EvaluationException => ("EvaluationError", "DomainError", true),
         Lovelace.Symbolics.AssumptionContradictionException => ("UnsatisfiableAssumptions", "DomainError", true),
         FormatException => ("InvalidInput", "ParseError", true),

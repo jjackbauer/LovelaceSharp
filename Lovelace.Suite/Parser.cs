@@ -1,3 +1,5 @@
+using Lovelace.Abstractions;
+
 namespace Lovelace.Suite;
 
 /// <summary>
@@ -19,6 +21,31 @@ public sealed class Parser
 {
     private List<Token> _tokens = [];
     private int _pos;
+
+    /// <summary>
+    /// Nesting levels currently open in this parse. The description of this grammar is a chain of
+    /// mutually recursive descents, so the parser's own C# stack depth is proportional to the
+    /// nesting of the INPUT; this counter is that property, and it is checked on the way DOWN so
+    /// the parser refuses the input before the recursion that would kill the process is entered.
+    /// </summary>
+    private int _depth;
+
+    /// <summary>Opens one nesting level for the lifetime of the returned scope.</summary>
+    private DepthScope Descend(string stage) => new(this, stage);
+
+    private readonly struct DepthScope : IDisposable
+    {
+        private readonly Parser _parser;
+
+        internal DepthScope(Parser parser, string stage)
+        {
+            _parser = parser;
+            if (++parser._depth > InputDepth.Max)
+                throw new InputDepthExceededException(stage, parser._depth, InputDepth.Max);
+        }
+
+        public void Dispose() => _parser._depth--;
+    }
 
     // ------------------------------------------------------------------
     // Public entry points
@@ -43,6 +70,10 @@ public sealed class Parser
             throw new InvalidOperationException(
                 $"Unexpected token '{Current.Text}' at position {Current.Position}.");
 
+        // Second half of the guard: the counter above bounds the DESCENT, this bounds the TREE.
+        // A flat chain ('1-1-1-…') never descends — those levels are loops — so only the parsed
+        // tree shows its depth. Both are measured before any evaluator or printer touches it.
+        AstDepth.EnsureWithin("expression tree", expr);
         return expr;
     }
 
@@ -74,7 +105,9 @@ public sealed class Parser
             }
         }
 
-        return new Program(statements) { StatementPositions = positions };
+        var program = new Program(statements) { StatementPositions = positions };
+        AstDepth.EnsureWithin("expression tree", program);
+        return program;
     }
 
     // ------------------------------------------------------------------
@@ -113,6 +146,8 @@ public sealed class Parser
 
     private Statement ParseStatement()
     {
+        using var _ = Descend("statement nesting");
+
         if (Current.Kind == TokenKind.LBrace)
             return ParseBlock();
 
@@ -273,6 +308,8 @@ public sealed class Parser
     // Assignment (right-associative)
     private Expr ParseAssignment()
     {
+        using var _ = Descend("expression nesting");
+
         if (Current.Kind == TokenKind.Identifier && Peek().Kind == TokenKind.Equals)
         {
             string name = Advance().Text;
@@ -385,6 +422,7 @@ public sealed class Parser
             return left;
 
         Advance();
+        using var _ = Descend("power nesting");
         // right-associative; the exponent may itself be signed or a power: x^-2, 2^3^2
         return new BinaryExpr(left, BinaryOp.Power, ParsePower());
     }
@@ -415,13 +453,18 @@ public sealed class Parser
     // ParsePower sign branch; the sign is applied by the caller in the latter case.
     private Expr ParseUnary()
     {
+        // Only a CONSUMED prefix operator is a nesting level: a plain ParseUnary call is a
+        // pass-through at the level its caller already counted, so counting it would make the
+        // budget depend on the grammar's internal call chain rather than on the input's nesting.
         if (Current.Kind == TokenKind.Minus)
         {
+            using var _ = Descend("expression nesting");
             Advance();
             return new UnaryExpr(UnaryOp.Negate, ParseUnary());
         }
         if (Current.Kind == TokenKind.Plus)
         {
+            using var _ = Descend("expression nesting");
             Advance();
             return new UnaryExpr(UnaryOp.Plus, ParseUnary());
         }
@@ -626,9 +669,12 @@ public sealed class Parser
         return new InterpolatedStringExpr(parts);
     }
 
-    private static Expr ParseSubExpression(string text)
+    private Expr ParseSubExpression(string text)
     {
         var tokens = new Tokenizer().Tokenize(text);
-        return new Parser().Parse(tokens);
+        // An interpolation is parsed by a NESTED parser. It starts at this parser's depth instead
+        // of from zero, so composing interpolations cannot buy two independent budgets' worth of
+        // C# stack; the composed input is measured as one input.
+        return new Parser { _depth = _depth }.Parse(tokens);
     }
 }
