@@ -1,0 +1,35 @@
+Pi (cached afterwards):                                   0.0 ms
+twoPi = pi*2:                                             0.0 ms
+halfPi = pi/2 (period-detecting Divide):                 19.1 ms
+halfPi via HalfOf (the path Sin/Cos now use):             0.1 ms
+ReduceToTwoPi(0.5) (no-op branch):                        0.1 ms
+ReduceToTwoPi(100) (real reduction, Divide path):         0.3 ms
+ReduceToTwoPi(1/3) (no-op branch):                        0.0 ms
+TrySpecialAngle(0.5) (miss -> all 16 rows):               0.1 ms
+TrySpecialAngle(pi/6) (hit at row 1):                     0.3 ms
+CosTaylor(0.5, 1010):                                 183.8 ms
+SinTaylor(0.5, 1010):                                 183.0 ms
+Real.Cos(0.5) TOTAL (public, one call):                 200.8 ms
+  -> stored: exp=-204270 digits=204270 periodic=False
+
+--- special-angle table, row by row (pi*num/den) ---
+  num= 0 den= 1:        0.1 ms
+  num= 1 den= 6:       34.4 ms
+  num= 1 den= 4:       26.0 ms
+  num= 1 den= 3:       26.1 ms
+  num= 1 den= 2:       22.4 ms
+  num= 2 den= 3:       22.3 ms
+  num= 3 den= 4:       33.0 ms
+  num= 5 den= 6:       37.5 ms
+  num= 1 den= 1:       27.7 ms
+  num= 7 den= 6:       20.9 ms
+  num= 5 den= 4:       22.6 ms
+  num= 4 den= 3:       22.6 ms
+  num= 3 den= 2:       19.3 ms
+  num= 5 den= 3:       18.1 ms
+  num= 7 den= 4:       18.1 ms
+  num=11 den= 6:       28.9 ms
+  table total:      379.9 ms (sum of the 16 rows as timed here)
+
+--- one representative comparison ---
+  x.Equals(pi/6) one row:                                 0.1 ms

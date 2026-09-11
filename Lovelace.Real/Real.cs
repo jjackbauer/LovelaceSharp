@@ -579,10 +579,24 @@ public class Real :
         // equals (leftMag / rightMag) × 10^(leftExp − rightExp).
         long exponentAdjustment = left.Exponent - right.Exponent;
 
-        // Work with absolute-value magnitudes (Natural).
+        // Work with absolute-value magnitudes (Natural), aligned to ONE decimal exponent before
+        // the digit division: (A × 10^(eA−eB)) / B when eA ≥ eB, and A / (B × 10^(eB−eA))
+        // otherwise.  The loop below places the quotient's decimal point at the boundary between
+        // the integer digits and the fractional digits it accumulates (result exponent =
+        // −(stored fractional digits)), so the scale difference must be folded into the operands.
+        // Carrying it in the result exponent instead leaves the quotient's stored digits ending
+        // somewhere other than its decimal point: the leading fractional zeros of the raw quotient
+        // A/B shift the value (1 / 0.9 returned 1) and consume the digit budget (1 / 0.99862…
+        // returned 0), and PeriodStart/PeriodLength end up naming fractional positions the
+        // magnitude never stored (1 / 0.99 then threw from ToString).
         Nat numerator   = left.ToNatural();
         Nat denominator = right.ToNatural();
-        Nat ten         = new Nat(10UL);
+        if (exponentAdjustment > 0L)
+            numerator = numerator.ShiftLeftDecimal(exponentAdjustment);
+        else if (exponentAdjustment < 0L)
+            denominator = denominator.ShiftLeftDecimal(-exponentAdjustment);
+
+        Nat ten = new Nat(10UL);
 
         // Integer-part long division.
         Nat quotient  = Nat.DivRem(numerator, denominator, out Nat remainder);
@@ -630,7 +644,9 @@ public class Real :
 
         // For periodic results the stored fraction is exactly periodStart + periodLength chars.
         // (The loop breaks without adding the repeated digit, so fracDigits already has the right count.)
-        long resultExponent = -fracLen + exponentAdjustment;
+        // The operands were aligned to a single exponent above, so the decimal point sits exactly
+        // fracLen digits from the end of the digit string: no leftover scale term.
+        long resultExponent = -fracLen;
 
         if (!Nat.TryParse(allDigits, null, out Nat? mag))
             mag = Nat.Zero;
@@ -1231,10 +1247,19 @@ public class Real :
         if (digits <= 0 || digits > MaxComputationDecimalPlaces)
             throw new ArgumentOutOfRangeException(nameof(digits));
 
+        // sin is odd: sin(−x) = −sin(x), exactly, so a negative angle is the negated sine of its
+        // magnitude.  Routing it through the reduction instead rebuilds the angle as 2π + value at
+        // the ACTIVE scale: with π/6 truncated at the precision cap, 2π − π/6 lands one unit in the
+        // last place above 11π/6, TrySpecialAngle's exact comparison misses, and an angle that has
+        // an exact value silently falls through to the Taylor path (−0.4999…484 instead of −0.5).
+        // Negating the positive-argument result keeps the symmetry exact at every precision.
+        if (value < Zero)
+            return -Sin(-value, digits, progress);
+
         long guard = digits + 10;
         Real pi = Pi;
         Real twoPi = pi * new Real("2");
-        Real halfPi = pi / new Real("2");
+        Real halfPi = HalfOf(pi);
 
         Real x = ReduceToTwoPi(value, pi, twoPi);
 
@@ -1256,10 +1281,16 @@ public class Real :
         if (digits <= 0 || digits > MaxComputationDecimalPlaces)
             throw new ArgumentOutOfRangeException(nameof(digits));
 
+        // cos is even: cos(−x) = cos(x), exactly, for the same reason Sin uses its odd symmetry —
+        // the reduction would otherwise place the negated angle one unit in the last place away
+        // from the special angle it is supposed to match.
+        if (value < Zero)
+            return Cos(-value, digits, progress);
+
         long guard = digits + 10;
         Real pi = Pi;
         Real twoPi = pi * new Real("2");
-        Real halfPi = pi / new Real("2");
+        Real halfPi = HalfOf(pi);
 
         Real x = ReduceToTwoPi(value, pi, twoPi);
 
@@ -1280,13 +1311,71 @@ public class Real :
     {
         if (value >= Zero && value < twoPi)
             return value;
-        Real reduced = value - twoPi * Truncate(value / twoPi);
+        Real reduced = value - twoPi * WholeQuotient(value, twoPi);
         return reduced < Zero ? reduced + twoPi : reduced;
+    }
+
+    /// <summary>
+    /// The integer part of <paramref name="left"/> / <paramref name="right"/> (truncated toward
+    /// zero), computed with a single integer division instead of <see cref="Divide"/>'s
+    /// remainder-tracking decimal loop.
+    /// <para>
+    /// The value is identical to <c>Truncate(Divide(left, right))</c> for finite operands: Divide
+    /// yields the exact rational quotient truncated at <see cref="MaxComputationDecimalPlaces"/>
+    /// further places, and truncating that again at the decimal point is the same as truncating the
+    /// exact quotient (nested floor), whatever the remainder did — including the case where the
+    /// digit loop stopped early on a repeating remainder, since a detected period still represents
+    /// the exact quotient.  Operands carrying a period have no finite magnitude to divide as
+    /// integers, so they keep the original path.
+    /// </para>
+    /// </summary>
+    private static Real WholeQuotient(Real left, Real right)
+    {
+        if (left.IsPeriodic || right.IsPeriodic)
+            return Truncate(Divide(left, right));
+
+        Nat numerator   = left.ToNatural();
+        Nat denominator = right.ToNatural();
+        long exponentAdjustment = left.Exponent - right.Exponent;
+        if (exponentAdjustment > 0L)
+            numerator = numerator.ShiftLeftDecimal(exponentAdjustment);
+        else if (exponentAdjustment < 0L)
+            denominator = denominator.ShiftLeftDecimal(-exponentAdjustment);
+
+        Nat whole = Nat.DivRem(numerator, denominator, out _);
+        bool isNeg = Int.IsNegative(left) != Int.IsNegative(right) && !Nat.IsZero(whole);
+        return new Real(whole, isNeg, 0L);
+    }
+
+    /// <summary>
+    /// Exactly <c><paramref name="value"/> / 2</c>.  Halving a decimal only moves its point one
+    /// place, and <paramref name="value"/> here is stored at the active computation precision
+    /// (<see cref="Pi"/> and <see cref="E"/> are), so one integer halving of the magnitude
+    /// reproduces <c>Divide(value, 2)</c> digit for digit — Divide truncates the exact rational
+    /// quotient at the active precision, which for this operand shape is exactly
+    /// <c>floor(magnitude / 2)</c> at the operand's own scale.  Anything not in that shape keeps
+    /// the general path.
+    /// </summary>
+    private static Real HalfOf(Real value)
+    {
+        if (value.IsPeriodic || value.Exponent != -MaxComputationDecimalPlaces)
+            return value / new Real("2");
+
+        Nat halved = Nat.DivRem(value.ToNatural(), new Nat(2UL), out _);
+        return Normalize(new Real(halved, Int.IsNegative(value), value.Exponent));
     }
 
     /// <summary>
     /// Returns the exact sin/cos for the 16 special angles that are rational multiples of π
     /// (multiples of π/6 and π/4 in [0, 2π)), or <see langword="false"/> for any other angle.
+    /// <para>
+    /// Each candidate angle is <c>π·num/den</c> at π's own scale, which — because Divide aligns the
+    /// operands to a single exponent — is exactly <c>floor(π's magnitude · num / den)</c> at that
+    /// scale, so one integer division reproduces the value that <c>pi * num / den</c> produces
+    /// without Divide's remainder-tracking decimal loop.  A non-periodic <paramref name="x"/> whose
+    /// own last stored place sits above the angle's (the angle is normalised, so its last stored
+    /// digit is non-zero) cannot equal it and is rejected before the comparison is attempted.
+    /// </para>
     /// </summary>
     private static bool TrySpecialAngle(Real x, Real pi, out Real sin, out Real cos)
     {
@@ -1320,9 +1409,18 @@ public class Real :
             (11, 6, negHalf, sqrt3Half),
         };
 
+        Nat piMagnitude = pi.ToNatural();
+
         foreach (var (num, den, s, c) in table)
         {
-            Real angle = num == 0 ? Zero : pi * new Real(new Int(num)) / new Real(new Int(den));
+            Real angle = num == 0
+                ? Zero
+                : Normalize(new Real(Nat.DivRem(piMagnitude * new Nat((ulong)num), new Nat((ulong)den), out _),
+                                      false, pi.Exponent));
+
+            if (!x.IsPeriodic && x.Exponent > angle.Exponent)
+                continue;
+
             if (x.Equals(angle))
             {
                 sin = s;
@@ -1339,14 +1437,16 @@ public class Real :
         Real x2 = x * x;
         Real term = x;
         Real sum = x;
-        Real threshold = new Real("0." + new string('0', (int)guard) + "1");
+
+        Nat? tenPower = null;
+        long tenPowerExponent = 0L;
 
         for (long k = 1; ; k++)
         {
             long denom = (2 * k) * (2 * k + 1);
             term = DivideNonPeriodic(-term * x2, new Real(new Int(denom)), guard);
             sum = sum + term;
-            if (Abs(term) < threshold)
+            if (IsBelowDecimalGuard(term, guard, ref tenPower, ref tenPowerExponent))
                 break;
         }
         return sum;
@@ -1358,17 +1458,56 @@ public class Real :
         Real x2 = x * x;
         Real term = One;
         Real sum = One;
-        Real threshold = new Real("0." + new string('0', (int)guard) + "1");
+
+        Nat? tenPower = null;
+        long tenPowerExponent = 0L;
 
         for (long k = 1; ; k++)
         {
             long denom = (2 * k - 1) * (2 * k);
             term = DivideNonPeriodic(-term * x2, new Real(new Int(denom)), guard);
             sum = sum + term;
-            if (Abs(term) < threshold)
+            if (IsBelowDecimalGuard(term, guard, ref tenPower, ref tenPowerExponent))
                 break;
         }
         return sum;
+    }
+
+    /// <summary>
+    /// The Taylor loops' termination test <c>|term| &lt; 10^-(guard+1)</c> — the literal threshold was
+    /// <c>"0." + guard zeros + "1"</c> — decided exactly with integer arithmetic.  Multiplying both
+    /// sides by <c>10^-Exponent</c> turns it into <c>magnitude &lt; 10^k</c> with
+    /// <c>k = -(guard+1) - Exponent</c> (the term's magnitude is at least one, so <c>k ≤ 0</c>
+    /// settles it immediately), which is one <see cref="Nat"/> comparison.
+    /// <para>
+    /// <paramref name="tenPower"/> carries <c>10^k</c> over from the previous term: as the series
+    /// converges its terms' exponents fall by a fixed step, so k only ever grows and the next power
+    /// is one multiply by <c>10^(k - previous k)</c> — a short multiply of the carried value.  The
+    /// equivalent <c>Abs(term) &lt; threshold</c> had to render both operands in decimal, which at
+    /// the default precision means rendering a 200k-digit magnitude once per term.
+    /// </para>
+    /// </summary>
+    private static bool IsBelowDecimalGuard(Real term, long guard, ref Nat? tenPower, ref long tenPowerExponent)
+    {
+        if (Int.IsZero(term))
+            return true; // 0 < 10^-(guard+1)
+
+        long k = -(guard + 1L) - term.Exponent;
+        if (k <= 0L)
+            return false; // |term| >= 10^Exponent >= 10^-(guard+1)
+
+        if (tenPower is null || tenPowerExponent > k)
+        {
+            tenPower = TenToThe(k);
+            tenPowerExponent = k;
+        }
+        else if (tenPowerExponent < k)
+        {
+            tenPower = tenPower * TenToThe(k - tenPowerExponent);
+            tenPowerExponent = k;
+        }
+
+        return term.ToNatural().CompareTo(tenPower) < 0;
     }
 
     // -------------------------------------------------------------------------
@@ -1751,21 +1890,30 @@ public class Real :
 
         if (IsPeriodic)
         {
-            // Emit non-repeating part then (period).
+            // Emit non-repeating part then (period), read through GetDecimalDigit — the accessor
+            // that owns the period arithmetic (wrap-around and out-of-stored-range zeros).  Slicing
+            // the digit string with PeriodStart/PeriodLength directly assumes the magnitude stores
+            // every position those two name; when it does not, the slice ran past the end of the
+            // string and ToString threw ArgumentOutOfRangeException ("Index and length must refer
+            // to a location within the string. (Parameter 'length')") for the value instead of
+            // rendering it.
             long fracLen = -Exponent;
             string padded = digits.Length < fracLen ? digits.PadLeft((int)fracLen, '0') : digits;
             int splitAt = Math.Max(0, (int)(padded.Length - fracLen));
             string intPart = splitAt == 0 ? "0" : padded[..splitAt];
-            string allFrac = padded[splitAt..];
 
-            string nonRepeating = PeriodStart <= allFrac.Length
-                ? allFrac[..(int)PeriodStart]
-                : allFrac.PadRight((int)PeriodStart, '0');
-            string period = allFrac.Length >= PeriodStart + PeriodLength
-                ? allFrac[(int)PeriodStart..(int)(PeriodStart + PeriodLength)]
-                : digits[(int)PeriodStart..(int)(PeriodStart + PeriodLength)];
+            var renderedFraction = new System.Text.StringBuilder();
+            for (long position = 0; position < PeriodStart; position++)
+                renderedFraction.Append((char)('0' + GetDecimalDigit(position)));
+            string nonRepeating = renderedFraction.ToString();
+            renderedFraction.Clear();
+            for (long offset = 0; offset < PeriodLength; offset++)
+                renderedFraction.Append((char)('0' + GetDecimalDigit(PeriodStart + offset)));
+            string period = renderedFraction.ToString();
 
-            return sign + intPart + (fracLen > 0 ? "." : "") + nonRepeating + "(" + period + ")";
+            // A periodic value always carries a fractional part (PeriodLength > 0), so the decimal
+            // point is always emitted: "1.(1)", never "1(1)".
+            return sign + intPart + "." + nonRepeating + "(" + period + ")";
         }
 
         // Positive exponent (integer shifted left — no decimal point).
@@ -1881,15 +2029,20 @@ public class Real :
     /// effectively multiplying the magnitude by 10^<paramref name="zeros"/>, and returns
     /// the result as a signed <see cref="Int"/>.
     /// Corresponds to C++ <c>toInteiroLovelace(long long int zeros)</c>.
+    /// <para>
+    /// The magnitude is shifted with integer arithmetic (<see cref="Nat.ShiftLeftDecimal"/>) rather
+    /// than by appending characters to the rendered digits and parsing them back: the shifted value
+    /// is the same integer, and this runs on every addition that has to align two exponents — for
+    /// the trigonometric series that meant a render-and-reparse of a 200k-digit magnitude per term.
+    /// </para>
     /// </summary>
     private Int ToInteger(long zeros)
     {
         if (zeros < 0) throw new ArgumentOutOfRangeException(nameof(zeros));
-        string digits = ToNatural().ToString();
-        string padded = zeros > 0 ? digits + new string('0', (int)zeros) : digits;
-        if (!Nat.TryParse(padded, null, out var mag))
-            mag = Nat.Zero;
-        return new Int(mag, Int.IsNegative(this));
+        Nat magnitude = ToNatural();
+        if (zeros > 0L)
+            magnitude = magnitude.ShiftLeftDecimal(zeros);
+        return new Int(magnitude, Int.IsNegative(this));
     }
 
     /// <summary>
@@ -1956,30 +2109,87 @@ public class Real :
     /// Returns the canonical (trailing-zero-free) form of a non-periodic <see cref="Real"/>.
     /// For example, <c>8.000</c> (exp=-3, digits="8000") becomes <c>8</c> (exp=0, digits="8").
     /// No-op for periodic values or values with <see cref="Exponent"/> ≥ 0.
+    /// <para>
+    /// The trailing zeros are counted by decimal division on the binary magnitude rather than by
+    /// rendering the digits and parsing them back: the digit string of a value carries as many
+    /// places as the value has digits, and this routine runs after every multiply, divide and add,
+    /// so a rendering here costs O(digits) per arithmetic step (at the default precision the
+    /// trigonometric series moved ~200k-digit magnitudes through it once per term).
+    /// </para>
     /// </summary>
     private static Real Normalize(Real r)
     {
         if (r.IsPeriodic || r.Exponent >= 0 || Int.IsZero(r))
             return r;
 
-        string digits   = r.ToNatural().ToString();
-        long   maxStrip = -r.Exponent; // number of fractional digit slots stored
-
-        int stripped = 0;
-        while (stripped < (int)maxStrip
-               && stripped < digits.Length
-               && digits[digits.Length - 1 - stripped] == '0')
-            stripped++;
-
-        if (stripped == 0)
+        long maxStrip = -r.Exponent; // number of fractional digit slots stored
+        Nat magnitude = StripTrailingDecimalZeros(r.ToNatural(), maxStrip, out long stripped);
+        if (stripped == 0L)
             return r;
 
-        long   newExp    = r.Exponent + stripped;
-        string newDigits = stripped >= digits.Length ? "0" : digits[..^stripped];
-        if (!Nat.TryParse(newDigits, null, out Nat? newMag))
-            newMag = Nat.Zero;
-        bool isNeg = Int.IsNegative(r) && !Nat.IsZero(newMag);
-        return new Real(newMag, isNeg, newExp);
+        bool isNeg = Int.IsNegative(r) && !Nat.IsZero(magnitude);
+        return new Real(magnitude, isNeg, r.Exponent + stripped);
+    }
+
+    /// <summary>Upper bound on the galloping strip step (10^2^±40 is far past any storable value).</summary>
+    private const long MaxStripStep = 1L << 40;
+
+    /// <summary>
+    /// Returns <paramref name="value"/> with up to <paramref name="cap"/> trailing decimal zeros
+    /// removed, and reports how many were removed in <paramref name="stripped"/>.  Purely binary:
+    /// a zero can only be stripped when the magnitude divides by ten exactly, and the step doubles
+    /// after each success and halves after each failure, so an ordinary magnitude (no trailing
+    /// zeros) costs a handful of short divisions, a long zero run costs O(log) of them, and no
+    /// decimal rendering happens at all.  Equivalent to counting the trailing <c>'0'</c> characters
+    /// of the decimal representation, which is what <see cref="Exponent"/> bookkeeping requires.
+    /// </summary>
+    private static Nat StripTrailingDecimalZeros(Nat value, long cap, out long stripped)
+    {
+        stripped = 0L;
+        long step = 18L; // 10^18 is the largest power of ten that fits in one 64-bit limb
+
+        while (stripped < cap && step > 0L)
+        {
+            long trial = Math.Min(step, cap - stripped);
+            Nat quotient = Nat.DivRem(value, TenToThe(trial), out Nat remainder);
+
+            if (Nat.IsZero(remainder))
+            {
+                value = quotient;
+                stripped += trial;
+                if (step < MaxStripStep)
+                    step <<= 1;
+            }
+            else if (trial > 1L)
+            {
+                step = trial >> 1;
+            }
+            else
+            {
+                break; // the magnitude's last digit is not a zero
+            }
+        }
+
+        return value;
+    }
+
+    /// <summary>Returns 10^<paramref name="exponent"/> as a <see cref="Nat"/> by binary
+    /// exponentiation — the power-of-ten the series termination test needs, built without a
+    /// decimal round trip.</summary>
+    private static Nat TenToThe(long exponent)
+    {
+        Nat result = new(1UL);
+        Nat square = new(10UL);
+        ulong e = (ulong)exponent;
+        while (e > 0UL)
+        {
+            if ((e & 1UL) != 0UL)
+                result = result * square;
+            e >>= 1;
+            if (e != 0UL)
+                square = square * square;
+        }
+        return result;
     }
 
     /// <summary>
@@ -2040,6 +2250,24 @@ public class Real :
             bool isNeg = Int.IsNegative(r) && !Nat.IsZero(incremented.ToNatural());
             long newExp = -(long)nonRepeating.Length;
             return new Real(incremented.ToNatural(), isNeg, newExp);
+        }
+
+        // An all-zero period repeats nothing: 0.(0) is 0 and 3.0(0) is 3, so the canonical form
+        // carries no period and no trailing zeros.  This is the shape the periodic guard's finite
+        // expansion leaves behind — dividing by an operand expanded to `workingFrac` digits yields
+        // an exact result whose fraction is zeros followed by one truncation digit, which the
+        // slack=1 retry above reports as a zero period.
+        bool allZeros = true;
+        foreach (char c in periodStr) { if (c != '0') { allZeros = false; break; } }
+
+        if (allZeros)
+        {
+            string nonRepeating = fracPart[..(int)pStart];
+            string combined = intPart + nonRepeating;
+            if (!Nat.TryParse(combined, null, out var zMag))
+                zMag = Nat.Zero;
+            bool isNeg = Int.IsNegative(r) && !Nat.IsZero(zMag);
+            return Normalize(new Real(zMag, isNeg, -(long)nonRepeating.Length));
         }
 
         // Build periodic Real: store intPart + nonRepeating + one period block.

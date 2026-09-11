@@ -1,0 +1,20 @@
+Pi/6                     exp=-60    per=False  pStart=0    pLen=0    digits=60
+-(Pi/6)                  exp=-60    per=False  pStart=0    pLen=0    digits=60
+2*Pi                     exp=-60    per=False  pStart=0    pLen=0    digits=61
+11*Pi/6                  exp=-59    per=False  pStart=0    pLen=0    digits=60
+-(Pi/6)+2*Pi             exp=-60    per=False  pStart=0    pLen=0    digits=61
+reduced.Equals(11*Pi/6) = False
+sin(-Pi/6) == -sin(Pi/6) = False
+cos(-Pi/6) ==  cos(Pi/6) = False
+
+angle                 sin(-x) == -sin(x)   cos(-x) == cos(x)
+0.52359877559829887307 True                 True
+0.78539816339744830961 True                 True
+0.62831853071795864769 True                 True
+1.57079632679489661923 True                 True
+0.62831853071795864769 True                 True
+3.14159265358979323846 True                 True
+1                      True                 True
+2                      True                 True
+7                      True                 True
+0.5                    True                 True

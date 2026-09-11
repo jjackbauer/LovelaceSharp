@@ -1,0 +1,16 @@
+x2 = x*x:                            0.0 ms
+threshold parse (1012 chars):        0.1 ms
+series iterations:            204
+series TOTAL (loop):              7170.4 ms
+  -term * x2     (Multiply):        48.6 ms
+  denom Real ctor:                   0.1 ms
+  DivideNonPeriodic:                90.2 ms
+    ToNatural():                     0.0 ms
+    ShiftLeftDecimal:               50.8 ms
+    Nat.DivRem:                      8.8 ms
+    Normalize:                      30.6 ms
+  sum + term      (Add):            55.2 ms
+  Abs(term) < thr (old cmp):      6893.1 ms
+  IsBelowDecimalGuard (new):       136.0 ms over 204 terms
+one Nat.ToString() of sum:          96.8 ms (len=204270)
+stored digits=204270 exp=-204270 periodic=False

@@ -1,0 +1,14 @@
+Pi                           exp=-100     periodic=False  pStart=0    pLen=0     digits=101    value=3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679
+1/6                          exp=-2       periodic=True   pStart=1    pLen=1     digits=2      value=0.1(6)
+Pi/6                         exp=-101     periodic=False  pStart=0    pLen=0     digits=101    value=0.52359877559829887307710723054658381403286156656251763682915743205130273438103483310467247089035284465
+-(Pi/6)                      exp=-101     periodic=False  pStart=0    pLen=0     digits=101    value=-0.52359877559829887307710723054658381403286156656251763682915743205130273438103483310467247089035284465
+2*Pi                         exp=-100     periodic=False  pStart=0    pLen=0     digits=101    value=6.2831853071795864769252867665590057683943387987502116419498891846156328125724179972560696506842341358
+11*Pi/6                      exp=-101     periodic=False  pStart=0    pLen=0     digits=102    value=5.7595865315812876038481795360124219543614772321876940051207317525643300781913831641513971797938812911
+-(Pi/6)+2*Pi                 exp=-101     periodic=False  pStart=0    pLen=0     digits=102    value=5.7595865315812876038481795360124219543614772321876940051207317525643300781913831641513971797938812911
+piOver6.Equals(pi*(1/6))        = False
+reduced.Equals(11*Pi/6)         = True
+reduced.CompareTo(11*Pi/6)     = 0
+reduced - 11*Pi/6 is zero      = True
+sin(pi/6)   = 0.5
+sin(-pi/6)  = -0.5
+sin(-pi/6) == -sin(pi/6)        = True

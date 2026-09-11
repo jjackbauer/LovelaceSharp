@@ -1,0 +1,4 @@
+Cos(0.5) at    20 places:        0.6 ms   (exp=-350, digits=350)
+Cos(0.5) at    80 places:        7.8 ms   (exp=-2467, digits=2467)
+Cos(0.5) at   200 places:       83.2 ms   (exp=-11407, digits=11407)
+Cos(0.5) at  1000 places:    23798.9 ms   (exp=-204270, digits=204270)

@@ -1,5 +1,7 @@
 using Lovelace.Real;
 
+using Nat = Lovelace.Natural.Natural;
+
 namespace Lovelace.Real.Tests;
 
 /// <summary>
@@ -146,5 +148,81 @@ public class RealDivideTests
         Real result = Real.Parse("1") / Real.Parse("0.(3)");
         Assert.Equal(Real.Parse("3"), result);
         Assert.False(result.IsPeriodic);
+    }
+
+    // -------------------------------------------------------------------------
+    // Decimal-scale alignment — divisor carrying fractional digits (Exponent < 0)
+    // -------------------------------------------------------------------------
+    // a/b = (A·10^eA)/(B·10^eB) is only equal to A/B when eA == eB.  The digit loop below builds
+    // the quotient's decimal point out of the digit string it accumulates, so the scale difference
+    // has to be folded into the operands BEFORE the digit division.  Leaving it to the result
+    // exponent misplaces the quotient's decimal point relative to its stored digits: the leading
+    // fractional zeros of the raw quotient A/B were absorbed (1 / 0.9 returned 1, and
+    // 1 / 0.99862888499828389309965043538706203025 returned 0 once the budget was spent on zeros)
+    // and the period metadata ended up naming fractional positions the magnitude never stored.
+    //
+    // Expected values: the published differential-oracle values are the exact 39-digit truncations
+    // of the true quotients (never produced through ToString).
+
+    [Theory]
+    [InlineData("1", "0.9", "1.(1)")]
+    [InlineData("10", "9", "1.(1)")]
+    [InlineData("1", "0.99", "1.(01)")]
+    [InlineData("0.5", "3", "0.1(6)")]
+    [InlineData("1", "0.9993142073433579945", "1.000686263290967473969590465527195755929")]
+    [InlineData("1", "0.99862888499828389309965043538706203025", "1.001372997539239477447020588085923996879")]
+    public void Divide_GivenDivisorWithFractionalDigits_ReturnsTheExactQuotient(
+        string dividend, string divisor, string expected)
+    {
+        using var precision = Real.WithPrecision(39, 40);
+
+        Real quotient = Real.Parse(dividend) / Real.Parse(divisor);
+
+        Assert.Equal(Real.Parse(expected), quotient);
+    }
+
+    [Fact]
+    public void Divide_GivenDivisorJustBelowOne_StoresTheQuotientAtItsOwnScale()
+    {
+        using var precision = Real.WithPrecision(39, 40);
+
+        // 1 / 0.9 = 10/9 = 1.(1): the magnitude holds the integer part "1" plus exactly one period
+        // block, and the exponent is -(stored fractional digits) — the representation Parse builds
+        // for "1.(1)".
+        Real quotient = Real.Parse("1") / Real.Parse("0.9");
+
+        Assert.Equal(new Nat(11UL), quotient.ToNatural());
+        Assert.Equal(-1L, quotient.Exponent);
+        Assert.Equal(0L, quotient.PeriodStart);
+        Assert.Equal(1L, quotient.PeriodLength);
+    }
+
+    [Fact]
+    public void Divide_GivenTwoDigitPeriod_StoresBothPeriodDigits()
+    {
+        using var precision = Real.WithPrecision(39, 40);
+
+        // 1 / 0.99 = 100/99 = 1.(01): both period digits must be stored, otherwise the period names
+        // fractional positions (0 and 1) that the magnitude does not carry.
+        Real quotient = Real.Parse("1") / Real.Parse("0.99");
+
+        Assert.Equal(new Nat(101UL), quotient.ToNatural());
+        Assert.Equal(-2L, quotient.Exponent);
+        Assert.Equal(0L, quotient.PeriodStart);
+        Assert.Equal(2L, quotient.PeriodLength);
+    }
+
+    [Fact]
+    public void Divide_GivenQuotientSmallerThanItsScale_KeepsTheSignificantDigits()
+    {
+        // The raw magnitudes 1 / 99862888499828389309965043538706203025 (~1.0013e-38) spend their
+        // first 38 fractional digits on zeros, so a 20-digit budget used to be consumed entirely by
+        // zeros and the quotient collapsed to exactly 0.
+        using var precision = Real.WithPrecision(20, 40);
+
+        Real quotient = Real.Parse("1") / Real.Parse("0.99862888499828389309965043538706203025");
+
+        Assert.False(Real.IsZero(quotient));
+        Assert.Equal(Real.Parse("1.00137299753923947744"), quotient);
     }
 }

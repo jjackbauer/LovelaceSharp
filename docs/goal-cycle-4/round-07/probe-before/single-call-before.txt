@@ -1,0 +1,24 @@
+[before] precision 20: first Cos(0.5)       12.8 ms (includes π)
+[before] precision 20: second Cos(0.5)        2.1 ms (π cached)
+[before] precision 20: warm Real.Pi        0.0 ms
+[before] precision 20: inferred cold π       10.7 ms
+[before] precision 20: stored exp=-350 digits=350 periodic=False
+[before] precision 20: cold and warm results equal: True
+[before] precision 80: first Cos(0.5)       86.3 ms (includes π)
+[before] precision 80: second Cos(0.5)       58.3 ms (π cached)
+[before] precision 80: warm Real.Pi        0.1 ms
+[before] precision 80: inferred cold π       28.0 ms
+[before] precision 80: stored exp=-2467 digits=2467 periodic=False
+[before] precision 80: cold and warm results equal: True
+[before] precision 200: first Cos(0.5)      546.1 ms (includes π)
+[before] precision 200: second Cos(0.5)      124.1 ms (π cached)
+[before] precision 200: warm Real.Pi        0.1 ms
+[before] precision 200: inferred cold π      422.0 ms
+[before] precision 200: stored exp=-11407 digits=11407 periodic=False
+[before] precision 200: cold and warm results equal: True
+[before] precision 1000: first Cos(0.5)    25014.4 ms (includes π)
+[before] precision 1000: second Cos(0.5)    23723.6 ms (π cached)
+[before] precision 1000: warm Real.Pi        0.1 ms
+[before] precision 1000: inferred cold π     1290.8 ms
+[before] precision 1000: stored exp=-204270 digits=204270 periodic=False
+[before] precision 1000: cold and warm results equal: True

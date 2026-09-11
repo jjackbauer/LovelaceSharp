@@ -1,5 +1,7 @@
 using Lovelace.Real;
 
+using Nat = Lovelace.Natural.Natural;
+
 namespace Lovelace.Real.Tests;
 
 /// <summary>
@@ -178,5 +180,61 @@ public class RealToStringTests
         var r = new Real("2.71828");
         // The overload must return the same value as the parameterless version.
         Assert.Equal(r.ToString(), r.ToString(null, null));
+    }
+
+    // -------------------------------------------------------------------------
+    // ToString — repeating quotients
+    // -------------------------------------------------------------------------
+    // Regression: Real.Parse("1") / Real.Parse("0.99") used to carry a 2-digit period whose digits
+    // were not stored in the magnitude (Exponent 0).  ToString sliced the digit string with
+    // PeriodStart/PeriodLength and threw ArgumentOutOfRangeException ("Index and length must refer
+    // to a location within the string. (Parameter 'length')"), which is what the published runner
+    // reported for the script `1 / 0.99` instead of a value.  Real.Parse("1") / Real.Parse("0.9")
+    // rendered "1(1)" — the same defect, one digit shorter.
+
+    [Theory]
+    [InlineData("1", "0.9", "1.(1)")]
+    [InlineData("1", "0.99", "1.(01)")]
+    [InlineData("10", "9", "1.(1)")]
+    [InlineData("1", "3", "0.(3)")]
+    [InlineData("0.5", "3", "0.1(6)")]
+    public void ToString_GivenRepeatingQuotient_EmitsPeriodicNotation(
+        string dividend, string divisor, string expected)
+    {
+        using var precision = Real.WithPrecision(39, 40);
+
+        string text = (Real.Parse(dividend) / Real.Parse(divisor)).ToString();
+
+        Assert.Equal(expected, text);
+    }
+
+    [Theory]
+    [InlineData("1", "0.9")]
+    [InlineData("1", "0.99")]
+    [InlineData("10", "9")]
+    [InlineData("1", "3")]
+    [InlineData("0.5", "3")]
+    public void ToString_GivenRepeatingQuotient_ParsesBackToAnEqualValue(string dividend, string divisor)
+    {
+        using var precision = Real.WithPrecision(39, 40);
+
+        Real quotient = Real.Parse(dividend) / Real.Parse(divisor);
+        Real reparsed = Real.Parse(quotient.ToString());
+
+        Assert.Equal(quotient, reparsed);
+    }
+
+    [Fact]
+    public void ToString_GivenPeriodLongerThanStoredDigits_DoesNotThrow()
+    {
+        // The exact state the defective Divide produced for 1 / 0.99: magnitude "1", Exponent 0,
+        // and a 2-digit period claiming fractional positions 0..1 that the magnitude does not
+        // store.  Rendering must never index outside the digit string.
+        var malformed = new Real(Nat.Parse("1", null), false, 0L, 0L, 2L);
+
+        string text = malformed.ToString();
+
+        Assert.False(string.IsNullOrEmpty(text));
+        Assert.Equal(malformed, Real.Parse(text));
     }
 }
