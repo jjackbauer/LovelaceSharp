@@ -257,8 +257,16 @@ public class RealTrigFastPathTests
     /// The whole point of N23: at the default 1000-place precision a single cosine must not take
     /// tens of seconds.  The bound is loose — an order of magnitude above the measured cost — since
     /// it guards against the per-term decimal-rendering regression, not against machine speed.
+    /// <para>
+    /// Category "Timing": this is the one assertion in this project whose verdict depends on the
+    /// wall clock, so it must not be measured under coverage instrumentation. CI runs it in its own
+    /// step, with no coverage collector attached (cycle 5: instrumented runs made a healthy 1 s
+    /// cosine exceed the 10 s budget and turned the fast-tests job red for a reason that had nothing
+    /// to do with the product).
+    /// </para>
     /// </summary>
     [Fact]
+    [Trait("Category", "Timing")]
     public void Cos_AtDefaultPrecision_StaysInteractive()
     {
         using var scope = Real.WithPrecision(1000, 40);

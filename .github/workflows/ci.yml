@@ -91,11 +91,25 @@ jobs:
         run: |
           set -euo pipefail
           # Heavy 1000-digit Pi/sqrt tests are tagged [Trait("Category", "Heavy")]
-          # and skipped here so the job stays fast.
+          # and skipped here so the job stays fast. Timing assertions are excluded as
+          # well: they are wall-clock verdicts and coverage instrumentation inflates
+          # them (cycle 5: a healthy 1 s cosine crossed its 10 s budget under the
+          # collector and turned this job red). They run, uninstrumented, in the next
+          # step — excluded here, never skipped.
           dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
             --configuration Release --nologo \
-            --filter "Category!=Heavy" \
+            --filter "Category!=Heavy&Category!=Timing" \
             --collect:"XPlat Code Coverage"
+
+      - name: Run the timing assertions uninstrumented
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Category=Timing must still run in CI, without a coverage collector, so its
+          # wall-clock budget means what it says.
+          dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category=Timing"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
