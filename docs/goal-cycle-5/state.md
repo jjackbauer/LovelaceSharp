@@ -1,36 +1,47 @@
-# Harness State — cycle-5 (final)
+# Harness State — cycle-5
 
-- **Round**: 8 of 40 — the cycle closed at the round cap of its own budget, not of the harness
+- **Round**: 2 of the continued goal (cycle round 11) — five implementer rounds in flight, audit #2 dispatched
 - **Goal**: close every Tier-0/Tier-1 defect with a pre-fix-failing test against independent ground
-  truth, accept or close every residual bound in writing, and claim A+ only if a fresh adversarial
-  audit cannot falsify it.
-- **Result**: **A+ is NOT claimed.** Five of six Tier-0 defects are closed and verified; T0-3 and the
-  wire/complex clusters are open, and D1 was deliberately not attempted because open P1 rows make it
-  vacuously falsifiable. The report says so; section O of the alignment document lists every bound.
+  truth, accept or close every residual bound in writing, and claim A+ only if a fresh adversarial audit
+  cannot falsify it.
 
-## Gate status (final)
+## Where the tree stands (commit `9e761ba`, pushed; CI green on #15)
 
-| Gate | Status | Detail |
-|---|---|---|
-| G1 Evidence | PASS | EVD-201…EVD-222, each reproduced by the orchestrator |
-| G2 Falsification | **FAIL** | audit #1's triage table still has open P0/P1 rows (T0-3, the indeterminate limit, O-B7…O-B9) |
-| G3 Coverage | PARTIAL | D2 met for five of six Tier-0 items and for the `solve_system` contract; D1/D3 unmet |
-| G4 Reproduction | PASS | every landed round re-run by me in the main tree; every pre-fix claim reproduced in a control worktree I controlled |
-| G5 Honesty | PASS | the two rounds that did not return, the flaky test, the patch-hygiene failures and every open bound are recorded, not smoothed |
+| Tier-0 | State |
+|---|---|
+| T0-1 solver false completeness | CLOSED `bb9746f` |
+| T0-2 printer spells a different value | CLOSED `34c970c` + `8502e5f` (round-trip property 30/30) |
+| T0-3 wrong values marked exact | CLOSED `4ef7edf` (`2^-100000` exact; `0^(-1.0)` refuses; provenance flag) |
+| T0-4 `(a/b)*b != a` | CLOSED `3ffc782` + `b908d9a` |
+| T0-5 `solve_system` internal failure | CLOSED `2bd8785` (+ `a03553a` for the system solver's false NoSolutions) |
+| T0-6 stack overflow on deep input | CLOSED `5382861` |
 
-## Commits (nine; `git log --oneline 9228305..HEAD`)
+**Tier-1 closed**: `solve_system` returns the documented record with `completeness`; argument-shape
+violations cross as `InvalidArgument/TypeMismatch`; error envelopes carry `elapsedTime`/`timings`;
+one arity validator owns all 123 builtins; `print` keeps no CR; `solve(0==1,x)` answers with the
+provably empty set.
 
-`34c970c` `3ffc782` `bb9746f` `2bd8785` `8502e5f` `b908d9a` `a03553a` `5382861` `a94e535`
+**In flight this round**: the indeterminate-limit round; the kernel exact-flag round; two wire rounds
+(`variables[]` structure, `inspect(Real).exact`, `functions[]` arity metadata, `--print-budget`,
+`divrem` as a record; `evalf` digit count, structured `assumptions()`, the `solve` short form,
+the `capabilities()` integer-domain claim, and two protocol-document examples).
 
-## Final measurements (commit `a94e535`)
+**Audit #2 dispatched** (D1): four fresh personas against the binary published from `9e761ba` —
+bulk differential testing, temporal/determinism, CLI surface + capability honesty, and rewrite/solve
+falsification. Deliberately different attack strategies from audit #1 so the two overlap as little as
+possible.
 
-Forced rebuild **0 warnings / 0 errors**; full sweep **4849 passed / 0 failed / 0 skipped** with the
-SymPy oracle required; AOT published and fresh; the five CI smoke scenarios **28/28**; capability
-honesty **16/16**; the round-trip property **30/30** through the published binary.
+## Gate status
 
-## Open at the close
+| Gate | State |
+|---|---|
+| G1 Evidence | PASS — EVD-201…EVD-228, each reproduced by me |
+| G2 Falsification | open — audit #1's triage table still has open P1 rows; audit #2 will add its own |
+| G3 Coverage | partial — every Tier-0 closed; Tier-1 mostly closed; the complex round-trip is unstarted |
+| G4 Reproduction | PASS — every landed round re-run by me in the main tree; every pre-fix claim reproduced in a control worktree |
+| G5 Honesty | PASS — the CI discovery, the golden that moved, the flaky tests and every open bound are recorded |
 
-T0-3 (`2^-100000` → 0 exact; `0^(-1.0)` → 0; the shape-guessed `exact` flag); the indeterminate limit
-(`(1+1/x)^x → 1`, true value `e`); the wire-contract cluster (O-B8); the complex round-trip (O-B9);
-`IsExact`'s narrowness (O-B7); user-function recursion depth (O-B11). All are stated in
-`docs/symbolics/a-plus-cycle-5-amendment.md` §O.2 and in `audit1-triage.md`.
+## Note for the next round
+
+The `gh` CLI is not installed and the unauthenticated GitHub API is rate-limited, so CI status must be
+read from the Actions web page or after the limit resets.

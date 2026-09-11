@@ -407,3 +407,28 @@
   historical regression; (b) drop the test — rejected, N23 is a real class; (c) detect the collector in
   the test — rejected as unreviewable magic in a test.
 - **Related**: EVD-224
+
+### OBS-015: audit #2 found a regression this cycle introduced — the exactness flag
+
+- **Source**: `audit2/B1-differential.md` F1/F2 + my own two-tree comparison (EVD-229)
+- **Fact**: `evalf(sin(1), 40)` and `evalf(exp(log(2)), 40)` report `exact: true` **now** and reported
+  `exact: false` on `9228305`. The T0-3 provenance flag defaults to exact, and the Symbolics numeric
+  path builds its Real without clearing it.
+- **Implications**: this is the third time in the project's history that a fix moved a defect rather
+  than removing it, and the first time the movement was caught by an audit rather than by a user. It
+  also means D2's "closed" rows are not permanent: every closure needs a re-probe on the current tree,
+  which is exactly what `audit1-triage.md` + `audit2/` now force.
+- **Confidence**: High
+- **Agent**: orchestrator (audit dispatch + attribution)
+- **Related**: EVD-229, EVD-230
+
+### DEC-008: the evalf cluster becomes the next round, and the regression goes first
+
+- **Decision**: the next implementation round fixes, in order: (1) the exactness regression of
+  EVD-229; (2) `evalf(f, 0)`'s internal invariant failure (a guard, not a feature); (3) the tiny-quotient
+  zero of F6; (4) the `digits` contract of F9. The pre-existing wrong *values* (the trig-at-multiples
+  sign of F3, the `0.(9)` comparison of F4) get their own rounds, because each needs its own
+  diagnosis and its own control.
+- **Rationale**: a regression introduced by this cycle outranks a pre-existing defect of the same
+  severity — it is the one thing the cycle's own evidence discipline is supposed to prevent.
+- **Related**: EVD-229, EVD-230

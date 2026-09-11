@@ -1,10 +1,10 @@
-republish started 2026-09-11T14:40:15.7236090-03:00 HEAD a94e535
+republish started 2026-09-11T15:18:03.7359700-03:00 HEAD 9e761ba
 publish exit=0
 [PASS] AOT publish succeeded - exit 0
 [PASS] published binary exists - out\aot\Lovelace.Run.exe
-exe LastWriteTime=09/11/2026 14:36:14  size=5707776
-newest source: C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run.Tests\SystemSolveRecordTests.cs at 09/11/2026 14:35:25
-[PASS] binary is newer than the newest source file - 49.6s newer
+exe LastWriteTime=09/11/2026 15:18:20  size=5715456
+newest source: C:\Users\ricar\dev\LovelaceSharp\.worktrees\c5-control-w3b\symbench\symbench.csproj at 09/11/2026 15:18:03
+[PASS] binary is newer than the newest source file - 17.1s newer
 [PASS] ok is true
 [PASS] protocolVersion == 1
 [PASS] symbolicFormatVersion starts with #!lovelace-sym
@@ -37,4 +37,4 @@ SMOKE FAILURES: 0
 SUMMARY ok=30 bad=0 other=0 of 30; source=AOT published binary
 advertised entries: 16
 MATCH=16  MISMATCH=0
-republish finished 2026-09-11T14:40:32.8334937-03:00
+republish finished 2026-09-11T15:18:40.0184475-03:00
