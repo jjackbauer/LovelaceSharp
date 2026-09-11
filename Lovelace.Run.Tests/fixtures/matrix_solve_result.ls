@@ -1,0 +1,1 @@
+x = symbol("x"); linsolve_full([[x, x], [x, x]], [1, 1])

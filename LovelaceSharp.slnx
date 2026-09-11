@@ -6,12 +6,14 @@
   <Project Path="Lovelace.Complex/Lovelace.Complex.csproj" />
   <Project Path="Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj" />
   <Project Path="Lovelace.Console/Lovelace.Console.csproj" />
+  <Project Path="Lovelace.Console.Tests/Lovelace.Console.Tests.csproj" />
   <Project Path="Lovelace.Dsp/Lovelace.Dsp.csproj" />
   <Project Path="Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.csproj" />
   <Project Path="Lovelace.Rational/Lovelace.Rational.csproj" />
   <Project Path="Lovelace.Symbolics/Lovelace.Symbolics.csproj" />
   <Project Path="Lovelace.MathIR/Lovelace.MathIR.csproj" />
   <Project Path="Lovelace.Run/Lovelace.Run.csproj" />
+  <Project Path="Lovelace.Run.Tests/Lovelace.Run.Tests.csproj" />
   <Project Path="Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj" />
   <Project Path="Lovelace.Integer/Lovelace.Integer.csproj" />
   <Project Path="Lovelace.Knowledge/Lovelace.Knowledge.csproj" />

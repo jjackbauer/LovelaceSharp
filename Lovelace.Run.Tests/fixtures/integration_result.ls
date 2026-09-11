@@ -1,0 +1,1 @@
+x = symbol("x"); integrate_full(x^2, x)

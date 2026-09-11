@@ -1,0 +1,1 @@
+x = symbol("x"); inv_full([[x, x], [x, x]])

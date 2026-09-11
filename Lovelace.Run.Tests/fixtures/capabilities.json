@@ -1,0 +1,258 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: complex.sqrt-negative, code: ArithmeticError, category: DomainError, message: Square root is not defined for negative numbers., trigger: sqrt(-1)), UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-1)^(1/2)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x))], exactness: BestEffort)",
+    "typed": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: complex.sqrt-negative, code: ArithmeticError, category: DomainError, message: Square root is not defined for negative numbers., trigger: sqrt(-1)), UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-1)^(1/2)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x))], exactness: BestEffort) (CapabilitiesResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "CapabilitiesResult",
+      "fields": [
+        {
+          "name": "supported_domains",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              2
+            ],
+            "elements": [
+              {
+                "kind": "Domain",
+                "domain": "real"
+              },
+              {
+                "kind": "Domain",
+                "domain": "complex"
+              }
+            ]
+          }
+        },
+        {
+          "name": "unsupported_domains",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              2
+            ],
+            "elements": [
+              {
+                "kind": "Domain",
+                "domain": "integer"
+              },
+              {
+                "kind": "Domain",
+                "domain": "rational"
+              }
+            ]
+          }
+        },
+        {
+          "name": "unsupported_operations",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              4
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "UnsupportedCapability",
+                "fields": [
+                  {
+                    "name": "operation_class",
+                    "value": {
+                      "kind": "Text",
+                      "value": "complex.sqrt-negative"
+                    }
+                  },
+                  {
+                    "name": "code",
+                    "value": {
+                      "kind": "Text",
+                      "value": "ArithmeticError"
+                    }
+                  },
+                  {
+                    "name": "category",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "ErrorCategory",
+                      "value": "DomainError"
+                    }
+                  },
+                  {
+                    "name": "message",
+                    "value": {
+                      "kind": "Text",
+                      "value": "Square root is not defined for negative numbers."
+                    }
+                  },
+                  {
+                    "name": "trigger",
+                    "value": {
+                      "kind": "Text",
+                      "value": "sqrt(-1)"
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "Record",
+                "type": "UnsupportedCapability",
+                "fields": [
+                  {
+                    "name": "operation_class",
+                    "value": {
+                      "kind": "Text",
+                      "value": "pow.non-integer-exponent"
+                    }
+                  },
+                  {
+                    "name": "code",
+                    "value": {
+                      "kind": "Text",
+                      "value": "UnsupportedOperation"
+                    }
+                  },
+                  {
+                    "name": "category",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "ErrorCategory",
+                      "value": "UnsupportedOperation"
+                    }
+                  },
+                  {
+                    "name": "message",
+                    "value": {
+                      "kind": "Text",
+                      "value": "Non-integer exponents are not yet supported."
+                    }
+                  },
+                  {
+                    "name": "trigger",
+                    "value": {
+                      "kind": "Text",
+                      "value": "(-1)^(1/2)"
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "Record",
+                "type": "UnsupportedCapability",
+                "fields": [
+                  {
+                    "name": "operation_class",
+                    "value": {
+                      "kind": "Text",
+                      "value": "solve.unsupported-domain"
+                    }
+                  },
+                  {
+                    "name": "code",
+                    "value": {
+                      "kind": "Text",
+                      "value": "InvalidOperation"
+                    }
+                  },
+                  {
+                    "name": "category",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "ErrorCategory",
+                      "value": "DomainError"
+                    }
+                  },
+                  {
+                    "name": "message",
+                    "value": {
+                      "kind": "Text",
+                      "value": "solve(): currently supports domains real and complex; got integer."
+                    }
+                  },
+                  {
+                    "name": "trigger",
+                    "value": {
+                      "kind": "Text",
+                      "value": "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "Record",
+                "type": "UnsupportedCapability",
+                "fields": [
+                  {
+                    "name": "operation_class",
+                    "value": {
+                      "kind": "Text",
+                      "value": "rootof.complex-algebraic"
+                    }
+                  },
+                  {
+                    "name": "code",
+                    "value": {
+                      "kind": "Text",
+                      "value": "solve.unrepresented-roots"
+                    }
+                  },
+                  {
+                    "name": "category",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "ErrorCategory",
+                      "value": "UnsupportedOperation"
+                    }
+                  },
+                  {
+                    "name": "message",
+                    "value": {
+                      "kind": "Text",
+                      "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
+                    }
+                  },
+                  {
+                    "name": "trigger",
+                    "value": {
+                      "kind": "Text",
+                      "value": "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "exactness",
+          "value": {
+            "kind": "Enum",
+            "type": "CapabilitiesExactness",
+            "value": "BestEffort"
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: complex.sqrt-negative, code: ArithmeticError, category: DomainError, message: Square root is not defined for negative numbers., trigger: sqrt(-1)), UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-1)^(1/2)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x))], exactness: BestEffort)"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

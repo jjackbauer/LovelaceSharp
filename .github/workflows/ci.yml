@@ -62,11 +62,15 @@ jobs:
             Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.csproj
             Lovelace.Array.Tests/Lovelace.Array.Tests.csproj
             Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
+            Lovelace.Console.Tests/Lovelace.Console.Tests.csproj
             Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.csproj
             Lovelace.Integer.Tests/Lovelace.Integer.Tests.csproj
             Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.csproj
             Lovelace.Natural.Tests/Lovelace.Natural.Tests.csproj
             Lovelace.Representation.Tests/Lovelace.Representation.Tests.csproj
+            # Agent-facing wire contract: golden fixtures pin the runner's JSON
+            # envelope, and one test spawns the runner to prove stdout purity.
+            Lovelace.Run.Tests/Lovelace.Run.Tests.csproj
             Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj
             Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj
             Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj
@@ -100,6 +104,59 @@ jobs:
           # Public repo: authenticate via GitHub OIDC instead of a token.
           use_oidc: true
           fail_ci_if_error: true
+
+  # ---------------------------------------------------------------------------
+  # Differential oracle: SymPy IS installed here, and its absence is FATAL.
+  #
+  # The oracle compares kernel results against SymPy. Everywhere else the tests
+  # report SKIPPED (with the reason) when python3 + sympy are missing — never a
+  # silent pass. This job is the one place where the comparison actually runs:
+  # python3 is set up, sympy is installed, and LOVELACE_REQUIRE_SYMPY=1 turns a
+  # missing oracle into a FAILURE instead of a skip.
+  # ---------------------------------------------------------------------------
+  sympy-oracle:
+    name: Differential oracle (SymPy installed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      # Required, not optional: a run that cannot compare anything must fail.
+      LOVELACE_REQUIRE_SYMPY: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # setup-python (not the runner's system python) keeps `pip install` out of
+      # PEP 668's externally-managed environment; the oracle spawns `python3`.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install sympy and prove python3 can import it
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --upgrade pip
+          python3 -m pip install sympy
+          python3 -c "import sympy; print('sympy', sympy.__version__)"
+
+      - name: Run the differential oracle (an unavailable oracle fails the job)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "FullyQualifiedName~DifferentialOracle" \
+            --logger "console;verbosity=detailed"
 
   # ---------------------------------------------------------------------------
   # Native AOT publish + published-runner execution smoke.
@@ -170,8 +227,20 @@ jobs:
           s = env['result']['structured']
           assert s['kind'] == 'Record' and s['type'] == 'SolveResult', s
           fields = {f['name']: f['value'] for f in s['fields']}
+          # D2: the VALUE assertions stay; the KIND is asserted too, because "Solved" as Text
+          # would make an agent guess which enum it belongs to (this is the packaging gate for
+          # the Enum form — a published binary that lost it fails here)
           assert fields['status']['value'] == 'Solved'
-          assert fields['complete']['value'] is True
+          assert fields['status']['kind'] == 'Enum', fields['status']
+          assert fields['status']['type'] == 'SolveStatus', fields['status']
+          assert fields['completeness']['kind'] == 'Enum', fields['completeness']
+          assert fields['completeness']['type'] == 'Completeness', fields['completeness']
+          # REPAIR (round 4a): a structured Boolean crosses as the STRING "true"/"false"
+          # (dsh-protocol.md value forms; pinned by Lovelace.Run.Tests/fixtures/record.json), so
+          # "is True" could never hold and this step died before reaching the Enum assertions
+          # below. Same intent, corrected representation, plus the kind it travels as.
+          assert fields['complete']['kind'] == 'Boolean', fields['complete']
+          assert fields['complete']['value'] == 'true', fields['complete']
           assert fields['domain']['kind'] == 'Domain' and fields['domain']['domain'] == 'complex'
           sols = fields['solutions']
           assert sols['kind'] == 'Array' and sols['shape'] == [2], sols
@@ -180,6 +249,8 @@ jobs:
           assert sf['value']['kind'] == 'Symbolic'
           assert sf['value']['canonical'].startswith('(rat'), sf['value']['canonical']
           assert sf['exactness']['value'] in ('Exact', 'AlgebraicExact')
+          assert sf['exactness']['kind'] == 'Enum', sf['exactness']
+          assert sf['exactness']['type'] == 'SolutionExactness', sf['exactness']
           print('solve envelope OK')
           PY
 
@@ -194,7 +265,13 @@ jobs:
           env = json.load(open('/tmp/partial.json'))
           fields = {f['name']: f['value'] for f in env['result']['structured']['fields']}
           assert fields['status']['value'] == 'Partial', fields['status']
-          assert fields['complete']['value'] is False
+          assert fields['status']['kind'] == 'Enum', fields['status']
+          assert fields['status']['type'] == 'SolveStatus', fields['status']
+          assert fields['completeness']['kind'] == 'Enum', fields['completeness']
+          assert fields['completeness']['value'] == 'Partial', fields['completeness']
+          # REPAIR (round 4a): see step 1 — a structured Boolean is the string "false"
+          assert fields['complete']['kind'] == 'Boolean', fields['complete']
+          assert fields['complete']['value'] == 'false', fields['complete']
           assert int(fields['unrepresented_count']['value']) == 2
           print('completeness envelope OK')
           PY

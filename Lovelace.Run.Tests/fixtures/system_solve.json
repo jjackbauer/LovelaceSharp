@@ -1,0 +1,186 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
+    "typed": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "SystemSolveResult",
+      "fields": [
+        {
+          "name": "status",
+          "value": {
+            "kind": "Enum",
+            "type": "SolveStatus",
+            "value": "Solved"
+          }
+        },
+        {
+          "name": "domain",
+          "value": {
+            "kind": "Domain",
+            "domain": "complex"
+          }
+        },
+        {
+          "name": "complete",
+          "value": {
+            "kind": "Boolean",
+            "value": "true"
+          }
+        },
+        {
+          "name": "solutions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              1
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "SystemSolution",
+                "fields": [
+                  {
+                    "name": "bindings",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        2
+                      ],
+                      "elements": [
+                        {
+                          "kind": "Record",
+                          "type": "Binding",
+                          "fields": [
+                            {
+                              "name": "name",
+                              "value": {
+                                "kind": "Symbolic",
+                                "pretty": "x",
+                                "canonical": "(sym x)",
+                                "domain": "complex",
+                                "exact": true,
+                                "nodeCount": 1,
+                                "freeSymbols": [
+                                  "x"
+                                ]
+                              }
+                            },
+                            {
+                              "name": "value",
+                              "value": {
+                                "kind": "Symbolic",
+                                "pretty": "2",
+                                "canonical": "(rat 2 1)",
+                                "domain": "rational",
+                                "exact": true,
+                                "nodeCount": 1,
+                                "freeSymbols": []
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "kind": "Record",
+                          "type": "Binding",
+                          "fields": [
+                            {
+                              "name": "name",
+                              "value": {
+                                "kind": "Symbolic",
+                                "pretty": "y",
+                                "canonical": "(sym y)",
+                                "domain": "complex",
+                                "exact": true,
+                                "nodeCount": 1,
+                                "freeSymbols": [
+                                  "y"
+                                ]
+                              }
+                            },
+                            {
+                              "name": "value",
+                              "value": {
+                                "kind": "Symbolic",
+                                "pretty": "-1",
+                                "canonical": "(rat -1 1)",
+                                "domain": "rational",
+                                "exact": true,
+                                "nodeCount": 1,
+                                "freeSymbols": []
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "conditions",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  },
+                  {
+                    "name": "exactness",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "SolutionExactness",
+                      "value": "Exact"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "diagnostics",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    },
+    {
+      "name": "y",
+      "kind": "Symbolic",
+      "display": "y"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

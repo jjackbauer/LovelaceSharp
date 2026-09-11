@@ -1,0 +1,1 @@
+x = symbol("x"); inspect(x^2 + 1)
