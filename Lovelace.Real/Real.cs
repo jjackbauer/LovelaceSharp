@@ -434,23 +434,51 @@ public class Real :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// Two values are equal when the exact rationals they denote are equal — for every pair, not
+    /// only for the pairs whose spellings match.  A periodic value denotes an exact rational
+    /// (<see cref="ToExactRational"/>), so <c>0.(9)</c> and <c>1</c> are the same value and must
+    /// compare as such: the old rule compared the periodic <c>ToString()</c>s ("0.(9)" vs "1") and
+    /// answered <see langword="false"/> for a value that the arithmetic layer already reduces to
+    /// <c>0</c> when subtracted, and that crosses the wire with numerator 1 / denominator 1.
+    /// </remarks>
     public bool Equals(Real? other)
     {
         if (other is null) return false;
-        if (IsPeriodic != other.IsPeriodic) return false;
-        if (IsPeriodic)
-        {
-            // Two periodic reals are equal when their ToString representations match.
-            return ToString() == other.ToString();
-        }
+        if (IsPeriodic || other.IsPeriodic)
+            return CompareExactRationals(this, other) == 0;
         // Non-periodic: compare exponent-aligned digit sequences.
         return CompareTo(other) == 0;
     }
 
+    /// <summary>
+    /// Compares two values by the exact rationals they denote: <c>a/b</c> against <c>c/d</c> is
+    /// <c>a·d</c> against <c>c·b</c>, one <see cref="Int"/> multiplication per side (both
+    /// denominators are positive by construction).  This is the only comparison that can see
+    /// <c>0.(9)</c> as <c>1</c>, whose digits never agree because the periodic form has no last
+    /// place to stop at.
+    /// </summary>
+    private static int CompareExactRationals(Real left, Real right)
+    {
+        (Int leftNum, Int leftDen)   = ToExactRational(left);
+        (Int rightNum, Int rightDen) = ToExactRational(right);
+        return (leftNum * rightDen).CompareTo(rightNum * leftDen);
+    }
+
     /// <inheritdoc/>
+    /// <remarks>
+    /// A pair involving a periodic value is ordered by the exact rationals the two values denote
+    /// (see <see cref="CompareExactRationals"/>).  The digit walk below is exact for finite
+    /// decimals, but a periodic value has no last digit to walk to: it compared the stored block
+    /// plus <see cref="DisplayDecimalPlaces"/> places of the period and therefore ordered
+    /// <c>0.(9)</c> below <c>1</c> although the two denote the same rational.
+    /// </remarks>
     public int CompareTo(Real? other)
     {
         if (other is null) return 1;
+
+        if (IsPeriodic || other.IsPeriodic)
+            return CompareExactRationals(this, other);
 
         // Zero has no significant digits; the exponent-aligned integer-length comparison
         // below mis-orders it otherwise (e.g. 0.5 vs 0, or -0 vs 0), so short-circuit zero.
@@ -504,7 +532,22 @@ public class Real :
     public override bool Equals(object? obj) => obj is Real r && Equals(r);
 
     /// <inheritdoc/>
-    public override int GetHashCode() => ToString().GetHashCode();
+    /// <remarks>
+    /// Hashed from the canonical exact rational (reduced numerator and denominator), so values that
+    /// compare equal hash equal whatever their spelling: <c>1</c>, <c>1.0</c> and <c>0.(9)</c> are
+    /// one value, and hashing the text would give them three different buckets.
+    /// </remarks>
+    public override int GetHashCode()
+    {
+        (Int num, Int den) = ToExactRational(this);
+        Int gcd = Int.Gcd(num, den);
+        if (gcd > Int.One)
+        {
+            num = num.DivRem(gcd, out _);
+            den = den.DivRem(gcd, out _);
+        }
+        return HashCode.Combine(num.GetHashCode(), den.GetHashCode());
+    }
 
     // -------------------------------------------------------------------------
     // Comparison operators  (IComparisonOperators<Real,Real,bool>)
@@ -605,6 +648,11 @@ public class Real :
     /// tail contributes the geometric series <c>B·10^-(s+p)/(1 − 10^-p)</c>, giving
     /// <c>(P·(10^p − 1) + B) / (10^s · (10^p − 1))</c>.
     /// </para>
+    /// <para>
+    /// A block that names positions beyond the stored digits is clamped to the positions that exist
+    /// (see the comment at the clamp): a state with no stored place for its period denotes the
+    /// ordinary finite decimal its digits spell, which is what it renders as.
+    /// </para>
     /// </summary>
     private static (Int Num, Int Den) ToExactRational(Real value)
     {
@@ -613,7 +661,25 @@ public class Real :
         Int num;
         Int den;
 
-        if (!value.IsPeriodic)
+        long storedFrac = value.Exponent < 0L ? -value.Exponent : 0L;
+        long periodStart = value.PeriodStart;
+        long periodLength = value.PeriodLength;
+
+        // A period that names fractional positions the magnitude does not store cannot repeat a
+        // digit that is not there: <see cref="GetDecimalDigit"/> reads every such position as zero,
+        // so what the value renders as — and therefore what it denotes — is the finite decimal its
+        // stored digits spell, with only the part of the block that lies inside the digits
+        // repeating.  Every state the public API can produce satisfies
+        // Exponent == −(PeriodStart + PeriodLength) (or stores digits past the period), so this is
+        // a no-op for them; it is the reading that keeps <see cref="Equals"/>,
+        // <see cref="CompareTo"/> and <see cref="ToString"/> from disagreeing about a malformed
+        // value the old division loop used to emit.
+        if (periodLength > 0L && periodStart + periodLength > storedFrac)
+        {
+            periodLength = storedFrac > periodStart ? storedFrac - periodStart : 0L;
+        }
+
+        if (periodLength <= 0L)
         {
             num = new Int(magnitude, false);
             den = Int.One;
@@ -624,8 +690,8 @@ public class Real :
         }
         else
         {
-            long s = value.PeriodStart;
-            long p = value.PeriodLength;
+            long s = periodStart;
+            long p = periodLength;
 
             Nat tenToP = new Nat(10UL).Pow(new Nat((ulong)p));
             Nat prefix = Nat.DivRem(magnitude, tenToP, out Nat block);
@@ -638,9 +704,10 @@ public class Real :
             if (s > 0L)
                 den = den * ten.Pow(new Int(s));
 
-            // A periodic value stores exactly the non-repeating prefix plus one period block, so
-            // Exponent == -(s + p).  Fold any residual scale difference into the fraction instead
-            // of relying on that invariant.
+            // A periodic value stores the non-repeating prefix plus one period block, so
+            // Exponent == -(s + p) — or Exponent < -(s + p) when digits sit past the block.
+            // Fold any residual scale difference into the fraction instead of relying on that
+            // invariant.
             long scaleDelta = value.Exponent + s + p;
             if (scaleDelta > 0L)
                 num = num * ten.Pow(new Int(scaleDelta));
@@ -743,31 +810,38 @@ public class Real :
         if (Real.IsZero(left))
             return left.IsExact && right.IsExact ? Zero : MarkInexact(Zero);
 
-        // Periodic guard: mirrors the Add / Multiply pattern.
-        // Only periodic operands are expanded; non-periodic operands are used as-is to
-        // avoid introducing trailing zeros that could produce a spurious all-zero period
-        // in the result (e.g. expanding non-periodic 1 to 1000 decimal places yields
-        // 1.0000…0, and dividing that by an expanded periodic denominator produces a
-        // quotient whose trailing zeros mislead DetectAndNormalizePeriod).
-        // A period of length ≥ workingFrac in the raw quotient is an artifact of the
-        // finite expansion (the remainder repeats at the expansion boundary), not a true
-        // mathematical period — strip it before running period detection.
+        // Periodic guard: mirrors the Add / Multiply pattern — divide the exact fractions the
+        // operands denote instead of expanding them.
+        //
+        // Expanding a periodic operand to MaxComputationDecimalPlaces places TRUNCATES it, and the
+        // truncated operands are what the digit loop then divides: the quotient of a periodic
+        // operand was therefore inexact even when it is exactly representable, so
+        // (5/6)/(7/11) came back exact:false while the identical value computed as (5/6)*(11/7)
+        // — through Multiply's exact-fraction path — came back exact:true with numerator 55/42.
+        // The expansion also manufactures a period at the expansion boundary, which the guard
+        // below then had to strip and re-flag.  Every Real is a rational (a finite decimal or a
+        // periodic decimal), so num/den = (leftNum·rightDen)/(leftDen·rightNum) is exact, and
+        // FromExactFraction re-derives the quotient's own period — or truncates and says so when
+        // that period does not fit the budget, exactly as the non-periodic path does.
         if (left.IsPeriodic || right.IsPeriodic)
         {
-            long workingFrac   = MaxComputationDecimalPlaces;
-            Real expandedLeft  = left.IsPeriodic  ? ExpandToNonPeriodic(left,  workingFrac) : left;
-            Real expandedRight = right.IsPeriodic ? ExpandToNonPeriodic(right, workingFrac) : right;
-            Real rawQuotient   = Divide(expandedLeft, expandedRight);
-            bool periodicExact = rawQuotient.IsExact;
-            if (rawQuotient.IsPeriodic && rawQuotient.PeriodLength >= workingFrac)
+            (Int leftNum, Int leftDen)   = ToExactRational(left);
+            (Int rightNum, Int rightDen) = ToExactRational(right);
+
+            if (Int.IsZero(rightNum))
+                throw new DivideByZeroException("Cannot divide a Real by zero.");
+
+            Int quotientNum = leftNum * rightDen;
+            Int quotientDen = leftDen * rightNum;
+            if (Int.IsNegative(quotientDen))
             {
-                // A period that long is the expansion boundary repeating, not the quotient's own
-                // period, so stripping it leaves a prefix of the true quotient: not exact.
-                rawQuotient = new Real(rawQuotient.ToNatural(), Int.IsNegative(rawQuotient), rawQuotient.Exponent);
-                periodicExact = false;
+                quotientNum = quotientNum.Negate();
+                quotientDen = quotientDen.Negate();
             }
-            Real normalizedQuotient = DetectAndNormalizePeriod(rawQuotient);
-            return periodicExact ? normalizedQuotient : MarkInexact(normalizedQuotient);
+
+            // FromExactFraction reduces the fraction first, so the quotient keeps the exactness of
+            // a representable result and loses it only where a digit is actually lost.
+            return WithProvenanceOf(FromExactFraction(quotientNum, quotientDen), left, right);
         }
 
         bool resultNeg = Real.IsNegative(left) != Real.IsNegative(right);
@@ -1613,6 +1687,14 @@ public class Real :
         if (TrySpecialAngle(x, pi, out Real sinValue, out _))
             return sinValue;
 
+        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
+        {
+            (pi, twoPi, halfPi) = ReducingPi(value, digits);
+            x = ReduceToTwoPi(value, pi, twoPi);
+            if (TrySpecialAngle(x, pi, out sinValue, out _))
+                return sinValue;
+        }
+
         bool negative = false;
         if (x <= pi) { if (x > halfPi) x = pi - x; }
         else if (x <= pi + halfPi) { x = x - pi; negative = true; }
@@ -1645,14 +1727,83 @@ public class Real :
         if (TrySpecialAngle(x, pi, out _, out Real cosValue))
             return cosValue;
 
+        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
+        {
+            (pi, twoPi, halfPi) = ReducingPi(value, digits);
+            x = ReduceToTwoPi(value, pi, twoPi);
+            if (TrySpecialAngle(x, pi, out _, out cosValue))
+                return cosValue;
+        }
+
         bool negate = false;
         if (x <= pi) { if (x > halfPi) { x = pi - x; negate = true; } }
         else if (x <= pi + halfPi) { x = x - pi; negate = true; }
         else { x = twoPi - x; }
 
-        // The general angle has no exact decimal cosine: the series result is an approximation.
-        Real cos = CosTaylor(x, guard);
+        // Within 10^-(guard+1) of π/2 the cosine series is pure cancellation: it sums O(1) terms
+        // whose result IS the residue (~10^-(guard+1)) rather than the value, and close enough to
+        // π/2 even the residue's sign is arbitrary — while cos(π/2 − 10^-100) is 10^-100, the number
+        // the tangent of that angle divides by.  There cos(x) = sin(π/2 − x), and the sine of a
+        // small argument has no cancellation to lose it in.  Everywhere else on [0, π/2] the direct
+        // series is the accurate one and is left alone.
+        Real distance = halfPi - x;
+        Nat? tenPower = null;
+        long tenPowerExponent = 0L;
+
+        Real cos = IsBelowDecimalGuard(distance, guard, ref tenPower, ref tenPowerExponent)
+            ? SinTaylor(distance, guard)
+            : CosTaylor(x, guard);
         return MarkInexact(negate ? -cos : cos);
+    }
+
+    /// <summary>
+    /// The number of places π must carry for a reduction of <paramref name="value"/> to measure the
+    /// angle instead of measuring π: the argument's own fractional places, plus the
+    /// <paramref name="digits"/> the caller asked the result for, plus the series guard — or
+    /// <see cref="MaxComputationDecimalPlaces"/> when the ambient π already reaches as far down as
+    /// the argument does.
+    /// <para>
+    /// A residual is the difference between the argument and a multiple of π, so its leading digits
+    /// come from the argument's own tail; measuring it needs π to reach further down than the
+    /// argument does by as many places as the answer must be good for.  Subtracting a π that stops
+    /// at the ambient precision from an argument that carries more places adds
+    /// <c>π − π_ambient</c> (order <c>10^-ambient</c>) to every residual, which is how
+    /// <c>sin(pi(100)·2)</c> came back as <c>1e-30</c>, declared exact, instead of <c>−1.64e-100</c>.
+    /// </para>
+    /// </summary>
+    private static long ResolvedPiDigits(Real value, long digits)
+    {
+        long argumentPlaces = value.IsPeriodic ? 0L : -value.Exponent;
+        if (argumentPlaces < 0L)
+            argumentPlaces = 0L;
+
+        long ambient = MaxComputationDecimalPlaces;
+
+        // An argument that carries no more places than the ambient π does is already resolved by
+        // it: the reduction is then as precise as the budget the result is asked for, and every
+        // caller that passes the ambient π itself (<c>Sin(Real.Pi)</c>, a Phasor's angle, …) keeps
+        // the digits it had.  Only an argument that reaches FURTHER DOWN than the ambient constant
+        // needs π to follow it there.
+        if (argumentPlaces <= ambient)
+            return ambient;
+
+        return argumentPlaces + digits + 10L;
+    }
+
+    /// <summary>
+    /// π at <see cref="ResolvedPiDigits"/>' resolution, with the (half, double) forms the reduction
+    /// needs.  The fetch goes through the ordinary constant cache under a local precision scope, so
+    /// a finer π is computed once for the process and every later caller — at any ambient
+    /// precision — is served from it (a lower-precision scope receives its prefix, which is exactly
+    /// what computing at that precision produces).
+    /// </summary>
+    private static (Real Pi, Real TwoPi, Real HalfPi) ReducingPi(Real value, long digits)
+    {
+        Real pi;
+        using (WithLocalPrecision(ResolvedPiDigits(value, digits)))
+            pi = Pi;
+
+        return (pi, pi * new Real("2"), HalfOf(pi));
     }
 
     /// <summary>Reduces <paramref name="value"/> into [0, 2π) without truncating small angles.</summary>
