@@ -1,0 +1,1476 @@
+diff --git a/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs b/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs
+index 0128d11..fd8a6cb 100644
+--- a/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs
++++ b/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs
+@@ -78,6 +78,62 @@ public class BuiltinSurfaceContractTests
+         Assert.Equal("1.4142135623730950488", Text(Structured(readmeEnvelope)));
+     }
+ 
++    /// <summary>
++    /// Cycle 5, item 1 (audit-2 B1-F5): the digit count that CANNOT be honoured. The audit found
++    /// five different answers to one argument problem — <c>evalf(sin(1), 0)</c> and
++    /// <c>evalf(cos(1), 0)</c> crossed as <c>InternalError</c>/<c>InternalInvariantFailure</c>
++    /// ("Object reference not set to an instance of an object."), <c>evalf(exp(1), 0)</c> behaved
++    /// like <c>digits = 1</c>, <c>evalf(1/3, 0)</c> answered 0 declared exact, and
++    /// <c>evalf(sqrt(2), 0)</c> ignored the count. The protocol forbids an internal invariant
++    /// failure as an answer to an argument problem, so the contract pinned here is the recoverable
++    /// argument error the rest of the digit-count surface already produces (<c>pi(0)</c>/
++    /// <c>e(0)</c>): a stable code and category, a message that names the builtin, the argument and
++    /// the acceptable range, and no value at all.
++    /// </summary>
++    [Theory]
++    [InlineData("evalf(sin(1), 0)")]      // used to raise NullReferenceException
++    [InlineData("evalf(cos(1), 0)")]      // used to raise NullReferenceException
++    [InlineData("evalf(exp(1), 0)")]      // used to behave like digits = 1
++    [InlineData("evalf(1/3, 0)")]         // used to answer 0, declared exact: true
++    [InlineData("evalf(sqrt(2), 0)")]     // used to ignore the count entirely
++    [InlineData("evalf(pi, 0)")]          // the constant path, same request
++    [InlineData("evalf(sin(1), -1)")]
++    [InlineData("evalf(sin(1), -100)")]
++    [InlineData("evalf(1/3, 2147483648)")]        // the Int32 cast wrapped to a negative count
++    [InlineData("evalf(sin(1), 10^30)")]          // wider than Int64: a raw OverflowException
++    public async Task Evalf_RefusesADigitCountItCannotHonour_AsARecoverableArgumentError(string script)
++    {
++        var (exit, envelope) = await RunAsync(script);
++
++        Assert.Equal(1, exit);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"'{script}' must not answer a value");
++        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>(), "the caller can fix the count and retry");
++        Assert.NotEqual("InternalInvariantFailure", envelope["category"]!.GetValue<string>());
++        Assert.NotEqual("InternalError", envelope["code"]!.GetValue<string>());
++
++        string message = envelope["message"]!.GetValue<string>();
++        Assert.StartsWith("evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got ", message);
++        Assert.NotEqual("Object reference not set to an instance of an object.", message);
++    }
++
++    /// <summary>
++    /// The boundary the refusal must not swallow: <c>digits = 1</c> is the smallest accepted
++    /// count and must keep answering, so the guard cannot be widened into "reject small counts".
++    /// </summary>
++    [Fact]
++    public async Task Evalf_DigitsOne_IsTheSmallestAcceptedCount()
++    {
++        var (exit, one) = await RunAsync("evalf(sin(1), 1)");
++        Assert.Equal(0, exit);
++        Assert.Equal("0.8", Text(Structured(one)));
++
++        var (zeroExit, zero) = await RunAsync("evalf(sin(1), 0)");
++        Assert.Equal(1, zeroExit);
++        Assert.False(zero["ok"]!.GetValue<bool>());
++    }
++
+     // ------------------------------------------------------------------
+     // 2. assumptions() is structured, and keeps the human rendering
+     // ------------------------------------------------------------------
+diff --git a/Lovelace.Run.Tests/fixtures/capabilities.json b/Lovelace.Run.Tests/fixtures/capabilities.json
+index f881fdb..d2faff7 100644
+--- a/Lovelace.Run.Tests/fixtures/capabilities.json
++++ b/Lovelace.Run.Tests/fixtures/capabilities.json
+@@ -6,8 +6,8 @@
+     "revision":  "\u003cvolatile\u003e",
+     "result":  {
+                    "kind":  "Record",
+-                   "display":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)",
+-                   "typed":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort) (CapabilitiesResult)",
++                   "display":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent-of-a-positive-base, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2), scope: Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel\u0027s own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3), scope: Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer), scope: ), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x), scope: ), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf), scope: ), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: ), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x)), scope: ), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2]), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x), scope: ), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1), scope: ), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1), scope: ), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0), scope: ), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3]), scope: ), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b), scope: ), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]), scope: ), UnsupportedCapability(operation_class: solve.unevaluated-in-record-diagnostics, code: solve.unevaluated, category: UnsupportedOperation, message: 0 = 0: every value is a solution., trigger: x = symbol(\"x\"); solve_full(x == x, x), scope: ), UnsupportedCapability(operation_class: system-solve.unevaluated-in-record-diagnostics, code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., trigger: x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y]), scope: ), UnsupportedCapability(operation_class: integration.no-closed-form-in-record-diagnostics, code: integration.no-closed-form, category: UnsupportedOperation, message: no integration tier produced a candidate closed form for integrate(exp(x^2), x), trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: )], exactness: BestEffort)",
++                   "typed":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent-of-a-positive-base, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2), scope: Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel\u0027s own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3), scope: Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer), scope: ), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x), scope: ), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf), scope: ), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: ), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x)), scope: ), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2]), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x), scope: ), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1), scope: ), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1), scope: ), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0), scope: ), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3]), scope: ), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b), scope: ), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]), scope: ), UnsupportedCapability(operation_class: solve.unevaluated-in-record-diagnostics, code: solve.unevaluated, category: UnsupportedOperation, message: 0 = 0: every value is a solution., trigger: x = symbol(\"x\"); solve_full(x == x, x), scope: ), UnsupportedCapability(operation_class: system-solve.unevaluated-in-record-diagnostics, code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., trigger: x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y]), scope: ), UnsupportedCapability(operation_class: integration.no-closed-form-in-record-diagnostics, code: integration.no-closed-form, category: UnsupportedOperation, message: no integration tier produced a candidate closed form for integrate(exp(x^2), x), trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: )], exactness: BestEffort) (CapabilitiesResult)",
+                    "structured":  {
+                                       "kind":  "Record",
+                                       "type":  "CapabilitiesResult",
+@@ -58,7 +58,7 @@
+                                                                        "kind":  "Array",
+                                                                        "type":  "Vector",
+                                                                        "shape":  [
+-                                                                                     16
++                                                                                     19
+                                                                                  ],
+                                                                        "elements":  [
+                                                                                         {
+@@ -69,7 +69,7 @@
+                                                                                                                "name":  "operation_class",
+                                                                                                                "value":  {
+                                                                                                                              "kind":  "Text",
+-                                                                                                                             "value":  "pow.non-integer-exponent"
++                                                                                                                             "value":  "pow.non-integer-exponent-of-a-positive-base"
+                                                                                                                          }
+                                                                                                            },
+                                                                                                            {
+@@ -100,6 +100,13 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "2^(1/2)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel\u0027s own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0)."
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -142,6 +149,13 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "(-8)^(1/3)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above)."
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -184,6 +198,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -226,6 +246,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -268,6 +294,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); limit_full(sin(x), x, inf)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -310,6 +342,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); integrate_full(exp(x^2), x)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -352,6 +390,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); plot(sin(x))"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -394,6 +438,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); plot([x, 1, 2])"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -436,6 +486,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -478,6 +534,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); solve([x == 1], x)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -520,6 +582,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); diff(x^2, 1)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -562,6 +630,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); integrate(x^2, 1)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -604,6 +678,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); limit(sin(x), 1, 0)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -646,6 +726,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); dft([x, 1, 2, 3])"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -688,6 +774,12 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         },
+@@ -730,6 +822,156 @@
+                                                                                                                              "kind":  "Text",
+                                                                                                                              "value":  "x = symbol(\"x\"); fft([1,2,3])"
+                                                                                                                          }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
++                                                                                                           }
++                                                                                                       ]
++                                                                                        },
++                                                                                        {
++                                                                                            "kind":  "Record",
++                                                                                            "type":  "UnsupportedCapability",
++                                                                                            "fields":  [
++                                                                                                           {
++                                                                                                               "name":  "operation_class",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "solve.unevaluated-in-record-diagnostics"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "code",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "solve.unevaluated"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "category",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Enum",
++                                                                                                                             "type":  "ErrorCategory",
++                                                                                                                             "value":  "UnsupportedOperation"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "message",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "0 = 0: every value is a solution."
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "trigger",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "x = symbol(\"x\"); solve_full(x == x, x)"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
++                                                                                                           }
++                                                                                                       ]
++                                                                                        },
++                                                                                        {
++                                                                                            "kind":  "Record",
++                                                                                            "type":  "UnsupportedCapability",
++                                                                                            "fields":  [
++                                                                                                           {
++                                                                                                               "name":  "operation_class",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "system-solve.unevaluated-in-record-diagnostics"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "code",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "system-solve.unevaluated"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "category",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Enum",
++                                                                                                                             "type":  "ErrorCategory",
++                                                                                                                             "value":  "UnsupportedOperation"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "message",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here."
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "trigger",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y])"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
++                                                                                                           }
++                                                                                                       ]
++                                                                                        },
++                                                                                        {
++                                                                                            "kind":  "Record",
++                                                                                            "type":  "UnsupportedCapability",
++                                                                                            "fields":  [
++                                                                                                           {
++                                                                                                               "name":  "operation_class",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "integration.no-closed-form-in-record-diagnostics"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "code",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "integration.no-closed-form"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "category",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Enum",
++                                                                                                                             "type":  "ErrorCategory",
++                                                                                                                             "value":  "UnsupportedOperation"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "message",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "no integration tier produced a candidate closed form for integrate(exp(x^2), x)"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "trigger",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Text",
++                                                                                                                             "value":  "x = symbol(\"x\"); integrate_full(exp(x^2), x)"
++                                                                                                                         }
++                                                                                                           },
++                                                                                                           {
++                                                                                                               "name":  "scope",
++                                                                                                               "value":  {
++                                                                                                                             "kind":  "Null"
++                                                                                                                         }
+                                                                                                            }
+                                                                                                        ]
+                                                                                         }
+@@ -754,7 +996,7 @@
+                       {
+                           "name":  "_",
+                           "kind":  "Record",
+-                          "display":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)",
++                          "display":  "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent-of-a-positive-base, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2), scope: Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel\u0027s own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3), scope: Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer), scope: ), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x), scope: ), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf), scope: ), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic\u0027s details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: ), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got \u0027Symbolic\u0027., trigger: x = symbol(\"x\"); plot(sin(x)), scope: ), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind \u0027Symbolic\u0027 to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2]), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x), scope: ), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1), scope: ), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1), scope: ), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0), scope: ), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got \u0027SymbolExpr\u0027., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3]), scope: ), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b), scope: ), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter \u0027x\u0027), trigger: x = symbol(\"x\"); fft([1,2,3]), scope: ), UnsupportedCapability(operation_class: solve.unevaluated-in-record-diagnostics, code: solve.unevaluated, category: UnsupportedOperation, message: 0 = 0: every value is a solution., trigger: x = symbol(\"x\"); solve_full(x == x, x), scope: ), UnsupportedCapability(operation_class: system-solve.unevaluated-in-record-diagnostics, code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., trigger: x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y]), scope: ), UnsupportedCapability(operation_class: integration.no-closed-form-in-record-diagnostics, code: integration.no-closed-form, category: UnsupportedOperation, message: no integration tier produced a candidate closed form for integrate(exp(x^2), x), trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: )], exactness: BestEffort)",
+                           "structured":  {
+                                              "kind":  "Record",
+                                              "type":  "CapabilitiesResult",
+@@ -805,7 +1047,7 @@
+                                                                               "kind":  "Array",
+                                                                               "type":  "Vector",
+                                                                               "shape":  [
+-                                                                                            16
++                                                                                            19
+                                                                                         ],
+                                                                               "elements":  [
+                                                                                                {
+@@ -816,7 +1058,7 @@
+                                                                                                                       "name":  "operation_class",
+                                                                                                                       "value":  {
+                                                                                                                                     "kind":  "Text",
+-                                                                                                                                    "value":  "pow.non-integer-exponent"
++                                                                                                                                    "value":  "pow.non-integer-exponent-of-a-positive-base"
+                                                                                                                                 }
+                                                                                                                   },
+                                                                                                                   {
+@@ -847,6 +1089,13 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "2^(1/2)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel\u0027s own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0)."
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -889,6 +1138,13 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "(-8)^(1/3)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above)."
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -931,6 +1187,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -973,6 +1235,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1015,6 +1283,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); limit_full(sin(x), x, inf)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1057,6 +1331,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); integrate_full(exp(x^2), x)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1099,6 +1379,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); plot(sin(x))"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1141,6 +1427,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); plot([x, 1, 2])"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1183,6 +1475,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1225,6 +1523,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); solve([x == 1], x)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1267,6 +1571,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); diff(x^2, 1)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1309,6 +1619,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); integrate(x^2, 1)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1351,6 +1667,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); limit(sin(x), 1, 0)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1393,6 +1715,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); dft([x, 1, 2, 3])"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1435,6 +1763,12 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                },
+@@ -1477,6 +1811,156 @@
+                                                                                                                                     "kind":  "Text",
+                                                                                                                                     "value":  "x = symbol(\"x\"); fft([1,2,3])"
+                                                                                                                                 }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
++                                                                                                                  }
++                                                                                                              ]
++                                                                                               },
++                                                                                               {
++                                                                                                   "kind":  "Record",
++                                                                                                   "type":  "UnsupportedCapability",
++                                                                                                   "fields":  [
++                                                                                                                  {
++                                                                                                                      "name":  "operation_class",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "solve.unevaluated-in-record-diagnostics"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "code",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "solve.unevaluated"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "category",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Enum",
++                                                                                                                                    "type":  "ErrorCategory",
++                                                                                                                                    "value":  "UnsupportedOperation"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "message",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "0 = 0: every value is a solution."
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "trigger",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "x = symbol(\"x\"); solve_full(x == x, x)"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
++                                                                                                                  }
++                                                                                                              ]
++                                                                                               },
++                                                                                               {
++                                                                                                   "kind":  "Record",
++                                                                                                   "type":  "UnsupportedCapability",
++                                                                                                   "fields":  [
++                                                                                                                  {
++                                                                                                                      "name":  "operation_class",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "system-solve.unevaluated-in-record-diagnostics"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "code",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "system-solve.unevaluated"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "category",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Enum",
++                                                                                                                                    "type":  "ErrorCategory",
++                                                                                                                                    "value":  "UnsupportedOperation"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "message",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here."
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "trigger",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y])"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
++                                                                                                                  }
++                                                                                                              ]
++                                                                                               },
++                                                                                               {
++                                                                                                   "kind":  "Record",
++                                                                                                   "type":  "UnsupportedCapability",
++                                                                                                   "fields":  [
++                                                                                                                  {
++                                                                                                                      "name":  "operation_class",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "integration.no-closed-form-in-record-diagnostics"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "code",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "integration.no-closed-form"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "category",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Enum",
++                                                                                                                                    "type":  "ErrorCategory",
++                                                                                                                                    "value":  "UnsupportedOperation"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "message",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "no integration tier produced a candidate closed form for integrate(exp(x^2), x)"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "trigger",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Text",
++                                                                                                                                    "value":  "x = symbol(\"x\"); integrate_full(exp(x^2), x)"
++                                                                                                                                }
++                                                                                                                  },
++                                                                                                                  {
++                                                                                                                      "name":  "scope",
++                                                                                                                      "value":  {
++                                                                                                                                    "kind":  "Null"
++                                                                                                                                }
+                                                                                                                   }
+                                                                                                               ]
+                                                                                                }
+diff --git a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+index ca7f054..bbc1e78 100644
+--- a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
++++ b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+@@ -47,7 +47,12 @@ public class CapabilitiesBuiltinTests
+     /// enumeration has to be a deliberate edit here.</summary>
+     private static readonly string[] ExpectedOperationClasses =
+     {
+-        "pow.non-integer-exponent",
++        // round 11 (audit-2 F1) NARROWED this class. It used to be "pow.non-integer-exponent",
++        // which — read together with the kernel's own message — claimed every non-integer exponent
++        // while (-4)^(1/2) answers 2*i and 0^(1/2) answers 0. The message is a byte-for-byte
++        // transcription of the kernel's text and cannot be narrowed, so the CLASS ID now names the
++        // refused shape and the entry's `scope` field names the supported counterexamples.
++        "pow.non-integer-exponent-of-a-positive-base",
+         "pow.negative-base-unrepresentable-exponent",
+         "solve.unsupported-domain",
+         "rootof.complex-algebraic",
+@@ -72,6 +77,12 @@ public class CapabilitiesBuiltinTests
+         "linsolve.non-symbolic-matrix",
+         // audit P6b-8
+         "fft.non-power-of-two-length",
++        // round 11 (audit-2 F7): the three reachable refusal classes the statement omitted —
++        // solve.unevaluated, system-solve.unevaluated and integration.no-closed-form. All three
++        // ride in a record's diagnostics while the call succeeds.
++        "solve.unevaluated-in-record-diagnostics",
++        "system-solve.unevaluated-in-record-diagnostics",
++        "integration.no-closed-form-in-record-diagnostics",
+     };
+ 
+     private static SuiteEngine NewEngine()
+@@ -88,10 +99,21 @@ public class CapabilitiesBuiltinTests
+ 
+     private static RecordValue Capabilities(SuiteEngine engine) => engine.Evaluate("capabilities()").AsRecord();
+ 
+-    private static IReadOnlyDictionary<string, (string Code, string Category, string Message, string Trigger)>
++    /// <summary>The advertised <c>scope</c> text of one entry: "" when the field is the absent-field
++    /// Null, the text otherwise. A null payload maps onto <c>Value.Void</c> in the object model and
++    /// onto <c>{"kind":"Null"}</c> on the wire (PayloadMap.Wrap plus the Run projection), which is
++    /// why the Void kind is this helper's "no scope stated" case.</summary>
++    private static string ScopeOf(RecordValue record) => Field(record, "scope") switch
++    {
++        { Kind: ValueKind.Void } => "",
++        Value v when v.Kind == ValueKind.Text => v.AsText(),
++        Value other => throw new Xunit.Sdk.XunitException($"scope must be Text or the absent-field Null, got '{other.Kind}'"),
++    };
++
++    private static IReadOnlyDictionary<string, (string Code, string Category, string Message, string Trigger, string Scope)>
+         AdvertisedByOperationClass(SuiteEngine engine)
+     {
+-        var map = new Dictionary<string, (string, string, string, string)>(StringComparer.Ordinal);
++        var map = new Dictionary<string, (string, string, string, string, string)>(StringComparer.Ordinal);
+         foreach (Value entry in Field(Capabilities(engine), "unsupported_operations").AsVector())
+         {
+             var record = entry.AsRecord();
+@@ -102,7 +124,8 @@ public class CapabilitiesBuiltinTests
+                 Field(record, "code").AsText(),
+                 Field(record, "category").AsEnum().Name,
+                 Field(record, "message").AsText(),
+-                Field(record, "trigger").AsText())))
++                Field(record, "trigger").AsText(),
++                ScopeOf(record))))
+             {
+                 throw new Xunit.Sdk.XunitException(
+                     $"two advertised entries share the operation_class '{operationClass}': the honesty loop would silently drop one of them");
+@@ -205,6 +228,13 @@ public class CapabilitiesBuiltinTests
+             Assert.Equal(DiagnosticProjection.CategoryTypeName, category.AsEnum().TypeName);
+             Assert.True(Enum.IsDefined(typeof(ErrorCategory), category.AsEnum().Name),
+                 $"'{category.AsEnum().Name}' is not an ErrorCategory member");
++
++            // round 11: `scope` is part of the shape. It is TEXT when the kernel's own message is
++            // wider than the refusal, and the Null of the absent-field invariant when the id and
++            // the message already fix the scope — never a missing field, never "".
++            Value scope = Field(record, "scope");
++            Assert.True(scope.Kind is ValueKind.Text or ValueKind.Void,
++                $"scope must be Text or the absent-field Null, got '{scope.Kind}'");
+         }
+ 
+         // The enumeration itself is the claim: EVERY class the round-09 audit found unlisted, plus
+@@ -388,11 +418,33 @@ public class CapabilitiesBuiltinTests
+                     continue;
+                 }
+ 
+-                JsonNode diagnosticFields = StructuredFields(diagnostics[0]!);
++                // The advertised code is looked up among the record's TOP-LEVEL diagnostics —
++                // the array an agent matches on without walking nested `details` — and it must
++                // appear there EXACTLY once, so "the diagnostic this class advertises" is never
++                // ambiguous. (Round 11: the integration refusal publishes its class-level code
++                // AND its input-specific code at the top level, which is why this is a lookup and
++                // not a fixed index.)
++                var carriedCodes = diagnostics
++                    .Select(d => StructuredFields(d!)["code"]!["value"]!.GetValue<string>())
++                    .ToArray();
++                JsonNode? diagnostic = diagnostics
++                    .FirstOrDefault(d => StructuredFields(d!)["code"]!["value"]!.GetValue<string>() == entry.Code);
++                if (diagnostic is null)
++                {
++                    failures.Add($"'{operationClass}' trigger '{entry.Trigger}': the record carries {carriedCodes.Length} diagnostic(s) [{string.Join(", ", carriedCodes)}] and NONE of them has the advertised code '{entry.Code}'");
++                    continue;
++                }
++                if (carriedCodes.Count(c => c == entry.Code) != 1)
++                {
++                    failures.Add($"'{operationClass}' trigger '{entry.Trigger}': the advertised code '{entry.Code}' is carried {carriedCodes.Count(c => c == entry.Code)} times by [{string.Join(", ", carriedCodes)}], so the diagnostic the class names is ambiguous");
++                    continue;
++                }
++
++                JsonNode diagnosticFields = StructuredFields(diagnostic);
+                 liveCode = diagnosticFields["code"]!["value"]!.GetValue<string>();
+                 liveCategory = diagnosticFields["category"]!["value"]!.GetValue<string>();
+                 liveMessage = diagnosticFields["message"]!["value"]!.GetValue<string>();
+-                carrier = $"record {structured["type"]!.GetValue<string>()} status={status} diagnostics[0]";
++                carrier = $"record {structured["type"]!.GetValue<string>()} status={status} diagnostics[code={entry.Code}]";
+             }
+             else
+             {
+@@ -424,6 +476,67 @@ public class CapabilitiesBuiltinTests
+             _output.WriteLine("live-verified " + row);
+     }
+ 
++    // ------------------------------------------------------------------
++    // Round 11: the power-exponent boundary, in BOTH directions
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// Audit-2 F1. The statement advertised <c>pow.non-integer-exponent</c> with the kernel's own
++    /// message "Non-integer exponents are not yet supported." — a pair that reads as a claim about
++    /// EVERY non-integer exponent, while the live call answers an exact negative base under the
++    /// principal square root. The repair is a NARROWER class (the id names the refused shape), the
++    /// <c>scope</c> field that names what IS supported, and this test, which drives both directions
++    /// against the live runner: every shape the two power classes refuse produces the advertised
++    /// envelope, every counterexample the scope names is SUPPORTED (the advertisement no longer
++    /// denies it), and the over-broad id is GONE rather than kept alongside as an alias.
++    /// </summary>
++    [Fact]
++    public async Task PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported()
++    {
++        var advertised = AdvertisedByOperationClass(NewEngine());
++        var positiveBase = advertised["pow.non-integer-exponent-of-a-positive-base"];
++        var negativeBase = advertised["pow.negative-base-unrepresentable-exponent"];
++
++        // the id an agent enumerates on must not stay ambiguous: the old class is REMOVED
++        Assert.DoesNotContain("pow.non-integer-exponent", advertised.Keys);
++
++        // the refusal direction: a positive base with a non-integer exponent, and a negative base
++        // with any non-integer exponent other than the principal square root
++        foreach (string script in new[]
++                 {
++                     "2^(1/2)", "4^(1/2)", "9^(1/2)", "0.5^(1/2)", "2^(1/3)", "2^(2/3)", "2^(-1/2)",
++                     "(-8)^(1/3)", "(-4)^(1/4)", "(-4)^(2/3)", "(-4)^(3/2)", "(-4)^(-1/2)",
++                 })
++        {
++            JsonNode envelope = await RunEnvelopeAsync(script);
++            Assert.False(envelope["ok"]!.GetValue<bool>(), $"'{script}' is refused by the statement, so the live call must refuse it");
++            Assert.Equal("UnsupportedOperation", envelope["code"]!.GetValue<string>());
++            Assert.Equal("UnsupportedOperation", envelope["category"]!.GetValue<string>());
++            Assert.Equal(positiveBase.Message, envelope["message"]!.GetValue<string>());
++        }
++
++        // the supported direction the old advertisement DENIED — the exact negative base under
++        // the principal square root, and a zero base. These are the shapes the scope field names.
++        foreach (var (script, expected) in new[]
++                 {
++                     ("(-4)^(1/2)", "2*i"), ("(-1)^(1/2)", "i"), ("(-9)^(1/2)", "3*i"),
++                     ("(-2)^(1/2)", "i*sqrt(2)"), ("(-4)^0.5", "2*i"), ("(-4)^(2/4)", "2*i"),
++                     ("0^(1/2)", "0"),
++                 })
++        {
++            JsonNode envelope = await RunEnvelopeAsync(script);
++            Assert.True(envelope["ok"]!.GetValue<bool>(), $"the class's scope says '{script}' is supported, so it must answer");
++            Assert.Equal(expected, envelope["result"]!["display"]!.GetValue<string>());
++        }
++
++        // the correction rides on the wire, not only in this test: the two power classes must
++        // carry the scope, and each must name a counterexample this test actually ran
++        Assert.Contains("(-4)^(1/2)", positiveBase.Scope);
++        Assert.Contains("(-4)^(1/2)", negativeBase.Scope);
++        Assert.Contains("positive base", positiveBase.Scope, StringComparison.OrdinalIgnoreCase);
++        Assert.Contains("negative base", negativeBase.Scope, StringComparison.OrdinalIgnoreCase);
++    }
++
+     // ------------------------------------------------------------------
+     // The two refusal classes round 10 had to make honest before advertising
+     // ------------------------------------------------------------------
+@@ -456,7 +569,15 @@ public class CapabilitiesBuiltinTests
+             JsonNode fields = StructuredFields(structured);
+             Assert.Equal("Unevaluated", fields["status"]!["value"]!.GetValue<string>());
+ 
+-            JsonNode diagnostic = Assert.Single(fields["diagnostics"]!["elements"]!.AsArray())!;
++            // Round 11 (audit-2 F7): the record publishes the refusal under BOTH codes at the top
++            // level — the class-level integration.unevaluated FIRST (its message is the one the
++            // capability statement advertises byte for byte) and the input-specific
++            // integration.no-closed-form after it — so a consumer that only reads
++            // diagnostics[].code finds the class the statement advertises without walking details.
++            JsonArray topLevel = fields["diagnostics"]!["elements"]!.AsArray();
++            Assert.Equal(2, topLevel.Count);
++
++            JsonNode diagnostic = topLevel[0]!;
+             JsonNode diagnosticFields = StructuredFields(diagnostic);
+             Assert.Equal("integration.unevaluated", diagnosticFields["code"]!["value"]!.GetValue<string>());
+             Assert.Equal("UnsupportedOperation", diagnosticFields["category"]!["value"]!.GetValue<string>());
+@@ -472,6 +593,12 @@ public class CapabilitiesBuiltinTests
+             Assert.False(string.IsNullOrWhiteSpace(reason), "the refusal's details must carry a non-empty reason");
+             Assert.Contains("integrate(", reason);
+ 
++            JsonNode specificFields = StructuredFields(topLevel[1]!);
++            Assert.Equal("integration.no-closed-form", specificFields["code"]!["value"]!.GetValue<string>());
++            Assert.Equal("UnsupportedOperation", specificFields["category"]!["value"]!.GetValue<string>());
++            Assert.Equal(reason, specificFields["message"]!["value"]!.GetValue<string>());
++            Assert.Empty(specificFields["details"]!["elements"]!.AsArray());
++
+             messages.Add(diagnosticFields["message"]!["value"]!.GetValue<string>());
+             reasons.Add(reason);
+         }
+diff --git a/Lovelace.Symbolics.Tests/EvalfDigitCountContractTests.cs b/Lovelace.Symbolics.Tests/EvalfDigitCountContractTests.cs
+new file mode 100644
+index 0000000..9aa7c48
+--- /dev/null
++++ b/Lovelace.Symbolics.Tests/EvalfDigitCountContractTests.cs
+@@ -0,0 +1,168 @@
++using System.Text.Json.Nodes;
++using Xunit;
++using Xunit.Abstractions;
++
++namespace Lovelace.Symbolics.Tests;
++
++/// <summary>
++/// Cycle 5, item 1: the CONTRACT of <c>evalf(f, digits)</c> for a count that cannot be honoured.
++/// <para>
++/// The audit reproduced five different answers to one argument problem at <c>9e761ba</c>:
++/// <c>evalf(sin(1), 0)</c> and <c>evalf(cos(1), 0)</c> crossed as
++/// <c>InternalError</c>/<c>InternalInvariantFailure</c> ("Object reference not set to an instance of
++/// an object."), <c>evalf(exp(1), 0)</c> behaved like <c>digits = 1</c>, <c>evalf(1/3, 0)</c>
++/// answered <c>0</c> declared <c>exact: true</c>, and <c>evalf(sqrt(2), 0)</c> ignored the count
++/// entirely. The protocol is explicit that an internal invariant failure is never an answer to an
++/// argument problem (docs/symbolics/dsh-protocol.md §Error envelope), and a silently rounded or
++/// ignored count is not an answer either.
++/// </para>
++/// <para>
++/// The decided contract, asserted here as a PROPERTY over every shape <c>evalf</c> can receive
++/// (a transcendental, an elementary inverse, an irrational radical, a constant, an exact rational,
++/// and a composite of them) and over every non-positive count: <c>digits</c> is a Natural or
++/// Integer in <c>[1, 2147483647]</c>, anything else is the RECOVERABLE argument error
++/// (<c>InvalidArgument</c>/<c>TypeMismatch</c>, the pair <c>pi(0)</c>/<c>e(0)</c> already produce)
++/// whose message names the builtin, the argument, the acceptable range and the refused value.
++/// <c>digits = 1</c> is the smallest accepted count and must keep answering; the counts that
++/// already worked must keep working.
++/// </para>
++/// </summary>
++public class EvalfDigitCountContractTests
++{
++    private readonly ITestOutputHelper _output;
++
++    public EvalfDigitCountContractTests(ITestOutputHelper output) => _output = output;
++
++    /// <summary>The shapes <c>evalf</c> must answer alike: an already-numeric transcendental, an
++    /// elementary inverse, an exact irrational constant, a radical, an exact rational, a constant
++    /// that arrives numeric, and a composite expression.</summary>
++    private static readonly string[] Functions =
++        { "sin(1)", "cos(1)", "exp(1)", "log(2)", "sqrt(2)", "1/3", "pi", "e", "2*sin(1)" };
++
++    private static readonly string[] NonPositiveCounts = { "0", "-1", "-100" };
++
++    /// <summary>The cross product, one case per (function, count): a failure names the shape that
++    /// regressed instead of hiding it inside a loop.</summary>
++    public static TheoryData<string, string> NonPositiveRequests()
++    {
++        var data = new TheoryData<string, string>();
++        foreach (string f in Functions)
++            foreach (string digits in NonPositiveCounts)
++                data.Add(f, digits);
++        return data;
++    }
++
++    /// <summary>The one message every non-positive request produces. The RANGE is spelled with the
++    /// Int32 bound because that bound is part of the contract: the count is what the builtin's
++    /// precision scope takes, and a value above it used to wrap to a NEGATIVE count.</summary>
++    private static string ExpectedMessage(string got) =>
++        $"evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and {int.MaxValue}; got {got}.";
++
++    private static async Task<(int ExitCode, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Lovelace.Run.Runner.RunAsync(
++            new[] { "--eval", script, "--json", "--omit-functions" }, stdout, stderr);
++        JsonNode? envelope = JsonNode.Parse(stdout.ToString());
++        Assert.True(envelope is not null, $"'{script}' produced no envelope (exit {exitCode}). stderr: {stderr}");
++        return (exitCode, envelope!);
++    }
++
++    private static JsonNode Structured(JsonNode envelope) => envelope["result"]!["structured"]!;
++
++    [Theory]
++    [MemberData(nameof(NonPositiveRequests))]
++    public async Task NonPositiveDigits_AreARecoverableArgumentError_ForEveryShape(string f, string digits)
++    {
++        var (exit, envelope) = await RunAsync($"evalf({f}, {digits})");
++
++        // the refusal is the ERROR ENVELOPE (the call cannot answer), and it is an ARGUMENT error:
++        // never InternalError/InternalInvariantFailure, which the protocol forbids as an answer to
++        // an argument problem, and never a value.
++        Assert.Equal(1, exit);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"evalf({f}, {digits}) must not answer a value");
++        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>(), "an argument error the caller can fix is recoverable");
++        Assert.Equal(ExpectedMessage(digits), envelope["message"]!.GetValue<string>());
++
++        // ... and the two fields a caller branches on are never the invariant-failure pair
++        Assert.NotEqual("InternalError", envelope["code"]!.GetValue<string>());
++        Assert.NotEqual("InternalInvariantFailure", envelope["category"]!.GetValue<string>());
++
++        _output.WriteLine($"evalf({f}, {digits}) -> {envelope["code"]!.GetValue<string>()}/{envelope["category"]!.GetValue<string>()}: {envelope["message"]!.GetValue<string>()}");
++    }
++
++    /// <summary>The boundary the refusal must NOT swallow: <c>digits = 1</c> is the smallest
++    /// ACCEPTED count, and every shape answers with exactly one decimal place (the values are read
++    /// off the live call: the count TRUNCATES, so 2*sin(1) = 1.6829 answers 1.6, not 1.7).</summary>
++    public static TheoryData<string, string> DigitsOneRequests() => new()
++    {
++        { "sin(1)", "0.8" },
++        { "cos(1)", "0.5" },
++        { "exp(1)", "2.7" },
++        { "log(2)", "0.6" },
++        { "sqrt(2)", "1.4" },
++        { "1/3", "0.3" },
++        { "pi", "3.1" },
++        { "e", "2.7" },
++        { "2*sin(1)", "1.6" },
++    };
++
++    [Theory]
++    [MemberData(nameof(DigitsOneRequests))]
++    public async Task DigitsOne_IsAccepted_ForEveryShape(string f, string expected)
++    {
++        var (exit, envelope) = await RunAsync($"evalf({f}, 1)");
++
++        Assert.Equal(0, exit);
++        Assert.True(envelope["ok"]!.GetValue<bool>());
++        JsonNode structured = Structured(envelope);
++        Assert.Equal("Real", structured["kind"]!.GetValue<string>());
++        Assert.Equal(expected, structured["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The same contract for a count that is not a count: wider than Int32 (the
++    /// <c>(int)</c> cast used to wrap — <c>2147483648</c> became a NEGATIVE count and
++    /// <c>evalf(1/3, 2147483648)</c> answered <c>0</c>, declared exact), wider than Int64 (a raw
++    /// CLR OverflowException crossed as <c>ArithmeticError</c>), and a Real (silently truncated to
++    /// its integer part — <c>5.0</c> became 5).</summary>
++    [Theory]
++    [InlineData("2147483648")]
++    [InlineData("4294967297")]
++    [InlineData("99999999999999999999999999999999")]
++    [InlineData("5.0")]
++    public async Task DigitsOutsideTheAdvertisedRange_AreTheSameTypedRefusal(string digits)
++    {
++        var (exit, envelope) = await RunAsync($"evalf(1/3, {digits})");
++
++        Assert.Equal(1, exit);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"evalf(1/3, {digits}) must not answer a value");
++        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>());
++        Assert.StartsWith("evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got ", envelope["message"]!.GetValue<string>());
++        Assert.NotEqual("InternalInvariantFailure", envelope["category"]!.GetValue<string>());
++    }
++
++    /// <summary>The refusal must not have narrowed what works: the counts the audit measured as
++    /// HONOURED still answer exactly those digits (they are pinned here as well as in
++    /// <c>Lovelace.Run.Tests.BuiltinSurfaceContractTests</c>, because the guard sits in front of
++    /// the same precision scope they exercise).</summary>
++    [Fact]
++    public async Task CountsThatWereHonoured_KeepAnsweringTheRequestedCount()
++    {
++        var (sqrtExit, sqrt) = await RunAsync("evalf(sqrt(2), 5)");
++        Assert.Equal(0, sqrtExit);
++        Assert.Equal("1.41421", Structured(sqrt)["value"]!.GetValue<string>());
++
++        var (fiftyExit, fifty) = await RunAsync("evalf(sqrt(2), 50)");
++        Assert.Equal(0, fiftyExit);
++        Assert.Equal("1.41421356237309504880168872420969807856967187537694", Structured(fifty)["value"]!.GetValue<string>());
++
++        var (thirdExit, third) = await RunAsync("evalf(1/3, 5)");
++        Assert.Equal(0, thirdExit);
++        Assert.Equal("0.33333", Structured(third)["value"]!.GetValue<string>());
++    }
++}
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index 07d100c..f90b53b 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -296,7 +296,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+                 new RecordField("exactness", EnumField("SolutionExactness", r.Expression.IsExact
+                     ? SolutionExactness.Exact
+                     : SolutionExactness.Approximate)),
+-                new RecordField("diagnostics", Diagnostics(IntegrationDiagnostic(r))));
++                new RecordField("diagnostics", Diagnostics(IntegrationDiagnostics(r))));
+         },
+         new BuiltinDescriptor("integrate_full", new[] { "f", "x" }, BuiltinCategories.Calculus,
+             "Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag.",
+@@ -465,7 +465,10 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             "Substitutes value for the symbol x in f.", ["subs(x^2 + 1, x, 3)"], "Symbolic", ["evalf"]));
+         Add("evalf", new[] { "f", "digits" }, args =>
+         {
+-            var digits = (int)AsLong(args[1]);
++            // A digit count that cannot be honoured is an ARGUMENT problem, and it is answered as
++            // one (see DigitCount): never as a silently rounded/ignored count and never as an
++            // internal invariant failure.
++            var digits = DigitCount(args[1]);
+             // The digit count must hold for BOTH shapes of argument. An argument that reaches this
+             // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
+             // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
+@@ -630,11 +633,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// reason in <c>details</c> (a nested Diagnostic). Before round 10 this path emitted
+     /// <c>status = Unevaluated</c> with an EMPTY diagnostics array: "did anything go wrong?" was
+     /// not answerable from structure, which is exactly the property the protocol promises.</summary>
+-    private static Diagnostic? IntegrationDiagnostic(IntegrationResult result) => result.Note is { } note
+-        ? WithDetails("integration.unevaluated", ErrorCategory.UnsupportedOperation,
+-            IntegrationUnevaluatedMessage,
+-            Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note))
+-        : null;
++    private static Diagnostic?[] IntegrationDiagnostics(IntegrationResult result) =>
++        result.Note is not { } note
++            ? Array.Empty<Diagnostic?>()
++            : new Diagnostic?[]
++            {
++                WithDetails("integration.unevaluated", ErrorCategory.UnsupportedOperation,
++                    IntegrationUnevaluatedMessage,
++                    Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note)),
++                // round 11 (audit-2 F7): the INPUT-SPECIFIC refusal is published at the TOP level
++                // as well as in the class-level diagnostic's details, so EVERY refusal class this
++                // record can carry is enumerable the way every other record-carried class is —
++                // an agent (or the capability-honesty check) that matches on the codes in
++                // `diagnostics` never has to walk the nested `details` to find the second code.
++                // The class-level element stays FIRST: its message is the one the capability
++                // statement advertises byte for byte, and the per-integrand reason rides in the
++                // element that follows it.
++                Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note),
++            };
+ 
+     /// <summary>A kernel-level diagnostic that carries NESTED details. <see cref="Diagnostic.Of"/>
+     /// deliberately produces an empty details list; this is the one construction that does not,
+@@ -712,6 +728,14 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// message is true for the whole class.
+     /// </para>
+     /// <para>
++    /// <c>scope</c> is the field that keeps a TRANSCRIPTION from over-claiming. The kernel's own
++    /// message for the two power classes ("Non-integer exponents are not yet supported.") is wider
++    /// than the refusal it accompanies, and a transcription narrowed by hand would no longer be a
++    /// transcription. Round 11 therefore states the scope in a field of its own, naming both the
++    /// refused shapes and the live counterexamples that ARE supported (audit-2 F1); it is
++    /// <c>{"kind":"Null"}</c> for a class whose id and message already fix the scope.
++    /// </para>
++    /// <para>
+     /// The domain pair is scoped by its NAME rather than by prose: <c>solve_domains_accepted</c> and
+     /// <c>solve_domains_refused</c> describe the domain ARGUMENT of <c>solve(f, x, domain)</c>.
+     /// Audit A2-F12 measured the old <c>unsupported_domains</c> being read as a claim about the
+@@ -726,10 +750,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// The four entries that predate round 10, unchanged:
+     /// </para>
+     /// <list type="bullet">
+-    /// <item>a non-integer exponent of a positive base, e.g. <c>2^(1/2)</c>: a
++    /// <item>a non-integer exponent of a POSITIVE base, e.g. <c>2^(1/2)</c>: a
+     /// <c>NotImplementedException</c> from <c>Lovelace.Real.Real.Pow</c>, classified as
+     /// <c>UnsupportedOperation</c> / <c>UnsupportedOperation</c>. The result is a real irrational
+-    /// the Real type will not approximate, so this stays a genuine unsupported class.</item>
++    /// the Real type will not approximate, so this stays a genuine unsupported class. Round 11
++    /// NARROWED this entry (audit-2 F1): it used to be published as
++    /// <c>pow.non-integer-exponent</c>, which — read together with the kernel's own message
++    /// "Non-integer exponents are not yet supported." — claimed every non-integer exponent, while
++    /// <c>(-4)^(1/2)</c> answers <c>2*i</c>, <c>(-9)^(1/2)</c> answers <c>3*i</c> and
++    /// <c>0^(1/2)</c> answers <c>0</c>. The message is a byte-for-byte transcription and stays
++    /// one, so the class id now names the refused shape
++    /// (<c>pow.non-integer-exponent-of-a-positive-base</c>) and the new <c>scope</c> field names
++    /// the live counterexamples that ARE supported.</item>
+     /// <item>a negative base raised to an exponent whose denominator is &gt;= 3, e.g.
+     /// <c>(-8)^(1/3)</c>: the SAME exception and therefore the same code, category and message.
+     /// It is a distinct operation class because the principal value is a root of unity that is not
+@@ -756,16 +788,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// (docs/goal-cycle-4/round-09/audit-P2P6-wire.md, part 6(b))</b> — the symbolic-limit refusal,
+     /// the integration refusal, the symbolic plot path, the non-symbolic solve/diff/integrate/limit
+     /// arguments, the DSP symbolic-element guard, the linsolve matrix guard and the FFT length
+-    /// constraint — together with the classes earlier rounds advertised; 16 entries, each
+-    /// live-verified by <c>CapabilitiesBuiltinTests</c>. What is still NOT enumerated, and why:
++    /// constraint — together with the classes earlier rounds advertised; 19 entries (round 11
++    /// added the three audit-2 F7 exhibited), each live-verified by
++    /// <c>CapabilitiesBuiltinTests</c>. What is still NOT enumerated, and why:
+     /// </para>
+     /// <list type="bullet">
+     /// <item>the remaining kernel-note diagnostics whose message is the INPUT-SPECIFIC reason —
+-    /// <c>solve.unevaluated</c>, <c>solve.partial</c>, <c>solve.budget-exceeded</c>,
+-    /// <c>solve.no-solutions</c>, <c>system-solve.unevaluated</c>,
+-    /// <c>system-solve.no-solutions</c>, <c>matrix.singular</c>. They are refusals, but one
+-    /// advertised message could not state them truthfully; they need the same details-carrying
+-    /// shape <c>integration.unevaluated</c> now has.</item>
++    /// <c>solve.partial</c>, <c>solve.budget-exceeded</c>, <c>solve.no-solutions</c>,
++    /// <c>system-solve.no-solutions</c>, <c>matrix.singular</c>. Round 11 added the three
++    /// audit-2 F7 found reachable (<c>solve.unevaluated</c>, <c>system-solve.unevaluated</c>,
++    /// <c>integration.no-closed-form</c>) by advertising the message each entry's OWN trigger
++    /// produces — the convention <c>limit.unevaluated</c> already used — so these five are not
++    /// enumerated YET rather than unstatable: the shape that states them truthfully now exists.</item>
+     /// <item><c>transform.budget-exceeded</c> and <c>transform.unsatisfiable-conditions</c>: both
+     /// have stable messages, but neither is an unsupported OPERATION — a retryable budget stop and a
+     /// contradictory-branch domain error. They belong to the transform contract, not to this
+@@ -803,13 +837,27 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         new RecordField("solve_domains_refused", new object?[] { MathDomain.Integer, MathDomain.Rational }),
+         new RecordField("unsupported_operations", new object?[]
+         {
+-            // ---- the four entries that predate round 10 (byte-identical, still live-verified) ----
+-            UnsupportedCapability("pow.non-integer-exponent", "UnsupportedOperation",
++            // ---- the four entries that predate round 10; round 11 NARROWED the first one ----
++            // Audit-2 F1: the class id used to be `pow.non-integer-exponent`, and the pair (id,
++            // message) read as a claim about EVERY non-integer exponent — while an exact negative
++            // base under the principal square root answers: (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i.
++            // `message` is a byte-for-byte transcription of the kernel's own text (Lovelace.Real's
++            // exception) and cannot be narrowed from here, so the CLASS ID and the new `scope`
++            // field carry the narrowing: the id names the refused shape and scope names the live
++            // counterexamples that are SUPPORTED (the honesty test runs them).
++            UnsupportedCapability("pow.non-integer-exponent-of-a-positive-base", "UnsupportedOperation",
+                 ErrorCategory.UnsupportedOperation,
+-                "Non-integer exponents are not yet supported.", "2^(1/2)"),
++                "Non-integer exponents are not yet supported.", "2^(1/2)",
++                scope: "Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. " +
++                       "The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the " +
++                       "principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and " +
++                       "a ZERO base is supported too (0^(1/2) = 0)."),
+             UnsupportedCapability("pow.negative-base-unrepresentable-exponent", "UnsupportedOperation",
+                 ErrorCategory.UnsupportedOperation,
+-                "Non-integer exponents are not yet supported.", "(-8)^(1/3)"),
++                "Non-integer exponents are not yet supported.", "(-8)^(1/3)",
++                scope: "Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: " +
++                       "(-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is " +
++                       "supported (the entry above)."),
+             UnsupportedCapability("solve.unsupported-domain", "InvalidOperation", ErrorCategory.DomainError,
+                 "solve(): currently supports domains real and complex; got integer.",
+                 "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"),
+@@ -879,6 +927,29 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             UnsupportedCapability("fft.non-power-of-two-length", "InvalidArgument", ErrorCategory.TypeMismatch,
+                 "FFT length must be a power of two, but got 3. (Parameter 'x')",
+                 "x = symbol(\"x\"); fft([1,2,3])"),
++
++            // ---- round 11 (audit-2 F7): the three reachable refusal classes that were NOT listed ----
++            // Every one of them rides in a RESULT RECORD's diagnostics while the call SUCCEEDS, so
++            // each class carries the -in-record-diagnostics marker and the honesty test asserts the
++            // carrier as well as the strings. Each advertised message is the message THIS trigger
++            // produced, transcribed from the run (not paraphrased): all three are the input-specific
++            // kernel note, exactly like limit.unevaluated, so the CODE and CATEGORY are class-level
++            // and the MESSAGE is trigger-level.
++            UnsupportedCapability("solve.unevaluated-in-record-diagnostics", "solve.unevaluated",
++                ErrorCategory.UnsupportedOperation,
++                "0 = 0: every value is a solution.",
++                "x = symbol(\"x\"); solve_full(x == x, x)"),
++            UnsupportedCapability("system-solve.unevaluated-in-record-diagnostics", "system-solve.unevaluated",
++                ErrorCategory.UnsupportedOperation,
++                "system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here.",
++                "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y])"),
++            // the integration trigger is the SAME one the integration.unevaluated entry advertises:
++            // that call emits the class-level diagnostic AND this input-specific code, both at the
++            // top level of the record's diagnostics array
++            UnsupportedCapability("integration.no-closed-form-in-record-diagnostics", "integration.no-closed-form",
++                ErrorCategory.UnsupportedOperation,
++                "no integration tier produced a candidate closed form for integrate(exp(x^2), x)",
++                "x = symbol(\"x\"); integrate_full(exp(x^2), x)"),
+         }),
+         new RecordField("exactness", new EnumValue("CapabilitiesExactness", "BestEffort")));
+ 
+@@ -890,15 +961,26 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+ 
+     /// <summary>One unsupported operation class: the class identifier an agent enumerates on, the
+     /// EXACT wire code and category its live call produces, the human message, and a runnable
+-    /// snippet that trips it (statements separated by ';', per the language contract).</summary>
++    /// snippet that trips it (statements separated by ';', per the language contract).
++    /// <para>
++    /// <paramref name="scope"/> answers the one question the other four fields cannot when the
++    /// kernel's own message is WIDER than the refusal: exactly which inputs the class refuses and
++    /// which neighbouring inputs are supported instead. It is <c>null</c> — <c>{"kind":"Null"}</c>,
++    /// per the absent-field invariant — for a class whose id and message already state the scope
++    /// (e.g. <c>fft.non-power-of-two-length</c>). Round 11 added it for the two power classes,
++    /// where the kernel's message ("Non-integer exponents are not yet supported.") is a
++    /// transcription that would otherwise read as a claim about every non-integer exponent.
++    /// </para></summary>
+     private static RecordValue UnsupportedCapability(
+-        string operationClass, string code, ErrorCategory category, string message, string trigger) =>
++        string operationClass, string code, ErrorCategory category, string message, string trigger,
++        string? scope = null) =>
+         new("UnsupportedCapability",
+             new RecordField("operation_class", operationClass),
+             new RecordField("code", code),
+             new RecordField("category", EnumField("ErrorCategory", category)),
+             new RecordField("message", message),
+-            new RecordField("trigger", trigger));
++            new RecordField("trigger", trigger),
++            new RecordField("scope", scope));
+ 
+     private static IEnumerable<string> NameList(object? o)
+     {
+@@ -1585,6 +1667,44 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         return Exprs.Real(RealLiteral.FromRealExact(r));
+     }
+ 
++    /// <summary>The <c>digits</c> argument of <c>evalf(f, digits)</c>: a Natural or Integer in
++    /// [1, <see cref="int.MaxValue"/>]. The general <see cref="AsLong"/> coercion is deliberately NOT
++    /// used here, because every way it can meet a bad digit count produces an answer that is not an
++    /// answer to the argument problem: it TRUNCATES a Real (1.5 becomes 1), it wraps the Int32 cast
++    /// (<c>evalf(1/3, 2147483648)</c> cast a negative count and answered 0, declared exact), and an
++    /// integer wider than Int64 escapes as the raw CLR message "Value was either too large or too
++    /// small for an Int64." (<c>ArithmeticError</c>/<c>DomainError</c>). A count the builtin cannot
++    /// honour is a CALLER-SIDE ARGUMENT error, so it crosses as the documented recoverable argument
++    /// error — <c>InvalidArgument</c>/<c>TypeMismatch</c>, the pair <c>pi(0)</c>/<c>e(0)</c> already
++    /// produce — naming the builtin, the argument, the acceptable range and what was supplied
++    /// (docs/symbolics/dsh-protocol.md §Error envelope). It is never a silent 0, never an ignored
++    /// count, and never an internal invariant failure.</summary>
++    private static int DigitCount(object? payload)
++    {
++        // Real inherits Integer (the numeric tower), so the Real case is tested FIRST; Int and Nat
++        // are siblings. An integer literal arrives as Nat/Int/long depending on its width.
++        string? text = payload switch
++        {
++            Rl => null,                  // a Real digit count is not an integer count
++            Int i => i.ToString(),
++            Nat n => n.ToString(),
++            long l => l.ToString(),
++            _ => null,
++        };
++        if (text is null)
++            throw DigitCountError(DescribePayload(payload));
++        if (!long.TryParse(text, out long value))
++            throw DigitCountError(text);        // an integer too wide for Int64: report the value
++        if (value < 1 || value > int.MaxValue)
++            throw DigitCountError(value.ToString());
++        return (int)value;
++    }
++
++    /// <summary>The one message of the evalf digit-count refusal: it names the builtin, the
++    /// argument (position and name), the acceptable range, and the value that was refused.</summary>
++    private static ArgumentException DigitCountError(string got) =>
++        new($"evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and {int.MaxValue}; got {got}.");
++
+     private static int AsInt(object? o) => (int)AsLong(o);
+ 
+     private static long AsLong(object? o) => o switch

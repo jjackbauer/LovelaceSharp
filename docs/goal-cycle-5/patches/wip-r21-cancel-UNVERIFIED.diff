@@ -1,0 +1,1290 @@
+diff --git a/Lovelace.Dsp/DspMath.cs b/Lovelace.Dsp/DspMath.cs
+index c14bf2c..e1dccb4 100644
+--- a/Lovelace.Dsp/DspMath.cs
++++ b/Lovelace.Dsp/DspMath.cs
+@@ -21,13 +21,18 @@ public static class DspMath
+             return [];
+ 
+         var result = new Cplx[x.Count + h.Count - 1];
++        var poll = KernelCancellation.Capture();
+         for (int n = 0; n < result.Length; n++)
+         {
++            poll.PollNow();
+             Cplx sum = Cplx.Zero;
+             int lo = Math.Max(0, n - h.Count + 1);
+             int hi = Math.Min(x.Count - 1, n);
+             for (int m = lo; m <= hi; m++)
++            {
++                poll.Poll(m);
+                 sum += x[m] * h[n - m];
++            }
+             result[n] = sum;
+         }
+         return result;
+@@ -80,8 +85,10 @@ public static class DspMath
+         for (int i = 0; i < xHist.Length; i++) xHist[i] = Cplx.Zero;
+         for (int i = 0; i < yHist.Length; i++) yHist[i] = Cplx.Zero;
+         var result = new Cplx[x.Count];
++        var poll = KernelCancellation.Capture();
+         for (long n = 0; n < x.Count; n++)
+         {
++            poll.PollNow();
+             for (int j = b.Count - 1; j > 0; j--) xHist[j] = xHist[j - 1];
+             if (b.Count > 0) xHist[0] = x[(int)n];
+ 
+@@ -116,8 +123,10 @@ public static class DspMath
+             x[0] = Cplx.One;         // impulse input
+ 
+         var response = new Cplx[n];
++        var poll = KernelCancellation.Capture();
+         for (long k = 0; k < n; k++)
+         {
++            poll.PollNow();
+             Cplx acc = Cplx.Zero;
+             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
+             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
+@@ -155,9 +164,13 @@ public static class DspMath
+ 
+         public Cplx Get(long n)
+         {
++            var poll = KernelCancellation.Capture();
+             Cplx sum = Cplx.Zero;
+             for (long k = n - Window + 1; k <= n; k++)
++            {
++                poll.Poll(k);
+                 sum += X.Get(k);
++            }
+             return sum / _invWindow;
+         }
+     }
+@@ -182,15 +195,23 @@ public static class DspMath
+ 
+         // Precompute the N distinct roots of unity e^(−j·2π·k/N), k = 0..N−1.
+         var roots = new Cplx[N];
++        var poll = KernelCancellation.Capture();
+         for (long k = 0; k < N; k++)
++        {
++            poll.Poll(k);
+             roots[k] = RootOfUnity(k, N, digits);
++        }
+ 
+         var result = new Cplx[N];
+         for (long k = 0; k < N; k++)
+         {
++            poll.PollNow();
+             Cplx sum = Cplx.Zero;
+             for (long n = 0; n < N; n++)
++            {
++                poll.Poll(n);
+                 sum += x[(int)n] * roots[(int)((k * n) % N)];
++            }
+             result[k] = sum;
+         }
+         return result;
+@@ -222,26 +243,36 @@ public static class DspMath
+ 
+         // Bit-reversal permutation into the working buffer.
+         var a = new Cplx[n];
++        var poll = KernelCancellation.Capture();
+         for (int i = 0; i < n; i++)
++        {
++            poll.Poll(i);
+             a[ReverseBits(i, logN)] = x[i];
++        }
+ 
+         // Twiddle factors W_n[k] = e^(−j·2π·k/n) for k = 0 .. n/2−1, angle-reduced to lowest
+         // terms so power-of-2 roots hit exact special/sqrt values (same construction as Dft).
+         int halfN = n >> 1;
+         var w = new Cplx[halfN];
+         for (int k = 0; k < halfN; k++)
++        {
++            poll.Poll(k);
+             w[k] = RootOfUnity(k, n, digits);
++        }
+ 
+         // Cooley–Tukey butterflies: t = W · x[k+j+h/2], u = x[k+j];
+         // x[k+j] = u + t, x[k+j+h/2] = u − t.
+         for (int len = 2; len <= n; len <<= 1)
+         {
++            poll.PollNow();
+             int half = len >> 1;
+             int step = n / len;
+             for (int i = 0; i < n; i += len)
+             {
++                poll.Poll(i);
+                 for (int j = 0; j < half; j++)
+                 {
++                    poll.Poll(j);
+                     Cplx t = w[j * step] * a[i + j + half];
+                     Cplx u = a[i + j];
+                     a[i + j] = u + t;
+diff --git a/Lovelace.Dsp/DspPlugin.cs b/Lovelace.Dsp/DspPlugin.cs
+index 64a78b8..89056e0 100644
+--- a/Lovelace.Dsp/DspPlugin.cs
++++ b/Lovelace.Dsp/DspPlugin.cs
+@@ -314,8 +314,10 @@ public sealed class DspPlugin : IModusPlugin
+     private static bool TryConvert(Cplx[] values, out Cplx128[] result)
+     {
+         result = new Cplx128[values.Length];
++        var poll = KernelCancellation.Capture();
+         for (int i = 0; i < values.Length; i++)
+         {
++            poll.Poll(i);
+             if (!Cplx128.TryFromComplex(values[i], out result[i]))
+                 return false;
+         }
+@@ -325,8 +327,12 @@ public sealed class DspPlugin : IModusPlugin
+     private static Cplx[] ConvertBack(Cplx128[] values)
+     {
+         var result = new Cplx[values.Length];
++        var poll = KernelCancellation.Capture();
+         for (int i = 0; i < values.Length; i++)
++        {
++            poll.Poll(i);
+             result[i] = values[i].ToComplex();
++        }
+         return result;
+     }
+ 
+@@ -372,16 +378,24 @@ public sealed class DspPlugin : IModusPlugin
+         var padded = new Cplx[n];
+         int copy = Math.Min(x.Length, n);
+         Array.Copy(x, padded, copy);
++        var poll = KernelCancellation.Capture();
+         for (int i = copy; i < n; i++)
++        {
++            poll.Poll(i);
+             padded[i] = Cplx.Zero;
++        }
+         return padded;
+     }
+ 
+     private static object MapElements(IReadOnlyList<object?> elements, Func<Cplx, object> selector)
+     {
+         var result = new object?[elements.Count];
++        var poll = KernelCancellation.Capture();
+         for (int i = 0; i < elements.Count; i++)
++        {
++            poll.Poll(i);
+             result[i] = selector(ToComplex(elements[i]));
++        }
+         return result;
+     }
+ 
+@@ -408,8 +422,12 @@ public sealed class DspPlugin : IModusPlugin
+         if (value is not IReadOnlyList<object?> elements)
+             throw new InvalidOperationException("DSP builtins expect an array argument, but got a scalar.");
+         var result = new Cplx[elements.Count];
++        var poll = KernelCancellation.Capture();
+         for (int i = 0; i < elements.Count; i++)
++        {
++            poll.Poll(i);
+             result[i] = ToComplex(elements[i]);
++        }
+         return result;
+     }
+ 
+diff --git a/Lovelace.Dsp/FixedDsp.cs b/Lovelace.Dsp/FixedDsp.cs
+index 552b6dd..b5d0c4a 100644
+--- a/Lovelace.Dsp/FixedDsp.cs
++++ b/Lovelace.Dsp/FixedDsp.cs
+@@ -30,13 +30,18 @@ public static class FixedDsp
+             return [];
+ 
+         var result = new Cplx64[x.Count + h.Count - 1];
++        var poll = KernelCancellation.Capture();
+         for (int n = 0; n < result.Length; n++)
+         {
++            poll.PollNow();
+             Cplx64 sum = Cplx64.Zero;
+             int lo = Math.Max(0, n - h.Count + 1);
+             int hi = Math.Min(x.Count - 1, n);
+             for (int m = lo; m <= hi; m++)
++            {
++                poll.Poll(m);
+                 sum += x[m] * h[n - m];
++            }
+             result[n] = sum;
+         }
+         return result;
+@@ -51,13 +56,18 @@ public static class FixedDsp
+             return [];
+ 
+         var result = new Cplx128[x.Count + h.Count - 1];
++        var poll = KernelCancellation.Capture();
+         for (int n = 0; n < result.Length; n++)
+         {
++            poll.PollNow();
+             Cplx128 sum = Cplx128.Zero;
+             int lo = Math.Max(0, n - h.Count + 1);
+             int hi = Math.Min(x.Count - 1, n);
+             for (int m = lo; m <= hi; m++)
++            {
++                poll.Poll(m);
+                 sum += x[m] * h[n - m];
++            }
+             result[n] = sum;
+         }
+         return result;
+@@ -97,8 +107,10 @@ public static class FixedDsp
+             x[0] = Cplx64.One;         // impulse input
+ 
+         var response = new Cplx64[n];
++        var poll = KernelCancellation.Capture();
+         for (long k = 0; k < n; k++)
+         {
++            poll.PollNow();
+             Cplx64 acc = Cplx64.Zero;
+             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
+             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
+@@ -130,8 +142,10 @@ public static class FixedDsp
+             x[0] = Cplx128.One;         // impulse input
+ 
+         var response = new Cplx128[n];
++        var poll = KernelCancellation.Capture();
+         for (long k = 0; k < n; k++)
+         {
++            poll.PollNow();
+             Cplx128 acc = Cplx128.Zero;
+             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
+             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
+@@ -162,8 +176,10 @@ public static class FixedDsp
+ 
+         var divisor = LReal64.Parse(window.ToString());
+         var result = new Cplx64[x.Count];
++        var poll = KernelCancellation.Capture();
+         for (int n = 0; n < x.Count; n++)
+         {
++            poll.PollNow();
+             Cplx64 sum = Cplx64.Zero;
+             for (long k = n - window + 1; k <= n; k++)
+                 if (k >= 0)
+@@ -182,8 +198,10 @@ public static class FixedDsp
+ 
+         var divisor = LReal128.Parse(window.ToString());
+         var result = new Cplx128[x.Count];
++        var poll = KernelCancellation.Capture();
+         for (int n = 0; n < x.Count; n++)
+         {
++            poll.PollNow();
+             Cplx128 sum = Cplx128.Zero;
+             for (long k = n - window + 1; k <= n; k++)
+                 if (k >= 0)
+diff --git a/Lovelace.Dsp/KernelCancellation.cs b/Lovelace.Dsp/KernelCancellation.cs
+new file mode 100644
+index 0000000..dd2c800
+--- /dev/null
++++ b/Lovelace.Dsp/KernelCancellation.cs
+@@ -0,0 +1,51 @@
++using System.Runtime.CompilerServices;
++
++namespace Lovelace.Dsp;
++
++/// <summary>
++/// Strided cancellation polling for the DSP kernels. The suite's numeric kernels are polled in
++/// <c>Lovelace.Suite.TypedArrayOps</c>; the DSP kernels are reachable from the same run
++/// (<c>Lovelace.Run</c> loads <c>DspPlugin</c>) and used to enter a multi-second transform without
++/// ever reading the caller's deadline, so they carry the same poll. The helper is duplicated per
++/// assembly because <c>Lovelace.Abstractions</c> is frozen this round and is the only project all
++/// of them reference.
++/// </summary>
++/// <remarks>
++/// The expensive part of a poll is the ambient-token lookup
++/// (<see cref="Lovelace.Abstractions.Cancellation.Token"/> is an <c>AsyncLocal</c> read), so a
++/// kernel captures the token ONCE before entering its loop and then reads the captured token.
++/// <see cref="Poll"/> strides for per-sample loops; <see cref="PollNow"/> checks on every call for
++/// outer loops whose body is a full inner sweep.
++/// </remarks>
++internal readonly struct KernelCancellation
++{
++    /// <summary>Iterations between checks; see the Suite helper for the same constant.</summary>
++    public const int Interval = 64;
++
++    private readonly CancellationToken _token;
++
++    private KernelCancellation(CancellationToken token) => _token = token;
++
++    /// <summary>Captures the ambient token: call ONCE per kernel invocation, outside the loop.</summary>
++    public static KernelCancellation Capture() => new(Lovelace.Abstractions.Cancellation.Token);
++
++    /// <summary>Checks the caller's token every <see cref="Interval"/> iterations.</summary>
++    [MethodImpl(MethodImplOptions.AggressiveInlining)]
++    public void Poll(long iteration)
++    {
++        if ((iteration & (Interval - 1)) == 0)
++            Throw();
++    }
++
++    /// <summary>Checks the caller's token on every call, for a loop whose body is a full sweep.</summary>
++    [MethodImpl(MethodImplOptions.AggressiveInlining)]
++    public void PollNow()
++    {
++        if (_token.IsCancellationRequested)
++            Throw();
++    }
++
++    /// <summary>The cold half: kept out of line so the poll's hot path is one predictable branch.</summary>
++    [MethodImpl(MethodImplOptions.NoInlining)]
++    private void Throw() => _token.ThrowIfCancellationRequested();
++}
+diff --git a/Lovelace.Dsp/Signals.cs b/Lovelace.Dsp/Signals.cs
+index fa24379..f463406 100644
+--- a/Lovelace.Dsp/Signals.cs
++++ b/Lovelace.Dsp/Signals.cs
+@@ -23,8 +23,12 @@ public static class Signal
+             throw new ArgumentOutOfRangeException(nameof(end),
+                 $"The sample range [{begin}, {end}] spans more than {int.MaxValue} samples.");
+         var result = new Cplx[checked((int)(end - begin + 1))];
++        var poll = KernelCancellation.Capture();
+         for (long n = begin; n <= end; n++)
++        {
++            poll.Poll(n);
+             result[n - begin] = signal.Get(n);
++        }
+         return result;
+     }
+ }
+diff --git a/Lovelace.Run.Tests/CancellationBudgetTests.cs b/Lovelace.Run.Tests/CancellationBudgetTests.cs
+new file mode 100644
+index 0000000..6db1b42
+--- /dev/null
++++ b/Lovelace.Run.Tests/CancellationBudgetTests.cs
+@@ -0,0 +1,147 @@
++using System.Diagnostics;
++using System.Text.Json.Nodes;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// The <c>--cancel-after</c> budget, end to end through the runner's own entry point.
++///
++/// Before this contract existed the budget was honoured only between top-level statements, so a
++/// single numeric statement ran to completion and reported <c>ok</c>: an independent audit measured
++/// <c>sum(1..10000000)</c> under a 1 ms budget returning <c>ok</c> after 4.9-6.0 s (8/8 runs) and
++/// <c>prod(1..200000)</c> under a 100 ms budget finishing the full 200000! after 47-58 s, with
++/// nothing in the envelope saying the deadline had been dropped. Each test below therefore measures
++/// the wall time as well as the envelope, because "stopped" without a promptness bound is not the
++/// contract: the budget must MEAN something inside the kernel.
++/// </summary>
++public class CancellationBudgetTests
++{
++    /// <summary>
++    /// The fence for a run whose un-budgeted work is measured in seconds: the fix stops inside the
++    /// kernel (tens of milliseconds), the pre-fix tree runs the kernel to completion (3.4 s for this
++    /// sum, 7.5 s for the 400x400 product). The fence sits far above the fix and far below the
++    /// unfixed work, so neither a slow machine nor a fast one can flip the result.
++    /// </summary>
++    private const int PromptnessFenceMs = 2500;
++
++    private static JsonNode Envelope(string stdout, string what) =>
++        TestSupport.ParseExactlyOneJsonDocument(stdout, what);
++
++    [Fact]
++    public async Task Run_GivenBudgetFarBelowTheSum_StopsInsideTheKernelAndSaysSo()
++    {
++        var stopwatch = Stopwatch.StartNew();
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "sum(1..10000000)", "--json", "--omit-functions", "--omit-variables", "--cancel-after", "100");
++        stopwatch.Stop();
++
++        JsonNode envelope = Envelope(stdout, "cancelled sum envelope");
++
++        // the budget stopped the run: not a success, and not an ordinary failure either
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"stdout: {stdout} stderr: {stderr}");
++        Assert.Equal("Cancelled", envelope["code"]!.GetValue<string>());
++        Assert.Equal("BudgetExceeded", envelope["category"]!.GetValue<string>());
++
++        // the ledger: the deadline stopped it, and it says how far past the budget the stop landed
++        JsonNode ledger = envelope["cancellation"]!;
++        Assert.Equal(100, ledger["budgetMs"]!.GetValue<int>());
++        Assert.True(ledger["stopped"]!.GetValue<bool>(), $"the deadline did not stop the run: {ledger.ToJsonString()}");
++        Assert.True(ledger["exceeded"]!.GetValue<bool>(), $"the excess was not reported: {ledger.ToJsonString()}");
++        Assert.True(ledger["excessMs"]!.GetValue<double>() > 0, $"excessMs: {ledger.ToJsonString()}");
++        Assert.Equal(ledger["elapsedMs"]!.GetValue<double>(),
++            envelope["elapsedTime"]!["value"]!.GetValue<double>() *
++            (envelope["elapsedTime"]!["unit"]!.GetValue<string>() == "s" ? 1000 : 1), 1);
++
++        // 3.4 s of work under a 100 ms budget must come back promptly, not merely "eventually"
++        Assert.True(stopwatch.ElapsedMilliseconds < PromptnessFenceMs,
++            $"the 100 ms budget took {stopwatch.ElapsedMilliseconds} ms to take effect on a sum that " +
++            $"needs ~3400 ms unbudgeted (fence {PromptnessFenceMs} ms). Envelope: {stdout}");
++    }
++
++    [Fact]
++    public async Task Run_GivenBudgetFarBelowTheMatrixProduct_StopsInsideTheKernelAndSaysSo()
++    {
++        var stopwatch = Stopwatch.StartNew();
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "matmul(eye(400), eye(400))", "--json", "--omit-functions", "--omit-variables",
++            "--print-budget", "20", "--cancel-after", "100");
++        stopwatch.Stop();
++
++        JsonNode envelope = Envelope(stdout, "cancelled matmul envelope");
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"stdout: {stdout} stderr: {stderr}");
++        Assert.Equal("Cancelled", envelope["code"]!.GetValue<string>());
++        Assert.True(envelope["cancellation"]!["stopped"]!.GetValue<bool>(), stdout);
++
++        Assert.True(stopwatch.ElapsedMilliseconds < PromptnessFenceMs,
++            $"the 100 ms budget took {stopwatch.ElapsedMilliseconds} ms to take effect on matmul(eye(400), " +
++            $"eye(400)) which needs ~7500 ms unbudgeted (fence {PromptnessFenceMs} ms). Envelope: {stdout}");
++    }
++
++    [Fact]
++    public async Task Run_GivenWorkInsideTheBudget_SucceedsNormallyAndReportsNoExcess()
++    {
++        // the negative control: the budget changes nothing when the work fits, and the ledger says
++        // exactly that instead of leaving a consumer to infer it
++        var stopwatch = Stopwatch.StartNew();
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "sum(1..1000)", "--json", "--omit-functions", "--omit-variables", "--cancel-after", "60000");
++        stopwatch.Stop();
++
++        JsonNode envelope = Envelope(stdout, "in-budget sum envelope");
++        Assert.Equal(0, exitCode);
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"stdout: {stdout} stderr: {stderr}");
++        Assert.Equal("500500", envelope["result"]!["display"]!.GetValue<string>());
++
++        JsonNode ledger = envelope["cancellation"]!;
++        Assert.Equal(60000, ledger["budgetMs"]!.GetValue<int>());
++        Assert.False(ledger["stopped"]!.GetValue<bool>(), ledger.ToJsonString());
++        Assert.False(ledger["exceeded"]!.GetValue<bool>(), ledger.ToJsonString());
++        Assert.Equal(0, ledger["excessMs"]!.GetValue<double>());
++        Assert.True(stopwatch.ElapsedMilliseconds < 10_000, $"a trivial sum took {stopwatch.ElapsedMilliseconds} ms");
++    }
++
++    [Fact]
++    public async Task Run_GivenNoBudget_CarriesNoCancellationBlockAtAll()
++    {
++        // the un-budgeted envelope is byte-for-byte what it always was: the block appears only when
++        // there is a deadline to report on (a placeholder would be a lie about a budget nobody set)
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "sum(1..1000)", "--json", "--omit-functions", "--omit-variables");
++
++        JsonNode envelope = Envelope(stdout, "un-budgeted sum envelope");
++        Assert.Equal(0, exitCode);
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"stdout: {stdout} stderr: {stderr}");
++        Assert.Null(envelope["cancellation"]);
++        Assert.Null(envelope["diagnostics"]);
++    }
++
++    [Fact]
++    public async Task Run_GivenExceededDeadline_CarriesAMachineReadableDiagnostic()
++    {
++        // a failure that ran past its budget must carry the accounting in the diagnostics array too,
++        // so a consumer reading only diagnostics still learns the deadline was blown
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "sum(1..10000000)", "--json", "--omit-functions", "--omit-variables", "--cancel-after", "100");
++
++        JsonNode envelope = Envelope(stdout, "cancelled sum envelope");
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"stdout: {stdout} stderr: {stderr}");
++
++        // the ledger and the diagnostics cannot disagree: an exceeded deadline ALWAYS leaves the
++        // machine-readable diagnostic, and a deadline that was not exceeded leaves the array empty
++        // (the engine clears its own diagnostics on a cancellation — this entry is the runner's)
++        JsonArray diagnostics = envelope["diagnostics"]!.AsArray();
++        bool exceeded = envelope["cancellation"]!["exceeded"]!.GetValue<bool>();
++        if (exceeded)
++        {
++            Assert.Contains(diagnostics, d =>
++                d!["message"]!.GetValue<string>().Contains("cancellation deadline exceeded", StringComparison.Ordinal));
++        }
++        else
++        {
++            Assert.Empty(diagnostics);
++        }
++    }
++}
+diff --git a/Lovelace.Run/RunProtocol.cs b/Lovelace.Run/RunProtocol.cs
+index 6bbea6b..1918c53 100644
+--- a/Lovelace.Run/RunProtocol.cs
++++ b/Lovelace.Run/RunProtocol.cs
+@@ -39,6 +39,29 @@ internal sealed record FunctionDto(string Name, string[] Parameters, int MinArit
+ internal sealed record PlotDto(string Path, string Title, string Svg);
+ internal sealed record ResultDto(string Kind, string Display, string Typed, StructuredValueDto Structured);
+ internal sealed record DiagnosticDto(string Message, int Position, int Line, int Column);
++
++/// <summary>The cancellation-budget ledger, published whenever <c>--cancel-after</c> was given (and
++/// ABSENT — never a placeholder — when it was not, so an un-budgeted envelope is byte-for-byte what
++/// it always was). Two independent facts, both machine-readable:
++/// <list type="bullet">
++/// <item><c>stopped</c> — the deadline actually stopped this evaluation: the envelope is a failure
++/// with <c>code</c> <c>Cancelled</c> and <c>category</c> <c>BudgetExceeded</c>, carrying the partial
++/// state. False means the evaluation ended on its own (it completed, or it failed for an unrelated
++/// reason) and the deadline never got to stop it.</item>
++/// <item><c>exceeded</c> — the evaluation consumed more than its budget, with <c>excessMs</c> saying
++/// by how much. This is the fact an agent must never have to infer: <c>stopped=false</c> with
++/// <c>exceeded=true</c> is a DROPPED deadline — before the kernels polled, <c>sum(1..10000000)</c>
++/// under a 1 ms budget reported <c>ok</c> after 3368 ms with nothing in the envelope saying so.
++/// <c>stopped=true</c> with <c>exceeded=true</c> is a deadline that was observed LATE; the excess is
++/// the stop latency (kernel poll stride plus, on a small budget, the OS timer granularity).</item>
++/// </list>
++/// <c>elapsedMs</c> is the SAME wall time the envelope publishes as <c>elapsedTime</c>, in
++/// milliseconds, so budget and elapsed are directly comparable: <c>excessMs = max(0, elapsedMs -
++/// budgetMs)</c>. A run that overruns still reports the outcome it actually reached (<c>ok</c> plus
++/// the result, or the error it hit); the ledger says the deadline did not hold.</summary>
++internal sealed record CancellationDto(
++    int BudgetMs, double ElapsedMs, bool Stopped, bool Exceeded, double ExcessMs);
++
+ internal sealed record RunEnvelopeDto(
+     int ProtocolVersion,
+     string SymbolicFormatVersion,
+@@ -52,7 +75,12 @@ internal sealed record RunEnvelopeDto(
+     PlotDto? Plot,
+     string Elapsed,
+     DurationDto ElapsedTime,
+-    TimingDto[] Timings);
++    TimingDto[] Timings,
++    // present only when --cancel-after was given: the deadline verdict (see CancellationDto)
++    CancellationDto? Cancellation = null,
++    // present only when the deadline was overrun: one diagnostic naming the overrun, so a consumer
++    // that reads only the diagnostics array still learns that the budget was dropped
++    DiagnosticDto[]? Diagnostics = null);
+ internal sealed record RunErrorDto(
+     int ProtocolVersion,
+     string SymbolicFormatVersion,
+@@ -71,7 +99,11 @@ internal sealed record RunErrorDto(
+     TimingDto[] Timings,
+     // present only for a cancelled evaluation: everything the engine had already committed
+     string[]? PartialOutput = null,
+-    VariableDto[]? PartialVariables = null);
++    VariableDto[]? PartialVariables = null,
++    // present only when --cancel-after was given: the deadline verdict (see CancellationDto). The
++    // diagnosis travels with the FAILED envelope too, because a run that errored after blowing its
++    // budget must not look like a run that respected it.
++    CancellationDto? Cancellation = null);
+ 
+ [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+@@ -84,6 +116,7 @@ internal sealed record RunErrorDto(
+ [JsonSerializable(typeof(FunctionDto))]
+ [JsonSerializable(typeof(PlotDto))]
+ [JsonSerializable(typeof(DiagnosticDto))]
++[JsonSerializable(typeof(CancellationDto))]
+ internal sealed partial class RunJsonContext : JsonSerializerContext
+ {
+ }
+diff --git a/Lovelace.Run/Runner.cs b/Lovelace.Run/Runner.cs
+index 54eb442..1c4e100 100644
+--- a/Lovelace.Run/Runner.cs
++++ b/Lovelace.Run/Runner.cs
+@@ -1,3 +1,4 @@
++using System.Globalization;
+ using System.Text;
+ using System.Text.Json;
+ using System.Text.Json.Serialization.Metadata;
+@@ -208,6 +209,9 @@ public static class Runner
+                 : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result),
+                     StructuredProjection.ToStructured(result, structuredBudget));
+ 
++            // the deadline verdict is derived from the SAME elapsed time the envelope publishes, so
++            // budget and elapsed are directly comparable (see CancellationDto)
++            var deadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: false);
+             var envelope = new RunEnvelopeDto(
+                 ProtocolVersion,
+                 Lovelace.Symbolics.Printing.FormatHeader,
+@@ -221,7 +225,11 @@ public static class Runner
+                 plot,
+                 engine.LastElapsedDisplay,
+                 Duration(engine.LastElapsed),
+-                Timings(engine.OperationTimings));
++                Timings(engine.OperationTimings),
++                deadline,
++                deadline is { Exceeded: true }
++                    ? new[] { OverrunDiagnostic(deadline, source, engine.OperationTimings, completed: true) }
++                    : null);
+ 
+             if (json)
+                 WriteJson(stdout, envelope, RunJsonContext.Default.RunEnvelopeDto);
+@@ -236,6 +244,13 @@ public static class Runner
+                 .Select(d => new DiagnosticDto(d.Message, d.Position, d.Line, d.Column))
+                 .ToArray();
+             var (code, category, recoverable) = Classify(ex);
++            // a run that blew its budget before failing must not look like one that respected it:
++            // the verdict travels with the failure, and an overrun adds its own diagnostic
++            var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: code == "Cancelled");
++            if (failedDeadline is { Exceeded: true })
++                diagnostics = diagnostics
++                    .Append(OverrunDiagnostic(failedDeadline, source, engine.OperationTimings, completed: false))
++                    .ToArray();
+             // a cancelled run is not a failed run: the host reports the structured status together
+             // with everything the engine had already committed
+             string[]? partialOutput = code == "Cancelled" ? SplitLines(output.ToString()) : null;
+@@ -249,7 +264,7 @@ public static class Runner
+             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
+             // from one unit selector and one timing entry per statement that ran before the failure
+             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
+-                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables);
++                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables, failedDeadline);
+         }
+     }
+ 
+@@ -283,7 +298,8 @@ public static class Runner
+     private static int WriteError(TextWriter stdout, TextWriter stderr,
+         bool json, string code, string category, string message, bool recoverable,
+         DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
+-        string[]? output = null, VariableDto[]? variables = null)
++        string[]? output = null, VariableDto[]? variables = null,
++        CancellationDto? cancellation = null)
+     {
+         if (json)
+         {
+@@ -292,7 +308,7 @@ public static class Runner
+             // forms can never disagree — exactly like the success envelope
+             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
+                 false, code, category, message, recoverable, diagnostics,
+-                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables),
++                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables, cancellation),
+                 RunJsonContext.Default.RunErrorDto);
+         }
+         else
+@@ -302,6 +318,79 @@ public static class Runner
+         return 1;
+     }
+ 
++
++    // -----------------------------------------------------------------
++    // Cancellation budget
++    // -----------------------------------------------------------------
++
++    /// <summary>
++    /// The budget ledger for one run, or <see langword="null"/> when no <c>--cancel-after</c> budget
++    /// was given (the envelope then carries no cancellation block at all, exactly as before this
++    /// field existed). <paramref name="elapsed"/> is the engine's own measurement — the SAME value
++    /// published as <c>elapsedTime</c> — so a consumer never has to reconcile two clocks, and
++    /// <paramref name="stopped"/> says whether the deadline is what ended the run.
++    /// </summary>
++    private static CancellationDto? CancellationLedger(int? budgetMs, TimeSpan elapsed, bool stopped)
++    {
++        if (budgetMs is not { } budget)
++            return null;
++
++        double elapsedMs = elapsed.TotalMilliseconds;
++        double excessMs = Math.Max(0, elapsedMs - budget);
++        return new CancellationDto(budget, Math.Round(elapsedMs, 3), stopped, excessMs > 0,
++            Math.Round(excessMs, 3));
++    }
++
++    /// <summary>
++    /// The diagnostic that names an exceeded deadline — published on the success envelope's
++    /// <c>diagnostics</c> array and appended to the failure envelope's, so a consumer that reads only
++    /// diagnostics still cannot mistake an overrun for a normal run. The position is the last
++    /// top-level statement that ran (the statement the deadline passed inside); the line/column rule
++    /// is the one the engine uses (<c>SuiteEngine.ComputeLineColumn</c>), kept here because the
++    /// runner owns the source text it was handed.
++    /// </summary>
++    private static DiagnosticDto OverrunDiagnostic(CancellationDto ledger, string source,
++        IReadOnlyList<OperationTiming> timings, bool completed)
++    {
++        int position = timings.Count > 0 ? timings[timings.Count - 1].Position : 0;
++        var (line, column) = ComputeLineColumn(source, position);
++        string outcome = ledger.Stopped
++            ? "the deadline was observed, but only after the excess had already been spent"
++            : completed
++                ? "the evaluation completed anyway"
++                : "the evaluation then failed for another reason";
++        return new DiagnosticDto(
++            $"cancellation deadline exceeded: --cancel-after {ledger.BudgetMs} ms, " +
++            $"elapsed {FormatMs(ledger.ElapsedMs)} ms " +
++            $"({FormatMs(ledger.ExcessMs)} ms over budget); {outcome}.",
++            position, line, column);
++    }
++
++    /// <summary>1-based line and column of a source offset, matching the engine's own rule.</summary>
++    private static (int Line, int Column) ComputeLineColumn(string source, int position)
++    {
++        if (position < 0 || position > source.Length)
++            return (1, position + 1);
++
++        int line = 1;
++        int lastNewline = -1;
++        for (int i = 0; i < position && i < source.Length; i++)
++        {
++            if (source[i] == '\n')
++            {
++                line++;
++                lastNewline = i;
++            }
++        }
++
++        return (line, position - lastNewline);
++    }
++
++    /// <summary>A millisecond count as an invariant-culture string: the envelope must read the same
++    /// on a machine whose decimal separator is a comma.</summary>
++    private static string FormatMs(double milliseconds) =>
++        milliseconds.ToString("0.###", CultureInfo.InvariantCulture);
++
+     private static Lovelace.Symbolics.Printing.PrintBudget? PrintBudgetOrNull(int? maxNodes) =>
+         maxNodes is { } nodes ? new Lovelace.Symbolics.Printing.PrintBudget(MaxNodes: nodes) : null;
+ 
+@@ -374,6 +463,10 @@ public static class Runner
+             sb.AppendLine(line);
+         foreach (var v in envelope.Variables)
+             sb.AppendLine($"  {v.Name} = {v.Display}");
++        if (envelope.Cancellation is { Exceeded: true } ledger)
++            sb.AppendLine($"! cancellation deadline exceeded: --cancel-after {ledger.BudgetMs} ms, " +
++                          $"elapsed {FormatMs(ledger.ElapsedMs)} ms ({FormatMs(ledger.ExcessMs)} ms over budget)" +
++                          (ledger.Stopped ? "; the deadline was observed late." : "; the deadline did not stop it."));
+         stdout.Write(sb.ToString());
+     }
+ 
+@@ -406,7 +499,8 @@ public static class Runner
+             "  --omit-functions     omit the builtin registry from the envelope (agent loops)\n" +
+             "  --omit-variables     omit the variables array from the envelope (agent loops)\n" +
+             "  --print-budget <n>   abbreviate structured renderings beyond n nodes, reporting the truncation\n" +
+-            "  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result\n" +
++            "  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result;\n" +
++            "                       the envelope's cancellation block reports the deadline verdict\n" +
+             "  --json               emit JSON (default)\n" +
+             "  --text               emit a human-readable summary\n" +
+             "  --help, -h           show this help");
+diff --git a/Lovelace.Suite.Tests/ArrayKernelCancellationTests.cs b/Lovelace.Suite.Tests/ArrayKernelCancellationTests.cs
+new file mode 100644
+index 0000000..ce22d1b
+--- /dev/null
++++ b/Lovelace.Suite.Tests/ArrayKernelCancellationTests.cs
+@@ -0,0 +1,109 @@
++using System.Diagnostics;
++using Lovelace.Suite;
++
++namespace Lovelace.Suite.Tests;
++
++/// <summary>
++/// The numeric kernels must observe the caller's deadline, not just the statement boundary.
++/// <see cref="CancellationObservationTests"/> covers the Natural-library algorithms (a power, a
++/// factorial); this file covers the ARRAY path the audit found silent: a range reduction, a product
++/// whose operands grow to six figures of digits, a matrix product, and a bare while loop.
++///
++/// Each test fences on wall time as well as on the exception, because the pre-fix behaviour was not
++/// "no exception ever" but "the exception arrives after the whole kernel has run" — 3.4 s for the
++/// 10M sum, 22.5 s for the 200000! product, 7.5 s for the 400x400 product and 42 s for the while
++/// loop, each against a budget of tens or hundreds of milliseconds.
++/// </summary>
++public class ArrayKernelCancellationTests
++{
++    /// <summary>
++    /// Test-side fence: a non-observing implementation FAILS rather than hangs. It is deliberately
++    /// far above each budget and far below the un-budgeted cost of the work, so a slow machine
++    /// cannot turn promptness into a flake and a fast one cannot hide the defect.
++    /// </summary>
++    private static readonly TimeSpan Fence = TimeSpan.FromSeconds(8);
++
++    private static async Task<(TimeSpan Wall, EvaluationCancelledException Error)> ExpectPromptStop(
++        string script, int budgetMs, string work)
++    {
++        var engine = new SuiteEngine();
++        using var cts = new CancellationTokenSource(budgetMs);
++        var stopwatch = Stopwatch.StartNew();
++
++        // Task.Run is load-bearing: EvaluateAsync runs synchronously on the caller's thread until its
++        // first genuine await, so without the offload the fence below could never fire.
++        var evaluation = Task.Run(() => engine.EvaluateAsync(script, null, cts.Token));
++        var settled = await Task.WhenAny(evaluation, Task.Delay(Fence));
++        stopwatch.Stop();
++
++        Assert.True(settled == evaluation,
++            $"cancellation was not observed: the {budgetMs} ms budget expired but '{script}' was still " +
++            $"running after {stopwatch.Elapsed.TotalSeconds:F1} s (fence {Fence.TotalSeconds:F0} s); " +
++            $"{work}");
++
++        var error = await Assert.ThrowsAsync<EvaluationCancelledException>(() => evaluation);
++        Assert.True(error.CancellationToken.IsCancellationRequested);
++        return (stopwatch.Elapsed, error);
++    }
++
++    [Fact]
++    public async Task SumOverRange_GivenShortBudget_CancelsInsideTheRangeAndReduction()
++    {
++        // ~3.4 s unbudgeted: the range build alone is ten million boxed Naturals
++        var (wall, _) = await ExpectPromptStop("sum(1..10000000)", 100,
++            "sum(1..10000000) needs ~3.4 s unbudgeted");
++        Assert.True(wall < Fence, $"cancellation took {wall.TotalSeconds:F2} s for a 100 ms budget");
++    }
++
++    [Fact]
++    public async Task ProductOverRange_GivenShortBudget_CancelsInsideTheGrowingProduct()
++    {
++        // ~22.5 s unbudgeted: the accumulator reaches 200000! (973351 digits), so the late iterations
++        // are milliseconds each and the poll stride is the only thing between the budget and a
++        // minute-long overrun
++        var (wall, _) = await ExpectPromptStop("prod(1..200000)", 200,
++            "prod(1..200000) needs ~22.5 s unbudgeted");
++        Assert.True(wall < Fence, $"cancellation took {wall.TotalSeconds:F2} s for a 200 ms budget");
++    }
++
++    [Fact]
++    public async Task MatrixProduct_GivenShortBudget_CancelsInsideTheTripleLoop()
++    {
++        // ~7.5 s unbudgeted: 400^3 boxed multiply-adds
++        var (wall, _) = await ExpectPromptStop("matmul(eye(400), eye(400))", 100,
++            "matmul(eye(400), eye(400)) needs ~7.5 s unbudgeted");
++        Assert.True(wall < Fence, $"cancellation took {wall.TotalSeconds:F2} s for a 100 ms budget");
++    }
++
++    [Fact]
++    public async Task WhileLoop_GivenShortBudget_CancelsBetweenIterations()
++    {
++        // ~42 s unbudgeted: a body of one cheap statement, which used to loop for minutes without a
++        // single look at the deadline (the statement-boundary check only runs between TOP-LEVEL
++        // statements, and this loop is one statement)
++        var (wall, _) = await ExpectPromptStop("i = 0; while (i < 100000000) { i = i + 1 }; i", 200,
++            "a 100M-iteration while loop needs ~42 s unbudgeted");
++        Assert.True(wall < Fence, $"cancellation took {wall.TotalSeconds:F2} s for a 200 ms budget");
++    }
++
++    [Fact]
++    public async Task ElementwiseArrayArithmetic_GivenShortBudget_CancelsInsideTheMap()
++    {
++        // the elementwise kernel is a second per-element loop the audit's source sweep found
++        // unpolled; zeros() fills in one Array.Fill (microseconds), so the work that runs past the
++        // budget is the five-million-element map itself
++        var (wall, _) = await ExpectPromptStop("a = zeros(5000000); b = a + a; sum(b)", 100,
++            "elementwise addition over five million boxed Values needs ~0.6 s unbudgeted");
++        Assert.True(wall < Fence, $"cancellation took {wall.TotalSeconds:F2} s for a 100 ms budget");
++    }
++
++    [Fact]
++    public async Task RunInsideBudget_GivenGenerousBudget_StillReturnsTheResult()
++    {
++        // the negative control at the engine seam: polling must not disturb a run that fits
++        var engine = new SuiteEngine();
++        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
++        var result = await engine.EvaluateAsync("sum(1..1000)", null, cts.Token);
++        Assert.Equal("500500", ValueFormatter.Format(result));
++    }
++}
+diff --git a/Lovelace.Suite/Interpreter.cs b/Lovelace.Suite/Interpreter.cs
+index dda0944..acd2136 100644
+--- a/Lovelace.Suite/Interpreter.cs
++++ b/Lovelace.Suite/Interpreter.cs
+@@ -394,8 +394,12 @@ public sealed class Interpreter
+             if (a.Rank == b.Rank && a.Shape.Span.SequenceEqual(b.Shape.Span))
+             {
+                 var results = new List<Value>(checked((int)a.Numel));
++                var poll = KernelCancellation.Capture();
+                 for (long i = 0; i < a.Numel; i++)
++                {
++                    poll.Poll(i);
+                     results.Add(ApplyScalarBinary(op, (Value)a.GetElement(i), (Value)b.GetElement(i)));
++                }
+                 return WrapPromotedArray(op, results, a.Shape.ToArray());
+             }
+ 
+@@ -406,15 +410,23 @@ public sealed class Interpreter
+         {
+             var a = left.AsArrayValue();
+             var results = new List<Value>(checked((int)a.Numel));
++            var poll = KernelCancellation.Capture();
+             for (long i = 0; i < a.Numel; i++)
++            {
++                poll.Poll(i);
+                 results.Add(ApplyScalarBinary(op, (Value)a.GetElement(i), right));
++            }
+             return WrapPromotedArray(op, results, a.Shape.ToArray());
+         }
+ 
+         var b2 = right.AsArrayValue();
+         var results2 = new List<Value>(checked((int)b2.Numel));
++        var scalarPoll = KernelCancellation.Capture();
+         for (long i = 0; i < b2.Numel; i++)
++        {
++            scalarPoll.Poll(i);
+             results2.Add(ApplyScalarBinary(op, left, (Value)b2.GetElement(i)));
++        }
+         return WrapPromotedArray(op, results2, b2.Shape.ToArray());
+     }
+ 
+@@ -449,11 +461,13 @@ public sealed class Interpreter
+             numel = checked(numel * d);
+ 
+         var results = new List<Value>(checked((int)numel));
++        var poll = KernelCancellation.Capture();
+         var coords = new long[maxRank];
+         var aCoords = new long[a.Rank];
+         var bCoords = new long[b.Rank];
+         for (long flat = 0; flat < numel; flat++)
+         {
++            poll.Poll(flat);
+             long rem = flat;
+             for (int d = maxRank - 1; d >= 0; d--)
+             {
+@@ -910,10 +924,17 @@ public sealed class Interpreter
+         var elements = new List<Value>();
+         Int current = s;
+ 
++        // materializing a range is a kernel in its own right: sum(1..10000000) and
++        // prod(1..200000) spend most of their wall time here, building ten million boxed
++        // elements before the reduction even starts
++        var poll = KernelCancellation.Capture();
++        long iteration = 0;
++
+         if (st.Sign > 0)
+         {
+             while (current.CompareTo(e) <= 0)
+             {
++                poll.Poll(iteration++);
+                 elements.Add(natural ? new Value(current.ToNatural()) : new Value(current));
+                 current = current + st;
+             }
+@@ -922,6 +943,7 @@ public sealed class Interpreter
+         {
+             while (current.CompareTo(e) >= 0)
+             {
++                poll.Poll(iteration++);
+                 elements.Add(natural ? new Value(current.ToNatural()) : new Value(current));
+                 current = current + st;
+             }
+@@ -1017,9 +1039,14 @@ public sealed class Interpreter
+     private async Task<Value> ExecuteWhileAsync(WhileStatement stmt, Scope scope)
+     {
+         Value last = Value.Void;
++        // a while body is one statement per iteration, so check on every iteration: the check costs
++        // ~1 ns against the microseconds a statement costs, and a body that never allocates would
++        // otherwise loop for minutes without a single look at the deadline
++        var poll = KernelCancellation.Capture();
+ 
+         while (true)
+         {
++            poll.PollNow();
+             var condition = await EvaluateAsync(stmt.Condition, scope);
+             if (condition.Kind != ValueKind.Boolean)
+                 throw new InvalidOperationException($"while condition must be Boolean, but got '{condition.Kind}'.");
+@@ -1051,9 +1078,13 @@ public sealed class Interpreter
+             throw new InvalidOperationException($"for loop range must be a vector, but got '{range.Kind}'.");
+ 
+         Value last = Value.Void;
++        // a loop body is one statement, so checking on every iteration costs ~1 ns against the
++        // microseconds a statement costs; the range build above is polled separately
++        var poll = KernelCancellation.Capture();
+ 
+         foreach (var element in range.AsVector())
+         {
++            poll.PollNow();
+             scope.Define(stmt.Variable, element);
+ 
+             try
+diff --git a/Lovelace.Suite/TypedArrayOps.cs b/Lovelace.Suite/TypedArrayOps.cs
+index 142074f..694d83d 100644
+--- a/Lovelace.Suite/TypedArrayOps.cs
++++ b/Lovelace.Suite/TypedArrayOps.cs
+@@ -1,3 +1,4 @@
++using System.Runtime.CompilerServices;
+ using Lovelace.Abstractions;
+ using Nat = global::Lovelace.Natural.Natural;
+ using Rl = global::Lovelace.Real.Real;
+@@ -58,10 +59,14 @@ internal static class TypedArrayOps
+         if (n != b.Shape.ToArray()[0])
+             throw new ArgumentException($"dot() operands must have the same length ({n} vs {b.Shape.ToArray()[0]}).");
+ 
++        var poll = KernelCancellation.Capture();
+         Value acc = NumericOps.Zero;
+         for (long i = 0; i < n; i++)
++        {
++            poll.Poll(i);
+             acc = NumericOps.Apply(BinaryOp.Add, acc,
+                 NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(i), (Value)b.GetElement(i)));
++        }
+         return acc;
+     }
+ 
+@@ -88,9 +93,13 @@ internal static class TypedArrayOps
+             throw new ArgumentException("trace() requires a square matrix.");
+ 
+         long n = a.Shape.ToArray()[0];
++        var poll = KernelCancellation.Capture();
+         Value acc = NumericOps.Zero;
+         for (long i = 0; i < n; i++)
++        {
++            poll.Poll(i);
+             acc = NumericOps.Apply(BinaryOp.Add, acc, (Value)a.GetElement(new long[] { i, i }));
++        }
+         return acc;
+     }
+ 
+@@ -109,12 +118,17 @@ internal static class TypedArrayOps
+                 throw new ArgumentException($"matmul() inner dimensions must match ({k} vs {bShape[0]}).");
+             long n = bShape[1];
+             var res = new List<Value>((int)n);
++            var poll = KernelCancellation.Capture();
+             for (long j = 0; j < n; j++)
+             {
++                poll.Poll(j);
+                 Value acc = NumericOps.Zero;
+                 for (long t = 0; t < k; t++)
++                {
++                    poll.Poll(t);
+                     acc = NumericOps.Apply(BinaryOp.Add, acc,
+                         NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(t), (Value)b.GetElement(new long[] { t, j })));
++                }
+                 res.Add(acc);
+             }
+             return TypedArrayAdapter.FromValues(res, new[] { n });
+@@ -128,12 +142,17 @@ internal static class TypedArrayOps
+             if (k != bShape[0])
+                 throw new ArgumentException($"matmul() inner dimensions must match ({k} vs {bShape[0]}).");
+             var res = new List<Value>((int)m);
++            var poll = KernelCancellation.Capture();
+             for (long i = 0; i < m; i++)
+             {
++                poll.Poll(i);
+                 Value acc = NumericOps.Zero;
+                 for (long t = 0; t < k; t++)
++                {
++                    poll.Poll(t);
+                     acc = NumericOps.Apply(BinaryOp.Add, acc,
+                         NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(new long[] { i, t }), (Value)b.GetElement(t)));
++                }
+                 res.Add(acc);
+             }
+             return TypedArrayAdapter.FromValues(res, new[] { m });
+@@ -159,11 +178,15 @@ internal static class TypedArrayOps
+         long outNumel = Product(outShape);
+ 
+         var outData = new List<Value>(checked((int)outNumel));
++        var batchPoll = KernelCancellation.Capture();
+         var c = new long[B + 2];
+         var aCoords = new long[ra];
+         var bCoords = new long[rb];
+         for (long lin = 0; lin < outNumel; lin++)
+         {
++            // one output element costs a full inner sweep, so the outer loop checks EVERY
++            // iteration: a stride here would delay the stop by stride x inner-dim work
++            batchPoll.PollNow();
+             long rem = lin;
+             for (int d = B + 1; d >= 0; d--)
+             {
+@@ -177,6 +200,7 @@ internal static class TypedArrayOps
+             Value acc = NumericOps.Zero;
+             for (long t = 0; t < inner; t++)
+             {
++                batchPoll.Poll(t);
+                 aCoords[ra - 1] = t;
+                 bCoords[rb - 2] = t;
+                 acc = NumericOps.Apply(BinaryOp.Add, acc,
+@@ -198,9 +222,11 @@ internal static class TypedArrayOps
+             for (int j = 0; j < n; j++)
+                 m[i, j] = (Value)a.GetElement(new long[] { i, j });
+ 
++        var poll = KernelCancellation.Capture();
+         Value det = NumericOps.One;
+         for (int k = 0; k < n; k++)
+         {
++            poll.PollNow();
+             int pivot = k;
+             while (pivot < n && NumericOps.IsZero(m[pivot, k]))
+                 pivot++;
+@@ -217,10 +243,14 @@ internal static class TypedArrayOps
+             det = NumericOps.Apply(BinaryOp.Multiply, det, m[k, k]);
+             for (int i = k + 1; i < n; i++)
+             {
++                poll.Poll(i);
+                 Value factor = NumericOps.Apply(BinaryOp.Divide, m[i, k], m[k, k]);
+                 for (int j = k + 1; j < n; j++)
++                {
++                    poll.Poll(j);
+                     m[i, j] = NumericOps.Apply(BinaryOp.Subtract, m[i, j],
+                         NumericOps.Apply(BinaryOp.Multiply, factor, m[k, j]));
++                }
+             }
+         }
+         return det;
+@@ -241,8 +271,10 @@ internal static class TypedArrayOps
+                 m[i, n + j] = i == j ? NumericOps.One : NumericOps.Zero;
+         }
+ 
++        var poll = KernelCancellation.Capture();
+         for (int k = 0; k < n; k++)
+         {
++            poll.PollNow();
+             int pivot = k;
+             while (pivot < n && NumericOps.IsZero(m[pivot, k]))
+                 pivot++;
+@@ -261,12 +293,16 @@ internal static class TypedArrayOps
+             {
+                 if (i == k)
+                     continue;
++                poll.Poll(i);
+                 Value factor = m[i, k];
+                 if (NumericOps.IsZero(factor))
+                     continue;
+                 for (int j = 0; j < 2 * n; j++)
++                {
++                    poll.Poll(j);
+                     m[i, j] = NumericOps.Apply(BinaryOp.Subtract, m[i, j],
+                         NumericOps.Apply(BinaryOp.Multiply, factor, m[k, j]));
++                }
+             }
+         }
+ 
+@@ -295,10 +331,12 @@ internal static class TypedArrayOps
+         long numel = Product(outShape);
+ 
+         var result = new List<Value>(checked((int)numel));
++        var poll = KernelCancellation.Capture();
+         var coords = new long[r];
+         var bCoords = new long[r];
+         for (long lin = 0; lin < numel; lin++)
+         {
++            poll.Poll(lin);
+             long rem = lin;
+             for (int i = r - 1; i >= 0; i--)
+             {
+@@ -327,17 +365,25 @@ internal static class TypedArrayOps
+ 
+     private static Value ReduceAll(ArrayValue a, Value seed, BinaryOp op)
+     {
++        // the whole-array reduction is the kernel a script's sum()/prod() lands in, so it polls:
++        // a 200000-element product can run for a minute and must stop at the caller's deadline
++        var poll = KernelCancellation.Capture();
+         Value acc = seed;
+         for (long i = 0; i < a.Numel; i++)
++        {
++            poll.Poll(i);
+             acc = NumericOps.Apply(op, acc, (Value)a.GetElement(i));
++        }
+         return acc;
+     }
+ 
+     private static Value SumSquares(ArrayValue a)
+     {
++        var poll = KernelCancellation.Capture();
+         Value acc = NumericOps.Zero;
+         for (long i = 0; i < a.Numel; i++)
+         {
++            poll.Poll(i);
+             var e = (Value)a.GetElement(i);
+             acc = NumericOps.Apply(BinaryOp.Add, acc, NumericOps.Apply(BinaryOp.Multiply, e, e));
+         }
+@@ -349,9 +395,11 @@ internal static class TypedArrayOps
+         if (a.Numel == 0)
+             throw new InvalidOperationException("Cannot reduce an empty array.");
+ 
++        var poll = KernelCancellation.Capture();
+         Value best = (Value)a.GetElement(0);
+         for (long i = 1; i < a.Numel; i++)
+         {
++            poll.Poll(i);
+             var e = (Value)a.GetElement(i);
+             int c = NumericOps.Compare(e, best);
+             if (wantMin ? c < 0 : c > 0)
+@@ -362,6 +410,7 @@ internal static class TypedArrayOps
+ 
+     private static ArrayValue ReduceAxis(ArrayValue a, long axis, Value seed, BinaryOp op)
+     {
++        var poll = KernelCancellation.Capture();
+         int ax = CheckAxis(axis, a.Rank);
+         var shape = a.Shape.ToArray();
+         var outShape = shape.Where((_, i) => i != ax).ToArray();
+@@ -382,6 +431,7 @@ internal static class TypedArrayOps
+             Value acc = seed;
+             for (long t = 0; t < shape[ax]; t++)
+             {
++                poll.Poll(t);
+                 srcCoords[ax] = t;
+                 acc = NumericOps.Apply(op, acc, (Value)a.GetElement(srcCoords));
+             }
+@@ -394,6 +444,7 @@ internal static class TypedArrayOps
+ 
+     private static ArrayValue MinMaxAxis(ArrayValue a, long axis, bool wantMin)
+     {
++        var poll = KernelCancellation.Capture();
+         int ax = CheckAxis(axis, a.Rank);
+         var shape = a.Shape.ToArray();
+         var outShape = shape.Where((_, i) => i != ax).ToArray();
+@@ -415,6 +466,7 @@ internal static class TypedArrayOps
+             Value best = (Value)a.GetElement(srcCoords);
+             for (long t = 1; t < shape[ax]; t++)
+             {
++                poll.Poll(t);
+                 srcCoords[ax] = t;
+                 var e = (Value)a.GetElement(srcCoords);
+                 int c = NumericOps.Compare(e, best);
+@@ -430,6 +482,7 @@ internal static class TypedArrayOps
+ 
+     private static ArrayValue SumSquaresAxis(ArrayValue a, long axis)
+     {
++        var poll = KernelCancellation.Capture();
+         int ax = CheckAxis(axis, a.Rank);
+         var shape = a.Shape.ToArray();
+         var outShape = shape.Where((_, i) => i != ax).ToArray();
+@@ -450,6 +503,7 @@ internal static class TypedArrayOps
+             Value acc = NumericOps.Zero;
+             for (long t = 0; t < shape[ax]; t++)
+             {
++                poll.Poll(t);
+                 srcCoords[ax] = t;
+                 var e = (Value)a.GetElement(srcCoords);
+                 acc = NumericOps.Apply(BinaryOp.Add, acc, NumericOps.Apply(BinaryOp.Multiply, e, e));
+@@ -463,9 +517,13 @@ internal static class TypedArrayOps
+ 
+     private static ArrayValue Map(ArrayValue a, Func<Value, Value> fn)
+     {
++        var poll = KernelCancellation.Capture();
+         var result = new List<Value>(checked((int)a.Numel));
+         for (long i = 0; i < a.Numel; i++)
++        {
++            poll.Poll(i);
+             result.Add(fn((Value)a.GetElement(i)));
++        }
+         return TypedArrayAdapter.FromValues(result, a.Shape.ToArray());
+     }
+ 
+@@ -486,3 +544,55 @@ internal static class TypedArrayOps
+         return (int)axis;
+     }
+ }
++
++/// <summary>
++/// Strided cancellation polling for the numeric kernels. A kernel used to enter a multi-second
++/// loop without ever observing the caller's deadline: <c>--cancel-after 1</c> on
++/// <c>sum(1..10000000)</c> returned <c>ok</c> after ~3.4 s and <c>prod(1..200000)</c> ran to
++/// completion after ~22 s, so the budget meant nothing inside a single statement.
++/// </summary>
++/// <remarks>
++/// The expensive part of a poll is the ambient-token lookup
++/// (<see cref="Lovelace.Abstractions.Cancellation.Token"/> is an <c>AsyncLocal</c> read), so a
++/// kernel captures the token ONCE before entering its loop and then reads the captured token's
++/// already-published cancellation state. A single kernel invocation is orders of magnitude
++/// shorter than the evaluation's cancellation scope, so the captured token cannot go stale.
++/// <see cref="Poll"/> strides (one check per <see cref="Interval"/> iterations) for per-element
++/// loops, where a check on every iteration would show up in the loop's own cost;
++/// <see cref="PollNow"/> checks on every call for outer loops whose body is itself a full sweep.
++/// </remarks>
++internal readonly struct KernelCancellation
++{
++    /// <summary>Iterations between checks. 64 keeps the check below 0.1 % of a loop whose body is
++    /// one boxed arithmetic operation, and bounds the stop latency by 64 loop bodies.</summary>
++    public const int Interval = 64;
++
++    private readonly CancellationToken _token;
++
++    private KernelCancellation(CancellationToken token) => _token = token;
++
++    /// <summary>Captures the ambient token: call ONCE per kernel invocation, outside the loop.</summary>
++    public static KernelCancellation Capture() => new(Lovelace.Abstractions.Cancellation.Token);
++
++    /// <summary>Checks the caller's token every <see cref="Interval"/> iterations, keyed on the
++    /// loop's own counter, so the stride never depends on a separate mutable state.</summary>
++    [MethodImpl(MethodImplOptions.AggressiveInlining)]
++    public void Poll(long iteration)
++    {
++        if ((iteration & (Interval - 1)) == 0)
++            Throw();
++    }
++
++    /// <summary>Checks the caller's token on every call, for a loop whose body is a full sweep.</summary>
++    [MethodImpl(MethodImplOptions.AggressiveInlining)]
++    public void PollNow()
++    {
++        if (_token.IsCancellationRequested)
++            Throw();
++    }
++
++    /// <summary>The cold half: kept out of line so the poll's hot path is one predictable branch.</summary>
++    [MethodImpl(MethodImplOptions.NoInlining)]
++    private void Throw() => _token.ThrowIfCancellationRequested();
++}
++
