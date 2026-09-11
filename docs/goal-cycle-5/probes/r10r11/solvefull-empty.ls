@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(2 == 3, x)

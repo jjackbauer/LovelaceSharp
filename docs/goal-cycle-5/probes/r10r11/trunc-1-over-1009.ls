@@ -1,0 +1,1 @@
+setprecision(18); 1/1009

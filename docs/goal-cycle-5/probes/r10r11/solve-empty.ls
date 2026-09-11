@@ -1,0 +1,1 @@
+x = symbol("x"); solve(0 == 1, x)
