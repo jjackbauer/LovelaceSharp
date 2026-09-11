@@ -218,7 +218,20 @@ public abstract class Expr : IEquatable<Expr>
     /// native recursions and nothing can be reported once one of them exhausts the stack.</summary>
     public int Depth => _depth;
 
-    /// <summary>True when the subtree contains no approximate RealConstant and no transcendental value.</summary>
+    /// <summary>
+    /// True when the subtree contains no approximation and no transcendental or indeterminate
+    /// value: EVERY LEAF is a rational/integer/complex constant, a symbol, the imaginary unit, or
+    /// an algebraic number (<see cref="RootOfExpr"/>).
+    /// <para>A composite node is exact exactly when its children are. For a function application
+    /// that means the function's identity is not consulted: sin(x), exp(x), log(x),
+    /// diff(sin(x), x) and every other elementary closed form over exact arguments is exact —
+    /// there is no per-function list. A radical is exact for the same reason (sqrt(2) = 2^(1/2)).
+    /// The carriers of inexactness are the <see cref="RealConstantExpr"/> leaf, where a truncated
+    /// decimal approximation lives, and the Pi/E/Infinity named constants, which denote values
+    /// the kernel does not carry exactly. The numeric tier mirrors this:
+    /// <see cref="NumInt"/>/<see cref="NumRat"/> are exact, <see cref="NumReal"/> and
+    /// <see cref="NumComplex"/> are not.</para>
+    /// </summary>
     public bool IsExact => _isExact;
 
     public abstract bool Equals(Expr? other);

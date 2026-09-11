@@ -125,12 +125,23 @@ public static class Exprs
         var n = new FunctionExpr(id, imm);
         n._hash = Expr.Combine((int)NodeKind.Function, id.GetHashCode(), CombineHashes(imm));
         n._nodeCount = 1 + SumCounts(imm);
-        n._isExact = IsExactFunction(id, imm);
+        n._isExact = IsExactFunction(imm);
         return Current.Intern(n);
     }
 
-    private static bool IsExactFunction(FunctionId id, ImmutableArray<Expr> args) =>
-        (id.Name is "abs" or "sign" or "floor" or "ceil" or "min" or "max") && args.All(a => a.IsExact);
+    /// <summary>
+    /// Exactness of a function application: true EXACTLY when no argument carries an approximation
+    /// or a transcendental/indeterminate named constant (the leaf rule stated on
+    /// <see cref="Expr.IsExact"/>).
+    /// <para>The function's own identity is deliberately NOT consulted. The previous rule admitted
+    /// only "abs", "sign", "floor", "ceil", "min" and "max", so sin(x), cos(x), sqrt(x), log(x),
+    /// exp(x) and every other elementary closed form reported INEXACT over exact arguments — the
+    /// opposite of what the flag means. Nothing here inspects a function's values, domain or
+    /// branch: an application over exact arguments denotes exactly what it denotes, and whether
+    /// that value is rational, irrational or complex is a different question from whether an
+    /// approximation entered the expression.</para>
+    /// </summary>
+    private static bool IsExactFunction(ImmutableArray<Expr> args) => args.All(a => a.IsExact);
 
     public static Expr Add(params Expr[] children) => AddImpl(children);
 
@@ -602,7 +613,13 @@ public static class Exprs
         var node = new PowerExpr(b, e);
         node._hash = Expr.Combine((int)NodeKind.Power, b._hash, e._hash);
         node._nodeCount = 1 + b._nodeCount + e._nodeCount;
-        node._isExact = b.IsExact && ExponentIsInteger(e);
+        // A radical is exact: sqrt(2) and x^(1/2) are closed forms, not approximations, so the
+        // question is the exponent's own exactness, not its integrality. This is the same
+        // all-children rule Add (:215) and Multiply (:441) apply, and it keeps a power over an
+        // approximating operand inexact: a numeric exponent was already normalized to a rational
+        // constant above (so it carries no approximation), while a Real BASE fails b.IsExact and
+        // a symbolic exponent that contains a Real leaf fails e.IsExact.
+        node._isExact = b.IsExact && e.IsExact;
         return Current.Intern(node);
     }
 

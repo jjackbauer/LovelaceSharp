@@ -97,6 +97,8 @@ Assert.Equal(Exprs.Subtract(Exprs.Power(x, 2), y), m.Det(ctx));
         var ctx = new ExprContext();
         Exprs.Current = ctx;
 Assert.True(Exprs.Rational(Rat.From(1, 3)).IsExact);            // exact rational
-Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  // sqrt(2) is not exact
+Assert.True(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  // sqrt(2): a radical is exact
+Assert.True(Exprs.Function(ctx.Function("sin"), Exprs.Symbol("x")).IsExact); // an exact closed form is exact
+Assert.False(Exprs.Real(RealLiteral.FromRationalExact(Rat.From(3, 2))).IsExact); // the Real leaf is the carrier
     }
 }

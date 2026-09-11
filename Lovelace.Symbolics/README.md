@@ -604,7 +604,7 @@ x = symbol("x")
 solve(exp(x) == 5, x)
 ```
 ```result
-SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: log(5), conditions: [1 != 0], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: log(5), conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 Periodic inverses return parametric families rather than a single principal branch — the family is a
@@ -1130,7 +1130,9 @@ Assert.Equal(Exprs.Subtract(Exprs.Power(x, 2), y), m.Det(ctx));
 ### 16.8 Exactness discipline
 ```csharp
 Assert.True(Exprs.Rational(Rat.From(1, 3)).IsExact);            // exact rational
-Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  // sqrt(2) is not exact
+Assert.True(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  // sqrt(2): a radical is exact
+Assert.True(Exprs.Function(ctx.Function("sin"), Exprs.Symbol("x")).IsExact); // an exact closed form is exact
+Assert.False(Exprs.Real(RealLiteral.FromRationalExact(Rat.From(3, 2))).IsExact); // the Real leaf is the carrier
 ```
 
 ---

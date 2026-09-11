@@ -7,9 +7,15 @@ using Lovelace.Complex;
 
 namespace Lovelace.Symbolics;
 
-/// <summary>A numeric evaluation value: exact integer/rational or approximate real/complex.</summary>
+/// <summary>
+/// A numeric evaluation value: exact integer/rational or approximate real/complex. This is the
+/// numeric mirror of <see cref="Expr.IsExact"/>: the exact tiers are the ones the kernel carries
+/// without approximation, and <see cref="NumReal"/>/<see cref="NumComplex"/> are the carriers —
+/// a NumReal holding exactly 3/2 is still inexact, because the tier, not the digits, is the claim.
+/// </summary>
 public abstract class Num
 {
+    /// <summary>True when this value carries no approximation.</summary>
     public abstract bool IsExact { get; }
 }
 
