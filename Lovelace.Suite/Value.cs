@@ -32,6 +32,10 @@ public enum ValueKind
     Symbolic,
     Record,
     Domain,
+    /// <summary>A first-class enumerated value (<see cref="EnumValue"/>). APPENDED last: the
+    /// numeric values of Natural/Integer/Real are load-bearing (the widening lattice) and are
+    /// never renumbered.</summary>
+    Enum,
 }
 
 // -------------------------------------------------------------------------
@@ -151,6 +155,14 @@ public sealed class Value
         Kind = ValueKind.Domain;
     }
 
+    /// <summary>Wraps a first-class enumerated value (an enum-valued result field, e.g.
+    /// <c>SolveStatus.Partial</c>) — the DSH protocol's <c>Enum</c> structured kind.</summary>
+    public Value(EnumValue value)
+    {
+        _inner = value;
+        Kind = ValueKind.Enum;
+    }
+
     private Value(ValueKind voidKind)
     {
         _inner = null!;
@@ -207,6 +219,9 @@ public sealed class Value
 
     /// <summary>Returns the stored value cast to a <see cref="MathDomain"/>.</summary>
     public MathDomain AsDomain() => (MathDomain)_inner;
+
+    /// <summary>Returns the stored value cast to an <see cref="EnumValue"/>.</summary>
+    public EnumValue AsEnum() => (EnumValue)_inner;
 
     // -----------------------------------------------------------------
     // Widening
@@ -290,6 +305,7 @@ public sealed class Value
         ValueKind.Function => $"Function: {AsFunction().Name}",
         ValueKind.Record   => $"Record: {AsRecord().TypeName}",
         ValueKind.Domain   => $"Domain: {AsDomain().ToString().ToLowerInvariant()}",
+        ValueKind.Enum     => $"Enum: {AsEnum().TypeName}.{AsEnum().Name}",
         ValueKind.Void    => "Void",
         _                 => throw new InvalidOperationException($"Unknown kind: {Kind}"),
     };

@@ -55,7 +55,11 @@ public class StructuredPayloadTests
                 Assert.Equal("Symbolic", solution.Fields!.Single(f => f.Name == "value").Value.Kind);
                 Assert.Equal("Array", solution.Fields!.Single(f => f.Name == "conditions").Value.Kind);
                 Assert.Equal("Integer", solution.Fields!.Single(f => f.Name == "multiplicity").Value.Kind);
-                Assert.Equal("Text", solution.Fields!.Single(f => f.Name == "exactness").Value.Kind);
+                // D2: exactness is a first-class Enum (SolutionExactness), not Text
+                var exactness = solution.Fields!.Single(f => f.Name == "exactness").Value;
+                Assert.Equal("Enum", exactness.Kind);
+                Assert.Equal("SolutionExactness", exactness.Type);
+                Assert.Equal("Exact", exactness.Value);
             }
 
             // the same fields on the wire (camelCase, source-generated context)

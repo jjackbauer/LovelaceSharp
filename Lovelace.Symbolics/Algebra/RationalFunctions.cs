@@ -93,20 +93,51 @@ public static class RationalFunctions
     }
 
     /// <summary>
-    /// Cancels common factors between the numerator and denominator polynomials.
+    /// Cancels common factors between the numerator and denominator polynomials, and returns the
+    /// reduced expression ALONE.
+    /// <para>
+    /// This is deliberately the bare value form: an <see cref="Expr"/> has no place to carry a side
+    /// condition, and the reduction is not an everywhere identity — it removes the poles of the
+    /// cancelled factor. A caller that must not lose definedness uses
+    /// <see cref="CancelWithConditions"/> (the <c>cancel_full</c> builtin), which reports those
+    /// conditions; there is no way to attach them to the value returned here, so this method must not
+    /// pretend otherwise.
+    /// </para>
     /// </summary>
-    public static Expr Cancel(Expr e, ExprContext ctx)
+    public static Expr Cancel(Expr e, ExprContext ctx) => CancelWithConditions(e, ctx).Expression;
+
+    /// <summary>
+    /// The structured form of <see cref="Cancel"/>: the reduced expression plus the conditions under
+    /// which it equals the input.
+    /// <para>
+    /// Cancelling a common factor g out of n/d gives a form that agrees with n/d exactly where
+    /// <c>g != 0</c>: at a zero of g the input is undefined (n and d vanish together), while the
+    /// reduced form may be defined, so the change is a definedness EXTENSION and the exclusion is a
+    /// real condition. The atoms are the ones the rewrite path builds for
+    /// <c>rat.cancel-x-over-x</c> (<see cref="NonZeroCondition"/> mirrors Simplify's private
+    /// NonZeroOf): a symbol becomes a <see cref="SymbolPropertyAssumption"/>, anything else an
+    /// <see cref="ExpressionPropertyAssumption"/>, so the two surfaces speak one convention.
+    /// </para>
+    /// <para>
+    /// A power of a sum — <c>(x-1)^2</c> — is not a polynomial to <see cref="Polynomial.TryFromExpr"/>
+    /// (it only accepts integer powers of a VARIABLE), so a numerator or denominator the parser
+    /// refuses is expanded once and re-parsed. Expansion is value-preserving on every input, so this
+    /// step is unconditional and adds no condition; altering the parser instead would change the
+    /// contract of every other caller of TryFromExpr.
+    /// </para>
+    /// </summary>
+    public static CancelResult CancelWithConditions(Expr e, ExprContext ctx)
     {
         var vars = CollectSymbols(e);
         if (vars.Length == 0)
-            return e;
+            return new CancelResult(e, e, AssumptionSet.Empty);
         var terms = e is AddExpr add ? add.Terms.ToArray() : new[] { e };
         var results = new List<Expr>();
+        var conditions = AssumptionSet.Empty;
         foreach (var term in terms)
         {
             var (n, d) = SplitSingle(term);
-            if (!Polynomial.TryFromExpr(n, ctx, vars, out var np, out _) ||
-                !Polynomial.TryFromExpr(d, ctx, vars, out var dp, out _))
+            if (!TryPolynomial(n, ctx, vars, out var np) || !TryPolynomial(d, ctx, vars, out var dp))
             {
                 results.Add(term);
                 continue;
@@ -123,8 +154,57 @@ public static class RationalFunctions
             results.Add(dqExpr is RationalConstantExpr r && r.Value.IsOne
                 ? nq.ToExpr()
                 : Exprs.Divide(nq.ToExpr(), dqExpr));
+            // the removed factor is exactly what the result may not assume away
+            conditions = conditions.Add(NonZeroAtom(g.ToExpr()));
         }
-        return results.Count == 1 ? results[0] : Exprs.Add(results);
+        var expression = results.Count == 1 ? results[0] : Exprs.Add(results);
+        return new CancelResult(e, expression, conditions);
+    }
+
+    /// <summary>Parses a numerator/denominator as a polynomial, expanding it once when the direct
+    /// parse refuses. Only reached from <see cref="CancelWithConditions"/>: the parser's own contract
+    /// (integer powers of variables) is deliberately left unchanged.</summary>
+    private static bool TryPolynomial(Expr e, ExprContext ctx, Symbol[] vars, out Polynomial poly)
+    {
+        if (Polynomial.TryFromExpr(e, ctx, vars, out poly, out _))
+            return true;
+        var expanded = Algebra.Expand(e, ctx);
+        return !expanded.Equals(e) && Polynomial.TryFromExpr(expanded, ctx, vars, out poly, out _);
+    }
+
+    /// <summary>The NonZero condition on an expression, in the exact shape the rewrite path uses
+    /// (Simplify.NonZeroOf): a symbol carries a <see cref="SymbolPropertyAssumption"/>, everything
+    /// else an <see cref="ExpressionPropertyAssumption"/>. Mirrored here rather than shared because
+    /// the two live in different source units; the ATOMS, not the helper, are the convention.</summary>
+    public static AssumptionSet NonZeroCondition(Expr e) => AssumptionSet.Empty.Add(NonZeroAtom(e));
+
+    private static Assumption NonZeroAtom(Expr e) =>
+        e is SymbolExpr s
+            ? new SymbolPropertyAssumption(s.Symbol, SymbolPredicate.NonZero)
+            : new ExpressionPropertyAssumption(e, SymbolPredicate.NonZero);
+
+    /// <summary>How a cancellation changed the input, as a type rather than a spelling.
+    /// <see cref="Exact"/>: nothing was removed, the result equals the input pointwise.
+    /// <see cref="Conditional"/>: a common factor was removed, so the result equals the input only
+    /// where that factor is nonzero (see <see cref="CancelResult.Conditions"/>).</summary>
+    public enum CancelStatus
+    {
+        Exact,
+        Conditional,
+    }
+
+    /// <summary>The outcome of <see cref="CancelWithConditions"/>: the reduced expression, the
+    /// conditions it requires, and the input it came from. The bare <see cref="Cancel"/> drops the
+    /// last two; this record is what a machine API must read instead.</summary>
+    public sealed record CancelResult(Expr Original, Expr Expression, AssumptionSet Conditions)
+    {
+        /// <summary>True when the reduction changed the expression.</summary>
+        public bool Changed => !Expression.Equals(Original);
+
+        /// <summary>Exact when no factor was removed (no conditions), Conditional otherwise.</summary>
+        public CancelStatus Status => Conditions.Atoms.Length == 0
+            ? CancelStatus.Exact
+            : CancelStatus.Conditional;
     }
 
     /// <summary>

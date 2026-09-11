@@ -4,11 +4,28 @@ using Rat = global::Lovelace.Rational.Rational;
 namespace Lovelace.Symbolics;
 
 /// <summary>
+/// The disposition of a transformation: <see cref="Satisfied"/> (the rewrite completed under its
+/// collected side conditions), <see cref="BudgetExceeded"/> (rewriting stopped at the step
+/// budget with a partial result) or <see cref="Unsatisfiable"/> (the applied rules carried
+/// contradictory requirements, so the branch has no model).
+/// <para>
+/// A real kernel enum rather than a computed C# string: the DSH wire form is an Enum value that
+/// carries this type's name, so a consumer switches on a type instead of matching spellings.
+/// </para>
+/// </summary>
+public enum TransformStatus
+{
+    Satisfied,
+    BudgetExceeded,
+    Unsatisfiable,
+}
+
+/// <summary>
 /// A transformation outcome: the transformed expression, the side conditions the result
 /// requires to equal the input pointwise (definedness delta), and the provenance trace.
-/// <c>BudgetExceeded</c> reports that rewriting stopped at the step budget with a partial
-/// result. <see cref="AssumptionSet.Unsatisfiable"/> conditions mean the applied rules
-/// carried contradictory requirements (the branch has no model).
+/// <see cref="TransformStatus.BudgetExceeded"/> reports that rewriting stopped at the step budget
+/// with a partial result. <see cref="AssumptionSet.Unsatisfiable"/> conditions mean the applied
+/// rules carried contradictory requirements (the branch has no model).
 /// </summary>
 public sealed record TransformResult(
     Expr Expression,
@@ -20,9 +37,9 @@ public sealed record TransformResult(
     public Expr Original { get; init; } = Expression;
 
     /// <summary>Structured status: Satisfied, BudgetExceeded, or Unsatisfiable.</summary>
-    public string Status => Conditions.IsUnsatisfiable
-        ? "Unsatisfiable"
-        : BudgetExceeded ? "BudgetExceeded" : "Satisfied";
+    public TransformStatus Status => Conditions.IsUnsatisfiable
+        ? TransformStatus.Unsatisfiable
+        : BudgetExceeded ? TransformStatus.BudgetExceeded : TransformStatus.Satisfied;
 
     /// <summary>Machine-readable budget identity when <see cref="BudgetExceeded"/> is set.</summary>
     public string? BudgetKind { get; init; }

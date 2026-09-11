@@ -21,6 +21,9 @@ public static class ValueFormatter
             new Lovelace.Symbolics.Printing.PrintOptions(Unicode: unicode)),
         ValueKind.Boolean  => value.AsBoolean() ? "True" : "False",
         ValueKind.Text     => value.AsText(),
+        // the member name, never "EnumValue { ... }": an enum reads exactly as the Text form it
+        // replaces did, while the structured form carries the declared enum type
+        ValueKind.Enum     => value.AsEnum().Name,
         ValueKind.Vector   => FormatArray(value.AsArrayValue(), unicode),
         ValueKind.Array    => FormatArray(value.AsArrayValue(), unicode),
         ValueKind.Function => $"Function: {value.AsFunction().Name}",
@@ -71,6 +74,10 @@ public static class ValueFormatter
         ValueKind.Symbolic => $"{Format(value, unicode)} (Symbolic)",
         ValueKind.Boolean  => $"{value.AsBoolean()} (Boolean)",
         ValueKind.Text     => value.AsText(),
+        // a bare member name, exactly as the Text kind it replaces rendered: the typed form of a
+        // record's field stays readable ("status: Solved"), and the enum type is available from
+        // the structured form and from type()
+        ValueKind.Enum     => value.AsEnum().Name,
         ValueKind.Vector   => $"{Format(value, unicode)} (Vector)",
         ValueKind.Array    => $"{Format(value, unicode)} (Array)",
         ValueKind.Function => $"{Format(value, unicode)} (Function)",

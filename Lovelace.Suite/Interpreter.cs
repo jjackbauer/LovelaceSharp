@@ -2,6 +2,12 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using Lovelace.Abstractions;
+// the Round-5 completeness mapping and the solver's status enum live in the symbolic layer, which
+// Suite already references; aliased so the AST type Expr stays unambiguous in this file
+using SolveStatus = Lovelace.Symbolics.SolveStatus;
+// the WIRE diagnostic (Round 4b), aliased because Lovelace.Suite.Diagnostic is the engine's own
+// parse/engine diagnostic record — different type, different layer
+using WireDiagnostic = Lovelace.Abstractions.Diagnostic;
 using Nat = global::Lovelace.Natural.Natural;
 using Int = global::Lovelace.Integer.Integer;
 using Rl = global::Lovelace.Real.Real;
@@ -1007,15 +1013,49 @@ public sealed class Interpreter
     }
 
     /// <summary>
+    /// Builds a matrix result record in the SAME vocabulary as every other solve-shaped record —
+    /// <c>status</c> as an Enum of the declared type <c>SolveStatus</c>, the derived
+    /// <c>complete</c> Boolean, the <c>completeness</c> Enum, the payload, the <c>conditions</c>,
+    /// and the Diagnostic ARRAY last. The (complete, completeness) pair comes from the ONE Round-5
+    /// mapping <see cref="Lovelace.Symbolics.SolveCompletenessMapping"/> that SolveResult and
+    /// SystemSolveResult publish, so a singular system reports NoSolutions/true/Complete exactly as
+    /// the scalar solver does. Diagnostics are built from the Round-4b vocabulary: an EMPTY array
+    /// when nothing is wrong — never an empty string and never Null.
+    /// </summary>
+    private static RecordValue MatrixResultRecord(
+        string typeName, string payloadField, SolveStatus status,
+        object? payload, object? conditions, IReadOnlyList<WireDiagnostic> diagnostics)
+    {
+        var (complete, completeness) = Lovelace.Symbolics.SolveCompletenessMapping.Of(status);
+        return new RecordValue(typeName,
+            new RecordField("status", new EnumValue("SolveStatus", status.ToString())),
+            new RecordField("complete", complete),
+            new RecordField("completeness", new EnumValue("Completeness", completeness.ToString())),
+            new RecordField(payloadField, PayloadMap.Wrap(payload)),
+            new RecordField("conditions", PayloadMap.Wrap(conditions)),
+            new RecordField("diagnostics", DiagnosticProjection.ToRecordValues(diagnostics)));
+    }
+
+    /// <summary>The ONE diagnostic a singular matrix carries: a stable code a consumer matches,
+    /// the ErrorCategory member, the human sentence as the MESSAGE (never as free text beside the
+    /// record), no source location at this layer (Null, never "") and empty details.</summary>
+    private static WireDiagnostic[] SingularMatrixDiagnostics(string message) =>
+        new[] { WireDiagnostic.Of("matrix.singular", ErrorCategory.NoSolution, message) };
+
+    /// <summary>
     /// The one type-name convention: the <see cref="ValueKind"/> name, except that a record
-    /// reports its record type name (<c>SolveResult</c>) because that is what a consumer switches
-    /// on. A domain value is the kind <c>Domain</c> — its domain (<c>real</c>, <c>complex</c>) is
-    /// available from <c>inspect(...).domain</c>, not from <c>type()</c>. Never a lowercased
-    /// domain name: <c>type(complex)</c> is <c>Domain</c>, not <c>complex</c>.
+    /// reports its record type name (<c>SolveResult</c>) and an enum reports its declared enum
+    /// type name (<c>SolveStatus</c>) — because that is what a consumer switches on, and the
+    /// transport kind ("Enum") would only say how the value travels. A domain value is the kind
+    /// <c>Domain</c> — its domain (<c>real</c>, <c>complex</c>) is available from
+    /// <c>inspect(...).domain</c>, not from <c>type()</c>. Never a lowercased domain name:
+    /// <c>type(complex)</c> is <c>Domain</c>, not <c>complex</c>. So
+    /// <c>type(solve_full(x^2 - 4 == 0, x).status)</c> is <c>SolveStatus</c>.
     /// </summary>
     private static string TypeNameOf(Value v) => v.Kind switch
     {
         ValueKind.Record => v.AsRecord().TypeName,
+        ValueKind.Enum => v.AsEnum().TypeName,
         _ => v.Kind.ToString(),
     };
 
@@ -1232,6 +1272,14 @@ public sealed class Interpreter
                 ValueKind.Real    => new Value(Rl.Abs(arg.AsReal())),
                 ValueKind.Complex => new Value(arg.AsComplex().Magnitude),
                 ValueKind.Vector or ValueKind.Array => AbsArray(arg.AsArrayValue()),
+                // Round 23: a value the engine CREATES must be expressible back into it. The
+                // rewriter emits abs(x) as a FunctionExpr over the registered "abs" kernel
+                // function (Lovelace.Symbolics/Simplify.cs:251, :321, :335 — there is no
+                // Absolute node kind), so the symbolic payload builds that very node instead of
+                // being rejected. Mirrors the sqrt() symbolic arm below (Exprs.Power): the
+                // kernel's own constructor, no wrapper node, no new NodeKind.
+                ValueKind.Symbolic => new Value(Lovelace.Symbolics.Exprs.Function(
+                    Lovelace.Symbolics.Exprs.Current.Function("abs"), arg.AsSymbolic())),
                 _ => throw new InvalidOperationException($"abs() is not supported for values of kind '{arg.Kind}'."),
             });
         });
@@ -1270,16 +1318,16 @@ public sealed class Interpreter
                 throw new InvalidOperationException("inv_full() requires a symbolic matrix.");
             var inv = bridge.TryInverse(elements, shape, out var conditions);
             if (inv is null)
-                return Task.FromResult<Value>(new Value(new RecordValue("MatrixInverseResult",
-                    new RecordField("status", "NoSolutions"),
-                    new RecordField("inverse", PayloadMap.Wrap(Array.Empty<object?>())),
-                    new RecordField("conditions", PayloadMap.Wrap(Array.Empty<object?>())),
-                    new RecordField("diagnostics", "matrix is singular"))));
-            return Task.FromResult<Value>(new Value(new RecordValue("MatrixInverseResult",
-                new RecordField("status", "Solved"),
-                new RecordField("inverse", PayloadMap.Wrap(inv)),
-                new RecordField("conditions", PayloadMap.Wrap(conditions ?? Array.Empty<object?>())),
-                new RecordField("diagnostics", ""))));
+                // a singular matrix is a PROVABLY empty solution set, which the frozen contract (and
+                // the Round-5 mapping) calls a complete answer — and the reason is a Diagnostic
+                return Task.FromResult<Value>(new Value(MatrixResultRecord(
+                    "MatrixInverseResult", "inverse", SolveStatus.NoSolutions,
+                    Array.Empty<object?>(), Array.Empty<object?>(),
+                    SingularMatrixDiagnostics("matrix is singular"))));
+            return Task.FromResult<Value>(new Value(MatrixResultRecord(
+                "MatrixInverseResult", "inverse", SolveStatus.Solved,
+                inv, conditions ?? Array.Empty<object?>(),
+                Array.Empty<WireDiagnostic>())));
         });
 
         // matrix_rank(A): generic rank of a symbolic matrix (an exact integer constant)
@@ -1329,11 +1377,14 @@ public sealed class Interpreter
                 throw new InvalidOperationException("linsolve_full() requires a symbolic matrix A.");
             var solution = bridge.TrySolveFull(elements, shape, PayloadElements(bv).Elements,
                 out var conditions, out var note, out var singular);
-            return Task.FromResult<Value>(new Value(new RecordValue("MatrixSolveResult",
-                new RecordField("status", singular ? "NoSolutions" : "Solved"),
-                new RecordField("solutions", PayloadMap.Wrap(solution ?? Array.Empty<object?>())),
-                new RecordField("conditions", PayloadMap.Wrap(conditions ?? Array.Empty<object?>())),
-                new RecordField("diagnostics", note ?? ""))));
+            return Task.FromResult<Value>(new Value(MatrixResultRecord(
+                "MatrixSolveResult", "solutions", singular ? SolveStatus.NoSolutions : SolveStatus.Solved,
+                solution ?? Array.Empty<object?>(), conditions ?? Array.Empty<object?>(),
+                // the kernel's human note moves INTO the diagnostic message; a solved system
+                // reports an EMPTY diagnostics array
+                singular
+                    ? SingularMatrixDiagnostics(note ?? "matrix is singular")
+                    : Array.Empty<WireDiagnostic>())));
         });
 
         // divrem(a, b)

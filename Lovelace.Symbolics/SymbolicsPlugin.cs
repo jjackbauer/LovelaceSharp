@@ -10,6 +10,37 @@ using Cplx = global::Lovelace.Complex.Complex;
 namespace Lovelace.Symbolics;
 
 /// <summary>
+/// The ONE projection from an effective <see cref="SolveStatus"/> onto the (complete,
+/// completeness) pair the solver publishes. It lives in this file, next to the two record
+/// builders that call it (<c>SolveResult</c> and <c>SystemSolveResult</c> are both constructed in
+/// <see cref="SymbolicsPlugin"/>), so the two fields are always read off a single expression and
+/// the two records cannot drift apart.
+/// <para>
+/// The frozen contract (alignment plan D) is that <see cref="SolveStatus.NoSolutions"/> means the
+/// solution set over the requested domain is PROVABLY EMPTY: a provably empty set is a complete
+/// answer, so it pairs with <c>complete: true</c> / <see cref="Completeness.Complete"/>. Only a
+/// genuinely partial, unevaluated or budget-stopped solve is incomplete.
+/// </para>
+/// </summary>
+public static class SolveCompletenessMapping
+{
+    /// <summary>The published pair for <paramref name="status"/>.
+    /// <paramref name="partialSubset"/> is the kernel's own <see cref="Completeness"/> for the
+    /// subset it did represent when a budget stopped the search; it is the answer for
+    /// <see cref="SolveStatus.BudgetExceeded"/> and is ignored for every other status.</summary>
+    public static (bool Complete, Completeness Completeness) Of(
+        SolveStatus status, Completeness partialSubset = Completeness.Unknown) => status switch
+    {
+        SolveStatus.Solved => (true, Completeness.Complete),
+        SolveStatus.NoSolutions => (true, Completeness.Complete),
+        SolveStatus.Partial => (false, Completeness.Partial),
+        SolveStatus.Unevaluated => (false, Completeness.Unknown),
+        SolveStatus.BudgetExceeded => (false, partialSubset),
+        _ => (false, Completeness.Unknown),
+    };
+}
+
+/// <summary>
 /// The language-facing surface of the symbolic kernel: a compile-time-linked Modus plugin
 /// (the DspPlugin pattern) that registers the CAS builtins. Symbolic values cross the Modus
 /// payload boundary as <see cref="Expr"/> objects via the Suite core bridge
@@ -23,7 +54,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     /// <summary>The elementary symbolic functions exposed one-argument builtins.</summary>
     internal static readonly string[] ElementaryFunctions =
-        { "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh" };
+        { "exp", "log", "sin", "cos", "tan", "asin", "acos", "atan",
+          "sinh", "cosh", "tanh", "asinh", "acosh", "atanh" };
 
     private static string ElementarySummary(string fn) => fn switch
     {
@@ -38,7 +70,34 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         "sinh" => "The hyperbolic sine.",
         "cosh" => "The hyperbolic cosine.",
         "tanh" => "The hyperbolic tangent.",
+        "asinh" => "The inverse hyperbolic sine, principal branch.",
+        "acosh" => "The inverse hyperbolic cosine, principal branch (x >= 1).",
+        "atanh" => "The inverse hyperbolic tangent, principal branch (-1 < x < 1).",
         _ => "The " + fn + " function.",
+    };
+
+    /// <summary>See-also pairs for the elementary family: every hyperbolic inverse names the
+    /// hyperbolic it inverts (and vice versa), so the two halves of the family are reachable from
+    /// either end — help's "See also" is the only route between them.</summary>
+    private static string[] ElementaryRelated(string fn) => fn switch
+    {
+        "sinh" => new[] { "cosh", "tanh", "asinh" },
+        "cosh" => new[] { "sinh", "tanh", "acosh" },
+        "tanh" => new[] { "sinh", "cosh", "atanh" },
+        "asinh" => new[] { "sinh", "acosh", "atanh" },
+        "acosh" => new[] { "cosh", "asinh", "atanh" },
+        "atanh" => new[] { "tanh", "asinh", "acosh" },
+        _ => new[] { "simplify", "diff", "integrate" },
+    };
+
+    /// <summary>The example every elementary builtin ships: a call at a point where the value is
+    /// exact, so the snippet is a doctest a reader can run and check.</summary>
+    private static string ElementaryExample(string fn) => fn switch
+    {
+        "asinh" => "asinh(0)",
+        "acosh" => "acosh(1)",
+        "atanh" => "atanh(0)",
+        _ => fn + "(x)",
     };
 
     /// <summary>Help metadata for the symbolic builtins that have no bespoke descriptor: no
@@ -74,7 +133,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
                 "One-sided limit from the right as x approaches x0.", ["limit_right(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
             ["solve_system_full"] = new("solve_system_full", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
-                "Structured system solve: a SystemSolveResult with status, completeness, per-solution variable bindings and conditions.",
+                "Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions.",
                 ["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult", ["solve_system", "solve_full"]),
             ["optimize_full"] = new("optimize_full", new[] { "f", "params" }, BuiltinCategories.Optimization,
                 "Structured optimization: an OptimizationResult with the original and optimized expressions, estimated costs before/after, and the applied transformations.",
@@ -83,8 +142,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         foreach (var fn in ElementaryFunctions)
         {
             m[fn] = new BuiltinDescriptor(fn, new[] { "x" }, BuiltinCategories.Symbolics,
-                ElementarySummary(fn), new[] { fn + "(x)" }, "Symbolic",
-                new[] { "simplify", "diff", "integrate" });
+                ElementarySummary(fn), new[] { ElementaryExample(fn) }, "Symbolic",
+                ElementaryRelated(fn));
         }
         return m;
     }
@@ -126,7 +185,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 : Exprs.Symbol((string)args[0]!),
             new BuiltinDescriptor("symbol", new[] { "name", "domain" }, BuiltinCategories.Symbolics,
                 "Creates a symbolic variable; an optional domain (integer/rational/real/complex) is assumed for it.",
-                ["symbol(\"x\")", "symbol(\"x\", real)"], "Symbolic", ["assume", "real", "complex"]));
+                ["symbol(\"x\")", "symbol(\"x\", real)"], "Symbolic", ["assume", "real", "complex"], MinArity: 1));
         Add("inf", Array.Empty<string>(), _ => Exprs.Infinity,
             new BuiltinDescriptor("inf", Array.Empty<string>(), BuiltinCategories.Symbolics,
                 "Positive infinity (the symbolic constant).", ["inf"], "Symbolic"));
@@ -148,6 +207,23 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             new BuiltinDescriptor("rational", Array.Empty<string>(), BuiltinCategories.Symbolics,
                 "The rational domain value (symbol(name, rational)).", ["symbol(\"q\", rational)"], "Domain",
                 ["integer", "real", "complex"]));
+
+        // Round 22: the runtime's own capability statement. An agent must be able to LEARN the
+        // real-only limits from structure — today the only way to discover that sqrt(-1),
+        // (-1)^(1/2) and integer/rational solving are unsupported is to trip over each one.
+        Add("capabilities", Array.Empty<string>(), _ => CapabilitiesRecord(),
+            new BuiltinDescriptor("capabilities", Array.Empty<string>(), BuiltinCategories.Introspection,
+                "Reports the domains this runtime solves over and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces.",
+                ["capabilities()"], "CapabilitiesResult", ["solve", "solve_full", "symbol", "type"]));
+
+        // Round 28 (item 13): the LaTeX rendering of the SAME expression model. It is a print
+        // MODE, not a second printer: Printing routes it through the one precedence table and the
+        // one set of structural decisions the pretty form uses (see Printing.LatexRender).
+        Add("latex", new[] { "expr" }, args =>
+            Printing.PrettyPrint(AsExpr(args[0]), new Printing.PrintOptions(Printing.PrintMode.Latex)),
+        new BuiltinDescriptor("latex", new[] { "expr" }, BuiltinCategories.Introspection,
+            "Renders an expression as LaTeX source. This is the printer's LaTeX mode, not a second printer: it shares the precedence table and the structural decisions of the pretty form, so the two can never describe different expressions.",
+            ["latex((x + 1)/y)"], "Text", ["print", "type"]));
 
         // elementary functions as symbolic builtins (numeric versions do not exist in the core)
         foreach (var fn in ElementaryFunctions)
@@ -208,16 +284,16 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         {
             var r = Integration.IntegrateResult(AsExpr(args[0]), AsSymbol(args[1]), Context);
             return new RecordValue("IntegrationResult",
-                new RecordField("status", r.Kind.ToString()),
+                new RecordField("status", EnumField("IntegrationStatus", r.Kind)),
                 new RecordField("expression", r.Expression),
                 new RecordField("conditions", ConditionExprs(r.Conditions)),
                 new RecordField("verified", r.Kind != IntegrationKind.Unevaluated),
                 new RecordField("method", r.Method ?? ""),
                 new RecordField("verification_method", r.VerificationMethod ?? ""),
-                new RecordField("exactness", (r.Expression.IsExact
+                new RecordField("exactness", EnumField("SolutionExactness", r.Expression.IsExact
                     ? SolutionExactness.Exact
-                    : SolutionExactness.Approximate).ToString()),
-                new RecordField("diagnostics", r.Note ?? ""));
+                    : SolutionExactness.Approximate)),
+                new RecordField("diagnostics", Diagnostics(IntegrationDiagnostic(r))));
         },
         new BuiltinDescriptor("integrate_full", new[] { "f", "x" }, BuiltinCategories.Calculus,
             "Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag.",
@@ -239,19 +315,20 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             var e = AsExpr(args[0]);
             var r = Simplify.Transform(e, Context, new Simplify.Options(Trace: true));
             return new RecordValue("TransformResult",
-                new RecordField("status", r.Status),
+                new RecordField("status", EnumField("TransformStatus", r.Status)),
                 new RecordField("original", r.Original),
                 new RecordField("expression", r.Expression),
                 new RecordField("changed", !r.Expression.Equals(e)),
                 new RecordField("conditions", ConditionExprs(r.Conditions)),
                 new RecordField("steps", r.Steps.Select(s => (object)new RecordValue("RewriteStep",
                     new RecordField("rule_id", s.RuleId),
-                    new RecordField("classification", s.Classification.ToString()),
+                    new RecordField("classification", EnumField("RuleClassification", s.Classification)),
                     new RecordField("before", s.Before),
                     new RecordField("after", s.After),
                     new RecordField("required_conditions", ConditionExprs(s.Conditions)))).ToArray()),
                 new RecordField("budget_exceeded", r.BudgetExceeded),
-                new RecordField("budget_kind", r.BudgetKind ?? ""));
+                new RecordField("budget_kind", r.BudgetKind ?? ""),
+                new RecordField("diagnostics", Diagnostics(TransformDiagnostic(r))));
         },
         new BuiltinDescriptor("simplify_full", new[] { "f" }, BuiltinCategories.Symbolics,
             "Structured simplify: a TransformResult record with the rewritten expression, required side conditions, and the applied rule steps (stable rule ids and classifications).",
@@ -272,7 +349,28 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         Add("cancel", new[] { "f" }, args =>
             RationalFunctions.Cancel(AsExpr(args[0]), Context),
         new BuiltinDescriptor("cancel", new[] { "f" }, BuiltinCategories.Symbolics,
-            "Cancels common polynomial factors in a rational function.", ["cancel((x^2 - 1)/(x - 1))"], "Symbolic", ["apart", "factor"]));
+            "Cancels common polynomial factors in a rational function. The result is a bare value and " +
+            "CANNOT carry the side conditions the cancellation requires: removing a common factor g " +
+            "extends the domain (the input is undefined where g = 0), so the value holds only off that " +
+            "pole. Use cancel_full when the definedness delta matters.",
+            ["cancel((x^2 - 1)/(x - 1))"], "Symbolic", ["cancel_full", "apart", "factor"]));
+        Add("cancel_full", new[] { "f" }, args =>
+        {
+            var r = RationalFunctions.CancelWithConditions(AsExpr(args[0]), Context);
+            return new RecordValue("CancelResult",
+                new RecordField("status", EnumField("CancelStatus", r.Status)),
+                new RecordField("original", r.Original),
+                new RecordField("expression", r.Expression),
+                new RecordField("changed", r.Changed),
+                new RecordField("conditions", ConditionExprs(r.Conditions)));
+        },
+        new BuiltinDescriptor("cancel_full", new[] { "f" }, BuiltinCategories.Symbolics,
+            "Structured cancel: a CancelResult record with status (Exact/Conditional), the reduced " +
+            "expression, and the conditions it requires (the removed common factor must be nonzero — " +
+            "the same condition the simplify rewrite path attaches to rat.cancel-x-over-x). An Exact " +
+            "reduction reports no conditions at all.",
+            ["cancel_full(x/x)", "cancel_full((x^2 - 1)/(x - 1))"], "CancelResult",
+            ["cancel", "simplify_full"]));
         Add("apart", new[] { "f", "x" }, args =>
             RationalFunctions.Apart(AsExpr(args[0]), AsSymbol(args[1]), Context),
         new BuiltinDescriptor("apart", new[] { "f", "x" }, BuiltinCategories.Symbolics,
@@ -293,18 +391,30 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             var x = AsSymbol(args[1]);
             var point = AsExpr(args[2]);
             var r = Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context);
-            bool exists = r.Status is LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity;
+            // N19: "exists" is THREE-VALUED, not derived from "a value came back or not".
+            // true  — a limit was determined;
+            // false — non-existence was PROVEN (DoesNotExist: the two sides disagree);
+            // null  — the engine did not determine it (Unevaluated, Failed), emitted as the
+            //         protocol Null ({kind:Null}), which is neither false nor "". Asserting
+            //         "does not exist" here would be a false mathematical claim (e.g. the
+            //         squeezed limit x*sin(1/x) -> 0, which the engine cannot yet solve).
+            bool? exists = r.Status switch
+            {
+                LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => true,
+                LimitStatus.DoesNotExist => false,
+                _ => null,
+            };
             return new RecordValue("LimitResult",
-                new RecordField("status", r.Status.ToString()),
+                new RecordField("status", EnumField("LimitStatus", r.Status)),
                 new RecordField("exists", exists),
                 new RecordField("value", LimitSide(r)),
                 new RecordField("left", LimitSide(r.FromLeft)),
-                new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists)),
+                new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists is true)),
                 new RecordField("right", LimitSide(r.FromRight)),
-                new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists)),
+                new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists is true)),
                 new RecordField("conditions", ConditionExprs(r.Conditions)),
-                new RecordField("exactness", r.Exactness.ToString()),
-                new RecordField("diagnostics", r.FailureReason ?? ""));
+                new RecordField("exactness", EnumField("SolutionExactness", r.Exactness)),
+                new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
         },
         new BuiltinDescriptor("limit_full", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
             "Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics.",
@@ -333,12 +443,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
             var result = SystemSolvers.Solve(eqs, vs, Context);
             var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
-                new RecordField("assignment", vs.Select(v => (object)(v.Name + " = " + Printing.PrettyPrint(sol.Assignment[v]))).ToArray()),
-                new RecordField("conditions", ConditionExprs(sol.Conditions)))).ToArray();
+                new RecordField("bindings", vs.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
+                new RecordField("conditions", ConditionExprs(sol.Conditions)),
+                new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
+            // the SAME projection SolveResult uses: an inconsistent system is a provably empty
+            // solution set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
+            var (complete, _) = SolveCompletenessMapping.Of(result.Status, result.Complete);
             return new RecordValue("SystemSolveResult",
-                new RecordField("status", result.Solutions.Count > 0 ? "Solved" : (result.Note is null ? "NoSolutions" : "Unevaluated")),
+                new RecordField("status", EnumField("SolveStatus", result.Status)),
+                new RecordField("domain", DomainOf(result.Domain)),
+                new RecordField("complete", complete),
                 new RecordField("solutions", solutions),
-                new RecordField("diagnostics", result.Note ?? ""));
+                new RecordField("diagnostics", Diagnostics(SystemSolveDiagnostic(result))));
         });
         Add("solve", new[] { "f", "x", "domain" }, args =>
         {
@@ -388,29 +504,34 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 new RecordField("value", s.Value),
                 new RecordField("conditions", ConditionExprs(s.Conditions)),
                 new RecordField("multiplicity", (long)s.Multiplicity),
-                new RecordField("exactness", s.Exactness.ToString()))).ToArray();
+                new RecordField("exactness", EnumField("SolutionExactness", s.Exactness)))).ToArray();
 
             var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
                 new RecordField("template", f.Template),
-                new RecordField("parameter", f.Parameter.Name),
+                new RecordField("parameter", Exprs.Symbol(f.Parameter)),
                 new RecordField("period", f.Period),
                 new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
                 new RecordField("conditions", ConditionExprs(f.Conditions)),
-                new RecordField("exactness", f.Exactness.ToString()))).ToArray();
+                new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
+
+            // ONE function derives BOTH published fields from the effective status, so
+            // complete and completeness can never disagree (RISK-003) and NoSolutions reports the
+            // complete answer the frozen contract says it is
+            var (complete, completeness) = SolveCompletenessMapping.Of(status, set.Complete);
 
             return new RecordValue("SolveResult",
-                new RecordField("status", status.ToString()),
-                new RecordField("variable", sx.Name),
+                new RecordField("status", EnumField("SolveStatus", status)),
+                new RecordField("variable", Exprs.Symbol(sx)),
                 new RecordField("domain", DomainOf(domain)),
-                new RecordField("complete", status == SolveStatus.Solved),
-                new RecordField("completeness", (status == SolveStatus.Solved ? Completeness.Complete : set.Complete).ToString()),
+                new RecordField("complete", complete),
+                new RecordField("completeness", EnumField("Completeness", completeness)),
                 new RecordField("solutions", solutions),
                 new RecordField("families", families),
                 new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
                 new RecordField("represented_count", (long)accepted.Count),
                 new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
                 new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
-                new RecordField("diagnostics", set.Note ?? ""));
+                new RecordField("diagnostics", Diagnostics(SolveDiagnostic(set, status))));
         },
         new BuiltinDescriptor("solve_full", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
             "Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain.",
@@ -478,9 +599,160 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 new RecordField("horner_rewrites", r.HornerRewrites),
                 new RecordField("transformations", transformations.ToArray()),
                 new RecordField("target", "mathir"),
-                new RecordField("policy", PolicyToken(r.Options)));
+                new RecordField("policy", PolicyToken(r.Options)),
+                // an optimization either succeeded or threw: there is nothing to report (D1)
+                new RecordField("diagnostics", Diagnostics()));
         });
     }
+
+    // -----------------------------------------------------------------
+    // Structured diagnostics (D1: the wire carries Diagnostic records, never prose)
+    // -----------------------------------------------------------------
+
+    /// <summary>Projects an ordered diagnostic list for a record's "diagnostics" field: ALWAYS an
+    /// Array of Diagnostic records, EMPTY when nothing happened — never Text, never Null and never
+    /// an empty string. A null element means "this result has nothing to report".</summary>
+    private static object?[] Diagnostics(params Diagnostic?[] diagnostics)
+    {
+        var present = new List<Diagnostic>(diagnostics.Length);
+        foreach (var d in diagnostics)
+            if (d is not null)
+                present.Add(d);
+        return DiagnosticProjection.ToRecordValues(present);
+    }
+
+    /// <summary>The diagnostic a solve result carries: the kernel note becomes its MESSAGE, or —
+    /// when the note is null and roots are missing — the unrepresented remainder is reported.
+    /// A complete solve with nothing missing yields null, projected as an empty array.</summary>
+    private static Diagnostic? SolveDiagnostic(SolutionSet set, SolveStatus status)
+    {
+        if (set.Note is { } note)
+            return Diagnostic.Of(SolveDiagnosticCode(status), SolveDiagnosticCategory(status), note);
+        if (set.UnrepresentedCount > 0)
+            return Diagnostic.Of("solve.unrepresented-roots", ErrorCategory.UnsupportedOperation,
+                set.UnrepresentedReason ?? "part of the solution set is not representable");
+        return null;
+    }
+
+    /// <summary>Stable code per disposition: a consumer matches the CODE, never the message.</summary>
+    private static string SolveDiagnosticCode(SolveStatus status) => status switch
+    {
+        SolveStatus.NoSolutions => "solve.no-solutions",
+        SolveStatus.Unevaluated => "solve.unevaluated",
+        SolveStatus.BudgetExceeded => "solve.budget-exceeded",
+        SolveStatus.Partial => "solve.partial",
+        _ => "solve.note",
+    };
+
+    private static ErrorCategory SolveDiagnosticCategory(SolveStatus status) => status switch
+    {
+        SolveStatus.NoSolutions => ErrorCategory.NoSolution,
+        SolveStatus.BudgetExceeded => ErrorCategory.BudgetExceeded,
+        SolveStatus.Partial => ErrorCategory.UnsupportedOperation,
+        _ => ErrorCategory.UnsupportedOperation,
+    };
+
+    /// <summary>A system solve reports only its kernel note: null means an EMPTY array.</summary>
+    private static Diagnostic? SystemSolveDiagnostic(SystemSolveResult result) => result.Note is { } note
+        ? Diagnostic.Of(
+            result.Status == SolveStatus.NoSolutions ? "system-solve.no-solutions" : "system-solve.unevaluated",
+            result.Status == SolveStatus.NoSolutions ? ErrorCategory.NoSolution : ErrorCategory.UnsupportedOperation,
+            note)
+        : null;
+
+    /// <summary>A limit reports its kernel failure reason; null means an EMPTY array.</summary>
+    private static Diagnostic? LimitDiagnostic(LimitResult result) => result.FailureReason is { } reason
+        ? Diagnostic.Of("limit.unevaluated", ErrorCategory.UnsupportedOperation, reason)
+        : null;
+
+    /// <summary>An integration reports its kernel note; null means an EMPTY array.</summary>
+    private static Diagnostic? IntegrationDiagnostic(IntegrationResult result) => result.Note is { } note
+        ? Diagnostic.Of("integration.unevaluated", ErrorCategory.UnsupportedOperation, note)
+        : null;
+
+    /// <summary>The diagnostic a transformation reports where the record previously reported none:
+    /// a budget stop (a larger budget recovers it) and a condition set with no model (retrying
+    /// cannot) are the two states a caller must be able to branch on without re-deriving them from
+    /// budget_exceeded/conditions. The ordinary case reports nothing.</summary>
+    private static Diagnostic? TransformDiagnostic(TransformResult result) => result.Status switch
+    {
+        TransformStatus.BudgetExceeded => Diagnostic.Of("transform.budget-exceeded", ErrorCategory.BudgetExceeded,
+            "the rewrite budget '" + (result.BudgetKind ?? "rewrite_steps") +
+            "' was exhausted; the returned expression is a partial result."),
+        TransformStatus.Unsatisfiable => Diagnostic.Of("transform.unsatisfiable-conditions",
+            ErrorCategory.DomainError,
+            "the applied rules require contradictory conditions, so this branch has no model.",
+            recoverable: false),
+        _ => null,
+    };
+
+    /// <summary>One enum-valued result field: the DECLARED enum type name plus the member name.
+    /// Every enum emission goes through here so an enum field can never be spelled as text by
+    /// accident (decision D2, alignment addendum §9.1) and so the type name is never invented at
+    /// the call site.</summary>
+    private static EnumValue EnumField<TEnum>(string typeName, TEnum member) where TEnum : struct, Enum =>
+        new(typeName, member.ToString());
+
+    // -----------------------------------------------------------------
+    // capabilities(): the runtime's real-only limits, discoverable from structure
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The structured capability statement behind <c>capabilities()</c>. Every advertised entry
+    /// carries the code and <see cref="ErrorCategory"/> member that the LIVE call produces — these
+    /// strings are transcriptions of observed envelopes, not a second vocabulary:
+    /// <list type="bullet">
+    /// <item>sqrt of a negative real: <c>ArithmeticException</c> from <c>Lovelace.Real.Real.Sqrt</c>,
+    /// classified by the host as <c>ArithmeticError</c> / <c>DomainError</c>.</item>
+    /// <item>a negative base raised to a non-integer power: <c>NotImplementedException</c> from
+    /// <c>Lovelace.Real.Real.Pow</c>, classified as <c>UnsupportedOperation</c> /
+    /// <c>UnsupportedOperation</c>.</item>
+    /// <item>solving over integer/rational: an <c>InvalidOperationException</c> raised by the
+    /// plugin's domain guard, classified as <c>InvalidOperation</c> / <c>DomainError</c>.</item>
+    /// <item>complex algebraic roots of degree >= 4: the kernel's own stable diagnostic code
+    /// <c>solve.unrepresented-roots</c> / <c>UnsupportedOperation</c> (from
+    /// <see cref="SolveDiagnostic"/>), which is non-fatal and rides in a solve record.</item>
+    /// </list>
+    /// <para>
+    /// <c>exactness</c> is BestEffort: the two DOMAIN arrays are exhaustive over the closed
+    /// <see cref="MathDomain"/> enum, but the operation list names only the classes this round
+    /// verified. An unsupported operation that is not listed here is not a contradiction — it is
+    /// simply not enumerated yet.
+    /// </para>
+    /// </summary>
+    private static RecordValue CapabilitiesRecord() => new(
+        "CapabilitiesResult",
+        // solver domain options: what solve(..., domain) accepts, and what it rejects
+        new RecordField("supported_domains", new object?[] { MathDomain.Real, MathDomain.Complex }),
+        new RecordField("unsupported_domains", new object?[] { MathDomain.Integer, MathDomain.Rational }),
+        new RecordField("unsupported_operations", new object?[]
+        {
+            UnsupportedCapability("complex.sqrt-negative", "ArithmeticError", ErrorCategory.DomainError,
+                "Square root is not defined for negative numbers.", "sqrt(-1)"),
+            UnsupportedCapability("pow.non-integer-exponent", "UnsupportedOperation",
+                ErrorCategory.UnsupportedOperation,
+                "Non-integer exponents are not yet supported.", "(-1)^(1/2)"),
+            UnsupportedCapability("solve.unsupported-domain", "InvalidOperation", ErrorCategory.DomainError,
+                "solve(): currently supports domains real and complex; got integer.",
+                "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"),
+            UnsupportedCapability("rootof.complex-algebraic", "solve.unrepresented-roots",
+                ErrorCategory.UnsupportedOperation,
+                "complex algebraic roots not supported (RootOf is real-only in v1).",
+                "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"),
+        }),
+        new RecordField("exactness", new EnumValue("CapabilitiesExactness", "BestEffort")));
+
+    /// <summary>One unsupported operation class: the class identifier an agent enumerates on, the
+    /// EXACT wire code and category its live call produces, the human message, and a runnable
+    /// snippet that trips it (statements separated by ';', per the language contract).</summary>
+    private static RecordValue UnsupportedCapability(
+        string operationClass, string code, ErrorCategory category, string message, string trigger) =>
+        new("UnsupportedCapability",
+            new RecordField("operation_class", operationClass),
+            new RecordField("code", code),
+            new RecordField("category", EnumField("ErrorCategory", category)),
+            new RecordField("message", message),
+            new RecordField("trigger", trigger));
 
     private static IEnumerable<string> NameList(object? o)
     {
@@ -608,8 +880,29 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     private static MathDomain DomainOf(SolveDomain d) =>
         d == SolveDomain.Real ? MathDomain.Real : MathDomain.Complex;
 
-    /// <summary>Family parameter domains are domain values, not prose.</summary>
-    private static MathDomain ParameterDomainOf(ParameterDomain p) => MathDomain.Integer;
+    /// <summary>Family parameter domains cross the wire as first-class Domain values. Both
+    /// declared arms project onto the kernel lattice: a NON-NEGATIVE parameter's constraint is
+    /// carried by the family's conditions (an <see cref="AssumptionSet"/>), never by the domain,
+    /// so <see cref="ParameterDomain.NonNegativeIntegers"/> is the integer domain plus a
+    /// condition. The switch is total: an undeclared parameter domain throws instead of silently
+    /// inheriting Integers, so adding one is a decision made here rather than an accident.
+    /// Internal (not private) because Lovelace.Symbolics.csproj already grants
+    /// Lovelace.Symbolics.Tests access, and an arm the language cannot reach must stay pinnable.</summary>
+    internal static MathDomain ParameterDomainOf(ParameterDomain domain) => domain switch
+    {
+        ParameterDomain.Integers => MathDomain.Integer,
+        ParameterDomain.NonNegativeIntegers => MathDomain.Integer,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(domain), domain, "No wire Domain is declared for this parameter domain."),
+    };
+
+    /// <summary>Projects the kernel's one structural binding contract onto the wire as a
+    /// <c>Binding</c> record. The NAME is the symbol itself — a Symbolic value with a canonical
+    /// form — never the <c>"x = …"</c> string <see cref="Binding"/> exists to forbid.</summary>
+    private static RecordValue BindingRecord(Binding binding) =>
+        new("Binding",
+            new RecordField("name", Exprs.Symbol(binding.Name)),
+            new RecordField("value", binding.Value));
 
     /// <summary>Solutions that survive their own conditions (a value violating a provable
     /// excluded-domain condition, e.g. the pole of a cancelled denominator, is not a solution).</summary>

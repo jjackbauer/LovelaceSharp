@@ -413,7 +413,14 @@ public sealed class MathIRPlugin : IModusPlugin
                     new global::Lovelace.Abstractions.RecordField("optimization_policy", OptimizationPolicy),
                     new global::Lovelace.Abstractions.RecordField("target", "mathir"),
                     new global::Lovelace.Abstractions.RecordField("mathir_version", 2),
-                    new global::Lovelace.Abstractions.RecordField("exact", f.IsExact));
+                    new global::Lovelace.Abstractions.RecordField("exact", f.IsExact),
+                    // a successful lowering has nothing to report, but the field is part of the
+                    // contract: it crosses as the SAME empty diagnostic array shape every other
+                    // rich record uses, never as text and never as null (D1)
+                    new global::Lovelace.Abstractions.RecordField(
+                        "diagnostics",
+                        global::Lovelace.Abstractions.DiagnosticProjection.ToRecordValues(
+                            Array.Empty<global::Lovelace.Abstractions.Diagnostic>())));
             }
             finally
             {

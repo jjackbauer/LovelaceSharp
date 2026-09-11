@@ -28,6 +28,7 @@ internal static class PayloadMap
         int i => new Value(new Int(i)),
         RecordValue record => new Value(record),
         MathDomain domain => new Value(domain),
+        EnumValue enumValue => new Value(enumValue),
         ArrayValue array => new Value(array, array.Rank == 1 ? ValueKind.Vector : ValueKind.Array),
         IReadOnlyList<object?> elements => WrapArray(elements),
         null => Value.Void,   // absent structured field (e.g. no one-sided limit)
@@ -82,6 +83,7 @@ internal static class PayloadMap
         ValueKind.Text => value.AsText(),
         ValueKind.Record => UnwrapRecord(value.AsRecord()),
         ValueKind.Domain => value.AsDomain(),
+        ValueKind.Enum => value.AsEnum(),
         ValueKind.Vector or ValueKind.Array => UnwrapArray(value.AsArrayValue()),
         // an absent structured field (Value.Void) round-trips as null: Wrap(null) produced it,
         // so Unwrap must invert it instead of rejecting the payload

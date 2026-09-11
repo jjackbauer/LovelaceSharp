@@ -152,6 +152,9 @@ internal static class ValueHasher
         ValueKind.Complex => "C:" + v.AsComplex().ToString(),
         ValueKind.Boolean => "B:" + (v.AsBoolean() ? "1" : "0"),
         ValueKind.Text => "T:" + v.AsText(),
+        // the declared enum type is part of the canonical form: two same-named members of
+        // different enums must not hash alike
+        ValueKind.Enum => "E:" + v.AsEnum().TypeName + "." + v.AsEnum().Name,
         ValueKind.Vector => "V[" + string.Join(",", v.AsVector().Select(Canonical)) + "]",
         ValueKind.Array => "A(" + string.Join("x", v.AsArray().Shape) + ")[" + string.Join(",", v.AsArray().Data.Select(Canonical)) + "]",
         ValueKind.Function => "F:" + v.AsFunction().Name,

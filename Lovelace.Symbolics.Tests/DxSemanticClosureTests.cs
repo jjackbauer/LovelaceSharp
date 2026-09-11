@@ -22,6 +22,26 @@ public class DxSemanticClosureTests
         return ctx;
     }
 
+    /// <summary>An enum-valued field's whole observable identity: the structured kind, the
+    /// declared enum type name, the member, and the two renderings (which must show the bare
+    /// member name).</summary>
+    private static void AssertEnumField(object? payload, string typeName, string memberName)
+    {
+        var value = (Value)payload!;
+        var dto = StructuredProjection.ToStructured(value);
+        Assert.Equal(ValueKind.Enum, value.Kind);
+        Assert.Equal(typeName, value.AsEnum().TypeName);
+        Assert.Equal(memberName, value.AsEnum().Name);
+        Assert.Equal("Enum", dto.Kind);
+        Assert.Equal(typeName, dto.Type);
+        Assert.Equal(memberName, dto.Value);
+        Assert.Equal(memberName, ValueFormatter.Format(value));
+        Assert.Equal(memberName, ValueFormatter.FormatTyped(value));
+    }
+
+    private static void AssertEnumField(SuiteEngine engine, string expression, string typeName, string memberName) =>
+        AssertEnumField(engine.Evaluate(expression), typeName, memberName);
+
     // ------------------------------------------------------------------
     // Safe simplify: conditional rules fire only under proven conditions
     // ------------------------------------------------------------------
@@ -300,7 +320,7 @@ public class DxSemanticClosureTests
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
         // 0 < real roots < degree: the solver must not claim a complete complex solution set
-        Assert.Equal("Partial", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).status").AsText());
+        AssertEnumField(engine, "solve_full(x^4 - x^2 - 1 == 0, x).status", "SolveStatus", "Partial");
         Assert.False(engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).complete").AsBoolean());
         Assert.Equal("2", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count").AsInteger().ToString());
         // and the convenience API must not hand back an apparently complete vector
@@ -335,7 +355,7 @@ public class DxSemanticClosureTests
         Assert.Equal("[-3, 1]", ValueFormatter.Format(engine.Evaluate("solve((x+1)^2 - 4 == 0, x)")));
         // (x+1)^3 = 8 has three
         var cube = engine.Evaluate("solve_full((x+1)^3 == 8, x)").AsRecord();
-        Assert.Equal("Solved", (string)((Value)cube.Fields[0].Value!).AsText());
+        AssertEnumField(cube.Fields[0].Value, "SolveStatus", "Solved");
         Assert.Equal(3, ((Value)cube.Fields[5].Value!).AsVector().Count);
     }
 
@@ -352,7 +372,7 @@ public class DxSemanticClosureTests
         var sol = (RecordValue)((Value)((Value)repeated.Fields[5].Value!).AsVector()[0]).AsRecord();
         Assert.Equal("2", ((Value)sol.Fields[2].Value!).AsInteger().ToString());
         // every candidate excluded by a pole is NoSolutions, never Solved with an empty vector
-        Assert.Equal("NoSolutions", engine.Evaluate("solve_full((x^2-1)/(x^2-1) == 0, x).status").AsText());
+        AssertEnumField(engine, "solve_full((x^2-1)/(x^2-1) == 0, x).status", "SolveStatus", "NoSolutions");
     }
 
     [Fact]

@@ -833,8 +833,13 @@ public static class Solvers
     }
 }
 
-/// <summary>Structured system solution: one assignment per solution map.</summary>
-public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment, AssumptionSet Conditions);
+/// <summary>Structured system solution: one assignment per solution map. <see cref="Exactness"/>
+/// is stated where the solution is produced by the exact Gröbner elimination.</summary>
+public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment, AssumptionSet Conditions)
+{
+    /// <summary>Exactness provenance of the system solution.</summary>
+    public SolutionExactness Exactness { get; init; } = SolutionExactness.Exact;
+}
 
 public sealed class SystemSolveResult
 {
@@ -918,7 +923,12 @@ public static class SystemSolvers
                 if (Evaluation.ConstantToNum(p) is { } cv && !NumOps.IsZero(cv))
                     return;   // an inconsistent constant remains
             }
-            result.Solutions.Add(new SystemSolution(new Dictionary<Symbol, Expr>(partial), conditions));
+            // the Gröbner elimination and the recursive substitution are exact operations: the
+            // provenance is stated at the construction site, never inherited from a default
+            result.Solutions.Add(new SystemSolution(new Dictionary<Symbol, Expr>(partial), conditions)
+            {
+                Exactness = SolutionExactness.Exact,
+            });
             return;
         }
         if (n == 1)
@@ -932,7 +942,10 @@ public static class SystemSolvers
                 if (!SatisfiesAll(sol.Value, polys.Skip(1), x, ctx))
                     continue;
                 var assignment = new Dictionary<Symbol, Expr>(partial) { [x] = sol.Value };
-                result.Solutions.Add(new SystemSolution(assignment, conditions));
+                result.Solutions.Add(new SystemSolution(assignment, conditions)
+                {
+                    Exactness = SolutionExactness.Exact,
+                });
                 if (result.Solutions.Count >= MaxSolutions)
                 {
                     result.Truncated = true;

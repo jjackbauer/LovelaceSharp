@@ -21,6 +21,27 @@ public class DxStructuredResultsTests
         return engine;
     }
 
+    /// <summary>An enum-valued field's whole observable identity: the structured kind, the
+    /// declared enum type name, the member, and the two renderings (which must show the bare
+    /// member name, never "EnumValue { ... }").</summary>
+    private static void AssertEnumField(object? payload, string typeName, string memberName)
+    {
+        var value = (Value)payload!;
+        var dto = StructuredProjection.ToStructured(value);
+        Assert.Equal(ValueKind.Enum, value.Kind);
+        Assert.Equal(typeName, value.AsEnum().TypeName);
+        Assert.Equal(memberName, value.AsEnum().Name);
+        Assert.Equal("Enum", dto.Kind);
+        Assert.Equal(typeName, dto.Type);
+        Assert.Equal(memberName, dto.Value);
+        Assert.Equal(memberName, ValueFormatter.Format(value));
+        Assert.Equal(memberName, ValueFormatter.FormatTyped(value));
+    }
+
+    /// <summary>The same identity, read through property access on a record field.</summary>
+    private static void AssertEnumField(SuiteEngine engine, string expression, string typeName, string memberName) =>
+        AssertEnumField(engine.Evaluate(expression), typeName, memberName);
+
     // ------------------------------------------------------------------
     // SolveResult
     // ------------------------------------------------------------------
@@ -34,7 +55,7 @@ public class DxStructuredResultsTests
         Assert.Equal(ValueKind.Record, result.Kind);
         var r = result.AsRecord();
         Assert.Equal("SolveResult", r.TypeName);
-        Assert.Equal("Solved", (string)((Value)r.Fields[0].Value!).AsText());
+        AssertEnumField(r.Fields[0].Value, "SolveStatus", "Solved");
         // solutions are structured objects, each carrying its OWN conditions
         var solutions = (Value)r.Fields[5].Value!;
         Assert.Equal(ValueKind.Vector, solutions.Kind);
@@ -43,9 +64,9 @@ public class DxStructuredResultsTests
         Assert.Equal("-1", ValueFormatter.Format((Value)solution.Fields[0].Value!));
         Assert.Equal("[x - 1 != 0]", ValueFormatter.Format((Value)solution.Fields[1].Value!));
         Assert.Equal("1", ((Value)solution.Fields[2].Value!).AsInteger().ToString());
-        Assert.Equal("Exact", (string)((Value)solution.Fields[3].Value!).AsText());
+        AssertEnumField(solution.Fields[3].Value, "SolutionExactness", "Exact");
         // property access works on records
-        Assert.Equal("Solved", engine.Evaluate("solve_full(x^2 - 4 == 0, x).status").AsText());
+        AssertEnumField(engine, "solve_full(x^2 - 4 == 0, x).status", "SolveStatus", "Solved");
         Assert.Equal("True", engine.Evaluate("solve_full(x^2 - 4 == 0, x).complete").AsBoolean().ToString());
         var values = engine.Evaluate("solve_full(x^2 - 4 == 0, x).solutions").AsVector();
         Assert.Equal(2, values.Count);
@@ -58,13 +79,13 @@ public class DxStructuredResultsTests
         var engine = NewEngine();
         engine.Evaluate("x = symbol(\"x\")");
         var r = engine.Evaluate("solve_full(x^2 + 1 == 0, x, real)").AsRecord();
-        Assert.Equal("NoSolutions", (string)((Value)r.Fields[0].Value!).AsText());
+        AssertEnumField(r.Fields[0].Value, "SolveStatus", "NoSolutions");
         // the domain is a first-class Domain value, never text
         Assert.Equal(ValueKind.Domain, ((Value)r.Fields[2].Value!).Kind);
         Assert.Equal(MathDomain.Real, ((Value)r.Fields[2].Value!).AsDomain());
         Assert.Equal(MathDomain.Complex, engine.Evaluate("solve_full(x^2 + 1 == 0, x).domain").AsDomain());
         // partial results are never marked complete
-        Assert.Equal("Partial", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).status").AsText());
+        AssertEnumField(engine, "solve_full(x^4 - x^2 - 1 == 0, x).status", "SolveStatus", "Partial");
         Assert.False(engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).complete").AsBoolean());
         Assert.Equal("2", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count").AsInteger().ToString());
     }
@@ -94,7 +115,7 @@ public class DxStructuredResultsTests
         engine.Evaluate("x = symbol(\"x\")");
         var r = engine.Evaluate("simplify_full(x/x)").AsRecord();
         Assert.Equal("TransformResult", r.TypeName);
-        Assert.Equal("Satisfied", (string)((Value)r.Fields[0].Value!).AsText());    // status
+        AssertEnumField(r.Fields[0].Value, "TransformStatus", "Satisfied");    // status
         Assert.Equal("x/x", ValueFormatter.Format((Value)r.Fields[1].Value!));      // original
         Assert.Equal("1", ValueFormatter.Format((Value)r.Fields[2].Value!));        // expression
         Assert.True(((Value)r.Fields[3].Value!).AsBoolean());                       // changed
@@ -144,7 +165,7 @@ public class DxStructuredResultsTests
         // each one-sided value carries the constraint it holds under
         Assert.Equal("[x < 0] (Vector)", ValueFormatter.FormatTyped(F(r, "left_conditions")));
         Assert.Equal("[x > 0] (Vector)", ValueFormatter.FormatTyped(F(r, "right_conditions")));
-        Assert.Equal("Exact", F(r, "exactness").AsText());
+        AssertEnumField(F(r, "exactness"), "SolutionExactness", "Exact");
         // the projection stays a readable string (compatibility), the record is structural
         Assert.Equal("does not exist (left: -inf, right: +inf)", engine.Evaluate("limit(1/x, x, 0)").AsText());
     }
@@ -162,7 +183,7 @@ public class DxStructuredResultsTests
         static Value F(RecordValue rec, string name) => (Value)rec.Fields.First(f => f.Name == name).Value!;
 
         Assert.Equal("IntegrationResult", r.TypeName);
-        Assert.Equal("SolvedExact", F(r, "status").AsText());
+        AssertEnumField(F(r, "status"), "IntegrationStatus", "SolvedExact");
         Assert.True(F(r, "verified").AsBoolean());
         Assert.Equal("1/3*x^3", ValueFormatter.Format(F(r, "expression")));
         // the strategy and the verification test are exposed, not just the boolean
@@ -288,6 +309,8 @@ public class DxStructuredResultsTests
     [InlineData("complex", "Domain")]
     [InlineData("rational()", "Domain")]
     [InlineData("solve_full(symbol(\"z\")^2 - 4 == 0, symbol(\"z\"))", "SolveResult")]
+    // an enum value reports its DECLARED enum type name, exactly as a record reports its own
+    [InlineData("solve_full(symbol(\"z\")^2 - 4 == 0, symbol(\"z\")).status", "SolveStatus")]
     public void Type_UsesOneVocabulary_ForEveryKind(string source, string expected)
     {
         var engine = NewEngine();
@@ -352,8 +375,9 @@ public class DxStructuredResultsTests
         engine.Evaluate("y = symbol(\"y\")");
         var r = engine.Evaluate("linsolve_full([[x, 1], [0, y]], [0, 1])").AsRecord();
         Assert.Equal("MatrixSolveResult", r.TypeName);
-        Assert.Equal("Solved", ((Value)r.Fields[0].Value!).AsText());
-        var conditions = (Value)r.Fields[2].Value!;
+        // Round 6: status is an Enum of the declared type, never text
+        AssertEnumField(r.Fields[0].Value, "SolveStatus", "Solved");
+        var conditions = Field(r, "conditions");
         Assert.Equal("[x*y != 0] (Vector)", ValueFormatter.FormatTyped(conditions));
     }
 
@@ -363,7 +387,10 @@ public class DxStructuredResultsTests
         var engine = NewEngine();
         engine.Evaluate("x = symbol(\"x\")");
         var r = engine.Evaluate("linsolve_full([[x, x], [x, x]], [1, 1])").AsRecord();
-        Assert.Equal("NoSolutions", ((Value)r.Fields[0].Value!).AsText());
+        AssertEnumField(r.Fields[0].Value, "SolveStatus", "NoSolutions");
+        // a singular system is a provably empty solution set: a COMPLETE answer, like the scalar solver
+        Assert.True(Field(r, "complete").AsBoolean());
+        AssertEnumField(Field(r, "completeness"), "Completeness", "Complete");
         // the convenience projection keeps its throwing behavior (compatibility)
         Assert.Throws<InvalidOperationException>(() => engine.Evaluate("linsolve([[x, x], [x, x]], [1, 1])"));
     }
@@ -376,8 +403,8 @@ public class DxStructuredResultsTests
         engine.Evaluate("y = symbol(\"y\")");
         var r = engine.Evaluate("inv_full([[x, 0], [0, y]])").AsRecord();
         Assert.Equal("MatrixInverseResult", r.TypeName);
-        Assert.Equal("Solved", ((Value)r.Fields[0].Value!).AsText());
-        Assert.Equal("[x*y != 0] (Vector)", ValueFormatter.FormatTyped((Value)r.Fields[2].Value!));
+        AssertEnumField(r.Fields[0].Value, "SolveStatus", "Solved");
+        Assert.Equal("[x*y != 0] (Vector)", ValueFormatter.FormatTyped(Field(r, "conditions")));
     }
 
     [Fact]
@@ -391,5 +418,155 @@ public class DxStructuredResultsTests
         var batch = engine.Evaluate("evalir_batch(compile_full(x + y, [x, y]), [[1, 2], [3, 4]], 40)");
         Assert.Equal("[3, 7] (Vector)", ValueFormatter.FormatTyped(batch));
         Assert.Equal(ValueKind.Record, k.Kind);
+    }
+
+    // ------------------------------------------------------------------
+    // Solver results carry structure, never prose (Cycle-3 Phase A1/A2)
+    // ------------------------------------------------------------------
+
+    private static Value Field(RecordValue record, string name) =>
+        (Value)record.Fields.First(f => f.Name == name).Value!;
+
+    [Fact]
+    public void SolveSystemFull_EmitsBindingRecords_NeverTheFlattenedString()
+    {
+        var engine = NewEngine();
+        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
+        var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
+        Assert.Equal("SystemSolveResult", r.TypeName);
+
+        // the system solve returns one solution map here; its bindings are the structural
+        // replacement for the old array of Text("x = 2") assignment strings
+        var solutions = Field(r, "solutions").AsVector();
+        Assert.Single(solutions);
+        var solutionRecord = solutions[0].AsRecord();
+        Assert.Equal("SystemSolution", solutionRecord.TypeName);
+
+        var bindings = Field(solutionRecord, "bindings");
+        Assert.Equal(ValueKind.Vector, bindings.Kind);
+        var elements = bindings.AsVector();
+        Assert.Equal(2, elements.Count);
+
+        var names = new List<string>();
+        var values = new List<string>();
+        foreach (var element in elements)
+        {
+            // the old shape was an array of Text("x = 2"): every element is a Binding RECORD
+            Assert.Equal(ValueKind.Record, element.Kind);
+            var binding = element.AsRecord();
+            Assert.Equal("Binding", binding.TypeName);
+            // the name is the SYMBOL (it has a canonical form), not a name string
+            var name = Field(binding, "name");
+            Assert.Equal(ValueKind.Symbolic, name.Kind);
+            names.Add(Printing.CanonicalPrint(name.AsSymbolic()));
+            var value = Field(binding, "value");
+            Assert.Equal(ValueKind.Symbolic, value.Kind);
+            values.Add(Printing.PrettyPrint(value.AsSymbolic()));
+        }
+        Assert.Equal(new[] { "(sym x)", "(sym y)" }, names);
+        Assert.Equal(new[] { "2", "-1" }, values);
+    }
+
+    [Fact]
+    public void SolveSystemFull_CarriesDomainCompleteAndPerSolutionExactness()
+    {
+        var engine = NewEngine();
+        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
+        var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
+
+        // field order is the wire contract: the two contract-completion fields follow status
+        Assert.Equal(
+            new[] { "status", "domain", "complete", "solutions", "diagnostics" },
+            r.Fields.Select(f => f.Name).ToArray());
+
+        var domain = Field(r, "domain");
+        Assert.Equal(ValueKind.Domain, domain.Kind);
+        Assert.Equal(MathDomain.Complex, domain.AsDomain());
+
+        var complete = Field(r, "complete");
+        Assert.Equal(ValueKind.Boolean, complete.Kind);
+        Assert.True(complete.AsBoolean());
+
+        var solution = Field(r, "solutions").AsVector()[0].AsRecord();
+        Assert.Equal("SystemSolution", solution.TypeName);
+        AssertEnumField(Field(solution, "exactness"), "SolutionExactness", "Exact");
+        Assert.Equal(ValueKind.Vector, Field(solution, "conditions").Kind);
+    }
+
+    [Fact]
+    public void SolveSystemFull_EveryEmittedSystemSolutionCarriesExactnessAndBindings()
+    {
+        var engine = NewEngine();
+        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
+        // the circle/hyperbola intersection has four solutions: "every", not "the first"
+        var r = engine.Evaluate("solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])").AsRecord();
+        var solutions = Field(r, "solutions").AsVector();
+        Assert.Equal(4, solutions.Count);
+        foreach (var element in solutions)
+        {
+            var solution = element.AsRecord();
+            Assert.Equal("SystemSolution", solution.TypeName);
+            AssertEnumField(Field(solution, "exactness"), "SolutionExactness", "Exact");
+            Assert.Equal("Binding", Field(solution, "bindings").AsVector()[0].AsRecord().TypeName);
+        }
+    }
+
+    [Fact]
+    public void SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain()
+    {
+        var engine = NewEngine();
+        engine.Evaluate("x = symbol(\"x\")");
+        var family = Field(engine.Evaluate("solve_full(sin(x) == 0, x)").AsRecord(), "families")
+            .AsVector()[0].AsRecord();
+        Assert.Equal("SolutionFamily", family.TypeName);
+
+        var parameter = Field(family, "parameter");
+        Assert.Equal(ValueKind.Symbolic, parameter.Kind);
+        Assert.Equal("k", ValueFormatter.Format(parameter));
+        Assert.Equal("(sym k)", Printing.CanonicalPrint(parameter.AsSymbolic()));
+
+        var domain = Field(family, "parameter_domain");
+        Assert.Equal(ValueKind.Domain, domain.Kind);
+        Assert.Equal(MathDomain.Integer, domain.AsDomain());
+    }
+
+    [Fact]
+    public void SolveFull_VariableIsSymbolic_NotTheNameString()
+    {
+        var engine = NewEngine();
+        engine.Evaluate("x = symbol(\"x\")");
+        var variable = Field(engine.Evaluate("solve_full(x^2 - 4 == 0, x)").AsRecord(), "variable");
+        Assert.Equal(ValueKind.Symbolic, variable.Kind);
+        Assert.Equal("x", ValueFormatter.Format(variable));
+        Assert.Equal("(sym x)", Printing.CanonicalPrint(variable.AsSymbolic()));
+    }
+
+    [Fact]
+    public void ParameterDomainOf_MapsEveryDeclaredArm()
+    {
+        // The projection is internal (Lovelace.Symbolics.csproj grants Lovelace.Symbolics.Tests
+        // access), so BOTH declared arms can be pinned. ParameterDomain.NonNegativeIntegers is
+        // declared at Solve.cs:72 but no kernel path produces it (all five SolutionFamily
+        // construction sites pass Integers), so it is NOT reachable from the language surface:
+        // the direct call is the only way to pin that arm, and the reachable arm is additionally
+        // pinned through solve_full in SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain.
+        var pinned = new Dictionary<ParameterDomain, MathDomain>
+        {
+            [ParameterDomain.Integers] = MathDomain.Integer,
+            [ParameterDomain.NonNegativeIntegers] = MathDomain.Integer,
+        };
+
+        // the table must be the WHOLE enum: a third arm cannot be added without a decision
+        Assert.Equal(
+            Enum.GetValues<ParameterDomain>().OrderBy(v => v).ToArray(),
+            pinned.Keys.OrderBy(v => v).ToArray());
+
+        foreach (var (domain, expected) in pinned)
+            Assert.Equal(expected, SymbolicsPlugin.ParameterDomainOf(domain));
+
+        // an arm the switch does not declare must not silently inherit an answer: the mapping is
+        // total, so every undeclared value is a decision that has not been made
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => SymbolicsPlugin.ParameterDomainOf((ParameterDomain)99));
     }
 }

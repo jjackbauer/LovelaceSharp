@@ -59,6 +59,11 @@ public static class StructuredProjection
         ValueKind.Real => Real(value.AsReal()),
         ValueKind.Boolean => new StructuredValueDto("Boolean", Value: value.AsBoolean() ? "true" : "false"),
         ValueKind.Text => new StructuredValueDto("Text", Value: value.AsText()),
+        // an enum carries its DECLARED type name, so "Partial" is never ambiguous between
+        // SolveStatus and Completeness (alignment addendum §9.1)
+        ValueKind.Enum => new StructuredValueDto("Enum",
+            Type: value.AsEnum().TypeName,
+            Value: value.AsEnum().Name),
         ValueKind.Domain => new StructuredValueDto("Domain", Domain: value.AsDomain().ToString().ToLowerInvariant()),
         ValueKind.Function => new StructuredValueDto("Function", Value: value.AsFunction().Name),
         // Void == an absent value: null, distinct from the empty string

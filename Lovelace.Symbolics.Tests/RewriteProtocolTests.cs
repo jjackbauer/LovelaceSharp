@@ -116,7 +116,10 @@ public class RewriteProtocolTests
         var transform = Simplify.Transform(Exprs.Divide(Exprs.Symbol(x), Exprs.Symbol(x)), ctx,
             new Simplify.Options(MaxSteps: 0));
         Assert.True(transform.BudgetExceeded);
-        Assert.Equal("BudgetExceeded", transform.Status);
+        // TransformResult.Status is the kernel enum, not a computed string (D2): the same
+        // disposition, now type-checked, and the member name that reaches the wire is unchanged
+        Assert.Equal(TransformStatus.BudgetExceeded, transform.Status);
+        Assert.Equal("BudgetExceeded", transform.Status.ToString());
         Assert.Equal("rewrite_steps", transform.BudgetKind);
         Assert.Empty(transform.Steps);
     }

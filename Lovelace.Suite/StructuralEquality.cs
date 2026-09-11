@@ -43,6 +43,16 @@ public static class StructuralEquality
             case ValueKind.Text:
                 return string.Equals(a.AsText(), b.AsText(), StringComparison.Ordinal)
                     ? null : $"{path}: text differs";
+            case ValueKind.Enum:
+            {
+                // equal iff BOTH the declared enum type and the member match: SolveStatus.Partial
+                // is not Completeness.Partial, which is the whole point of carrying the type
+                var (ea, eb) = (a.AsEnum(), b.AsEnum());
+                if (ea.TypeName != eb.TypeName)
+                    return $"{path}: enum type {ea.TypeName} != {eb.TypeName}";
+                return string.Equals(ea.Name, eb.Name, StringComparison.Ordinal)
+                    ? null : $"{path}: enum {ea.TypeName} value {ea.Name} != {eb.Name}";
+            }
             case ValueKind.Domain:
                 return a.AsDomain() == b.AsDomain() ? null : $"{path}: domain differs";
             case ValueKind.Function:
