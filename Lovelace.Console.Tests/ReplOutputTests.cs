@@ -60,9 +60,19 @@ public class ReplOutputTests
         string t = await ReplHarness.RunAsync("help solve\nexit\n");
 
         ReplHarness.AssertHasLine(t, "solve(f, x [, domain])");
-        Assert.Contains("Solves an equation for x.", t);
+        // The summary is emitted as ONE unwrapped line: HelpService appends descriptor.Summary
+        // verbatim (Lovelace.Suite/HelpService.cs:167) and the REPL writes that block with
+        // WriteLine, so the whole sentence must appear as its own line. Pinned in full because the
+        // pre-r13 sentence ("Solves an equation for x.") is no longer the product's text.
+        ReplHarness.AssertHasLine(t,
+            "Solves an equation for x and returns the SAME SolveResult record solve_full returns: "
+            + "status, domain (a Domain value), complete/completeness, per-solution "
+            + "conditions/multiplicity/exactness, parametric families and diagnostics. The default "
+            + "domain is Complex; pass real for real solutions only.");
         Assert.Contains("Examples:", t);
-        Assert.Contains("Returns: Vector | Text", t);
+        // solve() publishes the SAME SolveResult record solve_full does (SymbolicsPlugin.cs:451-455),
+        // so the declared return kind is SolveResult, not the pre-r13 "Vector | Text".
+        ReplHarness.AssertHasLine(t, "Returns: SolveResult");
         Assert.Contains("See also: solve_full, solve_system, linsolve", t);
         Assert.Contains("Plugin: Lovelace.Symbolics", t);
     }
