@@ -278,8 +278,10 @@ public static class Solvers
     /// <summary>The ONE residual predicate: <c>true</c> when <paramref name="equation"/> is zero at
     /// x = value (folded constant, expanded constant, or numerically zero), <c>false</c> when it is
     /// provably not zero, <c>null</c> when it is not numerically decidable. The system path
-    /// (<see cref="SystemSolvers.SatisfiesAll"/>) refuses anything that is not <c>true</c>; the
-    /// inverse-branch gate drops a candidate only on <c>false</c> and keeps it on <c>null</c>.</summary>
+    /// (<see cref="SystemSolvers.JudgeCandidate"/>) refuses anything that is not <c>true</c> and
+    /// keeps a REFUTATION (<c>false</c>) apart from an undecidable candidate (<c>null</c>) — the
+    /// difference between a proof of emptiness and a search that merely stopped; the inverse-branch
+    /// gate drops a candidate only on <c>false</c> and keeps it on <c>null</c>.</summary>
     internal static bool? ResidualIsZero(Expr equation, Symbol x, Expr value, ExprContext ctx, Num tolerance)
     {
         var at = Evaluation.Substitute(equation, ctx, new Dictionary<Symbol, Expr> { [x] = value });
@@ -900,8 +902,39 @@ public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment
 
 public sealed class SystemSolveResult
 {
+    /// <summary>Stable note codes. A note crosses to the wire as the diagnostic MESSAGE, so a
+    /// consumer that receives only the message can still match a CODE instead of prose — and the
+    /// disposition the wire publishes never changes meaning: <c>NoSolutions</c> carries a proof.</summary>
+    public static class NoteCode
+    {
+        /// <summary>The system has no equations: every assignment is a solution — the OPPOSITE of
+        /// an empty solution set.</summary>
+        public const string NoEquations = "system-solve.no-equations";
+
+        /// <summary>An equation is not a polynomial, so the elimination does not apply.</summary>
+        public const string NonPolynomial = "system-solve.non-polynomial";
+
+        /// <summary>The elimination abandoned a branch without deciding it.</summary>
+        public const string EliminationIncomplete = "system-solve.elimination-incomplete";
+
+        /// <summary>The equation left for the last variable has no complete representable root set.</summary>
+        public const string UnivariateIncomplete = "system-solve.univariate-incomplete";
+
+        /// <summary>The only candidate of a branch could not be checked against the other equations.</summary>
+        public const string CandidateUndecided = "system-solve.candidate-undecided";
+    }
+
+    /// <summary>The note supplied at construction (a refusal reason), if any.</summary>
+    private readonly string? _note;
+
     public List<SystemSolution> Solutions { get; } = new();
-    public string? Note { get; }
+
+    /// <summary>Human-readable reason the result carries NO solution — never the sole carrier of
+    /// semantics. It is published only when there is no solution to report: a SOLVED result and a
+    /// PROVED-EMPTY result carry no note, so the wire's diagnostics array stays EMPTY for both. An
+    /// empty result WITHOUT a proof always carries one, and it starts with a
+    /// <see cref="NoteCode"/>.</summary>
+    public string? Note => Solutions.Count == 0 && !ProvedEmpty ? _note ?? UnprovedReason : _note;
 
     /// <summary>True when the enumeration hit the solution cap: the returned list is a subset.</summary>
     public bool Truncated { get; internal set; }
@@ -912,7 +945,41 @@ public sealed class SystemSolveResult
     /// <summary>The field the system is solved over (Complex in v1).</summary>
     public SolveDomain Domain => SolveDomain.Complex;
 
-    /// <summary>Honest disposition: a truncated enumeration is Partial, never Solved.</summary>
+    /// <summary>Branches closed by a DERIVED contradiction: a nonzero constant that has to vanish,
+    /// or a nonzero constant in the elimination ideal (1 is in the ideal). Finding no solution is
+    /// never one of these.</summary>
+    internal int Contradictions { get; private set; }
+
+    /// <summary>Branches the elimination abandoned WITHOUT deciding them: an equation it cannot
+    /// convert, no elimination polynomial, a root set it cannot represent, a candidate it cannot
+    /// check. Such a branch may hold the solutions, so while one remains emptiness is unproved.</summary>
+    internal int UnprovedBranches { get; private set; }
+
+    /// <summary>The first reason an abandoned branch recorded (a stable code, then prose).</summary>
+    internal string? UnprovedReason { get; private set; }
+
+    /// <summary>The emptiness PROOF — the ONLY source of <see cref="SolveStatus.NoSolutions"/>.
+    /// True only when a contradiction was DERIVED and every branch the elimination opened was
+    /// closed by a proof or by a solution. "The elimination found nothing" is not this: before this
+    /// round the absence of solutions, with no note, was published as a proof of emptiness.</summary>
+    public bool ProvedEmpty => Contradictions > 0 && UnprovedBranches == 0 && !Truncated;
+
+    /// <summary>Records a DERIVED contradiction. Called where inconsistency is ESTABLISHED — a
+    /// nonzero constant that must vanish, the unit ideal — never where a search came back empty.</summary>
+    internal void ProveEmpty() => Contradictions++;
+
+    /// <summary>Records a branch abandoned without a proof, with the stable <see cref="NoteCode"/>
+    /// that says why. The first reason becomes <see cref="Note"/> unless the result is solved or
+    /// proved empty.</summary>
+    internal void AbandonBranch(string reason)
+    {
+        UnprovedBranches++;
+        UnprovedReason ??= reason;
+    }
+
+    /// <summary>Honest disposition: a truncated enumeration is Partial, never Solved; an empty
+    /// result is NoSolutions ONLY when emptiness is PROVED — otherwise Unevaluated, carrying the
+    /// reason of the first unproved branch.</summary>
     public SolveStatus Status
     {
         get
@@ -921,7 +988,7 @@ public sealed class SystemSolveResult
                 return SolveStatus.Partial;
             if (Solutions.Count > 0)
                 return SolveStatus.Solved;
-            return Note is null ? SolveStatus.NoSolutions : SolveStatus.Unevaluated;
+            return ProvedEmpty ? SolveStatus.NoSolutions : SolveStatus.Unevaluated;
         }
     }
 
@@ -932,7 +999,7 @@ public sealed class SystemSolveResult
         _ => Completeness.Unknown,
     };
 
-    public SystemSolveResult(string? note = null) => Note = note;
+    public SystemSolveResult(string? note = null) => _note = note;
 }
 
 /// <summary>
@@ -948,12 +1015,20 @@ public static class SystemSolvers
         IReadOnlyList<Expr> equations, IReadOnlyList<Symbol> variables, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
+        // An empty system is NOT an empty solution set: with no equation to satisfy, EVERY
+        // assignment of the variables is a solution, and "every assignment" is not something this
+        // enumeration represents. Refuse by name instead of crashing on the first equation.
+        if (equations.Count == 0)
+            return new SystemSolveResult(
+                $"{SystemSolveResult.NoteCode.NoEquations}: the system has no equations, so every " +
+                "assignment of the variables is a solution; the solution set is not enumerable here.");
         var polys = new List<Expr>();
         foreach (var eq in equations)
         {
             var f = eq is RelationExpr r && r.Op == RelOp.Eq ? Exprs.Subtract(r.Left, r.Right) : eq;
             if (!Polynomial.TryFromExpr(f, ctx, variables.ToArray(), out _, out _))
-                return new SystemSolveResult("Only polynomial systems are supported in v1.");
+                return new SystemSolveResult(
+                    $"{SystemSolveResult.NoteCode.NonPolynomial}: only polynomial systems are supported in v1.");
             polys.Add(f);
         }
         var result = new SystemSolveResult();
@@ -961,6 +1036,12 @@ public static class SystemSolvers
         return result;
     }
 
+    /// <summary>
+    /// The elimination, branch by branch. EVERY path that gives up says so through
+    /// <see cref="SystemSolveResult.AbandonBranch"/>, and only a DERIVED contradiction reaches
+    /// <see cref="SystemSolveResult.ProveEmpty"/>: an empty branch list is not a proof, and the
+    /// disposition of the whole result turns on that distinction.
+    /// </summary>
     private static void SolveRecursive(
         IReadOnlyList<Expr> polys, Symbol[] vars, ExprContext ctx,
         AssumptionSet conditions, Dictionary<Symbol, Expr> partial, SystemSolveResult result, int depth)
@@ -974,11 +1055,23 @@ public static class SystemSolvers
         int n = vars.Length;
         if (n == 0)
         {
-            // no variables left: every remaining equation must vanish identically
+            // no variables left: every remaining equation must vanish identically. A nonzero
+            // numeric constant that survives is a DERIVED contradiction (this branch is empty); an
+            // equation that is not a numeric constant is not evidence either way.
             foreach (var p in polys)
             {
-                if (Evaluation.ConstantToNum(p) is { } cv && !NumOps.IsZero(cv))
-                    return;   // an inconsistent constant remains
+                if (Evaluation.ConstantToNum(p) is not { } cv)
+                {
+                    result.AbandonBranch(
+                        $"{SystemSolveResult.NoteCode.EliminationIncomplete}: a remaining equation " +
+                        "is not a numeric constant, so this branch is not decided.");
+                    return;
+                }
+                if (!NumOps.IsZero(cv))
+                {
+                    result.ProveEmpty();   // c = 0 with c != 0: no assignment satisfies the branch
+                    return;
+                }
             }
             // the Gröbner elimination and the recursive substitution are exact operations: the
             // provenance is stated at the construction site, never inherited from a default
@@ -990,26 +1083,7 @@ public static class SystemSolvers
         }
         if (n == 1)
         {
-            var x = vars[0];
-            if (!Polynomial.TryFromExpr(polys[0], ctx, new[] { x }, out var poly, out _))
-                return;
-            var set = Solvers.SolvePolynomial(poly, x, ctx);
-            foreach (var sol in set.Solutions)
-            {
-                if (!SatisfiesAll(sol.Value, polys.Skip(1), x, ctx))
-                    continue;
-                var assignment = new Dictionary<Symbol, Expr>(partial) { [x] = sol.Value };
-                result.Solutions.Add(new SystemSolution(assignment, conditions)
-                {
-                    Exactness = SolutionExactness.Exact,
-                });
-                if (result.Solutions.Count >= MaxSolutions)
-                {
-                    result.Truncated = true;
-                    result.Limit = MaxSolutions;
-                    return;
-                }
-            }
+            SolveLastVariable(polys, vars[0], ctx, conditions, partial, result);
             return;
         }
 
@@ -1024,20 +1098,57 @@ public static class SystemSolvers
         }
         catch (NotPolynomialException)
         {
+            result.AbandonBranch(
+                $"{SystemSolveResult.NoteCode.EliminationIncomplete}: the system stopped being a " +
+                "polynomial system after substitution, so this branch is not decided.");
             return;
         }
         var eliminated = basis
             .Where(p => FreeOfVariables(p, vars[..^1]))
             .OrderBy(p => p.TotalDegree)
             .ToList();
-        if (eliminated.Count == 0)
+        var univariate = eliminated.FirstOrDefault(p => !p.IsZero);
+        if (univariate is null)
+        {
+            result.AbandonBranch(
+                $"{SystemSolveResult.NoteCode.EliminationIncomplete}: the Gröbner basis has no " +
+                $"polynomial in {last.Name} alone, so the values of {last.Name} are not enumerated here.");
             return;   // no elimination polynomial: not enumerated in v1
-        if (eliminated[0].IsOne)
-            return;   // ideal is the whole ring: no solutions
-        var univariate = eliminated[0];
-        if (!Polynomial.TryFromExpr(univariate.ToExpr(), ctx, new[] { last }, out var lastPoly, out _))
+        }
+        if (univariate.TotalDegree == 0)
+        {
+            result.ProveEmpty();   // a nonzero constant is in the ideal: no common zero exists
             return;
+        }
+        if (!Polynomial.TryFromExpr(univariate.ToExpr(), ctx, new[] { last }, out var lastPoly, out _))
+        {
+            result.AbandonBranch(
+                $"{SystemSolveResult.NoteCode.EliminationIncomplete}: the elimination polynomial " +
+                $"in {last.Name} is not convertible, so this branch is not decided.");
+            return;
+        }
+        if (lastPoly.TotalDegree == 0)
+        {
+            result.ProveEmpty();   // a nonzero constant is in the ideal: no common zero exists
+            return;
+        }
         var lastSet = Solvers.SolvePolynomial(lastPoly, last, ctx);
+        if (lastSet.Solutions.Count == 0)
+        {
+            result.AbandonBranch(
+                $"{SystemSolveResult.NoteCode.UnivariateIncomplete}: the elimination polynomial in " +
+                $"{last.Name} has no representable root, so this branch is not decided.");
+            return;
+        }
+        if (lastSet.Status != SolveStatus.Solved)
+        {
+            // ONE elimination-ideal generator already covers every solution's last coordinate —
+            // but only a COMPLETE root set covers them all. A partial one may be missing solutions
+            // (the representable roots are still followed below; emptiness never follows from this).
+            result.AbandonBranch(
+                $"{SystemSolveResult.NoteCode.UnivariateIncomplete}: the roots of the elimination " +
+                $"polynomial in {last.Name} are only partially representable.");
+        }
         foreach (var sol in lastSet.Solutions)
         {
             var substituted = polys
@@ -1054,16 +1165,210 @@ public static class SystemSolvers
         }
     }
 
-    /// <summary>True when the solution satisfies every remaining equation (symbolically where the
-    /// simplifier can prove it, numerically at high precision otherwise).</summary>
-    private static bool SatisfiesAll(Expr value, IEnumerable<Expr> equations, Symbol x, ExprContext ctx)
+    /// <summary>
+    /// Closes a branch with ONE variable left. The branch is decided only by an equation that
+    /// actually RESTRICTS x and whose COMPLETE root set is representable: coming back empty-handed
+    /// is not a proof that nothing exists, so every undecided outcome is recorded as an unproved
+    /// branch — which is what forbids NoSolutions for the whole system.
+    /// </summary>
+    private static void SolveLastVariable(
+        IReadOnlyList<Expr> polys, Symbol x, ExprContext ctx,
+        AssumptionSet conditions, Dictionary<Symbol, Expr> partial, SystemSolveResult result)
+    {
+        // 1. an equation that is a NONZERO polynomial in x with rational coefficients
+        Polynomial? inX = null;
+        int isolated = -1;
+        for (int i = 0; i < polys.Count; i++)
+        {
+            if (!Polynomial.TryFromExpr(polys[i], ctx, new[] { x }, out var candidate, out _))
+                continue;
+            if (candidate.IsZero)
+                continue;   // 0 = 0 restricts nothing: it can never be what determines x
+            inX = candidate;
+            isolated = i;
+            break;
+        }
+        if (inX is not null)
+        {
+            if (inX.TotalDegree == 0)
+            {
+                result.ProveEmpty();   // a nonzero constant equation: x cannot satisfy it
+                return;
+            }
+            var set = Solvers.SolvePolynomial(inX, x, ctx);
+            if (set.Solutions.Count == 0)
+            {
+                result.AbandonBranch(
+                    $"{SystemSolveResult.NoteCode.UnivariateIncomplete}: the equation that " +
+                    $"determines {x.Name} has no representable root.");
+                return;
+            }
+            var others = OtherEquations(polys, isolated);
+            int accepted = 0, undecided = 0;
+            foreach (var sol in set.Solutions)
+            {
+                switch (JudgeCandidate(sol.Value, others, x, ctx))
+                {
+                    case CandidateVerdict.Accepted:
+                        result.Solutions.Add(new SystemSolution(
+                            new Dictionary<Symbol, Expr>(partial) { [x] = sol.Value }, conditions)
+                        {
+                            Exactness = SolutionExactness.Exact,
+                        });
+                        accepted++;
+                        break;
+                    case CandidateVerdict.Refuted:
+                        break;   // provably not a solution: no bookkeeping needed
+                    default:
+                        undecided++;
+                        break;
+                }
+                if (result.Solutions.Count >= MaxSolutions)
+                {
+                    result.Truncated = true;
+                    result.Limit = MaxSolutions;
+                    return;
+                }
+            }
+            if (accepted > 0)
+            {
+                if (set.Status != SolveStatus.Solved)
+                {
+                    result.AbandonBranch(
+                        $"{SystemSolveResult.NoteCode.UnivariateIncomplete}: the equation that " +
+                        $"determines {x.Name} has roots this kernel cannot represent.");
+                }
+                return;
+            }
+            if (set.Status == SolveStatus.Solved && undecided == 0)
+            {
+                // EVERY root of the restricting equation is refuted by the other equations: the
+                // branch is empty, and that is a proof rather than a failed search
+                result.ProveEmpty();
+                return;
+            }
+            result.AbandonBranch(
+                undecided > 0
+                    ? $"{SystemSolveResult.NoteCode.CandidateUndecided}: no candidate for {x.Name} " +
+                      "could be checked against the other equations."
+                    : $"{SystemSolveResult.NoteCode.UnivariateIncomplete}: the roots of {x.Name} " +
+                      "are only partially representable, so an empty result here is not a proof.");
+            return;
+        }
+
+        // 2. c1·x + c0 = 0 whose coefficients are NOT rational numbers — the radicals a triangular
+        //    elimination introduces by back-substitution. A provably nonzero c1 leaves exactly ONE
+        //    candidate, so such a branch is still decidable.
+        for (int i = 0; i < polys.Count; i++)
+        {
+            if (!Algebra.TryCoefficients(polys[i], x, out var coeffs) || coeffs.Count > 2)
+                continue;
+            var c0 = coeffs[0];
+            if (coeffs.Count == 1)
+            {
+                if (IsProvablyNonZeroConstant(c0, ctx))
+                {
+                    result.ProveEmpty();   // c0 = 0 with c0 != 0: the branch is empty
+                    return;
+                }
+                continue;
+            }
+            var c1 = coeffs[1];
+            if (!IsProvablyNonZeroConstant(c1, ctx))
+                continue;   // not proved nonzero: this equation does not pin x down
+            var root = Exprs.Divide(Exprs.Negate(c0), c1);
+            var rest = OtherEquations(polys, i);
+            switch (JudgeCandidate(root, rest, x, ctx))
+            {
+                case CandidateVerdict.Accepted:
+                    result.Solutions.Add(new SystemSolution(
+                        new Dictionary<Symbol, Expr>(partial) { [x] = root }, conditions)
+                    {
+                        Exactness = root.IsExact ? SolutionExactness.Exact : SolutionExactness.AlgebraicExact,
+                    });
+                    return;
+                case CandidateVerdict.Refuted:
+                    // the equation has exactly one root and the other equations refute it
+                    result.ProveEmpty();
+                    return;
+                default:
+                    result.AbandonBranch(
+                        $"{SystemSolveResult.NoteCode.CandidateUndecided}: the only candidate for " +
+                        $"{x.Name} could not be checked against the other equations.");
+                    return;
+            }
+        }
+
+        result.AbandonBranch(
+            $"{SystemSolveResult.NoteCode.EliminationIncomplete}: no equation of this branch " +
+            $"determines {x.Name}, so the values of {x.Name} are not enumerated here.");
+    }
+
+    /// <summary>The equations other than the one that determines x: its roots satisfy it by
+    /// construction, and re-checking it would let an undecidable residual hide a real root.</summary>
+    private static List<Expr> OtherEquations(IReadOnlyList<Expr> polys, int index)
+    {
+        var others = new List<Expr>(polys.Count);
+        for (int i = 0; i < polys.Count; i++)
+        {
+            if (i != index)
+                others.Add(polys[i]);
+        }
+        return others;
+    }
+
+    /// <summary>How a candidate assignment fared against the equations it must satisfy.</summary>
+    private enum CandidateVerdict
+    {
+        /// <summary>Every equation is zero at the candidate.</summary>
+        Accepted,
+
+        /// <summary>At least one equation is PROVABLY nonzero at the candidate: not a solution.</summary>
+        Refuted,
+
+        /// <summary>At least one equation could not be decided: the candidate is dropped unproved.</summary>
+        Unchecked,
+    }
+
+    /// <summary>
+    /// The system path's one residual gate: <see cref="CandidateVerdict.Accepted"/> only when every
+    /// equation is zero at the candidate (symbolically where the simplifier can prove it,
+    /// numerically at high precision otherwise), <see cref="CandidateVerdict.Refuted"/> only when an
+    /// equation is PROVABLY nonzero, and <see cref="CandidateVerdict.Unchecked"/> when the evidence
+    /// is missing. That distinction is what separates a proof of emptiness from a search that
+    /// merely stopped.
+    /// </summary>
+    private static CandidateVerdict JudgeCandidate(
+        Expr value, IReadOnlyList<Expr> equations, Symbol x, ExprContext ctx)
     {
         using var scope = Rl.WithPrecision(40, 20);
         var tolerance = Solvers.ResidualTolerance();
+        var verdict = CandidateVerdict.Accepted;
         foreach (var eq in equations)
-            if (Solvers.ResidualIsZero(eq, x, value, ctx, tolerance) != true)
-                return false;   // provably non-zero, or not numerically checkable: refuse rather than guess
-        return true;
+        {
+            switch (Solvers.ResidualIsZero(eq, x, value, ctx, tolerance))
+            {
+                case true:
+                    break;
+                case false:
+                    return CandidateVerdict.Refuted;   // provably not a solution
+                default:
+                    verdict = CandidateVerdict.Unchecked;   // a refutation still wins: keep looking
+                    break;
+            }
+        }
+        return verdict;
+    }
+
+    /// <summary>True only when the expression is a PROVABLY nonzero numeric constant: a literal
+    /// constant, or a rational after expansion. A radical constant is deliberately NOT decided
+    /// here — the numeric evaluator rounds, and a rounded zero test must never be the proof that
+    /// closes a branch.</summary>
+    private static bool IsProvablyNonZeroConstant(Expr e, ExprContext ctx)
+    {
+        if (Evaluation.ConstantToNum(e) is { } literal)
+            return !NumOps.IsZero(literal);
+        return Algebra.Expand(e, ctx) is RationalConstantExpr rc && !rc.Value.IsZero;
     }
 
     private static bool FreeOfVariables(Polynomial p, Symbol[] vars)
