@@ -283,7 +283,7 @@ x = symbol("x")
 apart(1/(x^2 - 1), x)
 ```
 ```result
--1/(2*(x + 1)) + 1/(2*(x - 1)) (Symbolic)
+-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)
 ```
 
 Non-polynomial input passes through unchanged (honesty: nothing is forced):
@@ -799,7 +799,7 @@ y = symbol("y")
 linsolve([[x, 1], [0, y]], [0, 1])
 ```
 ```result
-[-x/(x*(x*y)), x/(x*y)] (Vector)
+[-x/x/(x*y), x/(x*y)] (Vector)
 ```
 
 Entries keep their definedness-preserving form (`x/(x*y)` is `1/y` away from `x*y = 0`,

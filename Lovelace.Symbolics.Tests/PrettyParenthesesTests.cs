@@ -1,6 +1,7 @@
 using Lovelace.Suite;
 using Lovelace.Symbolics;
 using Xunit;
+using Rat = global::Lovelace.Rational.Rational;
 
 namespace Lovelace.Symbolics.Tests;
 
@@ -19,7 +20,8 @@ namespace Lovelace.Symbolics.Tests;
 public class PrettyParenthesesTests
 {
     private const string Prelude =
-        "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\");";
+        "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); " +
+        "z = symbol(\"z\"); w = symbol(\"w\");";
 
     /// <summary>The corpus. Every entry is infix source; the expression is obtained by evaluating
     /// it, the rendering is obtained from the pretty printer, and the reparse evaluates that
@@ -52,6 +54,26 @@ public class PrettyParenthesesTests
         "(-1/2)^x",
         "(-1.5)^x",
         "(-3)^(-x)",
+        // a fraction as a power base: the VALUE is one atom in the precedence table, but "1/2" is
+        // a DIVISION as text and / binds looser than ^, so the base must be delimited —
+        // 1/2^x denotes (2^x)^-1.
+        "(1/2)^x",
+        "(2/3)^x",
+        "(-3/2)^x",
+        // flat denominators: x/(y*z) is ONE divisor, the product y*z, while x/y/z divides twice
+        // and is a different value. The printer spelled both as x/(y*z), so one of the two values
+        // re-parsed as the other; the mirror row x/(y*z) must keep its single divisor.
+        "(x/y)/z",
+        "x/y/z",
+        "x/y/z/w",
+        "(x/y)/(z/w)",
+        "x/(y*z)",
+        "(x*y)/(z*w)",
+        "(x/y)*z",
+        // the shape the usage guide documents: each term is (-1/2)*(x+1)^-1, a rational
+        // coefficient with a denominator of its own, so the term divides twice — the guide's
+        // "-1/(2*(x + 1)) + 1/(2*(x - 1))" re-parses to a different canonical form
+        "apart(1/(x^2 - 1), x)",
         // nested powers
         "(x^y)^2",
         "x^(y^2)",
@@ -211,6 +233,86 @@ public class PrettyParenthesesTests
         // structural form: kinds as prefixes, only call arguments are parenthesised
         Assert.Equal(Printing.DebugPrint(expr), debug);
         Assert.DoesNotContain("((", debug);
+    }
+
+    /// <summary>(B1) The same defect class as the negative base, one shape further: the base is
+    /// the rational constant 1/2, an ATOM in the precedence table, but its text is a division.
+    /// 1/2^x re-parses as (2^x)^-1 — a different value at every x — so the base carries the pair,
+    /// and the text the power raises is one delimited group and nothing else.</summary>
+    [Fact]
+    public async Task ReportedCase_PowerOfARationalConstant_HasADelimitedBase()
+    {
+        var (_, pretty, canonical) = await BuildAsync("(1/2)^x");
+        Assert.Equal("(1/2)^x", pretty);
+        Assert.Equal("(pow (rat 1 2) (sym x))", canonical);
+        AssertDelimitedBase(pretty, "(1/2)");
+
+        var (_, third, _) = await BuildAsync("(2/3)^x");
+        Assert.Equal("(2/3)^x", third);
+    }
+
+    /// <summary>(B3) The mirror of the flat-denominator fix, pinned as text: the number of
+    /// divisions in the rendering equals the number of denominator factors in the value, so a
+    /// product that is itself ONE divisor keeps its single "/" while two separate denominator
+    /// factors divide twice.</summary>
+    [Fact]
+    public async Task ReportedCase_FlatDenominators_DivideOncePerFactor()
+    {
+        var (_, flat, _) = await BuildAsync("(x/y)/z");
+        Assert.Equal("x/y/z", flat);
+        var (_, flat3, _) = await BuildAsync("x/y/z/w");
+        Assert.Equal("x/w/y/z", flat3);
+        var (_, mirror, _) = await BuildAsync("x/(y*z)");
+        Assert.Equal("x/(y*z)", mirror);
+    }
+
+    // ------------------------------------------------------------------
+    // 3b. A shape the language cannot spell: a complex constant base
+    // ------------------------------------------------------------------
+
+    /// <summary>(B2) A complex constant base is a model-level shape — the language folds complex
+    /// constants out of user arithmetic — so the corpus cannot write it and the re-parse has no
+    /// complex constant to rebuild from the text; the property asserted is therefore that the
+    /// text the power raises is ONE delimited group. The value is an atom in the precedence table
+    /// while its text is a SUM, and + binds looser than ^, so 1 + i^x denotes 1 + (i^x): a
+    /// different value. The leading-minus rule already covered the negative-real-part twin; the
+    /// total rule covers both, in both notations, without naming the kind.</summary>
+    [Fact]
+    public void ModelLevel_PowerOfAComplexConstant_HasADelimitedBase()
+    {
+        var one = Rat.From(1, 1);
+        var positive = Exprs.Power(Exprs.Complex(one, one), Exprs.Symbol("x"));       // 1 + i
+        var negative = Exprs.Power(Exprs.Complex(Rat.From(-1, 1), one), Exprs.Symbol("x")); // -1 + i
+
+        AssertDelimitedBase(Printing.PrettyPrint(positive), "(1 + i)");
+        AssertDelimitedBase(Printing.PrettyPrint(negative), "(-1 + i)");
+    }
+
+    /// <summary>Asserts that <paramref name="rendering"/> raises a power whose base text is
+    /// exactly the one delimited group <paramref name="expectedBase"/>: the base cannot leak an
+    /// operator of its own to the power's level, which is the whole property when the language
+    /// cannot spell the shape back.</summary>
+    private static void AssertDelimitedBase(string rendering, string expectedBase)
+    {
+        int caret = rendering.IndexOf('^', StringComparison.Ordinal);
+        Assert.True(caret > 0, "no power in \"" + rendering + "\"");
+        var basis = rendering[..caret];
+        Assert.Equal(expectedBase, basis);
+        Assert.StartsWith("(", basis, StringComparison.Ordinal);
+        Assert.Equal(basis.Length - 1, MatchingClose(basis, 0));   // the group IS the whole base
+    }
+
+    /// <summary>The offset of the parenthesis that closes the one at <paramref name="open"/>,
+    /// or -1 when the text has no such pair.</summary>
+    private static int MatchingClose(string text, int open)
+    {
+        int depth = 0;
+        for (int i = open; i < text.Length; i++)
+        {
+            if (text[i] == '(') depth++;
+            else if (text[i] == ')' && --depth == 0) return i;
+        }
+        return -1;
     }
 
     public static TheoryData<string> CorpusCases()

@@ -409,8 +409,11 @@ public class DxSemanticClosureTests
         var ctx = NewCtx();
         var x = ctx.Symbol("x");
         var term = Exprs.Multiply(Exprs.Rational(-1, 2), Exprs.Power(Exprs.Add(x, Exprs.One), Exprs.Rational(-1)));
-        // -1/2 · (x+1)^-1 renders as -1/(2*(x + 1)), never -1/2/((x + 1)) or -1/2*(x + 1)
-        Assert.Equal("-1/(2*(x + 1))", Printing.PrettyPrint(term));
+        // -1/2 · (x+1)^-1 renders as -1/2/(x + 1): one division per denominator factor. The
+        // previous spelling -1/(2*(x + 1)) was itself the defect this file exists to catch — it
+        // re-parses to (mul (rat -1 1) (pow (rat 2 1) -1) ...), NOT to the value's own canonical
+        // form (mul (rat -1 2) (pow (add (rat 1 1) (sym x)) -1)); measured in cycle 5.
+        Assert.Equal("-1/2/(x + 1)", Printing.PrettyPrint(term));
         Assert.Equal("x/x", Printing.PrettyPrint(Exprs.Divide(x, x)));
         Assert.Equal("2/x", Printing.PrettyPrint(Exprs.Divide(Exprs.Integer(2), x)));
     }

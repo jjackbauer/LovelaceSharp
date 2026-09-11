@@ -503,30 +503,96 @@ public static class Printing
     private static string LatexDelimit(string text, int parentPrec, int nodePrec) =>
         NeedsDelimiter(parentPrec, nodePrec) ? "\\left(" + text + "\\right)" : text;
 
-    /// <summary>The ONE power-base rule: a base that does not bind tighter than a power is
-    /// delimited exactly once — <c>(x + 1)^2</c>, <c>(x^y)^2</c>; asking the child renderer for a
-    /// precedence wrapped it twice (((x + 1))^12). Round 24.
+    /// <summary>The ONE operand rule, asked by both arms and about both slots a rendered text can
+    /// be placed in below a power: the base of a power and the denominator of a division. A text
+    /// used as an operand of the operator that binds at <paramref name="operatorPrec"/> is
+    /// delimited unless it binds STRICTLY tighter than that operator — written at the operator's
+    /// own level the surrounding text regroups it (<c>x^y^2</c>, <c>x/y*z</c>), written looser it
+    /// swallows the operator whole (<c>x + 1^2</c>, <c>y + 1/2</c>).
     /// <para>
-    /// Precedence is a property of VALUES and is not sufficient, because every constant is an
-    /// atom in that table while a negative constant is not an atom as TEXT: <c>-1</c> is a unary
-    /// minus applied to <c>1</c>, and a unary minus binds looser than <c>^</c>, so rendering
-    /// <c>(-1)^x</c> as <c>-1^x</c> denotes <c>-(1^x)</c> — a different value. The rule therefore
-    /// asks the text that is about to be raised as well, and delimits it when that text begins
-    /// with a unary minus. This covers every constant shape that can print a sign (integer,
-    /// rational, real, complex) without a second table, and cannot fire for a base that already
-    /// binds tighter than a power, so no pair is ever doubled.
-    /// </para>
-    /// <para>
-    /// The test is made against the rendered text rather than against the node because the two
-    /// arms spell the same node differently where it matters: Pretty renders a complex constant
-    /// as <c>-1 + i</c> and LaTeX as <c>(-1 + 1 i)</c>, so no single structural predicate is
-    /// correct for both — it would either leave Pretty's base undelimited or wrap LaTeX's already
-    /// delimited one a second time. Each arm passes the text it is about to emit, which is the
-    /// same question — "does this bind looser than ^?" — in both notations. Cycle 5.
+    /// The answer is NOT the precedence of the value: that table classifies NODES, and every
+    /// constant is an atom in it, while the TEXT of a constant need not be one — <c>1/2</c> is a
+    /// division, <c>-1</c> is a unary minus, <c>1 + i</c> is a sum. The rule therefore asks the
+    /// text that is about to be emitted as well, through <see cref="TextPrec"/>, which is the same
+    /// question in both notations: LaTeX spells the same rational as the single atom
+    /// <c>\frac{1}{2}</c> and the same complex as the grouped <c>(1 + 1 i)</c>, so no structural
+    /// predicate can answer for both arms — it would either leave Pretty's base undelimited or
+    /// wrap LaTeX's already grouped one a second time. <see cref="Prec"/> stays as a sufficient
+    /// second test: it is total over the node kinds, so a value that renders as an atom while
+    /// being structurally composite (a radical is a power, an O-term carries one) can never
+    /// escape the rule.
     /// </para>
     /// </summary>
-    private static bool NeedsPowerBaseDelimiter(Expr b, string renderedBase) =>
-        Prec(b) <= PowPrec || renderedBase.StartsWith("-", StringComparison.Ordinal);
+    private static bool NeedsOperandDelimiter(int operatorPrec, Expr operand, string renderedOperand) =>
+        Prec(operand) <= operatorPrec || TextPrec(renderedOperand) <= operatorPrec;
+
+    /// <summary>The precedence of a rendered text AS WRITTEN, in the same table
+    /// (<see cref="AtomPrec"/>, <see cref="PowPrec"/>, <see cref="MulPrec"/>, <see cref="AddPrec"/>)
+    /// the model is classified in. Only the text's own top level is read: a grouping construct
+    /// hides everything inside it, and both notations' groups are the same three characters plus
+    /// LaTeX's <c>\left…\right</c> pair, whose delimiter may be <c>|</c>. A control word
+    /// (<c>\frac</c>, <c>\sqrt</c>, <c>\pi</c>, <c>\operatorname</c>) and a control symbol
+    /// (<c>\{</c>, <c>\%</c>, <c>\_</c>) are single tokens, so LaTeX's <c>\frac{1}{2}</c> is an
+    /// atom while Pretty's <c>1/2</c> is a division. A space at the top level separates operands —
+    /// the word operators (<c>and</c>, <c>or</c>, <c>not</c>, <c>if</c>, <c>\cdot</c>,
+    /// <c>\land</c>) are spelled that way — so it is the loosest operator of all.
+    /// <para>
+    /// Total over every string, and conservative when the text is not well formed: an unbalanced
+    /// or unterminated text answers with the loosest precedence, so an unreadable text is
+    /// delimited rather than trusted.
+    /// </para>
+    /// </summary>
+    private static int TextPrec(string text)
+    {
+        int prec = AtomPrec;
+        int depth = 0;
+        for (int i = 0; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (c == '\\')
+            {
+                int j = i + 1;
+                if (j < text.Length && char.IsLetter(text[j]))
+                {
+                    int start = j;
+                    while (j < text.Length && char.IsLetter(text[j])) j++;
+                    var word = text[start..j];
+                    if (word is "left" or "right")
+                    {
+                        // the group's delimiter is the character after the word: ( ) or | |
+                        if (j >= text.Length) return AddPrec;
+                        if (word == "left") depth++;
+                        else if (depth == 0) return AddPrec;
+                        else depth--;
+                        j++;
+                    }
+                    i = j - 1;
+                    continue;
+                }
+                // a control symbol is one literal character (\{ \} \# \% \_ \&), never a group
+                i = j;
+                continue;
+            }
+            if (depth == 0)
+            {
+                if (c is '+' or '-' or '=' or '<' or '>' or '!' or ',' or ';' or '&' or '|')
+                    prec = Math.Min(prec, AddPrec);
+                else if (c is '*' or '/')
+                    prec = Math.Min(prec, MulPrec);
+                else if (c == '^')
+                    prec = Math.Min(prec, PowPrec);
+                else if (char.IsWhiteSpace(c))
+                    prec = Math.Min(prec, AddPrec);
+            }
+            if (c is '(' or '{' or '[') depth++;
+            else if (c is ')' or '}' or ']')
+            {
+                if (depth == 0) return AddPrec;
+                depth--;
+            }
+        }
+        return depth == 0 ? prec : AddPrec;
+    }
 
     private static readonly Rat OneHalf = Rat.From(1, 2);
     private static readonly Rat MinusOneHalf = Rat.From(-1, 2);
@@ -593,7 +659,10 @@ public static class Printing
                 foreach (var b in shape.Denominators)
                 {
                     var dText = Pretty(b, RootPrec, false, unicode);
-                    dens.Add(Prec(b) < PowPrec ? "(" + dText + ")" : dText);
+                    // a denominator is the right operand of /, so the same ONE operand rule reads
+                    // the text it is about to divide by: y*z must be delimited (x/(y*z) divides
+                    // once by the product) and a power of one must not (x/y^2 is x/(y^2))
+                    dens.Add(NeedsOperandDelimiter(MulPrec, b, dText) ? "(" + dText + ")" : dText);
                 }
                 string text;
                 if (dens.Count == 0)
@@ -606,8 +675,9 @@ public static class Printing
                 }
                 else
                 {
-                    // fractions render as num/(den): a rational coefficient folds into the
-                    // fraction instead of producing num/coef/den chains (-1/(2*(x + 1)))
+                    // a rational coefficient folds into the numerator side instead of producing a
+                    // num*coef/den chain (-1/(2*(x + 1))), and its denominator is one of the
+                    // divisors (-1*x/2/y)
                     var numParts = new List<string>();
                     if (shape.Coefficient is { } c1 && !c1.IsOne)
                     {
@@ -623,8 +693,16 @@ public static class Printing
                     }
                     numParts.AddRange(nums);
                     var numText = numParts.Count == 0 ? "1" : string.Join("*", numParts);
-                    var denText = dens.Count == 1 ? dens[0] : "(" + string.Join("*", dens) + ")";
-                    text = numText + "/" + denText;
+                    // ONE division per denominator factor. x/(y*z) is a single divisor that IS the
+                    // product y*z (that value is a power of a product, and it renders and
+                    // re-parses as itself); a value with y and z as two separate denominator
+                    // factors is a different value and must divide twice — x/y/z. Writing it as
+                    // x/(y*z) is what let the two values share one text, and the text meant the
+                    // other one.
+                    var sb = new StringBuilder(numText);
+                    foreach (var d in dens)
+                        sb.Append('/').Append(d);
+                    text = sb.ToString();
                 }
                 if (shape.Negative) text = "-" + text;
                 return Delimit(text, parentPrec, MulPrec);
@@ -644,8 +722,8 @@ public static class Printing
                 // (((x + 1))^12). Round 24.
                 var b = Pretty(p.Base, RootPrec, false, unicode);
                 // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2)),
-                // and -1^x is not (-1)^x
-                if (NeedsPowerBaseDelimiter(p.Base, b))
+                // -1^x is not (-1)^x, and 1/2^x is not (1/2)^x
+                if (NeedsOperandDelimiter(PowPrec, p.Base, b))
                     b = "(" + b + ")";
                 // 3, not 4: a power exponent is parenthesized by the explicit rule just below, so
                 // asking for 4 wrapped it twice (x^((y^2))). Sums and products still get their
@@ -878,7 +956,16 @@ public static class Printing
                             ? whenEmpty
                             : string.Join(" \\cdot ", parts.Select(p => p(parts.Count > 1 ? MulPrec : RootPrec)));
 
-                    text = "\\frac{" + Side(numParts, "1") + "}{" + Side(denParts, "1") + "}";
+                    // ONE \frac per division, exactly as the Pretty arm emits one "/" per
+                    // denominator factor. \frac{x}{y \cdot z} is ONE divisor that IS the product
+                    // — the mirror shape, which must keep rendering this way — so a value with
+                    // two separate denominator factors nests instead: \frac{\frac{x}{y}}{z}
+                    // denotes (x/y)/z, while the flat fraction denoted x/(y*z) and made the two
+                    // values share one rendering. Each \frac's braces group their side, so a
+                    // nested denominator needs no \left...\right of its own.
+                    text = "\\frac{" + Side(numParts, "1") + "}{" + denParts[0](RootPrec) + "}";
+                    for (int i = 1; i < denParts.Count; i++)
+                        text = "\\frac{" + text + "}{" + denParts[i](RootPrec) + "}";
                 }
                 if (shape.Negative) text = "-" + text;
                 return LatexDelimit(text, parentPrec, MulPrec);
@@ -894,7 +981,9 @@ public static class Printing
                         return LatexDelimit("\\frac{1}{\\sqrt{" + LatexRender(p.Base, RootPrec) + "}}", parentPrec, PowPrec);
                 }
                 var b = LatexRender(p.Base, RootPrec);
-                if (NeedsPowerBaseDelimiter(p.Base, b))
+                // the same rule, asked of LaTeX's spelling of the base: \frac{1}{2} binds
+                // tighter than the superscript on its own, -\frac{3}{2} does not
+                if (NeedsOperandDelimiter(PowPrec, p.Base, b))
                     b = "\\left(" + b + "\\right)";
                 // the exponent's braces are LaTeX's own grouping, so a sum/product/rational
                 // exponent needs no priority delimiters of its own: x^{y + 1}, x^{\frac{1}{2}}

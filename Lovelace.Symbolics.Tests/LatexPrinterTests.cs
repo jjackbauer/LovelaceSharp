@@ -1,6 +1,7 @@
 using Lovelace.Suite;
 using Lovelace.Symbolics;
 using Xunit;
+using Rat = global::Lovelace.Rational.Rational;
 
 namespace Lovelace.Symbolics.Tests;
 
@@ -30,7 +31,8 @@ namespace Lovelace.Symbolics.Tests;
 public class LatexPrinterTests
 {
     private const string Prelude =
-        "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\");";
+        "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); " +
+        "z = symbol(\"z\"); w = symbol(\"w\");";
 
     /// <summary>Precedence-sensitive corpus: nested subtraction, powers of sums, powers of
     /// negatives, products of sums, nested fractions, negative exponents, unary minus, function
@@ -52,6 +54,19 @@ public class LatexPrinterTests
         "(-2)^x",
         "(-1/2)^x",
         "(-1.5)^x",
+        // a fraction as a power base, and flat denominators: the same one rule in the notation
+        // where \frac{1}{2} is already an atom and every division is its own \frac
+        "(1/2)^x",
+        "(2/3)^x",
+        "(-3/2)^x",
+        "(x/y)/z",
+        "x/y/z",
+        "x/y/z/w",
+        "(x/y)/(z/w)",
+        "x/(y*z)",
+        "(x*y)/(z*w)",
+        "(x/y)*z",
+        "apart(1/(x^2 - 1), x)",
         // powers of sums, nested powers
         "(x + 1)^12",
         "(x + y)^2",
@@ -216,6 +231,39 @@ public class LatexPrinterTests
     {
         var expr = await BuildAsync("(-1)^x");
         Assert.Equal("\\left(-1\\right)^{x}", Latex(expr));
+    }
+
+    /// <summary>The same one rule in LaTeX notation, where the answer comes out the other way
+    /// round: <c>\frac{1}{2}</c> IS an atom, so the superscript applies to the whole fraction and
+    /// the base carries no <c>\left...\right</c> — a pair here would be exactly the decoration
+    /// <see cref="Delimiters_AreLoadBearing"/> rejects. Pretty's spelling of the same value,
+    /// <c>1/2</c>, is a division and does need the pair; only the text can tell the two apart.</summary>
+    [Fact]
+    public void KnownRendering_PowerOfARationalBase_KeepsTheFractionUnwrapped()
+    {
+        var expr = Exprs.Power(Exprs.Rational(1, 2), Exprs.Symbol("x"));
+        Assert.Equal("\\frac{1}{2}^{x}", Latex(expr));
+    }
+
+    /// <summary>A complex constant base is a model-level shape (the language folds complex
+    /// constants out of user arithmetic). LaTeX spells it as a parenthesised group, which already
+    /// delimits it, so no <c>\left...\right</c> is added; Pretty spells the same value
+    /// <c>1 + i</c> and does need the pair.</summary>
+    [Fact]
+    public void KnownRendering_PowerOfAComplexConstant_IsAlreadyAGroup()
+    {
+        var one = Rat.From(1, 1);
+        var expr = Exprs.Power(Exprs.Complex(one, one), Exprs.Symbol("x"));
+        Assert.Equal("(1 + 1 i)^{x}", Latex(expr));
+    }
+
+    /// <summary>Flat denominators: ONE <c>\frac</c> per division, so the two values stay
+    /// distinct — <c>\frac{x}{y \cdot z}</c> is x/(y*z), while (x/y)/z nests.</summary>
+    [Fact]
+    public async Task KnownRendering_FlatDenominators_DivideOncePerFactor()
+    {
+        Assert.Equal("\\frac{\\frac{x}{y}}{z}", Latex(await BuildAsync("(x/y)/z")));
+        Assert.Equal("\\frac{x}{y \\cdot z}", Latex(await BuildAsync("x/(y*z)")));
     }
 
     /// <summary>Guard against a vacuous parity test: if the Latex arm ever fell back to the
