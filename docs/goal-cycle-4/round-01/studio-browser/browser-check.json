@@ -1,0 +1,62 @@
+{
+  "browser": "Chrome/152.0.7977.77",
+  "protocolVersion": "1.3",
+  "url": "http://127.0.0.1:5199/",
+  "afterLoad": {
+    "title": "Lovelace.Studio",
+    "readyState": "complete",
+    "codeMirrorMounted": true,
+    "editorPaneVisible": true,
+    "panes": [
+      {
+        "id": "editor-pane",
+        "visible": true
+      },
+      {
+        "id": "workspace-pane",
+        "visible": true
+      },
+      {
+        "id": "graph-pane",
+        "visible": true
+      },
+      {
+        "id": "logs-pane",
+        "visible": true
+      }
+    ],
+    "status": "rev 80",
+    "precision": "1000 digits",
+    "runButton": true,
+    "variablesTable": true,
+    "functionsTable": true,
+    "graphPlaceholder": "no plot yet",
+    "logsText": "Lovelace.Studio ready — Run to evaluate.",
+    "stylesheetApplied": true,
+    "toolbarBg": "rgb(44, 46, 54)"
+  },
+  "quickEval": {
+    "typed": "2^10 + 1",
+    "logsText": "Natural = 1025 (Natural)\n1025\ndone: 59.09 ms (0 reused)",
+    "logChildCount": 3,
+    "status": "rev 81",
+    "variablesBody": "_\t1025\tNatural\t×",
+    "variablesEmptyHidden": true
+  },
+  "symbolicEval": {
+    "logsText": "Symbolic = (x - 1)*(x + 1) (Symbolic)\n(x - 1)*(x + 1)\ncanonical\n (domain complex · exact · 7 nodes · free x)\ndone: 57.25 ms (0 reused)",
+    "variablesBody": "_\t(x - 1)*(x + 1)\tSymbolic\t×\nx\tx\tSymbolic\t×",
+    "symbolicInspect": "pretty: (x - 1)*(x + 1)canonical: (mul (add (rat -1 1) (sym x)) (add (rat 1 1) (sym x)))domain complex · exact · 7 nodes"
+  },
+  "consoleMessages": [],
+  "exceptions": [],
+  "logEntries": [
+    {
+      "level": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "source": "network"
+    }
+  ],
+  "consoleErrorCount": 1,
+  "exceptionCount": 0
+}

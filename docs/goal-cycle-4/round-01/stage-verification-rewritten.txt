@@ -1,0 +1,10 @@
+=================== stage3-wire-rewritten  commit d78e385
+  build: succeeded=True warnings=106 errors=0
+  Lovelace.Symbolics.Tests     failed=0    passed=585   skipped=0
+  Lovelace.Suite.Tests         failed=0    passed=638   skipped=0
+  Lovelace.Studio.Tests        failed=0    passed=22    skipped=0
+=================== stage4-remaining-rewritten  commit 35e8b06
+  build: succeeded=True warnings=0 errors=0
+  Lovelace.Symbolics.Tests     failed=0    passed=791   skipped=6
+  Lovelace.Suite.Tests         failed=0    passed=642   skipped=0
+  Lovelace.Console.Tests       failed=0    passed=15    skipped=0

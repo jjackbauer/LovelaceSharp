@@ -4,16 +4,18 @@
 **25,014 ms to 914 ms for a fresh process's first call** and from **23,724 ms to 379 ms** once the
 cached π is warm (63×), with **every stored digit byte-identical** — a 4,519,306-byte before/after
 dump of `sin`/`cos`/`tan` over five arguments at four precisions matches on SHA-256.
-The cost was never the number of series terms (204 terms at 1000 places, and 204 at every higher
-precision too); it was **decimal rendering inside the arithmetic**: every multiply, divide and add
-rendered a magnitude to a decimal string and parsed it back, and the series' magnitudes reach
-**204,270 digits** for an answer that needs 1,010.
+The cost was never the number of series terms (204 at 1000 places): it was **decimal rendering
+inside the arithmetic**: every multiply, divide and add rendered a magnitude to a decimal string and
+parsed it back, and the series' magnitudes reach **204,270 digits** for an answer that needs 1,010 —
+so each term's arithmetic cost grew ~200× with the digits it was carrying, not with how many terms
+the series needed.
 
 ---
 
 ## 1. Where the time actually goes (measured, not guessed)
 
-Probe: `Lovelace.Real.Tests/RealTrigCostProbeTests.cs` (Heavy category), run at 1000 places with the
+Probe source: `docs/goal-cycle-4/round-07/probe-sources/RealTrigCostProbeTests.cs` (kept out of the
+compiled test project; Heavy-category while it lived there). It was run at 1000 places with the
 π cache warm. Raw output is in `docs/goal-cycle-4/round-07/probe-before/` (pre-fix) and
 `probe-after/` (post-fix); the same file ran against both trees.
 
@@ -104,7 +106,7 @@ lets the stored results stay bit-identical.
 
 | # | line (post-fix) | change |
 |---|---|---|
-| 1 | 2120 `Normalize` (+ 2149 `StripTrailingDecimalZeros`, 2135/2138 `s_tenTo18`/`s_ten`) | strips trailing decimal zeros with integer division (one division by 10^18 decides 18 digits, two short divisions in the common no-zero case) instead of rendering the digits and parsing them back. Same magnitude, same exponent, same value. |
+| 1 | 2120 `Normalize` (+ 2146 `StripTrailingDecimalZeros`, 2135 `MaxStripStep`) | strips trailing decimal zeros with integer division — the step doubles after each success and halves after each failure, so an ordinary magnitude (no trailing zeros) costs a handful of short divisions and a long zero run costs O(log) of them — instead of rendering the digits and parsing them back. Same magnitude, same exponent, same value. |
 | 2 | 2039 `ToInteger` | exponent alignment now shifts the binary magnitude (`Nat.ShiftLeftDecimal`) instead of `digits + new string('0', zeros)` + reparse. Same integer. |
 | 3 | 1490 `IsBelowDecimalGuard` (used by 1435 `SinTaylor`, 1456 `CosTaylor`) | the termination test `Abs(term) < 10^-(guard+1)` becomes `magnitude < 10^k`, `k = -(guard+1) - Exponent`, one `Nat` comparison; the power of ten is carried forward between terms (k advances monotonically), so each term costs one short multiply. Exactly the same inequality, including the boundary (`"0." + guard zeros + "1"` is 10^-(guard+1), not 10^-guard — an off-by-one the new boundary test caught while the implementation was being written). |
 | 4 | 1359 `HalfOf` (used at 1262, 1293) | `pi / 2` for a value stored at the active precision is one integer halving at the operand's own scale — identical to what `Divide` produced, without its remainder-tracking decimal loop (16.8 ms → 0.1 ms per `Sin`/`Cos` call). |
@@ -224,28 +226,26 @@ suite) pin each fast path against the expression it replaced:
 
 ```
 dotnet test Lovelace.Real.Tests -c Release --nologo --filter "Category!=Heavy"
-Passed!  - Failed:     0, Passed:   304, Skipped:     0, Total:   304, Duration: 2 s - Lovelace.Real.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   305, Skipped:     0, Total:   305, Duration: 4 s - Lovelace.Real.Tests.dll (net10.0)
 
 dotnet test Lovelace.Dsp.Tests -c Release --nologo
 Passed!  - Failed:     0, Passed:    61, Skipped:     0, Total:    61, Duration: 2 s - Lovelace.Dsp.Tests.dll (net10.0)
 
 dotnet test Lovelace.Natural.Tests -c Release --nologo
-Passed!  - Failed:     0, Passed:   195, Skipped:     0, Total:   195, Duration: 132 ms - Lovelace.Natural.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   195, Skipped:     0, Total:   195, Duration: 206 ms - Lovelace.Natural.Tests.dll (net10.0)
 
 dotnet test Lovelace.Integer.Tests -c Release --nologo
-Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 98 ms - Lovelace.Integer.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 171 ms - Lovelace.Integer.Tests.dll (net10.0)
 ```
 
-304 = the 295 baseline plus the 9 new tests in `RealTrigFastPathTests`. The baseline was verified
-directly: the pre-fix copy of the tree (kept at `%TEMP%\n23-before`, used for the before-measurements)
+305 = the 295 baseline plus the 10 new tests in `RealTrigFastPathTests`. The baseline was verified
+directly: the pre-fix copy of the tree (`%TEMP%\n23-before`, used for the before-measurements)
 reports `Passed! - Failed: 0, Passed: 295, ...` for the same filter. As an extra check the Heavy
-category of `Lovelace.Real.Tests` (12 pre-existing heavy tests plus the three new evidence probes)
-was run too:
-
-```
-dotnet test Lovelace.Real.Tests -c Release --nologo --filter "Category=Heavy"
-Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 1 m 15 s - Lovelace.Real.Tests.dll (net10.0)
-```
+category of `Lovelace.Real.Tests` was run while the three evidence probes still lived there (12
+pre-existing heavy tests plus them): `Passed! - Failed: 0, Passed: 18, Skipped: 0, Total: 18,
+Duration: 1 m 15 s - Lovelace.Real.Tests.dll (net10.0)`. The probe/dump sources were afterwards
+archived under `docs/goal-cycle-4/round-07/probe-sources/` by the round's orchestrator, so they are
+evidence generators rather than part of the compiled suite.
 
 No test was weakened, skipped, widened or deleted; no `NoWarn`, pragma or suppression was added; no
 project outside `Lovelace.Real` / `Lovelace.Real.Tests` was touched (the pre-fix comparison tree
@@ -262,14 +262,14 @@ lives in `%TEMP%`, not in the repository).
 
 **Added (tests)**
 
-* `Lovelace.Real.Tests/RealTrigFastPathTests.cs` — 9 equivalence/cost tests (default suite).
-* `Lovelace.Real.Tests/RealTrigCostProbeTests.cs` — Heavy: phase breakdown, series internals,
-  precision sweep, cold/warm single call per precision.
-* `Lovelace.Real.Tests/RealTrigDigitDumpTests.cs` — Heavy: full stored-representation dump used for
-  the SHA-256 before/after comparison.
+* `Lovelace.Real.Tests/RealTrigFastPathTests.cs` — 10 equivalence/cost tests (default suite).
 
-**Added (evidence, raw output)**
+**Added (evidence generators and raw output)**
 
+* `docs/goal-cycle-4/round-07/probe-sources/RealTrigCostProbeTests.cs` — phase breakdown, series
+  internals, precision sweep, cold/warm single call per precision.
+* `docs/goal-cycle-4/round-07/probe-sources/RealTrigDigitDumpTests.cs` — full stored-representation
+  dump used for the SHA-256 before/after comparison.
 * `docs/goal-cycle-4/round-07/probe-before/` — `phase-breakdown.txt`, `series-internals.txt`,
   `timing-sweep.txt`, `single-call-before.txt`, `digits-dump.txt` (4.5 MB), `probe-console.txt`,
   `digits-dump-console-before.txt`.

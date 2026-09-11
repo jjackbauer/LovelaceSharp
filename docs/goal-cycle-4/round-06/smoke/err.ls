@@ -1,0 +1,2 @@
+x = symbol("x")
+solve(x^2 + 1 == 0, x, integer)

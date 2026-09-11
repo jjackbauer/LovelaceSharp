@@ -1,0 +1,43 @@
+=================== stage2-fixes  commit 84a6a54  dir C:\Users\ricar\dev\.lovelace-check-stage2-fixes
+  build: succeeded=True warnings=106 errors=0
+  Lovelace.Symbolics.Tests     failed=0    passed=532   skipped=0
+  Lovelace.Suite.Tests         failed=0    passed=620   skipped=0
+  Lovelace.Integer.Tests       failed=0    passed=148   skipped=0
+  Lovelace.Natural.Tests       failed=0    passed=195   skipped=0
+=================== stage3-wire  commit 160ba4e  dir C:\Users\ricar\dev\.lovelace-check-stage3-wire
+  build: succeeded=False warnings=104 errors=2
+    C:\Users\ricar\dev\.lovelace-check-stage3-wire\Lovelace.Symbolics\SymbolicsPlugin.cs(359,39): error CS0117: 'RationalFunctions' does not contain a definition for 'CancelWithConditions' [C:\Users\ricar\dev\.lovelace-check-stage3-wire\Lovelace.Symbolics\Lovelace.Symbolics.csproj]
+    C:\Users\ricar\dev\.lovelace-check-stage3-wire\Lovelace.Symbolics\SymbolicsPlugin.cs(359,39): error CS0117: 'RationalFunctions' does not contain a definition for 'CancelWithConditions' [C:\Users\ricar\dev\.lovelace-check-stage3-wire\Lovelace.Symbolics\Lovelace.Symbolics.csproj]
+  Lovelace.Symbolics.Tests : NO-SUMMARY
+      net10.0\Lovelace.Symbolics.Tests.dll" provided was not found.
+      At C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-4\round-01\verify-stages.ps1:28 char:10
+      +     $t = & dotnet test $proj -c Release --nologo --no-build 2>&1 | Ou ...
+      +          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : NotSpecified: (The test source... was not found.:String) [], RemoteException
+      + FullyQualifiedErrorId : NativeCommandError
+      
+      
+  Lovelace.Suite.Tests : NO-SUMMARY
+      provided was not found.
+      At C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-4\round-01\verify-stages.ps1:28 char:10
+      +     $t = & dotnet test $proj -c Release --nologo --no-build 2>&1 | Ou ...
+      +          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : NotSpecified: (The test source... was not found.:String) [], RemoteException
+      + FullyQualifiedErrorId : NativeCommandError
+      
+      
+  Lovelace.Studio.Tests : NO-SUMMARY
+      provided was not found.
+      At C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-4\round-01\verify-stages.ps1:28 char:10
+      +     $t = & dotnet test $proj -c Release --nologo --no-build 2>&1 | Ou ...
+      +          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      + CategoryInfo          : NotSpecified: (The test source... was not found.:String) [], RemoteException
+      + FullyQualifiedErrorId : NativeCommandError
+      
+      
+=================== stage4-remaining  commit 3367447  dir C:\Users\ricar\dev\.lovelace-check-stage4-remaining
+  build: succeeded=True warnings=0 errors=0
+  Lovelace.Symbolics.Tests     failed=0    passed=791   skipped=6
+  Lovelace.Suite.Tests         failed=0    passed=642   skipped=0
+  Lovelace.Console.Tests : NO-SUMMARY
+      

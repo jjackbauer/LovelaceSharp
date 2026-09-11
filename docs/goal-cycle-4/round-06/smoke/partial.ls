@@ -1,0 +1,2 @@
+x = symbol("x")
+solve_full(x^4 - x^2 - 1 == 0, x)

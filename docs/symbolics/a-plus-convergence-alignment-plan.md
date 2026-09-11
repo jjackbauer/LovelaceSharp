@@ -591,3 +591,69 @@ concentrated and architectural, not diffuse:
 ---
 
 **Alignment complete. The proposed cycle closes the remaining semantic, DX, serialization, solver, concurrency, and agent-interface gaps described above. Please approve or request changes before implementation begins.**
+
+---
+
+## N. Amendment — Cycle 4 (scope EXPANDED, not reduced)
+
+> Sections C–J above are frozen law. This section is the sanctioned way to change them: an explicit,
+> dated amendment. Cycle 4 **widens** the contract; nothing in C–J is silently reduced.
+
+### N.1 Authority
+
+The maintainer, asked in Cycle 4 whether the frozen root-representation decision should stand,
+directed that the scope be **reopened** for `sqrt(-1)` and `(-1)^(1/2)`, that the capability list be
+made exhaustive, that every rewrite rule receive a complex treatment, that the ShortRun benchmark
+baseline gain error bars, and that the high-precision `cos` cost be fixed. This section records what
+that expansion actually covers and — just as importantly — where it stops.
+
+### N.2 What §D's root-representation decision now says
+
+§D's "RootOf is real-only in v1" is **unchanged**. What changed is the numeric and closed-form
+boundary in front of it:
+
+| Case | Before Cycle 4 | After Cycle 4 |
+|---|---|---|
+| `sqrt(-1)`, `sqrt(-4)` | `ArithmeticError` / `DomainError` | exact `i`, `2i` |
+| `(-1)^(1/2)` | `UnsupportedOperation` | exact `i` |
+| `(-a)^(1/2)`, exact `a > 0` | error | exact `i*sqrt(a)` |
+| `solve(x^2 + 1 == 0, x)` | unevaluated | exact `i`, `-i`, complete over the complex domain |
+| `log(-1/2)` | stayed symbolic | principal branch `log|z| + i*pi`, matching SymPy |
+
+**`Lovelace.Real`'s contract is deliberately unchanged**: `Real.Sqrt(-1)` still throws, because a
+real-domain type must not return a complex value. The complex branch lives in the Symbolics layer and
+is reached through a fallback in the Suite host when the Real-domain operation rejects its input.
+
+### N.3 Residual bounds that this amendment does NOT close
+
+These remain typed errors and remain advertised as unsupported, because each is a larger or
+differently-shaped problem than the §4.3 item:
+
+1. **General rational exponents of positive bases** (`2^(1/2)`). Probing established that this fails
+   for the *same* reason as `(-1)^(1/2)` — the kernel rejects non-integer exponents wholesale — so
+   closing it means implementing rational powers in general, not one special case.
+2. **Exponents with denominator >= 3 over negative bases** (`(-8)^(1/3)`), whose principal value
+   `1 + i*sqrt(3)` is not exactly representable as a complex constant with rational parts.
+3. **Complex algebraic roots of degree >= 4** — `RootOf` remains real-only, per §D.
+4. **Complex `log` beyond the principal branch** on a branch cut; the principal value is what is
+   implemented and what the oracle compares.
+
+### N.4 Falsification gate: every rule now has a complex treatment
+
+§C's rewrite rules are unchanged, but the *falsification* contract is stronger. Previously the complex
+region reached 5 of 9 rules and the other 4 were simply not compared at complex points. Now all 9 have
+a complex treatment: the 5 whose assumptions admit complex arguments are complex-sampled, and the 4
+that are real-only by their own guards each carry a negative control that **proves the exclusion is
+necessary** — the identity is shown to fail at a complex witness (`|z|^2 != z^2` at `z = 1+i`, and
+similarly for the sqrt-square rules and the log/exp strip). The guard in `AtomHolds` was not loosened:
+a complex number is not positive, so forcing a comparison there would manufacture counterexamples
+against rules that are correct on their own domain.
+
+### N.5 Capability statement
+
+`capabilities()`'s `unsupported_operations` list is now **exhaustive** rather than self-declared
+best-effort, and the classes that N.2 made supported were removed from it. The honesty property is
+unchanged and is its acceptance test: every advertised `code`, `category` and `message` must equal
+what the live call produces. §F's record shapes are unchanged; the `CapabilitiesResult` record keeps
+its `exactness` field, whose value must state what is still not enumerated (see N.3).
+
