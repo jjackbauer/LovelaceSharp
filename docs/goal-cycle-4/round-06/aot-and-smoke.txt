@@ -1,11 +1,11 @@
-=== publish 2026-09-11T12:41:20.4221938-03:00 ===
+=== publish 2026-09-11T13:30:34.0933641-03:00 ===
 publish exit=0
 publish warnings=0 errors=0
   [PASS] AOT publish succeeded - exit 0
   [PASS] published binary exists - out\aot\Lovelace.Run.exe
-exe LastWriteTime=09/11/2026 12:41:36  size=5673984
-newest source: C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-4\round-07\implementation.md at 09/11/2026 12:41:31
-  [PASS] binary is newer than the newest source file - 4.5s newer
+exe LastWriteTime=09/11/2026 13:30:47  size=5681152
+newest source: C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-4\round-10\implementation.md at 09/11/2026 13:25:18
+  [PASS] binary is newer than the newest source file - 328.8s newer
 === smoke 1: a complete solve reports Solved / Complete with per-solution conditions ===
   [PASS] ok is true
   [PASS] protocolVersion == 1

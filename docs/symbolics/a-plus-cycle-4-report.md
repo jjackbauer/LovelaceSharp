@@ -154,7 +154,7 @@ own 295 tests were green throughout.
 
 | Item | Outcome |
 |---|---|
-| §4.1 exhaustive capability list | `capabilities()`'s unsupported-operation list is now exhaustive; the property that keeps it honest is unchanged — every advertised `code`/`category`/`message` must equal what the live call produces |
+| §4.1 exhaustive capability list | **Closed, and closed by falsification rather than assertion.** The audit found eight refused operations the statement omitted, so the cycle first repaired the two refusals that were themselves malformed — a refused integration now carries a structured `integration.unevaluated` diagnostic instead of empty diagnostics, and `plot(sin(x))` is a typed `InvalidOperation`/`DomainError` instead of an `InternalInvariantFailure` — and then advertised all eight. The list is now **16 entries**, and an independent falsification test I wrote (decode the advertised statement, execute each entry's own trigger, match code+category across both the error-envelope and record-diagnostic surfaces) reports **`MATCH=16 MISMATCH=0`**. `exactness` was deliberately **left at `BestEffort`**: the enumeration is exhaustive over the classes an adversary exhibited, and the implementer added a test that drives live unlisted refusals so the verdict cannot drift into an overclaim |
 | §4.2 complex treatment for all nine rules | delivered as the **sound maximum**: 5 rules complex-sampled, 4 given a negative control that proves their real-only exclusion necessary (`\|z\|² ≠ z²` at `z = 1+i`, etc.), with a partition test asserting `9 = 5 + 4` and exact id sets. The `AtomHolds` guard was **not** loosened (DEC-007) |
 | §4.3 `sqrt(-1)`/`(-1)^(1/2)` | now answer with **exact** complex values (`i`, `2i`, exact quadratic complex roots) through a Symbolics-layer fallback; `Lovelace.Real`'s contract is unchanged (`Real.Sqrt(-1)` still throws). The alignment document is amended in writing (section N), which also names the four residual bounds |
 | §4.4 benchmark error bars | **Delivered for one fresh sweep**: `benchmarks/symbench-shortrun-errorbars.md` records the final tree's ShortRun sweep with the `Error`/`StdDev` columns the old baseline's summary dropped, per class, with the verbatim reports under `benchmarks/bdn-reports-shortrun-c4/run1/`. The document states in its body that the machine was **not** idle and that no improvement claim may be quoted from it. The planned second repeat was still in flight when the cycle closed and is **not** included — so this is within-run error bars, not across-run spread |
@@ -165,9 +165,10 @@ own 295 tests were green throughout.
 | Measurement | Result |
 |---|---|
 | Forced full rebuild (`--no-incremental`) | **0 warnings / 0 errors** |
-| Full 15-project sweep | **2494 passed / 0 failed / 6 skipped** (as received: 2439; +55 from Cycle-4 tests) |
-| Native AOT publish | succeeded, 0 warnings, `out/aot/Lovelace.Run.exe` = 5,673,984 bytes, **4.5 s newer than the newest source file** (constraint 7) |
+| Full 15-project sweep | **2503 passed / 0 failed / 0 skipped** — the 6 skips are gone because the sweep now runs with sympy on PATH, so the oracle executes *inside* the sweep rather than skipping (as received: 2439 passed / 6 skipped) |
+| Native AOT publish | succeeded, 0 warnings, `out/aot/Lovelace.Run.exe` = 5,681,152 bytes, **328.8 s newer than the newest source file** (constraint 7) |
 | The CI `aot-smoke` job's five scenarios, run locally against that binary | **28/28 assertions PASS** — the first time those assertions have ever been executed anywhere |
+| Every advertised capability entry vs its live call | **16/16 match**, on the final binary |
 | Re-published binary re-audited | see §5 |
 
 > A note on process: the first forced rebuild of the final tree reported 38 "warnings" and looked like a
@@ -223,13 +224,17 @@ exceptions. §4.2, §4.3, §4.4 and N23 are delivered; the final tree is green (
 0 warnings, and its re-published AOT binary passes all 28 assertions of the CI smoke job that had
 never run.
 
-**Not claimed.** Cycle 4 does not award itself A+, for two reasons that the report states rather than
-softens:
+**Not claimed.** Cycle 4 does not award itself A+, and the reasons are stated rather than softened. One
+of them was a falsified claim of this cycle's own making, and it has since been repaired:
 
-1. **§4.1 is falsified, not closed.** The maintainer asked for an exhaustive capability list. The list
-   is honest about the entries it has and is not exhaustive: at least eight refused operations are
-   missing, each with a reproduction in `round-09/audit-P2P6-wire.md`. Closing it means transcribing
-   and asserting those classes the way the existing four are — bounded work, not yet done.
+1. ~~**§4.1 is falsified, not closed.**~~ **Fixed, and fixed the honest way.** The audit found eight
+   refused operations the statement omitted. Rather than merely listing them, the cycle repaired the
+   two whose refusals were themselves malformed — a refused integration returned `Unevaluated` with
+   *empty* diagnostics, and `plot(sin(x))` died as an `InternalInvariantFailure` — then advertised all
+   eight. My own falsification test now reports **16 advertised entries, 16 matches, 0 mismatches**
+   across both surfaces (EVD-198). `exactness` stays `BestEffort` on purpose: the enumeration is
+   exhaustive over the classes an adversary exhibited, which is testable, and claiming more would be
+   the same overclaim this item was about.
 2. **The audit found two P0-class defects, and I reproduced both.** (a) **The solver claims
    completeness for an unsatisfiable equation**: `solve_full(sqrt(x)+2 == 0, x)` reports
    `complete: true` / `completeness: Complete` with one solution, while the claimed root does not
@@ -244,6 +249,11 @@ softens:
 3. **Cycle 4's own new feature is not round-trippable.** The complex closed forms it added render as
    `i`, which the parser rejects, so a complex result cannot survive a print/parse cycle. The gap is in
    what this cycle added, and it is recorded as such.
+
+Every finding in §5 was re-checked against the **final** re-published binary after the §4.1 repair, and
+all of them still reproduce (EVD-200) — the capability work touched the capability list and two refusal
+paths, not the solver, the printer or the arithmetic. So the below-A+ list above describes the binary
+that exists now, not an earlier one.
 
 Residual bounds stated in writing rather than implied away: alignment section N.3 (general rational
 exponents, denominator ≥ 3 roots of negative bases, degree ≥ 4 complex algebraic roots, complex `log`

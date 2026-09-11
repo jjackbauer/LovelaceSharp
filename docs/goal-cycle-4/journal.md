@@ -552,3 +552,40 @@
   made late in a cycle has already produced one regression in this cycle. It is named in the report's
   below-A+ list.
 - **Gate**: —
+
+### VAL-007: §4.1's exhaustiveness claim, re-tested after the fix — Supported for every class exhibited
+
+- **Target**: the falsified §4.1 claim (VAL-006), after the round-10 repairs.
+- **Method**: I wrote and ran my own falsification test rather than trusting the implementer's suite.
+  It decodes the advertised statement from the binary, executes **each entry's own `trigger` script**,
+  and matches the advertised `code` and `category` against the live output — handling both surfaces,
+  because three refusals ride inside a result record's `diagnostics` rather than an error envelope.
+- **Evidence examined**: EVD-198 — `advertised entries: 16`, `MATCH=16  MISMATCH=0`; and all eight
+  audit classes are present, including the two that needed kernel repairs.
+- **Result**: Supported. Every advertised class is honest, and every class the audit exhibited is now
+  advertised.
+- **Conclusion**: §4.1 is closed as far as the claim can be tested: **by falsification over the classes
+  an independent adversary found**, not by assertion. The implementer correctly left `exactness` at
+  `BestEffort` rather than upgrading it, and added a test that drives live unlisted refusals so the
+  verdict cannot drift into an overclaim. The honest statement of the boundary is therefore:
+  exhaustive over the exhibited classes, with the remainder itemised.
+- **Related**: VAL-006, EVD-196, EVD-197, EVD-198
+
+### OBS-008: The round-10 repairs fixed a real bug, not just a documentation gap
+
+- **Source**: EVD-198, EVD-199; `docs/goal-cycle-4/round-10/implementation.md`.
+- **Fact**: Two of the eight classes could not honestly be advertised as they stood, because the
+  refusals themselves were malformed: a refused integration returned `Unevaluated` with **empty**
+  diagnostics (nothing for an agent to branch on, and invisible to the documented "did anything go
+  wrong" check), and `plot(sin(x))` died as an `InternalInvariantFailure` — a bug wearing a refusal's
+  clothes. Both were repaired at the source: integration now emits a structured
+  `integration.unevaluated` diagnostic with the input-specific reason in `details`, and `plot`'s
+  one-argument path checks its argument's kind before casting, yielding a typed
+  `InvalidOperation`/`DomainError`. Advertising them without those repairs would have been the
+  dishonest option, and the audit's probe is what made the difference visible.
+- **Implications**: §4.1's closure produced a real defect fix in the integration path and a real cast
+  bug fix in the plot path — the opposite of the usual "documentation-only" outcome of a capability
+  exercise.
+- **Confidence**: High
+- **Agent**: orchestrator (verified), implementer (repaired)
+- **Related**: EVD-197, EVD-198, VAL-007
