@@ -111,6 +111,7 @@ scripts under `docs/goal-cycle-5/`:
 | `git status --porcelain` | no tracked source file modified; only this cycle's untracked documents | `final/final.txt` |
 | Commits | **11** (`34c970c`…`b920b8c`), each applied and re-verified by the orchestrator | `git log --oneline 9228305..HEAD` |
 | Pushed to `origin/main` and CI **executed on a GitHub runner** | run #14 on `ubuntu-latest`: `sympy-oracle` **success**, `Native AOT publish + runner smoke` **success**, `fast-tests` **failure** — in the `Lovelace.Real.Tests (correctness subset)` step only | `api.github.com/.../actions/runs/34629205803`, recorded as EVD-223 |
+| **CI green after the fix** | run **#15** on `8554854`: all three jobs **success** — `aot-smoke`, `sympy-oracle`, `fast-tests` (with the uninstrumented timing step). The project's CI has now really run, and passed, on a GitHub runner | EVD-225 |
 | The CI failure, attributed and fixed | not a product defect: the one wall-clock assertion in `Lovelace.Real.Tests` (`Cos_AtDefaultPrecision_StaysInteractive`, 10 s budget) crosses its limit under coverage instrumentation — reproduced locally by adding the collector the CI uses. Fixed by tagging it `Category=Timing` and running it in its own **uninstrumented** CI step, so it still runs in CI; both steps verified locally (2436/0 with coverage, Timing 1/1 without) | EVD-224 |
 
 Two amendments to the freshness check itself, both recorded because a check whose definition moves
