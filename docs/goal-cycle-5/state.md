@@ -1,47 +1,47 @@
 # Harness State — cycle-5
 
-- **Round**: 2 of the continued goal (cycle round 11) — five implementer rounds in flight, audit #2 dispatched
-- **Goal**: close every Tier-0/Tier-1 defect with a pre-fix-failing test against independent ground
-  truth, accept or close every residual bound in writing, and claim A+ only if a fresh adversarial audit
-  cannot falsify it.
+- **Round**: goal round 2 closed. **21 commits** on top of `9228305`; local == `origin/main` at `40b96d9`; CI green on run #15 (and #14 caught a real CI-only failure that is now fixed).
+- **Goal**: close every Tier-0/Tier-1 defect with independent-ground-truth tests, accept or close every
+  residual bound in writing, and claim A+ only if a fresh adversarial audit cannot falsify it.
 
-## Where the tree stands (commit `9e761ba`, pushed; CI green on #15)
+## Landed and verified this round
 
-| Tier-0 | State |
-|---|---|
-| T0-1 solver false completeness | CLOSED `bb9746f` |
-| T0-2 printer spells a different value | CLOSED `34c970c` + `8502e5f` (round-trip property 30/30) |
-| T0-3 wrong values marked exact | CLOSED `4ef7edf` (`2^-100000` exact; `0^(-1.0)` refuses; provenance flag) |
-| T0-4 `(a/b)*b != a` | CLOSED `3ffc782` + `b908d9a` |
-| T0-5 `solve_system` internal failure | CLOSED `2bd8785` (+ `a03553a` for the system solver's false NoSolutions) |
-| T0-6 stack overflow on deep input | CLOSED `5382861` |
+| Commit | Round | What |
+|---|---|---|
+| `a0a70a6` | wire-3a | `variables[].structured`, `functions[]` arity metadata, total `--print-budget`, `divrem` as a record, `inspect(<Real>).exact` |
+| `86a5fc8` | wire-3b | `evalf` honours its digit count, structured `assumptions()`, `solve` returns the record, protocol examples match the binary |
+| `49f5a4c` | exact-flag | exactness is a property of the leaves: `sin(x)`, `sqrt(x)`, `x^(3/2)` are exact, a Real leaf stays inexact |
+| `952c761` | solver | the infinite family `log(c) + 2*pi*k*i` is published as a family; a solution that mentions the solved symbol is refused |
+| `40b96d9` | limits | `limit((1+1/x)^x, x, inf)` = e (was 1); a record with no value reports `SolutionExactness.None` |
 
-**Tier-1 closed**: `solve_system` returns the documented record with `completeness`; argument-shape
-violations cross as `InvalidArgument/TypeMismatch`; error envelopes carry `elapsedTime`/`timings`;
-one arity validator owns all 123 builtins; `print` keeps no CR; `solve(0==1,x)` answers with the
-provably empty set.
+Verification totals on the merged tree: Symbolics **1031/0** (SymPy oracle required), Suite **805/0**, Run **159/0**, Real **2456/0**.
 
-**In flight this round**: the indeterminate-limit round; the kernel exact-flag round; two wire rounds
-(`variables[]` structure, `inspect(Real).exact`, `functions[]` arity metadata, `--print-budget`,
-`divrem` as a record; `evalf` digit count, structured `assumptions()`, the `solve` short form,
-the `capabilities()` integer-domain claim, and two protocol-document examples).
+## Audit wave 2 (four reports, ~2200 probes)
 
-**Audit #2 dispatched** (D1): four fresh personas against the binary published from `9e761ba` —
-bulk differential testing, temporal/determinism, CLI surface + capability honesty, and rewrite/solve
-falsification. Deliberately different attack strategies from audit #1 so the two overlap as little as
-possible.
+**Fixed**: the infinite-family completeness claim; the circular "solution"; `evalf`'s digit count; the
+unevaluated-limit exactness claim; print-budget totality; arity metadata.
+
+**Open** (dispatched or recorded):
+1. **A regression cycle 5 introduced**: `evalf(sin(1), 40)` reports `exact:true` with a rational form
+   where `9228305` reported `exact:false`; traced to `4ef7edf` (provenance defaults to exact while the
+   Symbolics numeric path builds its Real without clearing it). Diagnosis handed over with file:line.
+2. `sin`/`tan` at multiples of the runner's own `pi(100)` are wrong by ~70 orders of magnitude
+   (round `c5-real2` in flight).
+3. `0.(9) == 1` is false while `0.(9) - 1 == 0` is true (round `c5-real2` in flight).
+4. `x = 1; x = [x];` ×12000 kills the process with no envelope (round `c5-depth2` in flight).
+5. `--cancel-after` is ignored inside array/numeric kernels (recorded, no round).
+6. `evalf(f, 0)` raises an internal invariant failure (pre-existing; recorded).
+7. `capabilities()` still under-claims `(-4)^(1/2)`; three refusals remain unlisted.
 
 ## Gate status
 
 | Gate | State |
 |---|---|
-| G1 Evidence | PASS — EVD-201…EVD-228, each reproduced by me |
-| G2 Falsification | open — audit #1's triage table still has open P1 rows; audit #2 will add its own |
-| G3 Coverage | partial — every Tier-0 closed; Tier-1 mostly closed; the complex round-trip is unstarted |
-| G4 Reproduction | PASS — every landed round re-run by me in the main tree; every pre-fix claim reproduced in a control worktree |
-| G5 Honesty | PASS — the CI discovery, the golden that moved, the flaky tests and every open bound are recorded |
+| G1 Evidence | PASS — EVD-201…EVD-234, each reproduced by me |
+| G2 Falsification | **open** — audit wave 2 produced ~15 P0/P1 defects; five are fixed, the rest listed above |
+| G3 Coverage | Tier-0: all six closed. Tier-1: the machine-API cluster closed except the items above |
+| G4 Reproduction | PASS — every landed round re-run by me; every pre-fix claim reproduced in a control worktree |
+| G5 Honesty | PASS — the regression this cycle caused, the CI-only failure, the golden regenerations and every open bound are recorded |
 
-## Note for the next round
-
-The `gh` CLI is not installed and the unauthenticated GitHub API is rate-limited, so CI status must be
-read from the Actions web page or after the limit resets.
+**A+ is not claimed.** D1 requires a fresh audit to find no P0/P1; audit wave 2 found ~15 and seven are
+still open. The goal stays active.
