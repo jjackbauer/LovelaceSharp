@@ -169,7 +169,12 @@ internal sealed class SympySession
     /// </summary>
     internal string Eval(string body)
     {
-        PythonRun run = SympyOracle.RunScript("import sympy\n" + body);
+        // N20: the corpora are written in natural SymPy syntax - sympy.diff(sin(x**2), x) - so the
+        // prelude must expose sympy's function namespace. With only `import sympy`, every name the
+        // corpus uses unqualified raised NameError, and the derivative and limit corpora compared
+        // NOTHING while the failure surfaced as "the SymPy side did not evaluate". The symbols are
+        // bound after this prelude, so the star import cannot shadow them.
+        PythonRun run = SympyOracle.RunScript("import sympy\nfrom sympy import *\n" + body);
         if (!run.Started)
             throw new InvalidOperationException($"python3 could not be started ({run.Failure})");
         if (run.ExitCode != 0)
@@ -242,6 +247,14 @@ internal static class OracleCompare
     /// Compares parallel lists (e.g. the row-major entries of a matrix) against SymPy at every
     /// sample point in ONE python process: the program prints point-major, expression-minor
     /// values, and each is compared with the kernel's own evaluation.
+    ///
+    /// <para>Every value is printed as its REAL and IMAGINARY parts, and the kernel side is
+    /// compared part by part. This is strictly stronger than comparing one real number per value:
+    /// a case where SymPy answers with a complex value and the kernel with a real one (or with a
+    /// different imaginary part) is now a reported MISMATCH instead of "the SymPy side returned
+    /// something that is not a finite real number". It is what makes the principal-branch complex
+    /// values in the corpora comparable at all — the tolerance is unchanged, and both parts must
+    /// pass it.</para>
     /// </summary>
     internal static string? NumberListsAgree(
         SympySession sympy,
@@ -280,7 +293,9 @@ internal static class OracleCompare
             "points = [" + string.Join(", ", substitutions) + "]\n" +
             "for point in points:\n" +
             "    for expression in expressions:\n" +
-            "        print(sympy.sstr(sympy.N(expression.subs(point), 30)))";
+            "        value = expression.subs(point)\n" +
+            "        print(sympy.sstr(sympy.N(sympy.re(value), 30)))\n" +
+            "        print(sympy.sstr(sympy.N(sympy.im(value), 30)))";
         string theirText;
         try
         {
@@ -291,7 +306,7 @@ internal static class OracleCompare
             return $"{label}: the SymPy side did not evaluate ({ex.Message}); kernel forms [{string.Join(", ", kernelCanonicals)}]";
         }
         string[] theirValues = theirText.Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(l => l.Trim()).ToArray();
-        int expected = points.Count * kernelCanonicals.Count;
+        int expected = points.Count * kernelCanonicals.Count * 2;   // real and imaginary part per value
         if (theirValues.Length != expected)
             return $"{label}: the SymPy side returned {theirValues.Length} value(s), expected {expected}; kernel forms [{string.Join(", ", kernelCanonicals)}]";
 
@@ -304,9 +319,11 @@ internal static class OracleCompare
 
             for (int k = 0; k < kernel.Length; k++)
             {
-                string theirValue = theirValues[p * kernel.Length + k];
-                if (!Rl.TryParse(theirValue, null, out Rl? theirs))
-                    return $"{label} at {where}: sympy returned '{theirValue}', which is not a finite real number; kernel form {kernelCanonicals[k]}";
+                string theirRealText = theirValues[(p * kernel.Length + k) * 2];
+                string theirImaginaryText = theirValues[((p * kernel.Length + k) * 2) + 1];
+                if (!Rl.TryParse(theirRealText, null, out Rl? theirReal) ||
+                    !Rl.TryParse(theirImaginaryText, null, out Rl? theirImaginary))
+                    return $"{label} at {where}: sympy returned '{theirRealText}' + '{theirImaginaryText}'*I, which is not a finite complex number; kernel form {kernelCanonicals[k]}";
                 Num mine;
                 try
                 {
@@ -316,9 +333,12 @@ internal static class OracleCompare
                 {
                     return $"{label} at {where}: the kernel side did not evaluate ({ex.GetType().Name}: {ex.Message}); kernel form {kernelCanonicals[k]} vs sympy {sympyExpressions[k]}";
                 }
-                Num difference = NumOps.Abs(NumOps.Subtract(mine, NumOps.FromReal(theirs)), ctx);
-                if (NumOps.Compare(difference, NumOps.FromReal(allowed)) >= 0)
-                    return $"{label} at {where}: MISMATCH — kernel {kernelCanonicals[k]} = {Show(mine)} vs sympy {sympyExpressions[k]} = {theirValue}";
+                Num realDifference = NumOps.Abs(NumOps.Subtract(NumOps.Re(mine, ctx), NumOps.FromReal(theirReal)), ctx);
+                if (NumOps.Compare(realDifference, NumOps.FromReal(allowed)) >= 0)
+                    return $"{label} at {where}: MISMATCH — kernel {kernelCanonicals[k]} = {Show(mine)} vs sympy {sympyExpressions[k]} = {theirRealText} (real part)";
+                Num imaginaryDifference = NumOps.Abs(NumOps.Subtract(NumOps.Im(mine, ctx), NumOps.FromReal(theirImaginary)), ctx);
+                if (NumOps.Compare(imaginaryDifference, NumOps.FromReal(allowed)) >= 0)
+                    return $"{label} at {where}: MISMATCH — kernel {kernelCanonicals[k]} = {Show(mine)} vs sympy {sympyExpressions[k]} = {theirImaginaryText} (imaginary part)";
             }
         }
         return null;

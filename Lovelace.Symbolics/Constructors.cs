@@ -482,6 +482,20 @@ public static class Exprs
             return Rational(RationalPowerInt(bv, ei.ToInteger()));
         }
 
+        // A NEGATIVE rational base with a HALF-INTEGER exponent (denominator exactly 2): the
+        // principal branch of the square-root family, which is the branch SymPy returns for
+        // (-a)**e. (-a)^(m/2) = a^(m/2)·i^m for a > 0, so the value is an exact imaginary
+        // multiple — i, 2i, sqrt(3)·i, -8i — never a decimal approximation. This sits BEFORE the
+        // unit-fraction exact-root test because that test's odd-denominator real-root shortcut must
+        // not be reachable from an even denominator, and BEFORE the "leave it unevaluated" exit.
+        // Exponents whose denominator is >= 3 are deliberately NOT handled here: their principal
+        // value is a root of unity that is not a complex constant, so the kernel keeps its existing
+        // behaviour and the host keeps reporting them unsupported (round 03 bounded scope).
+        if (b is (IntegerConstantExpr or RationalConstantExpr) && eRat is { IsInteger: false } eHalf &&
+            NumericToRational(b) is { IsNegative: true } bNegative &&
+            PrincipalSquareRootPower(bNegative, eHalf) is { } principal)
+            return principal;
+
         // rational base with unit-fraction exponent: exact root test
         if (b is (IntegerConstantExpr or RationalConstantExpr) && eRat is { } eu)
         {
@@ -498,6 +512,25 @@ public static class Exprs
             }
             if (!eu.IsInteger && bv.IsNegative)
                 return MakePower(b, e);   // complex-valued: leave unevaluated
+        }
+
+        // the imaginary unit with an INTEGER exponent: i^0 = 1, i^1 = i, i^2 = -1, i^3 = -i.
+        // Folding this is what lets a complex solution substitute back to EXACTLY zero (i^2 must
+        // become -1 rather than stay an opaque power), which the differential oracle's solve corpus
+        // requires. The explicit 4-cycle is used instead of the general complex-exponentiation block
+        // below so that the spelling of -i is the one the solver's own complex closed forms use.
+        if (b is NamedConstantExpr { Constant: NamedConstant.I } && eRat is { IsInteger: true } eImaginary)
+        {
+            var twoI = new Int(2L);
+            var fourI = new Int(4L);
+            var residue = eImaginary.ToInteger() % fourI;
+            if (Int.IsNegative(residue))
+                residue = residue + fourI;      // canonical remainder, so i^-1 = i^3
+            if (Int.IsZero(residue))
+                return Rational(Rat.One);
+            if (residue == twoI)
+                return Rational(Rat.MinusOne);
+            return residue == Int.One ? I : Negate(I);
         }
 
         // complex constant base with integer exponent: exact binary exponentiation over Int
@@ -531,6 +564,37 @@ public static class Exprs
         }
 
         return MakePower(b, e);
+    }
+
+    /// <summary>
+    /// The PRINCIPAL branch of <c>b^e</c> for an exact NEGATIVE rational base and an exponent whose
+    /// denominator is exactly 2; null for every other shape, so the caller falls through to the
+    /// kernel's existing behaviour.
+    /// <para><c>(-a)^(m/2) = a^(m/2)·i^m</c> for <c>a &gt; 0</c> and odd <c>m</c> — an exact
+    /// imaginary multiple of a radical. SymPy 1.14.0 returns exactly these values, verified per case
+    /// rather than assumed (<c>(-1)^(1/2) = I</c>, <c>(-4)^(1/2) = 2*I</c>,
+    /// <c>(-3)^(1/2) = sqrt(3)*I</c>, <c>(-4)^(3/2) = -8*I</c>, <c>(-4)^(-1/2) = -I/2</c>; the
+    /// commands and their output are in docs/goal-cycle-4/round-03/implementation.md). The former
+    /// real-root shortcut is not reachable from here: it lives in the unit-fraction test below and
+    /// only fires for ODD denominators, which is the kernel's separate, non-principal convention.</para>
+    /// </summary>
+    private static Expr? PrincipalSquareRootPower(Rat b, Rat e)
+    {
+        var two = new Int(2L);
+        if (e.Denominator != two)
+            return null;                     // an integer exponent was answered earlier
+        var q = Rat.Abs(b);
+        var m = e.Numerator;                 // odd: e is in lowest terms with denominator 2
+        // a^(m/2) = a^((m-1)/2)·sqrt(a). The first factor is an exact integer power of a rational (m
+        // is odd, so (m-1)/2 is an integer, and q > 0 keeps the negative exponent well defined); the
+        // second folds to an exact rational when a is a perfect square and stays an exact radical
+        // otherwise — both exact, so no approximation enters anywhere.
+        var scale = RationalPowerInt(q, (m - Int.One) / two);
+        var radical = Power(Rational(q), Rational(1, 2));
+        // i^m for odd m: m ≡ 1 (mod 4) gives i, m ≡ 3 (mod 4) gives -i
+        var four = new Int(4L);
+        var unit = m % four == Int.One ? I : Negate(I);
+        return Multiply(Rational(scale), radical, unit);
     }
 
     private static Expr MakePower(Expr b, Expr e)

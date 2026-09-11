@@ -61,7 +61,7 @@ public static class NumericOps
             (BinaryOp.Multiply, ValueKind.Real) => ApplyRealBinary(BinaryOp.Multiply, left.AsReal(), right.AsReal()),
             (BinaryOp.Divide,   ValueKind.Real) => ApplyRealBinary(BinaryOp.Divide, left.AsReal(), right.AsReal()),
             (BinaryOp.Modulo,   ValueKind.Real) => new Value(left.AsReal() % right.AsReal()),
-            (BinaryOp.Power,    ValueKind.Real) => new Value(left.AsReal().Pow(right.AsReal())),
+            (BinaryOp.Power,    ValueKind.Real) => PowerReal(left.AsReal(), right.AsReal()),
 
             (_, ValueKind.Complex) => throw new InvalidOperationException(
                 $"Operator '{op}' is not supported for Complex; use re()/im()/conj()/abs() to bridge back to Real."),
@@ -69,6 +69,28 @@ public static class NumericOps
             _ => throw new InvalidOperationException(
                 $"Operator '{op}' is not supported for type '{left.Kind}'."),
         };
+    }
+
+    /// <summary>The exact Real value 1/2, the one exponent that has an exact complex closed form
+    /// over a negative base.</summary>
+    private static readonly Rl OneHalf = Rl.Parse("0.5", null);
+
+    /// <summary>
+    /// Real-domain power with ONE exact complex fallback. The Real type owns the real-domain
+    /// contract and keeps refusing every value it cannot represent — including <c>2^(1/2)</c>,
+    /// whose result is a real irrational it will not approximate, and every other non-integer
+    /// exponent. The single rejected input with an exact closed form outside that contract is an
+    /// exact negative base under the PRINCIPAL square root: <c>(-a)^(1/2) = i·sqrt(a)</c>, which is
+    /// the branch SymPy returns. Only that input is routed to the symbolic complex path; everything
+    /// else keeps the existing typed failure.
+    /// </summary>
+    private static Value PowerReal(Rl baseValue, Rl exponent)
+    {
+        if (Rl.IsNegative(baseValue) && exponent == OneHalf)
+            return new Value(Exprs.Power(
+                Exprs.Rational(RationalReal.FromReal(baseValue)),
+                Exprs.Rational(1, 2)));
+        return new Value(baseValue.Pow(exponent));
     }
 
     /// <summary>

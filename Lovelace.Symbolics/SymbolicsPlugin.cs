@@ -209,8 +209,9 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 ["integer", "real", "complex"]));
 
         // Round 22: the runtime's own capability statement. An agent must be able to LEARN the
-        // real-only limits from structure — today the only way to discover that sqrt(-1),
-        // (-1)^(1/2) and integer/rational solving are unsupported is to trip over each one.
+        // runtime's limits from structure — today the only way to discover that 2^(1/2),
+        // (-8)^(1/3) and integer/rational solving are unsupported is to trip over each one.
+        // Round 03 moved sqrt(-1) and (-1)^(1/2) OUT of this list by making them answerable.
         Add("capabilities", Array.Empty<string>(), _ => CapabilitiesRecord(),
             new BuiltinDescriptor("capabilities", Array.Empty<string>(), BuiltinCategories.Introspection,
                 "Reports the domains this runtime solves over and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces.",
@@ -702,22 +703,58 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// carries the code and <see cref="ErrorCategory"/> member that the LIVE call produces — these
     /// strings are transcriptions of observed envelopes, not a second vocabulary:
     /// <list type="bullet">
-    /// <item>sqrt of a negative real: <c>ArithmeticException</c> from <c>Lovelace.Real.Real.Sqrt</c>,
-    /// classified by the host as <c>ArithmeticError</c> / <c>DomainError</c>.</item>
-    /// <item>a negative base raised to a non-integer power: <c>NotImplementedException</c> from
-    /// <c>Lovelace.Real.Real.Pow</c>, classified as <c>UnsupportedOperation</c> /
-    /// <c>UnsupportedOperation</c>.</item>
+    /// <item>a non-integer exponent of a positive base, e.g. <c>2^(1/2)</c>: a
+    /// <c>NotImplementedException</c> from <c>Lovelace.Real.Real.Pow</c>, classified as
+    /// <c>UnsupportedOperation</c> / <c>UnsupportedOperation</c>. The result is a real irrational
+    /// the Real type will not approximate, so this stays a genuine unsupported class.</item>
+    /// <item>a negative base raised to an exponent whose denominator is &gt;= 3, e.g.
+    /// <c>(-8)^(1/3)</c>: the SAME exception and therefore the same code, category and message.
+    /// It is a distinct operation class because the principal value is a root of unity that is not
+    /// a complex constant, so it is enumerated separately even though its live envelope is
+    /// identical — an agent matching on the code sees one class, one matching on
+    /// <c>operation_class</c> sees both.</item>
     /// <item>solving over integer/rational: an <c>InvalidOperationException</c> raised by the
     /// plugin's domain guard, classified as <c>InvalidOperation</c> / <c>DomainError</c>.</item>
-    /// <item>complex algebraic roots of degree >= 4: the kernel's own stable diagnostic code
+    /// <item>complex algebraic roots of degree &gt;= 4: the kernel's own stable diagnostic code
     /// <c>solve.unrepresented-roots</c> / <c>UnsupportedOperation</c> (from
     /// <see cref="SolveDiagnostic"/>), which is non-fatal and rides in a solve record.</item>
     /// </list>
     /// <para>
-    /// <c>exactness</c> is BestEffort: the two DOMAIN arrays are exhaustive over the closed
-    /// <see cref="MathDomain"/> enum, but the operation list names only the classes this round
-    /// verified. An unsupported operation that is not listed here is not a contradiction — it is
-    /// simply not enumerated yet.
+    /// <c>sqrt</c> of a negative real USED to be the first entry (<c>complex.sqrt-negative</c>,
+    /// <c>ArithmeticError</c> / <c>DomainError</c>). Round 03 moved it into the supported set: the
+    /// exact closed form of <c>sqrt(-a)</c> is <c>i·sqrt(a)</c>, so the live call now answers (see
+    /// <c>Lovelace.Suite.Interpreter</c>'s sqrt builtin, which routes the input the real-domain
+    /// operation rejects to the symbolic complex path). The <c>Lovelace.Real</c> contract is
+    /// unchanged — <c>Real.Sqrt(-1)</c> still throws.
+    /// </para>
+    /// <para>
+    /// <c>exactness</c> remains <c>BestEffort</c>, and deliberately. Every entry ABOVE is verified
+    /// against its live envelope by <c>CapabilitiesBuiltinTests</c>, so nothing here is a guess.
+    /// What is still NOT enumerated, and why:
+    /// </para>
+    /// <list type="bullet">
+    /// <item>the diagnostic classes whose <c>message</c> is the KERNEL'S INPUT-SPECIFIC reason
+    /// rather than a fixed string — <c>limit.unevaluated</c>, <c>integration.unevaluated</c>,
+    /// <c>solve.unevaluated</c>, <c>solve.partial</c>, <c>system-solve.unevaluated</c>. An
+    /// <c>UnsupportedCapability</c> record advertises ONE message, and for these the message
+    /// varies with the expression (e.g. "no closed form for ..."), so a single entry could not
+    /// state it truthfully. Enumerating them would need either a schema change (out of scope) or
+    /// an entry per trigger, which is not a class list.</item>
+    /// <item><c>transform.budget-exceeded</c> and <c>transform.unsatisfiable-conditions</c>: both
+    /// have stable messages, but the first embeds the budget kind that was exhausted, and neither
+    /// is an unsupported OPERATION — they are a retryable budget stop and a contradictory-branch
+    /// domain error, reported as a <c>BudgetExceeded</c> / <c>DomainError</c> status rather than as
+    /// "the kernel cannot do this". They belong to the transform contract, not to this list.</item>
+    /// <item>the exception classes the host classifies but the Symbolics plugin never raises
+    /// (<c>FormatException</c>, <c>ArgumentOutOfRangeException</c> from <c>0^-1</c>, the matrix and
+    /// array bridges): they are reachable from the engine, not from this plugin's operation
+    /// surface, so listing them here would advertise a capability boundary that is not this
+    /// plugin's.</item>
+    /// </list>
+    /// <para>
+    /// So the honest reading of this record is: <b>exhaustive over the plugin's message-stable
+    /// unsupported-operation classes</b>, and explicitly not exhaustive over the host's whole
+    /// error taxonomy. <c>BestEffort</c> is the member that says exactly that.
     /// </para>
     /// </summary>
     private static RecordValue CapabilitiesRecord() => new(
@@ -727,11 +764,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         new RecordField("unsupported_domains", new object?[] { MathDomain.Integer, MathDomain.Rational }),
         new RecordField("unsupported_operations", new object?[]
         {
-            UnsupportedCapability("complex.sqrt-negative", "ArithmeticError", ErrorCategory.DomainError,
-                "Square root is not defined for negative numbers.", "sqrt(-1)"),
             UnsupportedCapability("pow.non-integer-exponent", "UnsupportedOperation",
                 ErrorCategory.UnsupportedOperation,
-                "Non-integer exponents are not yet supported.", "(-1)^(1/2)"),
+                "Non-integer exponents are not yet supported.", "2^(1/2)"),
+            UnsupportedCapability("pow.negative-base-unrepresentable-exponent", "UnsupportedOperation",
+                ErrorCategory.UnsupportedOperation,
+                "Non-integer exponents are not yet supported.", "(-8)^(1/3)"),
             UnsupportedCapability("solve.unsupported-domain", "InvalidOperation", ErrorCategory.DomainError,
                 "solve(): currently supports domains real and complex; got integer.",
                 "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"),

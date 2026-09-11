@@ -114,12 +114,19 @@ public class CapabilitiesBuiltinTests
                 $"'{category.AsEnum().Name}' is not an ErrorCategory member");
         }
 
-        // the four classes the round brief names must all be present
+        // the classes the round-03 capability list must carry. Round 03 (goal cycle 4) replaced the
+        // negative-base entry by TWO entries, because the live envelopes turn out to be identical
+        // while the operation classes are not: a positive base with a non-integer exponent
+        // (2^(1/2)) and a negative base with an exponent whose denominator is >= 3 ((-8)^(1/3)).
         var classes = operations.Select(o => Field(o.AsRecord(), "operation_class").AsText()).ToArray();
-        Assert.Contains("complex.sqrt-negative", classes);
         Assert.Contains("pow.non-integer-exponent", classes);
+        Assert.Contains("pow.negative-base-unrepresentable-exponent", classes);
         Assert.Contains("solve.unsupported-domain", classes);
         Assert.Contains("rootof.complex-algebraic", classes);
+
+        // ... and the class round 03 MADE SUPPORTED must be gone. Advertising it would now be
+        // false: the live call answers, so there is no error left to promise.
+        Assert.DoesNotContain("complex.sqrt-negative", classes);
     }
 
     [Fact]
@@ -156,41 +163,66 @@ public class CapabilitiesBuiltinTests
         return envelope!;
     }
 
+    /// <summary>The (code, category, message) the LIVE call actually produced for a trigger: the
+    /// top-level envelope when the call failed, otherwise the FIRST structured Diagnostic the
+    /// returned record carries. Both shapes are real published surfaces, and an entry may only be
+    /// advertised if the live call reproduces it exactly.</summary>
+    private static (string Code, string Category, string Message) LiveOutcome(JsonNode envelope, string operationClass)
+    {
+        if (!envelope["ok"]!.GetValue<bool>())
+            return (envelope["code"]!.GetValue<string>(),
+                    envelope["category"]!.GetValue<string>(),
+                    envelope["message"]!.GetValue<string>());
+
+        JsonNode structured = envelope["result"]!["structured"]!;
+        if (!string.Equals(structured["kind"]!.GetValue<string>(), "Record", StringComparison.Ordinal))
+            throw new Xunit.Sdk.XunitException(
+                $"'{operationClass}': the live call SUCCEEDED with a {structured["kind"]!.GetValue<string>()} result and reported nothing to compare against");
+        JsonNode? diagnostic = StructuredFields(structured)["diagnostics"]!["elements"]!.AsArray().FirstOrDefault();
+        if (diagnostic is null)
+            throw new Xunit.Sdk.XunitException(
+                $"'{operationClass}': the live call SUCCEEDED and reported no diagnostic, so the list advertises an unsupported operation the runtime can actually perform");
+        JsonNode fields = StructuredFields(diagnostic);
+        return (fields["code"]!["value"]!.GetValue<string>(),
+                fields["category"]!["value"]!.GetValue<string>(),
+                fields["message"]!["value"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// The honesty property, now EXHAUSTIVE over the advertised list instead of hard-coded for a
+    /// fixed four: every entry the record publishes is RUN through the published
+    /// <c>Lovelace.Run</c> envelope and its advertised code, category and message must EQUAL what
+    /// the live call produced. Round 03 replaced the four literal probes with this loop, so adding
+    /// an entry without a truthful trigger — or removing one for a class the runtime still
+    /// rejects — fails here instead of in a user's lap.
+    /// </summary>
     [Fact]
     public async Task AdvertisedCodesAndCategories_MatchTheLiveEnvelope()
     {
         var advertised = AdvertisedByOperationClass(NewEngine());
+        Assert.NotEmpty(advertised);
 
-        // 1. sqrt of a negative real — a top-level error envelope
-        JsonNode sqrt = await RunEnvelopeAsync("sqrt(-1)");
-        Assert.False(sqrt["ok"]!.GetValue<bool>());
-        Assert.Equal(advertised["complex.sqrt-negative"].Code, sqrt["code"]!.GetValue<string>());
-        Assert.Equal(advertised["complex.sqrt-negative"].Category, sqrt["category"]!.GetValue<string>());
-        Assert.Equal(advertised["complex.sqrt-negative"].Message, sqrt["message"]!.GetValue<string>());
-
-        // 2. a negative base raised to a non-integer power — a top-level error envelope
-        JsonNode pow = await RunEnvelopeAsync("(-1)^(1/2)");
-        Assert.False(pow["ok"]!.GetValue<bool>());
-        Assert.Equal(advertised["pow.non-integer-exponent"].Code, pow["code"]!.GetValue<string>());
-        Assert.Equal(advertised["pow.non-integer-exponent"].Category, pow["category"]!.GetValue<string>());
-        Assert.Equal(advertised["pow.non-integer-exponent"].Message, pow["message"]!.GetValue<string>());
-
-        // 3. solve over an integer domain — a top-level error envelope
-        JsonNode solve = await RunEnvelopeAsync("solve(symbol(\"x\")^2 - 2 == 0, symbol(\"x\"), integer)");
-        Assert.False(solve["ok"]!.GetValue<bool>());
-        Assert.Equal(advertised["solve.unsupported-domain"].Code, solve["code"]!.GetValue<string>());
-        Assert.Equal(advertised["solve.unsupported-domain"].Category, solve["category"]!.GetValue<string>());
-        Assert.Equal(advertised["solve.unsupported-domain"].Message, solve["message"]!.GetValue<string>());
-
-        // 4. complex algebraic roots of degree >= 4 — a structured Diagnostic inside a solve record
-        JsonNode rootof = await RunEnvelopeAsync("solve_full(symbol(\"x\")^4 - symbol(\"x\")^2 - 1 == 0, symbol(\"x\"))");
-        Assert.True(rootof["ok"]!.GetValue<bool>());
-        JsonNode diagnostics = StructuredFields(rootof["result"]!["structured"]!)["diagnostics"]!;
-        JsonNode diagnostic = diagnostics["elements"]!.AsArray()[0]!;
-        JsonNode diagnosticFields = StructuredFields(diagnostic);
-        Assert.Equal(advertised["rootof.complex-algebraic"].Code, diagnosticFields["code"]!["value"]!.GetValue<string>());
-        Assert.Equal(advertised["rootof.complex-algebraic"].Category, diagnosticFields["category"]!["value"]!.GetValue<string>());
-        Assert.Equal(advertised["rootof.complex-algebraic"].Message, diagnosticFields["message"]!["value"]!.GetValue<string>());
+        var failures = new List<string>();
+        foreach (var (operationClass, entry) in advertised)
+        {
+            JsonNode envelope;
+            try
+            {
+                envelope = await RunEnvelopeAsync(entry.Trigger);
+            }
+            catch (Xunit.Sdk.XunitException ex)
+            {
+                failures.Add($"'{operationClass}' trigger '{entry.Trigger}': {ex.Message}");
+                continue;
+            }
+            var observed = LiveOutcome(envelope, operationClass);
+            if (observed.Code != entry.Code || observed.Category != entry.Category || observed.Message != entry.Message)
+                failures.Add(
+                    $"'{operationClass}' trigger '{entry.Trigger}': advertised {entry.Code}/{entry.Category}/\"{entry.Message}\" " +
+                    $"but the live call produced {observed.Code}/{observed.Category}/\"{observed.Message}\"");
+        }
+        Assert.True(failures.Count == 0, string.Join("\n", failures));
+        _output.WriteLine($"live-verified {advertised.Count} advertised unsupported operation class(es)");
     }
 
     // ------------------------------------------------------------------

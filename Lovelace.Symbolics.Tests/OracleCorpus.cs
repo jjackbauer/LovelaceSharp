@@ -69,10 +69,17 @@ internal static class OracleCorpus
                 "exp(-x^2), entire over the reals; compared at x = 1/3, -1/2, 7/5",
                 Exprs.Function(ctx.Function("exp"), Exprs.Negate(Exprs.Power(x, 2))), "exp(-x**2)", RealPoints),
             new DerivativeCase(
-                "x*log(x) on x > 0 (the principal real branch); compared at x = 1/3, 4/5, 7/5. " +
-                "REPAIR: the corpus used to compare this case at x = -1/2, where log is not real — the kernel " +
-                "raises EvaluationException and SymPy returns a complex value, so the comparison was unsound there.",
-                Exprs.Multiply(x, Exprs.Function(ctx.Function("log"), x)), "x*log(x)", PositivePoints),
+                "x*log(x) on the PRINCIPAL branch of log, which is what makes this case comparable at a " +
+                "NEGATIVE point: log is real for x > 0 and is log|x| + i*pi for x < 0 (the branch cut runs " +
+                "along the negative real axis with arg(z) = +pi, i.e. taken from above), and that is exactly " +
+                "what SymPy returns there — log(-1/2) = -log(2) + I*pi. Compared at x = 1/3, -1/2, 7/5. " +
+                "REPAIR (round 03): the corpus used to compare this case only at positive points, because " +
+                "the kernel's numeric evaluator raised EvaluationException at x = -1/2 while SymPy returned " +
+                "that complex value, so the comparison put a non-answer against an answer and was unsound " +
+                "there (see the note at the top of this file: a case whose kernel half is a non-answer is " +
+                "not a corpus entry). The evaluator now returns the same principal value SymPy does, so the " +
+                "excluded point is REINSTATED and the comparison is live again.",
+                Exprs.Multiply(x, Exprs.Function(ctx.Function("log"), x)), "x*log(x)", RealPoints),
             new DerivativeCase(
                 "sin(x)/x on x != 0 (the removable singularity is not sampled); compared at x = 1/3, -1/2, 7/5",
                 Exprs.Divide(Exprs.Function(ctx.Function("sin"), x), x), "sin(x)/x", RealPoints),
@@ -94,6 +101,11 @@ internal static class OracleCorpus
             new SolveCase(domain, Exprs.Add(Exprs.Power(x, 2), Exprs.Multiply(-5, x), 6), "x**2 - 5*x + 6"),
             new SolveCase(domain, Exprs.Add(Exprs.Power(x, 3), 1), "x**3 + 1"),
             new SolveCase(domain, Exprs.Add(Exprs.Power(x, 4), Exprs.Multiply(-5, Exprs.Power(x, 2)), 4), "x**4 - 5*x**2 + 4"),
+            // round 03: a NEGATIVE discriminant, so the corpus exercises the closed-form complex
+            // values instead of only real roots. sympy.solve(x**2 + 1, x) = [-I, I], and the two
+            // kernel roots substitute back to exactly 0 only because i^2 folds to -1.
+            new SolveCase(domain, Exprs.Add(Exprs.Power(x, 2), 1), "x**2 + 1"),
+            new SolveCase(domain, Exprs.Add(Exprs.Power(x, 2), 4), "x**2 + 4"),
         };
     }
 

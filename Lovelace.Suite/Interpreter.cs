@@ -1455,6 +1455,16 @@ public sealed class Interpreter
             if (arg.Kind == ValueKind.Symbolic)
                 return new Value(Lovelace.Symbolics.Exprs.Power(arg.AsSymbolic(), Lovelace.Symbolics.Exprs.Rational(1, 2)));
             var real = arg.Widen(ValueKind.Real).AsReal();
+            // The real square root is the REAL-DOMAIN contract and keeps refusing negative values:
+            // Real.Sqrt(-1) still throws, unchanged. The value it refuses has an exact closed form
+            // though, so the rejected input is routed to the symbolic complex path instead of being
+            // reported as unsupported: sqrt(-a) = i·sqrt(a) exactly, for any exact a > 0, which is
+            // the branch SymPy returns. This is a fallback, not a replacement — a non-negative
+            // argument takes the original path untouched.
+            if (Rl.IsNegative(real))
+                return new Value(Lovelace.Symbolics.Exprs.Power(
+                    Lovelace.Symbolics.Exprs.Rational(Lovelace.Symbolics.RationalReal.FromReal(real)),
+                    Lovelace.Symbolics.Exprs.Rational(1, 2)));
             return new Value(await Rl.SqrtAsync(real, SubProgress("sqrt")));
         });
 

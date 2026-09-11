@@ -289,13 +289,31 @@ public static class NumOps
 
     public static Num Exp(Num a, ExprContext ctx) => Tier(a) <= 2 ? FromReal(ComplexMath.Exp(ToReal(a))) : FromComplex(ComplexMath.Exp(ToComplex(a)));
 
+    /// <summary>
+    /// The natural logarithm on the PRINCIPAL branch.
+    /// <para>For a real input the branch is the ordinary one. For a NEGATIVE real <c>x</c> the
+    /// principal value is <c>ln|x| + i·pi</c>: the branch cut runs along the negative real axis and
+    /// <c>arg(z) = +pi</c> there, i.e. the cut is taken from ABOVE, so the imaginary part is
+    /// <c>+pi</c> and never <c>-pi</c>. The complex layer owns that branch decision
+    /// (<see cref="ComplexMath.Log"/> on <c>x + 0i</c>), so there is exactly one spelling of it in
+    /// the codebase. SymPy agrees: <c>log(-1/2) = -log(2) + I*pi</c>.</para>
+    /// <para>This is what makes the differential oracle's <c>x*log(x)</c> case comparable at its
+    /// negative sample point: before it, the kernel's numeric evaluator reported a domain failure
+    /// there while SymPy returned that complex value, so the two sides were being compared off
+    /// their domains.</para>
+    /// </summary>
     public static Num Ln(Num a, ExprContext ctx)
     {
         try
         {
-            return Tier(a) <= 2
-                ? FromReal(ComplexMath.Ln(ToReal(a)))
-                : FromComplex(ComplexMath.Log(ToComplex(a)));
+            if (Tier(a) <= 2)
+            {
+                var real = ToReal(a);
+                if (Rl.IsNegative(real))
+                    return FromComplex(ComplexMath.Log(new Cplx(real)));
+                return FromReal(ComplexMath.Ln(real));
+            }
+            return FromComplex(ComplexMath.Log(ToComplex(a)));
         }
         catch (ArgumentException ex)
         {
@@ -303,7 +321,7 @@ public static class NumOps
             // ("Ln(x) requires x > 0"), but the kernel's vocabulary for "not defined here" is
             // EvaluationException — the narrowed catches in the limit, integration, fold and
             // solver-verification paths rely on that type and would otherwise let a domain edge
-            // surface as an internal defect.
+            // surface as an internal defect. log(0) still takes this path.
             throw new EvaluationException(ex.Message);
         }
     }

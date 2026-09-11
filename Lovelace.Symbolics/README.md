@@ -585,11 +585,12 @@ x = symbol("x")
 solve(x^3 - 1 == 0, x)
 ```
 ```result
-[1/2*(-sqrt(-3) - 1), 1/2*(sqrt(-3) - 1), 1] (Vector)
+[1/2*(i*sqrt(3) - 1), 1/2*(-i*sqrt(3) - 1), 1] (Vector)
 ```
 
-(In the cubic roots above, `-3^(1/2)` denotes the principal complex square root, i.e.
-`i*sqrt(3)` — the roots are the two complex cube roots of unity.)
+(In the cubic roots above the principal complex square root is now written out in closed form:
+`sqrt(-3)` is exactly `i*sqrt(3)`, so the two non-real roots are the complex cube roots of unity.
+Round 03 made that value computable instead of leaving the radical unevaluated.)
 
 ```lovelace
 x = symbol("x")

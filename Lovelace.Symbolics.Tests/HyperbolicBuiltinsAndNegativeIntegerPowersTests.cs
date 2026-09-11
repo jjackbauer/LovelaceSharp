@@ -198,16 +198,39 @@ public class HyperbolicBuiltinsAndNegativeIntegerPowersTests
         Assert.Equal("2", ValueFormatter.Format(engine.Evaluate("1 + 1")));
     }
 
-    /// <summary>The two adjacent unsupported operations keep their exact current errors: this
-    /// round does NOT add complex square roots or rational powers of negative bases.</summary>
+    /// <summary>
+    /// REQUIREMENT CHANGE (goal cycle 4, round 03). This test used to assert that
+    /// <c>sqrt(-1)</c> and <c>(-1)^(1/2)</c> THROW ("this round does NOT add complex square roots
+    /// or rational powers of negative bases"). The maintainer's §4.3 decision reopened that scope:
+    /// the values were rejected for want of a representation, and the representation exists. They
+    /// now answer the PRINCIPAL branch exactly — the branch SymPy 1.14.0 returns for
+    /// <c>(-1)**Rational(1,2)</c> and <c>sqrt(-4)</c> — so the throwing half is replaced by an
+    /// assertion of the new exact value, NOT deleted.
+    ///
+    /// <para>The control half is the part that matters for honesty: the cases that are still
+    /// unsupported keep their exact typed error and message, and
+    /// <c>capabilities()</c> keeps advertising them.</para>
+    /// </summary>
     [Fact]
-    public void ComplexRootsAndFractionalPowersOfNegativeBases_KeepTheirErrors()
+    public void NegativeSquareRootsAndHalfPowers_NowAnswerExactly_WhileOtherNonIntegerPowersStillThrow()
     {
         var engine = NewEngine();
-        var sqrt = Assert.Throws<ArithmeticException>(() => engine.Evaluate("sqrt(-1)"));
-        Assert.Equal("Square root is not defined for negative numbers.", sqrt.Message);
 
-        var power = Assert.Throws<NotImplementedException>(() => engine.Evaluate("(-1)^(1/2)"));
-        Assert.Equal("Non-integer exponents are not yet supported.", power.Message);
+        // SymPy: sqrt(-1) = I, sqrt(-4) = 2*I, (-1)**Rational(1,2) = I
+        Assert.Equal("i", ValueFormatter.Format(engine.Evaluate("sqrt(-1)")));
+        Assert.Equal("i", ValueFormatter.Format(engine.Evaluate("(-1)^(1/2)")));
+        Assert.Equal("2*i", ValueFormatter.Format(engine.Evaluate("sqrt(-4)")));
+
+        // CONTROL 1: a POSITIVE base under a non-integer exponent is a different, much larger
+        // feature (a real irrational the Real type will not approximate) and is unchanged.
+        var positive = Assert.Throws<NotImplementedException>(() => engine.Evaluate("2^(1/2)"));
+        Assert.Equal("Non-integer exponents are not yet supported.", positive.Message);
+
+        // CONTROL 2: a negative base under an exponent whose denominator is >= 3 has no exact
+        // complex-constant value, so it keeps the same typed error.
+        var third = Assert.Throws<NotImplementedException>(() => engine.Evaluate("(-8)^(1/3)"));
+        Assert.Equal("Non-integer exponents are not yet supported.", third.Message);
+        Assert.Equal("Non-integer exponents are not yet supported.",
+            Assert.Throws<NotImplementedException>(() => engine.Evaluate("(-1)^(1/3)")).Message);
     }
 }
