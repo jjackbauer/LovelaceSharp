@@ -498,9 +498,13 @@ public class Real :
     /// Multiplies two <see cref="Real"/> values.
     /// Non-periodic path: multiplies raw magnitudes as integers; result exponent =
     /// <paramref name="left"/>.Exponent + <paramref name="right"/>.Exponent.
-    /// Periodic path: expands each operand to <see cref="MaxComputationDecimalPlaces"/>
-    /// fractional digits using <see cref="GetDecimalDigit"/> and runs period detection on
-    /// the result.
+    /// Periodic path (when either operand is periodic): converts both operands to exact
+    /// fractions (<see cref="ToExactRational"/>), multiplies them exactly, and divides the
+    /// products so <see cref="Divide"/> re-derives the exact period of the result. This makes
+    /// <c>(a/b)*b == a</c> hold exactly whenever <c>a/b</c> is representable, instead of
+    /// truncating each periodic operand at <see cref="MaxComputationDecimalPlaces"/> digits
+    /// (which returned <c>0.99…984</c> for <c>(1/17)*17</c>). The result is truncated only when
+    /// the product's own period does not fit in <see cref="MaxComputationDecimalPlaces"/>.
     /// Corresponds to C++ <c>multiplicar</c>.
     /// </summary>
     public static Real Multiply(Real left, Real right)
@@ -519,15 +523,100 @@ public class Real :
         }
         else
         {
-            // Periodic path: expand both operands to MaxComputationDecimalPlaces fractional
-            // digits (resolving any period), multiply via the non-periodic path, then detect
-            // a repeating suffix in the result and normalise (including 0.999… → 1).
-            long workingFrac   = MaxComputationDecimalPlaces;
-            Real expandedLeft  = ExpandToNonPeriodic(left,  workingFrac);
-            Real expandedRight = ExpandToNonPeriodic(right, workingFrac);
-            Real rawProduct    = Multiply(expandedLeft, expandedRight); // non-periodic path
-            return DetectAndNormalizePeriod(rawProduct);
+            // Periodic path — exact.  A periodic Real denotes an exact rational (its magnitude,
+            // Exponent and period block fix a fraction), and a non-periodic Real is a finite
+            // decimal, hence also rational, so the product is always a rational.
+            //
+            // Expanding the operands to MaxComputationDecimalPlaces fractional digits instead
+            // TRUNCATES them: 1/17 expanded to 1000 places is slightly less than 1/17, so
+            // (1/17)*17 came out as 0.99…984 — a truncated operand that DetectAndNormalizePeriod
+            // cannot fold (the tail is not all nines).  Widening the expansion only moves that
+            // boundary, so multiply the exact fractions and let Divide's remainder-tracked long
+            // division re-derive the exact period of the product.
+            (Int leftNum, Int leftDen)   = ToExactRational(left);
+            (Int rightNum, Int rightDen) = ToExactRational(right);
+
+            Int num = leftNum * rightNum;
+            Int den = leftDen * rightDen;
+
+            // Reduce first: the long division below is cheaper on smaller operands, and the
+            // identity case (p/q)*q cancels completely (e.g. 17/17 → 1/1).
+            Int gcd = Int.Gcd(num, den);
+            if (gcd > Int.One)
+            {
+                num = num.DivRem(gcd, out _);
+                den = den.DivRem(gcd, out _);
+            }
+
+            // Divide is exact for rational operands: it detects the repeating period of the
+            // quotient by tracking remainders.  If the period exceeds
+            // MaxComputationDecimalPlaces the quotient is truncated, exactly as for a division
+            // whose period does not fit the budget.
+            return Divide(new Real(num), new Real(den));
         }
+    }
+
+    /// <summary>
+    /// Converts <paramref name="value"/> to an exact fraction (numerator, positive denominator)
+    /// using only <see cref="Int"/> arithmetic — the periodic operand of <see cref="Multiply"/>.
+    /// <para>
+    /// A non-periodic value is a finite decimal: <c>magnitude · 10^Exponent</c>.
+    /// </para>
+    /// <para>
+    /// A periodic value stores its digits as integer part, then <see cref="PeriodStart"/> (<c>s</c>)
+    /// non-repeating fractional digits, then one <see cref="PeriodLength"/> (<c>p</c>)-digit block
+    /// <c>B</c>. With the integral prefix <c>P</c> (the magnitude's digits above the block) the
+    /// stored digits are <c>magnitude = P·10^p + B</c> at scale <c>10^-(s+p)</c>, and the repeating
+    /// tail contributes the geometric series <c>B·10^-(s+p)/(1 − 10^-p)</c>, giving
+    /// <c>(P·(10^p − 1) + B) / (10^s · (10^p − 1))</c>.
+    /// </para>
+    /// </summary>
+    private static (Int Num, Int Den) ToExactRational(Real value)
+    {
+        Int ten = new Int(10L);
+        Nat magnitude = value.ToNatural();
+        Int num;
+        Int den;
+
+        if (!value.IsPeriodic)
+        {
+            num = new Int(magnitude, false);
+            den = Int.One;
+            if (value.Exponent > 0L)
+                num = num * ten.Pow(new Int(value.Exponent));
+            else if (value.Exponent < 0L)
+                den = ten.Pow(new Int(-value.Exponent));
+        }
+        else
+        {
+            long s = value.PeriodStart;
+            long p = value.PeriodLength;
+
+            Nat tenToP = new Nat(10UL).Pow(new Nat((ulong)p));
+            Nat prefix = Nat.DivRem(magnitude, tenToP, out Nat block);
+
+            Int one      = Int.One;
+            Int tenToPInt = new Int(tenToP, false);
+            Int repUnit   = tenToPInt - one;               // 10^p − 1
+            num = new Int(prefix, false) * repUnit + new Int(block, false);
+            den = repUnit;
+            if (s > 0L)
+                den = den * ten.Pow(new Int(s));
+
+            // A periodic value stores exactly the non-repeating prefix plus one period block, so
+            // Exponent == -(s + p).  Fold any residual scale difference into the fraction instead
+            // of relying on that invariant.
+            long scaleDelta = value.Exponent + s + p;
+            if (scaleDelta > 0L)
+                num = num * ten.Pow(new Int(scaleDelta));
+            else if (scaleDelta < 0L)
+                den = den * ten.Pow(new Int(-scaleDelta));
+        }
+
+        if (Int.IsNegative(value) && !Int.IsZero(num))
+            num = num.Negate();
+
+        return (num, den);
     }
 
     /// <inheritdoc cref="Multiply"/>
