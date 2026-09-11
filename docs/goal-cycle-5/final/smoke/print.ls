@@ -1,0 +1,2 @@
+print("hello from the script")
+1 + 1

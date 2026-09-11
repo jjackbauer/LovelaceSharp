@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); z = symbol("z"); w = symbol("w"); a = symbol("a");-1/2/(x + 1) + 1/2/(x - 1)

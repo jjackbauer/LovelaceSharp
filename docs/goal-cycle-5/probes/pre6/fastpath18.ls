@@ -1,0 +1,1 @@
+setprecision(18); b = (1/17)*17; b

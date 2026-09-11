@@ -1,0 +1,1 @@
+x = symbol("x"); subs(sqrt(x) + 2, x, 4)

@@ -1,0 +1,674 @@
+diff --git a/Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs b/Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs
+new file mode 100644
+index 0000000..830d831
+--- /dev/null
++++ b/Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs
+@@ -0,0 +1,100 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// An argument of the wrong SHAPE — a relation where the builtin requires a list of equations, a
++/// bare symbol where it requires a parameter list — is a call-site mistake the caller can fix and
++/// retry, exactly like a wrong argument COUNT. The frozen protocol
++/// (docs/symbolics/dsh-protocol.md, "Error envelope") says such a call crosses as a recoverable
++/// argument error, <c>code: InvalidArgument</c> / <c>category: TypeMismatch</c>, naming the builtin
++/// and what it expected, and NEVER as an internal invariant failure.
++/// <para>
++/// The system-solving builtins used to hard-cast their vector positions
++/// (<c>((IReadOnlyList&lt;object?&gt;)args[0]!).Select(AsExpr)</c>), so
++/// <c>solve_system(x + y == 2, x - y == 0)</c> — the call form the builtin's own descriptor
++/// advertises — died as <c>InternalError / InternalInvariantFailure</c> carrying the raw CLR
++/// message "Specified cast is not valid." with <c>recoverable: false</c>. The vector positions of
++/// <c>solve_system</c>, <c>solve_system_full</c> and <c>jacobian</c> are pinned here.
++/// </para>
++/// </summary>
++public class SystemBuiltinArgumentShapeTests
++{
++    /// <summary>Runs the PUBLISHED runner (the same entry point the AOT binary uses) over an
++    /// inline script and parses the one JSON envelope it emits.</summary>
++    private static async Task<(int ExitCode, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'"));
++    }
++
++    /// <summary>The declaration prefix every probe shares; the generator bodies are driven with
++    /// symbol() so the probe isolates the argument SHAPE.</summary>
++    private const string Declare = "x = symbol(\"x\"); y = symbol(\"y\"); ";
++
++    [Theory]
++    // the equation-vector position of both system builtins: a relation is not a list
++    [InlineData("solve_system(x + y == 2, x - y == 0)", "solve_system", "1", "a list of equations")]
++    [InlineData("solve_system_full(x + y == 2, x - y == 0)", "solve_system_full", "1", "a list of equations")]
++    // the function-vector position of jacobian: a bare expression is not a list
++    [InlineData("jacobian(x*y, [x, y])", "jacobian", "1", "a list of expressions")]
++    // the parameter-vector position: a bare symbol is not a list of parameter symbols
++    [InlineData("solve_system([x + y == 2], x)", "solve_system", "2", "a list of parameter symbols")]
++    [InlineData("solve_system_full([x + y == 2], x)", "solve_system_full", "2", "a list of parameter symbols")]
++    [InlineData("jacobian([x*y], x)", "jacobian", "2", "a list of parameter symbols")]
++    public async Task WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure(
++        string call, string builtin, string position, string expected)
++    {
++        var (exitCode, envelope) = await RunAsync(Declare + call);
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), "a rejected call reports ok == false");
++
++        // the classification is structural: a consumer branches on code/category, never on prose
++        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>(),
++            "a wrong argument shape is a user mistake the caller can fix and retry");
++
++        // ... and the message names the builtin, the position and what it expected, plus the
++        // payload kind it got, so the caller can fix the call without parsing prose
++        string message = envelope["message"]!.GetValue<string>();
++        Assert.StartsWith($"{builtin}(): argument {position} must be {expected}", message);
++        Assert.Contains("; got ", message);
++        Assert.DoesNotContain("cast", message);
++    }
++
++    /// <summary>An element that is not an expression at all (here a Record) is the same class of
++    /// mistake: the vector position is not a vector of equations, and it must not cross as an
++    /// internal failure either.</summary>
++    [Fact]
++    public async Task ElementThatIsNotAnExpression_IsAlsoAReportedArgumentShapeViolation()
++    {
++        var (exitCode, envelope) = await RunAsync(Declare + "solve_system([inspect(x^2)], [x, y])");
++
++        Assert.Equal(1, exitCode);
++        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>());
++        Assert.StartsWith("solve_system(): argument 1 must be a list of equations",
++            envelope["message"]!.GetValue<string>());
++    }
++
++    /// <summary>The positive control: the declared list form is untouched by the guard, so the
++    /// contract is "the wrong shape is refused", not "the builtin is now unreachable".</summary>
++    [Theory]
++    [InlineData("solve_system([x + y == 2, x - y == 0], [x, y])")]
++    [InlineData("solve_system_full([x + y == 2, x - y == 0], [x, y])")]
++    [InlineData("jacobian([x*y, x + y], [x, y])")]
++    public async Task TheDeclaredListForm_StillSucceeds(string call)
++    {
++        var (exitCode, envelope) = await RunAsync(Declare + call);
++
++        Assert.True(exitCode == 0, $"'{call}' exited {exitCode}: {envelope.ToJsonString()}");
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"'{call}' must evaluate");
++    }
++}
+diff --git a/Lovelace.Run.Tests/SystemSolveRecordTests.cs b/Lovelace.Run.Tests/SystemSolveRecordTests.cs
+new file mode 100644
+index 0000000..e1a6192
+--- /dev/null
++++ b/Lovelace.Run.Tests/SystemSolveRecordTests.cs
+@@ -0,0 +1,121 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// <c>solve_system</c> and <c>solve_system_full</c> are two call forms of ONE builtin family, and
++/// the frozen contract declares ONE record for their result: <c>SystemSolveResult</c> — the same
++/// shape <c>solve_system_full</c> publishes, including the <c>completeness</c> Enum the protocol
++/// calls the authoritative field (<c>complete</c> is only its derived boolean, and the two are read
++/// off ONE mapping so the two records cannot drift apart).
++/// <para>
++/// <c>solve_system</c> used to return the joined prose "x = 1, y = 1" — a Text value carrying
++/// variables and values no consumer can read back — while the descriptor and the contract named the
++/// record. The wire shape is pinned here, field by field and in order.
++/// </para>
++/// </summary>
++public class SystemSolveRecordTests
++{
++    private static async Task<(int ExitCode, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'"));
++    }
++
++    private const string Declare = "x = symbol(\"x\"); y = symbol(\"y\"); ";
++
++    /// <summary>The wire field order is the registry's field order, and every field is the declared
++    /// KIND: an Enum of type SolveStatus, a Domain, the derived Boolean, an Enum of type
++    /// Completeness, an Array of SystemSolution records, and a diagnostics Array — never Text.</summary>
++    [Fact]
++    public async Task SolveSystem_PublishesTheSystemSolveResultRecord_TheSchemaDeclares()
++    {
++        var (exitCode, envelope) = await RunAsync(
++            Declare + "solve_system([x + y == 2, x - y == 0], [x, y])");
++
++        Assert.True(exitCode == 0, $"solve_system exited {exitCode}: {envelope.ToJsonString()}");
++        JsonNode structured = envelope["result"]!["structured"]!;
++        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++        Assert.Equal("SystemSolveResult", structured["type"]!.GetValue<string>());
++
++        var names = structured["fields"]!.AsArray()
++            .Select(f => f!["name"]!.GetValue<string>()).ToArray();
++        Assert.Equal(
++            new[] { "status", "domain", "complete", "completeness", "solutions", "diagnostics" },
++            names);
++
++        JsonObject fields = TestSupport.FieldsByName(structured);
++
++        Assert.Equal("Enum", fields["status"]!["kind"]!.GetValue<string>());
++        Assert.Equal("SolveStatus", fields["status"]!["type"]!.GetValue<string>());
++        Assert.Equal("Solved", fields["status"]!["value"]!.GetValue<string>());
++
++        Assert.Equal("Domain", fields["domain"]!["kind"]!.GetValue<string>());
++
++        Assert.Equal("Boolean", fields["complete"]!["kind"]!.GetValue<string>());
++        Assert.Equal("true", fields["complete"]!["value"]!.GetValue<string>());
++
++        Assert.Equal("Enum", fields["completeness"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Completeness", fields["completeness"]!["type"]!.GetValue<string>());
++        Assert.Equal("Complete", fields["completeness"]!["value"]!.GetValue<string>());
++
++        JsonNode solutions = fields["solutions"]!;
++        Assert.Equal("Array", solutions["kind"]!.GetValue<string>());
++        var elements = solutions["elements"]!.AsArray();
++        Assert.Single(elements);
++        Assert.Equal("Record", elements[0]!["kind"]!.GetValue<string>());
++        Assert.Equal("SystemSolution", elements[0]!["type"]!.GetValue<string>());
++        JsonObject solutionFields = TestSupport.FieldsByName(elements[0]!);
++        Assert.Equal("Array", solutionFields["bindings"]!["kind"]!.GetValue<string>());
++        Assert.Equal(2, solutionFields["bindings"]!["elements"]!.AsArray().Count);
++        Assert.Equal("Array", solutionFields["conditions"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Enum", solutionFields["exactness"]!["kind"]!.GetValue<string>());
++
++        // an Array with zero elements — never Null, never the empty string, never prose
++        JsonNode diagnostics = fields["diagnostics"]!;
++        Assert.Equal("Array", diagnostics["kind"]!.GetValue<string>());
++        Assert.Null(diagnostics["value"]);
++        Assert.Empty(diagnostics["elements"]!.AsArray());
++    }
++
++    /// <summary>The pairing the protocol table declares, observed on the wire for <c>solve_system</c>:
++    /// a solved system is complete, a PROVABLY EMPTY one is a complete answer too, and a system the
++    /// polynomial fragment cannot represent is not — and the two fields never disagree.</summary>
++    [Theory]
++    [InlineData("solve_system([x + y == 2, x - y == 0], [x, y])", "Solved", "true", "Complete")]
++    [InlineData("solve_system([x + y == 1, x + y == 2], [x, y])", "NoSolutions", "true", "Complete")]
++    [InlineData("solve_system([sin(x) == 0], [x])", "Unevaluated", "false", "Unknown")]
++    public async Task SolveSystem_StatusCompleteAndCompleteness_AreTheDocumentedRow(
++        string call, string status, string complete, string completeness)
++    {
++        var (exitCode, envelope) = await RunAsync(Declare + call);
++
++        Assert.True(exitCode == 0, $"'{call}' exited {exitCode}: {envelope.ToJsonString()}");
++        JsonObject fields = TestSupport.FieldsByName(envelope["result"]!["structured"]!);
++
++        Assert.Equal(status, fields["status"]!["value"]!.GetValue<string>());
++        Assert.Equal(complete, fields["complete"]!["value"]!.GetValue<string>());
++        Assert.Equal(completeness, fields["completeness"]!["value"]!.GetValue<string>());
++        // the completeness field is never absent and never prose: it is the enum the contract names
++        Assert.Equal("Completeness", fields["completeness"]!["type"]!.GetValue<string>());
++    }
++
++    /// <summary>The two call forms publish the SAME record for the same system: the prose form is
++    /// gone, and the non-full builtin is not a second, narrower contract.</summary>
++    [Fact]
++    public async Task TheTwoSystemCallForms_PublishTheSameRecordShape()
++    {
++        const string system = "[x + y == 2, x - y == 0], [x, y]";
++        var (firstExit, first) = await RunAsync(Declare + "solve_system(" + system + ")");
++        var (secondExit, second) = await RunAsync(Declare + "solve_system_full(" + system + ")");
++
++        Assert.True(firstExit == 0 && secondExit == 0, $"exits: {firstExit}/{secondExit}");
++        JsonNode a = TestSupport.Normalise(first["result"]!["structured"]!);
++        JsonNode b = TestSupport.Normalise(second["result"]!["structured"]!);
++        Assert.Equal(b.ToJsonString(), a.ToJsonString());
++    }
++}
+diff --git a/Lovelace.Run.Tests/fixtures/system_solve.json b/Lovelace.Run.Tests/fixtures/system_solve.json
+index 546c194..8c44b7c 100644
+--- a/Lovelace.Run.Tests/fixtures/system_solve.json
++++ b/Lovelace.Run.Tests/fixtures/system_solve.json
+@@ -6,8 +6,8 @@
+   "revision": "<volatile>",
+   "result": {
+     "kind": "Record",
+-    "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
+-    "typed": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
++    "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
++    "typed": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
+     "structured": {
+       "kind": "Record",
+       "type": "SystemSolveResult",
+@@ -34,6 +34,14 @@
+             "value": "true"
+           }
+         },
++        {
++          "name": "completeness",
++          "value": {
++            "kind": "Enum",
++            "type": "Completeness",
++            "value": "Complete"
++          }
++        },
+         {
+           "name": "solutions",
+           "value": {
+@@ -166,7 +174,7 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
++      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
+     },
+     {
+       "name": "x",
+diff --git a/Lovelace.Suite.Tests/RecordSchemaTests.cs b/Lovelace.Suite.Tests/RecordSchemaTests.cs
+index 3e45bb1..e33bf54 100644
+--- a/Lovelace.Suite.Tests/RecordSchemaTests.cs
++++ b/Lovelace.Suite.Tests/RecordSchemaTests.cs
+@@ -49,6 +49,10 @@ public class RecordSchemaTests
+             "x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)",
+             "x = symbol(\"x\"); solve_full(sin(x) == 0, x)",
+             "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1, x - y == 3], [x, y])",
++            // the non-full call form publishes the SAME record type (the frozen contract declares
++            // one), so the corpus drives it too: a record only one of the two forms produces would
++            // leave half the contract unvalidated
++            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system([x + y == 1, x - y == 3], [x, y])",
+             "x = symbol(\"x\"); simplify_full(x/x)",
+             "x = symbol(\"x\", real); simplify_full(sqrt(x^2))",
+             // a PARTIAL solve and a refuted transformation are the two runs that carry a
+@@ -144,7 +148,7 @@ public class RecordSchemaTests
+     public void SolverSchemas_DeclareTheStructuralKinds()
+     {
+         AssertSchema("SystemSolveResult",
+-            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"), ("completeness", "Enum"),
+             ("solutions", "Array"), ("diagnostics", "Array"));
+         AssertSchema("SystemSolution",
+             ("bindings", "Array"), ("conditions", "Array"), ("exactness", "Enum"));
+diff --git a/Lovelace.Suite/RecordSchemas.cs b/Lovelace.Suite/RecordSchemas.cs
+index a69dce6..ba77148 100644
+--- a/Lovelace.Suite/RecordSchemas.cs
++++ b/Lovelace.Suite/RecordSchemas.cs
+@@ -72,8 +72,11 @@ public static class RecordSchemas
+         Schema("SolutionFamily",
+             ("template", "Symbolic"), ("parameter", "Symbolic"), ("period", "Symbolic"),
+             ("parameter_domain", "Domain"), ("conditions", "Array"), ("exactness", "Enum")),
++        // the SAME solve vocabulary as SolveResult: the Enum status, the derived complete Boolean
++        // and the Completeness Enum the protocol calls the authoritative field (dsh-protocol.md:57,
++        // :153-156), then the payload and diagnostics LAST
+         Schema("SystemSolveResult",
+-            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"), ("completeness", "Enum"),
+             ("solutions", "Array"), ("diagnostics", "Array")),
+         // the two matrix result records (inv_full / linsolve_full): the SAME solve vocabulary as
+         // SolveResult/SystemSolveResult — an Enum status, the derived complete Boolean and the
+diff --git a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+index 1680e93..564609d 100644
+--- a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
++++ b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+@@ -474,9 +474,11 @@ public class DxStructuredResultsTests
+         engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
+         var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
+ 
+-        // field order is the wire contract: the two contract-completion fields follow status
++        // field order is the wire contract: the two contract-completion fields follow status —
++        // complete is the derived Boolean and completeness is the Completeness Enum the protocol
++        // calls the authoritative field (dsh-protocol.md:57, :153-156)
+         Assert.Equal(
+-            new[] { "status", "domain", "complete", "solutions", "diagnostics" },
++            new[] { "status", "domain", "complete", "completeness", "solutions", "diagnostics" },
+             r.Fields.Select(f => f.Name).ToArray());
+ 
+         var domain = Field(r, "domain");
+@@ -487,6 +489,8 @@ public class DxStructuredResultsTests
+         Assert.Equal(ValueKind.Boolean, complete.Kind);
+         Assert.True(complete.AsBoolean());
+ 
++        AssertEnumField(Field(r, "completeness"), "Completeness", "Complete");
++
+         var solution = Field(r, "solutions").AsVector()[0].AsRecord();
+         Assert.Equal("SystemSolution", solution.TypeName);
+         AssertEnumField(Field(solution, "exactness"), "SolutionExactness", "Exact");
+diff --git a/Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs b/Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs
+index 5525fdb..b724df1 100644
+--- a/Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs
++++ b/Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs
+@@ -107,4 +107,116 @@ public class SolveCompletenessPairingTests
+         Assert.True(F(r, "complete").AsBoolean(),
+             "an inconsistent polynomial system has a provably empty solution set");
+     }
++
++    /// <summary>
++    /// The documented table (dsh-protocol.md:158-164) walked for EVERY member of
++    /// <see cref="SolveStatus"/>, on BOTH records the contract says cannot drift apart:
++    /// <c>SolveResult</c> (solve_full) and <c>SystemSolveResult</c> (solve_system_full). The walk is
++    /// total over the enum — a member added without a documented row, and a member not classified
++    /// for a record, both fail here — and every member a kernel CAN publish is driven end-to-end and
++    /// asserted against the same row. A member a kernel cannot publish (the search-budget status)
++    /// is still paired through the ONE mapping expression both record builders read, which is what
++    /// makes the two records unable to disagree.
++    /// </summary>
++    [Fact]
++    public void EverySolveStatus_PublishesTheDocumentedPair_OnBothRecords()
++    {
++        // the frozen table, transcribed from the protocol: status -> (complete, completeness).
++        // BudgetExceeded is the one row whose completeness is the kernel's own subset claim.
++        var documented = new Dictionary<SolveStatus, (bool Complete, string Completeness)>
++        {
++            [SolveStatus.Solved] = (true, "Complete"),
++            [SolveStatus.NoSolutions] = (true, "Complete"),
++            [SolveStatus.Partial] = (false, "Partial"),
++            [SolveStatus.Unevaluated] = (false, "Unknown"),
++            [SolveStatus.BudgetExceeded] = (false, "Partial"),
++        };
++
++        // the table is TOTAL over the enum: a member cannot slip in undocumented
++        var members = Enum.GetValues<SolveStatus>();
++        Assert.Equal(members.Length, documented.Count);
++        Assert.All(members, m =>
++            Assert.True(documented.ContainsKey(m), $"undocumented SolveStatus member '{m}'"));
++
++        // how each record is driven to publish each member: a script, or null together with the
++        // reason that kernel's own result type cannot publish it
++        var solveProducers = new Dictionary<SolveStatus, string?>
++        {
++            [SolveStatus.Solved] = "solve_full(x^2 - 4 == 0, x)",
++            [SolveStatus.NoSolutions] = "solve_full(x/x == 0, x)",
++            [SolveStatus.Partial] = "solve_full(x^4 - x^2 - 1 == 0, x)",
++            [SolveStatus.Unevaluated] = "solve_full(x^4 + 1 == 0, x)",
++            // no declared solve_full parameter can set SolutionSet.BudgetExceeded (the search
++            // budget is a kernel default), so this member is paired through the shared mapping
++            [SolveStatus.BudgetExceeded] = null,
++        };
++        var systemProducers = new Dictionary<SolveStatus, string?>
++        {
++            [SolveStatus.Solved] = "solve_system_full([x + y == 2, x - y == 0], [x, y])",
++            [SolveStatus.NoSolutions] = "solve_system_full([x + y == 1, x + y == 2], [x, y])",
++            // the enumeration cap: 2^8 assignments against the 128-solution limit
++            [SolveStatus.Partial] = SystemPartialSystem,
++            [SolveStatus.Unevaluated] = "solve_system_full([sin(x) == 0], [x])",
++            // SystemSolveResult.Status is a total function of Truncated/Solutions/Note and cannot
++            // return BudgetExceeded; the pairing is asserted through the shared mapping instead
++            [SolveStatus.BudgetExceeded] = null,
++        };
++
++        // every member is CLASSIFIED for both records, so a new member cannot be skipped silently
++        Assert.All(members, m =>
++        {
++            Assert.True(solveProducers.ContainsKey(m), $"SolveResult: unclassified SolveStatus member '{m}'");
++            Assert.True(systemProducers.ContainsKey(m), $"SystemSolveResult: unclassified SolveStatus member '{m}'");
++        });
++
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\"); " + SystemPartialDeclare);
++
++        int published = 0;
++        foreach (var status in members)
++        {
++            var expected = documented[status];
++
++            // (1) the ONE mapping, for every member. BudgetExceeded is the pass-through row: the
++            // kernel's own subset claim is published unchanged (Partial here, Unknown by default).
++            Assert.Equal((expected.Complete, expected.Completeness),
++                Describe(SolveCompletenessMapping.Of(status, Completeness.Partial)));
++            if (status == SolveStatus.BudgetExceeded)
++                Assert.Equal((false, "Unknown"), Describe(SolveCompletenessMapping.Of(status)));
++
++            // (2) every record that CAN publish the member publishes exactly that row
++            foreach (var (expression, typeName) in new[]
++                     {
++                         (solveProducers[status], "SolveResult"),
++                         (systemProducers[status], "SystemSolveResult"),
++                     })
++            {
++                if (expression is null)
++                    continue;
++                var record = engine.Evaluate(expression).AsRecord();
++                Assert.Equal(typeName, record.TypeName);
++                Assert.Equal(status.ToString(), F(record, "status").AsEnum().Name);
++                Assert.Equal((expected.Complete, expected.Completeness),
++                    (F(record, "complete").AsBoolean(), F(record, "completeness").AsEnum().Name));
++                published++;
++            }
++        }
++
++        // non-vacuity: the walk really drove both records (4 reachable members x 2 records)
++        Assert.Equal(8, published);
++    }
++
++    /// <summary>The system whose 2^8 assignments hit the kernel's 128-solution enumeration cap,
++    /// which is the ONE way SystemSolveResult publishes Partial.</summary>
++    private const string SystemPartialDeclare =
++        "x1 = symbol(\"x1\"); x2 = symbol(\"x2\"); x3 = symbol(\"x3\"); x4 = symbol(\"x4\"); " +
++        "x5 = symbol(\"x5\"); x6 = symbol(\"x6\"); x7 = symbol(\"x7\"); x8 = symbol(\"x8\"); ";
++
++    private const string SystemPartialSystem =
++        "solve_system_full([x1^2 == 1, x2^2 == 1, x3^2 == 1, x4^2 == 1, x5^2 == 1, x6^2 == 1, " +
++        "x7^2 == 1, x8^2 == 1], [x1, x2, x3, x4, x5, x6, x7, x8])";
++
++    private static (bool Complete, string Completeness) Describe(
++        (bool Complete, Completeness Completeness) pair) => (pair.Complete, pair.Completeness.ToString());
+ }
++
+diff --git a/Lovelace.Symbolics/README.md b/Lovelace.Symbolics/README.md
+index 55e0740..8090a9c 100644
+--- a/Lovelace.Symbolics/README.md
++++ b/Lovelace.Symbolics/README.md
+@@ -620,7 +620,9 @@ solve(x + y == 0, x)
+ ```
+ 
+ Polynomial systems solve via Gröbner-basis elimination and back-substitution
+-(`solve_system`):
++(`solve_system`). Like `solve_system_full`, it publishes the `SystemSolveResult` record — the
++status is an enum, each solution's bindings are records, and `complete`/`completeness` are read off
++the one mapping the protocol documents:
+ 
+ ```lovelace
+ x = symbol("x")
+@@ -628,7 +630,7 @@ y = symbol("y")
+ solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
+ ```
+ ```result
+-x = 0, y = -1; x = -1, y = 0; x = 1, y = 0; x = 0, y = 1
++SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)
+ ```
+ 
+ An inconsistent equation reports why (no solutions); an unsupported
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index 930e689..4c7e7df 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -172,9 +172,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+                 {
+                     return Run(() => impl(tracked));
+                 }
++                catch (BuiltinShapeError ex)
++                {
++                    // a wrong SHAPE is a call-site mistake, not a domain refusal: it crosses as the
++                    // documented recoverable argument error (InvalidArgument / TypeMismatch) while
++                    // the message still names the builtin, the position, the expectation and the
++                    // payload kind that was actually supplied
++                    throw new ArgumentException(DescribeArgument(name, tracked, ex.Expected));
++                }
+                 catch (BuiltinArgumentError ex)
+                 {
+-                    throw new InvalidOperationException(DescribeArgument(name, tracked, ex));
++                    throw new InvalidOperationException(DescribeArgument(name, tracked, ex.Expected));
+                 }
+             });
+         }
+@@ -426,36 +434,19 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
+         Add("solve_system", new[] { "eqs", "vars" }, args =>
+         {
+-            var eqs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
+-            var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
+-            var result = SystemSolvers.Solve(eqs, vs, Context);
+-            if (result.Solutions.Count == 0)
+-                return "no solutions" + (result.Note is { } note ? ": " + note : "");
+-            return string.Join("; ", result.Solutions.Select(sol =>
+-                string.Join(", ", vs.Select(v => v.Name + " = " + Printing.PrettyPrint(sol.Assignment[v])))));
++            var eqs = ExprVector(args[0], EquationVectorExpectation);
++            var vs = SymbolVector(args[1], ParameterVectorExpectation);
++            return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
+         },
+         new BuiltinDescriptor("solve_system", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
+-            "Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions).",
+-            ["solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "Text",
++            "Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions) and returns the SAME SystemSolveResult record solve_system_full does.",
++            ["solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult",
+             ["solve_system_full", "solve"]));
+         Add("solve_system_full", new[] { "eqs", "vars" }, args =>
+         {
+-            var eqs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
+-            var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
+-            var result = SystemSolvers.Solve(eqs, vs, Context);
+-            var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
+-                new RecordField("bindings", vs.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
+-                new RecordField("conditions", ConditionExprs(sol.Conditions)),
+-                new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
+-            // the SAME projection SolveResult uses: an inconsistent system is a provably empty
+-            // solution set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
+-            var (complete, _) = SolveCompletenessMapping.Of(result.Status, result.Complete);
+-            return new RecordValue("SystemSolveResult",
+-                new RecordField("status", EnumField("SolveStatus", result.Status)),
+-                new RecordField("domain", DomainOf(result.Domain)),
+-                new RecordField("complete", complete),
+-                new RecordField("solutions", solutions),
+-                new RecordField("diagnostics", Diagnostics(SystemSolveDiagnostic(result))));
++            var eqs = ExprVector(args[0], EquationVectorExpectation);
++            var vs = SymbolVector(args[1], ParameterVectorExpectation);
++            return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
+         });
+         Add("solve", new[] { "f", "x", "domain" }, args =>
+         {
+@@ -567,8 +558,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             ["jacobian", "diff"]));
+         Add("jacobian", new[] { "fs", "vars" }, args =>
+         {
+-            var fs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
+-            var vars = NameList(args[1]).Select(Context.Symbol).ToArray();
++            var fs = ExprVector(args[0], FunctionVectorExpectation);
++            var vars = SymbolVector(args[1], ParameterVectorExpectation);
+             return (object)MatrixPayload(SymbolicMatrix.Jacobian(fs, vars, Context));
+         },
+         new BuiltinDescriptor("jacobian", new[] { "fs", "vars" }, BuiltinCategories.Calculus,
+@@ -661,6 +652,35 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             note)
+         : null;
+ 
++    /// <summary>The ONE SystemSolveResult builder. Both call forms (<c>solve_system</c> and
++    /// <c>solve_system_full</c>) publish this record — the frozen contract declares ONE record type
++    /// for a system solve — so the two forms cannot drift, and neither can degrade the result to the
++    /// joined prose it used to return.
++    /// <para>
++    /// <c>complete</c> and <c>completeness</c> are read off the SAME projection
++    /// <c>SolveResult</c> uses (<see cref="SolveCompletenessMapping.Of"/>, with the kernel's own
++    /// completeness claim as the budget-stop subset), so the two records cannot disagree either.</para>
++    /// </summary>
++    private static RecordValue SystemSolveRecord(SystemSolveResult result, IReadOnlyList<Symbol> vars)
++    {
++        var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
++            new RecordField("bindings", vars.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
++            new RecordField("conditions", ConditionExprs(sol.Conditions)),
++            new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
++
++        // the SAME projection SolveResult uses: an inconsistent system is a provably empty solution
++        // set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
++        var (complete, completeness) = SolveCompletenessMapping.Of(result.Status, result.Complete);
++
++        return new RecordValue("SystemSolveResult",
++            new RecordField("status", EnumField("SolveStatus", result.Status)),
++            new RecordField("domain", DomainOf(result.Domain)),
++            new RecordField("complete", complete),
++            new RecordField("completeness", EnumField("Completeness", completeness)),
++            new RecordField("solutions", solutions),
++            new RecordField("diagnostics", Diagnostics(SystemSolveDiagnostic(result))));
++    }
++
+     /// <summary>A limit reports its kernel failure reason; null means an EMPTY array.</summary>
+     private static Diagnostic? LimitDiagnostic(LimitResult result) => result.FailureReason is { } reason
+         ? Diagnostic.Of("limit.unevaluated", ErrorCategory.UnsupportedOperation, reason)
+@@ -942,6 +962,46 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         }
+     }
+ 
++    // the declared expectation text of the three system-solving vector positions: one constant per
++    // position, so the message a caller reads and the descriptor's parameter name cannot drift
++    private const string EquationVectorExpectation = "a list of equations, e.g. [x + y == 2, x - y == 0]";
++    private const string FunctionVectorExpectation = "a list of expressions, e.g. [x*y, x + y]";
++    private const string ParameterVectorExpectation = "a list of parameter symbols, e.g. [x, y]";
++
++    /// <summary>The EQUATION / FUNCTION vector position. The direct cast this replaces threw
++    /// <c>InvalidCastException</c> for a relation or a bare expression and the whole call crossed as
++    /// an internal invariant failure; a wrong shape here is the documented recoverable argument
++    /// error instead, naming the builtin and what the position wanted. An element that is not an
++    /// expression at all is the same class of mistake, not a second one.</summary>
++    private static Expr[] ExprVector(object? o, string expected)
++    {
++        if (o is not IReadOnlyList<object?> list)
++            throw new BuiltinShapeError(expected);
++        try
++        {
++            return list.Select(AsExpr).ToArray();
++        }
++        catch (BuiltinArgumentError)
++        {
++            throw new BuiltinShapeError(expected);
++        }
++    }
++
++    /// <summary>The PARAMETER vector position, the second-argument twin of
++    /// <see cref="ExprVector"/>: a bare symbol where a list is declared is a call-shape violation
++    /// and crosses the same way.</summary>
++    private Symbol[] SymbolVector(object? o, string expected)
++    {
++        try
++        {
++            return NameList(o).Select(Context.Symbol).ToArray();
++        }
++        catch (BuiltinArgumentError)
++        {
++            throw new BuiltinShapeError(expected);
++        }
++    }
++
+     /// <summary>Adds assumption atoms: relations, conjunctions of relations, and negations of
+     /// relations (mapped to their complement relation). Disjunctions are rejected: the atom
+     /// lattice has no disjunction.</summary>
+@@ -1419,11 +1479,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         public string Expected { get; } = expected;
+     }
+ 
+-    private static string DescribeArgument(string name, BuiltinArgs args, BuiltinArgumentError error)
++    /// <summary>A wrong-SHAPED argument: the value supplied is not the KIND of thing the builtin's
++    /// declared parameter names — a relation where a list of equations is required, a bare symbol
++    /// where a parameter list is required, an element that is not an expression. It carries the same
++    /// expectation text as <see cref="BuiltinArgumentError"/>, but derives from
++    /// <see cref="ArgumentException"/> so the runner's taxonomy classifies the call as the
++    /// documented RECOVERABLE argument error (<c>code: InvalidArgument</c>,
++    /// <c>category: TypeMismatch</c>) rather than a domain error or — as the direct cast this
++    /// replaced did — an internal invariant failure.</summary>
++    private sealed class BuiltinShapeError(string expected) : ArgumentException
++    {
++        public string Expected { get; } = expected;
++    }
++
++    private static string DescribeArgument(string name, BuiltinArgs args, string expected)
+     {
+         int index = args.LastIndex;
+         object? actual = index >= 0 && index < args.Count ? args[index] : null;
+-        return $"{name}(): argument {index + 1} must be {error.Expected}; got {DescribePayload(actual)}.";
++        return $"{name}(): argument {index + 1} must be {expected}; got {DescribePayload(actual)}.";
+     }
+ 
+     /// <summary>The payload kind as an agent sees it: the value-kind vocabulary, not a CLR type name.</summary>

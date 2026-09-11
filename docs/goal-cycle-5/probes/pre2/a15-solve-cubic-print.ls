@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(x^3 - 2 == 0, x)

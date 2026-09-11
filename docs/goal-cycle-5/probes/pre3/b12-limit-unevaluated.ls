@@ -1,0 +1,1 @@
+x = symbol("x"); limit(sin(x), x, inf)

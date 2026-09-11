@@ -1,0 +1,1 @@
+x = symbol("x"); limit((1 + x)^(1/x), x, 0)

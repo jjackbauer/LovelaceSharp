@@ -1,0 +1,1 @@
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"UnsupportedOperation","category":"UnsupportedOperation","message":"Negative exponents are not yet supported.","recoverable":true,"diagnostics":[{"message":"Negative exponents are not yet supported.","position":0,"line":1,"column":1}],"elapsed":"190.8 \u00B5s"}

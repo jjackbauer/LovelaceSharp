@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); inspect(-1/(2*(x + 1)) + 1/(2*(x - 1)))

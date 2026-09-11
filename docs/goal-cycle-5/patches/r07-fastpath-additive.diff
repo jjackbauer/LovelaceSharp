@@ -1,0 +1,623 @@
+diff --git a/Lovelace.Real.Tests/RealAddPeriodicExactTests.cs b/Lovelace.Real.Tests/RealAddPeriodicExactTests.cs
+new file mode 100644
+index 0000000..f3462ad
+--- /dev/null
++++ b/Lovelace.Real.Tests/RealAddPeriodicExactTests.cs
+@@ -0,0 +1,309 @@
++using System.Globalization;
++using System.Numerics;
++using Lovelace.Real;
++
++namespace Lovelace.Real.Tests;
++
++/// <summary>
++/// PROPERTY (stated in the name of every test): for the exact rationals <c>a = p/q</c> and
++/// <c>b = r/s</c> a <see cref="Real"/> can hold, <c>a + b</c> denotes EXACTLY
++/// <c>(p·s + r·q)/(q·s)</c> and <c>a - b</c> denotes EXACTLY <c>(p·s - r·q)/(q·s)</c>,
++/// in lowest terms.
++///
++/// Why this must hold: a <see cref="Real"/> is always an exact rational — a periodic value stores its
++/// repeating block, a non-periodic value stores a finite decimal, so the sum is a rational too.
++/// Adding through a fixed expansion of each periodic operand to
++/// <see cref="Real.MaxComputationDecimalPlaces"/> fractional digits TRUNCATES the operand, which is
++/// how <c>1/3 - 0.333…3</c> (1000 threes) came out exactly 0 while the true difference is
++/// <c>1/(3·10^1000)</c>: the 1000-digit expansion of 1/3 IS the literal. The fix adds the exact
++/// fractions and re-derives the period of the sum, so the identity holds for every operand the type
++/// represents exactly.
++///
++/// Every test asserts the value twice and independently:
++///   (a) on the <see cref="Real"/> itself (<c>==</c> / <c>CompareTo</c>), and
++///   (b) on the exact rational the result denotes, reconstructed in the test from the PUBLIC value
++///       state (magnitude string, Exponent, PeriodStart, PeriodLength) with <see cref="BigInteger"/> —
++///       deliberately NOT via any production helper, so a bug in the production fraction conversion
++///       cannot make the test agree with itself.
++/// The EXPECTED value is likewise derived test-side from p, q, r and s, never from the result.
++///
++/// Precision is pinned to the documented default (1000 computation / 100 display places) with
++/// <see cref="Real.WithPrecision"/>: the computation cap is process-global, and the property is a
++/// statement about exact arithmetic at that cap, not about whatever cap a parallel test last set.
++/// </summary>
++public class RealAddPeriodicExactTests
++{
++    private const long PinnedComputationDecimalPlaces = 1000L;
++    private const long PinnedDisplayDecimalPlaces = 100L;
++
++    private static IDisposable PinnedPrecision() =>
++        Real.WithPrecision(PinnedComputationDecimalPlaces, PinnedDisplayDecimalPlaces);
++
++    private static Real Exact(string literal) => new Real(literal);
++
++    private static Real ExactInt(int value) => new Real(value.ToString(CultureInfo.InvariantCulture));
++
++    private static Real Quotient(int numerator, int denominator) =>
++        ExactInt(numerator) / ExactInt(denominator);
++
++    // -------------------------------------------------------------------------
++    // Corpus
++    // -------------------------------------------------------------------------
++
++    /// <summary>
++    /// Denominators whose reciprocal is PERIODIC (each has a prime factor other than 2 and 5) and
++    /// whose period is far below the 1000-digit computation cap, so the operand stored is exactly
++    /// p/q. Every left operand of the corpus is therefore periodic — the path under test.
++    /// </summary>
++    private static readonly int[] PeriodicDenominators = { 3, 6, 7, 9, 11, 12, 13, 17, 19, 21, 37, 99 };
++
++    /// <summary>
++    /// Right-hand denominators: the periodic ones above (periodic + periodic) plus terminating ones
++    /// (2, 4, 25, 1000), so the corpus covers periodic + terminating too.
++    /// </summary>
++    private static readonly int[] RightDenominators = { 3, 7, 17, 99, 2, 4, 25, 1000 };
++
++    private static readonly int[] LeftNumerators = { 1, 2, -5 };
++
++    /// <summary>Negative numerators are included, so sign handling is part of the property.</summary>
++    private static readonly int[] RightNumerators = { 1, -1, 5 };
++
++    public static IEnumerable<object[]> ExactRationalPairCorpus()
++    {
++        foreach (int q in PeriodicDenominators)
++            foreach (int p in LeftNumerators)
++                foreach (int s in RightDenominators)
++                    foreach (int r in RightNumerators)
++                        yield return new object[] { p, q, r, s };
++    }
++
++    // -------------------------------------------------------------------------
++    // The property
++    // -------------------------------------------------------------------------
++
++    /// <summary>
++    /// PROPERTY: <c>(p/q) + (r/s)</c> denotes exactly <c>(p·s + r·q)/(q·s)</c>, for periodic and
++    /// terminating right-hand operands and for negative numerators.
++    /// </summary>
++    [Theory]
++    [MemberData(nameof(ExactRationalPairCorpus))]
++    public void Add_ExactRationalPair_Property_DenotesTheExactRationalSum(int p, int q, int r, int s)
++    {
++        using var precision = PinnedPrecision();
++
++        Real left  = Quotient(p, q);
++        Real right = Quotient(r, s);
++
++        Assert.True(left.IsPeriodic,
++            $"corpus defect: {p}/{q} is not periodic, so the periodic additive path is not under test");
++
++        Real sum = left + right;
++
++        (BigInteger Num, BigInteger Den) expected = ToLowestTerms(
++            new BigInteger(p) * s + new BigInteger(r) * q,
++            new BigInteger(q) * s);
++        (BigInteger Num, BigInteger Den) actual = RationalOf(sum);
++
++        string detail = string.Create(CultureInfo.InvariantCulture,
++            $"({p}/{q}) + ({r}/{s}) = {Describe(sum)}");
++
++        Assert.True(expected == actual,
++            $"the sum denotes {Fraction(actual)}, expected {Fraction(expected)}: {detail}");
++
++        // (a) The Real-level identity against a Real built from the independently derived fraction.
++        // A cross-path check (it goes through Divide); (b) above is the independent one.
++        Assert.True(sum == FromFraction(expected),
++            $"the sum does not compare equal to {Fraction(expected)}: {detail}");
++    }
++
++    /// <summary>
++    /// PROPERTY: <c>(p/q) - (r/s)</c> denotes exactly <c>(p·s - r·q)/(q·s)</c>. Subtract is
++    /// <c>Add(left, Negate(right))</c>, so this is the same defect site.
++    /// </summary>
++    [Theory]
++    [MemberData(nameof(ExactRationalPairCorpus))]
++    public void Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(int p, int q, int r, int s)
++    {
++        using var precision = PinnedPrecision();
++
++        Real left  = Quotient(p, q);
++        Real right = Quotient(r, s);
++
++        Assert.True(left.IsPeriodic,
++            $"corpus defect: {p}/{q} is not periodic, so the periodic additive path is not under test");
++
++        Real difference = left - right;
++
++        (BigInteger Num, BigInteger Den) expected = ToLowestTerms(
++            new BigInteger(p) * s - new BigInteger(r) * q,
++            new BigInteger(q) * s);
++        (BigInteger Num, BigInteger Den) actual = RationalOf(difference);
++
++        string detail = string.Create(CultureInfo.InvariantCulture,
++            $"({p}/{q}) - ({r}/{s}) = {Describe(difference)}");
++
++        Assert.True(expected == actual,
++            $"the difference denotes {Fraction(actual)}, expected {Fraction(expected)}: {detail}");
++
++        Assert.True(difference == FromFraction(expected),
++            $"the difference does not compare equal to {Fraction(expected)}: {detail}");
++    }
++
++    /// <summary>
++    /// The cancellation case that a fixed-width expansion cannot see: a periodic operand minus a
++    /// terminating literal whose digits ARE its expansion. <c>x - x</c> must be exactly 0 for a
++    /// genuinely periodic <c>x</c>, and the corpus above already covers it through p/q - r/s.
++    /// </summary>
++    [Fact]
++    public void Subtract_PeriodicOperandMinusItsOwnTruncation_IsTheTruncationRemainder()
++    {
++        using var precision = PinnedPrecision();
++
++        Real third = Exact("1") / Exact("3");
++        Assert.True(third.IsPeriodic);
++
++        Real truncated = Exact("0." + new string('3', 1000));
++
++        // Guard the probe itself: the literal must be 1000 threes and nothing else, otherwise the
++        // difference is not the 1e-1000-scale remainder this test is about.
++        Assert.Equal(Fraction(ToLowestTerms(BigInteger.Pow(10, 1000) - 1, 3 * BigInteger.Pow(10, 1000))),
++                     Fraction(RationalOf(truncated)));
++
++        Real difference = third - truncated;
++
++        Assert.False(Real.IsZero(difference), "1/3 - 0.333...3 (1000 threes) must not be exactly zero");
++        Assert.False(difference == Real.Zero, "1/3 - 0.333...3 (1000 threes) must not be exactly zero");
++
++        // 1/3 - (10^1000 - 1)/(3*10^1000) = 1/(3*10^1000), the exact rational, in lowest terms.
++        (BigInteger Num, BigInteger Den) expected =
++            ToLowestTerms(BigInteger.One, 3 * BigInteger.Pow(10, 1000));
++        (BigInteger Num, BigInteger Den) actual = RationalOf(difference);
++
++        Assert.True(expected == actual,
++            $"the difference denotes {Fraction(actual)}, expected {Fraction(expected)}");
++        Assert.Equal(Fraction(expected), Fraction(actual));
++        Assert.Equal("1", expected.Num.ToString(CultureInfo.InvariantCulture));
++        Assert.Equal("3" + new string('0', 1000), expected.Den.ToString(CultureInfo.InvariantCulture));
++
++        // Canonical shape: the period begins after the 1000 zeros the subtraction cancels.
++        Assert.True(difference.IsPeriodic);
++        Assert.Equal(1000L, difference.PeriodStart);
++        Assert.Equal(1L, difference.PeriodLength);
++        Assert.Equal(-1001L, difference.Exponent);
++
++        // Cross-check by an independent route: 3 * (1/3 - L) is exactly 10^-1000, which the literal
++        // spelling of 10^-1000 (a 1 at the 1000th fractional place) must also denote.
++        Real scaled = ExactInt(3) * difference;
++        Assert.Equal(Fraction(ToLowestTerms(BigInteger.One, BigInteger.Pow(10, 1000))),
++                     Fraction(RationalOf(scaled)));
++        Assert.True(scaled == Exact("0." + new string('0', 999) + "1"),
++            $"3 * (1/3 - L) = {Describe(scaled)}, expected 10^-1000 exactly");
++    }
++
++    /// <summary>
++    /// The boundary the exact additive path introduces: the sum is exact while its own period fits
++    /// the computation cap, and the leading zeros a cancellation produces are carried by the
++    /// exponent rather than charged to the digit budget. Each literal here is a different number of
++    /// threes, and each difference is a different exact rational.
++    /// </summary>
++    [Theory]
++    [InlineData(998)]
++    [InlineData(999)]
++    [InlineData(1000)]
++    public void Subtract_OneThirdMinusNThrees_IsExactlyOneOverThreeTimesTenToTheN(int threes)
++    {
++        using var precision = PinnedPrecision();
++
++        Real third = Exact("1") / Exact("3");
++        Real literal = Exact("0." + new string('3', threes));
++
++        Real difference = third - literal;
++
++        (BigInteger Num, BigInteger Den) expected =
++            ToLowestTerms(BigInteger.One, 3 * BigInteger.Pow(10, threes));
++        (BigInteger Num, BigInteger Den) actual = RationalOf(difference);
++
++        Assert.True(expected == actual,
++            $"1/3 - 0.{threes} threes denotes {Fraction(actual)}, expected {Fraction(expected)}");
++        Assert.Equal(1L, difference.PeriodLength);
++        Assert.Equal((long)threes, difference.PeriodStart);
++    }
++
++    // -------------------------------------------------------------------------
++    // Test-local exact-rational reconstruction (independent of production code)
++    // -------------------------------------------------------------------------
++
++    /// <summary>
++    /// Reconstructs the exact rational denoted by a <see cref="Real"/> from its PUBLIC state,
++    /// using <see cref="BigInteger"/> only:
++    /// <list type="bullet">
++    /// <item>non-periodic: <c>magnitude * 10^Exponent</c> (a finite decimal);</item>
++    /// <item>periodic with period start <c>s</c> and length <c>p</c>: the stored magnitude is the
++    /// integer part followed by the <c>s</c> non-repeating digits and one <c>p</c>-digit block, so
++    /// with <c>block = magnitude mod 10^p</c> the value is
++    /// <c>(magnitude*(10^p - 1) + block) / (10^(s+p) * (10^p - 1))</c> — the geometric series
++    /// behind the repeating tail.</item>
++    /// </list>
++    /// </summary>
++    private static (BigInteger Num, BigInteger Den) RationalOf(Real value)
++    {
++        BigInteger magnitude = BigInteger.Parse(value.ToNatural().ToString(), CultureInfo.InvariantCulture);
++        BigInteger num;
++        BigInteger den;
++
++        if (!value.IsPeriodic)
++        {
++            num = magnitude;
++            den = BigInteger.One;
++            if (value.Exponent > 0L)
++                num *= BigInteger.Pow(10, (int)value.Exponent);
++            else if (value.Exponent < 0L)
++                den = BigInteger.Pow(10, (int)(-value.Exponent));
++        }
++        else
++        {
++            long s = value.PeriodStart;
++            long p = value.PeriodLength;
++            if (value.Exponent != -(s + p))
++                throw new InvalidOperationException(
++                    $"periodic Real invariant violated: Exponent={value.Exponent}, PeriodStart={s}, PeriodLength={p}");
++
++            BigInteger tenToP = BigInteger.Pow(10, (int)p);
++            BigInteger block = magnitude % tenToP;
++            num = magnitude * (tenToP - 1) + block;
++            den = BigInteger.Pow(10, (int)(s + p)) * (tenToP - 1);
++        }
++
++        if (Real.IsNegative(value) && !num.IsZero)
++            num = -num;
++        return ToLowestTerms(num, den);
++    }
++
++    private static Real FromFraction((BigInteger Num, BigInteger Den) value) =>
++        new Real(value.Num.ToString(CultureInfo.InvariantCulture))
++        / new Real(value.Den.ToString(CultureInfo.InvariantCulture));
++
++    private static (BigInteger Num, BigInteger Den) ToLowestTerms(BigInteger num, BigInteger den)
++    {
++        if (num.IsZero)
++            return (BigInteger.Zero, BigInteger.One);
++        if (den.Sign < 0)
++        {
++            num = -num;
++            den = -den;
++        }
++        BigInteger g = BigInteger.GreatestCommonDivisor(num, den);
++        if (g > BigInteger.One)
++        {
++            num /= g;
++            den /= g;
++        }
++        return (num, den);
++    }
++
++    private static string Fraction((BigInteger Num, BigInteger Den) value) =>
++        string.Create(CultureInfo.InvariantCulture, $"{value.Num}/{value.Den}");
++
++    private static string Describe(Real value) =>
++        $"'{value.ToString()}' (periodic={value.IsPeriodic}, exp={value.Exponent}, periodStart={value.PeriodStart}, periodLength={value.PeriodLength})";
++}
+diff --git a/Lovelace.Real/Real.cs b/Lovelace.Real/Real.cs
+index c8e73be..06dac6b 100644
+--- a/Lovelace.Real/Real.cs
++++ b/Lovelace.Real/Real.cs
+@@ -499,8 +499,9 @@ public class Real :
+     /// Non-periodic path: multiplies raw magnitudes as integers; result exponent =
+     /// <paramref name="left"/>.Exponent + <paramref name="right"/>.Exponent.
+     /// Periodic path (when either operand is periodic): converts both operands to exact
+-    /// fractions (<see cref="ToExactRational"/>), multiplies them exactly, and divides the
+-    /// products so <see cref="Divide"/> re-derives the exact period of the result. This makes
++    /// fractions (<see cref="ToExactRational"/>), multiplies them exactly, and normalises the
++    /// product with <see cref="FromExactFraction"/>, whose remainder-tracked division re-derives
++    /// the exact period of the result. This makes
+     /// <c>(a/b)*b == a</c> hold exactly whenever <c>a/b</c> is representable, instead of
+     /// truncating each periodic operand at <see cref="MaxComputationDecimalPlaces"/> digits
+     /// (which returned <c>0.99…984</c> for <c>(1/17)*17</c>). The result is truncated only when
+@@ -536,23 +537,10 @@ public class Real :
+             (Int leftNum, Int leftDen)   = ToExactRational(left);
+             (Int rightNum, Int rightDen) = ToExactRational(right);
+ 
+-            Int num = leftNum * rightNum;
+-            Int den = leftDen * rightDen;
+-
+-            // Reduce first: the long division below is cheaper on smaller operands, and the
+-            // identity case (p/q)*q cancels completely (e.g. 17/17 → 1/1).
+-            Int gcd = Int.Gcd(num, den);
+-            if (gcd > Int.One)
+-            {
+-                num = num.DivRem(gcd, out _);
+-                den = den.DivRem(gcd, out _);
+-            }
+-
+-            // Divide is exact for rational operands: it detects the repeating period of the
+-            // quotient by tracking remainders.  If the period exceeds
+-            // MaxComputationDecimalPlaces the quotient is truncated, exactly as for a division
+-            // whose period does not fit the budget.
+-            return Divide(new Real(num), new Real(den));
++            // FromExactFraction reduces the fraction first (the identity case (p/q)*q cancels
++            // completely, e.g. 17/17 → 1/1) and then divides, so the product is exact whenever its
++            // own period fits MaxComputationDecimalPlaces.
++            return FromExactFraction(leftNum * rightNum, leftDen * rightDen);
+         }
+     }
+ 
+@@ -619,6 +607,67 @@ public class Real :
+         return (num, den);
+     }
+ 
++    /// <summary>
++    /// Returns the <see cref="Real"/> equal to the exact fraction <paramref name="numerator"/> /
++    /// <paramref name="denominator"/> (<paramref name="denominator"/> is positive). The exact
++    /// periodic paths of <see cref="Add"/> and <see cref="Multiply"/> share it: reduce, then divide
++    /// by the denominator's non-decimal part and carry its trailing decimal zeros in the exponent.
++    /// <para>
++    /// <see cref="Divide"/> re-derives a quotient's repeating period exactly, but only within
++    /// <see cref="MaxComputationDecimalPlaces"/> generated digits — and it counts the LEADING zeros
++    /// of a small quotient against that budget. <c>1/(3·10^1000)</c> needs 1000 of them before its
++    /// first significant digit, so the division ran out of budget and returned 0, contradicting the
++    /// subtraction that produced it. Splitting <c>den = den′ · 10^shift</c> removes that artefact:
++    /// <c>num/den′</c> has no leading-zero run to pay for, and multiplying by <c>10^-shift</c>
++    /// afterwards moves the decimal point without touching a digit, so the digits the division
++    /// generated — including the repeating block — are preserved exactly (only
++    /// <see cref="Exponent"/> and <see cref="PeriodStart"/> move, and the invariant
++    /// <c>Exponent == -(PeriodStart + PeriodLength)</c> is preserved with them). The cap therefore
++    /// bounds the PERIOD of the quotient, which is the quantity that actually costs digits.
++    /// </para>
++    /// </summary>
++    private static Real FromExactFraction(Int numerator, Int denominator)
++    {
++        if (Int.IsZero(numerator))
++            return Zero;
++
++        Int gcd = Int.Gcd(numerator, denominator);
++        if (gcd > Int.One)
++        {
++            numerator   = numerator.DivRem(gcd, out _);
++            denominator = denominator.DivRem(gcd, out _);
++        }
++
++        // den = den′ · 10^shift.  Strip whole 10^18 blocks first, then the remaining digits.
++        Int ten     = new Int(10L);
++        Int tenTo18 = ten.Pow(new Int(18L));
++        long shift  = 0L;
++
++        while (true)
++        {
++            Int reduced = denominator.DivRem(tenTo18, out Int remainder);
++            if (!Int.IsZero(remainder))
++                break;
++            denominator = reduced;
++            shift += 18L;
++        }
++
++        while (Int.IsZero(denominator % ten))
++        {
++            denominator = denominator / ten;
++            shift += 1L;
++        }
++
++        Real quotient = Divide(new Real(numerator), new Real(denominator));
++
++        if (shift == 0L)
++            return quotient;
++
++        return new Real(quotient.ToNatural(), Int.IsNegative(quotient),
++                        quotient.Exponent - shift, quotient.PeriodStart + shift,
++                        quotient.PeriodLength);
++    }
++
+     /// <inheritdoc cref="Multiply"/>
+     public static Real operator *(Real left, Real right) => Multiply(left, right);
+ 
+@@ -2374,9 +2423,9 @@ public class Real :
+     /// <summary>
+     /// Adds two <see cref="Real"/> values.
+     /// Non-periodic path: aligns exponents via <see cref="ToInteger"/> then delegates to
+-    /// <see cref="Int"/> addition.  Periodic path: expands each operand to
+-    /// <see cref="MaxComputationDecimalPlaces"/> fractional digits using
+-    /// <see cref="GetDecimalDigit"/> and runs period detection on the result.
++    /// <see cref="Int"/> addition.  Periodic path: converts both operands to exact fractions
++    /// (<see cref="ToExactRational"/>), adds them exactly, and normalises the sum with
++    /// <see cref="FromExactFraction"/>, which re-derives the exact period of the result.
+     /// Result exponent = min(<paramref name="left"/>.Exponent, <paramref name="right"/>.Exponent).
+     /// Corresponds to C++ <c>somar</c>.
+     /// </summary>
+@@ -2404,14 +2453,18 @@ public class Real :
+         }
+         else
+         {
+-            // Periodic path: expand both operands to MaxComputationDecimalPlaces fractional
+-            // digits (resolving any period), add via the non-periodic path, then detect
+-            // a repeating suffix in the result and normalise (including 0.999… → 1).
+-            long workingFrac = MaxComputationDecimalPlaces;
+-            Real expandedLeft  = ExpandToNonPeriodic(left,  workingFrac);
+-            Real expandedRight = ExpandToNonPeriodic(right, workingFrac);
+-            Real rawSum        = Add(expandedLeft, expandedRight); // non-periodic path
+-            return DetectAndNormalizePeriod(rawSum);
++            // Periodic path — exact, and the mirror of Multiply's.  Every Real is a rational (a
++            // finite decimal or a periodic decimal), so the sum is a rational too; expanding the
++            // operands to MaxComputationDecimalPlaces fractional digits first TRUNCATES them, which
++            // is how (1/3) - 0.333…3 (1000 threes) came out exactly 0 while the true difference is
++            // 1/(3·10^1000).  Add the exact fractions instead and let FromExactFraction re-derive
++            // the exact period of the result.
++            (Int leftNum, Int leftDen)   = ToExactRational(left);
++            (Int rightNum, Int rightDen) = ToExactRational(right);
++
++            // a/b ± c/d = (a·d ± c·b) / (b·d).  Subtract is Add(left, Negate(right)), so the sign
++            // of the second numerator already carries the subtraction.
++            return FromExactFraction(leftNum * rightDen + rightNum * leftDen, leftDen * rightDen);
+         }
+     }
+ 
+diff --git a/Lovelace.Suite.Tests/LRealPeriodicFastPathTests.cs b/Lovelace.Suite.Tests/LRealPeriodicFastPathTests.cs
+new file mode 100644
+index 0000000..cf35475
+--- /dev/null
++++ b/Lovelace.Suite.Tests/LRealPeriodicFastPathTests.cs
+@@ -0,0 +1,120 @@
++using Lovelace.Suite;
++using Rl = global::Lovelace.Real.Real;
++
++namespace Lovelace.Suite.Tests;
++
++// Real precision is process-global; isolate this collection so parallel tests cannot clobber it.
++[Collection("LRealPrecision")]
++/// <summary>
++/// PROPERTY (stated in the name of every test): the limited-precision fast path in
++/// <see cref="NumericOps"/> never changes a result — every expression evaluated by the engine at a
++/// limited precision denotes the same value as the same expression evaluated with the
++/// arbitrary-precision <see cref="Rl"/> type, including the PERIODIC operands the fixed-width
++/// engines (LReal64/LReal128) can only approximate by expanding them to a fixed working width.
++///
++/// Why this must hold: the fast path is a speed decision, not a semantic one. A periodic Real is an
++/// exact rational, and the fixed-width engines resolve it by expanding it to 18/38 fractional
++/// digits, which truncates it: <c>(1/17)*17</c> came out of the fast path as
++/// <c>0.999999999999999985</c> at precision 18 while the arbitrary-precision path returns exactly 1.
++/// The fix has the fast path decline an operand it cannot handle exactly, so the periodic cases are
++/// answered by the exact <see cref="Rl"/> paths (Add/Subtract/Multiply) instead.
++///
++/// These tests pin the tiers: 18 is the LReal64 tier, 37 the LReal128 tier, and 1000 the default
++/// where no fast path runs at all.
++/// </summary>
++public class LRealPeriodicFastPathTests
++{
++    private static async Task<string> EngineResult(string source, long prec)
++    {
++        // Set the engine's own precision (not the process-global Real precision). The interpreter
++        // wraps each evaluation in Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces),
++        // so the LReal64/LReal128 fast path in NumericOps sees the engine's precision.
++        var engine = new SuiteEngine();
++        engine.SetPrecision(prec);
++        var result = await engine.EvaluateAsync(source);
++        return engine.FormatValue(result);
++    }
++
++    private static Rl Real(string literal) => Rl.Parse(literal, null);
++
++    /// <summary>
++    /// The same expression on the class <see cref="Rl"/> type at the same precision — the definition
++    /// the fast path must agree with. Every expression here involves at least one periodic operand
++    /// (or a division that produces one), because those are exactly the operands the fixed-width
++    /// engines can only approximate.
++    /// </summary>
++    private static string ClassReal(string expr, long prec)
++    {
++        using var scope = Rl.WithPrecision(prec, prec);
++        Rl one = Rl.One;
++        Rl value = expr switch
++        {
++            "(1/17)*17"          => (one / Real("17")) * Real("17"),
++            "(1/6)*6"            => (one / Real("6")) * Real("6"),
++            "(1/13)*(1/7)"       => (one / Real("13")) * (one / Real("7")),
++            "(2/7)*(7/2)"        => (Real("2") / Real("7")) * (Real("7") / Real("2")),
++            "(4/3)*(3/4)"        => (Real("4") / Real("3")) * (Real("3") / Real("4")),
++            "(1/3)+(1/6)"        => (one / Real("3")) + (one / Real("6")),
++            "(1/3)-(1/6)"        => (one / Real("3")) - (one / Real("6")),
++            "(1/3)-(1/3)"        => (one / Real("3")) - (one / Real("3")),
++            "(1/7)+(1/11)"       => (one / Real("7")) + (one / Real("11")),
++            "(1/17)+(1/19)"      => (one / Real("17")) + (one / Real("19")),
++            "0.1+(1/3)"          => Real("0.1") + (one / Real("3")),
++            "(1/3)/7"            => (one / Real("3")) / Real("7"),
++            _ => throw new System.ArgumentException($"no class-Real counterpart for '{expr}'")
++        };
++        return value.ToString();
++    }
++
++    public static IEnumerable<object[]> LimitedPrecisionCorpus()
++    {
++        string[] expressions =
++        {
++            "(1/17)*17", "(1/6)*6", "(1/13)*(1/7)", "(2/7)*(7/2)", "(4/3)*(3/4)",
++            "(1/3)+(1/6)", "(1/3)-(1/6)", "(1/3)-(1/3)", "(1/7)+(1/11)", "(1/17)+(1/19)",
++            "0.1+(1/3)", "(1/3)/7",
++        };
++        foreach (string expr in expressions)
++        {
++            yield return new object[] { expr, 18L }; // LReal64 tier
++            yield return new object[] { expr, 37L }; // LReal128 tier
++        }
++    }
++
++    [Theory]
++    [MemberData(nameof(LimitedPrecisionCorpus))]
++    public async Task PeriodicExpression_AtLimitedPrecision_MatchesClassReal(string expr, long prec)
++    {
++        Assert.Equal(ClassReal(expr, prec), await EngineResult(expr, prec));
++    }
++
++    /// <summary>
++    /// The audit shape: <c>(1/17)*17</c> is exactly 1 at every precision — at 18 and 37 the fast
++    /// path used to return <c>0.999999999999999985</c>, and both the display and an explicit
++    /// comparison with 1 must now report the identity.
++    /// </summary>
++    [Theory]
++    [InlineData(18L)]
++    [InlineData(37L)]
++    [InlineData(1000L)]
++    public async Task Multiply_OneOverSeventeenTimesSeventeen_IsExactlyOne(long prec)
++    {
++        Assert.Equal("1", await EngineResult("(1/17)*17", prec));
++        Assert.Equal("True", await EngineResult("(1/17)*17 == 1", prec));
++        Assert.Equal("True", await EngineResult("(1/17)*17 - 1 == 0", prec));
++    }
++
++    /// <summary>
++    /// The same identity for a periodic quotient whose period fills the LReal64 working width
++    /// (1/17 has period 16, the narrowest tier's width is 18), and for one that does not.
++    /// </summary>
++    [Theory]
++    [InlineData(18L)]
++    [InlineData(37L)]
++    public async Task Multiply_PeriodicQuotientTimesItsDivisor_IsExactlyTheDividend(long prec)
++    {
++        Assert.Equal("1", await EngineResult("(1/13)*(1/7)*91", prec));
++        Assert.Equal("1", await EngineResult("(1/6)*6", prec));
++        Assert.Equal("True", await EngineResult("(1/6)*6 == 1", prec));
++    }
++}
+diff --git a/Lovelace.Suite/NumericOps.cs b/Lovelace.Suite/NumericOps.cs
+index ca3cda3..d242be0 100644
+--- a/Lovelace.Suite/NumericOps.cs
++++ b/Lovelace.Suite/NumericOps.cs
+@@ -95,12 +95,22 @@ public static class NumericOps
+ 
+     /// <summary>
+     /// Real arithmetic fast path: try LReal64 (narrowest/fastest), then LReal128, falling back
+-    /// to the arbitrary-precision class Real on any promotion. Exactness is preserved because the
+-    /// limited types throw rather than round. Active only when limited precision is requested.
++    /// to the arbitrary-precision class Real on any promotion. Active only when limited precision
++    /// is requested.
++    /// <para>
++    /// The limited types are exact for terminating decimals — they throw rather than round — but
++    /// they have no exact periodic arithmetic: they resolve a periodic operand by expanding it to
++    /// their fixed working width, which truncates it. That is how the fast path turned the exact
++    /// product <c>(1/17)*17</c> into <c>0.999999999999999985</c> at precision 18 while the
++    /// arbitrary-precision path returns exactly 1. The fast path exists for speed on ordinary
++    /// values, not to change results, so an operand the fixed-width engines can only approximate
++    /// is declined here and the answer is computed by <see cref="Real"/>, whose periodic paths
++    /// (Add/Subtract/Multiply) are exact.
++    /// </para>
+     /// </summary>
+     private static Value ApplyRealBinary(BinaryOp op, Rl left, Rl right)
+     {
+-        if (Rl.MaxComputationDecimalPlaces <= 37)
++        if (Rl.MaxComputationDecimalPlaces <= 37 && !left.IsPeriodic && !right.IsPeriodic)
+         {
+             if (LReal64.TryFromReal(left, out var a64) && LReal64.TryFromReal(right, out var b64))
+             {

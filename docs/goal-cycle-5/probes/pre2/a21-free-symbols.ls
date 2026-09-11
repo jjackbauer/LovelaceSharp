@@ -1,0 +1,1 @@
+x = symbol("x"); inspect(x*y)

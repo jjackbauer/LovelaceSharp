@@ -1,0 +1,803 @@
+diff --git a/Lovelace.Abstractions/InputDepth.cs b/Lovelace.Abstractions/InputDepth.cs
+new file mode 100644
+index 0000000..8879c1a
+--- /dev/null
++++ b/Lovelace.Abstractions/InputDepth.cs
+@@ -0,0 +1,63 @@
++namespace Lovelace.Abstractions;
++
++/// <summary>
++/// The nesting budgets shared by every recursive walk over host input. Each walk is a native
++/// recursion, and native recursion cannot be caught: once the process stack is exhausted the
++/// runtime terminates the process (0xC00000FD) and NOTHING — no diagnostic, no envelope, no exit
++/// code — can be reported. A budget enforced <em>before</em> the walk starts is the only way a deep
++/// input can be refused instead of fatal.
++/// <para>
++/// There are two budgets rather than one because the walks cost very different amounts of stack per
++/// level, and each budget is set from the measured death of the walk it protects (CoreCLR, Release,
++/// 1 MB stack — the tighter of the two runtimes this engine ships on):
++/// </para>
++/// <list type="bullet">
++/// <item><see cref="Max"/> (256) protects the expensive walks: the parser's descent (≈9 native
++/// frames per nesting level; dies between 800 and 1024 nested levels) and every walk over a
++/// canonical symbolic expression (printing dies between 800 and 900). Both therefore keep a
++/// factor-3 margin.</item>
++/// <item><see cref="MaxParsedTreeDepth"/> (512) protects the interpreter walking the PARSED tree,
++/// whose per-level cost is the lowest of the three (dies between 1280 and 1536 for a flat chain).
++/// It is separate because a flat associative chain — <c>exp(log(x+1)) + … + exp(log(x+420))</c>,
++/// which the shipped suites use — is legitimate, wide input whose parsed tree is one level per
++/// operator; at 256 the budget would have refused that shipped test. Anything deeper than 256 that
++/// reaches canonical construction is still refused by <see cref="Max"/>.</item>
++/// </list>
++/// </summary>
++public static class InputDepth
++{
++    /// <summary>The greatest number of nested levels a parser descent or a canonical symbolic
++    /// expression may reach.</summary>
++    public const int Max = 256;
++
++    /// <summary>The greatest depth the PARSED tree may have. Only the interpreter's tree walk
++    /// reads it, and only a flat left-associative chain can get there without nesting.</summary>
++    public const int MaxParsedTreeDepth = 512;
++}
++
++/// <summary>
++/// A valid input (or a valid intermediate expression) whose nesting exceeds one of the
++/// <see cref="InputDepth"/> budgets. This is a budget stop, not a defect: the caller can always
++/// rewrite the input with less nesting, so it is reported as a recoverable
++/// <see cref="ErrorCategory.BudgetExceeded"/> rather than as a domain error or an invariant
++/// failure. It derives from <see cref="Exception"/> directly (not from
++/// <see cref="InvalidOperationException"/>) so that a kernel which converts ordinary operation
++/// failures into domain diagnostics cannot swallow a stack-safety refusal.
++/// </summary>
++public sealed class InputDepthExceededException : Exception
++{
++    /// <summary>The measured nesting depth that was refused.</summary>
++    public int Depth { get; }
++
++    /// <summary>The budget it exceeded.</summary>
++    public int Limit { get; }
++
++    public InputDepthExceededException(string stage, int depth, int limit)
++        : base($"{stage} depth {depth} exceeds the maximum supported nesting depth of {limit}. "
++               + "Rewrite the input with less nesting (the engine refuses it before a recursive walk "
++               + "can exhaust the process stack).")
++    {
++        Depth = depth;
++        Limit = limit;
++    }
++}
+diff --git a/Lovelace.Run.Tests/DepthGuardEnvelopeTests.cs b/Lovelace.Run.Tests/DepthGuardEnvelopeTests.cs
+new file mode 100644
+index 0000000..a648127
+--- /dev/null
++++ b/Lovelace.Run.Tests/DepthGuardEnvelopeTests.cs
+@@ -0,0 +1,193 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// Valid-but-DEEP input must be refused structurally, never by dying: on the pre-guard tree every
++/// shape below reaches a native stack overflow, the process is terminated by the OS with
++/// 0xC00000FD, stdout carries NO envelope at all, and the agent-facing protocol has nothing to
++/// report. The guard under test turns each of those deaths into one JSON envelope with a
++/// non-zero exit code and a code/category that names the condition.
++/// <para>
++/// The code/category names are asserted as WIRE STRINGS (not as a reference to the exception type)
++/// so this file compiles against the pre-fix tree as well — that is what makes the control-tree
++/// evidence possible.
++/// </para>
++/// </summary>
++public class DepthGuardEnvelopeTests
++{
++    /// <summary>The nesting budget: a parser descent or a canonical symbolic expression
++    /// (Lovelace.Abstractions.InputDepth.Max).</summary>
++    private const int MaxDepth = 256;
++
++    /// <summary>The parsed-tree budget: only the interpreter's walk over the PARSED tree reads it,
++    /// and only a flat left-associative chain can reach it without nesting
++    /// (Lovelace.Abstractions.InputDepth.MaxParsedTreeDepth).</summary>
++    private const int MaxParsedTreeDepth = 512;
++
++    /// <summary>The wire code naming a depth refusal.</summary>
++    private const string DepthCode = "DepthExceeded";
++
++    /// <summary>Its category: an exhausted budget, not a domain error and not an invariant failure.</summary>
++    private const string DepthCategory = "BudgetExceeded";
++
++    private static string Repeat(string text, int count) => string.Concat(Enumerable.Repeat(text, count));
++
++    // ------------------------------------------------------------------
++    // The shapes from the cycle-4 audit, at the published depth of 3000
++    // ------------------------------------------------------------------
++
++    public static IEnumerable<object[]> DeepShapes()
++    {
++        yield return new object[] { "nested parentheses", Repeat("(", 3000) + "1" + Repeat(")", 3000) + ";" };
++        yield return new object[] { "unary minus chain", Repeat("-", 3000) + "1;" };
++        yield return new object[] { "nested abs() calls", Repeat("abs(", 3000) + "1" + Repeat(")", 3000) + ";" };
++        yield return new object[] { "nested (+1) groups", Repeat("(", 3000) + "1" + Repeat("+1)", 3000) + ";" };
++        yield return new object[] { "nested list literals", Repeat("[", 3000) + "1" + Repeat("]", 3000) + ";" };
++        yield return new object[] { "nested sqrt() calls", Repeat("sqrt(", 3000) + "1" + Repeat(")", 3000) + ";" };
++        yield return new object[] { "flat subtraction chain (20000)", "1" + Repeat("-1", 20000) + ";" };
++        yield return new object[] { "flat addition chain (20000)", "1" + Repeat("+1", 20000) + ";" };
++    }
++
++    [Theory]
++    [MemberData(nameof(DeepShapes))]
++    public async Task DeepInput_IsATypedRefusal_NeverAProcessDeath(string what, string script)
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(script);
++
++        Assert.True(exitCode != 0, $"{what}: a refused input must exit non-zero (got {exitCode})");
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"{what}: ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>(),
++            $"{what}: the caller can retry with a shallower input, so the refusal is recoverable");
++        // the message names the measured depth and the budget it broke
++        Assert.Matches(
++            @"depth \d+ exceeds the maximum supported nesting depth of (256|512)\.",
++            envelope["message"]!.GetValue<string>());
++    }
++
++    /// <summary>
++    /// A SHALLOW script that builds a deep symbolic VALUE at run time (nothing deep in the source,
++    /// nothing deep in the parsed AST): without a guard at canonical construction this dies in
++    /// Lovelace.Symbolics.Printing.Pretty while the result is being rendered.
++    /// </summary>
++    [Fact]
++    public async Task LoopBuiltExpressionDepth_IsATypedRefusal()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(
++            "e = symbol(\"x\"); for i in 1..1000 { e = abs(e) };");
++
++        Assert.True(exitCode != 0, $"a value deeper than the budget must exit non-zero (got {exitCode})");
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++    }
++
++    // ------------------------------------------------------------------
++    // The boundary: limit-1 accepted, limit+1 refused
++    // ------------------------------------------------------------------
++
++    /// <summary>Nested parentheses measuring EXACTLY <paramref name="depth"/>: the guard counts
++    /// the statement and the outer expression before the first group, so <c>depth - 2</c> groups
++    /// measure <paramref name="depth"/>. (Verified against the reported depth of the refusal at
++    /// <c>depth + 1</c>: 254 groups are accepted, 255 report "depth 257".)</summary>
++    private static string ParensAtDepth(int depth) =>
++        Repeat("(", depth - 2) + "1" + Repeat(")", depth - 2) + ";";
++
++    /// <summary>A flat left-associative chain measuring exactly <paramref name="depth"/>: the tree
++    /// is program → statement → one BinaryExpr per operator → the leaf, so <c>depth - 3</c>
++    /// operators measure <paramref name="depth"/>. (Verified: 253 operators are accepted, 254
++    /// report "tree depth 257".)</summary>
++    private static string FlatChainAtDepth(int depth) => "1" + Repeat("-1", depth - 3) + ";";
++
++    [Fact]
++    public async Task InputAtTheLimit_IsAccepted()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(ParensAtDepth(MaxDepth));
++        Assert.True(envelope["ok"]!.GetValue<bool>(),
++            $"depth {MaxDepth} is exactly the budget and must be accepted. exit={exitCode} stdout={stdout}");
++        Assert.Equal(0, exitCode);
++    }
++
++    [Fact]
++    public async Task InputOnePastTheLimit_IsRefused()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(ParensAtDepth(MaxDepth + 1));
++        Assert.True(exitCode != 0, $"depth {MaxDepth + 1} is past the budget (exit {exitCode}). stdout={stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Contains((MaxDepth + 1).ToString(), envelope["message"]!.GetValue<string>());
++    }
++
++    [Fact]
++    public async Task FlatChainAtTheLimit_IsAccepted()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(FlatChainAtDepth(MaxParsedTreeDepth));
++        Assert.True(envelope["ok"]!.GetValue<bool>(),
++            $"a flat chain of depth {MaxParsedTreeDepth} must be accepted. exit={exitCode} stdout={stdout}");
++        Assert.Equal(0, exitCode);
++    }
++
++    [Fact]
++    public async Task FlatChainOnePastTheLimit_IsRefused()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(FlatChainAtDepth(MaxParsedTreeDepth + 1));
++        Assert.True(exitCode != 0,
++            $"a flat chain of depth {MaxParsedTreeDepth + 1} must be refused (exit {exitCode}). stdout={stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Contains((MaxParsedTreeDepth + 1).ToString(), envelope["message"]!.GetValue<string>());
++    }
++
++    /// <summary>A flat chain is legitimate, WIDE input: the shipped suites sum 420 terms, and that
++    /// shape must keep working (its parsed tree is one level per operator, so it is measured
++    /// against the parsed-tree budget, not the nesting budget).</summary>
++    [Fact]
++    public async Task AFlatSumOfHundredsOfTerms_IsStillAccepted()
++    {
++        var terms = Enumerable.Range(1, 420).Select(i => "exp(log(x+" + i + "))");
++        var (exitCode, envelope, stdout) = await RunAsync(
++            "x = symbol(\"x\"); simplify_full(" + string.Join(" + ", terms) + ")");
++
++        Assert.Equal(0, exitCode);
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"a 420-term flat sum must still run. Envelope: {stdout}");
++    }
++
++    // ------------------------------------------------------------------
++    // The guard must not reject ordinary programs
++    // ------------------------------------------------------------------
++
++    /// <summary>5000 flat statements, each one level deep in the AST, is ordinary, WIDE input: a
++    /// depth budget must not touch it (this is the "wide is not deep" control).</summary>
++    [Fact]
++    public async Task AWideProgramOfShallowStatements_IsStillAccepted()
++    {
++        string script = "e = 0;" + Repeat("e = e + 1;", 5000);
++        var (exitCode, envelope, stdout) = await RunAsync(script);
++
++        Assert.Equal(0, exitCode);
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"5000 shallow statements must still run. Envelope: {stdout}");
++        Assert.Equal("5000", envelope["result"]!["display"]!.GetValue<string>());
++    }
++
++    /// <summary>Ordinary nested arithmetic keeps working, and the values are unchanged.</summary>
++    [Fact]
++    public async Task OrdinaryNestedArithmetic_IsUnchanged()
++    {
++        var (exitCode, envelope, stdout) = await RunAsync(
++            "x = symbol(\"x\"); e = -(-(-(1 + 2*3))) + sqrt(sqrt(16)) + abs(-2); e;");
++
++        Assert.Equal(0, exitCode);
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"ordinary arithmetic must still run. Envelope: {stdout}");
++    }
++
++    private static async Task<(int ExitCode, JsonNode Envelope, string Stdout)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        string text = stdout.ToString();
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(text, "runner stdout"), text);
++    }
++}
+diff --git a/Lovelace.Run/Runner.cs b/Lovelace.Run/Runner.cs
+index c031d5d..96da945 100644
+--- a/Lovelace.Run/Runner.cs
++++ b/Lovelace.Run/Runner.cs
+@@ -260,6 +260,10 @@ public static class Runner
+         // a budget stop is a first-class outcome, not an invariant failure: the frozen contract makes
+         // BudgetExceeded a status, and the caller can retry with a larger budget
+         Lovelace.Symbolics.BudgetExceededException => ("BudgetExceeded", "BudgetExceeded", true),
++        // A nesting refusal is a budget stop too, but it gets its OWN code: a consumer must be able
++        // to tell "this input is nested too deeply" (a property of the input) from "the symbolic
++        // computation ran out of steps" (a property of the work), and neither is a DomainError.
++        Lovelace.Abstractions.InputDepthExceededException => ("DepthExceeded", "BudgetExceeded", true),
+         Lovelace.Symbolics.EvaluationException => ("EvaluationError", "DomainError", true),
+         Lovelace.Symbolics.AssumptionContradictionException => ("UnsatisfiableAssumptions", "DomainError", true),
+         FormatException => ("InvalidInput", "ParseError", true),
+diff --git a/Lovelace.Suite.Tests/InputDepthGuardTests.cs b/Lovelace.Suite.Tests/InputDepthGuardTests.cs
+new file mode 100644
+index 0000000..e87a40f
+--- /dev/null
++++ b/Lovelace.Suite.Tests/InputDepthGuardTests.cs
+@@ -0,0 +1,128 @@
++using Lovelace.Symbolics;
++using Xunit;
++
++namespace Lovelace.Suite.Tests;
++
++/// <summary>
++/// The nesting guard at its three enforcement points. Deep input reaches a native recursion from
++/// three different directions and each one is a separate walk, so each is checked here directly:
++/// <list type="bullet">
++/// <item>the parser's recursive descent (nested groups, calls, lists, prefix operators),</item>
++/// <item>the parsed tree, which the parser's LOOPS can make deep without ever descending
++/// (<c>1-1-1-…</c>),</item>
++/// <item>canonical symbolic construction, where a shallow script can build a deep expression at
++/// run time (<c>for i in 1..1000 { e = abs(e) }</c>).</item>
++/// </list>
++/// <para>
++/// The refusal is asserted by type NAME and message text rather than by referencing the exception
++/// type, so this file also compiles against the pre-guard tree — which is what makes the
++/// control-tree evidence (a test-host crash, 0xC00000FD) reproducible with it.
++/// </para>
++/// </summary>
++public class InputDepthGuardTests
++{
++    /// <summary>The nesting budget: parser descent and canonical symbolic construction.</summary>
++    private const int MaxDepth = 256;
++
++    /// <summary>The parsed-tree budget: the interpreter's walk over the parsed tree. It is larger
++    /// because a flat associative chain is legitimate, wide input (the shipped suites sum 420
++    /// terms) and its parsed tree is one level per operator.</summary>
++    private const int MaxParsedTreeDepth = 512;
++
++    private static string Repeat(string text, int count) => string.Concat(Enumerable.Repeat(text, count));
++
++    private static string ParensAtDepth(int depth) => Repeat("(", depth - 2) + "1" + Repeat(")", depth - 2) + ";";
++
++    private static string FlatChainAtDepth(int depth) => "1" + Repeat("-1", depth - 3) + ";";
++
++    private static Program ParseProgram(string source) =>
++        new Parser().ParseProgram(new Tokenizer().Tokenize(source));
++
++    private static Exception? Refusal(string source) => Record.Exception(() => ParseProgram(source));
++
++    [Fact]
++    public void NestingAtTheBudget_StillParses()
++    {
++        var program = ParseProgram(ParensAtDepth(MaxDepth));
++        Assert.Single(program.Statements);
++        Assert.Equal("1", ((LiteralExpr)((ExpressionStatement)program.Statements[0]).Expression).RawText);
++    }
++
++    [Fact]
++    public void NestingOnePastTheBudget_IsRefusedWithTheTypedDepthError()
++    {
++        var ex = Refusal(ParensAtDepth(MaxDepth + 1));
++
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++        Assert.Contains((MaxDepth + 1).ToString(), ex.Message);
++        Assert.Contains(MaxDepth.ToString(), ex.Message);
++    }
++
++    /// <summary>A flat chain is built by a parser LOOP: the descent counter stays flat while the
++    /// returned tree grows one level per operator, so only the tree walk can refuse it.</summary>
++    [Fact]
++    public void FlatChainOnePastTheBudget_IsRefused()
++    {
++        Assert.NotNull(ParseProgram(FlatChainAtDepth(MaxParsedTreeDepth)));
++        // 420 terms is the widest flat sum the shipped suites use; it must stay accepted
++        Assert.NotNull(ParseProgram(FlatChainAtDepth(423)));
++
++        var ex = Refusal(FlatChainAtDepth(MaxParsedTreeDepth + 1));
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++        Assert.Contains("tree depth", ex.Message);
++        Assert.Contains(MaxParsedTreeDepth.ToString(), ex.Message);
++    }
++
++    /// <summary>Prefix operators are a descent of their own (<c>ParseUnary</c> recurses into
++    /// itself); a deep unary chain must be refused before that recursion runs away.</summary>
++    [Fact]
++    public void UnaryChainOnePastTheBudget_IsRefused()
++    {
++        Assert.NotNull(ParseProgram(Repeat("-", MaxDepth - 3) + "1;"));
++        var ex = Refusal(Repeat("-", MaxDepth + 1) + "1;");
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++    }
++
++    [Fact]
++    public void NestedBlocksOnePastTheBudget_AreRefused()
++    {
++        // a literal inside n nested blocks sits at depth n + 3 (program, block chain, statement)
++        Assert.NotNull(ParseProgram(Repeat("{", MaxDepth - 3) + "1;" + Repeat("}", MaxDepth - 3)));
++        var ex = Refusal(Repeat("{", MaxDepth + 1) + "1;" + Repeat("}", MaxDepth + 1));
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++    }
++
++    /// <summary>Canonical construction is the third funnel: a loop can wrap a value once per
++    /// iteration with nothing deep in the source or the AST.</summary>
++    [Fact]
++    public void SymbolicConstructionOnePastTheBudget_IsRefused()
++    {
++        Lovelace.Symbolics.Expr Build(int wrappers)
++        {
++            Lovelace.Symbolics.Expr expr = Exprs.Symbol("x");
++            for (int i = 0; i < wrappers; i++)
++                expr = Exprs.Function(Exprs.Current.Function("abs"), expr);
++            return expr;
++        }
++
++        Assert.NotNull(Build(MaxDepth - 1));
++
++        var ex = Record.Exception(() => Build(MaxDepth));
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++        Assert.Contains("symbolic expression depth", ex.Message);
++    }
++
++    /// <summary>Ordinary nesting is untouched, and the composed depth of an interpolation is
++    /// measured as one input (its own parser starts at the enclosing depth).</summary>
++    [Fact]
++    public void OrdinaryNesting_AndInterpolation_StillParse()
++    {
++        Assert.NotNull(ParseProgram("-(-(-(1 + 2*3))) + sqrt(sqrt(16)) + abs(-2);"));
++        Assert.NotNull(ParseProgram("x = 1; s = $\"v={x + 1}\";"));
++    }
++}
+diff --git a/Lovelace.Suite/AstDepth.cs b/Lovelace.Suite/AstDepth.cs
+new file mode 100644
+index 0000000..f784a13
+--- /dev/null
++++ b/Lovelace.Suite/AstDepth.cs
+@@ -0,0 +1,134 @@
++using Lovelace.Abstractions;
++
++namespace Lovelace.Suite;
++
++/// <summary>
++/// The depth of a parsed program or expression, measured with an explicit stack.
++/// <para>
++/// The parser's own counter bounds how deep the DESCENT goes, but a left-associative chain
++/// (<c>1-1-1-…</c>, <c>1*1*…</c>, <c>a.b.c…</c>) is built by a LOOP: the parser never descends, so
++/// its counter stays flat while the tree it returns grows one level per operator. Evaluating or
++/// printing that tree is a recursion of exactly that depth, which is why the tree is measured here,
++/// once, before anything walks it.
++/// </para>
++/// <para>
++/// The walk is iterative by construction. A recursive depth measure would itself overflow on the
++/// input it is supposed to protect against — the same reason this guard exists.
++/// </para>
++/// </summary>
++internal static class AstDepth
++{
++    /// <summary>Throws <see cref="InputDepthExceededException"/> when <paramref name="program"/>
++    /// nests deeper than <see cref="InputDepth.MaxParsedTreeDepth"/>.</summary>
++    internal static void EnsureWithin(string stage, Program program) => Walk(stage, program);
++
++    /// <summary>Throws <see cref="InputDepthExceededException"/> when <paramref name="expr"/>
++    /// nests deeper than <see cref="InputDepth.MaxParsedTreeDepth"/>.</summary>
++    internal static void EnsureWithin(string stage, Expr expr) => Walk(stage, expr);
++
++    private static void Walk(string stage, object root)
++    {
++        var stack = new Stack<(object Node, int Depth)>();
++        stack.Push((root, 1));
++
++        while (stack.Count > 0)
++        {
++            var (node, depth) = stack.Pop();
++            if (depth > InputDepth.MaxParsedTreeDepth)
++                throw new InputDepthExceededException(stage, depth, InputDepth.MaxParsedTreeDepth);
++
++            PushChildren(stack, node, depth);
++        }
++    }
++
++    /// <summary>Pushes every child of <paramref name="node"/> one level deeper. A node type that is
++    /// neither a known container nor a known leaf is a hard error: silently treating it as a leaf
++    /// would let a future grammar addition bypass the budget.</summary>
++    private static void PushChildren(Stack<(object Node, int Depth)> stack, object node, int depth)
++    {
++        int next = depth + 1;
++        switch (node)
++        {
++            // ---- program / statement containers ----
++            case Program p:
++                foreach (var s in p.Statements) stack.Push((s, next));
++                break;
++            case BlockStatement b:
++                foreach (var s in b.Statements) stack.Push((s, next));
++                break;
++            case ExpressionStatement s:
++                stack.Push((s.Expression, next));
++                break;
++            case IfStatement s:
++                stack.Push((s.Condition, next));
++                stack.Push((s.Then, next));
++                if (s.Else is { } otherwise) stack.Push((otherwise, next));
++                break;
++            case WhileStatement s:
++                stack.Push((s.Condition, next));
++                stack.Push((s.Body, next));
++                break;
++            case ForStatement s:
++                stack.Push((s.Range, next));
++                stack.Push((s.Body, next));
++                break;
++            case ReturnStatement s:
++                if (s.Value is { } returned) stack.Push((returned, next));
++                break;
++            case FunctionStatement s:
++                foreach (var body in s.Definition.Body) stack.Push((body, next));
++                break;
++
++            // ---- expressions ----
++            case BinaryExpr e:
++                stack.Push((e.Left, next));
++                stack.Push((e.Right, next));
++                break;
++            case UnaryExpr e:
++                stack.Push((e.Operand, next));
++                break;
++            case PostfixExpr e:
++                stack.Push((e.Operand, next));
++                break;
++            case AssignExpr e:
++                stack.Push((e.Value, next));
++                break;
++            case CallExpr e:
++                foreach (var argument in e.Arguments) stack.Push((argument, next));
++                break;
++            case ListExpr e:
++                foreach (var element in e.Elements) stack.Push((element, next));
++                break;
++            case IndexExpr e:
++                stack.Push((e.Target, next));
++                foreach (var index in e.Indices) stack.Push((index, next));
++                break;
++            case MemberExpr e:
++                stack.Push((e.Target, next));
++                break;
++            case RangeExpr e:
++                stack.Push((e.Start, next));
++                if (e.Step is { } step) stack.Push((step, next));
++                stack.Push((e.End, next));
++                break;
++            case SliceExpr e:
++                if (e.Start is { } sliceStart) stack.Push((sliceStart, next));
++                if (e.Stop is { } sliceStop) stack.Push((sliceStop, next));
++                if (e.Step is { } sliceStep) stack.Push((sliceStep, next));
++                break;
++            case InterpolatedStringExpr e:
++                foreach (var part in e.Parts)
++                    if (part is ExpressionPart embedded) stack.Push((embedded.Expression, next));
++                break;
++
++            // ---- leaves: nothing below them ----
++            case LiteralExpr or VariableExpr or StringExpr or BreakStatement or ContinueStatement:
++                break;
++
++            default:
++                throw new InvalidOperationException(
++                    $"AstDepth: unhandled node type '{node.GetType().Name}' — a depth budget cannot be "
++                    + "guaranteed for a grammar node this walk does not know.");
++        }
++    }
++}
+diff --git a/Lovelace.Suite/Parser.cs b/Lovelace.Suite/Parser.cs
+index 9ffdffe..9305279 100644
+--- a/Lovelace.Suite/Parser.cs
++++ b/Lovelace.Suite/Parser.cs
+@@ -1,3 +1,5 @@
++using Lovelace.Abstractions;
++
+ namespace Lovelace.Suite;
+ 
+ /// <summary>
+@@ -20,6 +22,31 @@ public sealed class Parser
+     private List<Token> _tokens = [];
+     private int _pos;
+ 
++    /// <summary>
++    /// Nesting levels currently open in this parse. The description of this grammar is a chain of
++    /// mutually recursive descents, so the parser's own C# stack depth is proportional to the
++    /// nesting of the INPUT; this counter is that property, and it is checked on the way DOWN so
++    /// the parser refuses the input before the recursion that would kill the process is entered.
++    /// </summary>
++    private int _depth;
++
++    /// <summary>Opens one nesting level for the lifetime of the returned scope.</summary>
++    private DepthScope Descend(string stage) => new(this, stage);
++
++    private readonly struct DepthScope : IDisposable
++    {
++        private readonly Parser _parser;
++
++        internal DepthScope(Parser parser, string stage)
++        {
++            _parser = parser;
++            if (++parser._depth > InputDepth.Max)
++                throw new InputDepthExceededException(stage, parser._depth, InputDepth.Max);
++        }
++
++        public void Dispose() => _parser._depth--;
++    }
++
+     // ------------------------------------------------------------------
+     // Public entry points
+     // ------------------------------------------------------------------
+@@ -43,6 +70,10 @@ public sealed class Parser
+             throw new InvalidOperationException(
+                 $"Unexpected token '{Current.Text}' at position {Current.Position}.");
+ 
++        // Second half of the guard: the counter above bounds the DESCENT, this bounds the TREE.
++        // A flat chain ('1-1-1-…') never descends — those levels are loops — so only the parsed
++        // tree shows its depth. Both are measured before any evaluator or printer touches it.
++        AstDepth.EnsureWithin("expression tree", expr);
+         return expr;
+     }
+ 
+@@ -74,7 +105,9 @@ public sealed class Parser
+             }
+         }
+ 
+-        return new Program(statements) { StatementPositions = positions };
++        var program = new Program(statements) { StatementPositions = positions };
++        AstDepth.EnsureWithin("expression tree", program);
++        return program;
+     }
+ 
+     // ------------------------------------------------------------------
+@@ -113,6 +146,8 @@ public sealed class Parser
+ 
+     private Statement ParseStatement()
+     {
++        using var _ = Descend("statement nesting");
++
+         if (Current.Kind == TokenKind.LBrace)
+             return ParseBlock();
+ 
+@@ -273,6 +308,8 @@ public sealed class Parser
+     // Assignment (right-associative)
+     private Expr ParseAssignment()
+     {
++        using var _ = Descend("expression nesting");
++
+         if (Current.Kind == TokenKind.Identifier && Peek().Kind == TokenKind.Equals)
+         {
+             string name = Advance().Text;
+@@ -385,6 +422,7 @@ public sealed class Parser
+             return left;
+ 
+         Advance();
++        using var _ = Descend("power nesting");
+         // right-associative; the exponent may itself be signed or a power: x^-2, 2^3^2
+         return new BinaryExpr(left, BinaryOp.Power, ParsePower());
+     }
+@@ -415,13 +453,18 @@ public sealed class Parser
+     // ParsePower sign branch; the sign is applied by the caller in the latter case.
+     private Expr ParseUnary()
+     {
++        // Only a CONSUMED prefix operator is a nesting level: a plain ParseUnary call is a
++        // pass-through at the level its caller already counted, so counting it would make the
++        // budget depend on the grammar's internal call chain rather than on the input's nesting.
+         if (Current.Kind == TokenKind.Minus)
+         {
++            using var _ = Descend("expression nesting");
+             Advance();
+             return new UnaryExpr(UnaryOp.Negate, ParseUnary());
+         }
+         if (Current.Kind == TokenKind.Plus)
+         {
++            using var _ = Descend("expression nesting");
+             Advance();
+             return new UnaryExpr(UnaryOp.Plus, ParseUnary());
+         }
+@@ -626,9 +669,12 @@ public sealed class Parser
+         return new InterpolatedStringExpr(parts);
+     }
+ 
+-    private static Expr ParseSubExpression(string text)
++    private Expr ParseSubExpression(string text)
+     {
+         var tokens = new Tokenizer().Tokenize(text);
+-        return new Parser().Parse(tokens);
++        // An interpolation is parsed by a NESTED parser. It starts at this parser's depth instead
++        // of from zero, so composing interpolations cannot buy two independent budgets' worth of
++        // C# stack; the composed input is measured as one input.
++        return new Parser { _depth = _depth }.Parse(tokens);
+     }
+ }
+diff --git a/Lovelace.Symbolics/Context.cs b/Lovelace.Symbolics/Context.cs
+index 2d86251..ccec17c 100644
+--- a/Lovelace.Symbolics/Context.cs
++++ b/Lovelace.Symbolics/Context.cs
+@@ -1,4 +1,5 @@
+ using System.Collections.Concurrent;
++using Lovelace.Abstractions;
+ using Rat = global::Lovelace.Rational.Rational;
+ 
+ namespace Lovelace.Symbolics;
+@@ -136,8 +137,22 @@ public sealed class ExprContext
+         }
+     }
+ 
+-    /// <summary>Hash-conses a canonical node: returns the existing equal instance when present.</summary>
+-    internal Expr Intern(Expr node) => _pool.GetOrAdd(node, node);
++    /// <summary>
++    /// Hash-conses a canonical node: returns the existing equal instance when present.
++    /// <para>
++    /// This is the ONE funnel every factory in <see cref="Exprs"/> ends at, which makes it the one
++    /// place a nesting budget has to be enforced for canonical expressions: the depth is cached on
++    /// the node and a node deeper than <see cref="InputDepth.Max"/> is refused HERE, while it is
++    /// being built, long before printing, evaluation or rewriting could recurse over it.
++    /// </para>
++    /// </summary>
++    internal Expr Intern(Expr node)
++    {
++        node._depth = ExprDepth.Of(node);
++        if (node._depth > InputDepth.Max)
++            throw new InputDepthExceededException("symbolic expression", node._depth, InputDepth.Max);
++        return _pool.GetOrAdd(node, node);
++    }
+ }
+ 
+ /// <summary>
+diff --git a/Lovelace.Symbolics/Expr.cs b/Lovelace.Symbolics/Expr.cs
+index efd4417..db45fbe 100644
+--- a/Lovelace.Symbolics/Expr.cs
++++ b/Lovelace.Symbolics/Expr.cs
+@@ -201,6 +201,7 @@ public abstract class Expr : IEquatable<Expr>
+ {
+     internal int _hash;
+     internal int _nodeCount;
++    internal int _depth;
+     internal bool _isExact;
+ 
+     public NodeKind Kind { get; internal init; }
+@@ -211,6 +212,12 @@ public abstract class Expr : IEquatable<Expr>
+     /// <summary>Number of nodes in the DAG subtree (budgets use this).</summary>
+     public int NodeCount => _nodeCount;
+ 
++    /// <summary>Length of the longest root-to-leaf path through this subtree, cached at
++    /// construction. Bounded by <see cref="Lovelace.Abstractions.InputDepth.Max"/> for every node a
++    /// factory returns: the recursive walks over expressions (printing, evaluation, rewriting) are
++    /// native recursions and nothing can be reported once one of them exhausts the stack.</summary>
++    public int Depth => _depth;
++
+     /// <summary>True when the subtree contains no approximate RealConstant and no transcendental value.</summary>
+     public bool IsExact => _isExact;
+ 
+diff --git a/Lovelace.Symbolics/ExprDepth.cs b/Lovelace.Symbolics/ExprDepth.cs
+new file mode 100644
+index 0000000..7f830d9
+--- /dev/null
++++ b/Lovelace.Symbolics/ExprDepth.cs
+@@ -0,0 +1,56 @@
++namespace Lovelace.Symbolics;
++
++/// <summary>
++/// Depth of a canonical expression: one plus the deepest child, i.e. the length of the longest
++/// root-to-leaf path. Computed from the children's cached depths while a node is being interned,
++/// exactly like <see cref="Expr.NodeCount"/> is, so it costs one pass over the children at
++/// construction and nothing afterwards.
++/// <para>
++/// Kept total on purpose: every node kind is listed, and an unknown kind is an error rather than a
++/// default. A silent default would let a new node kind bypass the shared nesting budget.
++/// </para>
++/// </summary>
++internal static class ExprDepth
++{
++    internal static int Of(Expr node) => node switch
++    {
++        AddExpr a => 1 + MaxOf(a.Terms),
++        MultiplyExpr m => 1 + MaxOf(m.Factors),
++        FunctionExpr f => 1 + MaxOf(f.Arguments),
++        AndExpr a => 1 + MaxOf(a.Operands),
++        OrExpr o => 1 + MaxOf(o.Operands),
++        PowerExpr p => 1 + Math.Max(p.Base._depth, p.Exponent._depth),
++        RelationExpr r => 1 + Math.Max(r.Left._depth, r.Right._depth),
++        OrderExpr o => 1 + Math.Max(o.Variable._depth, Math.Max(o.Point._depth, o.Degree._depth)),
++        NotExpr n => 1 + n.Operand._depth,
++        DerivativeExpr d => 1 + d.Operand._depth,
++        IntegralExpr i => 1 + i.Operand._depth,
++        PiecewiseExpr pw => 1 + MaxOf(pw),
++        // the defining polynomial is not an Expr subtree (Polynomial holds its own flat terms)
++        RootOfExpr => 1,
++        SymbolExpr or IntegerConstantExpr or RationalConstantExpr or RealConstantExpr
++            or ComplexConstantExpr or NamedConstantExpr => 1,
++        _ => throw new InvalidOperationException(
++            $"ExprDepth: unhandled node kind '{node.Kind}' — the nesting budget cannot be guaranteed "
++            + "for a node this measure does not know."),
++    };
++
++    private static int MaxOf(System.Collections.Immutable.ImmutableArray<Expr> items)
++    {
++        int max = 0;
++        foreach (var item in items)
++            if (item._depth > max) max = item._depth;
++        return max;
++    }
++
++    private static int MaxOf(PiecewiseExpr piecewise)
++    {
++        int max = piecewise.Otherwise._depth;
++        foreach (var branch in piecewise.Branches)
++        {
++            if (branch.Guard._depth > max) max = branch.Guard._depth;
++            if (branch.Value._depth > max) max = branch.Value._depth;
++        }
++        return max;
++    }
++}

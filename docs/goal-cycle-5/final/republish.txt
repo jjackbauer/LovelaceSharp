@@ -1,0 +1,40 @@
+republish started 2026-09-11T14:40:15.7236090-03:00 HEAD a94e535
+publish exit=0
+[PASS] AOT publish succeeded - exit 0
+[PASS] published binary exists - out\aot\Lovelace.Run.exe
+exe LastWriteTime=09/11/2026 14:36:14  size=5707776
+newest source: C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run.Tests\SystemSolveRecordTests.cs at 09/11/2026 14:35:25
+[PASS] binary is newer than the newest source file - 49.6s newer
+[PASS] ok is true
+[PASS] protocolVersion == 1
+[PASS] symbolicFormatVersion starts with #!lovelace-sym
+[PASS] mathIrVersion >= 1
+[PASS] structured is Record/SolveResult
+[PASS] status value Solved
+[PASS] status kind Enum
+[PASS] status type SolveStatus
+[PASS] completeness kind Enum / Completeness
+[PASS] complete kind Boolean
+[PASS] complete value is the STRING true
+[PASS] domain complex
+[PASS] solutions Array shape [2]
+[PASS] solution value Symbolic with rational canonical
+[PASS] solution exactness is an Enum (Exact|AlgebraicExact)
+[PASS] status Partial (Enum/SolveStatus)
+[PASS] completeness Partial (Enum)
+[PASS] complete is the STRING false
+[PASS] unrepresented_count == 2
+[PASS] rank-2 Array shape [2,2]
+[PASS] four elements
+[PASS] first element is Symbolic (sym y)
+[PASS] output array holds the printed line
+[PASS] result value == 2
+[PASS] non-zero exit for an unsupported domain - exit 1
+[PASS] ok is false
+[PASS] message names the domain
+[PASS] code and category are present - code=InvalidOperation category=DomainError
+SMOKE FAILURES: 0
+SUMMARY ok=30 bad=0 other=0 of 30; source=AOT published binary
+advertised entries: 16
+MATCH=16  MISMATCH=0
+republish finished 2026-09-11T14:40:32.8334937-03:00

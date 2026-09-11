@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); z = symbol("z"); inspect((x/y)/z)

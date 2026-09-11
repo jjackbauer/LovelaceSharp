@@ -1,0 +1,1 @@
+x = symbol("x"); latex((-1)^x)

@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); z = symbol("z"); a = symbol("a");(2*(x + 1))^-1

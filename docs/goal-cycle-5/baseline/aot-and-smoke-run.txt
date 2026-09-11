@@ -1,0 +1,43 @@
+=== publish 2026-09-11T13:41:30.7700802-03:00 ===
+publish exit=0
+publish warnings=0 errors=0
+  [PASS] AOT publish succeeded - exit 0
+  [PASS] published binary exists - out\aot\Lovelace.Run.exe
+exe LastWriteTime=09/11/2026 13:41:44  size=5681152
+newest source: C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-5\deliverables.md at 09/11/2026 13:41:09
+  [PASS] binary is newer than the newest source file - 35.5s newer
+=== smoke 1: a complete solve reports Solved / Complete with per-solution conditions ===
+  [PASS] ok is true
+  [PASS] protocolVersion == 1
+  [PASS] symbolicFormatVersion starts with #!lovelace-sym
+  [PASS] mathIrVersion >= 1
+  [PASS] structured is Record/SolveResult
+  [PASS] status value Solved
+  [PASS] status kind Enum
+  [PASS] status type SolveStatus
+  [PASS] completeness kind Enum / Completeness
+  [PASS] complete kind Boolean
+  [PASS] complete value is the STRING true
+  [PASS] domain complex
+  [PASS] solutions Array shape [2]
+  [PASS] solution value Symbolic with rational canonical
+  [PASS] solution exactness is an Enum (Exact|AlgebraicExact)
+=== smoke 2: an incomplete solve over the complex field must NOT claim completeness ===
+  [PASS] status Partial (Enum/SolveStatus)
+  [PASS] completeness Partial (Enum)
+  [PASS] complete is the STRING false
+  [PASS] unrepresented_count == 2
+=== smoke 3: arrays preserve shape into the protocol ===
+  [PASS] rank-2 Array shape [2,2]
+  [PASS] four elements
+  [PASS] first element is Symbolic (sym y)
+=== smoke 4: stdout carries the envelope and nothing else ===
+  [PASS] output array holds the printed line
+  [PASS] result value == 2
+=== smoke 5: errors are structural (code + category), never message matching ===
+  [PASS] non-zero exit for an unsupported domain - exit 1
+  [PASS] ok is false
+  [PASS] message names the domain
+  [PASS] code and category are present - code=InvalidOperation category=DomainError
+
+SMOKE FAILURES: 0

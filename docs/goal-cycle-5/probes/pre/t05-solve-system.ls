@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); solve_system(x + y == 2, x - y == 0)

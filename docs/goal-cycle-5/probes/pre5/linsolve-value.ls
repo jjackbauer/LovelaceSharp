@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); a = linsolve([[x, 1], [0, y]], [0, 1]); inspect(a[0])

@@ -1,0 +1,109 @@
+diff --git a/Lovelace.Symbolics.Tests/LatexPrinterTests.cs b/Lovelace.Symbolics.Tests/LatexPrinterTests.cs
+index 85f0260..1bb1fb4 100644
+--- a/Lovelace.Symbolics.Tests/LatexPrinterTests.cs
++++ b/Lovelace.Symbolics.Tests/LatexPrinterTests.cs
+@@ -46,6 +46,12 @@ public class LatexPrinterTests
+         "(-x)^3",
+         "-(x + y)",
+         "(-x - 1)^2",
++        // negative numeric bases: the sign belongs to the numeral, so the base text begins with
++        // a unary minus and has to be delimited by the same one rule Pretty uses
++        "(-1)^x",
++        "(-2)^x",
++        "(-1/2)^x",
++        "(-1.5)^x",
+         // powers of sums, nested powers
+         "(x + 1)^12",
+         "(x + y)^2",
+@@ -202,6 +208,16 @@ public class LatexPrinterTests
+         Assert.Equal("7", Latex(Exprs.Integer(7)));
+     }
+ 
++    /// <summary>A negative NUMERIC base is not an atom as text: LaTeX spells -1 with a leading
++    /// minus (and -3/2 as -\frac{3}{2}), which binds looser than the superscript, so the base has
++    /// to carry \left(...\right) — otherwise the rendering denotes -(1^{x}) instead of (-1)^{x}.</summary>
++    [Fact]
++    public async Task KnownRendering_PowerOfANegativeNumericBase_HasDelimitedBase()
++    {
++        var expr = await BuildAsync("(-1)^x");
++        Assert.Equal("\\left(-1\\right)^{x}", Latex(expr));
++    }
++
+     /// <summary>Guard against a vacuous parity test: if the Latex arm ever fell back to the
+     /// Pretty rendering, <see cref="GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting"/>
+     /// would pass while testing nothing. The corpus is precedence-sensitive, so the two forms must
+diff --git a/Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs b/Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs
+index 3314651..f620aaf 100644
+--- a/Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs
++++ b/Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs
+@@ -44,6 +44,14 @@ public class PrettyParenthesesTests
+         "-(x + y)",
+         "(-x - 1)^2",
+         "(-x)^(1/2)",
++        // negative NUMERIC bases: the value is an atom, but its RENDERING is not — "-1" is a
++        // unary minus applied to the constant 1, and a unary minus binds looser than ^, so the
++        // printed base must be delimited or the text denotes -(1^x) instead of (-1)^x.
++        "(-1)^x",
++        "(-2)^x",
++        "(-1/2)^x",
++        "(-1.5)^x",
++        "(-3)^(-x)",
+         // nested powers
+         "(x^y)^2",
+         "x^(y^2)",
+diff --git a/Lovelace.Symbolics/Printing.cs b/Lovelace.Symbolics/Printing.cs
+index 73d9a34..76bc10d 100644
+--- a/Lovelace.Symbolics/Printing.cs
++++ b/Lovelace.Symbolics/Printing.cs
+@@ -505,8 +505,28 @@ public static class Printing
+ 
+     /// <summary>The ONE power-base rule: a base that does not bind tighter than a power is
+     /// delimited exactly once — <c>(x + 1)^2</c>, <c>(x^y)^2</c>; asking the child renderer for a
+-    /// precedence wrapped it twice (((x + 1))^12). Round 24.</summary>
+-    private static bool NeedsPowerBaseDelimiter(Expr b) => Prec(b) <= PowPrec;
++    /// precedence wrapped it twice (((x + 1))^12). Round 24.
++    /// <para>
++    /// Precedence is a property of VALUES and is not sufficient, because every constant is an
++    /// atom in that table while a negative constant is not an atom as TEXT: <c>-1</c> is a unary
++    /// minus applied to <c>1</c>, and a unary minus binds looser than <c>^</c>, so rendering
++    /// <c>(-1)^x</c> as <c>-1^x</c> denotes <c>-(1^x)</c> — a different value. The rule therefore
++    /// asks the text that is about to be raised as well, and delimits it when that text begins
++    /// with a unary minus. This covers every constant shape that can print a sign (integer,
++    /// rational, real, complex) without a second table, and cannot fire for a base that already
++    /// binds tighter than a power, so no pair is ever doubled.
++    /// </para>
++    /// <para>
++    /// The test is made against the rendered text rather than against the node because the two
++    /// arms spell the same node differently where it matters: Pretty renders a complex constant
++    /// as <c>-1 + i</c> and LaTeX as <c>(-1 + 1 i)</c>, so no single structural predicate is
++    /// correct for both — it would either leave Pretty's base undelimited or wrap LaTeX's already
++    /// delimited one a second time. Each arm passes the text it is about to emit, which is the
++    /// same question — "does this bind looser than ^?" — in both notations. Cycle 5.
++    /// </para>
++    /// </summary>
++    private static bool NeedsPowerBaseDelimiter(Expr b, string renderedBase) =>
++        Prec(b) <= PowPrec || renderedBase.StartsWith("-", StringComparison.Ordinal);
+ 
+     private static readonly Rat OneHalf = Rat.From(1, 2);
+     private static readonly Rat MinusOneHalf = Rat.From(-1, 2);
+@@ -623,8 +643,9 @@ public static class Printing
+                 // shared rule; asking Pretty for parentPrec 3 here wrapped it a second time
+                 // (((x + 1))^12). Round 24.
+                 var b = Pretty(p.Base, RootPrec, false, unicode);
+-                // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2))
+-                if (NeedsPowerBaseDelimiter(p.Base))
++                // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2)),
++                // and -1^x is not (-1)^x
++                if (NeedsPowerBaseDelimiter(p.Base, b))
+                     b = "(" + b + ")";
+                 // 3, not 4: a power exponent is parenthesized by the explicit rule just below, so
+                 // asking for 4 wrapped it twice (x^((y^2))). Sums and products still get their
+@@ -873,7 +894,7 @@ public static class Printing
+                         return LatexDelimit("\\frac{1}{\\sqrt{" + LatexRender(p.Base, RootPrec) + "}}", parentPrec, PowPrec);
+                 }
+                 var b = LatexRender(p.Base, RootPrec);
+-                if (NeedsPowerBaseDelimiter(p.Base))
++                if (NeedsPowerBaseDelimiter(p.Base, b))
+                     b = "\\left(" + b + "\\right)";
+                 // the exponent's braces are LaTeX's own grouping, so a sum/product/rational
+                 // exponent needs no priority delimiters of its own: x^{y + 1}, x^{\frac{1}{2}}

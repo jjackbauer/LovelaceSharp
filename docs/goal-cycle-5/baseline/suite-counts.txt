@@ -1,0 +1,17 @@
+Lovelace.Abstractions.Tests      passed=20    failed=0   skipped=0
+Lovelace.Array.Tests             passed=19    failed=0   skipped=0
+Lovelace.Complex.Tests           passed=83    failed=0   skipped=0
+Lovelace.Console.Tests           passed=15    failed=0   skipped=0
+Lovelace.Dsp.Tests               passed=61    failed=0   skipped=0
+Lovelace.Integer.Tests           passed=148   failed=0   skipped=0
+Lovelace.Knowledge.Tests         passed=28    failed=0   skipped=0
+Lovelace.Natural.Tests           passed=195   failed=0   skipped=0
+Lovelace.Representation.Tests    passed=91    failed=0   skipped=0
+Lovelace.Studio.Tests            passed=22    failed=0   skipped=0
+Lovelace.Suite.Tests             passed=642   failed=0   skipped=0
+Lovelace.Symbolics.Tests         passed=822   failed=0   skipped=0
+Lovelace.Run.Tests               passed=39    failed=0   skipped=0
+precbench.Tests                  passed=13    failed=0   skipped=0
+Lovelace.Real.Tests(nonHeavy)    passed=305   failed=0   skipped=0
+TOTAL passed=2503 failed=0 skipped=0
+elapsed=102.6s

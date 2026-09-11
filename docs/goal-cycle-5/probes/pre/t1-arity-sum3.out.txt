@@ -1,0 +1,1 @@
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"InvalidOperation","category":"DomainError","message":"Expected 1 or 2 arguments, but got 3.","recoverable":true,"diagnostics":[{"message":"Expected 1 or 2 arguments, but got 3.","position":0,"line":1,"column":1}],"elapsed":"228.1 \u00B5s"}

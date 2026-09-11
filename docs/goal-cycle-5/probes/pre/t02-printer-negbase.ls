@@ -1,0 +1,1 @@
+x = symbol("x"); e = (-1)^x; e; subs(e, x, 2); subs(-1^x, x, 2); (-2)^x; subs((-2)^x, x, 2)

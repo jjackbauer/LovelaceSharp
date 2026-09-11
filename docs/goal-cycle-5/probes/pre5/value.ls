@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); inspect(apart(1/(x^2 - 1), x))

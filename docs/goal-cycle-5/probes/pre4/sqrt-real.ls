@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(sqrt(x) + 2 == 0, x, real)

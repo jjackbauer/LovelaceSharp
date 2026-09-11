@@ -1,0 +1,26 @@
+(-1)^x             | ROUNDTRIP-DIFF | pretty=-1^x | c1=(pow (rat -1 1) (sym x)) | c2=(rat -1 1)
+(-2)^x             | ROUNDTRIP-DIFF | pretty=-2^x | c1=(pow (rat -2 1) (sym x)) | c2=(mul (rat -1 1) (pow (rat 2 1) (sym x)))
+(-1/2)^x           | ROUNDTRIP-DIFF | pretty=-1/2^x | c1=(pow (rat -1 2) (sym x)) | c2=(mul (rat -1 1) (pow (pow (rat 2 1) (sym x)) (rat -1 1)))
+(-1.5)^x           | ROUNDTRIP-DIFF | pretty=-3/2^x | c1=(pow (rat -3 2) (sym x)) | c2=(mul (rat -3 1) (pow (pow (rat 2 1) (sym x)) (rat -1 1)))
+(-x)^2             | ROUNDTRIP-OK | pretty=(-x)^2 | c1=(pow (mul (rat -1 1) (sym x)) (rat 2 1)) | c2=(pow (mul (rat -1 1) (sym x)) (rat 2 1))
+(-x - 1)^2         | ROUNDTRIP-OK | pretty=(-x - 1)^2 | c1=(pow (add (rat -1 1) (mul (rat -1 1) (sym x))) (rat 2 1)) | c2=(pow (add (rat -1 1) (mul (rat -1 1) (sym x))) (rat 2 1))
+(x/y)/z            | ROUNDTRIP-DIFF | pretty=x/(y*z) | c1=(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1))) | c2=(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1)))
+x/(y*z)            | ROUNDTRIP-OK | pretty=x/(y*z) | c1=(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1))) | c2=(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1)))
+x/y/z              | ROUNDTRIP-DIFF | pretty=x/(y*z) | c1=(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1))) | c2=(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1)))
+(x/y)*z            | ROUNDTRIP-OK | pretty=x*z/y | c1=(mul (sym x) (sym z) (pow (sym y) (rat -1 1))) | c2=(mul (sym x) (sym z) (pow (sym y) (rat -1 1)))
+x*y/z              | ROUNDTRIP-OK | pretty=x*y/z | c1=(mul (sym x) (sym y) (pow (sym z) (rat -1 1))) | c2=(mul (sym x) (sym y) (pow (sym z) (rat -1 1)))
+x - (y - a)        | ROUNDTRIP-OK | pretty=x - (y - a) | c1=(add (sym x) (mul (rat -1 1) (add (sym y) (mul (rat -1 1) (sym a))))) | c2=(add (sym x) (mul (rat -1 1) (add (sym y) (mul (rat -1 1) (sym a)))))
+-(x + y)           | ROUNDTRIP-OK | pretty=-(x + y) | c1=(mul (rat -1 1) (add (sym x) (sym y))) | c2=(mul (rat -1 1) (add (sym x) (sym y)))
+x^(-2)             | ROUNDTRIP-OK | pretty=x^-2 | c1=(pow (sym x) (rat -2 1)) | c2=(pow (sym x) (rat -2 1))
+(x + 1)^(-1)       | ROUNDTRIP-OK | pretty=(x + 1)^-1 | c1=(pow (add (rat 1 1) (sym x)) (rat -1 1)) | c2=(pow (add (rat 1 1) (sym x)) (rat -1 1))
+sqrt(x + y)        | ROUNDTRIP-OK | pretty=sqrt(x + y) | c1=(pow (add (sym x) (sym y)) (rat 1 2)) | c2=(pow (add (sym x) (sym y)) (rat 1 2))
+1/2*sqrt(8)        | NOT-SYMBOLIC kind=Real pretty=
+2^(1/3)            | FIRST-RUN-ERROR UnsupportedOperation/UnsupportedOperation
+sqrt(-1)           | REPARSE-ERROR InvalidOperation/DomainError | pretty=i
+sqrt(-4)           | REPARSE-ERROR InvalidOperation/DomainError | pretty=2*i
+abs(sqrt(-1))      | REPARSE-ERROR InvalidOperation/DomainError | pretty=abs(i)
+x^y^2              | ROUNDTRIP-OK | pretty=x^(y^2) | c1=(pow (sym x) (pow (sym y) (rat 2 1))) | c2=(pow (sym x) (pow (sym y) (rat 2 1)))
+(x^y)^2            | ROUNDTRIP-OK | pretty=(x^y)^2 | c1=(pow (pow (sym x) (sym y)) (rat 2 1)) | c2=(pow (pow (sym x) (sym y)) (rat 2 1))
+-x^2               | ROUNDTRIP-OK | pretty=-x^2 | c1=(mul (rat -1 1) (pow (sym x) (rat 2 1))) | c2=(mul (rat -1 1) (pow (sym x) (rat 2 1)))
+exp(-x^2)          | ROUNDTRIP-OK | pretty=exp(-x^2) | c1=(fn exp (mul (rat -1 1) (pow (sym x) (rat 2 1)))) | c2=(fn exp (mul (rat -1 1) (pow (sym x) (rat 2 1))))
+1/(2*(x + 1))      | ROUNDTRIP-OK | pretty=(2*(x + 1))^-1 | c1=(pow (mul (rat 2 1) (add (rat 1 1) (sym x))) (rat -1 1)) | c2=(pow (mul (rat 2 1) (add (rat 1 1) (sym x))) (rat -1 1))
