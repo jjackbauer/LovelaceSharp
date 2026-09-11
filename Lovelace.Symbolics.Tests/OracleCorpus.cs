@@ -9,8 +9,13 @@ namespace Lovelace.Symbolics.Tests;
 /// </summary>
 internal sealed record DerivativeCase(string Domain, Expr Expr, string Sympy, IReadOnlyList<IReadOnlyList<string>> Points);
 
-/// <summary>A solve case: the equation is <c>Expr == 0</c> and the domain is the solver's.</summary>
-internal sealed record SolveCase(string Domain, Expr Expr, string Sympy);
+/// <summary>A solve case: the equation is <c>Expr == 0</c> and the domain is the solver's.
+/// <paramref name="KernelStatus"/> is the disposition the kernel is REQUIRED to report for that
+/// equation: <see cref="SolveStatus.Solved"/> for every case whose kernel half is a complete
+/// answer, and an explicitly DECLARED non-answer only where SymPy's solution set is empty — so the
+/// comparison there is "SymPy proves there is nothing and the kernel represents nothing", never a
+/// kernel non-answer matched against a list of roots.</summary>
+internal sealed record SolveCase(string Domain, Expr Expr, string Sympy, SolveStatus KernelStatus = SolveStatus.Solved);
 
 /// <summary>A real-root case, compared against sympy.real_roots.</summary>
 internal sealed record RootCase(string Domain, Expr Expr, string Sympy);
@@ -29,8 +34,10 @@ internal sealed record MatrixCase(string Domain, string Operation, Expr[][] Kern
 /// The differential oracle's corpora: every case carries the SymPy expression it is compared
 /// with and the domain/branch assumptions the comparison is valid under. The cases are chosen so
 /// that BOTH sides have a definite answer on the stated domain — a case whose kernel half is
-/// Unevaluated would compare a non-answer and is not a corpus entry (see
-/// OracleCorpusDeclarationTests, which proves that half on any machine, with or without SymPy).
+/// Unevaluated would compare a non-answer and is not a corpus entry, UNLESS the case declares that
+/// kernel non-answer in SolveCase.KernelStatus because SymPy's side is the EMPTY set: there the
+/// definite claim on both sides is "nothing is a solution", and the case exists to prove the kernel
+/// does not represent a root it cannot justify (see the sqrt(x) + 2 case).
 /// </summary>
 internal static class OracleCorpus
 {
@@ -106,6 +113,22 @@ internal static class OracleCorpus
             // kernel roots substitute back to exactly 0 only because i^2 folds to -1.
             new SolveCase(domain, Exprs.Add(Exprs.Power(x, 2), 1), "x**2 + 1"),
             new SolveCase(domain, Exprs.Add(Exprs.Power(x, 2), 4), "x**2 + 4"),
+            // cycle 5 (round 05): the inverse branch that squaring cannot preserve. sympy.solve
+            // returns [] because the PRINCIPAL square root is never -2, so the branch candidate
+            // x = (-2)^2 = 4 is EXTRANEOUS (sqrt(4) = +2). Before the fix the kernel returned that
+            // candidate as a Solved complete set (complete true, represented_count 1); now it
+            // represents nothing and does not claim completeness. The kernel half is deliberately
+            // NOT a complete answer: rejecting every candidate numerically is not a proof that the
+            // solution set is empty, so NoSolutions would be a claim the verification cannot back.
+            new SolveCase(
+                "the kernel default domain (complex), and the case's kernel half is deliberately NOT a " +
+                "complete answer: sympy.solve(sqrt(x) + 2, x) is the EMPTY set, because the principal " +
+                "square root is never a negative real. The kernel must represent NO root here; it reports " +
+                "Unevaluated (not NoSolutions) because its inverse-branch gate rejects the extraneous " +
+                "candidate with a NUMERIC residual test (sqrt(4) = 2, not -2) and a numeric rejection of " +
+                "every candidate is not a proof of emptiness. The comparison is: sympy's distinct-root " +
+                "count is 0, the kernel's represented count is 0, and the kernel does not claim completeness.",
+                Exprs.Add(Exprs.Power(x, Exprs.Rational(1, 2)), 2), "sqrt(x) + 2", SolveStatus.Unevaluated),
         };
     }
 

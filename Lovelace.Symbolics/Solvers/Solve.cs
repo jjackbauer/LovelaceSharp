@@ -270,6 +270,35 @@ public static class Solvers
         return new SolutionSet(SolveStatus.Unevaluated, domain, "No solver for this structure.");
     }
 
+    /// <summary>The residual tolerance of every residual check in this file: 1e-24, read under the
+    /// 40-digit working precision the callers establish.</summary>
+    internal static Num ResidualTolerance() =>
+        NumOps.FromReal(Rl.Parse("0." + new string('0', 24) + "1", null));
+
+    /// <summary>The ONE residual predicate: <c>true</c> when <paramref name="equation"/> is zero at
+    /// x = value (folded constant, expanded constant, or numerically zero), <c>false</c> when it is
+    /// provably not zero, <c>null</c> when it is not numerically decidable. The system path
+    /// (<see cref="SystemSolvers.SatisfiesAll"/>) refuses anything that is not <c>true</c>; the
+    /// inverse-branch gate drops a candidate only on <c>false</c> and keeps it on <c>null</c>.</summary>
+    internal static bool? ResidualIsZero(Expr equation, Symbol x, Expr value, ExprContext ctx, Num tolerance)
+    {
+        var at = Evaluation.Substitute(equation, ctx, new Dictionary<Symbol, Expr> { [x] = value });
+        if (Evaluation.ConstantToNum(at) is { } cv)
+            return NumOps.IsZero(cv);
+        var expanded = Algebra.Expand(at, ctx);
+        if (expanded is RationalConstantExpr rc)
+            return rc.Value.IsZero;
+        try
+        {
+            var residual = Evaluation.EvaluateToNum(at, ctx, new Dictionary<Symbol, Num>());
+            return NumOps.Compare(NumOps.Abs(residual, ctx), tolerance) < 0;
+        }
+        catch (EvaluationException)
+        {
+            return null;   // not numerically checkable
+        }
+    }
+
     /// <summary>True when <paramref name="e"/> evaluates to numeric zero at x = value. Used to
     /// exclude numerator roots that are poles of the original rational function.</summary>
     private static bool ZeroesAt(Expr e, Symbol x, Expr value, ExprContext ctx)
@@ -682,8 +711,36 @@ public static class Solvers
         }
         if (set.Solutions.Count == 0 && set.Families.Count == 0)
             return new SolutionSet(SolveStatus.NoSolutions, domain, "no branch produced a solution.");
-        SortSolutions(set);
-        return set;
+
+        // The branches above are NECESSARY-condition generators, not equivalences: inverting h can
+        // introduce candidates that do NOT solve this equation (sqrt(x) = -2 inverts to the
+        // candidate x = (-2)^2 = 4, and sqrt(4) = +2). Every candidate is therefore verified
+        // against THAT equation — h - c, not the transformed u - inverse the recursion solved —
+        // before it can enter a Solved (complete) set, through the residual predicate the system
+        // path already uses. A candidate whose residual is not numerically decidable is KEPT (the
+        // conservative policy ZeroesAt documents), so a genuine root that only cancels numerically
+        // is never dropped.
+        Expr original = Exprs.Subtract(h, c);
+        var verified = new SolutionSet(SolveStatus.Solved, domain);
+        int rejected = 0;
+        using (Rl.WithPrecision(40, 20))
+        {
+            var tolerance = ResidualTolerance();
+            foreach (var solution in set.Solutions)
+            {
+                if (ResidualIsZero(original, x, solution.Value, ctx, tolerance) is false)
+                    rejected++;   // a decidable non-zero residual: this candidate is not a solution
+                else
+                    verified.Solutions.Add(solution);
+            }
+        }
+        verified.Families.AddRange(set.Families);
+        if (verified.Solutions.Count == 0 && verified.Families.Count == 0)
+            return new SolutionSet(SolveStatus.Unevaluated, domain,
+                "every candidate from the inverse branch(es) fails substitution into the original equation (" +
+                rejected + " rejected): the inverse step is not invertible on this branch, so no solution set is claimed.");
+        SortSolutions(verified);
+        return verified;
     }
 
     /// <summary>The n-th roots of unity as exact expressions, in ascending k order
@@ -1001,31 +1058,11 @@ public static class SystemSolvers
     /// simplifier can prove it, numerically at high precision otherwise).</summary>
     private static bool SatisfiesAll(Expr value, IEnumerable<Expr> equations, Symbol x, ExprContext ctx)
     {
-        using var scope = global::Lovelace.Real.Real.WithPrecision(40, 20);
-        var tolerance = NumOps.FromReal(global::Lovelace.Real.Real.Parse("0." + new string('0', 24) + "1", null));
+        using var scope = Rl.WithPrecision(40, 20);
+        var tolerance = Solvers.ResidualTolerance();
         foreach (var eq in equations)
-        {
-            var at = Evaluation.Substitute(eq, ctx, new Dictionary<Symbol, Expr> { [x] = value });
-            if (Evaluation.ConstantToNum(at) is { } cv)
-            {
-                if (!NumOps.IsZero(cv))
-                    return false;
-                continue;
-            }
-            var expanded = Algebra.Expand(at, ctx);
-            if (expanded is RationalConstantExpr rc && rc.Value.IsZero)
-                continue;
-            try
-            {
-                var residual = Evaluation.EvaluateToNum(at, ctx, new Dictionary<Symbol, Num>());
-                if (NumOps.Compare(NumOps.Abs(residual, ctx), tolerance) >= 0)
-                    return false;
-            }
-            catch (EvaluationException)
-            {
-                return false;   // not numerically checkable: refuse rather than guess
-            }
-        }
+            if (Solvers.ResidualIsZero(eq, x, value, ctx, tolerance) != true)
+                return false;   // provably non-zero, or not numerically checkable: refuse rather than guess
         return true;
     }
 

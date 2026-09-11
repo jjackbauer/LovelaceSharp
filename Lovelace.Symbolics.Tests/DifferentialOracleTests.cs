@@ -61,8 +61,18 @@ public class DifferentialOracleTests
                 .Distinct(StringComparer.Ordinal)
                 .Count();
 
-            Assert.True(set.Status == SolveStatus.Solved,
-                $"{label}: the kernel did not claim a complete solution set (status {set.Status}, note {set.Note ?? "none"}) [domain: {c.Domain}]");
+            // Every case declares the disposition its kernel half must report. Solved is the
+            // default; a case may declare a non-answer ONLY where sympy's set is empty, so the
+            // comparison is never a kernel non-answer against a list of roots.
+            Assert.True(set.Status == c.KernelStatus,
+                $"{label}: the kernel reported {set.Status}, but the case declares {c.KernelStatus} for its kernel half (note {set.Note ?? "none"}) [domain: {c.Domain}]");
+            if (c.KernelStatus != SolveStatus.Solved)
+            {
+                Assert.True(set.Complete != Completeness.Complete,
+                    $"{label}: a case whose kernel half is a declared non-answer must not report a complete solution set");
+                Assert.True(theirCount == 0,
+                    $"{label}: a case may declare a kernel non-answer only where sympy's solution set is EMPTY, but sympy returned {theirCount} root(s) -> {theirs[1]} [domain: {c.Domain}]");
+            }
             Assert.True(myCount == theirCount,
                 $"{label}: kernel {myCount} distinct solution(s) [{Describe(set)}] vs sympy {theirCount} -> {theirs[1]} [domain: {c.Domain}]");
             foreach (Solution solution in set.Solutions)
