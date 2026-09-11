@@ -290,98 +290,98 @@ public class Real :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public static new bool IsZero(Real value) => Int.IsZero(value);
+    public static bool IsZero(Real value) => Int.IsZero(value);
 
     /// <inheritdoc/>
-    public static new bool IsPositive(Real value) => Int.IsPositive(value);
+    public static bool IsPositive(Real value) => Int.IsPositive(value);
 
     /// <inheritdoc/>
-    public static new bool IsNegative(Real value) => Int.IsNegative(value);
+    public static bool IsNegative(Real value) => Int.IsNegative(value);
 
     /// <inheritdoc/>
-    public static new bool IsEvenInteger(Real value) =>
+    public static bool IsEvenInteger(Real value) =>
         !value.IsPeriodic && value.Exponent >= 0L && Int.IsEvenInteger(value);
 
     /// <inheritdoc/>
-    public static new bool IsOddInteger(Real value) =>
+    public static bool IsOddInteger(Real value) =>
         !value.IsPeriodic && value.Exponent >= 0L && Int.IsOddInteger(value);
 
     /// <inheritdoc/>
-    public static new bool IsInteger(Real value) =>
+    public static bool IsInteger(Real value) =>
         !value.IsPeriodic && value.Exponent >= 0L;
 
     // Required INumberBase<T> classification stubs
     /// <inheritdoc/>
-    public static new bool IsCanonical(Real value) => true;
+    public static bool IsCanonical(Real value) => true;
     /// <inheritdoc/>
-    public static new bool IsComplexNumber(Real value) => false;
+    public static bool IsComplexNumber(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsFinite(Real value) => true;
+    public static bool IsFinite(Real value) => true;
     /// <inheritdoc/>
-    public static new bool IsImaginaryNumber(Real value) => false;
+    public static bool IsImaginaryNumber(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsInfinity(Real value) => false;
+    public static bool IsInfinity(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsNaN(Real value) => false;
+    public static bool IsNaN(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsNegativeInfinity(Real value) => false;
+    public static bool IsNegativeInfinity(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsNormal(Real value) => !IsZero(value);
+    public static bool IsNormal(Real value) => !IsZero(value);
     /// <inheritdoc/>
-    public static new bool IsPositiveInfinity(Real value) => false;
+    public static bool IsPositiveInfinity(Real value) => false;
     /// <inheritdoc/>
-    public static new bool IsRealNumber(Real value) => true;
+    public static bool IsRealNumber(Real value) => true;
     /// <inheritdoc/>
-    public static new bool IsSubnormal(Real value) => false;
+    public static bool IsSubnormal(Real value) => false;
 
     // -------------------------------------------------------------------------
     // Magnitude / conversion helpers  (INumberBase<Real>)
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public static new Real Abs(Real value) => new(value.ToNatural(), false, value.Exponent, value.PeriodStart, value.PeriodLength);
+    public static Real Abs(Real value) => new(value.ToNatural(), false, value.Exponent, value.PeriodStart, value.PeriodLength);
 
     /// <inheritdoc/>
-    public static new Real MaxMagnitude(Real x, Real y)
+    public static Real MaxMagnitude(Real x, Real y)
         => Abs(x).CompareTo(Abs(y)) >= 0 ? x : y;
 
     /// <inheritdoc/>
-    public static new Real MaxMagnitudeNumber(Real x, Real y) => MaxMagnitude(x, y);
+    public static Real MaxMagnitudeNumber(Real x, Real y) => MaxMagnitude(x, y);
 
     /// <inheritdoc/>
-    public static new Real MinMagnitude(Real x, Real y)
+    public static Real MinMagnitude(Real x, Real y)
         => Abs(x).CompareTo(Abs(y)) <= 0 ? x : y;
 
     /// <inheritdoc/>
-    public static new Real MinMagnitudeNumber(Real x, Real y) => MinMagnitude(x, y);
+    public static Real MinMagnitudeNumber(Real x, Real y) => MinMagnitude(x, y);
 
     /// <inheritdoc/>
-    public static new bool TryConvertFromChecked<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
+    public static bool TryConvertFromChecked<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
         where TOther : INumberBase<TOther>
     { result = Zero; return false; }
 
     /// <inheritdoc/>
-    public static new bool TryConvertFromSaturating<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
+    public static bool TryConvertFromSaturating<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
         where TOther : INumberBase<TOther>
     { result = Zero; return false; }
 
     /// <inheritdoc/>
-    public static new bool TryConvertFromTruncating<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
+    public static bool TryConvertFromTruncating<TOther>(TOther value, [MaybeNullWhen(false)] out Real result)
         where TOther : INumberBase<TOther>
     { result = Zero; return false; }
 
     /// <inheritdoc/>
-    public static new bool TryConvertToChecked<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
+    public static bool TryConvertToChecked<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     { result = default; return false; }
 
     /// <inheritdoc/>
-    public static new bool TryConvertToSaturating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
+    public static bool TryConvertToSaturating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     { result = default; return false; }
 
     /// <inheritdoc/>
-    public static new bool TryConvertToTruncating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
+    public static bool TryConvertToTruncating<TOther>(Real value, [MaybeNullWhen(false)] out TOther result)
         where TOther : INumberBase<TOther>
     { result = default; return false; }
 
@@ -467,9 +467,9 @@ public class Real :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public static bool operator ==(Real left, Real right) => left.Equals(right);
+    public static bool operator ==(Real? left, Real? right) => left!.Equals(right);
     /// <inheritdoc/>
-    public static bool operator !=(Real left, Real right) => !left.Equals(right);
+    public static bool operator !=(Real? left, Real? right) => !left!.Equals(right);
     /// <inheritdoc/>
     public static bool operator >(Real left, Real right) => left.CompareTo(right) > 0;
     /// <inheritdoc/>
@@ -632,7 +632,7 @@ public class Real :
         // (The loop breaks without adding the repeated digit, so fracDigits already has the right count.)
         long resultExponent = -fracLen + exponentAdjustment;
 
-        if (!Nat.TryParse(allDigits, null, out Nat mag))
+        if (!Nat.TryParse(allDigits, null, out Nat? mag))
             mag = Nat.Zero;
 
         bool actualNeg = resultNeg && !Nat.IsZero(mag);
@@ -679,7 +679,7 @@ public class Real :
     /// Overrides <see cref="Int.Negate"/> returning <see cref="Real"/>.
     /// Corresponds to C++ <c>inverterSinal()</c> on <c>RealLovelace</c>.
     /// </summary>
-    public static new Real Negate(Real value)
+    public static Real Negate(Real value)
     {
         bool isNeg = Int.IsZero(value) ? false : !Int.IsNegative(value);
         return Normalize(new Real(value.ToNatural(), isNeg, value.Exponent, value.PeriodStart, value.PeriodLength));
@@ -859,7 +859,7 @@ public class Real :
             double seedSig = Math.Sqrt(lead);
             string seedStr = seedSig.ToString("G15",
                                               System.Globalization.CultureInfo.InvariantCulture);
-            if (!TryParse(seedStr, null, out Real seedReal) || IsZero(seedReal))
+            if (!TryParse(seedStr, null, out Real? seedReal) || IsZero(seedReal))
                 seedReal = One;
             // Compose the seed Real: seedReal encodes the significand; seedExp shifts
             // the order of magnitude so the combined value approximates sqrt(value).
@@ -907,7 +907,7 @@ public class Real :
             if (keepLen <= 0) return Real.Zero;
 
             string truncStr = natStr[..keepLen];
-            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+            if (!Nat.TryParse(truncStr, null, out Nat? truncNat))
                 return x;
             return new Real(truncNat, false, x.Exponent + toDrop);
         }
@@ -1053,7 +1053,7 @@ public class Real :
             if (keepLen <= 0) return Real.Zero;
 
             string truncStr = natStr[..keepLen];
-            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+            if (!Nat.TryParse(truncStr, null, out Nat? truncNat))
                 return x;
             return new Real(truncNat, false, x.Exponent + toDrop);
         }
@@ -1113,7 +1113,7 @@ public class Real :
             if (keepLen <= 0) return new Real("0");
 
             string truncStr = natStr[..keepLen];
-            if (!Nat.TryParse(truncStr, null, out Nat truncNat))
+            if (!Nat.TryParse(truncStr, null, out Nat? truncNat))
                 return x;
             return new Real(truncNat, false, x.Exponent + toDrop);
         }
@@ -1186,7 +1186,7 @@ public class Real :
         if (keepLen <= 0) return new Real("0");
 
         string truncStr = natStr.Substring(0, (int)keepLen);
-        if (!Nat.TryParse(truncStr, null, out Nat truncNat)) return x;
+        if (!Nat.TryParse(truncStr, null, out Nat? truncNat)) return x;
         return new Real(truncNat, false, x.Exponent + toDrop);
     }
 
@@ -1557,7 +1557,7 @@ public class Real :
     }
 
     /// <inheritdoc/>
-    public static new bool TryParse(
+    public static bool TryParse(
         [NotNullWhen(true)] string? s,
         IFormatProvider? provider,
         [MaybeNullWhen(false)] out Real result)
@@ -1578,7 +1578,7 @@ public class Real :
     /// Trailing zeros after the decimal point are preserved as significant digits.
     /// Corresponds to C++ <c>ler()</c>.
     /// </remarks>
-    public static new bool TryParse(
+    public static bool TryParse(
         ReadOnlySpan<char> s,
         IFormatProvider? provider,
         [MaybeNullWhen(false)] out Real result)
@@ -1679,7 +1679,7 @@ public class Real :
     // Convenience overloads without IFormatProvider (used by tests / callers)
     /// <summary>Parses a decimal string into a <see cref="Real"/>.</summary>
     /// <exception cref="FormatException">Thrown for invalid input.</exception>
-    public static new Real Parse(string s) => Parse(s, null);
+    public static Real Parse(string s) => Parse(s, null);
 
     /// <summary>Attempts to parse a decimal string into a <see cref="Real"/>.</summary>
     public static bool TryParse([NotNullWhen(true)] string? s, [MaybeNullWhen(false)] out Real result)
@@ -1695,12 +1695,12 @@ public class Real :
         => Parse(s, provider);
 
     /// <inheritdoc/>
-    public static new bool TryParse([NotNullWhen(true)] string? s, NumberStyles style, IFormatProvider? provider,
+    public static bool TryParse([NotNullWhen(true)] string? s, NumberStyles style, IFormatProvider? provider,
         [MaybeNullWhen(false)] out Real result)
         => TryParse(s, provider, out result);
 
     /// <inheritdoc/>
-    public static new bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider,
+    public static bool TryParse(ReadOnlySpan<char> s, NumberStyles style, IFormatProvider? provider,
         [MaybeNullWhen(false)] out Real result)
         => TryParse(s, provider, out result);
 
@@ -1976,7 +1976,7 @@ public class Real :
 
         long   newExp    = r.Exponent + stripped;
         string newDigits = stripped >= digits.Length ? "0" : digits[..^stripped];
-        if (!Nat.TryParse(newDigits, null, out Nat newMag))
+        if (!Nat.TryParse(newDigits, null, out Nat? newMag))
             newMag = Nat.Zero;
         bool isNeg = Int.IsNegative(r) && !Nat.IsZero(newMag);
         return new Real(newMag, isNeg, newExp);

@@ -51,20 +51,33 @@ public sealed class AssumptionContradictionException : Exception
 public sealed class AssumptionSet : IEquatable<AssumptionSet>
 {
     private readonly ImmutableArray<Assumption> _atoms;
+    /// <summary>Ordinal ordering keys, parallel to <see cref="_atoms"/> (same length, same order).
+    /// The rendering of an atom is computed ONCE, when it enters the set, instead of once per
+    /// comparison of a whole-array re-sort on every insertion.</summary>
+    private readonly ImmutableArray<string> _keys;
+    /// <summary>True once two stored atoms render identically. From then on <see cref="Add"/> takes
+    /// the historical append-and-re-sort path, so the tie order stays exactly what it was before
+    /// insertion-ordered storage: the ordinal sort is total, but not necessarily stable, and the
+    /// observable order of the stored atoms is part of the behaviour the matrices depend on.</summary>
+    private readonly bool _hasTiedKeys;
     private readonly bool _unsatisfiable;
 
-    private AssumptionSet(ImmutableArray<Assumption> atoms, bool unsatisfiable = false)
+    private AssumptionSet(ImmutableArray<Assumption> atoms, ImmutableArray<string> keys,
+        bool unsatisfiable = false, bool hasTiedKeys = false)
     {
         _atoms = atoms;
+        _keys = keys;
         _unsatisfiable = unsatisfiable;
+        _hasTiedKeys = hasTiedKeys;
     }
 
-    public static readonly AssumptionSet Empty = new(ImmutableArray<Assumption>.Empty);
+    public static readonly AssumptionSet Empty = new(ImmutableArray<Assumption>.Empty, ImmutableArray<string>.Empty);
 
     /// <summary>Sentinel for a provably contradictory condition set (no model exists).
     /// Distinct from <see cref="Empty"/>: an unsatisfiable branch is not the absence of
     /// conditions — it is a contradiction that must be pruned or reported.</summary>
-    public static readonly AssumptionSet Unsatisfiable = new(ImmutableArray<Assumption>.Empty, unsatisfiable: true);
+    public static readonly AssumptionSet Unsatisfiable =
+        new(ImmutableArray<Assumption>.Empty, ImmutableArray<string>.Empty, unsatisfiable: true);
 
     public ImmutableArray<Assumption> Atoms => _atoms;
 
@@ -79,7 +92,29 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                 builder.Add(a);
         }
         builder.Sort(static (x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
-        return new AssumptionSet(builder.ToImmutable());
+        var ordered = builder.ToImmutable();
+        var keys = KeysOf(ordered);
+        return new AssumptionSet(ordered, keys, hasTiedKeys: HasTies(keys));
+    }
+
+    /// <summary>The ordering key of one atom: its own rendering, ordinal-compared. Computed once per
+    /// atom rather than once per comparison.</summary>
+    private static ImmutableArray<string> KeysOf(ImmutableArray<Assumption> ordered)
+    {
+        var keys = ImmutableArray.CreateBuilder<string>(ordered.Length);
+        for (int i = 0; i < ordered.Length; i++)
+            keys.Add(ordered[i].ToString());
+        return keys.ToImmutable();
+    }
+
+    private static bool HasTies(ImmutableArray<string> keys)
+    {
+        for (int i = 1; i < keys.Length; i++)
+        {
+            if (string.CompareOrdinal(keys[i - 1], keys[i]) == 0)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>True when this set is the <see cref="Unsatisfiable"/> sentinel.</summary>
@@ -95,8 +130,25 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
             return this;
         if (_atoms.Contains(a))
             return this;
-        var next = _atoms.Add(a).Sort(static (x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
-        var probe = new AssumptionSet(next);
+
+        // Ordered insertion: the key is rendered once and the atom goes straight to its ordinal
+        // position, so an insertion neither re-renders nor re-sorts the rest of the collection.
+        // The exception is a tie (two distinct atoms rendering identically): there the ordinal
+        // order does not decide the arrangement, so the historical re-sort is kept for that set.
+        var key = a.ToString();
+        AssumptionSet probe;
+        if (_hasTiedKeys)
+        {
+            probe = AppendAndSort(a);
+        }
+        else
+        {
+            int index = LowerBound(key, out bool tied);
+            probe = tied
+                ? AppendAndSort(a)
+                : new AssumptionSet(_atoms.Insert(index, a), _keys.Insert(index, key));
+        }
+
         var negation = Negate(a);
         if (negation is not null && probe.Ask(negation) == Tristate.True)
             throw new AssumptionContradictionException(
@@ -110,6 +162,32 @@ public sealed class AssumptionSet : IEquatable<AssumptionSet>
                 $"Assumption {Describe(a)} leaves no integer satisfying the existing assumptions.");
 
         return probe;
+    }
+
+    /// <summary>Index of the first stored key that is not ordinal-less than <paramref name="key"/> —
+    /// the insertion point keeping <see cref="_keys"/> ordinal-sorted. <paramref name="tied"/>
+    /// reports that an equal key is already stored.</summary>
+    private int LowerBound(string key, out bool tied)
+    {
+        int lo = 0, hi = _keys.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (string.CompareOrdinal(_keys[mid], key) < 0)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+        tied = lo < _keys.Length && string.CompareOrdinal(_keys[lo], key) == 0;
+        return lo;
+    }
+
+    /// <summary>The historical path, kept verbatim for tied keys: append and re-sort the whole
+    /// array. Reached only for a set that already stores two identically-rendered atoms.</summary>
+    private AssumptionSet AppendAndSort(Assumption a)
+    {
+        var next = _atoms.Add(a).Sort(static (x, y) => string.CompareOrdinal(x.ToString(), y.ToString()));
+        return new AssumptionSet(next, KeysOf(next), hasTiedKeys: true);
     }
 
     /// <summary>True when the symbol constrained by <paramref name="a"/> is known to be an integer

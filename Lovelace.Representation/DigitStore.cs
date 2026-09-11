@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Diagnostics;
 using System.Text;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -600,6 +601,14 @@ public class DigitStore
 
         if (isZero)
             return "0";
+
+        // The compiler cannot correlate `isZero` with the assignment above, because that
+        // assignment happens inside the lock's nested branch, so state the invariant it
+        // cannot see: whenever !_isZero the rented snapshot is non-null (ArrayPool.Rent
+        // never returns null, and the buffer is assigned before the lock is released).
+        // Debug.Assert is annotated [DoesNotReturnIf(false)], which also discharges CS8602,
+        // and it compiles away in Release, so runtime behaviour is unchanged.
+        Debug.Assert(bytesSnapshot is not null);
 
         try
         {

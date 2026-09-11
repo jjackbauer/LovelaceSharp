@@ -13,13 +13,19 @@ namespace Lovelace.Symbolics.Tests;
 /// </summary>
 public class FalsificationTests
 {
-    // boundary-biased points: magnitudes around the singular/ordering boundaries of the rules
-    private static readonly Rat[] AllPoints =
+    // boundary-biased points: magnitudes around the singular/ordering boundaries of the rules.
+    // Round 27 keeps every one of these 13 points, in this order, and widens the sweep with
+    // near-pole / near-branch-cut / near-discontinuity / assumption-boundary regions
+    // (see FalsificationRegions in FalsificationGateTests.cs). Superset only.
+    internal static readonly Rat[] LegacyPoints =
     {
         Rat.From(-100, 1), Rat.From(-5, 1), Rat.From(-3, 2), Rat.From(-1, 1), Rat.From(-1, 3),
         Rat.From(-1, 1000), Rat.Zero, Rat.From(1, 1000), Rat.From(1, 3), Rat.From(1, 1),
         Rat.From(3, 2), Rat.From(5, 1), Rat.From(100, 1),
     };
+
+    /// <summary>The widened sample set: the 13 legacy points plus every round-27 region.</summary>
+    private static readonly Rat[] AllPoints = FalsificationRegions.AllRealPoints;
 
     private static ExprContext NewCtx()
     {

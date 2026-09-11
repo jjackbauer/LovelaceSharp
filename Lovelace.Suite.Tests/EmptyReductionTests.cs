@@ -44,7 +44,7 @@ public class EmptyReductionTests
         var result = await Eval("zeros(0)");
 
         Assert.Equal(ValueKind.Vector, result.Kind);
-        Assert.Equal(0, result.AsVector().Count);
+        Assert.Empty(result.AsVector());
     }
 
     [Fact]

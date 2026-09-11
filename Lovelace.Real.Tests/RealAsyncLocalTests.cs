@@ -18,7 +18,7 @@ public class RealAsyncLocalTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Pi_GivenConcurrentTasksWithDifferentLocalPrecisions_PrecisionDoesNotLeakAcrossTasks()
+    public async Task Pi_GivenConcurrentTasksWithDifferentLocalPrecisions_PrecisionDoesNotLeakAcrossTasks()
     {
         // Two sibling tasks each establish a distinct local precision value;
         // after synchronising on a barrier (so both are active simultaneously),
@@ -49,7 +49,7 @@ public class RealAsyncLocalTests
             }
         });
 
-        Task.WhenAll(taskA, taskB).GetAwaiter().GetResult();
+        await Task.WhenAll(taskA, taskB);
 
         // AsyncLocal values are per-ExecutionContext; lateral leakage cannot occur.
         Assert.Equal(precisionA, observedA);
@@ -61,7 +61,7 @@ public class RealAsyncLocalTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Sqrt_GivenBatchWithCallerLocalPrecision_EachChildTaskInheritsCallerPrecision()
+    public async Task Sqrt_GivenBatchWithCallerLocalPrecision_EachChildTaskInheritsCallerPrecision()
     {
         // .NET captures the caller's ExecutionContext (including AsyncLocal values)
         // at Task.Run() call time.  Tasks spawned inside a WithLocalPrecision scope
@@ -78,7 +78,7 @@ public class RealAsyncLocalTests
             childB = Task.Run(() => Real.MaxComputationDecimalPlaces);
         }
 
-        long[] results = Task.WhenAll(childA, childB).GetAwaiter().GetResult();
+        long[] results = await Task.WhenAll(childA, childB);
 
         Assert.Equal(callerPrecision, results[0]);
         Assert.Equal(callerPrecision, results[1]);
@@ -120,7 +120,7 @@ public class RealAsyncLocalTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Pi_StaticDisplayDecimalPlaces_ConcurrentReadsMutationsAreAtomic()
+    public async Task Pi_StaticDisplayDecimalPlaces_ConcurrentReadsMutationsAreAtomic()
     {
         // Concurrent reads and writes via Interlocked.Read/Exchange must
         // never produce a torn (half-written) value.  Every observed value
@@ -140,7 +140,7 @@ public class RealAsyncLocalTests
                     invalidObservations.Add(read);
             })).ToArray();
 
-            Task.WaitAll(tasks);
+            await Task.WhenAll(tasks);
         }
         finally
         {

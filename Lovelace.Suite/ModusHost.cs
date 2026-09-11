@@ -74,6 +74,7 @@ public sealed class ModusHost : IModusContext
         GuardName(name);
         _interpreter.RegisterBuiltin(name, parameters, args =>
         {
+            CheckArity(name, parameters, variadic: false, minArity: -1, args);
             using var scope = PluginPrecisionScope();
             return WrapResult(implementation(UnwrapArguments(args)));
         });
@@ -89,6 +90,7 @@ public sealed class ModusHost : IModusContext
         GuardName(descriptor.Name);
         _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
         {
+            CheckArity(descriptor.Name, descriptor.Parameters, descriptor.Variadic, descriptor.MinArity, args);
             using var scope = PluginPrecisionScope();
             return WrapResult(implementation(UnwrapArguments(args)));
         }, descriptor);
@@ -103,10 +105,30 @@ public sealed class ModusHost : IModusContext
         GuardName(descriptor.Name);
         _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
         {
+            CheckArity(descriptor.Name, descriptor.Parameters, descriptor.Variadic, descriptor.MinArity, args);
             using var scope = PluginPrecisionScope();
             return WrapResult(implementation(UnwrapArguments(args)).Payload);
         }, descriptor);
         StampPlugin(descriptor.Name);
+    }
+
+    /// <summary>
+    /// Enforces the DECLARED arity once, before an implementation body can index an argument that
+    /// was never supplied: <c>Parameters.Count</c> is the upper bound, <c>MinArity</c> the lower
+    /// bound (<c>-1</c> means exactly the declared count) and <c>Variadic</c> removes the upper
+    /// bound because the last declared parameter may repeat. A shorter call is legal only when the
+    /// descriptor says so through <c>MinArity</c> — a metadata correction, never a name special
+    /// case.
+    /// </summary>
+    private static void CheckArity(string name, IReadOnlyList<string> parameters, bool variadic,
+        int minArity, IReadOnlyList<Value> args)
+    {
+        int declared = parameters.Count;
+        int min = minArity >= 0 ? Math.Min(minArity, declared) : declared;
+        int max = variadic ? int.MaxValue : declared;
+        if (args.Count >= min && args.Count <= max)
+            return;
+        throw new BuiltinArityException(name, min, declared, variadic, args.Count);
     }
 
     private void GuardName(string name)
@@ -184,4 +206,52 @@ public sealed class ModusHost : IModusContext
     }
 
     private static Value WrapResult(object? result) => PayloadMap.Wrap(result);
+}
+
+/// <summary>
+/// A call-site arity failure: typed and structural rather than a framework index error. It derives
+/// from <see cref="ArgumentException"/> so the runner's taxonomy classifies it as a RECOVERABLE
+/// argument error (code <c>InvalidArgument</c>, category <c>TypeMismatch</c>) instead of an internal
+/// invariant failure, and it names the builtin and both counts so the caller can fix the call
+/// without parsing prose:
+/// <c>compile_full(): expected 2 arguments; got 1.</c>
+/// </summary>
+public sealed class BuiltinArityException : ArgumentException
+{
+    public BuiltinArityException(string builtin, int expectedMin, int expectedMax, bool variadic, int actual)
+        : base(Describe(builtin, expectedMin, expectedMax, variadic, actual))
+    {
+        Builtin = builtin;
+        ExpectedMin = expectedMin;
+        ExpectedMax = expectedMax;
+        Variadic = variadic;
+        Actual = actual;
+    }
+
+    /// <summary>The builtin whose declared arity the call violated.</summary>
+    public string Builtin { get; }
+
+    /// <summary>The declared minimum argument count.</summary>
+    public int ExpectedMin { get; }
+
+    /// <summary>The declared upper bound (<see cref="int.MaxValue"/> when <see cref="Variadic"/>).</summary>
+    public int ExpectedMax { get; }
+
+    /// <summary>True when the last declared parameter may repeat.</summary>
+    public bool Variadic { get; }
+
+    /// <summary>The argument count the call actually supplied.</summary>
+    public int Actual { get; }
+
+    private static string Describe(string builtin, int min, int max, bool variadic, int actual)
+    {
+        string expected = variadic
+            ? $"at least {min} {Argument(min)}"
+            : min == max
+                ? $"{min} {Argument(min)}"
+                : $"{min} to {max} arguments";
+        return $"{builtin}(): expected {expected}; got {actual}.";
+    }
+
+    private static string Argument(int count) => count == 1 ? "argument" : "arguments";
 }

@@ -111,7 +111,7 @@ public class RealPiTests
     // -------------------------------------------------------------------------
 
     [Fact]
-    public void Pi_GivenConcurrentCallsFromMultipleThreads_AllReturnConsistentResults()
+    public async Task Pi_GivenConcurrentCallsFromMultipleThreads_AllReturnConsistentResults()
     {
         // Launching 8 concurrent PiTo(10) computations must all return "3.1415926535".
         // BSP sub-range lambdas operate on independent local variables, so no
@@ -127,7 +127,7 @@ public class RealPiTests
             var tasks = Enumerable.Range(0, taskCount)
                 .Select(_ => Task.Run(() => Real.PiTo(10).ToString()))
                 .ToArray();
-            string[] results = Task.WhenAll(tasks).GetAwaiter().GetResult();
+            string[] results = await Task.WhenAll(tasks);
             Assert.All(results, r => Assert.Equal(expected, r));
         }
     }

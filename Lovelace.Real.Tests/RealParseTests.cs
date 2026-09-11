@@ -85,6 +85,7 @@ public class RealParseTests
     {
         bool ok = Real.TryParse("3.14", out var r);
         Assert.True(ok);
+        Assert.NotNull(r);
         Assert.Equal("3.14", r.ToString());
     }
 

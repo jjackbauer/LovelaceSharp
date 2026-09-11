@@ -19,6 +19,9 @@
     <ProjectReference Include="..\Lovelace.MathIR\Lovelace.MathIR.csproj" />
     <ProjectReference Include="..\Lovelace.Suite\Lovelace.Suite.csproj" />
     <ProjectReference Include="..\Lovelace.Dsp\Lovelace.Dsp.csproj" />
+    <!-- Round 22: the capabilities() honesty test compares the advertised codes against the
+         codes the published Lovelace.Run envelope actually produces for the same calls. -->
+    <ProjectReference Include="..\Lovelace.Run\Lovelace.Run.csproj" />
   </ItemGroup>
 
   <ItemGroup>

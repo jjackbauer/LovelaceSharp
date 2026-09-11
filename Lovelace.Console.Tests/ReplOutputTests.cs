@@ -76,7 +76,9 @@ public class ReplOutputTests
         Assert.Equal("Symbolics", lines[1]); // lines[0] is the echoed "» funcs symbolics" prompt line
         ReplHarness.AssertHasLine(t, "  factor(f)");
         ReplHarness.AssertHasLine(t, "  simplify(f)");
-        ReplHarness.AssertHasLine(t, "  symbol(name, domain)");
+        // symbol's second parameter is declared optional (MinArity 1) and the signature renderer
+        // distinguishes required from optional parameters, so the listing must say so
+        ReplHarness.AssertHasLine(t, "  symbol(name [, domain])");
         Assert.True(lines.Count(l => l.StartsWith("  ", StringComparison.Ordinal)) >= 30,
             $"expected a full category listing:{Environment.NewLine}{t}");
     }

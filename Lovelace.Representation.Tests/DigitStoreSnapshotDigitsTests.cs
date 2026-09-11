@@ -34,7 +34,7 @@ public class DigitStoreSnapshotDigitsTests
 
         byte[] snapshot = store.SnapshotDigits();
 
-        Assert.Equal(1, snapshot.Length);
+        Assert.Single(snapshot);
         Assert.Equal(5, snapshot[0]);
     }
 
