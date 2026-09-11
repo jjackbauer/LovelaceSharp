@@ -1,0 +1,739 @@
+diff --git a/Lovelace.Abstractions/InputDepth.cs b/Lovelace.Abstractions/InputDepth.cs
+index 8879c1a..f87b9b2 100644
+--- a/Lovelace.Abstractions/InputDepth.cs
++++ b/Lovelace.Abstractions/InputDepth.cs
+@@ -22,6 +22,8 @@ namespace Lovelace.Abstractions;
+ /// which the shipped suites use — is legitimate, wide input whose parsed tree is one level per
+ /// operator; at 256 the budget would have refused that shipped test. Anything deeper than 256 that
+ /// reaches canonical construction is still refused by <see cref="Max"/>.</item>
++/// <item><see cref="MaxValueDepth"/> (1024) protects the walks over a run-time VALUE — the display
++/// walk and the structured projection — neither of which the budgets above can see.</item>
+ /// </list>
+ /// </summary>
+ public static class InputDepth
+@@ -33,6 +35,31 @@ public static class InputDepth
+     /// <summary>The greatest depth the PARSED tree may have. Only the interpreter's tree walk
+     /// reads it, and only a flat left-associative chain can get there without nesting.</summary>
+     public const int MaxParsedTreeDepth = 512;
++
++    /// <summary>The greatest number of levels a run-time VALUE may be deep when it is rendered.
++    /// The measure counts what the renderers recurse over: a rank-R array costs R levels (the
++    /// display walk descends one level per DIMENSION, not per element), a record costs one level,
++    /// and a scalar is level 1. A flat 20000-element vector is therefore 2 levels; a rank-N array
++    /// holding one scalar — <c>x = 1; x = [x]; x = [x]; …</c> — is N + 1.
++    /// <para>
++    /// This budget protects a third walk, and one that neither budget above can see. The display
++    /// walk (<c>ValueFormatter.Format</c>: <c>print</c>, string interpolation, the variable capture,
++    /// the result's <c>display</c>) and the wire projection
++    /// (<c>StructuredProjection.ToStructured</c>: the result's and each variable's
++    /// <c>structured</c> form) recurse over that shape. A value built by REPETITION is deep in
++    /// NEITHER the source (every statement is flat) nor the parsed tree (every statement is
++    /// shallow), and it never reaches canonical symbolic construction, so nothing above measures it.
++    /// </para>
++    /// <para>
++    /// Measured on the shipped Native-AOT binary (Windows, Release, 1 MB stack, the tighter of the
++    /// two runtimes this engine ships on): the display walk survives 10500 repetitions of
++    /// <c>x = [x]</c> and dies at 11000 with 0xC00000FD and 0 bytes on stdout, and the variable
++    /// capture reaches the same walk first. 1024 therefore keeps a factor-10 margin, while staying
++    /// far above any depth a legitimate program builds — the shipped suites never nest a value more
++    /// than a handful of levels, and a WIDE array is not deep (20000 elements are 2 levels).
++    /// </para>
++    /// </summary>
++    public const int MaxValueDepth = 1024;
+ }
+ 
+ /// <summary>
+diff --git a/Lovelace.Run.Tests/ValueDepthEnvelopeTests.cs b/Lovelace.Run.Tests/ValueDepthEnvelopeTests.cs
+new file mode 100644
+index 0000000..928d44c
+--- /dev/null
++++ b/Lovelace.Run.Tests/ValueDepthEnvelopeTests.cs
+@@ -0,0 +1,227 @@
++using System.Text;
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// A value built by REPETITION — <c>x = 1; x = [x]; x = [x]; …</c> — is valid input whose VALUE is
++/// deeply nested while the source and the parsed tree stay flat, so neither of the input budgets
++/// (Lovelace.Abstractions.InputDepth) can see it. On the pre-fix tree every level of that value is a
++/// native recursion in the renderer: the variable capture dies first, the process is terminated by
++/// the OS with 0xC00000FD, stdout carries NO envelope at all, and the agent-facing protocol has
++/// nothing to report. The guard under test turns that death into one JSON envelope with a non-zero
++/// exit code and a code/category that names the condition.
++/// <para>
++/// The code, the category and the budget are asserted as WIRE STRINGS (never as a reference to the
++/// exception type or to <c>InputDepth.MaxValueDepth</c>) so this file compiles against the pre-fix
++/// tree as well — that is what makes the control-tree evidence (the test host dying with
++/// 0xC00000FD) reproducible with it.
++/// </para>
++/// </summary>
++public class ValueDepthEnvelopeTests
++{
++    /// <summary>The value-nesting budget (Lovelace.Abstractions.InputDepth.MaxValueDepth).</summary>
++    private const int MaxValueDepth = 1024;
++
++    /// <summary>The wire code naming a depth refusal.</summary>
++    private const string DepthCode = "DepthExceeded";
++
++    /// <summary>Its category: an exhausted budget, not a domain error and not an invariant failure.</summary>
++    private const string DepthCategory = "BudgetExceeded";
++
++    /// <summary>
++    /// The script the audit filed: <c>x = 1</c> then <paramref name="wraps"/> assignments of
++    /// <c>x = [x]</c>. The scalar leaf is level 1, so the value left in <c>x</c> — and the result the
++    /// last assignment produced — nests <c>wraps + 1</c> levels.
++    /// </summary>
++    private static string WrapScript(int wraps)
++    {
++        var sb = new StringBuilder("x = 1");
++        for (int i = 0; i < wraps; i++)
++            sb.Append("; x = [x]");
++        return sb.ToString();
++    }
++
++    // ------------------------------------------------------------------
++    // The audit's exact script
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// 20000 wraps: the finding. Pre-fix this is exit 3221225725 (0xC00000FD) with 0 bytes on
++    /// stdout; the refusal must instead be a well-formed envelope naming the condition.
++    /// </summary>
++    [Fact]
++    public async Task TheAuditScript_IsATypedRefusal_WithAWellFormedEnvelope()
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            WrapScript(20000), "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>(),
++            "the caller can rebuild the value with less nesting, so the refusal is recoverable");
++        Assert.Equal(1, envelope["protocolVersion"]!.GetValue<int>());
++        Assert.Equal("", stderr);
++        // the message names the measured depth and the budget it broke
++        Assert.Matches(
++            @"value depth \d+ exceeds the maximum supported nesting depth of 1024\.",
++            envelope["message"]!.GetValue<string>());
++        // the measured depth is the real one: 20000 repetitions raise the array's RANK, and the
++        // guard reports the value it actually measured rather than the budget it broke
++        Assert.Contains("value depth 20001", envelope["message"]!.GetValue<string>());
++    }
++
++    /// <summary>
++    /// The same script with a print appended dies on the pre-fix tree too — the overflow is not only
++    /// the capture on the way out. The refusal must come from the print's own render.
++    /// </summary>
++    [Fact]
++    public async Task ADeepValueOnThePrintPath_IsAlsoRefused()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            WrapScript(20000) + "; print(x)", "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++    }
++
++    /// <summary>
++    /// A deep value that is NOT held by any variable when the script ends: the loop's block-local
++    /// <c>x</c> is gone, so only the RESULT is deep and only the result projection can refuse it.
++    /// This is the shape that proves the guard covers the result's own render, not merely the
++    /// variable capture.
++    /// </summary>
++    [Fact]
++    public async Task ADeepResultWithNoDeepVariable_IsAlsoRefused()
++    {
++        var sb = new StringBuilder("for i in 1..1 { x = 1");
++        for (int i = 0; i < 20000; i++)
++            sb.Append("; x = [x]");
++        sb.Append("; x }");
++
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            sb.ToString(), "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++    }
++
++    // ------------------------------------------------------------------
++    // The boundary: limit-1 accepted, limit+1 refused
++    // ------------------------------------------------------------------
++
++    /// <summary>Wraps whose value measures EXACTLY <paramref name="depth"/>: the scalar leaf is
++    /// level 1, so <c>depth - 1</c> wraps measure <paramref name="depth"/>. (Verified against the
++    /// reported depth of the refusal at <c>depth + 1</c>: 1023 wraps are accepted, 1024 report
++    /// "value depth 1025".)</summary>
++    private static string WrapsAtDepth(int depth) => WrapScript(depth - 1);
++
++    [Fact]
++    public async Task ValueAtTheLimit_IsAccepted()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            WrapsAtDepth(MaxValueDepth), "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++
++        Assert.True(envelope["ok"]!.GetValue<bool>(),
++            $"a value of depth {MaxValueDepth} is exactly the budget and must be accepted. exit={exitCode} stdout={stdout}");
++        Assert.Equal(0, exitCode);
++        Assert.Null(envelope["code"]);
++    }
++
++    [Fact]
++    public async Task ValueOnePastTheLimit_IsRefused()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            WrapsAtDepth(MaxValueDepth + 1), "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++
++        Assert.NotEqual(0, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>(), $"ok must be false. Envelope: {stdout}");
++        Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++        Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++        // the refusal names the depth it measured, so the boundary is observable on the wire
++        Assert.Contains($"value depth {MaxValueDepth + 1}", envelope["message"]!.GetValue<string>());
++    }
++
++    // ------------------------------------------------------------------
++    // The property: increasing wraps answer or refuse, and never die
++    // ------------------------------------------------------------------
++
++    public static IEnumerable<object[]> IncreasingWrapCounts()
++    {
++        foreach (int wraps in new[] { 1, 2, 8, 64, 512, 1023, 1024, 1025, 4096, 20000 })
++            yield return new object[] { wraps };
++    }
++
++    /// <summary>
++    /// For increasing wrap counts the runner must produce EITHER a correct envelope OR a typed
++    /// refusal — and the boundary must be the published one: every count whose value fits the
++    /// budget is answered, every count past it is refused. A process death is not representable as
++    /// an assertion failure (the host dies with it), which is exactly why the pre-fix run of this
++    /// theory is the evidence: it kills the test host at 20000 wraps.
++    /// </summary>
++    [Theory]
++    [MemberData(nameof(IncreasingWrapCounts))]
++    public async Task IncreasingWrapCounts_AnswerOrRefuse_NeverDie(int wraps)
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            WrapScript(wraps), "--omit-functions", "--omit-variables");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "runner stdout");
++        int depth = wraps + 1;
++
++        if (depth <= MaxValueDepth)
++        {
++            Assert.True(envelope["ok"]!.GetValue<bool>(),
++                $"{wraps} wraps (value depth {depth}) is within the budget of {MaxValueDepth} and must be answered. "
++                + $"exit={exitCode} stderr={stderr} stdout={Describe(stdout)}");
++            Assert.Equal(0, exitCode);
++        }
++        else
++        {
++            Assert.False(envelope["ok"]!.GetValue<bool>(),
++                $"{wraps} wraps (value depth {depth}) is past the budget of {MaxValueDepth} and must be refused. "
++                + $"stdout={Describe(stdout)}");
++            Assert.Equal(1, exitCode);
++            Assert.Equal(DepthCode, envelope["code"]!.GetValue<string>());
++            Assert.Equal(DepthCategory, envelope["category"]!.GetValue<string>());
++            Assert.True(envelope["recoverable"]!.GetValue<bool>());
++        }
++    }
++
++    private static string Describe(string text) =>
++        text.Length <= 240 ? text : text.Substring(0, 240) + "...";
++
++    // ------------------------------------------------------------------
++    // The guard must not refuse legitimate values
++    // ------------------------------------------------------------------
++
++    /// <summary>Wide is not deep: a 20000-element flat vector and a handful of nested levels are
++    /// ordinary values and must keep crossing unchanged.</summary>
++    [Fact]
++    public async Task LegitimateValues_AreNotRefused()
++    {
++        var (wideExit, wideStdout, _) = await TestSupport.RunScriptAsync(
++            "v = 1..20000; v[19999]", "--omit-functions", "--omit-variables");
++        JsonNode wide = TestSupport.ParseExactlyOneJsonDocument(wideStdout, "runner stdout");
++        Assert.Equal(0, wideExit);
++        Assert.True(wide["ok"]!.GetValue<bool>(), $"a 20000-element flat vector must still run. Envelope: {Describe(wideStdout)}");
++
++        var (nestedExit, nestedStdout, _) = await TestSupport.RunScriptAsync(
++            "x = 1; for i in 1..20 { x = [x] }; x", "--omit-functions", "--omit-variables");
++        JsonNode nested = TestSupport.ParseExactlyOneJsonDocument(nestedStdout, "runner stdout");
++        Assert.Equal(0, nestedExit);
++        Assert.True(nested["ok"]!.GetValue<bool>(), $"a 21-level nested value must still run. Envelope: {Describe(nestedStdout)}");
++        Assert.Equal("Array", nested["result"]!["kind"]!.GetValue<string>());
++    }
++}
+diff --git a/Lovelace.Suite.Tests/ValueDepthGuardTests.cs b/Lovelace.Suite.Tests/ValueDepthGuardTests.cs
+new file mode 100644
+index 0000000..17ffd6c
+--- /dev/null
++++ b/Lovelace.Suite.Tests/ValueDepthGuardTests.cs
+@@ -0,0 +1,172 @@
++using Xunit;
++
++namespace Lovelace.Suite.Tests;
++
++/// <summary>
++/// The run-time VALUE budget, at the two walks it protects. A value built one level at a time —
++/// <c>x = 1; x = [x]; x = [x]; …</c> — is deep in neither the source (every statement is flat) nor
++/// the parsed tree (every statement is shallow), so neither input budget sees it; the display walk
++/// and the structured projection each recurse once per level and used to exhaust the process stack
++/// (0xC00000FD, no envelope, no exit code).
++/// <para>
++/// The refusal is asserted by type NAME and message text, and the budget as a literal, rather than
++/// by referencing <c>InputDepth.MaxValueDepth</c> or <c>ValueDepth</c> — the whole file therefore
++/// also compiles against the pre-fix tree, which is what makes the control-tree evidence (this test
++/// host dying with 0xC00000FD) reproducible with it.
++/// </para>
++/// </summary>
++public class ValueDepthGuardTests
++{
++    /// <summary>The value-nesting budget (Lovelace.Abstractions.InputDepth.MaxValueDepth).</summary>
++    private const int MaxValueDepth = 1024;
++
++    /// <summary>Builds <paramref name="wraps"/> nested rank-1 arrays around the integer 1: the value
++    /// the script <c>x = 1; x = [x]; …</c> builds. The scalar leaf is level 1, so the value's depth
++    /// is <c>wraps + 1</c>.</summary>
++    private static Value Nested(int wraps)
++    {
++        Value value = new Value(1L);
++        for (int i = 0; i < wraps; i++)
++            value = new Value(new Value[] { value });
++        return value;
++    }
++
++    /// <summary>The same nesting, one level per RECORD instead of per array.</summary>
++    private static Value NestedRecords(int levels)
++    {
++        Value value = new Value(1L);
++        for (int i = 0; i < levels; i++)
++            value = new Value(new Lovelace.Abstractions.RecordValue("Level",
++                new Lovelace.Abstractions.RecordField("inner", value)));
++        return value;
++    }
++
++    /// <summary>The display of <paramref name="wraps"/> nested single-element arrays:
++    /// <c>[[…[1]…]]</c> with one bracket pair per wrap (the scalar itself adds none).</summary>
++    private static string ExpectedDisplay(int wraps) =>
++        new string('[', wraps) + "1" + new string(']', wraps);
++
++    /// <summary>The audit's shape, built by the ENGINE rather than by hand:
++    /// <c>x = 1; x = [x]; …</c> does not nest elements, it raises the array's RANK (a rank-N array
++    /// holding one scalar), so this is what the display walk actually recurses down.</summary>
++    private static Task<Value> RankByRepetition(int wraps) =>
++        new SuiteEngine().EvaluateAsync("x = 1" + string.Concat(Enumerable.Repeat("; x = [x]", wraps)) + "; x");
++
++    /// <summary>A refusal: the typed budget stop, naming the budget it broke and the depth it
++    /// measured. The measured depth is whatever the value really is, so it is only asserted
++    /// exactly at the boundary.</summary>
++    private static void AssertRefusal(Exception? ex)
++    {
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++        Assert.StartsWith("value depth ", ex.Message);
++        Assert.Contains($"exceeds the maximum supported nesting depth of {MaxValueDepth}", ex.Message);
++    }
++
++    /// <summary>A refusal measured at exactly one level past the budget.</summary>
++    private static void AssertRefusalAtTheBoundary(Exception? ex)
++    {
++        Assert.NotNull(ex);
++        Assert.Equal("InputDepthExceededException", ex!.GetType().Name);
++        Assert.Contains(
++            $"value depth {MaxValueDepth + 1} exceeds the maximum supported nesting depth of {MaxValueDepth}",
++            ex.Message);
++    }
++
++    // ------------------------------------------------------------------
++    // The boundary: limit-1 accepted, limit+1 refused
++    // ------------------------------------------------------------------
++
++    [Fact]
++    public void ValueAtTheBudget_IsStillRendered()
++    {
++        Value value = Nested(MaxValueDepth - 1);
++
++        Assert.Equal(ExpectedDisplay(MaxValueDepth - 1), ValueFormatter.Format(value));
++        Assert.Equal("Array", StructuredProjection.ToStructured(value).Kind);
++    }
++
++    /// <summary>
++    /// The audit's exact shape, built by the ENGINE rather than by hand: <c>x = 1; x = [x]; …</c>
++    /// raises the array's RANK (a rank-N array holding ONE scalar) instead of nesting elements, and
++    /// the display walk descends one level per DIMENSION. An element-counting measure calls this two
++    /// levels deep and lets the renderer below it exhaust the stack, which is the defect this test
++    /// pins.
++    /// </summary>
++    [Fact]
++    public async Task ARankRaisedByRepetition_IsRefusedByTheDisplayWalk()
++    {
++        Value atBudget = await RankByRepetition(MaxValueDepth - 1);
++        Assert.Equal(MaxValueDepth - 1, atBudget.AsArrayValue().Rank);
++        Assert.Equal(ExpectedDisplay(MaxValueDepth - 1), ValueFormatter.Format(atBudget));
++
++        Value past = await RankByRepetition(MaxValueDepth);
++        Assert.Equal(MaxValueDepth, past.AsArrayValue().Rank);
++        AssertRefusalAtTheBoundary(Record.Exception(() => ValueFormatter.Format(past)));
++        AssertRefusalAtTheBoundary(Record.Exception(() => StructuredProjection.ToStructured(past)));
++    }
++
++    /// <summary>20000 repetitions — the audit's script — refuses instead of dying, which is only
++    /// possible because the measure is iterative.</summary>
++    [Fact]
++    public async Task ARankFarPastTheBudget_IsRefusedRatherThanExhaustingTheStack()
++    {
++        Value past = await RankByRepetition(20000);
++
++        AssertRefusal(Record.Exception(() => ValueFormatter.Format(past)));
++    }
++
++    [Fact]
++    public void ValueOnePastTheBudget_IsRefusedByTheDisplayWalk()
++    {
++        AssertRefusalAtTheBoundary(Record.Exception(() => ValueFormatter.Format(Nested(MaxValueDepth))));
++    }
++
++    [Fact]
++    public void ValueOnePastTheBudget_IsRefusedByTheStructuredProjection()
++    {
++        AssertRefusalAtTheBoundary(Record.Exception(() => StructuredProjection.ToStructured(Nested(MaxValueDepth))));
++    }
++
++    // ------------------------------------------------------------------
++    // The measure must not itself recurse, and must stop at the budget
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// 20000 levels: the exact value the audit's 20000-statement script builds, and far past the
++    /// measured death of both walks (10500). Both entry points must refuse it, and the refusal must
++    /// be raised by the ITERATIVE measure — a recursive one would die here instead.
++    /// </summary>
++    [Fact]
++    public void AValueFarPastTheBudget_IsRefusedRatherThanExhaustingTheStack()
++    {
++        Value value = Nested(20000);
++
++        AssertRefusal(Record.Exception(() => ValueFormatter.Format(value)));
++        AssertRefusal(Record.Exception(() => StructuredProjection.ToStructured(value)));
++        AssertRefusal(Record.Exception(() => ValueFormatter.FormatTyped(value)));
++    }
++
++    [Fact]
++    public void ADeepRecordChain_IsRefusedTheSameWay()
++    {
++        Assert.NotNull(ValueFormatter.Format(NestedRecords(MaxValueDepth - 1)));
++
++        AssertRefusalAtTheBoundary(Record.Exception(() => ValueFormatter.Format(NestedRecords(MaxValueDepth))));
++        AssertRefusal(Record.Exception(() => StructuredProjection.ToStructured(NestedRecords(20000))));
++    }
++
++    /// <summary>Wide is not deep: a 20000-element flat vector is two levels and must render.</summary>
++    [Fact]
++    public void AWideValue_IsNotRefused()
++    {
++        var elements = new Value[20000];
++        for (int i = 0; i < elements.Length; i++)
++            elements[i] = new Value((long)i);
++
++        string text = ValueFormatter.Format(new Value(elements));
++
++        Assert.StartsWith("[0, 1, 2", text);
++        Assert.EndsWith("19999]", text);
++    }
++}
+diff --git a/Lovelace.Suite/StructuredProjection.cs b/Lovelace.Suite/StructuredProjection.cs
+index 663ccd7..dfb0551 100644
+--- a/Lovelace.Suite/StructuredProjection.cs
++++ b/Lovelace.Suite/StructuredProjection.cs
+@@ -45,7 +45,20 @@ public sealed record StructuredValueDto(
+ /// </summary>
+ public static class StructuredProjection
+ {
+-    public static StructuredValueDto ToStructured(Value value, Printing.PrintBudget? budget = null) => value.Kind switch
++    /// <summary>
++    /// Projects one value. The nesting is measured against <see cref="InputDepth.MaxValueDepth"/>
++    /// BEFORE the projection recurses (see <see cref="ValueDepth"/>): the walk below is a native
++    /// recursion over the value's structure, and a value built by repetition at run time is deep in
++    /// neither the source nor the parsed tree, so no input budget has seen it. The recursion itself
++    /// goes through the private <see cref="Project"/>, so one projection measures once.
++    /// </summary>
++    public static StructuredValueDto ToStructured(Value value, Printing.PrintBudget? budget = null)
++    {
++        ValueDepth.EnsureWithin("value", value);
++        return Project(value, budget);
++    }
++
++    private static StructuredValueDto Project(Value value, Printing.PrintBudget? budget) => value.Kind switch
+     {
+         ValueKind.Record => Record(value.AsRecord(), budget),
+         ValueKind.Vector or ValueKind.Array => Array(value, budget),
+@@ -74,7 +87,7 @@ public static class StructuredProjection
+         "Record",
+         Type: record.TypeName,
+         Fields: record.Fields
+-            .Select(f => new StructuredFieldDto(f.Name, ToStructured((Value)f.Value!, budget)))
++            .Select(f => new StructuredFieldDto(f.Name, Project((Value)f.Value!, budget)))
+             .ToArray());
+ 
+     private static StructuredValueDto Array(Value value, Printing.PrintBudget? budget)
+@@ -85,7 +98,7 @@ public static class StructuredProjection
+             "Array",
+             Type: value.Kind.ToString(),
+             Shape: shape,
+-            Elements: elements.Select(e => ToStructured(e, budget)).ToArray());
++            Elements: elements.Select(e => Project(e, budget)).ToArray());
+     }
+ 
+     private static StructuredValueDto Symbolic(SymExpr e, Printing.PrintBudget? budget)
+diff --git a/Lovelace.Suite/ValueDepth.cs b/Lovelace.Suite/ValueDepth.cs
+new file mode 100644
+index 0000000..d5cb174
+--- /dev/null
++++ b/Lovelace.Suite/ValueDepth.cs
+@@ -0,0 +1,116 @@
++using Lovelace.Abstractions;
++
++namespace Lovelace.Suite;
++
++/// <summary>
++/// The depth of a run-time <see cref="Value"/>, measured with an explicit stack before any recursive
++/// walk over it starts. The measure counts what the renderers recurse over: a rank-R array costs R
++/// levels (the display walk descends one level per dimension), a record costs one, and a scalar is
++/// level 1 — so <c>x = 1; x = [x] × N</c>, which builds a rank-N array holding one scalar, measures
++/// N + 1.
++/// <para>
++/// The budgets in <see cref="InputDepth"/> bound the INPUT: the source's nesting, and the parsed
++/// tree the interpreter walks. A value's nesting is a third thing, and a program can raise it one
++/// level at a time without ever writing a deep expression or a deep statement —
++/// <c>x = 1; x = [x]; x = [x]; …</c> is a flat script whose VALUE is N levels deep. Every render of
++/// that value (the display string of each variable, the result's <c>display</c>, the structured
++/// projection, <c>print</c>, interpolation) is a native recursion of exactly that depth, and native
++/// recursion cannot be caught: once the process stack is exhausted the runtime terminates the process
++/// with 0xC00000FD and no envelope, no exit code and nothing on stdout can be reported.
++/// </para>
++/// <para>
++/// The walk is iterative for the same reason <see cref="AstDepth"/> is: a recursive measure would
++/// itself overflow on the value it is supposed to protect against. It also stops at the first node
++/// past the budget, so refusing a deep value costs one descent to the limit rather than a traversal
++/// of the whole value.
++/// </para>
++/// </summary>
++internal static class ValueDepth
++{
++    /// <summary>Throws <see cref="InputDepthExceededException"/> when <paramref name="value"/> nests
++    /// deeper than <see cref="InputDepth.MaxValueDepth"/>.</summary>
++    internal static void EnsureWithin(string stage, Value value) => Walk(stage, value);
++
++    /// <summary>Throws <see cref="InputDepthExceededException"/> when <paramref name="array"/> nests
++    /// deeper than <see cref="InputDepth.MaxValueDepth"/>.</summary>
++    internal static void EnsureWithin(string stage, ArrayValue array) => Walk(stage, array);
++
++    /// <summary>Throws <see cref="InputDepthExceededException"/> when <paramref name="record"/> nests
++    /// deeper than <see cref="InputDepth.MaxValueDepth"/>.</summary>
++    internal static void EnsureWithin(string stage, RecordValue record) => Walk(stage, record);
++
++    private static void Walk(string stage, object root)
++    {
++        var stack = new Stack<(object Node, int Depth)>();
++        stack.Push((root, 1));
++
++        while (stack.Count > 0)
++        {
++            var (node, depth) = stack.Pop();
++            if (depth > InputDepth.MaxValueDepth)
++                throw new InputDepthExceededException(stage, depth, InputDepth.MaxValueDepth);
++
++            PushChildren(stack, node, depth);
++        }
++    }
++
++    /// <summary>
++    /// Pushes every child of <paramref name="node"/> at the level a RENDERER would recurse to, or
++    /// throws when the node is a container this walk does not know (an unbudgeted recursion).
++    /// <para>
++    /// The level is not simply "one per container":
++    /// </para>
++    /// <list type="bullet">
++    /// <item>A <see cref="Value"/> of kind Array or Record costs one level (its
++    /// <see cref="ArrayValue"/>/<see cref="RecordValue"/> payload is the SAME level, exactly as
++    /// <c>Format</c> does not recurse when it unwraps it), and each record field is one level
++    /// deeper.</item>
++    /// <item>An ARRAY's elements are <c>Rank</c> levels deeper, not one: the display walk descends
++    /// one level per DIMENSION (<c>FormatLevel</c> recurses along the shape, not along the element
++    /// list), so a <c>rank-R</c> array is R native frames deep even when it holds a single scalar.
++    /// This is exactly how a value built by repetition grows — <c>x = 1; x = [x]; x = [x]; …</c>
++    /// makes a rank-N array with ONE element, so an element-counting measure would call it two
++    /// levels and let the renderer below it overflow the stack (measured: the AOT binary dies at
++    /// rank ≈ 10700).</item>
++    /// </list>
++    /// </summary>
++    private static void PushChildren(Stack<(object Node, int Depth)> stack, object node, int depth)
++    {
++        switch (node)
++        {
++            case Value value:
++                switch (value.Kind)
++                {
++                    case ValueKind.Vector or ValueKind.Array:
++                        stack.Push((value.AsArrayValue(), depth));
++                        break;
++                    case ValueKind.Record:
++                        stack.Push((value.AsRecord(), depth));
++                        break;
++                }
++                break;
++
++            case ArrayValue array:
++            {
++                int next = depth + array.Rank;
++                for (long i = 0; i < array.Numel; i++)
++                    stack.Push((array.GetElement(i), next));
++                break;
++            }
++
++            case RecordValue record:
++            {
++                int next = depth + 1;
++                foreach (var field in record.Fields)
++                    if (field.Value is not null)
++                        stack.Push((field.Value, next));
++                break;
++            }
++
++            default:
++                throw new InvalidOperationException(
++                    $"ValueDepth: unhandled node type '{node.GetType().Name}' — a depth budget cannot be "
++                    + "guaranteed for a value container this walk does not know.");
++        }
++    }
++}
+diff --git a/Lovelace.Suite/ValueFormatter.cs b/Lovelace.Suite/ValueFormatter.cs
+index a945adb..13d6bca 100644
+--- a/Lovelace.Suite/ValueFormatter.cs
++++ b/Lovelace.Suite/ValueFormatter.cs
+@@ -6,12 +6,25 @@ namespace Lovelace.Suite;
+ /// Canonical display formatting for <see cref="Value"/> instances, shared by
+ /// interpolation, <c>print</c>, the REPL, and vector rendering. Separates the
+ /// plain value text from the type-suffixed form used in the REPL.
++/// <para>
++/// Every public entry measures the value's nesting against <see cref="InputDepth.MaxValueDepth"/>
++/// BEFORE it recurses (see <see cref="ValueDepth"/>): the rendering below is a native recursion over
++/// the value's structure, and a value built by repetition at run time is deep in neither the source
++/// nor the parsed tree, so no input budget has seen it. The recursion itself goes through the
++/// private <c>…Core</c> methods, so one render measures once rather than once per level.
++/// </para>
+ /// </summary>
+ public static class ValueFormatter
+ {
+     /// <summary>Returns the plain display text of a value (no type suffix). <paramref name="unicode"/>
+     /// selects the Unicode math glyphs (∞ √ π ≤ ≥ ≠) for symbolic rendering; ASCII is the default.</summary>
+-    public static string Format(Value value, bool unicode = false) => value.Kind switch
++    public static string Format(Value value, bool unicode = false)
++    {
++        ValueDepth.EnsureWithin("value", value);
++        return FormatCore(value, unicode);
++    }
++
++    private static string FormatCore(Value value, bool unicode = false) => value.Kind switch
+     {
+         ValueKind.Natural  => value.AsNatural().ToString(),
+         ValueKind.Integer  => value.AsInteger().ToString(),
+@@ -24,10 +37,10 @@ public static class ValueFormatter
+         // the member name, never "EnumValue { ... }": an enum reads exactly as the Text form it
+         // replaces did, while the structured form carries the declared enum type
+         ValueKind.Enum     => value.AsEnum().Name,
+-        ValueKind.Vector   => FormatArray(value.AsArrayValue(), unicode),
+-        ValueKind.Array    => FormatArray(value.AsArrayValue(), unicode),
++        ValueKind.Vector   => FormatArrayCore(value.AsArrayValue(), unicode),
++        ValueKind.Array    => FormatArrayCore(value.AsArrayValue(), unicode),
+         ValueKind.Function => $"Function: {value.AsFunction().Name}",
+-        ValueKind.Record   => FormatRecord(value.AsRecord(), unicode),
++        ValueKind.Record   => FormatRecordCore(value.AsRecord(), unicode),
+         ValueKind.Domain   => value.AsDomain().ToString().ToLowerInvariant(),
+         ValueKind.Void     => string.Empty,
+         _                  => value.ToString(),
+@@ -35,6 +48,12 @@ public static class ValueFormatter
+ 
+     /// <summary>Renders an N-dimensional array as nested brackets, e.g. <c>[[1, 2], [3, 4]]</c>.</summary>
+     public static string FormatArray(ArrayValue array, bool unicode = false)
++    {
++        ValueDepth.EnsureWithin("value", array);
++        return FormatArrayCore(array, unicode);
++    }
++
++    private static string FormatArrayCore(ArrayValue array, bool unicode = false)
+     {
+         long[] shape = array.Shape.ToArray();
+         return FormatLevel(array, shape, 0, array.Rank, 0, unicode);
+@@ -46,7 +65,7 @@ public static class ValueFormatter
+         {
+             var parts = new List<string>((int)shape[dim]);
+             for (long i = 0; i < shape[dim]; i++)
+-                parts.Add(Format((Value)array.GetElement(offset + i), unicode));
++                parts.Add(FormatCore((Value)array.GetElement(offset + i), unicode));
+             return "[" + string.Join(", ", parts) + "]";
+         }
+ 
+@@ -61,28 +80,40 @@ public static class ValueFormatter
+ 
+     /// <summary>Renders a structured record compactly, e.g.
+     /// <c>SolveResult(status: Solved, solutions: [-2, 2])</c>. Field order is declaration order.</summary>
+-    public static string FormatRecord(RecordValue record, bool unicode = false) =>
+-        record.TypeName + "(" + string.Join(", ", record.Fields.Select(f => $"{f.Name}: {Format((Value)f.Value!, unicode)}")) + ")";
++    public static string FormatRecord(RecordValue record, bool unicode = false)
++    {
++        ValueDepth.EnsureWithin("value", record);
++        return FormatRecordCore(record, unicode);
++    }
++
++    private static string FormatRecordCore(RecordValue record, bool unicode = false) =>
++        record.TypeName + "(" + string.Join(", ", record.Fields.Select(f => $"{f.Name}: {FormatCore((Value)f.Value!, unicode)}")) + ")";
+ 
+     /// <summary>Returns the value with a type suffix, e.g. <c>"42 (Natural)"</c>.</summary>
+-    public static string FormatTyped(Value value, bool unicode = false) => value.Kind switch
++    public static string FormatTyped(Value value, bool unicode = false)
++    {
++        ValueDepth.EnsureWithin("value", value);
++        return FormatTypedCore(value, unicode);
++    }
++
++    private static string FormatTypedCore(Value value, bool unicode = false) => value.Kind switch
+     {
+         ValueKind.Natural  => $"{value.AsNatural()} (Natural)",
+         ValueKind.Integer  => $"{value.AsInteger()} (Integer)",
+         ValueKind.Real     => $"{value.AsReal()} (Real)",
+         ValueKind.Complex  => $"{value.AsComplex()} (Complex)",
+-        ValueKind.Symbolic => $"{Format(value, unicode)} (Symbolic)",
++        ValueKind.Symbolic => $"{FormatCore(value, unicode)} (Symbolic)",
+         ValueKind.Boolean  => $"{value.AsBoolean()} (Boolean)",
+         ValueKind.Text     => value.AsText(),
+         // a bare member name, exactly as the Text kind it replaces rendered: the typed form of a
+         // record's field stays readable ("status: Solved"), and the enum type is available from
+         // the structured form and from type()
+         ValueKind.Enum     => value.AsEnum().Name,
+-        ValueKind.Vector   => $"{Format(value, unicode)} (Vector)",
+-        ValueKind.Array    => $"{Format(value, unicode)} (Array)",
+-        ValueKind.Function => $"{Format(value, unicode)} (Function)",
+-        ValueKind.Record   => $"{Format(value, unicode)} ({value.AsRecord().TypeName})",
+-        ValueKind.Domain   => $"{Format(value, unicode)} (Domain)",
++        ValueKind.Vector   => $"{FormatCore(value, unicode)} (Vector)",
++        ValueKind.Array    => $"{FormatCore(value, unicode)} (Array)",
++        ValueKind.Function => $"{FormatCore(value, unicode)} (Function)",
++        ValueKind.Record   => $"{FormatCore(value, unicode)} ({value.AsRecord().TypeName})",
++        ValueKind.Domain   => $"{FormatCore(value, unicode)} (Domain)",
+         ValueKind.Void     => "(void)",
+         _                  => value.ToString(),
+     };

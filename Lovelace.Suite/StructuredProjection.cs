@@ -45,7 +45,20 @@ public sealed record StructuredValueDto(
 /// </summary>
 public static class StructuredProjection
 {
-    public static StructuredValueDto ToStructured(Value value, Printing.PrintBudget? budget = null) => value.Kind switch
+    /// <summary>
+    /// Projects one value. The nesting is measured against <see cref="InputDepth.MaxValueDepth"/>
+    /// BEFORE the projection recurses (see <see cref="ValueDepth"/>): the walk below is a native
+    /// recursion over the value's structure, and a value built by repetition at run time is deep in
+    /// neither the source nor the parsed tree, so no input budget has seen it. The recursion itself
+    /// goes through the private <see cref="Project"/>, so one projection measures once.
+    /// </summary>
+    public static StructuredValueDto ToStructured(Value value, Printing.PrintBudget? budget = null)
+    {
+        ValueDepth.EnsureWithin("value", value);
+        return Project(value, budget);
+    }
+
+    private static StructuredValueDto Project(Value value, Printing.PrintBudget? budget) => value.Kind switch
     {
         ValueKind.Record => Record(value.AsRecord(), budget),
         ValueKind.Vector or ValueKind.Array => Array(value, budget),
@@ -74,7 +87,7 @@ public static class StructuredProjection
         "Record",
         Type: record.TypeName,
         Fields: record.Fields
-            .Select(f => new StructuredFieldDto(f.Name, ToStructured((Value)f.Value!, budget)))
+            .Select(f => new StructuredFieldDto(f.Name, Project((Value)f.Value!, budget)))
             .ToArray());
 
     private static StructuredValueDto Array(Value value, Printing.PrintBudget? budget)
@@ -85,7 +98,7 @@ public static class StructuredProjection
             "Array",
             Type: value.Kind.ToString(),
             Shape: shape,
-            Elements: elements.Select(e => ToStructured(e, budget)).ToArray());
+            Elements: elements.Select(e => Project(e, budget)).ToArray());
     }
 
     private static StructuredValueDto Symbolic(SymExpr e, Printing.PrintBudget? budget)
