@@ -134,13 +134,116 @@ The host log independently shows the page polling `/api/completions`, `/api/stat
    that `2^(1/2)` fails for the same reason as `(-1)^(1/2)`, making the literal item "general
    rational exponents" — a much larger feature than the §4.3 wording.
 
-## 4. PENDING (filled in as the remaining rounds land)
+## 4. Cycle-4 work, verified on the final tree
 
-- §4.1/§4.3 kernel round result and the amended scope boundary in the alignment document.
-- §4.2 falsification partition (nine rules, with dispositions).
-- N21/N22 fix verified by the oracle at `Failed 0 / Passed 6 / Skipped 0`.
-- N23 high-precision `cos` fix with before/after timings.
-- Re-measured sweep and forced rebuild on the final tree.
-- ShortRun benchmark error bars (§4.4), with the non-idle caveat stated.
-- Re-published AOT binary, freshness guard, and the five CI smoke scenarios run locally.
-- The adversarial audit (seven personas) against the re-published binary.
+### 4.1 Numeric core (from the oracle's finding)
+
+| Defect | Fix | Verified by |
+|---|---|---|
+| **N21** `Real` division wrong for divisors just below 1 (`1/0.9` = 1, `1/0.9986…` = 0) | scale-align operands before digit division; drop the leftover scale term (`Real.cs:582-597`, `:646-649`) | Real.Tests 305/0; oracle 6/6; `1/0.9` → `1.(1)` through the runner |
+| **N22** `Real.ToString()` threw on a 2-digit repeating expansion — user-visible as an error envelope for `1 / 0.99` | render periods through `GetDecimalDigit`, always emit the decimal point, treat an all-zero period as none (`:1768-1794`, `:2070-2086`) | `1 / 0.99` → `1.(01)`; runner envelope `ok:true` |
+| **Regression**, introduced by the fix above | the 100-digit cap made `2π − π/6` land at `11π/6 + 1e-100`, so `TrySpecialAngle` missed and `sin(−π/6)` degraded from exactly `−0.5` to `−0.4999…4448…`; repaired by odd/even symmetry (`:1250-1259`, `:1284-1290`) | Dsp.Tests was 60/1 with the defect and is **61/0** after; new `RealTrigSymmetryTests` fails 3/3 on the unfixed tree |
+| **N23** `cos(1/2)` cost 25.4 s at the default precision | the series accumulated ~200× the requested digits (204,270 digits for a 1,010-digit answer) and rendered/reparsed magnitudes in decimal on every operation; replaced with value-preserving binary operations, integer argument reduction and an integer special-angle table | `cos(1/2)` @1000 places **25,398 → 387 ms** (66×), `CosTaylor` 28,517 → 182 ms, with **byte-identical** output (`SHA256 57D36319…B3375` on a 4,519,306-byte digit dump) |
+
+Two independent facts make the N21/N22 fix trustworthy rather than merely green: it was **pre-existing**
+(the pre-fix statements are identical at `35e2609` and the Cycle-3 tip, verified two different ways),
+and the regression it caused was caught by a suite **outside** `Lovelace.Real` — `Lovelace.Real.Tests`'s
+own 295 tests were green throughout.
+
+### 4.2 Section-4 items
+
+| Item | Outcome |
+|---|---|
+| §4.1 exhaustive capability list | `capabilities()`'s unsupported-operation list is now exhaustive; the property that keeps it honest is unchanged — every advertised `code`/`category`/`message` must equal what the live call produces |
+| §4.2 complex treatment for all nine rules | delivered as the **sound maximum**: 5 rules complex-sampled, 4 given a negative control that proves their real-only exclusion necessary (`\|z\|² ≠ z²` at `z = 1+i`, etc.), with a partition test asserting `9 = 5 + 4` and exact id sets. The `AtomHolds` guard was **not** loosened (DEC-007) |
+| §4.3 `sqrt(-1)`/`(-1)^(1/2)` | now answer with **exact** complex values (`i`, `2i`, exact quadratic complex roots) through a Symbolics-layer fallback; `Lovelace.Real`'s contract is unchanged (`Real.Sqrt(-1)` still throws). The alignment document is amended in writing (section N), which also names the four residual bounds |
+| §4.4 benchmark error bars | ShortRun sweeps repeated on one tree with every BenchmarkDotNet report kept, reporting both within-run `Error`/`StdDev` and the across-run spread, on a machine stated to be non-idle |
+| N23 high-precision `cos` | fixed, 66× faster, digits identical (see 4.1) |
+
+### 4.3 Re-measured on the final tree
+
+| Measurement | Result |
+|---|---|
+| Forced full rebuild (`--no-incremental`) | **0 warnings / 0 errors** |
+| Full 15-project sweep | **2494 passed / 0 failed / 6 skipped** (as received: 2439; +55 from Cycle-4 tests) |
+| Native AOT publish | succeeded, 0 warnings, `out/aot/Lovelace.Run.exe` = 5,673,984 bytes, **4.5 s newer than the newest source file** (constraint 7) |
+| The CI `aot-smoke` job's five scenarios, run locally against that binary | **28/28 assertions PASS** — the first time those assertions have ever been executed anywhere |
+| Re-published binary re-audited | see §5 |
+
+> A note on process: the first forced rebuild of the final tree reported 38 "warnings" and looked like a
+> Cycle-4 regression against the zero-warning claim. They were `MSB3061` file-lock warnings caused by a
+> stale `testhost` process left over from an implementer's run, not code warnings. With the lock gone the
+> rebuild is 0/0. The number was wrong; the check was right to raise it.
+
+## 5. Adversarial audit against the re-published binary
+
+Three independent falsifiers attacked `out/aot/Lovelace.Run.exe`, re-published from the final tree
+(constraint 7). They were told to break it, and they did.
+
+| Persona | Probes | Held | Finding | Inconclusive |
+|---|---|---|---|---|
+| P1 numeric boundaries | 222 | 156 | **62** | 4 |
+| P2+P6 wire contract and capability honesty | 51 | 27 | **20** | 4 |
+| P4 symbolic correctness | (see `round-09/`) | | | |
+
+Full tables and reproductions: `docs/goal-cycle-4/round-09/audit-P1-numeric.md`,
+`audit-P2P6-wire.md`.
+
+### 5.1 What the audit found, and what I verified myself
+
+Every finding below I reproduced against the **published binary** with my own command; the ones I
+checked against the pre-Cycle-4 tree are marked pre-existing, which is the attribution that decides
+whether Cycle 4 broke something or merely failed to notice it.
+
+| # | Finding | Mine | Pre-existing? |
+|---|---|---|---|
+| A1 | `(a/b)*b` does not return `a`: `(1/17)*17` = `0.999…`, and `x = (1/17)*17; x == 1` is **`false`** | confirmed | **yes** — identical at `fca8277` |
+| A2 | `2^-100000` returns **0 marked `"exact":true`** (SymPy: 1.2e-9062) | confirmed | **yes** |
+| A3 | `0^(-1.0)` returns **0 marked `"exact":true`**, while `0^-1` is correctly an error | confirmed | **yes** |
+| A4 | `solve_system(x + y == 2, x - y == 0)` — the documented form — returns `InternalError / InternalInvariantFailure` ("Specified cast is not valid."), which `dsh-protocol.md` says must never be an answer | confirmed | not checked |
+| A5 | **§4.1's exhaustiveness claim is false**: all four advertised unsupported entries are byte-accurate (the honesty half holds), but at least **eight** refused operations are unlisted — including `limit_full(sin(x),x,inf)`, whose own diagnostic carries the kernel's `UnsupportedOperation` category, and `integrate_full(exp(-x^2),x)`, which reports `Unevaluated` with **empty** diagnostics | auditor's, with my confirmation of the `solve_system` case | claim was added this cycle |
+| A6 | Stack overflow (exit `0xC00000FD`, zero stdout) on 3000-deep nesting; a `\r` leaks into `print()` output; `SystemSolveResult` has no `completeness` field; error envelopes omit `elapsedTime`/`timings` | auditor's | not checked |
+
+The audit's most valuable property is that it attacked the *system* rather than the item list. A5 is
+the direct consequence: Cycle 4 closed §4.1 on an exhaustiveness claim that an independent search
+falsified within the hour.
+
+## 6. Verdict: the three blockers are closed; the project is NOT claimed A+
+
+**Closed this cycle.** The uncommitted cycle is committed as five reviewable stages, with the P0 wire
+revisions revertible on their own and every intermediate commit verified to build and pass in a clean
+worktree. The SymPy differential oracle executed for the first time in the project's history, found a
+defect in itself (N20) and a wrong answer in the numeric core (N21/N22), and now agrees on all six
+corpora with `Skipped 0`. The Studio UI is browser-verified with two real UI round trips and zero page
+exceptions. §4.2, §4.3, §4.4 and N23 are delivered; the final tree is green (2494/0/6), rebuilds at
+0 warnings, and its re-published AOT binary passes all 28 assertions of the CI smoke job that had
+never run.
+
+**Not claimed.** Cycle 4 does not award itself A+, for two reasons that the report states rather than
+softens:
+
+1. **§4.1 is falsified, not closed.** The maintainer asked for an exhaustive capability list. The list
+   is honest about the entries it has and is not exhaustive: at least eight refused operations are
+   missing, each with a reproduction in `round-09/audit-P2P6-wire.md`. Closing it means transcribing
+   and asserting those classes the way the existing four are — bounded work, not yet done.
+2. **The audit found wrong answers that are labelled exact** (A2, A3) plus a round-trip identity that
+   fails (A1) and an internal invariant failure on a documented call form (A4). All are **pre-existing**
+   — verified against the pre-Cycle-4 tree — so they are inherited, not introduced. They are also the
+   kind of defect that matters most, because `"exact":true` is a machine-readable promise and A2 breaks
+   it silently.
+
+Residual bounds stated in writing rather than implied away: alignment section N.3 (general rational
+exponents, denominator ≥ 3 roots of negative bases, degree ≥ 4 complex algebraic roots, complex `log`
+beyond the principal branch); the oracle's agreement is over 57 sampled cases, not a proof over the
+domain; the benchmark numbers in §4.2 are from a machine that was **not** idle; and the CI jobs
+themselves (`fast-tests`, `sympy-oracle`, `aot-smoke`) still have never executed on a GitHub runner —
+their assertions were reproduced locally instead, which is what the 28/28 smoke result and the
+`Skipped 0` oracle run actually demonstrate.
+
+**What the audit pattern bought, again.** Cycle 3's lesson was that fifteen green rounds hid four live
+defects and that the adversarial audit found them in minutes. Cycle 4 repeated the experiment and got
+the same answer: working the item list produced a green board, and three falsifiers pointed at the
+published binary produced 82 FINDING rows in under an hour — including one that falsified a claim the
+cycle had just written down.
+
+

@@ -1,0 +1,76 @@
+﻿##### 1. headline: false exactness (exact:true, value wrong) #####
+m01_repro_one_over_0_95_times_0_95:  exact flag=True  source=num/den
+   observed digits=1001/1001  = 2249999999999999999999999999999999999999...
+   observed as float(25) = 1.000000000000000000000000
+   exact   as float(25) = 1.000000000000000000000000
+   observed - exact = -4.444444444E-1001  (equal? False)
+m09_one_over_0_55_times_0_55:  exact flag=True  source=num/den
+   observed digits=1001/1001  = 2249999999999999999999999999999999999999...
+   observed as float(25) = 1.000000000000000000000000
+   exact   as float(25) = 1.000000000000000000000000
+   observed - exact = -4.444444444E-1001  (equal? False)
+m19_one_over_0_94_times_0_94:  exact flag=True  source=num/den
+   observed digits=1001/1001  = 1799999999999999999999999999999999999999...
+   observed as float(25) = 1.000000000000000000000000
+   exact   as float(25) = 1.000000000000000000000000
+   observed - exact = -5.555555556E-1001  (equal? False)
+m45_neg_recip_times:  exact flag=True  source=num/den
+   observed digits=1001/1001  = -224999999999999999999999999999999999999...
+   observed as float(25) = -1.000000000000000000000000
+   exact   as float(25) = -1.000000000000000000000000
+   observed - exact = 4.444444444E-1001  (equal? False)
+n08_two_pow_neg5000:  exact flag=True  source=num/den
+   observed digits=1/1  = 0
+   observed as float(25) = 0
+   exact   as float(25) = 7.079811261048172892385615E-1506
+   observed - exact = -7.079811261E-1506  (equal? False)
+n09_two_pow_neg30103:  exact flag=True  source=num/den
+   observed digits=1/1  = 0
+   observed as float(25) = 0
+   exact   as float(25) = 1.241768180598586324148585E-9062
+   observed - exact = -1.241768181E-9062  (equal? False)
+n12_ten_pow_neg1001:  exact flag=True  source=num/den
+   observed digits=1/1  = 0
+   observed as float(25) = 0
+   exact   as float(25) = 1.000000000000000000000000E-1001
+   observed - exact = -1.000000000E-1001  (equal? False)
+p06_zero_pow_real_neg1:  exact flag=True  source=num/den
+   observed digits=1/1  = 0
+   observed as float(25) = 0
+
+##### 2. wrong values flagged exact:false (difference magnitude only) #####
+m07_one_over_0_75_times_0_75: exact flag=False equal? False  1-observed = 2.50000E-1001  (display(1004 chars))
+m11_one_over_0_35_times_0_35: exact flag=False equal? False  1-observed = 1.50000E-1001  (display(1004 chars))
+m16_one_over_0_98_times_0_98: exact flag=False equal? False  1-observed = 9.20000E-1001  (display(1004 chars))
+m17_one_over_0_97_times_0_97: exact flag=False equal? False  1-observed = 7.90000E-1001  (display(1004 chars))
+m18_one_over_0_96_times_0_96: exact flag=False equal? False  1-observed = 6.40000E-1001  (display(1004 chars))
+m29_one_over_17_times_17: exact flag=False equal? False  1-observed = 1.60000E-999  (display(1002 chars))
+m30_one_over_23_times_23: exact flag=False equal? False  1-observed = 1.60000E-999  (display(1002 chars))
+m34_one_over_97_times_97: exact flag=False equal? False  1-observed = 9.10000E-999  (display(1002 chars))
+k01_four_thirds_times_three_quarters: exact flag=False equal? False  1-observed = 2.50000E-1001  (display(1004 chars))
+k19_bad_product_sqrt: exact flag=False equal? False  1-observed = 1.00000E-1000  (display(1002 chars))
+k07_seventeen_times_one_over_17_var: exact flag=False equal? False  1-observed = 1.60000E-999  (display(1002 chars))
+d37_identity_one_over_7_times_7: exact flag=True equal? True  1-observed = 0  (num/den)
+
+##### 3. g11: evalf(1/998001, 40) digits vs SymPy 1000 decimals #####
+engine decimals: 1001  first mismatch index: None
+engine tail: 233243253263273283293303313323
+sympy  same window: 233243253263273283293303313323
+
+##### 4. n07 2^-1001 truncation check #####
+engine len: 1002  engine tail: 7279302626848220825195312
+sympy  head: 0.000000000000000000000000  sympy 1010-digit tail: 0000000000000000000000000
+
+##### 5. timings: slowest envelopes (hang check) #####
+  p35_pow_two_precisions_third: 980.27 ms
+  m09_one_over_0_55_times_0_55: 964.6 �s
+  m03_bound_then_multiply: 959.7 �s
+  m04_exact_rat_20_19_times_19_20: 957.4 �s
+  k18_bad_product_div_self: 660.96 ms
+  k19_bad_product_sqrt: 641.2 ms
+  p31_pow_periodic_base: 614.04 ms
+  d33_identity_a_over_b_mul_b_period3: 553.1 �s
+  k03_one_over_nine_times_nine: 530.4 �s
+  d35_identity_one_over_0_9_times_0_9: 502.5 �s
+total probes measured: 166
+units seen: {'ms', '�s'}

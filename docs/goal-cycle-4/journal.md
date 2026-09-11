@@ -503,3 +503,52 @@
   repairing the invariant and adding an odd-symmetry guard test; (c) the final full 15-project sweep is
   the gate that catches the next one.
 - **Gate**: —
+
+### OBS-007: The adversarial audit worked — and it falsified a claim Cycle 4 had just made
+
+- **Source**: `docs/goal-cycle-4/round-09/audit-P1-numeric.md` (222 probes: 156 HELD / 62 FINDING /
+  4 INCONCLUSIVE), `audit-P2P6-wire.md` (51 probes: 27 HELD / 20 FINDING / 4 INCONCLUSIVE), plus my own
+  re-runs in EVD-193…EVD-196.
+- **Fact**: Three independent falsifiers attacked the re-published binary. The numeric attacker found
+  that `(a/b)*b` does not return `a` — `(1/17)*17` = `0.999…`, `x == 1` is `false` — and that
+  `2^-100000` and `0^(-1.0)` return 0 **marked `exact:true`**. I verified all three against the
+  pre-Cycle-4 tree and they are **pre-existing**, not regressions. The wire/capability attacker tripped
+  every advertised unsupported-operation entry and found them byte-accurate, but found **eight**
+  refused operations the statement omits — falsifying the exhaustiveness that §4.1 was closed on — plus
+  an `InternalInvariantFailure` on `solve_system`'s documented call form.
+- **Implications**: Cycle 4's own deliverables hold (blockers closed, §4.2–§4.4 and N23 delivered,
+  final tree green and re-published), but the cycle **cannot claim A+**: the audit produced 20+ FINDING
+  rows, including P0-class wrong values that are marked exact, and the §4.1 claim it was written to
+  close is falsified. Saying so is the point of running the audit before the report rather than after.
+- **Confidence**: High
+- **Agent**: orchestrator (with three falsifier agents)
+- **Related**: EVD-193, EVD-194, EVD-195, EVD-196, VAL-006
+
+### VAL-006: §4.1's "exhaustive capability list" claim — Falsified
+
+- **Target**: the §4.1 closure claim, and the maintainer's instruction to require an exhaustive
+  operation list.
+- **Method**: An independent auditor tripped all four advertised entries live and compared code,
+  category and message; then attacked the other direction — searching for operations the kernel
+  refuses that the statement does not list.
+- **Evidence examined**: EVD-196. The honesty half **holds** (all four entries byte-accurate). The
+  exhaustiveness half **fails**, eight ways, with reproductions.
+- **Result**: Falsified. `capabilities()` advertises four unsupported classes and the kernel has at
+  least twelve.
+- **Conclusion**: §4.1 is *not* closed. The next round has the exact list to add; each addition needs
+  the same live-envelope transcription and assertion the existing four already carry. Recorded as an
+  open P0 question rather than quietly softened, and the report will not claim otherwise.
+- **Related**: EVD-196, OBS-007
+
+### RISK-005: Wrong values that are labelled exact
+
+- **Risk**: `2^-100000` returns `0` with `"exact":true`. A consumer that trusts the exactness flag —
+  which is precisely what the flag is for — will compute with a wrong value and never see an error.
+- **Likelihood**: High (it reproduces on demand, on both the current and the pre-Cycle-4 tree)
+- **Impact**: High — the flag is a machine-readable promise, and it is false.
+- **Evidence**: EVD-194
+- **Mitigation**: Recorded as an open defect with a reproduction. Not fixed in Cycle 4: it is
+  pre-existing, it is outside the five §4 items the maintainer approved, and a numeric-core change
+  made late in a cycle has already produced one regression in this cycle. It is named in the report's
+  below-A+ list.
+- **Gate**: —
