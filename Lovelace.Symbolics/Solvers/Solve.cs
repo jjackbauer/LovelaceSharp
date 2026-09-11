@@ -37,6 +37,12 @@ public enum SolutionExactness
     Approximate,
     /// <summary>An exact parametric template (a family).</summary>
     ParametricExact,
+    /// <summary>No value is published, so no exactness is claimed: a record whose status is
+    /// <c>Unevaluated</c>/<c>Failed</c> and whose value is Null reports this instead of inheriting
+    /// <see cref="Exact"/> from a default. Cycle 5 added it when an auditor found every unevaluated
+    /// limit claiming exactness about no result; the limit engine projects its own
+    /// <c>LimitExactness.None</c> onto this member so the frozen wire type name stays valid.</summary>
+    None,
 }
 
 /// <summary>
@@ -185,7 +191,12 @@ public static class Solvers
     public static SolutionSet Solve(Expr equation, Symbol x, ExprContext? ctx = null, SolveDomain domain = SolveDomain.Complex)
         => SolveCore(equation, x, ctx, domain, 0);
 
+    /// <summary>The solver's publication boundary: every dispatched result passes the value check
+    /// before it can leave as a <see cref="SolveStatus.Solved"/> (complete) answer.</summary>
     private static SolutionSet SolveCore(Expr equation, Symbol x, ExprContext? ctx, SolveDomain domain, int depth)
+        => EnforceSolutionValues(SolveCoreDispatched(equation, x, ctx, domain, depth), x);
+
+    private static SolutionSet SolveCoreDispatched(Expr equation, Symbol x, ExprContext? ctx, SolveDomain domain, int depth)
     {
         ctx ??= Exprs.Current;
         if (depth > 8)
@@ -247,8 +258,13 @@ public static class Solvers
                 "the numerator vanishes identically; the solution set is the domain minus the denominator's poles.");
         }
 
-        // 3. linear in x with arbitrary (non-polynomial) coefficients
-        if (Algebra.TryCoefficients(f, x, out var coeffs) && coeffs.Count <= 2)
+        // 3. linear in x with arbitrary (non-polynomial) coefficients. TryCoefficients puts the
+        // remainder of a product into the coefficient, so a factor that MENTIONS x — x*exp(x),
+        // x*log(x), -sin(x) — can arrive here as c0 or c1, and root = -c0/c1 is then not a value at
+        // all but a circular answer (x - log(x) = 0 used to "solve" to log(x)). A coefficient of a
+        // linear equation in x is free of x by definition, so that is checked rather than trusted.
+        if (Algebra.TryCoefficients(f, x, out var coeffs) && coeffs.Count <= 2 &&
+            coeffs.All(c => !MentionsSolvedVariable(c, x)))
         {
             var c1 = coeffs.Count == 2 ? coeffs[1] : Exprs.Zero;
             var c0 = coeffs[0];
@@ -594,7 +610,9 @@ public static class Solvers
 
     private static Expr ExprsSqrt(Expr e) => Exprs.Power(e, Exprs.Rational(1, 2));
 
-    /// <summary>Solves exp(u)=c, log(u)=c, u^n=c, sin/cos/tan(u)=c via registry inverses (principal branches).</summary>
+    /// <summary>Solves exp(u)=c, log(u)=c, u^n=c, sin/cos/tan(u)=c via registry inverses. An inverse
+    /// whose solution set is infinite over the requested domain is returned as a parametric family
+    /// (sin/cos/tan and, over the complex field, exp), never as its principal value alone.</summary>
     private static SolutionSet? SolveElementary(Expr f, Symbol x, ExprContext ctx, SolveDomain domain, int depth = 0)
     {
         // bare h(u) = 0 with h invertible (e.g. sin(x) = 0)
@@ -656,6 +674,16 @@ public static class Solvers
                             if (domain == SolveDomain.Real && NumOps.Compare(cv, NumOps.FromLong(0L)) < 0)
                                 return new SolutionSet(SolveStatus.NoSolutions, domain, "exp(u) = c has no real solution for c < 0.");
                         }
+                        // Over the COMPLEX field the inverse of exp is not one value: exp is periodic
+                        // with period 2*pi*i, so exp(u) = c has the infinite family log(c) + 2*pi*k*i
+                        // (k over the integers). Emitting only the principal value would publish one
+                        // member of an infinite set as a COMPLETE solution set, which SolutionSet's
+                        // invariant forbids; the family is emitted exactly as the periodic
+                        // trigonometric inverses emit theirs (SolvePeriodic). The REAL domain keeps
+                        // the single principal value: there exp is injective and log(c) is the whole
+                        // solution set for c > 0 (and there is none otherwise).
+                        if (domain == SolveDomain.Complex)
+                            return SolveExponentialFamily(h, u, c, x, ctx, domain);
                         inverses = new[] { Exprs.Function(ctx.Function("log"), c) };
                         break;
                     case "log":
@@ -866,6 +894,61 @@ public static class Solvers
         return set;
     }
 
+    /// <summary>
+    /// exp(u) = c over the COMPLEX field. exp is periodic with period 2*pi*i, so its inverse is the
+    /// infinite family log(c) + 2*pi*k*i with k over the integers — the same shape
+    /// <see cref="SolvePeriodic"/> emits for the periodic trigonometric inverses, and the reason the
+    /// complex-domain exp branch must not answer with the principal value alone.
+    /// <para>
+    /// c != 0 is the hypothesis the family is valid under: exp is never zero, and log(0) is not a
+    /// value, so for a c that is not numerically decidable the family carries that condition (the
+    /// same conditional-completeness contract a rational solution's denominator condition uses).
+    /// When the argument is composite the family cannot be propagated through it, and the honest
+    /// outcome is <see cref="SolveStatus.Unevaluated"/> — never one root presented as the whole set.
+    /// </para>
+    /// </summary>
+    private static SolutionSet SolveExponentialFamily(Expr h, Expr u, Expr c, Symbol x, ExprContext ctx, SolveDomain domain)
+    {
+        // exp(2x) = c would need x = (log(c) + 2*pi*k*i)/2; the recursion below has no way to keep
+        // k a FAMILY parameter (it would treat k as a free symbol and publish an unbound symbol as
+        // if it were a value), so a composite argument is refused rather than under-reported.
+        if (u is not SymbolExpr)
+            return new SolutionSet(SolveStatus.Unevaluated, domain,
+                "exp(u) = c with composite u is not supported in v1: the inverse of exp over the complex " +
+                "field is the family log(c) + 2*pi*k*i, which cannot be propagated through a composite argument.");
+
+        var k = FreshParameter(ctx, c, u);
+        var kExpr = Exprs.Symbol(k);
+        var period = Exprs.Multiply(Exprs.Multiply(2, Exprs.Pi), Exprs.I);   // 2*pi*i
+        var principal = Exprs.Function(ctx.Function("log"), c);
+        var template = Exprs.Add(principal, Exprs.Multiply(kExpr, period));
+        var family = new SolutionFamily(template, k, period, ParameterDomain.Integers);
+        if (Evaluation.ConstantToNum(c) is null)
+            family = family with
+            {
+                Conditions = AssumptionSet.Empty.Add(new ExpressionPropertyAssumption(c, SymbolPredicate.NonZero)),
+            };
+
+        // The family is a claim about EVERY member, and every member is exp(log(c)) * exp(2*pi*k*i)
+        // = c: the claim is spot-checked at k = 0 against the ORIGINAL equation h - c through the
+        // same residual predicate the inverse-branch candidates pass. A decidable non-zero residual
+        // means the template is not a solution at all, so nothing is claimed; an undecidable residual
+        // (symbolic c) is kept — the conservative policy this file documents.
+        using (Rl.WithPrecision(40, 20))
+        {
+            var principalMember = Evaluation.Substitute(template, ctx,
+                new Dictionary<Symbol, Expr> { [k] = Exprs.Zero });
+            if (ResidualIsZero(Exprs.Subtract(h, c), x, principalMember, ctx, ResidualTolerance()) is false)
+                return new SolutionSet(SolveStatus.Unevaluated, domain,
+                    "the principal member log(c) of the inverse family does not satisfy the original " +
+                    "equation, so no solution set is claimed.");
+        }
+
+        var set = new SolutionSet(SolveStatus.Solved, domain);
+        set.Families.Add(family);
+        return set;
+    }
+
     /// <summary>Chooses a family parameter symbol not colliding with the equation's symbols.</summary>
     private static Symbol FreshParameter(ExprContext ctx, params Expr[] avoid)
     {
@@ -889,6 +972,54 @@ public static class Solvers
             case PowerExpr p: CollectNames(p.Base, into); CollectNames(p.Exponent, into); break;
             case FunctionExpr f: foreach (var arg in f.Arguments) CollectNames(arg, into); break;
         }
+    }
+
+    /// <summary>True when the expression still mentions the solved symbol as a free variable.
+    /// Structural on purpose: the defining polynomial of a RootOf names x as its BOUND variable, so
+    /// <c>rootof(x^4 - x^2 - 1, 0)</c> is a value like any other (CollectNames does not descend into
+    /// it), while <c>log(x)</c> offered as a solution of <c>exp(x) = x</c> is a circular answer.</summary>
+    private static bool MentionsSolvedVariable(Expr e, Symbol x)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        CollectNames(e, names);
+        return names.Contains(x.Name);
+    }
+
+    /// <summary>
+    /// The solver's post-condition on every set it publishes: a solution VALUE — and equally a
+    /// family TEMPLATE — must not contain the symbol being solved for. An expression that still
+    /// mentions x is a circular answer (log(x) "solved" from exp(x) = x), not a root, and it can
+    /// never be a member of a set that claims completeness. Circular entries are dropped; a set that
+    /// lost one is no longer a complete answer: Partial when something else survived, Unevaluated
+    /// when nothing did — never NoSolutions, because a circular derivation proves nothing about
+    /// emptiness.
+    /// </summary>
+    private static SolutionSet EnforceSolutionValues(SolutionSet set, Symbol x)
+    {
+        int circular = 0;
+        for (int i = set.Solutions.Count - 1; i >= 0; i--)
+        {
+            if (!MentionsSolvedVariable(set.Solutions[i].Value, x))
+                continue;
+            set.Solutions.RemoveAt(i);
+            circular++;
+        }
+        for (int i = set.Families.Count - 1; i >= 0; i--)
+        {
+            if (!MentionsSolvedVariable(set.Families[i].Template, x))
+                continue;
+            set.Families.RemoveAt(i);
+            circular++;
+        }
+        if (circular == 0)
+            return set;
+        string reason =
+            "an inverse branch produced " + circular + " candidate(s) that still contain the solved " +
+            "variable " + x.Name + " (a circular answer, not a value), so they are not represented " +
+            "and the set is not claimed complete.";
+        if (set.Solutions.Count == 0 && set.Families.Count == 0)
+            return new SolutionSet(SolveStatus.Unevaluated, set.Domain, reason);
+        return set.AsPartial(reason, circular);
     }
 }
 

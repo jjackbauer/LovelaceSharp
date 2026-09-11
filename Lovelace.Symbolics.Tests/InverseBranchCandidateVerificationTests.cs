@@ -168,16 +168,20 @@ public class InverseBranchCandidateVerificationTests
 
     /// <summary>The invariant, over every structure that reaches the inverse path plus the
     /// polynomial path: EVERY solution of a Solved set satisfies the original equation, and a
-    /// genuine root is never dropped (the expected count pins the no-under-claim half).</summary>
+    /// genuine root is never dropped (the expected count pins the no-under-claim half).
+    /// <para>Cycle 6: <c>exp(x) = 3</c> over the complex field is the INFINITE family
+    /// <c>log(3) + 2*pi*k*i</c>, so its roots are represented by the family rather than by a finite
+    /// list — the case is flagged <c>family</c> and every member is verified instead of a count.</para>
+    /// </summary>
     [Theory]
-    [InlineData("sqrt(x) - 2", 1)]
-    [InlineData("cbrt(x) - 3", 1)]
-    [InlineData("exp(x) - 3", 1)]
-    [InlineData("log(x) - 2", 1)]
-    [InlineData("sqrt(x^2 + 1) - 2", 2)]
-    [InlineData("x^2 - 4", 2)]
-    [InlineData("x^3 - 8", 3)]
-    public void EveryRepresentedSolutionSatisfiesTheOriginalEquation(string label, int expectedCount)
+    [InlineData("sqrt(x) - 2", 1, false)]
+    [InlineData("cbrt(x) - 3", 1, false)]
+    [InlineData("exp(x) - 3", 1, true)]
+    [InlineData("log(x) - 2", 1, false)]
+    [InlineData("sqrt(x^2 + 1) - 2", 2, false)]
+    [InlineData("x^2 - 4", 2, false)]
+    [InlineData("x^3 - 8", 3, false)]
+    public void EveryRepresentedSolutionSatisfiesTheOriginalEquation(string label, int expectedCount, bool family)
     {
         ExprContext ctx = NewContext(out Symbol x);
         Expr equation = label switch
@@ -195,6 +199,19 @@ public class InverseBranchCandidateVerificationTests
 
         Assert.True(set.Status == SolveStatus.Solved,
             label + ": a genuine root must not be dropped (status " + set.Status + ", note " + (set.Note ?? "none") + ")");
+        if (family)
+        {
+            // the roots are the family's members, and there are infinitely many of them
+            Assert.Empty(set.Solutions);
+            SolutionFamily only = Assert.Single(set.Families);
+            foreach (int k in new[] { -2, 0, 1, 3 })
+            {
+                Expr member = Evaluation.Substitute(only.Template, ctx,
+                    new Dictionary<Symbol, Expr> { [only.Parameter] = Exprs.Integer(k) });
+                AssertSatisfies(ctx, x, equation, member, label + " family member k = " + k);
+            }
+            return;
+        }
         Assert.Equal(expectedCount, set.Solutions.Count);
         foreach (Solution s in set.Solutions)
             AssertSatisfies(ctx, x, equation, s.Value, label);
@@ -240,7 +257,13 @@ public class InverseBranchCandidateVerificationTests
 
     /// <summary>A residual that is NOT numerically decidable keeps its candidate: the gate must not
     /// turn an unverifiable candidate into a dropped one (the conservative policy Solve.cs:279
-    /// documents for the denominator-pole filter).</summary>
+    /// documents for the denominator-pole filter).
+    /// <para>Cycle 6: <c>exp(x) = y</c> over the complex field is the infinite family
+    /// <c>log(y) + 2*pi*k*i</c>, so the candidate survives as the family's principal member
+    /// (k = 0) instead of as a lone finite solution. The point of this test is unchanged: the
+    /// residual <c>exp(log(y)) - y</c> cannot be decided numerically for a free y, and the candidate
+    /// is KEPT rather than dropped.</para>
+    /// </summary>
     [Fact]
     public void CandidateWithAnUndecidableResidual_IsKept()
     {
@@ -253,7 +276,23 @@ public class InverseBranchCandidateVerificationTests
         Assert.True(set.Status == SolveStatus.Solved,
             "exp(x) = y is solvable for a free y; an undecidable residual must not drop it (status " +
             set.Status + ", note " + (set.Note ?? "none") + ")");
-        Assert.Single(set.Solutions);
+        SolutionFamily family = Assert.Single(set.Families);
+        Assert.Empty(set.Solutions);
+        Expr principal = Evaluation.Substitute(family.Template, ctx,
+            new Dictionary<Symbol, Expr> { [family.Parameter] = Exprs.Zero });
+        Assert.Equal("log(y)", Printing.PrettyPrint(principal));
+        using var scope = Rl.WithPrecision(40, 20);
+        Expr member = Evaluation.Substitute(family.Template, ctx, new Dictionary<Symbol, Expr>
+        {
+            [family.Parameter] = Exprs.Integer(2),
+            [y] = Exprs.Integer(7),
+        });
+        Num residual = Evaluation.EvaluateToNum(
+            Exprs.Subtract(Exprs.Function(ctx.Function("exp"), member), Exprs.Integer(7)),
+            ctx, new Dictionary<Symbol, Num>());
+        Assert.True(NumOps.Compare(NumOps.Abs(residual, ctx),
+            NumOps.FromReal(Rl.Parse("0." + new string('0', 24) + "1", null))) < 0,
+            "the kept candidate's family must actually solve exp(x) = y");
     }
 
     /// <summary>No under-claim regression on the polynomial path.</summary>

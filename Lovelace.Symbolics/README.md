@@ -604,7 +604,7 @@ x = symbol("x")
 solve(exp(x) == 5, x)
 ```
 ```result
-SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: log(5), conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: log(5) + 2*k*pi*i, parameter: k, period: 2*pi*i, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 Periodic inverses return parametric families rather than a single principal branch — the family is a

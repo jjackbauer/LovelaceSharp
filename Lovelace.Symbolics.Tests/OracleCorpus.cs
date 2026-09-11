@@ -207,6 +207,19 @@ internal static class OracleCorpus
         const string atInfinity =
             "real limit at infinity by exact degree comparison of the rational function; compared with " +
             "sympy.limit(..., x, oo) / (..., x, -oo)";
+        // cycle 5 (round limits2): the indeterminate exponential family. The value at the point does
+        // not exist for (1 + u)^v with u → 0 and v → ∞, so substitution is not a proof there; the
+        // limit is the exact e^(lim u·v). Before this round the kernel published its value at the
+        // (undefined) point — the rational 1 — for every one of these. SymPy 1.14.0 prints E and
+        // exp(2)/exp(3)/exp(3/2), and the comparison below is numeric at 30+ digits
+        // (N(E, 30) = 2.71828182845904523536028747135, N(exp(2), 30) = 7.38905609893065022723042746058).
+        // NOTE the corpus admits only cases whose TWO sides have a definite answer: shapes the
+        // kernel refuses while sympy answers (e.g. (1 + 1/x)^(x^2), whose u·v = 1/x diverges and
+        // does not cancel) are deliberately NOT entries here.
+        const string indeterminateExponential =
+            "the indeterminate exponential family (1 + u)^v with u → 0 and v → ∞: the limit is the EXACT " +
+            "closed form e^(lim u·v), answered by cancelling u·v to a constant, compared with " +
+            "sympy.limit(..., x, oo) / (..., x, 0) which returns E and exp(a·b)";
 
         return new[]
         {
@@ -260,6 +273,27 @@ internal static class OracleCorpus
             new LimitCase(atInfinity,
                 Exprs.Subtract(Exprs.Power(x, 3), Exprs.Multiply(2, x)), "x**3 - 2*x",
                 Exprs.Negate(infinite), "-sympy.oo", LimitDirection.TwoSided),
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x),
+                "(1 + 1/x)**x", infinite, "sympy.oo", LimitDirection.TwoSided),                 // E
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x),
+                "(1 + 1/x)**x", Exprs.Negate(infinite), "-sympy.oo", LimitDirection.TwoSided),    // E
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x)),
+                "(1 + x)**(1/x)", Exprs.Zero, "0", LimitDirection.TwoSided),                      // E
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x)),
+                "(1 + x)**(1/x)", Exprs.Zero, "0", LimitDirection.FromLeft),                      // E
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(2, x)), x),
+                "(1 + 2/x)**x", infinite, "sympy.oo", LimitDirection.TwoSided),                   // exp(2)
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), Exprs.Multiply(3, x)),
+                "(1 + 1/x)**(3*x)", infinite, "sympy.oo", LimitDirection.TwoSided),               // exp(3)
+            new LimitCase(indeterminateExponential,
+                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(3, x)), Exprs.Divide(x, 2)),
+                "(1 + 3/x)**(x/2)", infinite, "sympy.oo", LimitDirection.TwoSided),               // exp(3/2)
         };
     }
 

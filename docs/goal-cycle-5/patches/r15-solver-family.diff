@@ -1,0 +1,660 @@
+diff --git a/Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs b/Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs
+new file mode 100644
+index 0000000..fa18d0e
+--- /dev/null
++++ b/Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs
+@@ -0,0 +1,382 @@
++using Lovelace.Abstractions;
++using Lovelace.MathIR;
++using Lovelace.Suite;
++using Lovelace.Symbolics;
++using Xunit;
++using Rl = Lovelace.Real.Real;
++
++namespace Lovelace.Symbolics.Tests;
++
++/// <summary>
++/// An equation whose solution set is INFINITE over the requested domain must not be published as
++/// <c>Solved</c> / <c>completeness: Complete</c> with a finite list that represents one member.
++/// The reported repro is <c>solve_full(exp(x) == c, x)</c>: over the complex field
++/// <c>exp(x) = c</c> has the infinite family <c>log(c) + 2*pi*k*i</c> (SymPy:
++/// <c>solveset(exp(x) - c, x, S.Complexes)</c> is that ImageSet over the integers), and the kernel
++/// used to answer with the single principal value <c>log(c)</c> under a Complete claim.
++///
++/// <para>The second defect pinned here is one probe away: a candidate that still CONTAINS the
++/// solved variable is a circular answer, not a value (<c>exp(x) == x</c> "solved" to <c>log(x)</c>,
++/// <c>log(x) == x</c> to <c>exp(x)</c>, <c>x - sin(x) == 0</c> to <c>sin(x)</c>), and it used to
++/// enter a Solved set through the linear-coefficient path and through the exp inverse. No returned
++/// solution value or family template may mention the variable being solved for, and a set that lost
++/// a circular candidate is not complete.</para>
++/// </summary>
++public class InfiniteFamilyCompletenessTests
++{
++    private static SuiteEngine NewEngine()
++    {
++        var engine = new SuiteEngine();
++        var symbolics = new SymbolicsPlugin();
++        engine.LoadPlugin(symbolics);
++        engine.LoadPlugin(new MathIRPlugin(symbolics));
++        return engine;
++    }
++
++    private static Value F(RecordValue record, string name) =>
++        (Value)record.Fields.First(f => f.Name == name).Value!;
++
++    private static ExprContext NewContext(out Symbol x, params string[] others)
++    {
++        var ctx = new ExprContext();
++        Exprs.Current = ctx;
++        x = ctx.Symbol("x");
++        foreach (string other in others)
++            ctx.Symbol(other);
++        return ctx;
++    }
++
++    private static Expr Exp(ExprContext ctx, Expr e) => Exprs.Function(ctx.Function("exp"), e);
++    private static Expr Log(ExprContext ctx, Expr e) => Exprs.Function(ctx.Function("log"), e);
++    private static Expr Sqrt(Expr e) => Exprs.Power(e, Exprs.Rational(1, 2));
++
++    /// <summary>The kernel's own structural contract, restated on the test side: a value mentions
++    /// the solved symbol when a symbol node for it survives under the ordinary arithmetic nodes.
++    /// A RootOf's defining polynomial is opaque (x is that value's bound variable).</summary>
++    private static bool Mentions(Expr e, Symbol x) => e switch
++    {
++        SymbolExpr s => s.Symbol.Name == x.Name,
++        AddExpr a => a.Terms.Any(t => Mentions(t, x)),
++        MultiplyExpr m => m.Factors.Any(f => Mentions(f, x)),
++        PowerExpr p => Mentions(p.Base, x) || Mentions(p.Exponent, x),
++        FunctionExpr f => f.Arguments.Any(a => Mentions(a, x)),
++        _ => false,
++    };
++
++    /// <summary>Residual of <paramref name="equation"/> at a candidate, evaluated at 40 digits —
++    /// the same numeric sense of "is a solution" the kernel's own gate uses.</summary>
++    private static bool IsSolution(ExprContext ctx, Expr equation, Symbol x, Expr value)
++    {
++        Expr at = Evaluation.Substitute(equation, ctx, new Dictionary<Symbol, Expr> { [x] = value });
++        using var scope = Rl.WithPrecision(40, 20);
++        Num residual = Evaluation.EvaluateToNum(at, ctx, new Dictionary<Symbol, Num>());
++        return NumOps.Compare(NumOps.Abs(residual, ctx),
++            NumOps.FromReal(Rl.Parse("0." + new string('0', 24) + "1", null))) < 0;
++    }
++
++    private static Expr MemberOf(ExprContext ctx, SolutionFamily family, long k) =>
++        Evaluation.Substitute(family.Template, ctx,
++            new Dictionary<Symbol, Expr> { [family.Parameter] = Exprs.Integer(k) });
++
++    // ------------------------------------------------------------------
++    // 1. The reported defect: exp(x) = c over the complex field
++    // ------------------------------------------------------------------
++
++    /// <summary>Before the fix this was Solved / complete true / represented_count 1 holding the
++    /// single value log(c), i.e. one member of an infinite solution set with a Complete claim.</summary>
++    [Fact]
++    public void SolveFull_ExpSymbolic_Complex_RepresentsTheWholeFamily()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); c = symbol(\"c\")");
++
++        var r = engine.Evaluate("solve_full(exp(x) == c, x)").AsRecord();
++
++        Assert.Equal("Solved", F(r, "status").AsEnum().Name);
++        Assert.True(F(r, "complete").AsBoolean());
++        Assert.Equal("Complete", F(r, "completeness").AsEnum().Name);
++
++        // The finite list that omitted every k != 0 member is gone; the answer is the family.
++        Assert.Empty(F(r, "solutions").AsVector());
++        var families = F(r, "families").AsVector();
++        Assert.Single(families);
++        var family = families[0].AsRecord();
++        Assert.Equal(MathDomain.Integer, F(family, "parameter_domain").AsDomain());
++        Assert.Equal("ParametricExact", F(family, "exactness").AsEnum().Name);
++
++        // exp(x) = 0 has no solution, so the family is valid under c != 0 and says so.
++        var conditions = F(family, "conditions").AsVector();
++        Assert.Single(conditions);
++        Assert.Equal("c != 0", ValueFormatter.Format(conditions[0]));
++    }
++
++    /// <summary>Every member the family claims is a solution of the original equation, at several
++    /// k — and the members are pairwise distinct, which is exactly why the old one-element answer
++    /// could not be complete.</summary>
++    [Fact]
++    public void Kernel_ExpSymbolic_Complex_EveryFamilyMemberSolves()
++    {
++        ExprContext ctx = NewContext(out Symbol x, "c");
++        Symbol c = ctx.Symbol("c");
++        Expr equation = Exprs.Subtract(Exp(ctx, x), c);
++
++        SolutionSet set = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exp(ctx, x), c), x, ctx);
++
++        Assert.Equal(SolveStatus.Solved, set.Status);
++        Assert.Equal(Completeness.Complete, set.Complete);
++        Assert.Empty(set.Solutions);
++        Assert.Single(set.Families);
++        SolutionFamily family = set.Families[0];
++        Assert.Equal(ParameterDomain.Integers, family.Domain);
++        Assert.False(Mentions(family.Template, x),
++            "a family template is a value in its parameter and must not contain the solved variable");
++
++        // for a concrete c = 3, every member of the family is a solution ...
++        Expr concrete = Exprs.Subtract(Exp(ctx, x), Exprs.Integer(3));
++        foreach (long k in new long[] { -3, -1, 0, 1, 4 })
++        {
++            Expr member = Evaluation.Substitute(MemberOf(ctx, family, k), ctx,
++                new Dictionary<Symbol, Expr> { [c] = Exprs.Integer(3) });
++            Assert.True(IsSolution(ctx, concrete, x, member),
++                "k = " + k + " gives " + Printing.PrettyPrint(member) + ", which does not solve exp(x) = 3");
++        }
++
++        // ... and k = 0 and k = 1 are DIFFERENT solutions, so a one-element set omits the rest.
++        using (Rl.WithPrecision(40, 20))
++        {
++            Num zero = Evaluation.EvaluateToNum(
++                Evaluation.Substitute(MemberOf(ctx, family, 0), ctx, new Dictionary<Symbol, Expr> { [c] = Exprs.Integer(3) }),
++                ctx, new Dictionary<Symbol, Num>());
++            Num one = Evaluation.EvaluateToNum(
++                Evaluation.Substitute(MemberOf(ctx, family, 1), ctx, new Dictionary<Symbol, Expr> { [c] = Exprs.Integer(3) }),
++                ctx, new Dictionary<Symbol, Num>());
++            Assert.False(NumOps.IsZero(NumOps.Subtract(one, zero)),
++                "the family's k = 0 and k = 1 members must be distinct solutions");
++        }
++    }
++
++    /// <summary>The numeric-c complex call is the same defect: exp(x) = 5 has the family
++    /// log(5) + 2*pi*k*i, not the single value log(5).</summary>
++    [Fact]
++    public void SolveFull_ExpNumeric_Complex_IsNotThePrincipalValueAlone()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++
++        var r = engine.Evaluate("solve_full(exp(x) == 5, x)").AsRecord();
++
++        Assert.Equal("Solved", F(r, "status").AsEnum().Name);
++        Assert.True(F(r, "complete").AsBoolean());
++        Assert.Empty(F(r, "solutions").AsVector());
++        var family = F(r, "families").AsVector()[0].AsRecord();
++        Assert.Equal(MathDomain.Integer, F(family, "parameter_domain").AsDomain());
++        Expr template = F(family, "template").AsSymbolic();
++        Assert.False(Mentions(template, NewSymbolX()));
++    }
++
++    private static Symbol NewSymbolX()
++    {
++        var ctx = new ExprContext();
++        Exprs.Current = ctx;
++        return ctx.Symbol("x");
++    }
++
++    // ------------------------------------------------------------------
++    // 2. The real domain keeps its (correct) answer
++    // ------------------------------------------------------------------
++
++    [Fact]
++    public void RealDomain_ExpKeepsTheSingleSolution()
++    {
++        ExprContext ctx = NewContext(out Symbol x);
++        SolutionSet positive = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exp(ctx, x), Exprs.Integer(5)), x, ctx, SolveDomain.Real);
++        Assert.Equal(SolveStatus.Solved, positive.Status);
++        Assert.Equal(Completeness.Complete, positive.Complete);
++        Assert.Single(positive.Solutions);
++        Assert.Empty(positive.Families);
++        Assert.True(IsSolution(ctx, Exprs.Subtract(Exp(ctx, x), Exprs.Integer(5)), x, positive.Solutions[0].Value));
++
++        SolutionSet negative = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exp(ctx, x), Exprs.Integer(-5)), x, ctx, SolveDomain.Real);
++        Assert.Equal(SolveStatus.NoSolutions, negative.Status);
++        Assert.Empty(negative.Families);
++
++        SolutionSet zero = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exp(ctx, x), Exprs.Zero), x, ctx, SolveDomain.Real);
++        Assert.Equal(SolveStatus.NoSolutions, zero.Status);
++    }
++
++    [Fact]
++    public void RealDomain_ExpSymbolic_KeepsItsBehaviour_AndNeverCarriesTheComplexPeriod()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); c = symbol(\"c\")");
++
++        var r = engine.Evaluate("solve_full(exp(x) == c, x, real)").AsRecord();
++
++        Assert.Equal(MathDomain.Real, F(r, "domain").AsDomain());
++        Assert.Equal("Solved", F(r, "status").AsEnum().Name);
++        Assert.Single(F(r, "solutions").AsVector());
++        Assert.Empty(F(r, "families").AsVector());   // the complex period 2*pi*i never leaks into the reals
++    }
++
++    // ------------------------------------------------------------------
++    // 3. The rule is the inverse-family rule, not an exp special case
++    // ------------------------------------------------------------------
++
++    /// <summary>The families cycle 4 shipped, and the single-valued inverse that must NOT become
++    /// one: log is a function (principal branch), so log(x) = c has exactly one solution e^c
++    /// (SymPy: solveset(log(x) - c, x, S.Complexes) = {exp(c)}).</summary>
++    [Fact]
++    public void TheOtherInverses_KeepTheirOwnHonestAnswer()
++    {
++        ExprContext ctx = NewContext(out Symbol x, "c");
++        Symbol c = ctx.Symbol("c");
++
++        SolutionSet sinHalf = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exprs.Function(ctx.Function("sin"), x), Exprs.Rational(1, 2)), x, ctx);
++        Assert.Equal(SolveStatus.Solved, sinHalf.Status);
++        Assert.Equal(2, sinHalf.Families.Count);
++        Assert.All(sinHalf.Families, f => Assert.Equal(ParameterDomain.Integers, f.Domain));
++
++        SolutionSet cosHalf = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exprs.Function(ctx.Function("cos"), x), Exprs.Rational(1, 2)), x, ctx);
++        Assert.Equal(SolveStatus.Solved, cosHalf.Status);
++        Assert.Equal(2, cosHalf.Families.Count);
++
++        SolutionSet tanOne = Solvers.Solve(Exprs.Relation(RelOp.Eq, Exprs.Function(ctx.Function("tan"), x), Exprs.One), x, ctx);
++        Assert.Equal(SolveStatus.Solved, tanOne.Status);
++        Assert.Single(tanOne.Families);
++
++        SolutionSet logC = Solvers.Solve(Exprs.Relation(RelOp.Eq, Log(ctx, x), c), x, ctx);
++        Assert.Equal(SolveStatus.Solved, logC.Status);
++        Assert.Equal(Completeness.Complete, logC.Complete);
++        Assert.Single(logC.Solutions);
++        Assert.Empty(logC.Families);
++        Assert.False(Mentions(logC.Solutions[0].Value, x));
++    }
++
++    // ------------------------------------------------------------------
++    // 4. Circular candidates are not values and never enter a Solved set
++    // ------------------------------------------------------------------
++
++    public static IEnumerable<object[]> CircularEquations() => new[]
++    {
++        new object[] { "exp(x) == x", SolveDomain.Complex },
++        new object[] { "log(x) == x", SolveDomain.Complex },
++        new object[] { "x - log(x) == 0", SolveDomain.Complex },
++        new object[] { "x - sin(x) == 0", SolveDomain.Complex },
++        new object[] { "x - cos(x) == 0", SolveDomain.Complex },
++        new object[] { "x*exp(x) == 1", SolveDomain.Complex },
++        new object[] { "x + exp(x) == 0", SolveDomain.Complex },
++        new object[] { "exp(x) == x", SolveDomain.Real },
++        new object[] { "log(x) == x", SolveDomain.Real },
++        new object[] { "x + exp(x) == 0", SolveDomain.Real },
++    };
++
++    /// <summary>Every one of these has at least one solution (exp(x) = x has one, x*exp(x) = 1 has
++    /// one: SymPy answers LambertW), so an empty-set claim would be as wrong as the circular one —
++    /// and before the fix several of them returned Solved/complete with a value containing x.</summary>
++    [Theory]
++    [MemberData(nameof(CircularEquations))]
++    public void CircularCandidates_AreNotRepresentedAndAreNotACompleteSet(string script, SolveDomain domain)
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++        string call = "solve_full(" + script + ", x" + (domain == SolveDomain.Real ? ", real" : "") + ")";
++
++        var r = engine.Evaluate(call).AsRecord();
++        string status = F(r, "status").AsEnum().Name;
++
++        Assert.NotEqual("Solved", status);
++        Assert.NotEqual("NoSolutions", status);   // the equations have solutions; nothing is proven empty
++        Assert.False(F(r, "complete").AsBoolean());
++        Assert.NotEqual("Complete", F(r, "completeness").AsEnum().Name);
++
++        foreach (var s in F(r, "solutions").AsVector())
++            Assert.DoesNotContain("(sym x)", Printing.CanonicalPrint(F(s.AsRecord(), "value").AsSymbolic()));
++        foreach (var f in F(r, "families").AsVector())
++            Assert.DoesNotContain("(sym x)", Printing.CanonicalPrint(F(f.AsRecord(), "template").AsSymbolic()));
++    }
++
++    /// <summary>The inverse branch itself still works when its result IS a value: sqrt(x) = x has
++    /// the two solutions 0 and 1, and both are represented (the circular rule must not reject
++    /// legitimate candidates).</summary>
++    [Fact]
++    public void TheLegitimateInverseBranch_StillRepresentsItsValues()
++    {
++        ExprContext ctx = NewContext(out Symbol x);
++        SolutionSet set = Solvers.Solve(Exprs.Relation(RelOp.Eq, Sqrt(x), x), x, ctx);
++
++        Assert.Equal(SolveStatus.Solved, set.Status);
++        Assert.Equal(Completeness.Complete, set.Complete);
++        Assert.Equal(2, set.Solutions.Count);
++        Assert.All(set.Solutions, s => Assert.False(Mentions(s.Value, x)));
++        foreach (Solution s in set.Solutions)
++            Assert.True(IsSolution(ctx, Exprs.Subtract(Sqrt(x), x), x, s.Value));
++    }
++
++    // ------------------------------------------------------------------
++    // 5. Nothing else moves (the acceptance controls)
++    // ------------------------------------------------------------------
++
++    [Fact]
++    public void AcceptanceControls_NothingElseMoves()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++
++        var quadratic = engine.Evaluate("solve_full(x^2 - 4 == 0, x)").AsRecord();
++        Assert.Equal("Solved", F(quadratic, "status").AsEnum().Name);
++        Assert.True(F(quadratic, "complete").AsBoolean());
++        Assert.Equal(2, F(quadratic, "solutions").AsVector().Count);
++
++        var noReal = engine.Evaluate("solve_full(x^2 + 1 == 0, x, real)").AsRecord();
++        Assert.Equal("NoSolutions", F(noReal, "status").AsEnum().Name);
++        Assert.True(F(noReal, "complete").AsBoolean());
++
++        var extraneous = engine.Evaluate("solve_full(sqrt(x) + 2 == 0, x)").AsRecord();
++        Assert.Equal("Unevaluated", F(extraneous, "status").AsEnum().Name);
++        Assert.False(F(extraneous, "complete").AsBoolean());
++        Assert.Equal("0", F(extraneous, "represented_count").AsInteger().ToString());
++
++        var quartic = engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x)").AsRecord();
++        Assert.Equal("Partial", F(quartic, "status").AsEnum().Name);
++        Assert.False(F(quartic, "complete").AsBoolean());
++        Assert.Equal("2", F(quartic, "represented_count").AsInteger().ToString());
++        Assert.Equal("2", F(quartic, "unrepresented_count").AsInteger().ToString());
++    }
++
++    // ------------------------------------------------------------------
++    // 6. The oracle: the complex answer is SymPy's ImageSet, not one value
++    // ------------------------------------------------------------------
++
++    [RequiresSympyFact]
++    public void SympyOracle_ExpOverComplexes_IsAnImageSet_AndTheTemplateMatchesIt()
++    {
++        SympySession sympy = SympyOracle.Require();
++
++        string answer = sympy.Eval(
++            "x, c = sympy.symbols('x c')\n" +
++            "print(sympy.solveset(sympy.exp(x) - c, x, sympy.S.Complexes))");
++        Assert.Contains("ImageSet", answer);          // an infinite family, not a finite set
++        Assert.Contains("Integers", answer);          // parameterized by the integers
++        // SymPy prints the period as I*2*_n*pi: the family steps by 2*pi*i per integer step.
++        Assert.Contains("2*_n*pi", answer);
++
++        // The kernel's template is that family: SymPy proves exp(log(c) + 2*pi*i*k) - c = 0 for an
++        // integer k, and for every concrete integer in -3..3 (SymPy needs the integer assumption to
++        // reduce exp(2*pi*i*k) to 1, which is exactly the parameter domain the family declares).
++        string residual = sympy.Eval(
++            "c = sympy.symbols('c')\n" +
++            "k = sympy.symbols('k', integer=True)\n" +
++            "print(sympy.simplify(sympy.exp(sympy.log(c) + 2*sympy.pi*sympy.I*k) - c))");
++        Assert.Equal("0", residual);
++        string concrete = sympy.Eval(
++            "c = sympy.symbols('c')\n" +
++            "print([sympy.simplify(sympy.exp(sympy.log(c) + 2*sympy.pi*sympy.I*k) - c) for k in range(-3, 4)])");
++        Assert.Equal("[0, 0, 0, 0, 0, 0, 0]", concrete);
++
++        // ... and over the REALS SymPy confirms the one solution the kernel reports for c > 0.
++        string realAnswer = sympy.Eval(
++            "x = sympy.symbols('x')\n" +
++            "print(sympy.solveset(sympy.exp(x) - 5, x, sympy.S.Reals))");
++        Assert.Equal("{log(5)}", realAnswer);
++    }
++}
+diff --git a/Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs b/Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs
+index d564ebd..a7660b7 100644
+--- a/Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs
++++ b/Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs
+@@ -168,16 +168,20 @@ public class InverseBranchCandidateVerificationTests
+ 
+     /// <summary>The invariant, over every structure that reaches the inverse path plus the
+     /// polynomial path: EVERY solution of a Solved set satisfies the original equation, and a
+-    /// genuine root is never dropped (the expected count pins the no-under-claim half).</summary>
++    /// genuine root is never dropped (the expected count pins the no-under-claim half).
++    /// <para>Cycle 6: <c>exp(x) = 3</c> over the complex field is the INFINITE family
++    /// <c>log(3) + 2*pi*k*i</c>, so its roots are represented by the family rather than by a finite
++    /// list — the case is flagged <c>family</c> and every member is verified instead of a count.</para>
++    /// </summary>
+     [Theory]
+-    [InlineData("sqrt(x) - 2", 1)]
+-    [InlineData("cbrt(x) - 3", 1)]
+-    [InlineData("exp(x) - 3", 1)]
+-    [InlineData("log(x) - 2", 1)]
+-    [InlineData("sqrt(x^2 + 1) - 2", 2)]
+-    [InlineData("x^2 - 4", 2)]
+-    [InlineData("x^3 - 8", 3)]
+-    public void EveryRepresentedSolutionSatisfiesTheOriginalEquation(string label, int expectedCount)
++    [InlineData("sqrt(x) - 2", 1, false)]
++    [InlineData("cbrt(x) - 3", 1, false)]
++    [InlineData("exp(x) - 3", 1, true)]
++    [InlineData("log(x) - 2", 1, false)]
++    [InlineData("sqrt(x^2 + 1) - 2", 2, false)]
++    [InlineData("x^2 - 4", 2, false)]
++    [InlineData("x^3 - 8", 3, false)]
++    public void EveryRepresentedSolutionSatisfiesTheOriginalEquation(string label, int expectedCount, bool family)
+     {
+         ExprContext ctx = NewContext(out Symbol x);
+         Expr equation = label switch
+@@ -195,6 +199,19 @@ public class InverseBranchCandidateVerificationTests
+ 
+         Assert.True(set.Status == SolveStatus.Solved,
+             label + ": a genuine root must not be dropped (status " + set.Status + ", note " + (set.Note ?? "none") + ")");
++        if (family)
++        {
++            // the roots are the family's members, and there are infinitely many of them
++            Assert.Empty(set.Solutions);
++            SolutionFamily only = Assert.Single(set.Families);
++            foreach (int k in new[] { -2, 0, 1, 3 })
++            {
++                Expr member = Evaluation.Substitute(only.Template, ctx,
++                    new Dictionary<Symbol, Expr> { [only.Parameter] = Exprs.Integer(k) });
++                AssertSatisfies(ctx, x, equation, member, label + " family member k = " + k);
++            }
++            return;
++        }
+         Assert.Equal(expectedCount, set.Solutions.Count);
+         foreach (Solution s in set.Solutions)
+             AssertSatisfies(ctx, x, equation, s.Value, label);
+@@ -240,7 +257,13 @@ public class InverseBranchCandidateVerificationTests
+ 
+     /// <summary>A residual that is NOT numerically decidable keeps its candidate: the gate must not
+     /// turn an unverifiable candidate into a dropped one (the conservative policy Solve.cs:279
+-    /// documents for the denominator-pole filter).</summary>
++    /// documents for the denominator-pole filter).
++    /// <para>Cycle 6: <c>exp(x) = y</c> over the complex field is the infinite family
++    /// <c>log(y) + 2*pi*k*i</c>, so the candidate survives as the family's principal member
++    /// (k = 0) instead of as a lone finite solution. The point of this test is unchanged: the
++    /// residual <c>exp(log(y)) - y</c> cannot be decided numerically for a free y, and the candidate
++    /// is KEPT rather than dropped.</para>
++    /// </summary>
+     [Fact]
+     public void CandidateWithAnUndecidableResidual_IsKept()
+     {
+@@ -253,7 +276,23 @@ public class InverseBranchCandidateVerificationTests
+         Assert.True(set.Status == SolveStatus.Solved,
+             "exp(x) = y is solvable for a free y; an undecidable residual must not drop it (status " +
+             set.Status + ", note " + (set.Note ?? "none") + ")");
+-        Assert.Single(set.Solutions);
++        SolutionFamily family = Assert.Single(set.Families);
++        Assert.Empty(set.Solutions);
++        Expr principal = Evaluation.Substitute(family.Template, ctx,
++            new Dictionary<Symbol, Expr> { [family.Parameter] = Exprs.Zero });
++        Assert.Equal("log(y)", Printing.PrettyPrint(principal));
++        using var scope = Rl.WithPrecision(40, 20);
++        Expr member = Evaluation.Substitute(family.Template, ctx, new Dictionary<Symbol, Expr>
++        {
++            [family.Parameter] = Exprs.Integer(2),
++            [y] = Exprs.Integer(7),
++        });
++        Num residual = Evaluation.EvaluateToNum(
++            Exprs.Subtract(Exprs.Function(ctx.Function("exp"), member), Exprs.Integer(7)),
++            ctx, new Dictionary<Symbol, Num>());
++        Assert.True(NumOps.Compare(NumOps.Abs(residual, ctx),
++            NumOps.FromReal(Rl.Parse("0." + new string('0', 24) + "1", null))) < 0,
++            "the kept candidate's family must actually solve exp(x) = y");
+     }
+ 
+     /// <summary>No under-claim regression on the polynomial path.</summary>
+diff --git a/Lovelace.Symbolics/Solvers/Solve.cs b/Lovelace.Symbolics/Solvers/Solve.cs
+index b692f2a..7e6a2d5 100644
+--- a/Lovelace.Symbolics/Solvers/Solve.cs
++++ b/Lovelace.Symbolics/Solvers/Solve.cs
+@@ -185,7 +185,12 @@ public static class Solvers
+     public static SolutionSet Solve(Expr equation, Symbol x, ExprContext? ctx = null, SolveDomain domain = SolveDomain.Complex)
+         => SolveCore(equation, x, ctx, domain, 0);
+ 
++    /// <summary>The solver's publication boundary: every dispatched result passes the value check
++    /// before it can leave as a <see cref="SolveStatus.Solved"/> (complete) answer.</summary>
+     private static SolutionSet SolveCore(Expr equation, Symbol x, ExprContext? ctx, SolveDomain domain, int depth)
++        => EnforceSolutionValues(SolveCoreDispatched(equation, x, ctx, domain, depth), x);
++
++    private static SolutionSet SolveCoreDispatched(Expr equation, Symbol x, ExprContext? ctx, SolveDomain domain, int depth)
+     {
+         ctx ??= Exprs.Current;
+         if (depth > 8)
+@@ -247,8 +252,13 @@ public static class Solvers
+                 "the numerator vanishes identically; the solution set is the domain minus the denominator's poles.");
+         }
+ 
+-        // 3. linear in x with arbitrary (non-polynomial) coefficients
+-        if (Algebra.TryCoefficients(f, x, out var coeffs) && coeffs.Count <= 2)
++        // 3. linear in x with arbitrary (non-polynomial) coefficients. TryCoefficients puts the
++        // remainder of a product into the coefficient, so a factor that MENTIONS x — x*exp(x),
++        // x*log(x), -sin(x) — can arrive here as c0 or c1, and root = -c0/c1 is then not a value at
++        // all but a circular answer (x - log(x) = 0 used to "solve" to log(x)). A coefficient of a
++        // linear equation in x is free of x by definition, so that is checked rather than trusted.
++        if (Algebra.TryCoefficients(f, x, out var coeffs) && coeffs.Count <= 2 &&
++            coeffs.All(c => !MentionsSolvedVariable(c, x)))
+         {
+             var c1 = coeffs.Count == 2 ? coeffs[1] : Exprs.Zero;
+             var c0 = coeffs[0];
+@@ -594,7 +604,9 @@ public static class Solvers
+ 
+     private static Expr ExprsSqrt(Expr e) => Exprs.Power(e, Exprs.Rational(1, 2));
+ 
+-    /// <summary>Solves exp(u)=c, log(u)=c, u^n=c, sin/cos/tan(u)=c via registry inverses (principal branches).</summary>
++    /// <summary>Solves exp(u)=c, log(u)=c, u^n=c, sin/cos/tan(u)=c via registry inverses. An inverse
++    /// whose solution set is infinite over the requested domain is returned as a parametric family
++    /// (sin/cos/tan and, over the complex field, exp), never as its principal value alone.</summary>
+     private static SolutionSet? SolveElementary(Expr f, Symbol x, ExprContext ctx, SolveDomain domain, int depth = 0)
+     {
+         // bare h(u) = 0 with h invertible (e.g. sin(x) = 0)
+@@ -656,6 +668,16 @@ public static class Solvers
+                             if (domain == SolveDomain.Real && NumOps.Compare(cv, NumOps.FromLong(0L)) < 0)
+                                 return new SolutionSet(SolveStatus.NoSolutions, domain, "exp(u) = c has no real solution for c < 0.");
+                         }
++                        // Over the COMPLEX field the inverse of exp is not one value: exp is periodic
++                        // with period 2*pi*i, so exp(u) = c has the infinite family log(c) + 2*pi*k*i
++                        // (k over the integers). Emitting only the principal value would publish one
++                        // member of an infinite set as a COMPLETE solution set, which SolutionSet's
++                        // invariant forbids; the family is emitted exactly as the periodic
++                        // trigonometric inverses emit theirs (SolvePeriodic). The REAL domain keeps
++                        // the single principal value: there exp is injective and log(c) is the whole
++                        // solution set for c > 0 (and there is none otherwise).
++                        if (domain == SolveDomain.Complex)
++                            return SolveExponentialFamily(h, u, c, x, ctx, domain);
+                         inverses = new[] { Exprs.Function(ctx.Function("log"), c) };
+                         break;
+                     case "log":
+@@ -866,6 +888,61 @@ public static class Solvers
+         return set;
+     }
+ 
++    /// <summary>
++    /// exp(u) = c over the COMPLEX field. exp is periodic with period 2*pi*i, so its inverse is the
++    /// infinite family log(c) + 2*pi*k*i with k over the integers — the same shape
++    /// <see cref="SolvePeriodic"/> emits for the periodic trigonometric inverses, and the reason the
++    /// complex-domain exp branch must not answer with the principal value alone.
++    /// <para>
++    /// c != 0 is the hypothesis the family is valid under: exp is never zero, and log(0) is not a
++    /// value, so for a c that is not numerically decidable the family carries that condition (the
++    /// same conditional-completeness contract a rational solution's denominator condition uses).
++    /// When the argument is composite the family cannot be propagated through it, and the honest
++    /// outcome is <see cref="SolveStatus.Unevaluated"/> — never one root presented as the whole set.
++    /// </para>
++    /// </summary>
++    private static SolutionSet SolveExponentialFamily(Expr h, Expr u, Expr c, Symbol x, ExprContext ctx, SolveDomain domain)
++    {
++        // exp(2x) = c would need x = (log(c) + 2*pi*k*i)/2; the recursion below has no way to keep
++        // k a FAMILY parameter (it would treat k as a free symbol and publish an unbound symbol as
++        // if it were a value), so a composite argument is refused rather than under-reported.
++        if (u is not SymbolExpr)
++            return new SolutionSet(SolveStatus.Unevaluated, domain,
++                "exp(u) = c with composite u is not supported in v1: the inverse of exp over the complex " +
++                "field is the family log(c) + 2*pi*k*i, which cannot be propagated through a composite argument.");
++
++        var k = FreshParameter(ctx, c, u);
++        var kExpr = Exprs.Symbol(k);
++        var period = Exprs.Multiply(Exprs.Multiply(2, Exprs.Pi), Exprs.I);   // 2*pi*i
++        var principal = Exprs.Function(ctx.Function("log"), c);
++        var template = Exprs.Add(principal, Exprs.Multiply(kExpr, period));
++        var family = new SolutionFamily(template, k, period, ParameterDomain.Integers);
++        if (Evaluation.ConstantToNum(c) is null)
++            family = family with
++            {
++                Conditions = AssumptionSet.Empty.Add(new ExpressionPropertyAssumption(c, SymbolPredicate.NonZero)),
++            };
++
++        // The family is a claim about EVERY member, and every member is exp(log(c)) * exp(2*pi*k*i)
++        // = c: the claim is spot-checked at k = 0 against the ORIGINAL equation h - c through the
++        // same residual predicate the inverse-branch candidates pass. A decidable non-zero residual
++        // means the template is not a solution at all, so nothing is claimed; an undecidable residual
++        // (symbolic c) is kept — the conservative policy this file documents.
++        using (Rl.WithPrecision(40, 20))
++        {
++            var principalMember = Evaluation.Substitute(template, ctx,
++                new Dictionary<Symbol, Expr> { [k] = Exprs.Zero });
++            if (ResidualIsZero(Exprs.Subtract(h, c), x, principalMember, ctx, ResidualTolerance()) is false)
++                return new SolutionSet(SolveStatus.Unevaluated, domain,
++                    "the principal member log(c) of the inverse family does not satisfy the original " +
++                    "equation, so no solution set is claimed.");
++        }
++
++        var set = new SolutionSet(SolveStatus.Solved, domain);
++        set.Families.Add(family);
++        return set;
++    }
++
+     /// <summary>Chooses a family parameter symbol not colliding with the equation's symbols.</summary>
+     private static Symbol FreshParameter(ExprContext ctx, params Expr[] avoid)
+     {
+@@ -890,6 +967,54 @@ public static class Solvers
+             case FunctionExpr f: foreach (var arg in f.Arguments) CollectNames(arg, into); break;
+         }
+     }
++
++    /// <summary>True when the expression still mentions the solved symbol as a free variable.
++    /// Structural on purpose: the defining polynomial of a RootOf names x as its BOUND variable, so
++    /// <c>rootof(x^4 - x^2 - 1, 0)</c> is a value like any other (CollectNames does not descend into
++    /// it), while <c>log(x)</c> offered as a solution of <c>exp(x) = x</c> is a circular answer.</summary>
++    private static bool MentionsSolvedVariable(Expr e, Symbol x)
++    {
++        var names = new HashSet<string>(StringComparer.Ordinal);
++        CollectNames(e, names);
++        return names.Contains(x.Name);
++    }
++
++    /// <summary>
++    /// The solver's post-condition on every set it publishes: a solution VALUE — and equally a
++    /// family TEMPLATE — must not contain the symbol being solved for. An expression that still
++    /// mentions x is a circular answer (log(x) "solved" from exp(x) = x), not a root, and it can
++    /// never be a member of a set that claims completeness. Circular entries are dropped; a set that
++    /// lost one is no longer a complete answer: Partial when something else survived, Unevaluated
++    /// when nothing did — never NoSolutions, because a circular derivation proves nothing about
++    /// emptiness.
++    /// </summary>
++    private static SolutionSet EnforceSolutionValues(SolutionSet set, Symbol x)
++    {
++        int circular = 0;
++        for (int i = set.Solutions.Count - 1; i >= 0; i--)
++        {
++            if (!MentionsSolvedVariable(set.Solutions[i].Value, x))
++                continue;
++            set.Solutions.RemoveAt(i);
++            circular++;
++        }
++        for (int i = set.Families.Count - 1; i >= 0; i--)
++        {
++            if (!MentionsSolvedVariable(set.Families[i].Template, x))
++                continue;
++            set.Families.RemoveAt(i);
++            circular++;
++        }
++        if (circular == 0)
++            return set;
++        string reason =
++            "an inverse branch produced " + circular + " candidate(s) that still contain the solved " +
++            "variable " + x.Name + " (a circular answer, not a value), so they are not represented " +
++            "and the set is not claimed complete.";
++        if (set.Solutions.Count == 0 && set.Families.Count == 0)
++            return new SolutionSet(SolveStatus.Unevaluated, set.Domain, reason);
++        return set.AsPartial(reason, circular);
++    }
+ }
+ 
+ /// <summary>Structured system solution: one assignment per solution map. <see cref="Exactness"/>
