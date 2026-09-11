@@ -1,0 +1,23 @@
+﻿LovelaceSharp REPL v1.0.0
+Arbitrary-precision math scripting, vector math, and plotting.
+Type 'help' for a list of statements, operators, functions, and commands.
+
+dotnet.exe : Unhandled exception. System.InvalidOperationException: Cannot read keys when either application does not 
+have a console or when console input has been redirected. Try Console.Read.
+At line:8 char:17
++ $out = $input | & dotnet $exe 2>&1 | Out-String
++                 ~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Unhandled excep...y Console.Read.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at System.ConsolePal.ReadKey(Boolean intercept)
+   at Lovelace.Console.Repl.LineEditor.ReadInteractiveLine(String prompt) in 
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\Repl\LineEditor.cs:line 119
+   at Lovelace.Console.Repl.LineEditor.ReadLine(String prompt) in 
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\Repl\LineEditor.cs:line 81
+   at Lovelace.Console.Repl.ReplSession.RunAsync() in 
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\Repl\ReplSession.cs:line 94
+   at Program.Main(String[] args) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\Program.cs:line 13
+   at Program.<Main>(String[] args)
+» 
+

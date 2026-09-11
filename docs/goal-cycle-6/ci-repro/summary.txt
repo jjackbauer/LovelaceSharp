@@ -1,0 +1,3 @@
+﻿RESULT Lovelace.Abstractions.Tests EXIT=0 SECONDS=3.5
+RESULT Lovelace.Array.Tests EXIT=0 SECONDS=3.8
+RESULT Lovelace.Complex.Tests EXIT=1 SECONDS=4.8
