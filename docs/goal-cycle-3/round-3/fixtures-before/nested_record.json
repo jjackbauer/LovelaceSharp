@@ -1,0 +1,198 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: )",
+    "typed": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: ) (SolveResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "SolveResult",
+      "fields": [
+        {
+          "name": "status",
+          "value": {
+            "kind": "Text",
+            "value": "Solved"
+          }
+        },
+        {
+          "name": "variable",
+          "value": {
+            "kind": "Text",
+            "value": "x"
+          }
+        },
+        {
+          "name": "domain",
+          "value": {
+            "kind": "Domain",
+            "domain": "complex"
+          }
+        },
+        {
+          "name": "complete",
+          "value": {
+            "kind": "Boolean",
+            "value": "true"
+          }
+        },
+        {
+          "name": "completeness",
+          "value": {
+            "kind": "Text",
+            "value": "Complete"
+          }
+        },
+        {
+          "name": "solutions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "families",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              1
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "SolutionFamily",
+                "fields": [
+                  {
+                    "name": "template",
+                    "value": {
+                      "kind": "Symbolic",
+                      "pretty": "k*pi",
+                      "canonical": "(mul (sym k) (pi))",
+                      "domain": "complex",
+                      "exact": false,
+                      "nodeCount": 3,
+                      "freeSymbols": [
+                        "k"
+                      ]
+                    }
+                  },
+                  {
+                    "name": "parameter",
+                    "value": {
+                      "kind": "Text",
+                      "value": "k"
+                    }
+                  },
+                  {
+                    "name": "period",
+                    "value": {
+                      "kind": "Symbolic",
+                      "pretty": "pi",
+                      "canonical": "(pi)",
+                      "domain": "real",
+                      "exact": false,
+                      "nodeCount": 1,
+                      "freeSymbols": []
+                    }
+                  },
+                  {
+                    "name": "parameter_domain",
+                    "value": {
+                      "kind": "Domain",
+                      "domain": "integer"
+                    }
+                  },
+                  {
+                    "name": "conditions",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  },
+                  {
+                    "name": "exactness",
+                    "value": {
+                      "kind": "Text",
+                      "value": "ParametricExact"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "common_conditions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "represented_count",
+          "value": {
+            "kind": "Integer",
+            "value": "0",
+            "exact": true
+          }
+        },
+        {
+          "name": "unrepresented_count",
+          "value": {
+            "kind": "Integer",
+            "value": "0",
+            "exact": true
+          }
+        },
+        {
+          "name": "unrepresented_reason",
+          "value": {
+            "kind": "Text",
+            "value": ""
+          }
+        },
+        {
+          "name": "diagnostics",
+          "value": {
+            "kind": "Text",
+            "value": ""
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: )"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

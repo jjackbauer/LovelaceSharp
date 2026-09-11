@@ -1,0 +1,1 @@
+x = symbol("x"); simplify_full((x+1)^40)

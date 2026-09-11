@@ -1,0 +1,1 @@
+x = symbol("x"); cancel((x^2-1)/(x-1))

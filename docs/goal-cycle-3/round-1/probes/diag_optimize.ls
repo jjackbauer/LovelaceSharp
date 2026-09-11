@@ -1,0 +1,1 @@
+x = symbol("x"); optimize_full(exp(x)*exp(x))

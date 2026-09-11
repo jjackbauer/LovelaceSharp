@@ -1,0 +1,31 @@
+﻿BASELINE START 2026-09-10 23:19:57
+HEAD 35e2609f541c14d3933987657ec27909e7424d11
+dotnet 10.0.103
+psversion 5.1.26100.4202
+python-probe: python : Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut from Settings > Apps > Advanced app settings > App execution aliases. At C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-3\round-1\baseline.ps1:11 char:21 + $pyOut = (& { try { python --version 2>&1 | Out-String } catch { "THR ... + ~~~~~~~~~~~~~~~~~~~~~ + CategoryInfo : NotSpecified: (Python was not ...cution aliases.:String) [], RemoteException + FullyQualifiedErrorId : NativeCommandError 
+build-release exit=0 13s build-release.log
+test-Lovelace.Abstractions.Tests exit=0 2s test-Lovelace.Abstractions.Tests.log
+test-Lovelace.Array.Tests exit=0 3s test-Lovelace.Array.Tests.log
+test-Lovelace.Complex.Tests exit=0 5s test-Lovelace.Complex.Tests.log
+test-Lovelace.Console.Tests exit=0 5s test-Lovelace.Console.Tests.log
+test-Lovelace.Dsp.Tests exit=0 17s test-Lovelace.Dsp.Tests.log
+test-Lovelace.Integer.Tests exit=0 3s test-Lovelace.Integer.Tests.log
+test-Lovelace.Knowledge.Tests exit=0 2s test-Lovelace.Knowledge.Tests.log
+test-Lovelace.Natural.Tests exit=0 3s test-Lovelace.Natural.Tests.log
+test-Lovelace.Representation.Tests exit=0 2s test-Lovelace.Representation.Tests.log
+test-Lovelace.Studio.Tests exit=0 7s test-Lovelace.Studio.Tests.log
+test-Lovelace.Suite.Tests exit=0 14s test-Lovelace.Suite.Tests.log
+test-Lovelace.Symbolics.Tests exit=0 21s test-Lovelace.Symbolics.Tests.log
+test-precbench.Tests exit=0 3s test-precbench.Tests.log
+test-Lovelace.Real.Tests-nonheavy exit=0 4s test-Lovelace.Real.Tests-nonheavy.log
+build-symbench exit=0 2s build-symbench.log
+publish-aot exit=0 14s publish-aot.log
+aot-exe mtime=2026-09-10T23:21:57 newest-source=2026-09-10T20:20:43 (PrintBudgetTests.cs) STALE=False
+smoke-solve exit=0 ok=True pv=1 sym=#!lovelace-sym 1 mathir=2 kind=Record type=SolveResult status=[kind=Text type= value=Solved dom= shape=] complete=[kind=Boolean type= value=true dom= shape=] completeness=[kind=Text type= value=Complete dom= shape=] domain=[kind=Domain type= value= dom=complex shape=] unrepresented_count=[kind=Integer type= value=0 dom= shape=] diagnostics=[kind=Text type= value= dom= shape=]
+smoke-partial exit=0 ok=True pv=1 sym=#!lovelace-sym 1 mathir=2 kind=Record type=SolveResult status=[kind=Text type= value=Partial dom= shape=] complete=[kind=Boolean type= value=false dom= shape=] completeness=[kind=Text type= value=Partial dom= shape=] domain=[kind=Domain type= value= dom=complex shape=] unrepresented_count=[kind=Integer type= value=2 dom= shape=] diagnostics=[kind=Text type= value= dom= shape=]
+smoke-jacobian exit=0 ok=True pv=1 sym=#!lovelace-sym 1 mathir=2 kind=Array type=Array shape=[2,2] elems=4
+smoke-printpure exit=0 ok=True pv=1 sym=#!lovelace-sym 1 mathir=2 kind=Natural type= value=2 output=[hello from the script]
+smoke-errdomain exit=1 ok=False pv=1 sym=#!lovelace-sym 1 mathir=2 code=InvalidOperation category=DomainError message=solve(): currently supports domains real and complex; got integer.
+benchmark-asset benchmarks\symbench-baseline.md exists=True bytes=15878
+benchmark-asset benchmarks\raw-baseline.txt exists=True bytes=62868
+BASELINE END 2026-09-10 23:21:59

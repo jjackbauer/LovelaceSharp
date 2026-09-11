@@ -1,0 +1,2 @@
+
+Passed!  - Failed:     0, Passed:    18, Skipped:     0, Total:    18, Duration: 725 ms - Lovelace.Run.Tests.dll (net10.0)

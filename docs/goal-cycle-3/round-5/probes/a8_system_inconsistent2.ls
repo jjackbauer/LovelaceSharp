@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); solve_system_full([x + y == 1, x + y == 1, x - y == 3, x - y == 4], [x, y])

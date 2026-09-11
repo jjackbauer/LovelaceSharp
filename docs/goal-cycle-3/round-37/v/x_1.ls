@@ -1,0 +1,1 @@
+s = symbol("x_1"); latex(s)

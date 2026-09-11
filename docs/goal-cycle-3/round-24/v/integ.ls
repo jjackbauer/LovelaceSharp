@@ -1,0 +1,1 @@
+x = symbol("x"); integrate_full(exp(-x^2), x).expression

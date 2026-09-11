@@ -1,0 +1,1 @@
+x = symbol("x"); factor(-x^3 + x)

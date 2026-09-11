@@ -1,0 +1,372 @@
+﻿diff --git a/Lovelace.Suite.Tests/RecordSchemaTests.cs b/Lovelace.Suite.Tests/RecordSchemaTests.cs
+index 95e499f..4fda4fe 100644
+--- a/Lovelace.Suite.Tests/RecordSchemaTests.cs
++++ b/Lovelace.Suite.Tests/RecordSchemaTests.cs
+@@ -76,6 +76,12 @@ public class RecordSchemaTests
+         // the corpus must actually exercise the schemas, not pass because nothing was compared
+         Assert.Contains("SolveResult", seen);
+         Assert.Contains("Solution", seen);
++        Assert.Contains("SolutionFamily", seen);
++        Assert.Contains("SystemSolveResult", seen);
++        Assert.Contains("SystemSolution", seen);
++        // the structural binding record must actually be produced by the corpus: an unregistered
++        // record type is invisible to this test, so the corpus asserts it was seen
++        Assert.Contains("Binding", seen);
+         Assert.Contains("TransformResult", seen);
+         Assert.Contains("RewriteStep", seen);
+         Assert.Contains("LimitResult", seen);
+@@ -104,4 +110,37 @@ public class RecordSchemaTests
+         Assert.Contains(violations, v => v.Contains("missing declared field 'domain'"));
+         Assert.Contains(violations, v => v.Contains("undeclared field 'extra'"));
+     }
++
++    /// <summary>
++    /// The declared KIND of every solve field is the machine contract a consumer reads: the
++    /// solver carries structure (a Binding record per assignment, a Symbol for the variable and
++    /// the family parameter), never a flattened string. Field order is pinned too — the registry
++    /// is the documentation of the wire order as well as the wire names.
++    /// </summary>
++    [Fact]
++    public void SolverSchemas_DeclareTheStructuralKinds()
++    {
++        AssertSchema("SystemSolveResult",
++            ("status", "Text"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("solutions", "Array"), ("diagnostics", "Text"));
++        AssertSchema("SystemSolution",
++            ("bindings", "Array"), ("conditions", "Array"), ("exactness", "Text"));
++        AssertSchema("Binding", ("name", "Symbolic"), ("value", "Symbolic"));
++        AssertSchema("SolveResult",
++            ("status", "Text"), ("variable", "Symbolic"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("completeness", "Text"), ("solutions", "Array"), ("families", "Array"),
++            ("common_conditions", "Array"), ("represented_count", "Integer"),
++            ("unrepresented_count", "Integer"), ("unrepresented_reason", "Text"), ("diagnostics", "Text"));
++        AssertSchema("SolutionFamily",
++            ("template", "Symbolic"), ("parameter", "Symbolic"), ("period", "Symbolic"),
++            ("parameter_domain", "Domain"), ("conditions", "Array"), ("exactness", "Text"));
++    }
++
++    private static void AssertSchema(string typeName, params (string Name, string Kind)[] expected)
++    {
++        var schema = RecordSchemas.For(typeName);
++        Assert.NotNull(schema);
++        Assert.Equal(expected.Select(f => f.Name).ToArray(), schema!.Fields.Select(f => f.Name).ToArray());
++        Assert.Equal(expected.Select(f => f.Kind).ToArray(), schema.Fields.Select(f => f.Kind).ToArray());
++    }
+ }
+diff --git a/Lovelace.Suite/RecordSchemas.cs b/Lovelace.Suite/RecordSchemas.cs
+index 22d9b36..9cd63b2 100644
+--- a/Lovelace.Suite/RecordSchemas.cs
++++ b/Lovelace.Suite/RecordSchemas.cs
+@@ -63,17 +63,21 @@ public static class RecordSchemas
+     private static RecordSchema[] Build() => new[]
+     {
+         Schema("SolveResult",
+-            ("status", "Text"), ("variable", "Text"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("status", "Text"), ("variable", "Symbolic"), ("domain", "Domain"), ("complete", "Boolean"),
+             ("completeness", "Text"), ("solutions", "Array"), ("families", "Array"),
+             ("common_conditions", "Array"), ("represented_count", "Integer"),
+             ("unrepresented_count", "Integer"), ("unrepresented_reason", "Text"), ("diagnostics", "Text")),
+         Schema("Solution",
+             ("value", "Symbolic"), ("conditions", "Array"), ("multiplicity", "Integer"), ("exactness", "Text")),
+         Schema("SolutionFamily",
+-            ("template", "Symbolic"), ("parameter", "Text"), ("period", "Symbolic"),
++            ("template", "Symbolic"), ("parameter", "Symbolic"), ("period", "Symbolic"),
+             ("parameter_domain", "Domain"), ("conditions", "Array"), ("exactness", "Text")),
+-        Schema("SystemSolveResult", ("status", "Text"), ("solutions", "Array"), ("diagnostics", "Text")),
+-        Schema("SystemSolution", ("assignment", "Array"), ("conditions", "Array")),
++        Schema("SystemSolveResult",
++            ("status", "Text"), ("domain", "Domain"), ("complete", "Boolean"),
++            ("solutions", "Array"), ("diagnostics", "Text")),
++        Schema("SystemSolution",
++            ("bindings", "Array"), ("conditions", "Array"), ("exactness", "Text")),
++        Schema("Binding", ("name", "Symbolic"), ("value", "Symbolic")),
+         Schema("TransformResult",
+             ("status", "Text"), ("original", "Symbolic"), ("expression", "Symbolic"), ("changed", "Boolean"),
+             ("conditions", "Array"), ("steps", "Array"), ("budget_exceeded", "Boolean"), ("budget_kind", "Text")),
+diff --git a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+index 1ac0cc9..cedcc7b 100644
+--- a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
++++ b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+@@ -392,4 +392,154 @@ public class DxStructuredResultsTests
+         Assert.Equal("[3, 7] (Vector)", ValueFormatter.FormatTyped(batch));
+         Assert.Equal(ValueKind.Record, k.Kind);
+     }
++
++    // ------------------------------------------------------------------
++    // Solver results carry structure, never prose (Cycle-3 Phase A1/A2)
++    // ------------------------------------------------------------------
++
++    private static Value Field(RecordValue record, string name) =>
++        (Value)record.Fields.First(f => f.Name == name).Value!;
++
++    [Fact]
++    public void SolveSystemFull_EmitsBindingRecords_NeverTheFlattenedString()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
++        var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
++        Assert.Equal("SystemSolveResult", r.TypeName);
++
++        // the system solve returns one solution map here; its bindings are the structural
++        // replacement for the old array of Text("x = 2") assignment strings
++        var solutions = Field(r, "solutions").AsVector();
++        Assert.Single(solutions);
++        var solutionRecord = solutions[0].AsRecord();
++        Assert.Equal("SystemSolution", solutionRecord.TypeName);
++
++        var bindings = Field(solutionRecord, "bindings");
++        Assert.Equal(ValueKind.Vector, bindings.Kind);
++        var elements = bindings.AsVector();
++        Assert.Equal(2, elements.Count);
++
++        var names = new List<string>();
++        var values = new List<string>();
++        foreach (var element in elements)
++        {
++            // the old shape was an array of Text("x = 2"): every element is a Binding RECORD
++            Assert.Equal(ValueKind.Record, element.Kind);
++            var binding = element.AsRecord();
++            Assert.Equal("Binding", binding.TypeName);
++            // the name is the SYMBOL (it has a canonical form), not a name string
++            var name = Field(binding, "name");
++            Assert.Equal(ValueKind.Symbolic, name.Kind);
++            names.Add(Printing.CanonicalPrint(name.AsSymbolic()));
++            var value = Field(binding, "value");
++            Assert.Equal(ValueKind.Symbolic, value.Kind);
++            values.Add(Printing.PrettyPrint(value.AsSymbolic()));
++        }
++        Assert.Equal(new[] { "(sym x)", "(sym y)" }, names);
++        Assert.Equal(new[] { "2", "-1" }, values);
++    }
++
++    [Fact]
++    public void SolveSystemFull_CarriesDomainCompleteAndPerSolutionExactness()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
++        var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
++
++        // field order is the wire contract: the two contract-completion fields follow status
++        Assert.Equal(
++            new[] { "status", "domain", "complete", "solutions", "diagnostics" },
++            r.Fields.Select(f => f.Name).ToArray());
++
++        var domain = Field(r, "domain");
++        Assert.Equal(ValueKind.Domain, domain.Kind);
++        Assert.Equal(MathDomain.Complex, domain.AsDomain());
++
++        var complete = Field(r, "complete");
++        Assert.Equal(ValueKind.Boolean, complete.Kind);
++        Assert.True(complete.AsBoolean());
++
++        var solution = Field(r, "solutions").AsVector()[0].AsRecord();
++        Assert.Equal("SystemSolution", solution.TypeName);
++        Assert.Equal("Exact", Field(solution, "exactness").AsText());
++        Assert.Equal(ValueKind.Vector, Field(solution, "conditions").Kind);
++    }
++
++    [Fact]
++    public void SolveSystemFull_EveryEmittedSystemSolutionCarriesExactnessAndBindings()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
++        // the circle/hyperbola intersection has four solutions: "every", not "the first"
++        var r = engine.Evaluate("solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])").AsRecord();
++        var solutions = Field(r, "solutions").AsVector();
++        Assert.Equal(4, solutions.Count);
++        foreach (var element in solutions)
++        {
++            var solution = element.AsRecord();
++            Assert.Equal("SystemSolution", solution.TypeName);
++            Assert.Equal("Exact", Field(solution, "exactness").AsText());
++            Assert.Equal("Binding", Field(solution, "bindings").AsVector()[0].AsRecord().TypeName);
++        }
++    }
++
++    [Fact]
++    public void SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++        var family = Field(engine.Evaluate("solve_full(sin(x) == 0, x)").AsRecord(), "families")
++            .AsVector()[0].AsRecord();
++        Assert.Equal("SolutionFamily", family.TypeName);
++
++        var parameter = Field(family, "parameter");
++        Assert.Equal(ValueKind.Symbolic, parameter.Kind);
++        Assert.Equal("k", ValueFormatter.Format(parameter));
++        Assert.Equal("(sym k)", Printing.CanonicalPrint(parameter.AsSymbolic()));
++
++        var domain = Field(family, "parameter_domain");
++        Assert.Equal(ValueKind.Domain, domain.Kind);
++        Assert.Equal(MathDomain.Integer, domain.AsDomain());
++    }
++
++    [Fact]
++    public void SolveFull_VariableIsSymbolic_NotTheNameString()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++        var variable = Field(engine.Evaluate("solve_full(x^2 - 4 == 0, x)").AsRecord(), "variable");
++        Assert.Equal(ValueKind.Symbolic, variable.Kind);
++        Assert.Equal("x", ValueFormatter.Format(variable));
++        Assert.Equal("(sym x)", Printing.CanonicalPrint(variable.AsSymbolic()));
++    }
++
++    [Fact]
++    public void ParameterDomainOf_MapsEveryDeclaredArm()
++    {
++        // The projection is internal (Lovelace.Symbolics.csproj grants Lovelace.Symbolics.Tests
++        // access), so BOTH declared arms can be pinned. ParameterDomain.NonNegativeIntegers is
++        // declared at Solve.cs:72 but no kernel path produces it (all five SolutionFamily
++        // construction sites pass Integers), so it is NOT reachable from the language surface:
++        // the direct call is the only way to pin that arm, and the reachable arm is additionally
++        // pinned through solve_full in SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain.
++        var pinned = new Dictionary<ParameterDomain, MathDomain>
++        {
++            [ParameterDomain.Integers] = MathDomain.Integer,
++            [ParameterDomain.NonNegativeIntegers] = MathDomain.Integer,
++        };
++
++        // the table must be the WHOLE enum: a third arm cannot be added without a decision
++        Assert.Equal(
++            Enum.GetValues<ParameterDomain>().OrderBy(v => v).ToArray(),
++            pinned.Keys.OrderBy(v => v).ToArray());
++
++        foreach (var (domain, expected) in pinned)
++            Assert.Equal(expected, SymbolicsPlugin.ParameterDomainOf(domain));
++
++        // an arm the switch does not declare must not silently inherit an answer: the mapping is
++        // total, so every undeclared value is a decision that has not been made
++        Assert.Throws<ArgumentOutOfRangeException>(
++            () => SymbolicsPlugin.ParameterDomainOf((ParameterDomain)99));
++    }
+ }
+diff --git a/Lovelace.Symbolics/Solvers/Solve.cs b/Lovelace.Symbolics/Solvers/Solve.cs
+index dd9eae5..bf2244c 100644
+--- a/Lovelace.Symbolics/Solvers/Solve.cs
++++ b/Lovelace.Symbolics/Solvers/Solve.cs
+@@ -833,8 +833,13 @@ public static class Solvers
+     }
+ }
+ 
+-/// <summary>Structured system solution: one assignment per solution map.</summary>
+-public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment, AssumptionSet Conditions);
++/// <summary>Structured system solution: one assignment per solution map. <see cref="Exactness"/>
++/// is stated where the solution is produced by the exact Gröbner elimination.</summary>
++public sealed record SystemSolution(IReadOnlyDictionary<Symbol, Expr> Assignment, AssumptionSet Conditions)
++{
++    /// <summary>Exactness provenance of the system solution.</summary>
++    public SolutionExactness Exactness { get; init; } = SolutionExactness.Exact;
++}
+ 
+ public sealed class SystemSolveResult
+ {
+@@ -918,7 +923,12 @@ public static class SystemSolvers
+                 if (Evaluation.ConstantToNum(p) is { } cv && !NumOps.IsZero(cv))
+                     return;   // an inconsistent constant remains
+             }
+-            result.Solutions.Add(new SystemSolution(new Dictionary<Symbol, Expr>(partial), conditions));
++            // the Gröbner elimination and the recursive substitution are exact operations: the
++            // provenance is stated at the construction site, never inherited from a default
++            result.Solutions.Add(new SystemSolution(new Dictionary<Symbol, Expr>(partial), conditions)
++            {
++                Exactness = SolutionExactness.Exact,
++            });
+             return;
+         }
+         if (n == 1)
+@@ -932,7 +942,10 @@ public static class SystemSolvers
+                 if (!SatisfiesAll(sol.Value, polys.Skip(1), x, ctx))
+                     continue;
+                 var assignment = new Dictionary<Symbol, Expr>(partial) { [x] = sol.Value };
+-                result.Solutions.Add(new SystemSolution(assignment, conditions));
++                result.Solutions.Add(new SystemSolution(assignment, conditions)
++                {
++                    Exactness = SolutionExactness.Exact,
++                });
+                 if (result.Solutions.Count >= MaxSolutions)
+                 {
+                     result.Truncated = true;
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index 1eaae0c..0dd5b7a 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -74,7 +74,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+                 "One-sided limit from the right as x approaches x0.", ["limit_right(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+             ["solve_system_full"] = new("solve_system_full", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
+-                "Structured system solve: a SystemSolveResult with status, completeness, per-solution variable bindings and conditions.",
++                "Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions.",
+                 ["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult", ["solve_system", "solve_full"]),
+             ["optimize_full"] = new("optimize_full", new[] { "f", "params" }, BuiltinCategories.Optimization,
+                 "Structured optimization: an OptimizationResult with the original and optimized expressions, estimated costs before/after, and the applied transformations.",
+@@ -333,10 +333,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
+             var result = SystemSolvers.Solve(eqs, vs, Context);
+             var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
+-                new RecordField("assignment", vs.Select(v => (object)(v.Name + " = " + Printing.PrettyPrint(sol.Assignment[v]))).ToArray()),
+-                new RecordField("conditions", ConditionExprs(sol.Conditions)))).ToArray();
++                new RecordField("bindings", vs.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
++                new RecordField("conditions", ConditionExprs(sol.Conditions)),
++                new RecordField("exactness", sol.Exactness.ToString()))).ToArray();
+             return new RecordValue("SystemSolveResult",
+-                new RecordField("status", result.Solutions.Count > 0 ? "Solved" : (result.Note is null ? "NoSolutions" : "Unevaluated")),
++                // status and complete both come from the kernel's one Status derivation, so the
++                // two fields can never disagree (a truncated enumeration is Partial, not Solved)
++                new RecordField("status", result.Status.ToString()),
++                new RecordField("domain", DomainOf(result.Domain)),
++                new RecordField("complete", result.Complete == Completeness.Complete),
+                 new RecordField("solutions", solutions),
+                 new RecordField("diagnostics", result.Note ?? ""));
+         });
+@@ -392,7 +397,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+ 
+             var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
+                 new RecordField("template", f.Template),
+-                new RecordField("parameter", f.Parameter.Name),
++                new RecordField("parameter", Exprs.Symbol(f.Parameter)),
+                 new RecordField("period", f.Period),
+                 new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
+                 new RecordField("conditions", ConditionExprs(f.Conditions)),
+@@ -400,7 +405,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+ 
+             return new RecordValue("SolveResult",
+                 new RecordField("status", status.ToString()),
+-                new RecordField("variable", sx.Name),
++                new RecordField("variable", Exprs.Symbol(sx)),
+                 new RecordField("domain", DomainOf(domain)),
+                 new RecordField("complete", status == SolveStatus.Solved),
+                 new RecordField("completeness", (status == SolveStatus.Solved ? Completeness.Complete : set.Complete).ToString()),
+@@ -608,8 +613,29 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     private static MathDomain DomainOf(SolveDomain d) =>
+         d == SolveDomain.Real ? MathDomain.Real : MathDomain.Complex;
+ 
+-    /// <summary>Family parameter domains are domain values, not prose.</summary>
+-    private static MathDomain ParameterDomainOf(ParameterDomain p) => MathDomain.Integer;
++    /// <summary>Family parameter domains cross the wire as first-class Domain values. Both
++    /// declared arms project onto the kernel lattice: a NON-NEGATIVE parameter's constraint is
++    /// carried by the family's conditions (an <see cref="AssumptionSet"/>), never by the domain,
++    /// so <see cref="ParameterDomain.NonNegativeIntegers"/> is the integer domain plus a
++    /// condition. The switch is total: an undeclared parameter domain throws instead of silently
++    /// inheriting Integers, so adding one is a decision made here rather than an accident.
++    /// Internal (not private) because Lovelace.Symbolics.csproj already grants
++    /// Lovelace.Symbolics.Tests access, and an arm the language cannot reach must stay pinnable.</summary>
++    internal static MathDomain ParameterDomainOf(ParameterDomain domain) => domain switch
++    {
++        ParameterDomain.Integers => MathDomain.Integer,
++        ParameterDomain.NonNegativeIntegers => MathDomain.Integer,
++        _ => throw new ArgumentOutOfRangeException(
++            nameof(domain), domain, "No wire Domain is declared for this parameter domain."),
++    };
++
++    /// <summary>Projects the kernel's one structural binding contract onto the wire as a
++    /// <c>Binding</c> record. The NAME is the symbol itself — a Symbolic value with a canonical
++    /// form — never the <c>"x = …"</c> string <see cref="Binding"/> exists to forbid.</summary>
++    private static RecordValue BindingRecord(Binding binding) =>
++        new("Binding",
++            new RecordField("name", Exprs.Symbol(binding.Name)),
++            new RecordField("value", binding.Value));
+ 
+     /// <summary>Solutions that survive their own conditions (a value violating a provable
+     /// excluded-domain condition, e.g. the pole of a cancelled denominator, is not a solution).</summary>

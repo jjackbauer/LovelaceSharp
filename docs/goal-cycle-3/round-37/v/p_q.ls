@@ -1,0 +1,1 @@
+s = symbol("p%q"); latex(s)

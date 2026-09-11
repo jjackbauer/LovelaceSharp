@@ -1,0 +1,120 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: )",
+    "typed": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: ) (LimitResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "LimitResult",
+      "fields": [
+        {
+          "name": "status",
+          "value": {
+            "kind": "Text",
+            "value": "Value"
+          }
+        },
+        {
+          "name": "exists",
+          "value": {
+            "kind": "Boolean",
+            "value": "true"
+          }
+        },
+        {
+          "name": "value",
+          "value": {
+            "kind": "Symbolic",
+            "pretty": "1",
+            "canonical": "(rat 1 1)",
+            "domain": "rational",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": []
+          }
+        },
+        {
+          "name": "left",
+          "value": {
+            "kind": "Null"
+          }
+        },
+        {
+          "name": "left_conditions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "right",
+          "value": {
+            "kind": "Null"
+          }
+        },
+        {
+          "name": "right_conditions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "conditions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "exactness",
+          "value": {
+            "kind": "Text",
+            "value": "Exact"
+          }
+        },
+        {
+          "name": "diagnostics",
+          "value": {
+            "kind": "Text",
+            "value": ""
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: )"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

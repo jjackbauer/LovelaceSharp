@@ -1,0 +1,1 @@
+x = symbol("x"); expand(expand(factor(-3*x^2 + 3)) - expand(-3*x^2 + 3))

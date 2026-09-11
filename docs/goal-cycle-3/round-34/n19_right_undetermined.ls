@@ -1,0 +1,1 @@
+x = symbol("x"); limit_right(x*sin(1/x), x, 0)

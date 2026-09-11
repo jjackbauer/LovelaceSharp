@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(x/x == 0, x)

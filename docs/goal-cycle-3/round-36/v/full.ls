@@ -1,0 +1,1 @@
+x = symbol("x"); cancel_full((x^2-1)/(x-1))

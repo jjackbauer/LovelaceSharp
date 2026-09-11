@@ -1,0 +1,1 @@
+x = symbol("x"); optimize_full(x^2 + 2*x + 1, [x])

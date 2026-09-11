@@ -1,0 +1,1 @@
+x = symbol("x"); expand(expand(factor(-x^3 + x)) - expand(-x^3 + x))

@@ -1,0 +1,1 @@
+x = symbol("x"); expand(expand(factor(-x^2 + 1)) - expand(-x^2 + 1))

@@ -1,0 +1,1 @@
+x = symbol("x"); cancel(x/x)

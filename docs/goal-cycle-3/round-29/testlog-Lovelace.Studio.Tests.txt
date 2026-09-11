@@ -1,0 +1,4 @@
+﻿Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Studio.Tests\bin\Release\net10.0\Lovelace.Studio.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    22, Skipped:     0, Total:    22, Duration: 1 s - Lovelace.Studio.Tests.dll (net10.0)

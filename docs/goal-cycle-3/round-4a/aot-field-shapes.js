@@ -1,0 +1,13 @@
+'use strict';
+const fs = require('fs');
+const env = JSON.parse(fs.readFileSync('docs/goal-cycle-3/round-4a/aot-solve-full.json', 'utf8'));
+const s = env.result.structured;
+const f = Object.fromEntries(s.fields.map(x => [x.name, x.value]));
+const sol = Object.fromEntries(f.solutions.elements[0].fields.map(x => [x.name, x.value]));
+console.log('result.kind      = ' + s.kind + '   result.type = ' + s.type);
+console.log('status           = ' + JSON.stringify(f.status));
+console.log('domain           = ' + JSON.stringify(f.domain));
+console.log('complete         = ' + JSON.stringify(f.complete));
+console.log('completeness     = ' + JSON.stringify(f.completeness));
+console.log('solutions[0].exactness = ' + JSON.stringify(sol.exactness));
+console.log('unrepresented_reason  = ' + JSON.stringify(f.unrepresented_reason) + '   (unchanged Text)');

@@ -1,0 +1,1 @@
+x = symbol("x"); latex((x+1)^2)

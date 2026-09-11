@@ -1,0 +1,1 @@
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"InvalidArgument","category":"TypeMismatch","message":"Base cannot be zero. (Parameter \u0027exponent\u0027)","recoverable":true,"diagnostics":[{"message":"Base cannot be zero. (Parameter \u0027exponent\u0027)","position":0,"line":1,"column":1}],"elapsed":"190.9 \u00B5s"}

@@ -1,0 +1,1 @@
+x = symbol("x"); subs(-x^2, x, 3)

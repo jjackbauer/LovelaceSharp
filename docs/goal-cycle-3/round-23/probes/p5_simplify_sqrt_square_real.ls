@@ -1,0 +1,2 @@
+x = symbol("x", real);
+simplify_full(sqrt(x^2))

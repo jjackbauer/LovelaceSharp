@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(x^2 - 2*x + 1 == 0, x)

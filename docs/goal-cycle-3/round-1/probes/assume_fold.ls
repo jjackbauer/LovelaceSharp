@@ -1,0 +1,1 @@
+x = symbol("x"); assume(x >= 5); simplify(x < 5)

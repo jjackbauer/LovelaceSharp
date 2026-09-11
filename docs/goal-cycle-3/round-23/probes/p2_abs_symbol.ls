@@ -1,0 +1,2 @@
+x = symbol("x");
+abs(x)

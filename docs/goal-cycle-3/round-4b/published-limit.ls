@@ -1,0 +1,1 @@
+x = symbol("x"); limit_full(sin(x)/x, x, 0)

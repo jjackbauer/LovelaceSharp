@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(exp(x) == 0, x)

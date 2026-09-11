@@ -1,0 +1,1 @@
+x = symbol("x"); solve((x+1)^2 - 4 == 0, x)

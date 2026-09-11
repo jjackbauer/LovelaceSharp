@@ -1,0 +1,1 @@
+x = symbol("x"); expand(expand(factor(-2*x^2 + 8)) - expand(-2*x^2 + 8))

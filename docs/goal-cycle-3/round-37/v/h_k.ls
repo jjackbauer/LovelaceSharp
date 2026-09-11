@@ -1,0 +1,1 @@
+s = symbol("h#k"); latex(s)

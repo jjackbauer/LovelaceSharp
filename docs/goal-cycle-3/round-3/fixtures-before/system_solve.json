@@ -1,0 +1,103 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "SystemSolveResult(status: Solved, solutions: [SystemSolution(assignment: [x = 2, y = -1], conditions: [])], diagnostics: )",
+    "typed": "SystemSolveResult(status: Solved, solutions: [SystemSolution(assignment: [x = 2, y = -1], conditions: [])], diagnostics: ) (SystemSolveResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "SystemSolveResult",
+      "fields": [
+        {
+          "name": "status",
+          "value": {
+            "kind": "Text",
+            "value": "Solved"
+          }
+        },
+        {
+          "name": "solutions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              1
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "SystemSolution",
+                "fields": [
+                  {
+                    "name": "assignment",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        2
+                      ],
+                      "elements": [
+                        {
+                          "kind": "Text",
+                          "value": "x = 2"
+                        },
+                        {
+                          "kind": "Text",
+                          "value": "y = -1"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "name": "conditions",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "diagnostics",
+          "value": {
+            "kind": "Text",
+            "value": ""
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "SystemSolveResult(status: Solved, solutions: [SystemSolution(assignment: [x = 2, y = -1], conditions: [])], diagnostics: )"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    },
+    {
+      "name": "y",
+      "kind": "Symbolic",
+      "display": "y"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

@@ -1,0 +1,1 @@
+x = symbol("x"); factor(-3*x^2 + 3)

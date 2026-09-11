@@ -1,0 +1,1 @@
+x = symbol("x"); limit_full(abs(x)/x, x, 0)

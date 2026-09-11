@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(x^8 - 3*x^5 + x - 1 == 0, x)

@@ -1,0 +1,43 @@
+﻿PROBE RUN 2026-09-10 23:22:05 exe=2026-09-10T23:21:57
+sign_minus_pow exit=0 bytes=499
+sign_subs exit=0 bytes=727
+sign_range_neg exit=0 bytes=718
+sign_range_pow exit=0 bytes=661
+solve_partial exit=0 bytes=4169
+solve_shift exit=0 bytes=915
+solve_cube exit=0 bytes=1485
+solve_quad exit=0 bytes=915
+solve_integer exit=1 bytes=400
+solve_unevaluated exit=0 bytes=918
+solve_nosolutions exit=0 bytes=2420
+solve_mult2 exit=0 bytes=2841
+solve_family exit=0 bytes=3243
+p0_systemsolve exit=0 bytes=1669
+p1_sqrt_neg exit=1 bytes=363
+p1_pow_half exit=1 bytes=369
+p1_pow_third exit=1 bytes=369
+p1_neg_exp exit=1 bytes=386
+p1_zero_neg_exp exit=1 bytes=374
+p1_sqrt_neg_literal exit=1 bytes=361
+p1_atanh exit=1 bytes=338
+p1_acosh exit=1 bytes=338
+p1_asinh exit=1 bytes=336
+p1_abs_input exit=0 bytes=495
+p1_abs_diff exit=1 bytes=394
+p1_parens_int exit=0 bytes=1893
+p1_metamorph_diff_int exit=0 bytes=750
+assume_fold exit=0 bytes=743
+assume_int_contra exit=1 bytes=428
+assume_real_control exit=0 bytes=875
+assume_mirrored exit=0 bytes=782
+proto_rational exit=0 bytes=530
+proto_rational_zero exit=0 bytes=517
+proto_approx exit=0 bytes=684
+proto_inspect exit=0 bytes=2165
+proto_type_symbol exit=0 bytes=635
+proto_array exit=0 bytes=1324
+proto_print_purity exit=0 bytes=612
+p2_omit_display exit=2 bytes=1412
+runtime_budget exit=0
+runtime_cancel exit=0
+runtime_omitvars exit=0

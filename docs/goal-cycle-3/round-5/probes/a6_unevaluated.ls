@@ -1,0 +1,1 @@
+x = symbol("x"); solve_full(x^4 + 1 == 0, x)

@@ -1,0 +1,21 @@
+# pre-fix run of: dotnet test Lovelace.Symbolics.Tests/... --filter "FullyQualifiedName~FactorMetamorphic"
+# captured from a background run started before the fix was applied; killed after ~6 minutes
+# because it never returned (no per-test output is emitted before the fact completes).
+
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> ...\Lovelace.Abstractions.dll
+  Lovelace.Natural -> ...\Lovelace.Natural.dll
+  Lovelace.Array -> ...\Lovelace.Array.dll
+  Lovelace.Integer -> ...\Lovelace.Integer.dll
+  Lovelace.Real -> ...\Lovelace.Real.dll
+  Lovelace.Rational -> ...\Lovelace.Rational.dll
+  Lovelace.Complex -> ...\Lovelace.Complex.dll
+  Lovelace.Symbolics -> ...\Lovelace.Symbolics.dll
+  Lovelace.Dsp -> ...\Lovelace.Dsp.dll
+  Lovelace.MathIR -> ...\Lovelace.MathIR.dll
+  Lovelace.Suite -> ...\Lovelace.Suite.dll
+  Lovelace.Symbolics.Tests -> ...\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+<< KILLED: no completion, no failure list >>

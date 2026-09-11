@@ -1,0 +1,4 @@
+﻿Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge.Tests\bin\Release\net10.0\Lovelace.Knowledge.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, Duration: 285 ms - Lovelace.Knowledge.Tests.dll (net10.0)

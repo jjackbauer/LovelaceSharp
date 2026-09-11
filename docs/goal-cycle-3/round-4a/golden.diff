@@ -1,0 +1,188 @@
+########## limit_result.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/limit_result.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\limit_result.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "LimitStatus",
+             "value": "Value"
+           }
+         },
+@@ -86,7 +87,8 @@
+         {
+           "name": "exactness",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "SolutionExactness",
+             "value": "Exact"
+           }
+         },
+########## nested_record.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/nested_record.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\nested_record.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "SolveStatus",
+             "value": "Solved"
+           }
+         },
+@@ -50,7 +51,8 @@
+         {
+           "name": "completeness",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "Completeness",
+             "value": "Complete"
+           }
+         },
+@@ -139,7 +141,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "ParametricExact"
+                     }
+                   }
+########## record.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/record.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\record.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "SolveStatus",
+             "value": "Solved"
+           }
+         },
+@@ -50,7 +51,8 @@
+         {
+           "name": "completeness",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "Completeness",
+             "value": "Complete"
+           }
+         },
+@@ -101,7 +103,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "Exact"
+                     }
+                   }
+@@ -145,7 +148,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "Exact"
+                     }
+                   }
+########## solve_result.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/solve_result.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\solve_result.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "SolveStatus",
+             "value": "Partial"
+           }
+         },
+@@ -50,7 +51,8 @@
+         {
+           "name": "completeness",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "Completeness",
+             "value": "Partial"
+           }
+         },
+@@ -101,7 +103,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "AlgebraicExact"
+                     }
+                   }
+@@ -145,7 +148,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "AlgebraicExact"
+                     }
+                   }
+########## system_solve.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/system_solve.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\system_solve.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "SolveStatus",
+             "value": "Solved"
+           }
+         },
+@@ -136,7 +137,8 @@
+                   {
+                     "name": "exactness",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "SolutionExactness",
+                       "value": "Exact"
+                     }
+                   }
+########## transform_result.json ##########
+--- a/docs/goal-cycle-3/round-4a/fixtures-before/transform_result.json
++++ "b/C:\\Users\\ricar\\dev\\LovelaceSharp\\Lovelace.Run.Tests\\fixtures\\transform_result.json"
+@@ -15,7 +15,8 @@
+         {
+           "name": "status",
+           "value": {
+-            "kind": "Text",
++            "kind": "Enum",
++            "type": "TransformStatus",
+             "value": "Satisfied"
+           }
+         },
+@@ -86,7 +87,8 @@
+                   {
+                     "name": "classification",
+                     "value": {
+-                      "kind": "Text",
++                      "kind": "Enum",
++                      "type": "RuleClassification",
+                       "value": "Universal"
+                     }
+                   },

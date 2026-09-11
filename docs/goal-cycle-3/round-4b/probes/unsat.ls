@@ -1,0 +1,1 @@
+x = symbol("x"); assume(x == 0); simplify_full(x/x)

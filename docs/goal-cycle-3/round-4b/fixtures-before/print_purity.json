@@ -1,0 +1,31 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Natural",
+    "display": "2",
+    "typed": "2 (Natural)",
+    "structured": {
+      "kind": "Natural",
+      "value": "2",
+      "exact": true
+    }
+  },
+  "output": [
+    "hello from the script"
+  ],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Natural",
+      "display": "2"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

@@ -1,0 +1,88 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Array",
+    "display": "[[x, y], [y, x]]",
+    "typed": "[[x, y], [y, x]] (Array)",
+    "structured": {
+      "kind": "Array",
+      "type": "Array",
+      "shape": [
+        2,
+        2
+      ],
+      "elements": [
+        {
+          "kind": "Symbolic",
+          "pretty": "x",
+          "canonical": "(sym x)",
+          "domain": "complex",
+          "exact": true,
+          "nodeCount": 1,
+          "freeSymbols": [
+            "x"
+          ]
+        },
+        {
+          "kind": "Symbolic",
+          "pretty": "y",
+          "canonical": "(sym y)",
+          "domain": "complex",
+          "exact": true,
+          "nodeCount": 1,
+          "freeSymbols": [
+            "y"
+          ]
+        },
+        {
+          "kind": "Symbolic",
+          "pretty": "y",
+          "canonical": "(sym y)",
+          "domain": "complex",
+          "exact": true,
+          "nodeCount": 1,
+          "freeSymbols": [
+            "y"
+          ]
+        },
+        {
+          "kind": "Symbolic",
+          "pretty": "x",
+          "canonical": "(sym x)",
+          "domain": "complex",
+          "exact": true,
+          "nodeCount": 1,
+          "freeSymbols": [
+            "x"
+          ]
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Array",
+      "display": "[[x, y], [y, x]]"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    },
+    {
+      "name": "y",
+      "kind": "Symbolic",
+      "display": "y"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

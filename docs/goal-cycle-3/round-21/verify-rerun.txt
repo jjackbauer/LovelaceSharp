@@ -1,0 +1,106 @@
+=== re-run after strengthening the exactness assertions (test-only edit) ===
+=== dotnet build LovelaceSharp.slnx -c Release --nologo ===
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Knowledge -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge\bin\Release\net10.0\Lovelace.Knowledge.dll
+  Lovelace.Representation -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation\bin\Release\net10.0\Lovelace.Representation.dll
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Knowledge.Run -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge.Run\bin\Release\net10.0\Lovelace.Knowledge.Run.dll
+  Lovelace.Knowledge.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge.Tests\bin\Release\net10.0\Lovelace.Knowledge.Tests.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Representation.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\bin\Release\net10.0\Lovelace.Representation.Tests.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Abstractions.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions.Tests\bin\Release\net10.0\Lovelace.Abstractions.Tests.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Natural.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural.Tests\bin\Release\net10.0\Lovelace.Natural.Tests.dll
+  Lovelace.Array.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array.Tests\bin\Release\net10.0\Lovelace.Array.Tests.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Integer.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer.Tests\bin\Release\net10.0\Lovelace.Integer.Tests.dll
+  Lovelace.Statistics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Statistics\bin\Release\net10.0\Lovelace.Statistics.dll
+  Lovelace.Real.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\bin\Release\net10.0\Lovelace.Real.Tests.dll
+  precbench -> C:\Users\ricar\dev\LovelaceSharp\precbench\bin\Release\net10.0\precbench.dll
+  precbench.Tests -> C:\Users\ricar\dev\LovelaceSharp\precbench.Tests\bin\Release\net10.0\precbench.Tests.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Complex.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Dsp.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp.Tests\bin\Release\net10.0\Lovelace.Dsp.Tests.dll
+  Lovelace.Console -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\bin\Release\net10.0\Lovelace.Console.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  symbench -> C:\Users\ricar\dev\LovelaceSharp\symbench\bin\Release\net10.0\symbench.dll
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+  Lovelace.Suite.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll
+  dspbench -> C:\Users\ricar\dev\LovelaceSharp\dspbench\bin\Release\net10.0\dspbench.dll
+  Lovelace.Console.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console.Tests\bin\Release\net10.0\Lovelace.Console.Tests.dll
+  Lovelace.Run.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll
+  Lovelace.Studio -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Studio\bin\Release\net10.0\Lovelace.Studio.dll
+  Lovelace.Studio.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Studio.Tests\bin\Release\net10.0\Lovelace.Studio.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.58
+BUILD EXIT: 0
+=== dotnet test Lovelace.Symbolics.Tests ===
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [SKIP]
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [SKIP]
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [SKIP]
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [SKIP]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [1 ms]
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [SKIP]
+[xUnit.net 00:00:00.56]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [SKIP]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [1 ms]
+
+Passed!  - Failed:     0, Passed:   449, Skipped:     6, Total:   455, Duration: 13 s - Lovelace.Symbolics.Tests.dll (net10.0)
+SYMBOLICS TEST EXIT: 0
+=== dotnet test Lovelace.Suite.Tests ===
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Statistics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Statistics\bin\Release\net10.0\Lovelace.Statistics.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Suite.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.24] Lovelace.Suite.Tests: Skipping test case with duplicate ID 'c9911250b046dcf84796305f808001a176905a85' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "1..5", expected: "[1, 2, 3, 4, 5] (Vector)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "1..5", expected: "[1, 2, 3, 4, 5] (Vector)")')
+[xUnit.net 00:00:00.24] Lovelace.Suite.Tests: Skipping test case with duplicate ID '3aa1a90b76d7e8316e6da758d86b4c779819760b' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "[1, 2, 3]", expected: "[1, 2, 3] (Vector)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "[1, 2, 3]", expected: "[1, 2, 3] (Vector)")')
+[xUnit.net 00:00:00.24] Lovelace.Suite.Tests: Skipping test case with duplicate ID '6e511df28cec102d726c45a0bf0eb07ecba895a9' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "\"hello\"", expected: "hello")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "\"hello\"", expected: "hello")')
+[xUnit.net 00:00:00.24] Lovelace.Suite.Tests: Skipping test case with duplicate ID '05547e4def2f1ea98c279b36032f6d5a5d8e0448' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "$\"x = {3 + 4}\"", expected: "x = 7")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "$\"x = {3 + 4}\"", expected: "x = 7")')
+[xUnit.net 00:00:00.24] Lovelace.Suite.Tests: Skipping test case with duplicate ID '2795418b59cf54f1e662029970c762a671d9d4e8' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "len([5, 6, 7, 8])", expected: "4 (Natural)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "len([5, 6, 7, 8])", expected: "4 (Natural)")')
+
+Passed!  - Failed:     0, Passed:   636, Skipped:     0, Total:   636, Duration: 8 s - Lovelace.Suite.Tests.dll (net10.0)
+SUITE TEST EXIT: 0
+=== DONE ===

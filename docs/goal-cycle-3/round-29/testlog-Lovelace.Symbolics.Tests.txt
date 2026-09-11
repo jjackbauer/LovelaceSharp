@@ -1,0 +1,16 @@
+﻿Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [SKIP]
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [SKIP]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [1 ms]
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [SKIP]
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [SKIP]
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [SKIP]
+[xUnit.net 00:00:01.36]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [SKIP]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [1 ms]
+
+Passed!  - Failed:     0, Passed:   723, Skipped:     6, Total:   729, Duration: 16 s - Lovelace.Symbolics.Tests.dll (net10.0)

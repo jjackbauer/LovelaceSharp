@@ -1,0 +1,1 @@
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"InvalidOperation","category":"DomainError","message":"Unknown function \u0027gcd\u0027.","recoverable":true,"diagnostics":[{"message":"Unknown function \u0027gcd\u0027.","position":0,"line":1,"column":1}],"elapsed":"23.83 ms"}

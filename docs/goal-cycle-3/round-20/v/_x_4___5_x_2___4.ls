@@ -1,0 +1,1 @@
+x = symbol("x"); expand(factor(-x^4 + 5*x^2 - 4))

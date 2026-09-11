@@ -1,0 +1,290 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Record",
+    "display": "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof((x^4 - x^2 - 1), 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof((x^4 - x^2 - 1), 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])])",
+    "typed": "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof((x^4 - x^2 - 1), 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof((x^4 - x^2 - 1), 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])]) (SolveResult)",
+    "structured": {
+      "kind": "Record",
+      "type": "SolveResult",
+      "fields": [
+        {
+          "name": "status",
+          "value": {
+            "kind": "Enum",
+            "type": "SolveStatus",
+            "value": "Partial"
+          }
+        },
+        {
+          "name": "variable",
+          "value": {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          }
+        },
+        {
+          "name": "domain",
+          "value": {
+            "kind": "Domain",
+            "domain": "complex"
+          }
+        },
+        {
+          "name": "complete",
+          "value": {
+            "kind": "Boolean",
+            "value": "false"
+          }
+        },
+        {
+          "name": "completeness",
+          "value": {
+            "kind": "Enum",
+            "type": "Completeness",
+            "value": "Partial"
+          }
+        },
+        {
+          "name": "solutions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              2
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "Solution",
+                "fields": [
+                  {
+                    "name": "value",
+                    "value": {
+                      "kind": "Symbolic",
+                      "pretty": "rootof((x^4 - x^2 - 1), 0)",
+                      "canonical": "(rootof (add (rat -1 1) (pow (sym x) (rat 4 1)) (mul (rat -1 1) (pow (sym x) (rat 2 1)))) 0)",
+                      "domain": "real",
+                      "exact": true,
+                      "nodeCount": 4,
+                      "freeSymbols": []
+                    }
+                  },
+                  {
+                    "name": "conditions",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  },
+                  {
+                    "name": "multiplicity",
+                    "value": {
+                      "kind": "Integer",
+                      "value": "1",
+                      "exact": true
+                    }
+                  },
+                  {
+                    "name": "exactness",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "SolutionExactness",
+                      "value": "AlgebraicExact"
+                    }
+                  }
+                ]
+              },
+              {
+                "kind": "Record",
+                "type": "Solution",
+                "fields": [
+                  {
+                    "name": "value",
+                    "value": {
+                      "kind": "Symbolic",
+                      "pretty": "rootof((x^4 - x^2 - 1), 1)",
+                      "canonical": "(rootof (add (rat -1 1) (pow (sym x) (rat 4 1)) (mul (rat -1 1) (pow (sym x) (rat 2 1)))) 1)",
+                      "domain": "real",
+                      "exact": true,
+                      "nodeCount": 4,
+                      "freeSymbols": []
+                    }
+                  },
+                  {
+                    "name": "conditions",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  },
+                  {
+                    "name": "multiplicity",
+                    "value": {
+                      "kind": "Integer",
+                      "value": "1",
+                      "exact": true
+                    }
+                  },
+                  {
+                    "name": "exactness",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "SolutionExactness",
+                      "value": "AlgebraicExact"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "families",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "common_conditions",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              0
+            ],
+            "elements": []
+          }
+        },
+        {
+          "name": "represented_count",
+          "value": {
+            "kind": "Integer",
+            "value": "2",
+            "exact": true
+          }
+        },
+        {
+          "name": "unrepresented_count",
+          "value": {
+            "kind": "Integer",
+            "value": "2",
+            "exact": true
+          }
+        },
+        {
+          "name": "unrepresented_reason",
+          "value": {
+            "kind": "Text",
+            "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
+          }
+        },
+        {
+          "name": "diagnostics",
+          "value": {
+            "kind": "Array",
+            "type": "Vector",
+            "shape": [
+              1
+            ],
+            "elements": [
+              {
+                "kind": "Record",
+                "type": "Diagnostic",
+                "fields": [
+                  {
+                    "name": "code",
+                    "value": {
+                      "kind": "Text",
+                      "value": "solve.unrepresented-roots"
+                    }
+                  },
+                  {
+                    "name": "category",
+                    "value": {
+                      "kind": "Enum",
+                      "type": "ErrorCategory",
+                      "value": "UnsupportedOperation"
+                    }
+                  },
+                  {
+                    "name": "message",
+                    "value": {
+                      "kind": "Text",
+                      "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
+                    }
+                  },
+                  {
+                    "name": "recoverable",
+                    "value": {
+                      "kind": "Boolean",
+                      "value": "true"
+                    }
+                  },
+                  {
+                    "name": "location",
+                    "value": {
+                      "kind": "Null"
+                    }
+                  },
+                  {
+                    "name": "details",
+                    "value": {
+                      "kind": "Array",
+                      "type": "Vector",
+                      "shape": [
+                        0
+                      ],
+                      "elements": []
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Record",
+      "display": "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof((x^4 - x^2 - 1), 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof((x^4 - x^2 - 1), 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])])"
+    },
+    {
+      "name": "x",
+      "kind": "Symbolic",
+      "display": "x"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

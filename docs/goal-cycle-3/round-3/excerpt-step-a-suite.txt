@@ -1,0 +1,14 @@
+  Failed Lovelace.Suite.Tests.RecordSchemaTests.SolverSchemas_DeclareTheStructuralKinds [5 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+                     ↓ (pos 1)
+Expected: ["status", "domain", "complete", "solutions", "diagnostics"]
+Actual:   ["status", "solutions", "diagnostics"]
+                     ↑ (pos 1)
+  Failed Lovelace.Suite.Tests.RecordSchemaTests.EveryProducedRecord_ConformsToItsDeclaredSchema [64 ms]
+  Error Message:
+   Assert.Contains() Failure: Item not found in set
+Set:       ["SolveResult", "Solution", "SolutionFamily", "SystemSolveResult", "SystemSolution", ···]
+Not found: "Binding"
+
+Failed!  - Failed:     2, Passed:   619, Skipped:     0, Total:   621, Duration: 8 s - Lovelace.Suite.Tests.dll (net10.0)

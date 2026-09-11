@@ -1,0 +1,29 @@
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.SolveSystemFull_CarriesDomainCompleteAndPerSolutionExactness [6 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+                     ↓ (pos 1)
+Expected: ["status", "domain", "complete", "solutions", "diagnostics"]
+Actual:   ["status", "solutions", "diagnostics"]
+                     ↑ (pos 1)
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.SolveSystemFull_EveryEmittedSystemSolutionCarriesExactnessAndBindings [2 ms]
+  Error Message:
+   System.InvalidOperationException : Sequence contains no matching element
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.ParameterDomainOf_MapsEveryDeclaredArm [8 ms]
+  Error Message:
+   Assert.Throws() Failure: No exception was thrown
+Expected: typeof(System.ArgumentOutOfRangeException)
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.SolveFull_VariableIsSymbolic_NotTheNameString [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Symbolic
+Actual:   Text
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Symbolic
+Actual:   Text
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.SolveSystemFull_EmitsBindingRecords_NeverTheFlattenedString [1 ms]
+  Error Message:
+   System.InvalidOperationException : Sequence contains no matching element
+
+Failed!  - Failed:     6, Passed:   389, Skipped:     0, Total:   395, Duration: 13 s - Lovelace.Symbolics.Tests.dll (net10.0)

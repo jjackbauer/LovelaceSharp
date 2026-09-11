@@ -1,0 +1,1 @@
+x = symbol("x"); compile_full(x^2 + 1)

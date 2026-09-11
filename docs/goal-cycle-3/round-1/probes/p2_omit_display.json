@@ -1,0 +1,27 @@
+Lovelace.Run.exe : Error: Unknown argument '--omit-display'.
+At C:\Users\ricar\dev\LovelaceSharp\docs\goal-cycle-3\round-1\probes.ps1:68 char:8
++ $raw = & $exe --file $f --omit-display 2>&1 | Out-String
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Error: Unknown ...-omit-display'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Lovelace.Run — evaluate a Lovelace script and emit a JSON envelope.
+
+Usage:
+  Lovelace.Run --eval "<script>" [options]
+  Lovelace.Run <file.ls> [options]
+  Lovelace.Run --stdin [options]
+
+Options:
+  --eval <script>      evaluate the given script text
+  --file <path>        read the script from a file
+  --stdin              read the script from standard input
+  --plot-dir <dir>     directory for plot() SVG output
+  --plot-file <name>   filename for plot() SVG output (default: plot.svg)
+  --omit-functions     omit the builtin registry from the envelope (agent loops)
+  --omit-variables     omit the variables array from the envelope (agent loops)
+  --print-budget <n>   abbreviate structured renderings beyond n nodes, reporting the truncation
+  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result
+  --json               emit JSON (default)
+  --text               emit a human-readable summary
+  --help, -h           show this help

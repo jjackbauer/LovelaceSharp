@@ -1,0 +1,1 @@
+x = symbol("x"); factor(-2*x^2 + 8)

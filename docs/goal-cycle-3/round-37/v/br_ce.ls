@@ -1,0 +1,1 @@
+s = symbol("br{ce"); latex(s)

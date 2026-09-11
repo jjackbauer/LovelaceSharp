@@ -1,0 +1,181 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.31]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.Hyperboli
+cBuiltins_KeepTheirSymbolicApplicationForm [FAIL]
+At line:1 char:136
++ ... se); $out = dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.T ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...tionForm [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.32]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_HaveCompleteDescriptors(name: "atanh", inverse: "tanh", example: "atanh(0)") [FAIL]
+[xUnit.net 00:00:00.32]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_HaveCompleteDescriptors(name: "asinh", inverse: "sinh", example: "asinh(0)") [FAIL]
+[xUnit.net 00:00:00.32]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_HaveCompleteDescriptors(name: "acosh", inverse: "cosh", example: "acosh(1)") [FAIL]
+[xUnit.net 00:00:00.32]     
+Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.TwoToTheMinusOne_IsTheExactValueOfOneHalf 
+[FAIL]
+[xUnit.net 00:00:00.32]     
+Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ThreeToTheMinusTwo_IsTheExactValueOfOneNinth 
+[FAIL]
+[xUnit.net 00:00:00.33]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_AreRegistered_AndFoldAtTheirDefiningPoint(name: "atanh", call: "atanh(0)") [FAIL]
+[xUnit.net 00:00:00.33]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_AreRegistered_AndFoldAtTheirDefiningPoint(name: "asinh", call: "asinh(0)") [FAIL]
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_KeepTheirSymbolicApplicationForm [28 ms]
+  Error Message:
+   System.InvalidOperationException : Unknown function 'asinh'.
+  Stack Trace:
+     at Lovelace.Suite.Interpreter.EvaluateCallAsync(CallExpr call, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 619
+   at Lovelace.Suite.Interpreter.EvaluateAsync(Expr expr, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 290
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Statement stmt, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 882
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Program program) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 246
+   at Lovelace.Suite.SuiteEngine.EvaluateCoreAsync(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 275
+   at Lovelace.Suite.SuiteEngine.EvaluateAsync(String source, TextWriter output, CancellationToken cancellationToken) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 235
+   at Lovelace.Suite.SuiteEngine.Evaluate(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 290
+   at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_KeepTheirSymbolicApplicationForm() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 65
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(name: "atanh", inverse: "tanh", example: "atanh(0)") [1 ms]
+  Error Message:
+   Assert.NotNull() Failure: Value is null
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(String name, String inverse, String example) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 81
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(name: "asinh", inverse: "sinh", example: "asinh(0)") [< 1 ms]
+  Error Message:
+   Assert.NotNull() Failure: Value is null
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(String name, String inverse, String example) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 81
+   at InvokeStub_HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(name: "acosh", inverse: "cosh", example: "acosh(1)") [< 1 ms]
+  Error Message:
+   Assert.NotNull() Failure: Value is null
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(String name, String inverse, String example) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 81
+   at InvokeStub_HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_HaveCompleteDescriptors(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.TwoToTheMinusOne_IsTheExactValueOfOneHalf [2 ms]
+  Error Message:
+   System.ArgumentOutOfRangeException : Exponent must be positive. (Parameter 'exponent')
+  Stack Trace:
+     at Lovelace.Integer.Integer.Pow(Integer exponent) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\Integer.cs:line 378
+   at Lovelace.Suite.NumericOps.Apply(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\NumericOps.cs:line 56
+   at Lovelace.Suite.Interpreter.ApplyScalarBinary(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 372
+   at Lovelace.Suite.Interpreter.EvaluateBinaryAsync(BinaryExpr bin, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 367
+   at Lovelace.Suite.Interpreter.EvaluateAsync(Expr expr, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 287
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Statement stmt, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 882
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Program program) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 246
+   at Lovelace.Suite.SuiteEngine.EvaluateCoreAsync(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 275
+   at Lovelace.Suite.SuiteEngine.EvaluateAsync(String source, TextWriter output, CancellationToken cancellationToken) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 235
+   at Lovelace.Suite.SuiteEngine.Evaluate(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 290
+   at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.TwoToTheMinusOne_IsTheExactValueOfOneHalf() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 116
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ThreeToTheMinusTwo_IsTheExactValueOfOneNinth [< 1 ms]
+  Error Message:
+   System.ArgumentOutOfRangeException : Exponent must be positive. (Parameter 'exponent')
+  Stack Trace:
+     at Lovelace.Integer.Integer.Pow(Integer exponent) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\Integer.cs:line 378
+   at Lovelace.Suite.NumericOps.Apply(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\NumericOps.cs:line 56
+   at Lovelace.Suite.Interpreter.ApplyScalarBinary(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 372
+   at Lovelace.Suite.Interpreter.EvaluateBinaryAsync(BinaryExpr bin, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 367
+   at Lovelace.Suite.Interpreter.EvaluateAsync(Expr expr, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 287
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Statement stmt, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 882
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Program program) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 246
+   at Lovelace.Suite.SuiteEngine.EvaluateCoreAsync(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 275
+   at Lovelace.Suite.SuiteEngine.EvaluateAsync(String source, TextWriter output, CancellationToken cancellationToken) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 235
+   at Lovelace.Suite.SuiteEngine.Evaluate(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 290
+   at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ThreeToTheMinusTwo_IsTheExactValueOfOneNinth() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 131
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(name: "atanh", call: "atanh(0)") [1 ms]
+  Error Message:
+   atanh is not a known function
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(String name, String call) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 50
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(name: "asinh", call: "asinh(0)") [< 1 ms]
+  Error Message:
+   asinh is not a known function
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(String name, String call) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 50
+   at InvokeStub_HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:00.35]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins
+_AreRegistered_AndFoldAtTheirDefiningPoint(name: "acosh", call: "acosh(1)") [FAIL]
+[xUnit.net 00:00:00.35]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ZeroToTheMinusOne_
+IsATypedRecoverableErrorThatNamesTheBase [FAIL]
+[xUnit.net 00:00:00.35]     Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.BuiltinCount_Inclu
+desTheThreeHyperbolicFunctions [FAIL]
+[xUnit.net 00:00:00.35]     
+Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.PositiveAndExactIntegerPowers_AreUnchanged 
+[FAIL]
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(name: "acosh", call: "acosh(1)") [< 1 ms]
+  Error Message:
+   acosh is not a known function
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(String name, String call) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 50
+   at InvokeStub_HyperbolicBuiltinsAndNegativeIntegerPowersTests.HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ZeroToTheMinusOne_IsATypedRecoverableErrorThatNamesTheBase [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "base"
+Actual:   "exponent"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.ZeroToTheMinusOne_IsATypedRecoverableErrorThatNamesTheBase() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 170
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.BuiltinCount_IncludesTheThreeHyperbolicFunctions [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 104
+Actual:   101
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.BuiltinCount_IncludesTheThreeHyperbolicFunctions() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 101
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.PositiveAndExactIntegerPowers_AreUnchanged [< 1 ms]
+  Error Message:
+   System.ArgumentOutOfRangeException : Exponent must be positive. (Parameter 'exponent')
+  Stack Trace:
+     at Lovelace.Integer.Integer.Pow(Integer exponent) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\Integer.cs:line 378
+   at Lovelace.Suite.NumericOps.Apply(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\NumericOps.cs:line 56
+   at Lovelace.Suite.Interpreter.ApplyScalarBinary(BinaryOp op, Value left, Value right) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 372
+   at Lovelace.Suite.Interpreter.EvaluateBinaryAsync(BinaryExpr bin, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 367
+   at Lovelace.Suite.Interpreter.EvaluateAsync(Expr expr, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 287
+   at Lovelace.Suite.Interpreter.EvaluateBinaryAsync(BinaryExpr bin, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 356
+   at Lovelace.Suite.Interpreter.EvaluateAsync(Expr expr, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 287
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Statement stmt, Scope scope) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 882
+   at Lovelace.Suite.Interpreter.ExecuteAsync(Program program) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\Interpreter.cs:line 246
+   at Lovelace.Suite.SuiteEngine.EvaluateCoreAsync(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 275
+   at Lovelace.Suite.SuiteEngine.EvaluateAsync(String source, TextWriter output, CancellationToken cancellationToken) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 235
+   at Lovelace.Suite.SuiteEngine.Evaluate(String source) in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\SuiteEngine.cs:line 290
+   at Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests.PositiveAndExactIntegerPowers_AreUnchanged() in C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:line 147
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:    12, Passed:     2, Skipped:     0, Total:    14, Duration: 78 ms - Lovelace.Symbolics.Tests.dll (net10.0)
+

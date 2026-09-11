@@ -1,0 +1,1 @@
+x = symbol("x"); expand((x+1)^12)

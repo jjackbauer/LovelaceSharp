@@ -1,0 +1,51 @@
+{
+  "protocolVersion": 1,
+  "symbolicFormatVersion": "#!lovelace-sym 1",
+  "mathIrVersion": 2,
+  "ok": true,
+  "revision": "<volatile>",
+  "result": {
+    "kind": "Vector",
+    "display": "[6, -1.5 + 0.8660254037844386467637231707525i, -1.5 - 0.8660254037844386467637231707525i]",
+    "typed": "[6, -1.5 + 0.8660254037844386467637231707525i, -1.5 - 0.8660254037844386467637231707525i] (Vector)",
+    "structured": {
+      "kind": "Array",
+      "type": "Vector",
+      "shape": [
+        3
+      ],
+      "elements": [
+        {
+          "kind": "Complex",
+          "exact": true,
+          "re": "6",
+          "im": "0"
+        },
+        {
+          "kind": "Complex",
+          "exact": false,
+          "re": "-1.5",
+          "im": "0.8660254037844386467637231707525"
+        },
+        {
+          "kind": "Complex",
+          "exact": false,
+          "re": "-1.5",
+          "im": "-0.8660254037844386467637231707525"
+        }
+      ]
+    }
+  },
+  "output": [],
+  "variables": [
+    {
+      "name": "_",
+      "kind": "Vector",
+      "display": "[6, -1.5 + 0.8660254037844386467637231707525i, -1.5 - 0.8660254037844386467637231707525i]"
+    }
+  ],
+  "functions": [],
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
+}

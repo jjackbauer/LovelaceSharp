@@ -1,0 +1,1 @@
+x = symbol("x"); diff(integrate(exp(x), x), x)

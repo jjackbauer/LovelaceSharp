@@ -1,0 +1,1 @@
+x = symbol("x"); assume(1/2 < x)

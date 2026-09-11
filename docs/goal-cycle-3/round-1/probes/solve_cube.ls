@@ -1,0 +1,1 @@
+x = symbol("x"); solve((x+1)^3 == 8, x)

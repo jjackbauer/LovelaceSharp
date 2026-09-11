@@ -1,0 +1,4 @@
+﻿Test run for C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer.Tests\bin\Release\net10.0\Lovelace.Integer.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 161 ms - Lovelace.Integer.Tests.dll (net10.0)

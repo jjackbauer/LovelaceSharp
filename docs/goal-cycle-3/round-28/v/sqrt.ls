@@ -1,0 +1,1 @@
+x = symbol("x"); latex(sqrt(x))

@@ -1,0 +1,1 @@
+x = symbol("x"); y = symbol("y"); a = symbol("a"); latex(x-(y-a))

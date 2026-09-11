@@ -1,0 +1,65 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Representation -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation\bin\Release\net10.0\Lovelace.Representation.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Abstractions.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Abstractions.Tests\bin\Release\net10.0\Lovelace.Abstractions.Tests.dll
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\DigitStoreSnapshotDigitsTests.cs(37,9): warning xUnit2013: Do not use Assert.Equal() to check for collection size. Use Assert.Single instead. (https://xunit.net/xunit.analyzers/rules/xUnit2013) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\Lovelace.Representation.Tests.csproj]
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Representation.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\bin\Release\net10.0\Lovelace.Representation.Tests.dll
+  Lovelace.Knowledge -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge\bin\Release\net10.0\Lovelace.Knowledge.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Array.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Array.Tests\bin\Release\net10.0\Lovelace.Array.Tests.dll
+  Lovelace.Natural.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Natural.Tests\bin\Release\net10.0\Lovelace.Natural.Tests.dll
+  Lovelace.Knowledge.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge.Tests\bin\Release\net10.0\Lovelace.Knowledge.Tests.dll
+  Lovelace.Knowledge.Run -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Knowledge.Run\bin\Release\net10.0\Lovelace.Knowledge.Run.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Integer.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Integer.Tests\bin\Release\net10.0\Lovelace.Integer.Tests.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Statistics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Statistics\bin\Release\net10.0\Lovelace.Statistics.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  precbench -> C:\Users\ricar\dev\LovelaceSharp\precbench\bin\Release\net10.0\precbench.dll
+  precbench.Tests -> C:\Users\ricar\dev\LovelaceSharp\precbench.Tests\bin\Release\net10.0\precbench.Tests.dll
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(52,49): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(81,68): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealPiTests.cs(130,65): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(143,18): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+  Lovelace.Real.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\bin\Release\net10.0\Lovelace.Real.Tests.dll
+  Lovelace.Complex.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Dsp.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Dsp.Tests\bin\Release\net10.0\Lovelace.Dsp.Tests.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Console -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console\bin\Release\net10.0\Lovelace.Console.dll
+  dspbench -> C:\Users\ricar\dev\LovelaceSharp\dspbench\bin\Release\net10.0\dspbench.dll
+  symbench -> C:\Users\ricar\dev\LovelaceSharp\symbench\bin\Release\net10.0\symbench.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Console.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Console.Tests\bin\Release\net10.0\Lovelace.Console.Tests.dll
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\EmptyReductionTests.cs(47,9): warning xUnit2013: Do not use Assert.Equal() to check for collection size. Use Assert.Empty instead. (https://xunit.net/xunit.analyzers/rules/xUnit2013) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\Lovelace.Suite.Tests.csproj]
+  Lovelace.Suite.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll
+  Lovelace.Run.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(119,66): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\SympyOracle.cs(308,56): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(286,47): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(239,21): warning xUnit2020: Do not use Assert.True(false, message) to fail a test. Use Assert.Fail(message) instead. (https://xunit.net/xunit.analyzers/rules/xUnit2020) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+  Lovelace.Studio -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Studio\bin\Release\net10.0\Lovelace.Studio.dll
+  Lovelace.Studio.Tests -> C:\Users\ricar\dev\LovelaceSharp\Lovelace.Studio.Tests\bin\Release\net10.0\Lovelace.Studio.Tests.dll
+
+Build succeeded.
+
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\DigitStoreSnapshotDigitsTests.cs(37,9): warning xUnit2013: Do not use Assert.Equal() to check for collection size. Use Assert.Single instead. (https://xunit.net/xunit.analyzers/rules/xUnit2013) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Representation.Tests\Lovelace.Representation.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(52,49): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(81,68): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealPiTests.cs(130,65): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\RealAsyncLocalTests.cs(143,18): warning xUnit1031: Test methods should not use blocking task operations, as they can cause deadlocks. Use an async test method and await instead. (https://xunit.net/xunit.analyzers/rules/xUnit1031) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Real.Tests\Lovelace.Real.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\EmptyReductionTests.cs(47,9): warning xUnit2013: Do not use Assert.Equal() to check for collection size. Use Assert.Empty instead. (https://xunit.net/xunit.analyzers/rules/xUnit2013) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite.Tests\Lovelace.Suite.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(119,66): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\SympyOracle.cs(308,56): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(286,47): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\DifferentialOracleTests.cs(239,21): warning xUnit2020: Do not use Assert.True(false, message) to fail a test. Use Assert.Fail(message) instead. (https://xunit.net/xunit.analyzers/rules/xUnit2020) [C:\Users\ricar\dev\LovelaceSharp\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj]
+    10 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:06.70
