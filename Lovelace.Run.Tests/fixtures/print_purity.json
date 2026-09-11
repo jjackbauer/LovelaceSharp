@@ -21,7 +21,12 @@
     {
       "name": "_",
       "kind": "Natural",
-      "display": "2"
+      "display": "2",
+      "structured": {
+        "kind": "Natural",
+        "value": "2",
+        "exact": true
+      }
     }
   ],
   "functions": [],

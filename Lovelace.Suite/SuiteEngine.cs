@@ -104,6 +104,21 @@ public sealed class SuiteEngine
         return ValueFormatter.Format(value, UnicodeOutput);
     }
 
+    /// <summary>
+    /// The structured sibling of <see cref="FormatValue"/>: projects a value with the SHARED
+    /// <see cref="StructuredProjection"/> under this engine's display precision, so a value's
+    /// human rendering and its machine-readable form come from one set of settings. Used for the
+    /// envelope's <c>variables[]</c> entries, whose Display string is captured under the same
+    /// precision. Total over the value kinds: every value projects to a structured form (an absent
+    /// value to <c>Null</c>).
+    /// </summary>
+    public StructuredValueDto ProjectValue(Value value,
+        Lovelace.Symbolics.Printing.PrintBudget? budget = null)
+    {
+        using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
+        return StructuredProjection.ToStructured(value, budget);
+    }
+
     /// <summary>Formats a value with a type suffix at this engine's display precision.</summary>
     public string FormatValueTyped(Value value)
     {

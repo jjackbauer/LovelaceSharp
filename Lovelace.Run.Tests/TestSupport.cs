@@ -46,6 +46,24 @@ internal static class TestSupport
     }
 
     /// <summary>
+    /// Runs the runner in-process over an INLINE script (the same entry point the process uses,
+    /// minus the process), so a test can drive the wire for a generated input instead of pinning a
+    /// fixture. The caller names the flags it wants; unlike <see cref="RunFixtureAsync"/> this adds
+    /// none, so <c>--omit-functions</c> is opted into explicitly.
+    /// </summary>
+    internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunScriptAsync(
+        string script, params string[] extraArguments)
+    {
+        var arguments = new List<string> { "--eval", script };
+        arguments.AddRange(extraArguments);
+
+        var stdout = new StringWriter();
+        var stderr = new StringWriter();
+        int exitCode = await Runner.RunAsync(arguments.ToArray(), stdout, stderr);
+        return (exitCode, stdout.ToString(), stderr.ToString());
+    }
+
+    /// <summary>
     /// Parses <paramref name="text"/> as EXACTLY one JSON document: no leading noise, no second
     /// document, and nothing but trailing whitespace. The raw text is part of every failure
     /// message so a regression that pollutes stdout is diagnosable from the test output alone.

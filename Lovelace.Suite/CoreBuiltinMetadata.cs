@@ -35,7 +35,7 @@ public static class CoreBuiltinMetadata
             "Principal square root; symbolic arguments produce Power(x, 1/2).", ["sqrt(4)", "sqrt(x)"], "Real | Symbolic");
         Add("sign", ["x"], BuiltinCategories.Numerics, "Sign of a real value: -1, 0, or 1.", ["sign(-7)"], "Integer");
         Add("divrem", ["a", "b"], BuiltinCategories.Numerics,
-            "Quotient and remainder pair of integer division.", ["divrem(17, 5)"], "Vector");
+            "Quotient and remainder pair of integer division.", ["divrem(17, 5)"], "DivRemResult");
         Add("is_even", ["x"], BuiltinCategories.Numerics, "Whether the integer value is even.", ["is_even(4)"], "Boolean");
         Add("is_odd", ["x"], BuiltinCategories.Numerics, "Whether the integer value is odd.", ["is_odd(4)"], "Boolean");
         Add("pi", ["digits"], BuiltinCategories.Numerics,

@@ -120,12 +120,129 @@
     {
       "name": "_",
       "kind": "Record",
-      "display": "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: [])"
+      "display": "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: [])",
+      "structured": {
+        "kind": "Record",
+        "type": "CompilationResult",
+        "fields": [
+          {
+            "name": "ir",
+            "value": {
+              "kind": "Text",
+              "value": "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3"
+            }
+          },
+          {
+            "name": "parameters",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                1
+              ],
+              "elements": [
+                {
+                  "kind": "Record",
+                  "type": "ParameterInfo",
+                  "fields": [
+                    {
+                      "name": "name",
+                      "value": {
+                        "kind": "Text",
+                        "value": "x"
+                      }
+                    },
+                    {
+                      "name": "domain",
+                      "value": {
+                        "kind": "Domain",
+                        "domain": "complex"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "name": "result_domain",
+            "value": {
+              "kind": "Domain",
+              "domain": "complex"
+            }
+          },
+          {
+            "name": "result_type",
+            "value": {
+              "kind": "Text",
+              "value": "Integer"
+            }
+          },
+          {
+            "name": "precision_policy",
+            "value": {
+              "kind": "Text",
+              "value": "caller_supplied"
+            }
+          },
+          {
+            "name": "optimization_policy",
+            "value": {
+              "kind": "Text",
+              "value": "none"
+            }
+          },
+          {
+            "name": "target",
+            "value": {
+              "kind": "Text",
+              "value": "mathir"
+            }
+          },
+          {
+            "name": "mathir_version",
+            "value": {
+              "kind": "Integer",
+              "value": "2",
+              "exact": true
+            }
+          },
+          {
+            "name": "exact",
+            "value": {
+              "kind": "Boolean",
+              "value": "true"
+            }
+          },
+          {
+            "name": "diagnostics",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          }
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     }
   ],
   "functions": [],

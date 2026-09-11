@@ -1176,10 +1176,22 @@ public sealed class Interpreter
         _ => Value.Void,
     };
 
+    /// <summary>
+    /// The <c>inspect(...).exact</c> answer for a value: a Boolean where exactness is a property of
+    /// the kind, and Null where it is not (text, booleans, arrays, records). A Real answers from the
+    /// provenance its own arithmetic recorded (<see cref="Rl.IsExact"/>, cleared by every truncating
+    /// path), which is the SAME question the value's wire form answers with its <c>exact</c> flag; a
+    /// Complex is exact when BOTH parts are, because a complex number carrying one truncated
+    /// component is a truncated number. This used to return Void for both, so
+    /// <c>inspect(1/3).exact</c> was Null while the Real's own form said <c>"exact": true</c>
+    /// (A1-N-09).
+    /// </summary>
     private static Value ExactOf(Value v) => v.Kind switch
     {
         ValueKind.Symbolic => new Value(v.AsSymbolic().IsExact),
         ValueKind.Natural or ValueKind.Integer => new Value(true),
+        ValueKind.Real => new Value(v.AsReal().IsExact),
+        ValueKind.Complex => new Value(v.AsComplex().Re.IsExact && v.AsComplex().Im.IsExact),
         _ => Value.Void,
     };
 
@@ -1493,7 +1505,11 @@ public sealed class Interpreter
                     : Array.Empty<WireDiagnostic>())));
         });
 
-        // divrem(a, b)
+        // divrem(a, b) — TWO integers as named fields, never the sentence "quotient = 3,
+        // remainder = 1": a machine API must not require parsing prose to recover the quotient and
+        // the remainder (A1-N-08). The field names are the ones the sentence used (and the ones the
+        // underlying integer operations are named after), so an agent reads
+        // result.structured.fields[quotient] without a convention to learn.
         Register("divrem", ["a", "b"], args =>
         {
             var a = args[0];
@@ -1502,8 +1518,10 @@ public sealed class Interpreter
 
             return Task.FromResult(a.Kind switch
             {
-                ValueKind.Natural => new Value(FormatDivRem(Nat.DivRem(a.AsNatural(), b.AsNatural(), out var natRem), natRem)),
-                ValueKind.Integer => new Value(FormatDivRem(a.AsInteger().DivRem(b.AsInteger(), out var intRem), intRem)),
+                ValueKind.Natural => DivRemResult(
+                    new Value(Nat.DivRem(a.AsNatural(), b.AsNatural(), out var natRem)), new Value(natRem)),
+                ValueKind.Integer => DivRemResult(
+                    new Value(a.AsInteger().DivRem(b.AsInteger(), out var intRem)), new Value(intRem)),
                 _ => throw new InvalidOperationException($"divrem() is not supported for values of kind '{a.Kind}'. Use Natural or Integer operands."),
             });
         });
@@ -1727,8 +1745,19 @@ public sealed class Interpreter
         return new Value(elements);
     }
 
-    private static string FormatDivRem(object quotient, object remainder) =>
-        $"quotient = {quotient}, remainder = {remainder}";
+    /// <summary>
+    /// The <c>divrem(a, b)</c> result record: <c>quotient</c> and <c>remainder</c> as separate
+    /// integer fields, so the two numbers cross structurally instead of as the display sentence
+    /// <c>"quotient = 3, remainder = 1"</c> (A1-N-08). Both fields carry the kind the widened
+    /// operand pair produced — Natural for two Naturals, Integer otherwise — which is the same
+    /// result the prose carried, in a form a consumer reads without a parser.
+    /// </summary>
+    private static Value DivRemResult(Value quotient, Value remainder) =>
+        new(new RecordValue("DivRemResult", new[]
+        {
+            new RecordField("quotient", quotient),
+            new RecordField("remainder", remainder),
+        }));
 
     // -----------------------------------------------------------------
     // Array / vector built-in helpers

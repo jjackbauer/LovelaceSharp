@@ -179,17 +179,21 @@ public static class Runner
                 ScriptSource.ToSemicolonStatements(source), output, cancellation.Token);
 
             var snapshot = engine.CaptureState();
+            // one budget for every structured rendering in the envelope: the result AND each
+            // variable, so a consumer never has to reconcile two abbreviation policies
+            var structuredBudget = PrintBudgetOrNull(printBudget);
             var variables = omitVariables
                 ? Array.Empty<VariableDto>()
                 : snapshot.Variables.Values
                     .OrderBy(v => v.Name, StringComparer.Ordinal)
-                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
+                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display,
+                        ProjectVariable(engine, v.Name, structuredBudget)))
                     .ToArray();
             var functions = omitFunctions
                 ? Array.Empty<FunctionDto>()
-                : snapshot.Functions.Values
+                : engine.Functions.Values
                     .OrderBy(f => f.Name, StringComparer.Ordinal)
-                    .Select(f => new FunctionDto(f.Name, f.Parameters.ToArray(), f.IsBuiltin, f.Plugin))
+                    .Select(FunctionEntry)
                     .ToArray();
 
             PlotDto? plot = null;
@@ -202,7 +206,7 @@ public static class Runner
             ResultDto? resultPayload = result.Kind == ValueKind.Void
                 ? null
                 : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result),
-                    StructuredProjection.ToStructured(result, PrintBudgetOrNull(printBudget)));
+                    StructuredProjection.ToStructured(result, structuredBudget));
 
             var envelope = new RunEnvelopeDto(
                 ProtocolVersion,
@@ -238,7 +242,8 @@ public static class Runner
             VariableDto[]? partialVariables = code == "Cancelled"
                 ? engine.CaptureState().Variables.Values
                     .OrderBy(v => v.Name, StringComparer.Ordinal)
-                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
+                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display,
+                        ProjectVariable(engine, v.Name, PrintBudgetOrNull(printBudget))))
                     .ToArray()
                 : null;
             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
@@ -299,6 +304,34 @@ public static class Runner
 
     private static Lovelace.Symbolics.Printing.PrintBudget? PrintBudgetOrNull(int? maxNodes) =>
         maxNodes is { } nodes ? new Lovelace.Symbolics.Printing.PrintBudget(MaxNodes: nodes) : null;
+
+    /// <summary>
+    /// The structured form of one captured variable — the SAME projection the result carries, read
+    /// off the LIVE value under the engine's display precision so a variable's <c>display</c> string
+    /// and its <c>structured</c> form come from one set of settings (A2-F24). The snapshot and the
+    /// live dictionary are the same capture: no evaluation runs between them, so the value is always
+    /// there; a lookup that somehow misses still crosses as <c>{"kind":"Null"}</c> rather than
+    /// dropping the entry.
+    /// </summary>
+    private static StructuredValueDto ProjectVariable(SuiteEngine engine, string name,
+        Lovelace.Symbolics.Printing.PrintBudget? budget) =>
+        engine.TryGetVariable(name, out var value)
+            ? engine.ProjectValue(value, budget)
+            : new StructuredValueDto("Null");
+
+    /// <summary>
+    /// One registry entry: the declared signature plus the arity metadata the call-site validator
+    /// computes the arity contract from (A2-F15). The lower bound is RESOLVED
+    /// (<see cref="FunctionDefinition.DeclaredArity"/>), so a consumer never has to know the
+    /// internal "exactly the declared count" sentinel, and the upper bound is the declared parameter
+    /// count unless <c>variadic</c> removes it.
+    /// </summary>
+    private static FunctionDto FunctionEntry(FunctionDefinition f)
+    {
+        var (min, _) = f.DeclaredArity();
+        return new FunctionDto(f.Name, f.Parameters.ToArray(), min, f.Parameters.Count,
+            f.Variadic, f.IsBuiltin, f.PluginName);
+    }
 
     private static DurationDto Duration(TimeSpan elapsed)
     {

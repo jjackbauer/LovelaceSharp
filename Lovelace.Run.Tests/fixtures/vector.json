@@ -56,12 +56,65 @@
     {
       "name": "_",
       "kind": "Vector",
-      "display": "[x, x, x]"
+      "display": "[x, x, x]",
+      "structured": {
+        "kind": "Array",
+        "type": "Vector",
+        "shape": [
+          3
+        ],
+        "elements": [
+          {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          },
+          {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          },
+          {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     }
   ],
   "functions": [],

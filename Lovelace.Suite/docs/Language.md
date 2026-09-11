@@ -686,13 +686,14 @@ inv(4)
 
 ### `divrem(a, b)`
 
-Integer quotient and remainder, returned as text.
+Integer quotient and remainder as a `DivRemResult` record with the two integers in the
+`quotient` and `remainder` fields — structure, not a sentence.
 
 ```lovelace
 divrem(17, 5)
 ```
 ```result
-quotient = 3, remainder = 2
+DivRemResult(quotient: 3, remainder: 2) (DivRemResult)
 ```
 
 ### `is_even(x)` / `is_odd(x)`

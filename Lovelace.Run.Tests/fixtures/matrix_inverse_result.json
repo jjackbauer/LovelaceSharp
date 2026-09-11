@@ -129,12 +129,138 @@
     {
       "name": "_",
       "kind": "Record",
-      "display": "MatrixInverseResult(status: NoSolutions, complete: True, completeness: Complete, inverse: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])"
+      "display": "MatrixInverseResult(status: NoSolutions, complete: True, completeness: Complete, inverse: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])",
+      "structured": {
+        "kind": "Record",
+        "type": "MatrixInverseResult",
+        "fields": [
+          {
+            "name": "status",
+            "value": {
+              "kind": "Enum",
+              "type": "SolveStatus",
+              "value": "NoSolutions"
+            }
+          },
+          {
+            "name": "complete",
+            "value": {
+              "kind": "Boolean",
+              "value": "true"
+            }
+          },
+          {
+            "name": "completeness",
+            "value": {
+              "kind": "Enum",
+              "type": "Completeness",
+              "value": "Complete"
+            }
+          },
+          {
+            "name": "inverse",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          },
+          {
+            "name": "conditions",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          },
+          {
+            "name": "diagnostics",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                1
+              ],
+              "elements": [
+                {
+                  "kind": "Record",
+                  "type": "Diagnostic",
+                  "fields": [
+                    {
+                      "name": "code",
+                      "value": {
+                        "kind": "Text",
+                        "value": "matrix.singular"
+                      }
+                    },
+                    {
+                      "name": "category",
+                      "value": {
+                        "kind": "Enum",
+                        "type": "ErrorCategory",
+                        "value": "NoSolution"
+                      }
+                    },
+                    {
+                      "name": "message",
+                      "value": {
+                        "kind": "Text",
+                        "value": "matrix is singular"
+                      }
+                    },
+                    {
+                      "name": "recoverable",
+                      "value": {
+                        "kind": "Boolean",
+                        "value": "true"
+                      }
+                    },
+                    {
+                      "name": "location",
+                      "value": {
+                        "kind": "Null"
+                      }
+                    },
+                    {
+                      "name": "details",
+                      "value": {
+                        "kind": "Array",
+                        "type": "Vector",
+                        "shape": [
+                          0
+                        ],
+                        "elements": []
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     }
   ],
   "functions": [],

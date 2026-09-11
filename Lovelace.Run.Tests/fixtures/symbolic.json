@@ -25,12 +25,34 @@
     {
       "name": "_",
       "kind": "Symbolic",
-      "display": "x^2 + 1"
+      "display": "x^2 + 1",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x^2 + 1",
+        "canonical": "(add (rat 1 1) (pow (sym x) (rat 2 1)))",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 5,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     }
   ],
   "functions": [],

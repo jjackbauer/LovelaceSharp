@@ -1,0 +1,4506 @@
+diff --git a/Lovelace.Run.Tests/DivRemRecordTests.cs b/Lovelace.Run.Tests/DivRemRecordTests.cs
+new file mode 100644
+index 0000000..2d8db6d
+--- /dev/null
++++ b/Lovelace.Run.Tests/DivRemRecordTests.cs
+@@ -0,0 +1,137 @@
++using System.Numerics;
++using System.Text.Json.Nodes;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// <c>divrem(a, b)</c> returns the quotient and the remainder as TWO integer fields of a
++/// <c>DivRemResult</c> record, never as the display sentence <c>"quotient = 3, remainder = 1"</c>
++/// (A1-N-08).
++///
++/// <para>The field names are the ones the sentence used — <c>quotient</c> and <c>remainder</c>, the
++/// names the underlying integer operations carry — so an agent reads
++/// <c>result.structured.fields[quotient].value</c> without learning a convention, and the two
++/// integers satisfy the division identity in the test rather than in a parser.</para>
++/// </summary>
++public class DivRemRecordTests
++{
++    /// <summary>The division cases the identity is proved over: both Naturals, a dividend larger
++    /// than any fixed-width integer, a large power of ten, and the three sign combinations.</summary>
++    public static TheoryData<string, string, string, string> DivisionCases() => new()
++    {
++        { "7", "2", "7", "2" },
++        { "2^1000", "3", BigInteger.Pow(2, 1000).ToString(), "3" },
++        { "10^100", "7", BigInteger.Pow(10, 100).ToString(), "7" },
++        { "-17", "5", "-17", "5" },
++        { "17", "-5", "17", "-5" },
++        { "-17", "-5", "-17", "-5" },
++    };
++
++    private static async Task<JsonNode> DivRemAsync(string a, string b)
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            $"A = {a}; B = {b}; divrem(A, B)", "--omit-functions");
++        Assert.True(exitCode == 0, $"divrem({a}, {b}) exited {exitCode}. stderr: {stderr.Trim()}");
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, $"divrem({a}, {b}) envelope");
++        return envelope["result"]!["structured"]!;
++    }
++
++    [Theory]
++    [MemberData(nameof(DivisionCases))]
++    public async Task DivRem_ReturnsTwoIntegerFields_ThatSatisfyTheDivisionIdentity(
++        string aSource, string bSource, string aDecimal, string bDecimal)
++    {
++        JsonNode structured = await DivRemAsync(aSource, bSource);
++
++        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++        Assert.Equal("DivRemResult", structured["type"]!.GetValue<string>());
++
++        JsonNode fields = structured["fields"]!;
++        Assert.Equal(new[] { "quotient", "remainder" },
++            fields.AsArray().Select(f => f!["name"]!.GetValue<string>()).ToArray());
++
++        JsonObject byName = TestSupport.FieldsByName(structured);
++        JsonNode quotient = byName["quotient"]!;
++        JsonNode remainder = byName["remainder"]!;
++        Assert.Contains(quotient["kind"]!.GetValue<string>(), new[] { "Natural", "Integer" });
++        Assert.Contains(remainder["kind"]!.GetValue<string>(), new[] { "Natural", "Integer" });
++
++        BigInteger a = BigInteger.Parse(aDecimal);
++        BigInteger b = BigInteger.Parse(bDecimal);
++        BigInteger q = BigInteger.Parse(quotient["value"]!.GetValue<string>());
++        BigInteger r = BigInteger.Parse(remainder["value"]!.GetValue<string>());
++
++        // The two published integers ARE a division — in the convention the engine documents
++        // (Integer.DivRem, Integer.cs:293-305): the MAGNITUDES are divided and the equal-signs
++        // rule is applied to both results. So the invariant is |a| = |q|·|b| + |r| with
++        // |r| < |b| and sign(q) = sign(r) = sign(a)·sign(b) — not the schoolbook a = q·b + r,
++        // which that sign rule satisfies only when the operands' signs agree.
++        Assert.Equal(BigInteger.Abs(a), BigInteger.Abs(q) * BigInteger.Abs(b) + BigInteger.Abs(r));
++        Assert.True(BigInteger.Abs(r) < BigInteger.Abs(b),
++            $"|remainder| = {BigInteger.Abs(r)} is not below |divisor| = {BigInteger.Abs(b)}");
++        if (q != BigInteger.Zero)
++            Assert.Equal(a.Sign * b.Sign, q.Sign);
++        if (q != BigInteger.Zero && r != BigInteger.Zero)
++            Assert.Equal(q.Sign, r.Sign);
++    }
++
++    /// <summary>The reported case, stated directly: the two integers are fields, and the result is
++    /// not a Text sentence an agent would have to parse.</summary>
++    [Fact]
++    public async Task DivRemOfTwoNaturals_CrossesAsStructureNotProse()
++    {
++        JsonNode structured = await DivRemAsync("7", "2");
++
++        Assert.NotEqual("Text", structured["kind"]!.GetValue<string>());
++        JsonObject byName = TestSupport.FieldsByName(structured);
++        Assert.Equal("3", byName["quotient"]!["value"]!.GetValue<string>());
++        Assert.Equal("1", byName["remainder"]!["value"]!.GetValue<string>());
++        Assert.Equal("Natural", byName["quotient"]!["kind"]!.GetValue<string>());
++    }
++
++    /// <summary>A widened pair is Integer on both sides, even when the dividend alone needed the
++    /// wider kind: the two fields describe ONE division, so they share the kinds it was done in.</summary>
++    [Fact]
++    public async Task DivRemWithANegativeOperand_IsIntegerOnBothFields()
++    {
++        JsonNode structured = await DivRemAsync("-17", "5");
++
++        JsonObject byName = TestSupport.FieldsByName(structured);
++        Assert.Equal("Integer", byName["quotient"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Integer", byName["remainder"]!["kind"]!.GetValue<string>());
++        Assert.Equal("-3", byName["quotient"]!["value"]!.GetValue<string>());
++        Assert.Equal("-2", byName["remainder"]!["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The sign combinations the prose used to spell out — the record carries the SAME
++    /// two integers the sentence did, so a consumer switching on the fields never sees a different
++    /// answer: (17, −5) and (−17, 5) put both results negative, (−17, −5) puts both positive.</summary>
++    [Theory]
++    [InlineData("17", "-5", "-3", "-2")]
++    [InlineData("-17", "5", "-3", "-2")]
++    [InlineData("-17", "-5", "3", "2")]
++    [InlineData("1", "5", "0", "1")]
++    public async Task DivRem_KeepsTheEnginesDocumentedSignRule(string a, string b, string quotient, string remainder)
++    {
++        JsonObject byName = TestSupport.FieldsByName(await DivRemAsync(a, b));
++
++        Assert.Equal(quotient, byName["quotient"]!["value"]!.GetValue<string>());
++        Assert.Equal(remainder, byName["remainder"]!["value"]!.GetValue<string>());
++    }
++
++    /// <summary>Division by zero is still refused as a typed, recoverable error — the record shape
++    /// did not turn a domain error into a record.</summary>
++    [Fact]
++    public async Task DivRemByZero_IsStillARecoverableDomainError()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync("divrem(7, 0)", "--omit-functions");
++
++        Assert.Equal(1, exitCode);
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "divrem(7, 0) envelope");
++        Assert.False(envelope["ok"]!.GetValue<bool>());
++        Assert.Equal("DivisionByZero", envelope["code"]!.GetValue<string>());
++        Assert.Equal("DomainError", envelope["category"]!.GetValue<string>());
++        Assert.True(envelope["recoverable"]!.GetValue<bool>());
++    }
++}
+diff --git a/Lovelace.Run.Tests/FunctionArityMetadataTests.cs b/Lovelace.Run.Tests/FunctionArityMetadataTests.cs
+new file mode 100644
+index 0000000..d3b860d
+--- /dev/null
++++ b/Lovelace.Run.Tests/FunctionArityMetadataTests.cs
+@@ -0,0 +1,139 @@
++using System.Text.Json.Nodes;
++using Lovelace.Dsp;
++using Lovelace.MathIR;
++using Lovelace.Suite;
++using Lovelace.Symbolics;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// Every <c>functions[]</c> entry publishes the arity metadata the arity contract is COMPUTED
++/// from, so an agent can tell which of a builtin's declared parameters are optional without
++/// parsing an error message: <c>parameters</c> (the declared signature), <c>parameterCount</c>,
++/// <c>minArity</c> (the resolved lower bound) and <c>variadic</c> (true when the last parameter may
++/// repeat, which removes the upper bound) (A2-F15).
++///
++/// <para>The entries used to carry only <c>{name, parameters, builtin, plugin}</c>, so
++/// <c>symbol(name [, domain])</c> and <c>solve(f, x [, domain])</c> looked exactly like builtins
++/// whose whole signature is mandatory, and the fact that <c>concat([1],[2])</c> is accepted while
++/// <c>eye(2,2,2)</c> is refused was not recoverable from the envelope.</para>
++/// </summary>
++public class FunctionArityMetadataTests
++{
++    /// <summary>The same plugin set the runner loads, so the registry compared against is the
++    /// registry published.</summary>
++    private static SuiteEngine LiveEngine()
++    {
++        var engine = new SuiteEngine();
++        engine.LoadPlugin(new DspPlugin());
++        var symbolics = new SymbolicsPlugin();
++        engine.LoadPlugin(symbolics);
++        engine.LoadPlugin(new MathIRPlugin(symbolics));
++        return engine;
++    }
++
++    private static async Task<JsonArray> RegistryAsync()
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync("x = symbol(\"x\"); x + 1");
++        Assert.True(exitCode == 0, $"registry probe exited {exitCode}. stderr: {stderr.Trim()}");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "registry envelope");
++        return envelope["functions"]!.AsArray();
++    }
++
++    /// <summary>The property, over the LIVE registry: what the wire publishes IS what the engine
++    /// declares, entry by entry, and the range is well formed for every entry.</summary>
++    [Fact]
++    public async Task EveryRegistryEntry_PublishesItsDeclaredArity()
++    {
++        JsonArray functions = await RegistryAsync();
++        SuiteEngine engine = LiveEngine();
++
++        Assert.NotEmpty(functions);
++        Assert.Equal(engine.Functions.Count, functions.Count);
++
++        foreach (JsonNode? entry in functions)
++        {
++            string name = entry!["name"]!.GetValue<string>();
++            Assert.True(engine.Functions.TryGetValue(name, out Lovelace.Suite.FunctionDefinition? definition),
++                $"the registry published '{name}', which the engine does not have");
++
++            string[] parameters = entry["parameters"]!.AsArray().Select(p => p!.GetValue<string>()).ToArray();
++            Assert.Equal(definition!.Parameters.ToArray(), parameters);
++
++            Assert.True(entry["parameterCount"] is not null, $"'{name}': no parameterCount");
++            Assert.True(entry["minArity"] is not null, $"'{name}': no minArity");
++            Assert.True(entry["variadic"] is not null, $"'{name}': no variadic");
++
++            int parameterCount = entry["parameterCount"]!.GetValue<int>();
++            int minArity = entry["minArity"]!.GetValue<int>();
++            bool variadic = entry["variadic"]!.GetValue<bool>();
++            var (declaredMin, declaredMax) = definition.DeclaredArity();
++
++            Assert.Equal(parameters.Length, parameterCount);
++            Assert.Equal(declaredMin, minArity);
++            Assert.Equal(definition.Variadic, variadic);
++            // the published range is well formed and matches the declared upper bound
++            Assert.InRange(minArity, 0, parameterCount);
++            Assert.Equal(variadic ? int.MaxValue : parameterCount, declaredMax);
++        }
++    }
++
++    /// <summary>The rows the finding names, pinned: an optional TRAILING parameter is visible as
++    /// <c>minArity &lt; parameterCount</c>, and a repeating tail as <c>variadic</c>.</summary>
++    [Fact]
++    public async Task OptionalAndVariadicBuiltins_AreVisibleInTheRegistry()
++    {
++        JsonObject byName = Index(await RegistryAsync());
++
++        AssertArity(byName, "solve", minArity: 2, parameterCount: 3, variadic: false);
++        AssertArity(byName, "symbol", minArity: 1, parameterCount: 2, variadic: false);
++        AssertArity(byName, "concat", minArity: 2, parameterCount: 3, variadic: false);
++        AssertArity(byName, "dft", minArity: 1, parameterCount: 2, variadic: false);
++        AssertArity(byName, "abs", minArity: 1, parameterCount: 1, variadic: false);
++        AssertArity(byName, "print", minArity: 0, parameterCount: 1, variadic: true);
++        AssertArity(byName, "zeros", minArity: 1, parameterCount: 1, variadic: true);
++
++        // at least one entry of each shape exists, so the two rows above are not the only evidence
++        Assert.Contains(byName, pair => pair.Value!["variadic"]!.GetValue<bool>());
++        Assert.Contains(byName, pair => pair.Value!["minArity"]!.GetValue<int>() <
++                                        pair.Value["parameterCount"]!.GetValue<int>());
++    }
++
++    /// <summary>The published range is the range the call site ENFORCES: two arguments to a
++    /// three-parameter builtin with minArity 2 is accepted, one argument is refused with the
++    /// documented recoverable argument error — computed from the entry, not guessed.</summary>
++    [Fact]
++    public async Task ThePublishedRange_IsTheRangeTheCallSiteEnforces()
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            "concat([1], [2])", "--omit-functions");
++        Assert.True(exitCode == 0, $"concat with minArity arguments was refused: {stderr.Trim()}");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "concat envelope");
++        Assert.True(envelope["ok"]!.GetValue<bool>());
++
++        var (refusedExit, refusedStdout, _) = await TestSupport.RunScriptAsync(
++            "concat([1])", "--omit-functions");
++        Assert.Equal(1, refusedExit);
++        JsonNode refused = TestSupport.ParseExactlyOneJsonDocument(refusedStdout, "arity refusal envelope");
++        Assert.False(refused["ok"]!.GetValue<bool>());
++        Assert.Equal("InvalidArgument", refused["code"]!.GetValue<string>());
++        Assert.Equal("TypeMismatch", refused["category"]!.GetValue<string>());
++    }
++
++    private static JsonObject Index(JsonArray functions)
++    {
++        var index = new JsonObject();
++        foreach (JsonNode? entry in functions)
++            index[entry!["name"]!.GetValue<string>()] = entry!.DeepClone();
++        return index;
++    }
++
++    private static void AssertArity(JsonObject byName, string name, int minArity, int parameterCount, bool variadic)
++    {
++        JsonNode? entry = byName[name];
++        Assert.True(entry is not null, $"'{name}' is missing from the registry");
++        Assert.Equal(minArity, entry!["minArity"]!.GetValue<int>());
++        Assert.Equal(parameterCount, entry["parameterCount"]!.GetValue<int>());
++        Assert.Equal(variadic, entry["variadic"]!.GetValue<bool>());
++    }
++}
+diff --git a/Lovelace.Run.Tests/InspectionExactnessTests.cs b/Lovelace.Run.Tests/InspectionExactnessTests.cs
+new file mode 100644
+index 0000000..8aa2aaa
+--- /dev/null
++++ b/Lovelace.Run.Tests/InspectionExactnessTests.cs
+@@ -0,0 +1,104 @@
++using System.Text.Json.Nodes;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// <c>inspect(v).exact</c> answers the SAME question the value's own wire form answers with its
++/// <c>exact</c> flag, for every kind where exactness is a property: a Real carries the provenance
++/// its arithmetic recorded, and a Complex is exact when both parts are (A1-N-09).
++///
++/// <para>It used to be Null for both — <c>inspect(1/3)</c> reported <c>"exact":{"kind":"Null"}</c>
++/// for a value whose Real form says <c>"exact":true</c>, so "is this number exact?" could not be
++/// asked through the inspection record at all, and the exact <c>1/3</c> was indistinguishable from
++/// the truncated <c>sqrt(2)</c>.</para>
++/// </summary>
++public class InspectionExactnessTests
++{
++    private static async Task<JsonObject> InspectAsync(string valueSource)
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
++            $"v = {valueSource}; i = inspect(v)", "--omit-functions");
++        Assert.True(exitCode == 0, $"inspect({valueSource}) exited {exitCode}. stderr: {stderr.Trim()}");
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, $"inspect({valueSource}) envelope");
++        return TestSupport.FieldsByName(envelope["result"]!["structured"]!);
++    }
++
++    [Theory]
++    [InlineData("1", true)]                 // Natural: unchanged by this round
++    [InlineData("1/3", true)]               // an exact terminating quotient
++    [InlineData("1/(10^19)", true)]         // exact past the 18-place shape
++    [InlineData("sqrt(2)", false)]          // truncated irrational
++    [InlineData("(-4)^(1/2)", true)]        // Symbolic exactness: unchanged by this round
++    [InlineData("dft([1, 2, 3])[0]", true)]  // Complex, both parts exact
++    [InlineData("dft([1, 2, 3])[1]", false)] // Complex, one truncated part
++    public async Task Inspect_AnswersExactnessAsABoolean(string valueSource, bool expected)
++    {
++        JsonObject fields = await InspectAsync(valueSource);
++
++        JsonNode exact = fields["exact"]!;
++        Assert.True(exact["kind"]!.GetValue<string>() == "Boolean",
++            $"inspect({valueSource}).exact is {exact.ToJsonString()}, not a Boolean — the question " +
++            "cannot be answered from the record");
++        // a Boolean VALUE crosses with its member name as text, exactly like every other
++        // Boolean on the wire ({"kind":"Boolean","value":"true"}), so the assertion is on the name
++        Assert.Equal(expected ? "true" : "false", exact["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The agreement property A1-N-09 is about: the record and the value's own form are
++    /// two surfaces of ONE answer, for every kind that carries the flag.</summary>
++    [Theory]
++    [InlineData("1/3")]
++    [InlineData("1/(10^19)")]
++    [InlineData("sqrt(2)")]
++    [InlineData("1/1009")]
++    [InlineData("dft([1, 2, 3])[0]")]
++    [InlineData("dft([1, 2, 3])[1]")]
++    public async Task InspectExact_AgreesWithTheValuesOwnExactFlag(string valueSource)
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            $"v = {valueSource}; i = inspect(v)", "--omit-functions");
++        Assert.Equal(0, exitCode);
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "agreement envelope");
++        JsonNode value = envelope["variables"]!.AsArray()
++            .First(v => v!["name"]!.GetValue<string>() == "v")!["structured"]!;
++        JsonNode record = TestSupport.FieldsByName(envelope["result"]!["structured"]!)["exact"]!;
++
++        Assert.True(value["exact"] is not null, $"the value form of {valueSource} carries no exact flag");
++        Assert.Equal(value["exact"]!.GetValue<bool>(), record["value"]!.GetValue<string>() == "true");
++    }
++
++    /// <summary>Precision changes the answer through the SAME rule: an 18-place truncation of
++    /// 1/1009 is not exact, and its inspection record must say so too (the old shape test that
++    /// called it exact is the reason the two surfaces could disagree).</summary>
++    [Fact]
++    public async Task TruncatedQuotientAtTheBudget_IsNotExactInEitherSurface()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            "setprecision(18); v = 1/1009; i = inspect(v)", "--omit-functions");
++        Assert.Equal(0, exitCode);
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "truncation envelope");
++        JsonNode value = envelope["variables"]!.AsArray()
++            .First(v => v!["name"]!.GetValue<string>() == "v")!["structured"]!;
++        JsonNode record = TestSupport.FieldsByName(envelope["result"]!["structured"]!)["exact"]!;
++
++        Assert.False(value["exact"]!.GetValue<bool>());
++        Assert.Equal("Boolean", record["kind"]!.GetValue<string>());
++        Assert.Equal("false", record["value"]!.GetValue<string>());
++    }
++
++    /// <summary>Text, booleans, arrays and records are still Null: exactness is a property of the
++    /// numeric/symbolic kinds, and an absent answer is <c>{"kind":"Null"}</c>, never an empty
++    /// string or a fabricated false.</summary>
++    [Theory]
++    [InlineData("\"hi\"")]
++    [InlineData("is_even(4)")]
++    [InlineData("[1, 2]")]
++    public async Task Inspect_KeepsNullWhereExactnessDoesNotApply(string valueSource)
++    {
++        JsonObject fields = await InspectAsync(valueSource);
++        Assert.Equal("Null", fields["exact"]!["kind"]!.GetValue<string>());
++    }
++}
+diff --git a/Lovelace.Run.Tests/PrintBudgetTotalityTests.cs b/Lovelace.Run.Tests/PrintBudgetTotalityTests.cs
+new file mode 100644
+index 0000000..b95cca6
+--- /dev/null
++++ b/Lovelace.Run.Tests/PrintBudgetTotalityTests.cs
+@@ -0,0 +1,152 @@
++using System.Text.Json.Nodes;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// <c>--print-budget &lt;nodes&gt;</c> is a NODE budget: whatever the size of the value, once its
++/// node count is above the budget the renderings cross abbreviated and the value says so —
++/// <c>truncated: true</c>, a <c>truncationReason</c> and the <c>budget</c> that stopped it
++/// (dsh-protocol.md:17-20).
++///
++/// <para>The comparison used to be partial: the kernel printer abbreviates only when the rendering
++/// is longer than the character allowance the budget implies (<c>max(48, 6 × budget)</c>), so a
++/// 3-node value at budget 1 and a 5-node value at every budget up to 8 came back WHOLE with no
++/// truncation fields, while a 13-node value at budget 8 did truncate — the same flag, two
++/// behaviours, decided by text length (A2-F19 / A4-F1). These tests state the property over
++/// GENERATED node counts and budgets rather than a list of strings: for every budget below the
++/// value's node count the answer is abbreviated, for every budget at or above it the answer is the
++/// full rendering, and an abbreviation is always a prefix of the real rendering terminated by
++/// " …" — never a re-ordered one, never the whole thing with a flag on top.</para>
++/// </summary>
++public class PrintBudgetTotalityTests
++{
++    /// <summary>The node counts the property is proved over. The script builder below emits
++    /// exactly <c>nodes</c> nodes — the sum contributes one, each of its <c>nodes − 1</c> DISTINCT
++    /// symbols one — so the test proves the count it assumes rather than trusting it.</summary>
++    public static TheoryData<int> NodeCounts => new() { 3, 5, 7, 9, 11, 13 };
++
++    /// <summary>
++    /// An n-ary sum of <c>nodes − 1</c> distinct symbols: exactly <c>nodes</c> nodes.
++    /// <para>
++    /// The FIRST TWO rows are the ones the finding is about: their renderings are short enough
++    /// that the kernel printer's character allowance (<c>max(48, 6 × budget)</c>) never bites, so
++    /// before this round a budget of 1 returned them whole. The larger rows are the control shape
++    /// that already truncated, kept so the property is stated over both.</para>
++    /// </summary>
++    private static string SumScript(int nodes)
++    {
++        int terms = nodes - 1;
++        string declarations = string.Concat(
++            Enumerable.Range(0, terms).Select(i => $"s{i} = symbol(\"s{i}\"); "));
++        return declarations + string.Join(" + ", Enumerable.Range(0, terms).Select(i => "s" + i));
++    }
++
++    private static async Task<JsonNode> StructuredAsync(string script, params string[] extra)
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(script, extra);
++        Assert.True(exitCode == 0, $"script '{script}' {(extra.Length == 0 ? "" : string.Join(" ", extra) + " ")}exited {exitCode}. stderr: {stderr.Trim()}");
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, $"stdout of '{script}'");
++        return envelope["result"]!["structured"]!;
++    }
++
++    [Theory]
++    [MemberData(nameof(NodeCounts))]
++    public async Task EveryNodeCountOverBudget_IsAbbreviatedAndReportsIt(int nodes)
++    {
++        // The real rendering: the prefix every abbreviation must come from.
++        JsonNode full = await StructuredAsync(SumScript(nodes));
++        Assert.Equal(nodes, full["nodeCount"]!.GetValue<int>());
++        string fullPretty = full["pretty"]!.GetValue<string>();
++        string fullCanonical = full["canonical"]!.GetValue<string>();
++
++        // The finding: budgets BELOW the node count are over budget NO MATTER how short the
++        // rendering is — this is where the 3-node and 5-node values used to come back whole.
++        for (int budget = 1; budget < nodes; budget++)
++        {
++            JsonNode structured = await StructuredAsync(SumScript(nodes), "--print-budget", budget.ToString());
++
++            Assert.True(structured["truncated"]?.GetValue<bool>() == true,
++                $"nodeCount {nodes} at budget {budget}: truncated is {structured["truncated"]?.ToJsonString() ?? "absent"}, " +
++                $"so an over-budget value crossed as if it were the whole rendering");
++            Assert.Equal("node-budget", structured["truncationReason"]!.GetValue<string>());
++            Assert.Equal(budget, structured["budget"]!.GetValue<int>());
++
++            AssertAbbreviationOf(fullPretty, structured["pretty"]!.GetValue<string>(), nodes, budget, "pretty");
++            AssertAbbreviationOf(fullCanonical, structured["canonical"]!.GetValue<string>(), nodes, budget, "canonical");
++        }
++
++        // At and above the node count the value is NOT over budget: the full rendering, and no
++        // truncation fields at all (never a flag that says "truncated" about the whole value).
++        foreach (int budget in new[] { nodes, nodes + 2 })
++        {
++            JsonNode structured = await StructuredAsync(SumScript(nodes), "--print-budget", budget.ToString());
++            Assert.Null(structured["truncated"]);
++            Assert.Null(structured["truncationReason"]);
++            Assert.Null(structured["budget"]);
++            Assert.Equal(fullPretty, structured["pretty"]!.GetValue<string>());
++            Assert.Equal(fullCanonical, structured["canonical"]!.GetValue<string>());
++        }
++    }
++
++    /// <summary>An abbreviation must be a STRICT prefix of the real rendering, terminated by
++    /// " …", and shorter than it — a prefix is never passed off as the whole expression, and the
++    /// order of the rendering never changes.</summary>
++    private static void AssertAbbreviationOf(string full, string abridged, int nodes, int budget, string form)
++    {
++        Assert.EndsWith(" …", abridged);
++        string prefix = abridged[..^2];
++        Assert.True(full.StartsWith(prefix, StringComparison.Ordinal),
++            $"nodeCount {nodes} at budget {budget}: {form} '{abridged}' is not a prefix of '{full}'");
++        Assert.True(prefix.Length < full.Length,
++            $"nodeCount {nodes} at budget {budget}: {form} '{abridged}' abbreviates nothing ('{full}' is " +
++            $"{full.Length} chars, the prefix is {prefix.Length})");
++    }
++
++    /// <summary>The smallest reported case, stated directly: a 3-node value at budget 1. The
++    /// canonical form is a prefix of <c>(pow (sym x) (rat 2 1))</c> and the value says why.</summary>
++    [Fact]
++    public async Task SmallValueOverASmallBudget_IsAbbreviated()
++    {
++        JsonNode structured = await StructuredAsync("x = symbol(\"x\"); x^2", "--print-budget", "1");
++
++        Assert.Equal(3, structured["nodeCount"]!.GetValue<int>());
++        Assert.True(structured["truncated"]?.GetValue<bool>() == true,
++            "x^2 (3 nodes) at budget 1 crossed with no truncation flag");
++        Assert.Equal("node-budget", structured["truncationReason"]!.GetValue<string>());
++        Assert.Equal(1, structured["budget"]!.GetValue<int>());
++        Assert.StartsWith("(pow ", structured["canonical"]!.GetValue<string>(), StringComparison.Ordinal);
++        Assert.EndsWith(" …", structured["canonical"]!.GetValue<string>());
++    }
++
++    /// <summary>The budget reaches EVERY structured rendering in the envelope, not just the
++    /// result: a variable over the budget is abbreviated too, by the same policy.</summary>
++    [Fact]
++    public async Task TheBudgetAlsoBoundsTheStructuredVariables()
++    {
++        var (exitCode, stdout, _) = await TestSupport.RunScriptAsync(
++            "x = symbol(\"x\"); x^2", "--omit-functions", "--print-budget", "1");
++        Assert.Equal(0, exitCode);
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "envelope");
++        JsonNode result = envelope["result"]!["structured"]!;
++        JsonObject variables = VariableIndex(envelope);
++
++        JsonNode xSquared = variables["_"]!["structured"]!;
++        Assert.True(xSquared["truncated"]?.GetValue<bool>() == true,
++            "the result was abbreviated but the variable holding it was not — two policies, one flag");
++        Assert.Equal(result["canonical"]!.GetValue<string>(), xSquared["canonical"]!.GetValue<string>());
++
++        // a variable WITHIN the budget stays whole
++        JsonNode x = variables["x"]!["structured"]!;
++        Assert.Null(x["truncated"]);
++        Assert.Equal("(sym x)", x["canonical"]!.GetValue<string>());
++    }
++
++    private static JsonObject VariableIndex(JsonNode envelope)
++    {
++        var index = new JsonObject();
++        foreach (JsonNode? variable in envelope["variables"]!.AsArray())
++            index[variable!["name"]!.GetValue<string>()] = variable!.DeepClone();
++        return index;
++    }
++}
+diff --git a/Lovelace.Run.Tests/TestSupport.cs b/Lovelace.Run.Tests/TestSupport.cs
+index 0f9fe96..f267c1c 100644
+--- a/Lovelace.Run.Tests/TestSupport.cs
++++ b/Lovelace.Run.Tests/TestSupport.cs
+@@ -45,6 +45,24 @@ internal static class TestSupport
+         return (exitCode, stdout.ToString(), stderr.ToString());
+     }
+ 
++    /// <summary>
++    /// Runs the runner in-process over an INLINE script (the same entry point the process uses,
++    /// minus the process), so a test can drive the wire for a generated input instead of pinning a
++    /// fixture. The caller names the flags it wants; unlike <see cref="RunFixtureAsync"/> this adds
++    /// none, so <c>--omit-functions</c> is opted into explicitly.
++    /// </summary>
++    internal static async Task<(int ExitCode, string Stdout, string Stderr)> RunScriptAsync(
++        string script, params string[] extraArguments)
++    {
++        var arguments = new List<string> { "--eval", script };
++        arguments.AddRange(extraArguments);
++
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(arguments.ToArray(), stdout, stderr);
++        return (exitCode, stdout.ToString(), stderr.ToString());
++    }
++
+     /// <summary>
+     /// Parses <paramref name="text"/> as EXACTLY one JSON document: no leading noise, no second
+     /// document, and nothing but trailing whitespace. The raw text is part of every failure
+diff --git a/Lovelace.Run.Tests/VariableStructuredProjectionTests.cs b/Lovelace.Run.Tests/VariableStructuredProjectionTests.cs
+new file mode 100644
+index 0000000..77e2f8b
+--- /dev/null
++++ b/Lovelace.Run.Tests/VariableStructuredProjectionTests.cs
+@@ -0,0 +1,161 @@
++using System.Text.Json.Nodes;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// Every <c>variables[]</c> entry carries the SAME structured projection the result does, so a
++/// variable's mathematical meaning is recoverable from structure instead of from a human display
++/// string: an agent reads <c>variables[0].structured.canonical</c>, never
++/// <c>variables[0].display</c> (A2-F24).
++///
++/// <para>The entries used to be <c>{name, kind, display}</c> only, so <c>x = symbol("x"); [x, x]</c>
++/// published <c>display: "[-2, 2]"</c> for a value that is fully structural in
++/// <c>result.structured</c> — the same value, machine-readable in one place and prose in the other.
++/// The projection is total over the value kinds: these tests leave one variable of every kind a
++/// script can put in scope — Record, Array, Vector, Complex, Real, Symbolic, Natural, Integer,
++/// Boolean, Text, Domain and Enum — and require a structured form from each.</para>
++/// </summary>
++public class VariableStructuredProjectionTests
++{
++    /// <summary>One variable per kind the language can leave in scope (Function and Void are not
++    /// storable: a bare <c>sin</c> is "Undefined variable 'sin'" and a Void statement defines
++    /// nothing), plus the projected result itself.</summary>
++    private const string EveryKind =
++        "x = symbol(\"x\"); " +
++        "r = 1/3; " +
++        "q = sqrt(2); " +
++        "z = dft([1, 2, 3])[1]; " +
++        "b = is_even(4); " +
++        "t = \"hi\"; " +
++        "v = [1, 2]; " +
++        "m = [[1, 2], [3, 4]]; " +
++        "d = real; " +
++        "n = 42; " +
++        "k = -7; " +
++        "g = solve_full(x^2 - 4 == 0, x); " +
++        "s = g.status; " +
++        "i = inspect(x)";
++
++    private static async Task<(JsonNode Envelope, JsonObject Variables)> RunAsync(params string[] extra)
++    {
++        var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(EveryKind, extra);
++        Assert.True(exitCode == 0, $"the every-kind script exited {exitCode}. stderr: {stderr.Trim()}");
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout, "every-kind envelope");
++        var index = new JsonObject();
++        foreach (JsonNode? variable in envelope["variables"]!.AsArray())
++            index[variable!["name"]!.GetValue<string>()] = variable!.DeepClone();
++        return (envelope, index);
++    }
++
++    /// <summary>The totality property: EVERY entry has a structured form whose kind names a real
++    /// kind (never a missing key and never the Null placeholder for a real value).</summary>
++    [Fact]
++    public async Task EveryValueKindInScope_CrossesWithItsStructuredForm()
++    {
++        (JsonNode envelope, JsonObject variables) = await RunAsync("--omit-functions");
++
++        string[] documented = { "Natural", "Integer", "Real", "Complex", "Boolean", "Text", "Array",
++            "Symbolic", "Record", "Domain", "Enum", "Function", "Null" };
++        foreach ((string name, JsonNode? variable) in variables)
++        {
++            JsonNode? structured = variable!["structured"];
++            Assert.True(structured is not null,
++                $"variable '{name}' ({variable["kind"]}) crossed without a structured form: {variable.ToJsonString()}");
++            string kind = structured!["kind"]!.GetValue<string>();
++            Assert.Contains(kind, documented);
++            Assert.True(kind != "Null", $"variable '{name}' is a real value but projected as Null");
++            Assert.NotEmpty(variable["display"]!.GetValue<string>());
++        }
++
++        // the corpus really exercised the kinds this finding names
++        Assert.Equal("Record", variables["g"]!["structured"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Array", variables["m"]!["structured"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Complex", variables["z"]!["structured"]!["kind"]!.GetValue<string>());
++        Assert.Equal("Real", variables["r"]!["structured"]!["kind"]!.GetValue<string>());
++    }
++
++    /// <summary>What the structured form is FOR: the meaning an agent needs, per kind.</summary>
++    [Fact]
++    public async Task StructuredVariables_CarryTheMachineryReadableMeaning()
++    {
++        (_, JsonObject variables) = await RunAsync("--omit-functions");
++
++        // Symbolic: both renderings, the domain, exactness, node count and free symbols
++        JsonNode x = variables["x"]!["structured"]!;
++        Assert.Equal("Symbolic", x["kind"]!.GetValue<string>());
++        Assert.Equal("(sym x)", x["canonical"]!.GetValue<string>());
++        Assert.Equal("x", x["pretty"]!.GetValue<string>());
++        Assert.Equal("complex", x["domain"]!.GetValue<string>());
++        Assert.True(x["exact"]!.GetValue<bool>());
++        Assert.Equal(1, x["nodeCount"]!.GetValue<int>());
++        Assert.Equal(new[] { "x" }, x["freeSymbols"]!.AsArray().Select(n => n!.GetValue<string>()).ToArray());
++
++        // Real: exactness is a BOOLEAN (never a display guess) and an exact Real is a fraction
++        JsonNode third = variables["r"]!["structured"]!;
++        Assert.Equal("Real", third["kind"]!.GetValue<string>());
++        Assert.True(third["exact"]!.GetValue<bool>());
++        Assert.Equal("1", third["numerator"]!.GetValue<string>());
++        Assert.Equal("3", third["denominator"]!.GetValue<string>());
++        // ... and a truncated irrational says so instead of publishing a fraction
++        JsonNode sqrtTwo = variables["q"]!["structured"]!;
++        Assert.False(sqrtTwo["exact"]!.GetValue<bool>());
++        Assert.Null(sqrtTwo["numerator"]);
++
++        // Complex: both parts, with the exactness flag as a boolean
++        JsonNode complex = variables["z"]!["structured"]!;
++        Assert.Equal("Complex", complex["kind"]!.GetValue<string>());
++        Assert.NotNull(complex["re"]!.GetValue<string>());
++        Assert.NotNull(complex["im"]!.GetValue<string>());
++        Assert.False(complex["exact"]!.GetValue<bool>());
++
++        // Array: shape and elements, with the array type that distinguishes a Vector from an Array
++        JsonNode matrix = variables["m"]!["structured"]!;
++        Assert.Equal("Array", matrix["type"]!.GetValue<string>());
++        Assert.Equal(new long[] { 2, 2 }, matrix["shape"]!.AsArray().Select(n => n!.GetValue<long>()).ToArray());
++        Assert.Equal(4, matrix["elements"]!.AsArray().Count);
++        JsonNode vector = variables["v"]!["structured"]!;
++        Assert.Equal("Vector", vector["type"]!.GetValue<string>());
++
++        // scalars
++        Assert.Equal("42", variables["n"]!["structured"]!["value"]!.GetValue<string>());
++        Assert.Equal("-7", variables["k"]!["structured"]!["value"]!.GetValue<string>());
++        Assert.Equal("true", variables["b"]!["structured"]!["value"]!.GetValue<string>());
++        Assert.Equal("hi", variables["t"]!["structured"]!["value"]!.GetValue<string>());
++        Assert.Equal("real", variables["d"]!["structured"]!["domain"]!.GetValue<string>());
++
++        // Enum: the DECLARED enum type travels with the member name
++        JsonNode status = variables["s"]!["structured"]!;
++        Assert.Equal("Enum", status["kind"]!.GetValue<string>());
++        Assert.Equal("SolveStatus", status["type"]!.GetValue<string>());
++        Assert.Equal("Solved", status["value"]!.GetValue<string>());
++
++        // Record: the type name and the ordered fields, not a "SolveResult(...)" string
++        JsonNode record = variables["g"]!["structured"]!;
++        Assert.Equal("Record", record["kind"]!.GetValue<string>());
++        Assert.Equal("SolveResult", record["type"]!.GetValue<string>());
++        Assert.Equal("Solved", TestSupport.FieldsByName(record)["status"]!["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The projection is SHARED: the variable that holds the result carries the very same
++    /// structure as <c>result.structured</c> — one implementation, so the two cannot drift.</summary>
++    [Fact]
++    public async Task TheResultVariable_CarriesTheSameStructureAsTheResult()
++    {
++        (JsonNode envelope, JsonObject variables) = await RunAsync("--omit-functions");
++
++        JsonNode result = envelope["result"]!["structured"]!;
++        Assert.Equal("Inspection", result["type"]!.GetValue<string>());
++        TestSupport.AssertSameJson(TestSupport.Normalise(result),
++            TestSupport.Normalise(variables["_"]!["structured"]), "variables[_].structured vs result.structured");
++    }
++
++    /// <summary>A variable has no structured form to omit when the caller asked for no variables
++    /// at all: <c>--omit-variables</c> stays the payload knob it was.</summary>
++    [Fact]
++    public async Task OmitVariables_StillEmitsNoVariableEntries()
++    {
++        (JsonNode envelope, _) = await RunAsync("--omit-functions", "--omit-variables");
++        Assert.Empty(envelope["variables"]!.AsArray());
++    }
++}
+diff --git a/Lovelace.Run.Tests/fixtures/absent_field.json b/Lovelace.Run.Tests/fixtures/absent_field.json
+index 7d1146a..ed841b9 100644
+--- a/Lovelace.Run.Tests/fixtures/absent_field.json
++++ b/Lovelace.Run.Tests/fixtures/absent_field.json
+@@ -115,12 +115,124 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "Inspection(type: Symbolic, domain: complex, exact: True, free_symbols: [x], node_count: 5, canonical: (add (rat 1 1) (pow (sym x) (rat 2 1))), pretty: x^2 + 1, shape: , rank: , element_domain: complex, assumptions: [], members: )"
++      "display": "Inspection(type: Symbolic, domain: complex, exact: True, free_symbols: [x], node_count: 5, canonical: (add (rat 1 1) (pow (sym x) (rat 2 1))), pretty: x^2 + 1, shape: , rank: , element_domain: complex, assumptions: [], members: )",
++      "structured": {
++        "kind": "Record",
++        "type": "Inspection",
++        "fields": [
++          {
++            "name": "type",
++            "value": {
++              "kind": "Text",
++              "value": "Symbolic"
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "exact",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "free_symbols",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Text",
++                  "value": "x"
++                }
++              ]
++            }
++          },
++          {
++            "name": "node_count",
++            "value": {
++              "kind": "Natural",
++              "value": "5",
++              "exact": true
++            }
++          },
++          {
++            "name": "canonical",
++            "value": {
++              "kind": "Text",
++              "value": "(add (rat 1 1) (pow (sym x) (rat 2 1)))"
++            }
++          },
++          {
++            "name": "pretty",
++            "value": {
++              "kind": "Text",
++              "value": "x^2 + 1"
++            }
++          },
++          {
++            "name": "shape",
++            "value": {
++              "kind": "Null"
++            }
++          },
++          {
++            "name": "rank",
++            "value": {
++              "kind": "Null"
++            }
++          },
++          {
++            "name": "element_domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "assumptions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "members",
++            "value": {
++              "kind": "Null"
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/array.json b/Lovelace.Run.Tests/fixtures/array.json
+index cf8f26c..70d3ad7 100644
+--- a/Lovelace.Run.Tests/fixtures/array.json
++++ b/Lovelace.Run.Tests/fixtures/array.json
+@@ -68,17 +68,93 @@
+     {
+       "name": "_",
+       "kind": "Array",
+-      "display": "[[x, y], [y, x]]"
++      "display": "[[x, y], [y, x]]",
++      "structured": {
++        "kind": "Array",
++        "type": "Array",
++        "shape": [
++          2,
++          2
++        ],
++        "elements": [
++          {
++            "kind": "Symbolic",
++            "pretty": "x",
++            "canonical": "(sym x)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "x"
++            ]
++          },
++          {
++            "kind": "Symbolic",
++            "pretty": "y",
++            "canonical": "(sym y)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "y"
++            ]
++          },
++          {
++            "kind": "Symbolic",
++            "pretty": "y",
++            "canonical": "(sym y)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "y"
++            ]
++          },
++          {
++            "kind": "Symbolic",
++            "pretty": "x",
++            "canonical": "(sym x)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "x"
++            ]
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     },
+     {
+       "name": "y",
+       "kind": "Symbolic",
+-      "display": "y"
++      "display": "y",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "y",
++        "canonical": "(sym y)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "y"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/capabilities.json b/Lovelace.Run.Tests/fixtures/capabilities.json
+index b117c2f..92086bf 100644
+--- a/Lovelace.Run.Tests/fixtures/capabilities.json
++++ b/Lovelace.Run.Tests/fixtures/capabilities.json
+@@ -752,7 +752,745 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)"
++      "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)",
++      "structured": {
++        "kind": "Record",
++        "type": "CapabilitiesResult",
++        "fields": [
++          {
++            "name": "supported_domains",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                2
++              ],
++              "elements": [
++                {
++                  "kind": "Domain",
++                  "domain": "real"
++                },
++                {
++                  "kind": "Domain",
++                  "domain": "complex"
++                }
++              ]
++            }
++          },
++          {
++            "name": "unsupported_domains",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                2
++              ],
++              "elements": [
++                {
++                  "kind": "Domain",
++                  "domain": "integer"
++                },
++                {
++                  "kind": "Domain",
++                  "domain": "rational"
++                }
++              ]
++            }
++          },
++          {
++            "name": "unsupported_operations",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                16
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "pow.non-integer-exponent"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "Non-integer exponents are not yet supported."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "2^(1/2)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "pow.negative-base-unrepresentable-exponent"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "Non-integer exponents are not yet supported."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "(-8)^(1/3)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.unsupported-domain"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve(): currently supports domains real and complex; got integer."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "rootof.complex-algebraic"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.unrepresented-roots"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "limit.unevaluated-in-record-diagnostics"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "limit.unevaluated"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "coefficient does not evaluate at the point"
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); limit_full(sin(x), x, inf)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "integration.unevaluated-in-record-diagnostics"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "integration.unevaluated"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); integrate_full(exp(x^2), x)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "plot.symbolic-expression"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "plot() argument 1 must be a vector, but got 'Symbolic'."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); plot(sin(x))"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "plot.symbolic-element"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "Cannot convert value of kind 'Symbolic' to a number for plotting."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); plot([x, 1, 2])"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.non-symbolic-variable"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve(): argument 2 must be a symbolic variable; got Natural."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.non-symbolic-expression"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve(): argument 1 must be a symbolic expression; got Vector."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); solve([x == 1], x)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "diff.non-symbolic-variable"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "diff(): argument 2 must be a symbolic variable; got Natural."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); diff(x^2, 1)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "integrate.non-symbolic-variable"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "integrate(): argument 2 must be a symbolic variable; got Natural."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); integrate(x^2, 1)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "limit.non-symbolic-variable"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "limit(): argument 2 must be a symbolic variable; got Natural."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); limit(sin(x), 1, 0)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "dsp.symbolic-element"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "DSP builtins expect numeric/complex elements, but got 'SymbolExpr'."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); dft([x, 1, 2, 3])"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "linsolve.non-symbolic-matrix"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidOperation"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "DomainError"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "linsolve() requires a symbolic matrix A."
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "UnsupportedCapability",
++                  "fields": [
++                    {
++                      "name": "operation_class",
++                      "value": {
++                        "kind": "Text",
++                        "value": "fft.non-power-of-two-length"
++                      }
++                    },
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "InvalidArgument"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "TypeMismatch"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "FFT length must be a power of two, but got 3. (Parameter 'x')"
++                      }
++                    },
++                    {
++                      "name": "trigger",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x = symbol(\"x\"); fft([1,2,3])"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "exactness",
++            "value": {
++              "kind": "Enum",
++              "type": "CapabilitiesExactness",
++              "value": "BestEffort"
++            }
++          }
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/compilation.json b/Lovelace.Run.Tests/fixtures/compilation.json
+index 29ed453..8ee76ea 100644
+--- a/Lovelace.Run.Tests/fixtures/compilation.json
++++ b/Lovelace.Run.Tests/fixtures/compilation.json
+@@ -120,12 +120,129 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: [])"
++      "display": "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "CompilationResult",
++        "fields": [
++          {
++            "name": "ir",
++            "value": {
++              "kind": "Text",
++              "value": "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3"
++            }
++          },
++          {
++            "name": "parameters",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "ParameterInfo",
++                  "fields": [
++                    {
++                      "name": "name",
++                      "value": {
++                        "kind": "Text",
++                        "value": "x"
++                      }
++                    },
++                    {
++                      "name": "domain",
++                      "value": {
++                        "kind": "Domain",
++                        "domain": "complex"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "result_domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "result_type",
++            "value": {
++              "kind": "Text",
++              "value": "Integer"
++            }
++          },
++          {
++            "name": "precision_policy",
++            "value": {
++              "kind": "Text",
++              "value": "caller_supplied"
++            }
++          },
++          {
++            "name": "optimization_policy",
++            "value": {
++              "kind": "Text",
++              "value": "none"
++            }
++          },
++          {
++            "name": "target",
++            "value": {
++              "kind": "Text",
++              "value": "mathir"
++            }
++          },
++          {
++            "name": "mathir_version",
++            "value": {
++              "kind": "Integer",
++              "value": "2",
++              "exact": true
++            }
++          },
++          {
++            "name": "exact",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/complex.json b/Lovelace.Run.Tests/fixtures/complex.json
+index f0bccdc..5080655 100644
+--- a/Lovelace.Run.Tests/fixtures/complex.json
++++ b/Lovelace.Run.Tests/fixtures/complex.json
+@@ -41,7 +41,34 @@
+     {
+       "name": "_",
+       "kind": "Vector",
+-      "display": "[6, -1.5 + 0.8660254037844386467637231707525i, -1.5 - 0.8660254037844386467637231707525i]"
++      "display": "[6, -1.5 + 0.8660254037844386467637231707525i, -1.5 - 0.8660254037844386467637231707525i]",
++      "structured": {
++        "kind": "Array",
++        "type": "Vector",
++        "shape": [
++          3
++        ],
++        "elements": [
++          {
++            "kind": "Complex",
++            "exact": true,
++            "re": "6",
++            "im": "0"
++          },
++          {
++            "kind": "Complex",
++            "exact": false,
++            "re": "-1.5",
++            "im": "0.8660254037844386467637231707525"
++          },
++          {
++            "kind": "Complex",
++            "exact": false,
++            "re": "-1.5",
++            "im": "-0.8660254037844386467637231707525"
++          }
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/integration_result.json b/Lovelace.Run.Tests/fixtures/integration_result.json
+index 96d545a..45208fd 100644
+--- a/Lovelace.Run.Tests/fixtures/integration_result.json
++++ b/Lovelace.Run.Tests/fixtures/integration_result.json
+@@ -93,12 +93,102 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "IntegrationResult(status: SolvedExact, expression: 1/3*x^3, conditions: [], verified: True, method: table, verification_method: differentiation+expansion, exactness: Exact, diagnostics: [])"
++      "display": "IntegrationResult(status: SolvedExact, expression: 1/3*x^3, conditions: [], verified: True, method: table, verification_method: differentiation+expansion, exactness: Exact, diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "IntegrationResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "IntegrationStatus",
++              "value": "SolvedExact"
++            }
++          },
++          {
++            "name": "expression",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "1/3*x^3",
++              "canonical": "(mul (rat 1 3) (pow (sym x) (rat 3 1)))",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 5,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "verified",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "method",
++            "value": {
++              "kind": "Text",
++              "value": "table"
++            }
++          },
++          {
++            "name": "verification_method",
++            "value": {
++              "kind": "Text",
++              "value": "differentiation+expansion"
++            }
++          },
++          {
++            "name": "exactness",
++            "value": {
++              "kind": "Enum",
++              "type": "SolutionExactness",
++              "value": "Exact"
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/limit_result.json b/Lovelace.Run.Tests/fixtures/limit_result.json
+index 88942e0..2dcf672 100644
+--- a/Lovelace.Run.Tests/fixtures/limit_result.json
++++ b/Lovelace.Run.Tests/fixtures/limit_result.json
+@@ -111,12 +111,120 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: [])"
++      "display": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "LimitResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "LimitStatus",
++              "value": "Value"
++            }
++          },
++          {
++            "name": "exists",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "value",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "1",
++              "canonical": "(rat 1 1)",
++              "domain": "rational",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": []
++            }
++          },
++          {
++            "name": "left",
++            "value": {
++              "kind": "Null"
++            }
++          },
++          {
++            "name": "left_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "right",
++            "value": {
++              "kind": "Null"
++            }
++          },
++          {
++            "name": "right_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "exactness",
++            "value": {
++              "kind": "Enum",
++              "type": "SolutionExactness",
++              "value": "Exact"
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/matrix_inverse_result.json b/Lovelace.Run.Tests/fixtures/matrix_inverse_result.json
+index 272337a..f2c90b8 100644
+--- a/Lovelace.Run.Tests/fixtures/matrix_inverse_result.json
++++ b/Lovelace.Run.Tests/fixtures/matrix_inverse_result.json
+@@ -129,12 +129,138 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "MatrixInverseResult(status: NoSolutions, complete: True, completeness: Complete, inverse: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])"
++      "display": "MatrixInverseResult(status: NoSolutions, complete: True, completeness: Complete, inverse: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])",
++      "structured": {
++        "kind": "Record",
++        "type": "MatrixInverseResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "NoSolutions"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "inverse",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Diagnostic",
++                  "fields": [
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "matrix.singular"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "NoSolution"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "matrix is singular"
++                      }
++                    },
++                    {
++                      "name": "recoverable",
++                      "value": {
++                        "kind": "Boolean",
++                        "value": "true"
++                      }
++                    },
++                    {
++                      "name": "location",
++                      "value": {
++                        "kind": "Null"
++                      }
++                    },
++                    {
++                      "name": "details",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/matrix_solve_result.json b/Lovelace.Run.Tests/fixtures/matrix_solve_result.json
+index 5a3b0a5..3d30ee9 100644
+--- a/Lovelace.Run.Tests/fixtures/matrix_solve_result.json
++++ b/Lovelace.Run.Tests/fixtures/matrix_solve_result.json
+@@ -129,12 +129,138 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "MatrixSolveResult(status: NoSolutions, complete: True, completeness: Complete, solutions: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])"
++      "display": "MatrixSolveResult(status: NoSolutions, complete: True, completeness: Complete, solutions: [], conditions: [], diagnostics: [Diagnostic(code: matrix.singular, category: NoSolution, message: matrix is singular, recoverable: True, location: , details: [])])",
++      "structured": {
++        "kind": "Record",
++        "type": "MatrixSolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "NoSolutions"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Diagnostic",
++                  "fields": [
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "matrix.singular"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "NoSolution"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "matrix is singular"
++                      }
++                    },
++                    {
++                      "name": "recoverable",
++                      "value": {
++                        "kind": "Boolean",
++                        "value": "true"
++                      }
++                    },
++                    {
++                      "name": "location",
++                      "value": {
++                        "kind": "Null"
++                      }
++                    },
++                    {
++                      "name": "details",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/nested_record.json b/Lovelace.Run.Tests/fixtures/nested_record.json
+index 141c2fb..e708457 100644
+--- a/Lovelace.Run.Tests/fixtures/nested_record.json
++++ b/Lovelace.Run.Tests/fixtures/nested_record.json
+@@ -204,12 +204,213 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])"
++      "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "SolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "Solved"
++            }
++          },
++          {
++            "name": "variable",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "x",
++              "canonical": "(sym x)",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "families",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "SolutionFamily",
++                  "fields": [
++                    {
++                      "name": "template",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "k*pi",
++                        "canonical": "(mul (sym k) (pi))",
++                        "domain": "complex",
++                        "exact": false,
++                        "nodeCount": 3,
++                        "freeSymbols": [
++                          "k"
++                        ]
++                      }
++                    },
++                    {
++                      "name": "parameter",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "k",
++                        "canonical": "(sym k)",
++                        "domain": "complex",
++                        "exact": true,
++                        "nodeCount": 1,
++                        "freeSymbols": [
++                          "k"
++                        ]
++                      }
++                    },
++                    {
++                      "name": "period",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "pi",
++                        "canonical": "(pi)",
++                        "domain": "real",
++                        "exact": false,
++                        "nodeCount": 1,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "parameter_domain",
++                      "value": {
++                        "kind": "Domain",
++                        "domain": "integer"
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "ParametricExact"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "common_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "represented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "0",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "0",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_reason",
++            "value": {
++              "kind": "Text",
++              "value": ""
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/optimization_result.json b/Lovelace.Run.Tests/fixtures/optimization_result.json
+index 191c0e3..239dce0 100644
+--- a/Lovelace.Run.Tests/fixtures/optimization_result.json
++++ b/Lovelace.Run.Tests/fixtures/optimization_result.json
+@@ -125,12 +125,134 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "OptimizationResult(original: x^2 + 2*x + 1, optimized: 1 + x*(x + 2), estimated_cost_before: 8, estimated_cost_after: 7, shared_subtrees: 2, horner_rewrites: 1, transformations: [cse, horner], target: mathir, policy: cse+horner+precision-aware, diagnostics: [])"
++      "display": "OptimizationResult(original: x^2 + 2*x + 1, optimized: 1 + x*(x + 2), estimated_cost_before: 8, estimated_cost_after: 7, shared_subtrees: 2, horner_rewrites: 1, transformations: [cse, horner], target: mathir, policy: cse+horner+precision-aware, diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "OptimizationResult",
++        "fields": [
++          {
++            "name": "original",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "x^2 + 2*x + 1",
++              "canonical": "(add (rat 1 1) (pow (sym x) (rat 2 1)) (mul (rat 2 1) (sym x)))",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 8,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "optimized",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "1 + x*(x + 2)",
++              "canonical": "(add (rat 1 1) (mul (sym x) (add (rat 2 1) (sym x))))",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 7,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "estimated_cost_before",
++            "value": {
++              "kind": "Integer",
++              "value": "8",
++              "exact": true
++            }
++          },
++          {
++            "name": "estimated_cost_after",
++            "value": {
++              "kind": "Integer",
++              "value": "7",
++              "exact": true
++            }
++          },
++          {
++            "name": "shared_subtrees",
++            "value": {
++              "kind": "Integer",
++              "value": "2",
++              "exact": true
++            }
++          },
++          {
++            "name": "horner_rewrites",
++            "value": {
++              "kind": "Integer",
++              "value": "1",
++              "exact": true
++            }
++          },
++          {
++            "name": "transformations",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                2
++              ],
++              "elements": [
++                {
++                  "kind": "Text",
++                  "value": "cse"
++                },
++                {
++                  "kind": "Text",
++                  "value": "horner"
++                }
++              ]
++            }
++          },
++          {
++            "name": "target",
++            "value": {
++              "kind": "Text",
++              "value": "mathir"
++            }
++          },
++          {
++            "name": "policy",
++            "value": {
++              "kind": "Text",
++              "value": "cse+horner+precision-aware"
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/print_purity.json b/Lovelace.Run.Tests/fixtures/print_purity.json
+index 288ee15..9da402c 100644
+--- a/Lovelace.Run.Tests/fixtures/print_purity.json
++++ b/Lovelace.Run.Tests/fixtures/print_purity.json
+@@ -21,7 +21,12 @@
+     {
+       "name": "_",
+       "kind": "Natural",
+-      "display": "2"
++      "display": "2",
++      "structured": {
++        "kind": "Natural",
++        "value": "2",
++        "exact": true
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/record.json b/Lovelace.Run.Tests/fixtures/record.json
+index 545d3a2..6f7defd 100644
+--- a/Lovelace.Run.Tests/fixtures/record.json
++++ b/Lovelace.Run.Tests/fixtures/record.json
+@@ -222,12 +222,231 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])"
++      "display": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "SolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "Solved"
++            }
++          },
++          {
++            "name": "variable",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "x",
++              "canonical": "(sym x)",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                2
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Solution",
++                  "fields": [
++                    {
++                      "name": "value",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "-2",
++                        "canonical": "(rat -2 1)",
++                        "domain": "rational",
++                        "exact": true,
++                        "nodeCount": 1,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "multiplicity",
++                      "value": {
++                        "kind": "Integer",
++                        "value": "1",
++                        "exact": true
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "Exact"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "Solution",
++                  "fields": [
++                    {
++                      "name": "value",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "2",
++                        "canonical": "(rat 2 1)",
++                        "domain": "rational",
++                        "exact": true,
++                        "nodeCount": 1,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "multiplicity",
++                      "value": {
++                        "kind": "Integer",
++                        "value": "1",
++                        "exact": true
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "Exact"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "families",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "common_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "represented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "2",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "0",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_reason",
++            "value": {
++              "kind": "Text",
++              "value": ""
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/solve_nosolutions.json b/Lovelace.Run.Tests/fixtures/solve_nosolutions.json
+index 1e07305..50c5e88 100644
+--- a/Lovelace.Run.Tests/fixtures/solve_nosolutions.json
++++ b/Lovelace.Run.Tests/fixtures/solve_nosolutions.json
+@@ -184,12 +184,193 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: every root violates the denominator condition., recoverable: True, location: , details: [])])"
++      "display": "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: every root violates the denominator condition., recoverable: True, location: , details: [])])",
++      "structured": {
++        "kind": "Record",
++        "type": "SolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "NoSolutions"
++            }
++          },
++          {
++            "name": "variable",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "x",
++              "canonical": "(sym x)",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "families",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "common_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "represented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "0",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "0",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_reason",
++            "value": {
++              "kind": "Text",
++              "value": ""
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Diagnostic",
++                  "fields": [
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.no-solutions"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "NoSolution"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "every root violates the denominator condition."
++                      }
++                    },
++                    {
++                      "name": "recoverable",
++                      "value": {
++                        "kind": "Boolean",
++                        "value": "true"
++                      }
++                    },
++                    {
++                      "name": "location",
++                      "value": {
++                        "kind": "Null"
++                      }
++                    },
++                    {
++                      "name": "details",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/solve_result.json b/Lovelace.Run.Tests/fixtures/solve_result.json
+index 1b79102..767651e 100644
+--- a/Lovelace.Run.Tests/fixtures/solve_result.json
++++ b/Lovelace.Run.Tests/fixtures/solve_result.json
+@@ -275,12 +275,284 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof(x^4 - x^2 - 1, 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof(x^4 - x^2 - 1, 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])])"
++      "display": "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof(x^4 - x^2 - 1, 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof(x^4 - x^2 - 1, 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])])",
++      "structured": {
++        "kind": "Record",
++        "type": "SolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "Partial"
++            }
++          },
++          {
++            "name": "variable",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "x",
++              "canonical": "(sym x)",
++              "domain": "complex",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "false"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Partial"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                2
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Solution",
++                  "fields": [
++                    {
++                      "name": "value",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "rootof(x^4 - x^2 - 1, 0)",
++                        "canonical": "(rootof (add (rat -1 1) (pow (sym x) (rat 4 1)) (mul (rat -1 1) (pow (sym x) (rat 2 1)))) 0)",
++                        "domain": "real",
++                        "exact": true,
++                        "nodeCount": 4,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "multiplicity",
++                      "value": {
++                        "kind": "Integer",
++                        "value": "1",
++                        "exact": true
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "AlgebraicExact"
++                      }
++                    }
++                  ]
++                },
++                {
++                  "kind": "Record",
++                  "type": "Solution",
++                  "fields": [
++                    {
++                      "name": "value",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "rootof(x^4 - x^2 - 1, 1)",
++                        "canonical": "(rootof (add (rat -1 1) (pow (sym x) (rat 4 1)) (mul (rat -1 1) (pow (sym x) (rat 2 1)))) 1)",
++                        "domain": "real",
++                        "exact": true,
++                        "nodeCount": 4,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "multiplicity",
++                      "value": {
++                        "kind": "Integer",
++                        "value": "1",
++                        "exact": true
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "AlgebraicExact"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "families",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "common_conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "represented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "2",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_count",
++            "value": {
++              "kind": "Integer",
++              "value": "2",
++              "exact": true
++            }
++          },
++          {
++            "name": "unrepresented_reason",
++            "value": {
++              "kind": "Text",
++              "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "Diagnostic",
++                  "fields": [
++                    {
++                      "name": "code",
++                      "value": {
++                        "kind": "Text",
++                        "value": "solve.unrepresented-roots"
++                      }
++                    },
++                    {
++                      "name": "category",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "ErrorCategory",
++                        "value": "UnsupportedOperation"
++                      }
++                    },
++                    {
++                      "name": "message",
++                      "value": {
++                        "kind": "Text",
++                        "value": "complex algebraic roots not supported (RootOf is real-only in v1)."
++                      }
++                    },
++                    {
++                      "name": "recoverable",
++                      "value": {
++                        "kind": "Boolean",
++                        "value": "true"
++                      }
++                    },
++                    {
++                      "name": "location",
++                      "value": {
++                        "kind": "Null"
++                      }
++                    },
++                    {
++                      "name": "details",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/symbolic.json b/Lovelace.Run.Tests/fixtures/symbolic.json
+index ecc9d91..e6139cd 100644
+--- a/Lovelace.Run.Tests/fixtures/symbolic.json
++++ b/Lovelace.Run.Tests/fixtures/symbolic.json
+@@ -25,12 +25,34 @@
+     {
+       "name": "_",
+       "kind": "Symbolic",
+-      "display": "x^2 + 1"
++      "display": "x^2 + 1",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x^2 + 1",
++        "canonical": "(add (rat 1 1) (pow (sym x) (rat 2 1)))",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 5,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/system_solve.json b/Lovelace.Run.Tests/fixtures/system_solve.json
+index 8c44b7c..713674c 100644
+--- a/Lovelace.Run.Tests/fixtures/system_solve.json
++++ b/Lovelace.Run.Tests/fixtures/system_solve.json
+@@ -174,17 +174,199 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
++      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "SystemSolveResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "SolveStatus",
++              "value": "Solved"
++            }
++          },
++          {
++            "name": "domain",
++            "value": {
++              "kind": "Domain",
++              "domain": "complex"
++            }
++          },
++          {
++            "name": "complete",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "completeness",
++            "value": {
++              "kind": "Enum",
++              "type": "Completeness",
++              "value": "Complete"
++            }
++          },
++          {
++            "name": "solutions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "SystemSolution",
++                  "fields": [
++                    {
++                      "name": "bindings",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          2
++                        ],
++                        "elements": [
++                          {
++                            "kind": "Record",
++                            "type": "Binding",
++                            "fields": [
++                              {
++                                "name": "name",
++                                "value": {
++                                  "kind": "Symbolic",
++                                  "pretty": "x",
++                                  "canonical": "(sym x)",
++                                  "domain": "complex",
++                                  "exact": true,
++                                  "nodeCount": 1,
++                                  "freeSymbols": [
++                                    "x"
++                                  ]
++                                }
++                              },
++                              {
++                                "name": "value",
++                                "value": {
++                                  "kind": "Symbolic",
++                                  "pretty": "2",
++                                  "canonical": "(rat 2 1)",
++                                  "domain": "rational",
++                                  "exact": true,
++                                  "nodeCount": 1,
++                                  "freeSymbols": []
++                                }
++                              }
++                            ]
++                          },
++                          {
++                            "kind": "Record",
++                            "type": "Binding",
++                            "fields": [
++                              {
++                                "name": "name",
++                                "value": {
++                                  "kind": "Symbolic",
++                                  "pretty": "y",
++                                  "canonical": "(sym y)",
++                                  "domain": "complex",
++                                  "exact": true,
++                                  "nodeCount": 1,
++                                  "freeSymbols": [
++                                    "y"
++                                  ]
++                                }
++                              },
++                              {
++                                "name": "value",
++                                "value": {
++                                  "kind": "Symbolic",
++                                  "pretty": "-1",
++                                  "canonical": "(rat -1 1)",
++                                  "domain": "rational",
++                                  "exact": true,
++                                  "nodeCount": 1,
++                                  "freeSymbols": []
++                                }
++                              }
++                            ]
++                          }
++                        ]
++                      }
++                    },
++                    {
++                      "name": "conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    },
++                    {
++                      "name": "exactness",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "SolutionExactness",
++                        "value": "Exact"
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     },
+     {
+       "name": "y",
+       "kind": "Symbolic",
+-      "display": "y"
++      "display": "y",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "y",
++        "canonical": "(sym y)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "y"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/transform_result.json b/Lovelace.Run.Tests/fixtures/transform_result.json
+index 8b343d4..6db72ff 100644
+--- a/Lovelace.Run.Tests/fixtures/transform_result.json
++++ b/Lovelace.Run.Tests/fixtures/transform_result.json
+@@ -167,12 +167,176 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "TransformResult(status: Satisfied, original: cos(x)^2 + sin(x)^2, expression: 1, changed: True, conditions: [], steps: [RewriteStep(rule_id: trig.pythagorean-sin2-cos2, classification: Universal, before: cos(x)^2 + sin(x)^2, after: 1, required_conditions: [])], budget_exceeded: False, budget_kind: , diagnostics: [])"
++      "display": "TransformResult(status: Satisfied, original: cos(x)^2 + sin(x)^2, expression: 1, changed: True, conditions: [], steps: [RewriteStep(rule_id: trig.pythagorean-sin2-cos2, classification: Universal, before: cos(x)^2 + sin(x)^2, after: 1, required_conditions: [])], budget_exceeded: False, budget_kind: , diagnostics: [])",
++      "structured": {
++        "kind": "Record",
++        "type": "TransformResult",
++        "fields": [
++          {
++            "name": "status",
++            "value": {
++              "kind": "Enum",
++              "type": "TransformStatus",
++              "value": "Satisfied"
++            }
++          },
++          {
++            "name": "original",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "cos(x)^2 + sin(x)^2",
++              "canonical": "(add (pow (fn cos (sym x)) (rat 2 1)) (pow (fn sin (sym x)) (rat 2 1)))",
++              "domain": "complex",
++              "exact": false,
++              "nodeCount": 9,
++              "freeSymbols": [
++                "x"
++              ]
++            }
++          },
++          {
++            "name": "expression",
++            "value": {
++              "kind": "Symbolic",
++              "pretty": "1",
++              "canonical": "(rat 1 1)",
++              "domain": "rational",
++              "exact": true,
++              "nodeCount": 1,
++              "freeSymbols": []
++            }
++          },
++          {
++            "name": "changed",
++            "value": {
++              "kind": "Boolean",
++              "value": "true"
++            }
++          },
++          {
++            "name": "conditions",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          },
++          {
++            "name": "steps",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                1
++              ],
++              "elements": [
++                {
++                  "kind": "Record",
++                  "type": "RewriteStep",
++                  "fields": [
++                    {
++                      "name": "rule_id",
++                      "value": {
++                        "kind": "Text",
++                        "value": "trig.pythagorean-sin2-cos2"
++                      }
++                    },
++                    {
++                      "name": "classification",
++                      "value": {
++                        "kind": "Enum",
++                        "type": "RuleClassification",
++                        "value": "Universal"
++                      }
++                    },
++                    {
++                      "name": "before",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "cos(x)^2 + sin(x)^2",
++                        "canonical": "(add (pow (fn cos (sym x)) (rat 2 1)) (pow (fn sin (sym x)) (rat 2 1)))",
++                        "domain": "complex",
++                        "exact": false,
++                        "nodeCount": 9,
++                        "freeSymbols": [
++                          "x"
++                        ]
++                      }
++                    },
++                    {
++                      "name": "after",
++                      "value": {
++                        "kind": "Symbolic",
++                        "pretty": "1",
++                        "canonical": "(rat 1 1)",
++                        "domain": "rational",
++                        "exact": true,
++                        "nodeCount": 1,
++                        "freeSymbols": []
++                      }
++                    },
++                    {
++                      "name": "required_conditions",
++                      "value": {
++                        "kind": "Array",
++                        "type": "Vector",
++                        "shape": [
++                          0
++                        ],
++                        "elements": []
++                      }
++                    }
++                  ]
++                }
++              ]
++            }
++          },
++          {
++            "name": "budget_exceeded",
++            "value": {
++              "kind": "Boolean",
++              "value": "false"
++            }
++          },
++          {
++            "name": "budget_kind",
++            "value": {
++              "kind": "Text",
++              "value": ""
++            }
++          },
++          {
++            "name": "diagnostics",
++            "value": {
++              "kind": "Array",
++              "type": "Vector",
++              "shape": [
++                0
++              ],
++              "elements": []
++            }
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run.Tests/fixtures/vector.json b/Lovelace.Run.Tests/fixtures/vector.json
+index 202dec8..d0128ed 100644
+--- a/Lovelace.Run.Tests/fixtures/vector.json
++++ b/Lovelace.Run.Tests/fixtures/vector.json
+@@ -56,12 +56,65 @@
+     {
+       "name": "_",
+       "kind": "Vector",
+-      "display": "[x, x, x]"
++      "display": "[x, x, x]",
++      "structured": {
++        "kind": "Array",
++        "type": "Vector",
++        "shape": [
++          3
++        ],
++        "elements": [
++          {
++            "kind": "Symbolic",
++            "pretty": "x",
++            "canonical": "(sym x)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "x"
++            ]
++          },
++          {
++            "kind": "Symbolic",
++            "pretty": "x",
++            "canonical": "(sym x)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "x"
++            ]
++          },
++          {
++            "kind": "Symbolic",
++            "pretty": "x",
++            "canonical": "(sym x)",
++            "domain": "complex",
++            "exact": true,
++            "nodeCount": 1,
++            "freeSymbols": [
++              "x"
++            ]
++          }
++        ]
++      }
+     },
+     {
+       "name": "x",
+       "kind": "Symbolic",
+-      "display": "x"
++      "display": "x",
++      "structured": {
++        "kind": "Symbolic",
++        "pretty": "x",
++        "canonical": "(sym x)",
++        "domain": "complex",
++        "exact": true,
++        "nodeCount": 1,
++        "freeSymbols": [
++          "x"
++        ]
++      }
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Run/RunProtocol.cs b/Lovelace.Run/RunProtocol.cs
+index 8a03faa..6bbea6b 100644
+--- a/Lovelace.Run/RunProtocol.cs
++++ b/Lovelace.Run/RunProtocol.cs
+@@ -14,7 +14,12 @@ namespace Lovelace.Run;
+ // JSON envelope DTOs. These replace the anonymous types used previously, which
+ // the reflection-based serializer cannot serialize under Native AOT.
+ // ---------------------------------------------------------------------------
+-internal sealed record VariableDto(string Name, string Kind, string Display);
++/// <summary>One variable in scope. <c>structured</c> is the SAME projection the result carries
++/// (<see cref="StructuredProjection"/>), so a variable's meaning is recoverable from structure
++/// instead of from its human Display string (A2-F24): an agent reads
++/// <c>variables[0].structured.canonical</c>, never <c>variables[0].display</c>. It is total — every
++/// value kind a script can leave in scope projects to a structured form.</summary>
++internal sealed record VariableDto(string Name, string Kind, string Display, StructuredValueDto Structured);
+ 
+ /// <summary>A duration as a unit-scaled value plus its unit, so an agent never parses a suffix.</summary>
+ internal sealed record DurationDto(double Value, string Unit);
+@@ -22,7 +27,15 @@ internal sealed record DurationDto(double Value, string Unit);
+ /// <summary>One timed top-level statement: its zero-based source position, the elapsed time as a
+ /// structured duration, the kind of the value it produced, and whether it wrote print output.</summary>
+ internal sealed record TimingDto(int Position, DurationDto Elapsed, string ResultKind, bool HasOutput);
+-internal sealed record FunctionDto(string Name, string[] Parameters, bool Builtin, string? Plugin);
++/// <summary>One entry of the builtin registry, carrying the arity metadata the call-site
++/// validator computes the arity contract from (A2-F15): <c>parameters</c> is the declared
++/// signature, <c>parameterCount</c> its length, <c>minArity</c> the declared LOWER bound (resolved —
++/// a definition that declares no shorter form publishes its parameter count, never the internal
++/// "exactly the declared count" sentinel), and <c>variadic</c> says the last parameter may repeat,
++/// which removes the upper bound. An accepted call therefore satisfies
++/// <c>minArity &lt;= n &amp;&amp; (variadic || n &lt;= parameterCount)</c> with no error message parsed.</summary>
++internal sealed record FunctionDto(string Name, string[] Parameters, int MinArity, int ParameterCount,
++    bool Variadic, bool Builtin, string? Plugin);
+ internal sealed record PlotDto(string Path, string Title, string Svg);
+ internal sealed record ResultDto(string Kind, string Display, string Typed, StructuredValueDto Structured);
+ internal sealed record DiagnosticDto(string Message, int Position, int Line, int Column);
+diff --git a/Lovelace.Run/Runner.cs b/Lovelace.Run/Runner.cs
+index 6b56121..54eb442 100644
+--- a/Lovelace.Run/Runner.cs
++++ b/Lovelace.Run/Runner.cs
+@@ -179,17 +179,21 @@ public static class Runner
+                 ScriptSource.ToSemicolonStatements(source), output, cancellation.Token);
+ 
+             var snapshot = engine.CaptureState();
++            // one budget for every structured rendering in the envelope: the result AND each
++            // variable, so a consumer never has to reconcile two abbreviation policies
++            var structuredBudget = PrintBudgetOrNull(printBudget);
+             var variables = omitVariables
+                 ? Array.Empty<VariableDto>()
+                 : snapshot.Variables.Values
+                     .OrderBy(v => v.Name, StringComparer.Ordinal)
+-                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
++                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display,
++                        ProjectVariable(engine, v.Name, structuredBudget)))
+                     .ToArray();
+             var functions = omitFunctions
+                 ? Array.Empty<FunctionDto>()
+-                : snapshot.Functions.Values
++                : engine.Functions.Values
+                     .OrderBy(f => f.Name, StringComparer.Ordinal)
+-                    .Select(f => new FunctionDto(f.Name, f.Parameters.ToArray(), f.IsBuiltin, f.Plugin))
++                    .Select(FunctionEntry)
+                     .ToArray();
+ 
+             PlotDto? plot = null;
+@@ -202,7 +206,7 @@ public static class Runner
+             ResultDto? resultPayload = result.Kind == ValueKind.Void
+                 ? null
+                 : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result),
+-                    StructuredProjection.ToStructured(result, PrintBudgetOrNull(printBudget)));
++                    StructuredProjection.ToStructured(result, structuredBudget));
+ 
+             var envelope = new RunEnvelopeDto(
+                 ProtocolVersion,
+@@ -238,7 +242,8 @@ public static class Runner
+             VariableDto[]? partialVariables = code == "Cancelled"
+                 ? engine.CaptureState().Variables.Values
+                     .OrderBy(v => v.Name, StringComparer.Ordinal)
+-                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
++                    .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display,
++                        ProjectVariable(engine, v.Name, PrintBudgetOrNull(printBudget))))
+                     .ToArray()
+                 : null;
+             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
+@@ -300,6 +305,34 @@ public static class Runner
+     private static Lovelace.Symbolics.Printing.PrintBudget? PrintBudgetOrNull(int? maxNodes) =>
+         maxNodes is { } nodes ? new Lovelace.Symbolics.Printing.PrintBudget(MaxNodes: nodes) : null;
+ 
++    /// <summary>
++    /// The structured form of one captured variable — the SAME projection the result carries, read
++    /// off the LIVE value under the engine's display precision so a variable's <c>display</c> string
++    /// and its <c>structured</c> form come from one set of settings (A2-F24). The snapshot and the
++    /// live dictionary are the same capture: no evaluation runs between them, so the value is always
++    /// there; a lookup that somehow misses still crosses as <c>{"kind":"Null"}</c> rather than
++    /// dropping the entry.
++    /// </summary>
++    private static StructuredValueDto ProjectVariable(SuiteEngine engine, string name,
++        Lovelace.Symbolics.Printing.PrintBudget? budget) =>
++        engine.TryGetVariable(name, out var value)
++            ? engine.ProjectValue(value, budget)
++            : new StructuredValueDto("Null");
++
++    /// <summary>
++    /// One registry entry: the declared signature plus the arity metadata the call-site validator
++    /// computes the arity contract from (A2-F15). The lower bound is RESOLVED
++    /// (<see cref="FunctionDefinition.DeclaredArity"/>), so a consumer never has to know the
++    /// internal "exactly the declared count" sentinel, and the upper bound is the declared parameter
++    /// count unless <c>variadic</c> removes it.
++    /// </summary>
++    private static FunctionDto FunctionEntry(FunctionDefinition f)
++    {
++        var (min, _) = f.DeclaredArity();
++        return new FunctionDto(f.Name, f.Parameters.ToArray(), min, f.Parameters.Count,
++            f.Variadic, f.IsBuiltin, f.PluginName);
++    }
++
+     private static DurationDto Duration(TimeSpan elapsed)
+     {
+         var (value, unit) = Lovelace.Suite.Timing.Scale(elapsed);
+diff --git a/Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs b/Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs
+index 480d98a..d5d244c 100644
+--- a/Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs
++++ b/Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs
+@@ -1,3 +1,4 @@
++using Lovelace.Abstractions;
+ using Lovelace.Suite;
+ 
+ namespace Lovelace.Suite.Tests;
+@@ -5,83 +6,90 @@ namespace Lovelace.Suite.Tests;
+ /// <summary>
+ /// Tests for <see cref="Interpreter.Evaluate"/> — built-in function <c>divrem(a, b)</c>.
+ /// (Test plan items 79–81.)
++///
++/// <para>The result is a <c>DivRemResult</c> RECORD carrying <c>quotient</c> and <c>remainder</c> as
++/// separate fields (A1-N-08). It used to be the display sentence
++/// <c>"quotient = 3, remainder = 2"</c>, which forced every machine consumer to parse prose to
++/// recover two integers; these tests pin the structure and the numbers, not the sentence.</para>
+ /// </summary>
+ public class InterpreterBuiltinDivRemTests
+ {
+     private readonly Interpreter _evaluator = new();
+ 
+     // -----------------------------------------------------------------------
+-    // Helper: build CallExpr("divrem", a, b)
++    // Helper: build CallExpr("divrem", a, b) and read the result record
+     // -----------------------------------------------------------------------
+ 
+     private static CallExpr DivRemCall(Expr a, Expr b) =>
+         new("divrem", [a, b]);
+ 
++    /// <summary>Reads one field of the result, asserting the record shape on the way: a consumer
++    /// that can name the fields it reads is the whole point of the change.</summary>
++    private static Value Field(Value result, string name)
++    {
++        Assert.Equal(ValueKind.Record, result.Kind);
++        RecordValue record = result.AsRecord();
++        Assert.Equal("DivRemResult", record.TypeName);
++        Assert.Equal(new[] { "quotient", "remainder" }, record.Fields.Select(f => f.Name).ToArray());
++        Assert.True(record.TryGetField(name, out object? value), $"DivRemResult has no field '{name}'");
++        return (Value)value!;
++    }
++
+     // -----------------------------------------------------------------------
+-    // Test 79 — divrem(Natural(17), Natural(5)) → "quotient = 3, remainder = 2"
++    // Test 79 — divrem(Natural(17), Natural(5)) → quotient 3, remainder 2
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenDivRemOfNaturals_ReturnsFormattedString()
++    public async Task Evaluate_GivenDivRemOfNaturals_ReturnsAStructuredRecord()
+     {
+         var expr = DivRemCall(new LiteralExpr("17"), new LiteralExpr("5"));
+ 
+         var result = await _evaluator.EvaluateAsync(expr);
+ 
+-        Assert.Equal(ValueKind.Text, result.Kind);
+-        Assert.Equal("quotient = 3, remainder = 2", result.AsText());
++        Assert.Equal(ValueKind.Record, result.Kind);
++        Value quotient = Field(result, "quotient");
++        Value remainder = Field(result, "remainder");
++        Assert.Equal(ValueKind.Natural, quotient.Kind);
++        Assert.Equal(ValueKind.Natural, remainder.Kind);
++        Assert.Equal("3", quotient.AsNatural().ToString());
++        Assert.Equal("2", remainder.AsNatural().ToString());
+     }
+ 
+     // -----------------------------------------------------------------------
+-    // Test 80 — divrem(Integer(17), Integer(5)) → "quotient = 3, remainder = 2"
+-    // Integer(-17, 5) → "quotient = -3, remainder = -2" (same-sign rule)
++    // Test 80 — divrem(Integer(-17), Integer(5)) → quotient -3, remainder -2
++    // (the truncated quotient and the remainder that goes with it: a = q·b + r)
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenDivRemOfPositiveIntegers_ReturnsFormattedString()
++    public async Task Evaluate_GivenDivRemWithANegativeDividend_KeepsTheTruncatedSigns()
+     {
+-        // Assign x = -1 to coerce a Natural literal into Integer context,
+-        // then compute -17 so both operands are Integer after widening.
+-        // Simpler: use UnaryExpr(Negate, LiteralExpr) which returns Integer.
++        // -17 / 5: both operands are Integer after negation.
+         var negSeventeen = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("17"));
+-        var negFive      = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("5"));
+-
+-        // -17 / 5: both are Integer after negation.
+-        // quotient = -3, remainder = -2 (sign follows dividend in this implementation).
+         var expr = DivRemCall(negSeventeen, new LiteralExpr("5"));
+ 
+         var result = await _evaluator.EvaluateAsync(expr);
+ 
+-        Assert.Equal(ValueKind.Text, result.Kind);
+-        // Quotient = -3, remainder = -2 (dividend is negative, divisor positive → !sameSign)
+-        // but we get a positive result for quotient magnitude 3 with negation from Integer.DivRem.
+-        Assert.Contains("quotient = ", result.AsText());
+-        Assert.Contains("remainder = ", result.AsText());
++        Value quotient = Field(result, "quotient");
++        Value remainder = Field(result, "remainder");
++        Assert.Equal(ValueKind.Integer, quotient.Kind);
++        Assert.Equal(ValueKind.Integer, remainder.Kind);
++        // -17 = (-3)·5 + (-2)
++        Assert.Equal("-3", quotient.AsInteger().ToString());
++        Assert.Equal("-2", remainder.AsInteger().ToString());
+     }
+ 
+     [Fact]
+-    public async Task Evaluate_GivenDivRemOfIntegers_ReturnsFormattedString()
++    public async Task Evaluate_GivenDivRemOfIntegers_KeepsTheSameSignQuotientPositive()
+     {
+-        // Both operands start as Natural but are equal in kind → no widening needed.
+-        // Use negation to force Integer kind: unary minus on a Natural widens to Integer.
+-        // divrem(-17, -5) → both Integer, same sign → quotient = 3 (positive), remainder = 2 (positive... wait)
+-        // Actually, let's just store variables so we can set Integer values directly.
+-        // Simplest: use two Natural literals; Natural DivRem will be called; results in Text.
+-        // Covered by test 79. For Integer specifically, use negation on one operand.
+-
+-        // divrem(Integer(7), Integer(3)) → quotient = 2, remainder = 1
+-        // Force Integer: negate then negate back is not useful, instead widen via variable assignment.
+-        // The cleanest approach: assign an Integer variable first.
++        // __x = -7 (Integer); divrem(__x, -3) therefore runs with two Integer operands.
+         await _evaluator.EvaluateAsync(new AssignExpr("__x", new UnaryExpr(UnaryOp.Negate, new LiteralExpr("7"))));
+-        // __x is now Integer(-7); abs(__x) is still Integer.
+-        // For divrem(__x, ...) the a operand is Integer, so WidenPair gives both Integer.
+         var expr = DivRemCall(new VariableExpr("__x"), new UnaryExpr(UnaryOp.Negate, new LiteralExpr("3")));
+ 
+         var result = await _evaluator.EvaluateAsync(expr);
+ 
+-        // divrem(Integer(-7), Integer(-3)): same sign → quotient positive = 2, remainder positive = 1
+-        Assert.Equal(ValueKind.Text, result.Kind);
+-        Assert.Equal("quotient = 2, remainder = 1", result.AsText());
++        // divrem(Integer(-7), Integer(-3)): same sign → quotient 2, remainder 1
++        Assert.Equal("2", Field(result, "quotient").AsInteger().ToString());
++        Assert.Equal("1", Field(result, "remainder").AsInteger().ToString());
+     }
+ 
+     // -----------------------------------------------------------------------
+diff --git a/Lovelace.Suite/CoreBuiltinMetadata.cs b/Lovelace.Suite/CoreBuiltinMetadata.cs
+index 7afe9b6..26ecc35 100644
+--- a/Lovelace.Suite/CoreBuiltinMetadata.cs
++++ b/Lovelace.Suite/CoreBuiltinMetadata.cs
+@@ -35,7 +35,7 @@ public static class CoreBuiltinMetadata
+             "Principal square root; symbolic arguments produce Power(x, 1/2).", ["sqrt(4)", "sqrt(x)"], "Real | Symbolic");
+         Add("sign", ["x"], BuiltinCategories.Numerics, "Sign of a real value: -1, 0, or 1.", ["sign(-7)"], "Integer");
+         Add("divrem", ["a", "b"], BuiltinCategories.Numerics,
+-            "Quotient and remainder pair of integer division.", ["divrem(17, 5)"], "Vector");
++            "Quotient and remainder pair of integer division.", ["divrem(17, 5)"], "DivRemResult");
+         Add("is_even", ["x"], BuiltinCategories.Numerics, "Whether the integer value is even.", ["is_even(4)"], "Boolean");
+         Add("is_odd", ["x"], BuiltinCategories.Numerics, "Whether the integer value is odd.", ["is_odd(4)"], "Boolean");
+         Add("pi", ["digits"], BuiltinCategories.Numerics,
+diff --git a/Lovelace.Suite/Interpreter.cs b/Lovelace.Suite/Interpreter.cs
+index 33ef764..dda0944 100644
+--- a/Lovelace.Suite/Interpreter.cs
++++ b/Lovelace.Suite/Interpreter.cs
+@@ -1176,10 +1176,22 @@ public sealed class Interpreter
+         _ => Value.Void,
+     };
+ 
++    /// <summary>
++    /// The <c>inspect(...).exact</c> answer for a value: a Boolean where exactness is a property of
++    /// the kind, and Null where it is not (text, booleans, arrays, records). A Real answers from the
++    /// provenance its own arithmetic recorded (<see cref="Rl.IsExact"/>, cleared by every truncating
++    /// path), which is the SAME question the value's wire form answers with its <c>exact</c> flag; a
++    /// Complex is exact when BOTH parts are, because a complex number carrying one truncated
++    /// component is a truncated number. This used to return Void for both, so
++    /// <c>inspect(1/3).exact</c> was Null while the Real's own form said <c>"exact": true</c>
++    /// (A1-N-09).
++    /// </summary>
+     private static Value ExactOf(Value v) => v.Kind switch
+     {
+         ValueKind.Symbolic => new Value(v.AsSymbolic().IsExact),
+         ValueKind.Natural or ValueKind.Integer => new Value(true),
++        ValueKind.Real => new Value(v.AsReal().IsExact),
++        ValueKind.Complex => new Value(v.AsComplex().Re.IsExact && v.AsComplex().Im.IsExact),
+         _ => Value.Void,
+     };
+ 
+@@ -1493,7 +1505,11 @@ public sealed class Interpreter
+                     : Array.Empty<WireDiagnostic>())));
+         });
+ 
+-        // divrem(a, b)
++        // divrem(a, b) — TWO integers as named fields, never the sentence "quotient = 3,
++        // remainder = 1": a machine API must not require parsing prose to recover the quotient and
++        // the remainder (A1-N-08). The field names are the ones the sentence used (and the ones the
++        // underlying integer operations are named after), so an agent reads
++        // result.structured.fields[quotient] without a convention to learn.
+         Register("divrem", ["a", "b"], args =>
+         {
+             var a = args[0];
+@@ -1502,8 +1518,10 @@ public sealed class Interpreter
+ 
+             return Task.FromResult(a.Kind switch
+             {
+-                ValueKind.Natural => new Value(FormatDivRem(Nat.DivRem(a.AsNatural(), b.AsNatural(), out var natRem), natRem)),
+-                ValueKind.Integer => new Value(FormatDivRem(a.AsInteger().DivRem(b.AsInteger(), out var intRem), intRem)),
++                ValueKind.Natural => DivRemResult(
++                    new Value(Nat.DivRem(a.AsNatural(), b.AsNatural(), out var natRem)), new Value(natRem)),
++                ValueKind.Integer => DivRemResult(
++                    new Value(a.AsInteger().DivRem(b.AsInteger(), out var intRem)), new Value(intRem)),
+                 _ => throw new InvalidOperationException($"divrem() is not supported for values of kind '{a.Kind}'. Use Natural or Integer operands."),
+             });
+         });
+@@ -1727,8 +1745,19 @@ public sealed class Interpreter
+         return new Value(elements);
+     }
+ 
+-    private static string FormatDivRem(object quotient, object remainder) =>
+-        $"quotient = {quotient}, remainder = {remainder}";
++    /// <summary>
++    /// The <c>divrem(a, b)</c> result record: <c>quotient</c> and <c>remainder</c> as separate
++    /// integer fields, so the two numbers cross structurally instead of as the display sentence
++    /// <c>"quotient = 3, remainder = 1"</c> (A1-N-08). Both fields carry the kind the widened
++    /// operand pair produced — Natural for two Naturals, Integer otherwise — which is the same
++    /// result the prose carried, in a form a consumer reads without a parser.
++    /// </summary>
++    private static Value DivRemResult(Value quotient, Value remainder) =>
++        new(new RecordValue("DivRemResult", new[]
++        {
++            new RecordField("quotient", quotient),
++            new RecordField("remainder", remainder),
++        }));
+ 
+     // -----------------------------------------------------------------
+     // Array / vector built-in helpers
+diff --git a/Lovelace.Suite/StructuredProjection.cs b/Lovelace.Suite/StructuredProjection.cs
+index 9437013..663ccd7 100644
+--- a/Lovelace.Suite/StructuredProjection.cs
++++ b/Lovelace.Suite/StructuredProjection.cs
+@@ -90,9 +90,11 @@ public static class StructuredProjection
+ 
+     private static StructuredValueDto Symbolic(SymExpr e, Printing.PrintBudget? budget)
+     {
+-        var pretty = Printing.Print(e, new Printing.PrintOptions(Budget: budget));
+-        var canonical = Printing.Print(e,
+-            new Printing.PrintOptions(Printing.PrintMode.Canonical, Budget: budget));
++        var pretty = EnforceNodeBudget(
++            Printing.Print(e, new Printing.PrintOptions(Budget: budget)), budget, e.NodeCount);
++        var canonical = EnforceNodeBudget(
++            Printing.Print(e, new Printing.PrintOptions(Printing.PrintMode.Canonical, Budget: budget)),
++            budget, e.NodeCount);
+         var truncation = pretty.Truncation ?? canonical.Truncation;
+         return new StructuredValueDto(
+             "Symbolic",
+@@ -107,6 +109,49 @@ public static class StructuredProjection
+             Budget: truncation?.Budget);
+     }
+ 
++    /// <summary>
++    /// The node budget, made TOTAL. <see cref="Printing.Print"/> abbreviates only when the full
++    /// rendering is longer than the character allowance the budget implies — <c>max(48, 6 ×
++    /// budget)</c> characters — so a value whose node count is already above the budget but whose
++    /// rendering is short (<c>x^2</c>, 3 nodes, at budget 1) came back WHOLE and reported no
++    /// truncation, while a 13-node value at budget 8 truncated (A2-F19 / A4-F1). A node budget
++    /// bounds nodes, so the projection completes the rule here, on the way to the wire: over budget
++    /// is ALWAYS abbreviated and always says so, and the abbreviation is still a prefix of the real
++    /// rendering (never a re-ordered one) terminated by " …".
++    /// <para>
++    /// The prefix is proportional to the fraction of the expression the budget allows, so a larger
++    /// budget still returns at least as much; a rendering the kernel printer already abbreviated
++    /// (the long ones) is passed through untouched, so the established cut points do not move.
++    /// </para>
++    /// </summary>
++    private static Printing.PrintOutcome EnforceNodeBudget(Printing.PrintOutcome outcome,
++        Printing.PrintBudget? budget, int nodeCount)
++    {
++        if (budget?.MaxNodes is not { } maxNodes || nodeCount <= maxNodes || outcome.Truncated)
++            return outcome;
++
++        string full = outcome.Text;
++        if (full.Length == 0)
++            return outcome;
++
++        // maxNodes < nodeCount, so this is always a STRICT prefix: a prefix is never passed off as
++        // the whole rendering.
++        int allowed = (int)Math.Max(1L, (long)full.Length * maxNodes / nodeCount);
++        string text = full[..CutAtTokenBoundary(full, allowed)] + " …";
++        return new Printing.PrintOutcome(text, true,
++            new Printing.PrintTruncation("node-budget", nodeCount, maxNodes, text));
++    }
++
++    /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token —
++    /// the same rule the kernel printer applies to its own abbreviations.</summary>
++    private static int CutAtTokenBoundary(string text, int cut)
++    {
++        int i = Math.Min(cut, text.Length);
++        while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '.'))
++            i--;
++        return i > 0 ? i : cut;
++    }
++
+     private static StructuredValueDto Real(Rl value)
+     {
+         bool exact = RealExact(value);
+diff --git a/Lovelace.Suite/SuiteEngine.cs b/Lovelace.Suite/SuiteEngine.cs
+index 85cb83e..39af345 100644
+--- a/Lovelace.Suite/SuiteEngine.cs
++++ b/Lovelace.Suite/SuiteEngine.cs
+@@ -104,6 +104,21 @@ public sealed class SuiteEngine
+         return ValueFormatter.Format(value, UnicodeOutput);
+     }
+ 
++    /// <summary>
++    /// The structured sibling of <see cref="FormatValue"/>: projects a value with the SHARED
++    /// <see cref="StructuredProjection"/> under this engine's display precision, so a value's
++    /// human rendering and its machine-readable form come from one set of settings. Used for the
++    /// envelope's <c>variables[]</c> entries, whose Display string is captured under the same
++    /// precision. Total over the value kinds: every value projects to a structured form (an absent
++    /// value to <c>Null</c>).
++    /// </summary>
++    public StructuredValueDto ProjectValue(Value value,
++        Lovelace.Symbolics.Printing.PrintBudget? budget = null)
++    {
++        using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
++        return StructuredProjection.ToStructured(value, budget);
++    }
++
+     /// <summary>Formats a value with a type suffix at this engine's display precision.</summary>
+     public string FormatValueTyped(Value value)
+     {
+diff --git a/Lovelace.Suite/docs/Language.md b/Lovelace.Suite/docs/Language.md
+index 60556d0..8fff623 100644
+--- a/Lovelace.Suite/docs/Language.md
++++ b/Lovelace.Suite/docs/Language.md
+@@ -686,13 +686,14 @@ inv(4)
+ 
+ ### `divrem(a, b)`
+ 
+-Integer quotient and remainder, returned as text.
++Integer quotient and remainder as a `DivRemResult` record with the two integers in the
++`quotient` and `remainder` fields — structure, not a sentence.
+ 
+ ```lovelace
+ divrem(17, 5)
+ ```
+ ```result
+-quotient = 3, remainder = 2
++DivRemResult(quotient: 3, remainder: 2) (DivRemResult)
+ ```
+ 
+ ### `is_even(x)` / `is_odd(x)`

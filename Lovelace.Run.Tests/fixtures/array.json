@@ -68,17 +68,93 @@
     {
       "name": "_",
       "kind": "Array",
-      "display": "[[x, y], [y, x]]"
+      "display": "[[x, y], [y, x]]",
+      "structured": {
+        "kind": "Array",
+        "type": "Array",
+        "shape": [
+          2,
+          2
+        ],
+        "elements": [
+          {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          },
+          {
+            "kind": "Symbolic",
+            "pretty": "y",
+            "canonical": "(sym y)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "y"
+            ]
+          },
+          {
+            "kind": "Symbolic",
+            "pretty": "y",
+            "canonical": "(sym y)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "y"
+            ]
+          },
+          {
+            "kind": "Symbolic",
+            "pretty": "x",
+            "canonical": "(sym x)",
+            "domain": "complex",
+            "exact": true,
+            "nodeCount": 1,
+            "freeSymbols": [
+              "x"
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     },
     {
       "name": "y",
       "kind": "Symbolic",
-      "display": "y"
+      "display": "y",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "y",
+        "canonical": "(sym y)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "y"
+        ]
+      }
     }
   ],
   "functions": [],

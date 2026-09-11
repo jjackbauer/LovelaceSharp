@@ -90,9 +90,11 @@ public static class StructuredProjection
 
     private static StructuredValueDto Symbolic(SymExpr e, Printing.PrintBudget? budget)
     {
-        var pretty = Printing.Print(e, new Printing.PrintOptions(Budget: budget));
-        var canonical = Printing.Print(e,
-            new Printing.PrintOptions(Printing.PrintMode.Canonical, Budget: budget));
+        var pretty = EnforceNodeBudget(
+            Printing.Print(e, new Printing.PrintOptions(Budget: budget)), budget, e.NodeCount);
+        var canonical = EnforceNodeBudget(
+            Printing.Print(e, new Printing.PrintOptions(Printing.PrintMode.Canonical, Budget: budget)),
+            budget, e.NodeCount);
         var truncation = pretty.Truncation ?? canonical.Truncation;
         return new StructuredValueDto(
             "Symbolic",
@@ -105,6 +107,49 @@ public static class StructuredProjection
             Truncated: pretty.Truncated || canonical.Truncated ? true : null,
             TruncationReason: truncation?.Reason,
             Budget: truncation?.Budget);
+    }
+
+    /// <summary>
+    /// The node budget, made TOTAL. <see cref="Printing.Print"/> abbreviates only when the full
+    /// rendering is longer than the character allowance the budget implies — <c>max(48, 6 ×
+    /// budget)</c> characters — so a value whose node count is already above the budget but whose
+    /// rendering is short (<c>x^2</c>, 3 nodes, at budget 1) came back WHOLE and reported no
+    /// truncation, while a 13-node value at budget 8 truncated (A2-F19 / A4-F1). A node budget
+    /// bounds nodes, so the projection completes the rule here, on the way to the wire: over budget
+    /// is ALWAYS abbreviated and always says so, and the abbreviation is still a prefix of the real
+    /// rendering (never a re-ordered one) terminated by " …".
+    /// <para>
+    /// The prefix is proportional to the fraction of the expression the budget allows, so a larger
+    /// budget still returns at least as much; a rendering the kernel printer already abbreviated
+    /// (the long ones) is passed through untouched, so the established cut points do not move.
+    /// </para>
+    /// </summary>
+    private static Printing.PrintOutcome EnforceNodeBudget(Printing.PrintOutcome outcome,
+        Printing.PrintBudget? budget, int nodeCount)
+    {
+        if (budget?.MaxNodes is not { } maxNodes || nodeCount <= maxNodes || outcome.Truncated)
+            return outcome;
+
+        string full = outcome.Text;
+        if (full.Length == 0)
+            return outcome;
+
+        // maxNodes < nodeCount, so this is always a STRICT prefix: a prefix is never passed off as
+        // the whole rendering.
+        int allowed = (int)Math.Max(1L, (long)full.Length * maxNodes / nodeCount);
+        string text = full[..CutAtTokenBoundary(full, allowed)] + " …";
+        return new Printing.PrintOutcome(text, true,
+            new Printing.PrintTruncation("node-budget", nodeCount, maxNodes, text));
+    }
+
+    /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token —
+    /// the same rule the kernel printer applies to its own abbreviations.</summary>
+    private static int CutAtTokenBoundary(string text, int cut)
+    {
+        int i = Math.Min(cut, text.Length);
+        while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '.'))
+            i--;
+        return i > 0 ? i : cut;
     }
 
     private static StructuredValueDto Real(Rl value)

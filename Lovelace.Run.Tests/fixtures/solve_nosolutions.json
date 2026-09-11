@@ -184,12 +184,193 @@
     {
       "name": "_",
       "kind": "Record",
-      "display": "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: every root violates the denominator condition., recoverable: True, location: , details: [])])"
+      "display": "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: every root violates the denominator condition., recoverable: True, location: , details: [])])",
+      "structured": {
+        "kind": "Record",
+        "type": "SolveResult",
+        "fields": [
+          {
+            "name": "status",
+            "value": {
+              "kind": "Enum",
+              "type": "SolveStatus",
+              "value": "NoSolutions"
+            }
+          },
+          {
+            "name": "variable",
+            "value": {
+              "kind": "Symbolic",
+              "pretty": "x",
+              "canonical": "(sym x)",
+              "domain": "complex",
+              "exact": true,
+              "nodeCount": 1,
+              "freeSymbols": [
+                "x"
+              ]
+            }
+          },
+          {
+            "name": "domain",
+            "value": {
+              "kind": "Domain",
+              "domain": "complex"
+            }
+          },
+          {
+            "name": "complete",
+            "value": {
+              "kind": "Boolean",
+              "value": "true"
+            }
+          },
+          {
+            "name": "completeness",
+            "value": {
+              "kind": "Enum",
+              "type": "Completeness",
+              "value": "Complete"
+            }
+          },
+          {
+            "name": "solutions",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          },
+          {
+            "name": "families",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          },
+          {
+            "name": "common_conditions",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                0
+              ],
+              "elements": []
+            }
+          },
+          {
+            "name": "represented_count",
+            "value": {
+              "kind": "Integer",
+              "value": "0",
+              "exact": true
+            }
+          },
+          {
+            "name": "unrepresented_count",
+            "value": {
+              "kind": "Integer",
+              "value": "0",
+              "exact": true
+            }
+          },
+          {
+            "name": "unrepresented_reason",
+            "value": {
+              "kind": "Text",
+              "value": ""
+            }
+          },
+          {
+            "name": "diagnostics",
+            "value": {
+              "kind": "Array",
+              "type": "Vector",
+              "shape": [
+                1
+              ],
+              "elements": [
+                {
+                  "kind": "Record",
+                  "type": "Diagnostic",
+                  "fields": [
+                    {
+                      "name": "code",
+                      "value": {
+                        "kind": "Text",
+                        "value": "solve.no-solutions"
+                      }
+                    },
+                    {
+                      "name": "category",
+                      "value": {
+                        "kind": "Enum",
+                        "type": "ErrorCategory",
+                        "value": "NoSolution"
+                      }
+                    },
+                    {
+                      "name": "message",
+                      "value": {
+                        "kind": "Text",
+                        "value": "every root violates the denominator condition."
+                      }
+                    },
+                    {
+                      "name": "recoverable",
+                      "value": {
+                        "kind": "Boolean",
+                        "value": "true"
+                      }
+                    },
+                    {
+                      "name": "location",
+                      "value": {
+                        "kind": "Null"
+                      }
+                    },
+                    {
+                      "name": "details",
+                      "value": {
+                        "kind": "Array",
+                        "type": "Vector",
+                        "shape": [
+                          0
+                        ],
+                        "elements": []
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
     },
     {
       "name": "x",
       "kind": "Symbolic",
-      "display": "x"
+      "display": "x",
+      "structured": {
+        "kind": "Symbolic",
+        "pretty": "x",
+        "canonical": "(sym x)",
+        "domain": "complex",
+        "exact": true,
+        "nodeCount": 1,
+        "freeSymbols": [
+          "x"
+        ]
+      }
     }
   ],
   "functions": [],
