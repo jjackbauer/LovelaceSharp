@@ -1,0 +1,20 @@
+advertised entries: 16
+operation_class                              advertised code                    category             verdict
+pow.non-integer-exponent                     UnsupportedOperation               UnsupportedOperation MATCH (error)
+pow.negative-base-unrepresentable-exponent   UnsupportedOperation               UnsupportedOperation MATCH (error)
+solve.unsupported-domain                     InvalidOperation                   DomainError          MATCH (error)
+rootof.complex-algebraic                     solve.unrepresented-roots          UnsupportedOperation MATCH (diagnostic)
+limit.unevaluated-in-record-diagnostics      limit.unevaluated                  UnsupportedOperation MATCH (diagnostic)
+integration.unevaluated-in-record-diagnostics integration.unevaluated            UnsupportedOperation MATCH (diagnostic)
+plot.symbolic-expression                     InvalidOperation                   DomainError          MATCH (error)
+plot.symbolic-element                        InvalidOperation                   DomainError          MATCH (error)
+solve.non-symbolic-variable                  InvalidOperation                   DomainError          MATCH (error)
+solve.non-symbolic-expression                InvalidOperation                   DomainError          MATCH (error)
+diff.non-symbolic-variable                   InvalidOperation                   DomainError          MATCH (error)
+integrate.non-symbolic-variable              InvalidOperation                   DomainError          MATCH (error)
+limit.non-symbolic-variable                  InvalidOperation                   DomainError          MATCH (error)
+dsp.symbolic-element                         InvalidOperation                   DomainError          MATCH (error)
+linsolve.non-symbolic-matrix                 InvalidOperation                   DomainError          MATCH (error)
+fft.non-power-of-two-length                  InvalidArgument                    TypeMismatch         MATCH (error)
+
+MATCH=16  MISMATCH=0

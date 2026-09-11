@@ -25,7 +25,14 @@ public sealed record IntegrationResult(
 
     public static IntegrationResult Exact(Expr e) => new(IntegrationKind.SolvedExact, e, AssumptionSet.Empty);
     public static IntegrationResult Conditional(Expr e, AssumptionSet conditions) => new(IntegrationKind.SolvedConditional, e, conditions);
-    public static IntegrationResult Unevaluated(Expr e) => new(IntegrationKind.Unevaluated, e, AssumptionSet.Empty);
+
+    /// <summary>Refused integration. <paramref name="note"/> is REQUIRED — not optional — because
+    /// an unevaluated result that carries no reason is a refusal the caller cannot branch on: the
+    /// result record would report status Unevaluated with an EMPTY diagnostics array, so "did
+    /// anything go wrong?" would not be answerable from structure (round 10, audit P6b-2/P6b-3).
+    /// Making the reason a required argument is what stops the silent refusal from coming back.</summary>
+    public static IntegrationResult Unevaluated(Expr e, string note)
+        => new(IntegrationKind.Unevaluated, e, AssumptionSet.Empty, note);
 }
 
 /// <summary>
@@ -39,7 +46,12 @@ public static class Integration
     public static Expr Integrate(Expr e, Symbol x, ExprContext? ctx = null)
         => IntegrateResult(e, x, ctx).Expression;
 
-    /// <summary>Structured integration with status and the conditions its antiderivative needs.</summary>
+    /// <summary>Structured integration with status and the conditions its antiderivative needs.
+    /// A refusal is TYPED and STRUCTURED (round 10): the returned <see cref="IntegrationResult"/>
+    /// always carries a non-empty <see cref="IntegrationResult.Note"/> naming why no closed form
+    /// was returned, distinguishing "no tier produced a candidate" from "a candidate failed
+    /// differentiation-based verification". The note is the input-specific part; the plugin
+    /// projects it as the details of a stable <c>integration.unevaluated</c> diagnostic.</summary>
     public static IntegrationResult IntegrateResult(Expr e, Symbol x, ExprContext? ctx = null)
     {
         ctx ??= Exprs.Current;
@@ -63,7 +75,11 @@ public static class Integration
                 : IntegrationResult.Exact(result);
             return outcome with { Method = method, VerificationMethod = verification };
         }
-        return IntegrationResult.Unevaluated(Exprs.Integral(e, x));
+        var integral = Exprs.Integral(e, x);
+        return IntegrationResult.Unevaluated(integral, result is null
+            ? "no integration tier produced a candidate closed form for " + Printing.PrettyPrint(integral)
+            : "the '" + method + "' tier produced a candidate closed form for " + Printing.PrettyPrint(integral)
+              + ", but the candidate did not pass differentiation-based verification");
     }
 
     /// <summary>Collects the arguments of every log(f) in the expression.</summary>

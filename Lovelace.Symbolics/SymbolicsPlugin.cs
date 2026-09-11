@@ -666,10 +666,27 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         ? Diagnostic.Of("limit.unevaluated", ErrorCategory.UnsupportedOperation, reason)
         : null;
 
-    /// <summary>An integration reports its kernel note; null means an EMPTY array.</summary>
+    /// <summary>An integration reports its kernel note; null means an EMPTY array. Round 10: a
+    /// REFUSED integration is no longer silent. The kernel always supplies a note for
+    /// <see cref="IntegrationKind.Unevaluated"/>, and it crosses as a STRUCTURED diagnostic with
+    /// a stable code, the <see cref="ErrorCategory.UnsupportedOperation"/> category, a
+    /// CLASS-LEVEL message that is identical for every refused integrand, and the input-specific
+    /// reason in <c>details</c> (a nested Diagnostic). Before round 10 this path emitted
+    /// <c>status = Unevaluated</c> with an EMPTY diagnostics array: "did anything go wrong?" was
+    /// not answerable from structure, which is exactly the property the protocol promises.</summary>
     private static Diagnostic? IntegrationDiagnostic(IntegrationResult result) => result.Note is { } note
-        ? Diagnostic.Of("integration.unevaluated", ErrorCategory.UnsupportedOperation, note)
+        ? WithDetails("integration.unevaluated", ErrorCategory.UnsupportedOperation,
+            IntegrationUnevaluatedMessage,
+            Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note))
         : null;
+
+    /// <summary>A kernel-level diagnostic that carries NESTED details. <see cref="Diagnostic.Of"/>
+    /// deliberately produces an empty details list; this is the one construction that does not,
+    /// and it keeps every other invariant of the six-field form: no source span at this layer, so
+    /// the location stays Null.</summary>
+    private static Diagnostic WithDetails(
+        string code, ErrorCategory category, string message, params Diagnostic[] details) =>
+        new(code, category, message, Recoverable: true, Location: null, Details: details);
 
     /// <summary>The diagnostic a transformation reports where the record previously reported none:
     /// a budget stop (a larger budget recovers it) and a condition set with no model (retrying
@@ -700,8 +717,47 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     /// <summary>
     /// The structured capability statement behind <c>capabilities()</c>. Every advertised entry
-    /// carries the code and <see cref="ErrorCategory"/> member that the LIVE call produces — these
-    /// strings are transcriptions of observed envelopes, not a second vocabulary:
+    /// carries the code, <see cref="ErrorCategory"/> member and message that the LIVE call named in
+    /// its <c>trigger</c> produces — these strings are transcriptions of observed output, not a
+    /// second vocabulary, and <c>CapabilitiesBuiltinTests</c> RUNS every trigger through the
+    /// published <c>Lovelace.Run</c> envelope and fails if the advertisement drifts from the kernel.
+    /// <para>
+    /// TWO CARRIER SHAPES exist, and every class added in round 10 says in its name which one
+    /// applies:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>the refusal IS the error envelope</b> (exit 1, <c>ok:false</c>, with
+    /// <c>code</c>/<c>category</c>/<c>message</c> at the top level): the power guards, the solver
+    /// domain guard, the non-symbolic argument guards of solve/diff/integrate/limit, the plot
+    /// guards, the DSP element guard, the linsolve matrix guard and the FFT length guard.</item>
+    /// <item><b>the refusal rides in a result record's <c>diagnostics</c> while the call SUCCEEDS</b>
+    /// (exit 0, <c>ok:true</c>): the class name ends in <c>-in-record-diagnostics</c>, the record's
+    /// own <c>status</c> enum reports the refusal (<c>Unevaluated</c>/<c>Partial</c>), and the
+    /// advertised code/category/message are transcribed from the FIRST element of that record's
+    /// <c>diagnostics</c> array. The test asserts that carrier, not just the strings.</item>
+    /// </list>
+    /// <para>
+    /// The marker is a GUARANTEE the marked classes make, not a partition of the whole list: the
+    /// four entries that predate round 10 keep their published <c>operation_class</c> ids, so
+    /// <c>rootof.complex-algebraic</c> is record-carried (audit P6a-3 noted the advertisement never
+    /// claimed which carrier) without carrying the marker. The honesty test reports the carrier it
+    /// observed for every entry, marked or not.
+    /// </para>
+    /// <para>
+    /// <c>message</c> is what the advertised <c>trigger</c> produces, byte for byte. Some classes
+    /// have more than one message: <c>limit.unevaluated</c> reports the kernel's input-specific
+    /// reason ("coefficient does not evaluate at the point" for <c>limit_full(sin(x), x, inf)</c>,
+    /// "leading coefficient is symbolic" for <c>limit_full(a/x, x, 0)</c>), the FFT guard embeds the
+    /// offending length, and the argument guards embed the builtin and the payload kind. For those
+    /// the CODE and CATEGORY are class-level and the MESSAGE is trigger-level — which is exactly the
+    /// pair the honesty test asserts. <c>integration.unevaluated</c> is deliberately NOT one of
+    /// them: its outer message is class-level (identical for every refused integrand) and the
+    /// input-specific reason rides in the diagnostic's <c>details</c> array, so one advertised
+    /// message is true for the whole class.
+    /// </para>
+    /// <para>
+    /// The four entries that predate round 10, unchanged:
+    /// </para>
     /// <list type="bullet">
     /// <item>a non-integer exponent of a positive base, e.g. <c>2^(1/2)</c>: a
     /// <c>NotImplementedException</c> from <c>Lovelace.Real.Real.Pow</c>, classified as
@@ -728,33 +784,43 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// unchanged — <c>Real.Sqrt(-1)</c> still throws.
     /// </para>
     /// <para>
-    /// <c>exactness</c> remains <c>BestEffort</c>, and deliberately. Every entry ABOVE is verified
-    /// against its live envelope by <c>CapabilitiesBuiltinTests</c>, so nothing here is a guess.
-    /// What is still NOT enumerated, and why:
+    /// <c>exactness</c> remains <c>BestEffort</c>, and deliberately. What the enumeration DOES
+    /// cover: <b>every refusal class the round-09 adversarial audit found unlisted
+    /// (docs/goal-cycle-4/round-09/audit-P2P6-wire.md, part 6(b))</b> — the symbolic-limit refusal,
+    /// the integration refusal, the symbolic plot path, the non-symbolic solve/diff/integrate/limit
+    /// arguments, the DSP symbolic-element guard, the linsolve matrix guard and the FFT length
+    /// constraint — together with the classes earlier rounds advertised; 16 entries, each
+    /// live-verified by <c>CapabilitiesBuiltinTests</c>. What is still NOT enumerated, and why:
     /// </para>
     /// <list type="bullet">
-    /// <item>the diagnostic classes whose <c>message</c> is the KERNEL'S INPUT-SPECIFIC reason
-    /// rather than a fixed string — <c>limit.unevaluated</c>, <c>integration.unevaluated</c>,
-    /// <c>solve.unevaluated</c>, <c>solve.partial</c>, <c>system-solve.unevaluated</c>. An
-    /// <c>UnsupportedCapability</c> record advertises ONE message, and for these the message
-    /// varies with the expression (e.g. "no closed form for ..."), so a single entry could not
-    /// state it truthfully. Enumerating them would need either a schema change (out of scope) or
-    /// an entry per trigger, which is not a class list.</item>
+    /// <item>the remaining kernel-note diagnostics whose message is the INPUT-SPECIFIC reason —
+    /// <c>solve.unevaluated</c>, <c>solve.partial</c>, <c>solve.budget-exceeded</c>,
+    /// <c>solve.no-solutions</c>, <c>system-solve.unevaluated</c>,
+    /// <c>system-solve.no-solutions</c>, <c>matrix.singular</c>. They are refusals, but one
+    /// advertised message could not state them truthfully; they need the same details-carrying
+    /// shape <c>integration.unevaluated</c> now has.</item>
     /// <item><c>transform.budget-exceeded</c> and <c>transform.unsatisfiable-conditions</c>: both
-    /// have stable messages, but the first embeds the budget kind that was exhausted, and neither
-    /// is an unsupported OPERATION — they are a retryable budget stop and a contradictory-branch
-    /// domain error, reported as a <c>BudgetExceeded</c> / <c>DomainError</c> status rather than as
-    /// "the kernel cannot do this". They belong to the transform contract, not to this list.</item>
-    /// <item>the exception classes the host classifies but the Symbolics plugin never raises
-    /// (<c>FormatException</c>, <c>ArgumentOutOfRangeException</c> from <c>0^-1</c>, the matrix and
-    /// array bridges): they are reachable from the engine, not from this plugin's operation
-    /// surface, so listing them here would advertise a capability boundary that is not this
-    /// plugin's.</item>
+    /// have stable messages, but neither is an unsupported OPERATION — a retryable budget stop and a
+    /// contradictory-branch domain error. They belong to the transform contract, not to this
+    /// list.</item>
+    /// <item>the host-level error taxonomy no plugin owns: <c>ParseError</c> for a malformed script,
+    /// <c>FileReadError</c>, the arity errors (<c>abs(1,2)</c>, <c>sin(1,2)</c>,
+    /// <c>sum(1,2,3)</c>), the <c>Cancelled</c>/<c>BudgetExceeded</c> cancellation envelope, and
+    /// <c>UnsatisfiableAssumptions</c> from <c>assume()</c>. They are real refusals, but they are
+    /// not per-operation capability boundaries of this kernel.</item>
+    /// <item>the caller-side argument errors that are still BUGS rather than capabilities:
+    /// <c>mean(1)</c>, <c>max(1,2)</c> and <c>sum(x, 5)</c> surface as
+    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> carrying the raw CLR message "Specified
+    /// cast is not valid." (audit finding F4), and a 3000-deep script overflows the native stack and
+    /// emits no envelope at all (F11). Advertising any of them would claim a capability boundary
+    /// where the truth is a defect; they stay unadvertised until they are fixed or typed.</item>
     /// </list>
     /// <para>
-    /// So the honest reading of this record is: <b>exhaustive over the plugin's message-stable
-    /// unsupported-operation classes</b>, and explicitly not exhaustive over the host's whole
-    /// error taxonomy. <c>BestEffort</c> is the member that says exactly that.
+    /// So the honest reading of this record is: <b>exhaustive over the refusal classes the round-09
+    /// audit exhibited, and explicitly not exhaustive over the runtime's whole error taxonomy</b>.
+    /// <c>BestEffort</c> is the member that says exactly that, and
+    /// <c>CapabilitiesBuiltinTests.ExactnessBestEffort_IsBackedByLiveRefusalsTheListDoesNotCarry</c>
+    /// keeps it falsifiable by driving refusals the list does not enumerate.
     /// </para>
     /// </summary>
     private static RecordValue CapabilitiesRecord() => new(
@@ -764,6 +830,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         new RecordField("unsupported_domains", new object?[] { MathDomain.Integer, MathDomain.Rational }),
         new RecordField("unsupported_operations", new object?[]
         {
+            // ---- the four entries that predate round 10 (byte-identical, still live-verified) ----
             UnsupportedCapability("pow.non-integer-exponent", "UnsupportedOperation",
                 ErrorCategory.UnsupportedOperation,
                 "Non-integer exponents are not yet supported.", "2^(1/2)"),
@@ -777,8 +844,76 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 ErrorCategory.UnsupportedOperation,
                 "complex algebraic roots not supported (RootOf is real-only in v1).",
                 "x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)"),
+
+            // ---- round 10: the refusal classes the round-09 audit found unlisted (part 6(b)) ----
+            // P6b-1: the refusal rides in a LimitResult's diagnostics while the call SUCCEEDS, so the
+            // class name marks the carrier. `limit.unevaluated` has more than one message (this one
+            // and "leading coefficient is symbolic" for limit_full(a/x, x, 0)); code and category are
+            // class-level, the message is the one THIS trigger produces.
+            UnsupportedCapability("limit.unevaluated-in-record-diagnostics", "limit.unevaluated",
+                ErrorCategory.UnsupportedOperation,
+                "coefficient does not evaluate at the point",
+                "x = symbol(\"x\"); limit_full(sin(x), x, inf)"),
+            // P6b-2/P6b-3: the integration refusal used to be a status with an EMPTY diagnostics
+            // array. The kernel now always supplies a reason, which crosses as this diagnostic's
+            // details; the outer message is the same for every refused integrand, so it is
+            // class-level and true for all of them.
+            UnsupportedCapability("integration.unevaluated-in-record-diagnostics", "integration.unevaluated",
+                ErrorCategory.UnsupportedOperation,
+                IntegrationUnevaluatedMessage,
+                "x = symbol(\"x\"); integrate_full(exp(x^2), x)"),
+            // P6b-4: plot() has no sampling range and no evaluator, so a symbolic argument is
+            // refused. It used to die as InternalError/InternalInvariantFailure ("Specified cast is
+            // not valid.", recoverable:false) because the single-vector form cast its argument before
+            // checking its kind; the refusal is now the typed envelope below.
+            UnsupportedCapability("plot.symbolic-expression", "InvalidOperation", ErrorCategory.DomainError,
+                "plot() argument 1 must be a vector, but got 'Symbolic'.",
+                "x = symbol(\"x\"); plot(sin(x))"),
+            // the same defect on the element axis: a vector whose ELEMENTS are symbolic is refused by
+            // the plot value conversion (this one was already typed, merely unlisted)
+            UnsupportedCapability("plot.symbolic-element", "InvalidOperation", ErrorCategory.DomainError,
+                "Cannot convert value of kind 'Symbolic' to a number for plotting.",
+                "x = symbol(\"x\"); plot([x, 1, 2])"),
+            // P6b-5: the argument-coercion guards. One entry per refusing surface, because the message
+            // names the builtin and the payload kind; the code and category are shared.
+            UnsupportedCapability("solve.non-symbolic-variable", "InvalidOperation", ErrorCategory.DomainError,
+                "solve(): argument 2 must be a symbolic variable; got Natural.",
+                "x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)"),
+            UnsupportedCapability("solve.non-symbolic-expression", "InvalidOperation", ErrorCategory.DomainError,
+                "solve(): argument 1 must be a symbolic expression; got Vector.",
+                "x = symbol(\"x\"); solve([x == 1], x)"),
+            UnsupportedCapability("diff.non-symbolic-variable", "InvalidOperation", ErrorCategory.DomainError,
+                "diff(): argument 2 must be a symbolic variable; got Natural.",
+                "x = symbol(\"x\"); diff(x^2, 1)"),
+            UnsupportedCapability("integrate.non-symbolic-variable", "InvalidOperation", ErrorCategory.DomainError,
+                "integrate(): argument 2 must be a symbolic variable; got Natural.",
+                "x = symbol(\"x\"); integrate(x^2, 1)"),
+            UnsupportedCapability("limit.non-symbolic-variable", "InvalidOperation", ErrorCategory.DomainError,
+                "limit(): argument 2 must be a symbolic variable; got Natural.",
+                "x = symbol(\"x\"); limit(sin(x), 1, 0)"),
+            // P6b-6: the DSP element guard. The message leaks the kernel's internal CLR type name
+            // ('SymbolExpr') — Lovelace.Dsp is outside this round's scope, so it is transcribed as
+            // observed rather than reworded.
+            UnsupportedCapability("dsp.symbolic-element", "InvalidOperation", ErrorCategory.DomainError,
+                "DSP builtins expect numeric/complex elements, but got 'SymbolExpr'.",
+                "x = symbol(\"x\"); dft([x, 1, 2, 3])"),
+            // P6b-7: linsolve() needs a symbolic matrix; a numeric one is refused by the host bridge.
+            UnsupportedCapability("linsolve.non-symbolic-matrix", "InvalidOperation", ErrorCategory.DomainError,
+                "linsolve() requires a symbolic matrix A.",
+                "A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)"),
+            // P6b-8: the FFT length constraint. The message carries the .NET ArgumentException
+            // artifact "(Parameter 'x')" and the offending length, both transcribed as observed.
+            UnsupportedCapability("fft.non-power-of-two-length", "InvalidArgument", ErrorCategory.TypeMismatch,
+                "FFT length must be a power of two, but got 3. (Parameter 'x')",
+                "x = symbol(\"x\"); fft([1,2,3])"),
         }),
         new RecordField("exactness", new EnumValue("CapabilitiesExactness", "BestEffort")));
+
+    /// <summary>The CLASS-LEVEL message of the <c>integration.unevaluated</c> refusal: identical for
+    /// every refused integrand, with the input-specific reason in the diagnostic's <c>details</c>.
+    /// It is a constant because the advertisement and the kernel must not be able to drift.</summary>
+    internal const string IntegrationUnevaluatedMessage =
+        "No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details.";
 
     /// <summary>One unsupported operation class: the class identifier an agent enumerates on, the
     /// EXACT wire code and category its live call produces, the human message, and a runnable

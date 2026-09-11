@@ -1572,12 +1572,20 @@ public sealed class Interpreter
         {
             case 1:
                 ys = args[0];
+                // The kind check comes FIRST. It used to sit after this switch, so the single-vector
+                // form called BuildIndexVector(ys) on whatever it was handed: plot(sin(x)) cast a
+                // Symbolic value to a Vector and surfaced the raw CLR InvalidCastException
+                // ("Specified cast is not valid.") as an InternalInvariantFailure with
+                // recoverable:false — a crash, not a refusal (round 10, audit P6b-4).
+                RequirePlotVector(ys, "plot() argument 1");
                 xs = BuildIndexVector(ys);
                 break;
 
             case 2:
                 xs = args[0];
                 ys = args[1];
+                RequirePlotVector(xs, "plot() argument 1");
+                RequirePlotVector(ys, "plot() argument 2");
                 break;
 
             case 3:
@@ -1585,15 +1593,14 @@ public sealed class Interpreter
                 ys = args[1];
                 if (args[2].Kind != ValueKind.Text)
                     throw new InvalidOperationException($"plot() title must be a string, but got '{args[2].Kind}'.");
+                RequirePlotVector(xs, "plot() argument 1");
+                RequirePlotVector(ys, "plot() argument 2");
                 title = args[2].AsText();
                 break;
 
             default:
                 throw new InvalidOperationException($"plot() expects 1 to 3 arguments, but got {args.Count}.");
         }
-
-        if (xs.Kind != ValueKind.Vector || ys.Kind != ValueKind.Vector)
-            throw new InvalidOperationException("plot() arguments must be vectors.");
 
         var xv = xs.AsVector();
         var yv = ys.AsVector();
@@ -1617,6 +1624,17 @@ public sealed class Interpreter
         LastPlot = new PlotCapture(svg, title);
 
         return new Value(full);
+    }
+
+    /// <summary>A plot argument must be a vector. The refusal is TYPED (an
+    /// <see cref="InvalidOperationException"/>, which the runner classifies as
+    /// InvalidOperation/DomainError, recoverable) and says which argument and which kind — never an
+    /// internal invariant failure. plot() has no sampling range and no expression evaluator, so a
+    /// symbolic argument (plot(sin(x))) is refused rather than plotted.</summary>
+    private static void RequirePlotVector(Value value, string argument)
+    {
+        if (value.Kind != ValueKind.Vector)
+            throw new InvalidOperationException($"{argument} must be a vector, but got '{value.Kind}'.");
     }
 
     private static Value BuildIndexVector(Value vector)

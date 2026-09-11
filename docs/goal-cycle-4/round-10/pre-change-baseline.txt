@@ -1,0 +1,40 @@
+PRE-CHANGE BASELINE for the eight unlisted refusals, captured by the orchestrator 2026-09-11T13:09:18.3884896-03:00
+binary: out/aot/Lovelace.Run.exe (published 09/11/2026 12:41:36)  HEAD 8b47175
+
+=== P6b-1 limit   exit=0
+  script: x = symbol("x"); limit_full(sin(x), x, inf)
+  ok kind=Record type=LimitResult
+  field status = {"kind":"Enum","type":"LimitStatus","value":"Unevaluated"}
+  field diagnostics = {"kind":"Array","type":"Vector","shape":[1],"elements":[{"kind":"Record","type":"Diagnostic","fields":[{"name":"code","value":"@{kind=Text; value=limit.unevaluated}"},{"name":"category","value":"@{kind=Enum; type=ErrorCategory; value=UnsupportedOperation}"},{"name":"message","value":"@{kind=Text; value=coefficient does not evaluate at the point}"},{"name":"recoverable","value":"@{kind=Boolean; value=true}"},{"name":"location","value":"@{kind=Null}"},{"name":"details","value":"@{kind=Array; type=Vector; shape=System.Object[]; elements=System.Object[]}"}]}]}
+=== P6b-2 integrate   exit=0
+  script: x = symbol("x"); integrate_full(exp(x^2), x)
+  ok kind=Record type=IntegrationResult
+  field status = {"kind":"Enum","type":"IntegrationStatus","value":"Unevaluated"}
+  field diagnostics = {"kind":"Array","type":"Vector","shape":[0],"elements":[]}
+=== P6b-4 plot   exit=1
+  script: x = symbol("x"); plot(sin(x))
+  ERROR code=InternalError category=InternalInvariantFailure recoverable=False
+  message=Specified cast is not valid.
+=== P6b-5 solvevar   exit=1
+  script: x = symbol("x"); solve(x^2 - 2 == 0, 1)
+  ERROR code=InvalidOperation category=DomainError recoverable=True
+  message=solve(): argument 2 must be a symbolic variable; got Natural.
+=== P6b-6 dft   exit=1
+  script: x = symbol("x"); dft([x, 1, 2, 3])
+  ERROR code=InvalidOperation category=DomainError recoverable=True
+  message=DSP builtins expect numeric/complex elements, but got 'SymbolExpr'.
+=== P6b-7 linsolve   exit=1
+  script: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)
+  ERROR code=InvalidOperation category=DomainError recoverable=True
+  message=linsolve() requires a symbolic matrix A.
+=== P6b-8 fft   exit=1
+  script: x = symbol("x"); fft([1,2,3])
+  ERROR code=InvalidArgument category=TypeMismatch recoverable=True
+  message=FFT length must be a power of two, but got 3. (Parameter 'x')
+
+=== the advertised capability list, pre-change ===
+  class=@{kind=Text; value=pow.non-integer-exponent} code=@{kind=Text; value=UnsupportedOperation} category=UnsupportedOperation trigger=@{kind=Text; value=2^(1/2)}
+  class=@{kind=Text; value=pow.negative-base-unrepresentable-exponent} code=@{kind=Text; value=UnsupportedOperation} category=UnsupportedOperation trigger=@{kind=Text; value=(-8)^(1/3)}
+  class=@{kind=Text; value=solve.unsupported-domain} code=@{kind=Text; value=InvalidOperation} category=DomainError trigger=@{kind=Text; value=x = symbol("x"); solve(x^2 - 2 == 0, x, integer)}
+  class=@{kind=Text; value=rootof.complex-algebraic} code=@{kind=Text; value=solve.unrepresented-roots} category=UnsupportedOperation trigger=@{kind=Text; value=x = symbol("x"); solve_full(x^4 - x^2 - 1 == 0, x)}
+  exactness = CapabilitiesExactness.BestEffort
