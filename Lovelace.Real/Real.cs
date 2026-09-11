@@ -499,8 +499,9 @@ public class Real :
     /// Non-periodic path: multiplies raw magnitudes as integers; result exponent =
     /// <paramref name="left"/>.Exponent + <paramref name="right"/>.Exponent.
     /// Periodic path (when either operand is periodic): converts both operands to exact
-    /// fractions (<see cref="ToExactRational"/>), multiplies them exactly, and divides the
-    /// products so <see cref="Divide"/> re-derives the exact period of the result. This makes
+    /// fractions (<see cref="ToExactRational"/>), multiplies them exactly, and normalises the
+    /// product with <see cref="FromExactFraction"/>, whose remainder-tracked division re-derives
+    /// the exact period of the result. This makes
     /// <c>(a/b)*b == a</c> hold exactly whenever <c>a/b</c> is representable, instead of
     /// truncating each periodic operand at <see cref="MaxComputationDecimalPlaces"/> digits
     /// (which returned <c>0.99…984</c> for <c>(1/17)*17</c>). The result is truncated only when
@@ -536,23 +537,10 @@ public class Real :
             (Int leftNum, Int leftDen)   = ToExactRational(left);
             (Int rightNum, Int rightDen) = ToExactRational(right);
 
-            Int num = leftNum * rightNum;
-            Int den = leftDen * rightDen;
-
-            // Reduce first: the long division below is cheaper on smaller operands, and the
-            // identity case (p/q)*q cancels completely (e.g. 17/17 → 1/1).
-            Int gcd = Int.Gcd(num, den);
-            if (gcd > Int.One)
-            {
-                num = num.DivRem(gcd, out _);
-                den = den.DivRem(gcd, out _);
-            }
-
-            // Divide is exact for rational operands: it detects the repeating period of the
-            // quotient by tracking remainders.  If the period exceeds
-            // MaxComputationDecimalPlaces the quotient is truncated, exactly as for a division
-            // whose period does not fit the budget.
-            return Divide(new Real(num), new Real(den));
+            // FromExactFraction reduces the fraction first (the identity case (p/q)*q cancels
+            // completely, e.g. 17/17 → 1/1) and then divides, so the product is exact whenever its
+            // own period fits MaxComputationDecimalPlaces.
+            return FromExactFraction(leftNum * rightNum, leftDen * rightDen);
         }
     }
 
@@ -617,6 +605,67 @@ public class Real :
             num = num.Negate();
 
         return (num, den);
+    }
+
+    /// <summary>
+    /// Returns the <see cref="Real"/> equal to the exact fraction <paramref name="numerator"/> /
+    /// <paramref name="denominator"/> (<paramref name="denominator"/> is positive). The exact
+    /// periodic paths of <see cref="Add"/> and <see cref="Multiply"/> share it: reduce, then divide
+    /// by the denominator's non-decimal part and carry its trailing decimal zeros in the exponent.
+    /// <para>
+    /// <see cref="Divide"/> re-derives a quotient's repeating period exactly, but only within
+    /// <see cref="MaxComputationDecimalPlaces"/> generated digits — and it counts the LEADING zeros
+    /// of a small quotient against that budget. <c>1/(3·10^1000)</c> needs 1000 of them before its
+    /// first significant digit, so the division ran out of budget and returned 0, contradicting the
+    /// subtraction that produced it. Splitting <c>den = den′ · 10^shift</c> removes that artefact:
+    /// <c>num/den′</c> has no leading-zero run to pay for, and multiplying by <c>10^-shift</c>
+    /// afterwards moves the decimal point without touching a digit, so the digits the division
+    /// generated — including the repeating block — are preserved exactly (only
+    /// <see cref="Exponent"/> and <see cref="PeriodStart"/> move, and the invariant
+    /// <c>Exponent == -(PeriodStart + PeriodLength)</c> is preserved with them). The cap therefore
+    /// bounds the PERIOD of the quotient, which is the quantity that actually costs digits.
+    /// </para>
+    /// </summary>
+    private static Real FromExactFraction(Int numerator, Int denominator)
+    {
+        if (Int.IsZero(numerator))
+            return Zero;
+
+        Int gcd = Int.Gcd(numerator, denominator);
+        if (gcd > Int.One)
+        {
+            numerator   = numerator.DivRem(gcd, out _);
+            denominator = denominator.DivRem(gcd, out _);
+        }
+
+        // den = den′ · 10^shift.  Strip whole 10^18 blocks first, then the remaining digits.
+        Int ten     = new Int(10L);
+        Int tenTo18 = ten.Pow(new Int(18L));
+        long shift  = 0L;
+
+        while (true)
+        {
+            Int reduced = denominator.DivRem(tenTo18, out Int remainder);
+            if (!Int.IsZero(remainder))
+                break;
+            denominator = reduced;
+            shift += 18L;
+        }
+
+        while (Int.IsZero(denominator % ten))
+        {
+            denominator = denominator / ten;
+            shift += 1L;
+        }
+
+        Real quotient = Divide(new Real(numerator), new Real(denominator));
+
+        if (shift == 0L)
+            return quotient;
+
+        return new Real(quotient.ToNatural(), Int.IsNegative(quotient),
+                        quotient.Exponent - shift, quotient.PeriodStart + shift,
+                        quotient.PeriodLength);
     }
 
     /// <inheritdoc cref="Multiply"/>
@@ -2374,9 +2423,9 @@ public class Real :
     /// <summary>
     /// Adds two <see cref="Real"/> values.
     /// Non-periodic path: aligns exponents via <see cref="ToInteger"/> then delegates to
-    /// <see cref="Int"/> addition.  Periodic path: expands each operand to
-    /// <see cref="MaxComputationDecimalPlaces"/> fractional digits using
-    /// <see cref="GetDecimalDigit"/> and runs period detection on the result.
+    /// <see cref="Int"/> addition.  Periodic path: converts both operands to exact fractions
+    /// (<see cref="ToExactRational"/>), adds them exactly, and normalises the sum with
+    /// <see cref="FromExactFraction"/>, which re-derives the exact period of the result.
     /// Result exponent = min(<paramref name="left"/>.Exponent, <paramref name="right"/>.Exponent).
     /// Corresponds to C++ <c>somar</c>.
     /// </summary>
@@ -2404,14 +2453,18 @@ public class Real :
         }
         else
         {
-            // Periodic path: expand both operands to MaxComputationDecimalPlaces fractional
-            // digits (resolving any period), add via the non-periodic path, then detect
-            // a repeating suffix in the result and normalise (including 0.999… → 1).
-            long workingFrac = MaxComputationDecimalPlaces;
-            Real expandedLeft  = ExpandToNonPeriodic(left,  workingFrac);
-            Real expandedRight = ExpandToNonPeriodic(right, workingFrac);
-            Real rawSum        = Add(expandedLeft, expandedRight); // non-periodic path
-            return DetectAndNormalizePeriod(rawSum);
+            // Periodic path — exact, and the mirror of Multiply's.  Every Real is a rational (a
+            // finite decimal or a periodic decimal), so the sum is a rational too; expanding the
+            // operands to MaxComputationDecimalPlaces fractional digits first TRUNCATES them, which
+            // is how (1/3) - 0.333…3 (1000 threes) came out exactly 0 while the true difference is
+            // 1/(3·10^1000).  Add the exact fractions instead and let FromExactFraction re-derive
+            // the exact period of the result.
+            (Int leftNum, Int leftDen)   = ToExactRational(left);
+            (Int rightNum, Int rightDen) = ToExactRational(right);
+
+            // a/b ± c/d = (a·d ± c·b) / (b·d).  Subtract is Add(left, Negate(right)), so the sign
+            // of the second numerator already carries the subtraction.
+            return FromExactFraction(leftNum * rightDen + rightNum * leftDen, leftDen * rightDen);
         }
     }
 

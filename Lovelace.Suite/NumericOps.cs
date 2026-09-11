@@ -95,12 +95,22 @@ public static class NumericOps
 
     /// <summary>
     /// Real arithmetic fast path: try LReal64 (narrowest/fastest), then LReal128, falling back
-    /// to the arbitrary-precision class Real on any promotion. Exactness is preserved because the
-    /// limited types throw rather than round. Active only when limited precision is requested.
+    /// to the arbitrary-precision class Real on any promotion. Active only when limited precision
+    /// is requested.
+    /// <para>
+    /// The limited types are exact for terminating decimals — they throw rather than round — but
+    /// they have no exact periodic arithmetic: they resolve a periodic operand by expanding it to
+    /// their fixed working width, which truncates it. That is how the fast path turned the exact
+    /// product <c>(1/17)*17</c> into <c>0.999999999999999985</c> at precision 18 while the
+    /// arbitrary-precision path returns exactly 1. The fast path exists for speed on ordinary
+    /// values, not to change results, so an operand the fixed-width engines can only approximate
+    /// is declined here and the answer is computed by <see cref="Real"/>, whose periodic paths
+    /// (Add/Subtract/Multiply) are exact.
+    /// </para>
     /// </summary>
     private static Value ApplyRealBinary(BinaryOp op, Rl left, Rl right)
     {
-        if (Rl.MaxComputationDecimalPlaces <= 37)
+        if (Rl.MaxComputationDecimalPlaces <= 37 && !left.IsPeriodic && !right.IsPeriodic)
         {
             if (LReal64.TryFromReal(left, out var a64) && LReal64.TryFromReal(right, out var b64))
             {
