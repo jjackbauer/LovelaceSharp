@@ -46,6 +46,12 @@ public class LatexPrinterTests
         "(-x)^3",
         "-(x + y)",
         "(-x - 1)^2",
+        // negative numeric bases: the sign belongs to the numeral, so the base text begins with
+        // a unary minus and has to be delimited by the same one rule Pretty uses
+        "(-1)^x",
+        "(-2)^x",
+        "(-1/2)^x",
+        "(-1.5)^x",
         // powers of sums, nested powers
         "(x + 1)^12",
         "(x + y)^2",
@@ -200,6 +206,16 @@ public class LatexPrinterTests
         Assert.Equal("\\frac{3}{4}", Latex(Exprs.Rational(3, 4)));
         Assert.Equal("-\\frac{1}{2}", Latex(Exprs.Rational(-1, 2)));
         Assert.Equal("7", Latex(Exprs.Integer(7)));
+    }
+
+    /// <summary>A negative NUMERIC base is not an atom as text: LaTeX spells -1 with a leading
+    /// minus (and -3/2 as -\frac{3}{2}), which binds looser than the superscript, so the base has
+    /// to carry \left(...\right) — otherwise the rendering denotes -(1^{x}) instead of (-1)^{x}.</summary>
+    [Fact]
+    public async Task KnownRendering_PowerOfANegativeNumericBase_HasDelimitedBase()
+    {
+        var expr = await BuildAsync("(-1)^x");
+        Assert.Equal("\\left(-1\\right)^{x}", Latex(expr));
     }
 
     /// <summary>Guard against a vacuous parity test: if the Latex arm ever fell back to the

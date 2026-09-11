@@ -505,8 +505,28 @@ public static class Printing
 
     /// <summary>The ONE power-base rule: a base that does not bind tighter than a power is
     /// delimited exactly once — <c>(x + 1)^2</c>, <c>(x^y)^2</c>; asking the child renderer for a
-    /// precedence wrapped it twice (((x + 1))^12). Round 24.</summary>
-    private static bool NeedsPowerBaseDelimiter(Expr b) => Prec(b) <= PowPrec;
+    /// precedence wrapped it twice (((x + 1))^12). Round 24.
+    /// <para>
+    /// Precedence is a property of VALUES and is not sufficient, because every constant is an
+    /// atom in that table while a negative constant is not an atom as TEXT: <c>-1</c> is a unary
+    /// minus applied to <c>1</c>, and a unary minus binds looser than <c>^</c>, so rendering
+    /// <c>(-1)^x</c> as <c>-1^x</c> denotes <c>-(1^x)</c> — a different value. The rule therefore
+    /// asks the text that is about to be raised as well, and delimits it when that text begins
+    /// with a unary minus. This covers every constant shape that can print a sign (integer,
+    /// rational, real, complex) without a second table, and cannot fire for a base that already
+    /// binds tighter than a power, so no pair is ever doubled.
+    /// </para>
+    /// <para>
+    /// The test is made against the rendered text rather than against the node because the two
+    /// arms spell the same node differently where it matters: Pretty renders a complex constant
+    /// as <c>-1 + i</c> and LaTeX as <c>(-1 + 1 i)</c>, so no single structural predicate is
+    /// correct for both — it would either leave Pretty's base undelimited or wrap LaTeX's already
+    /// delimited one a second time. Each arm passes the text it is about to emit, which is the
+    /// same question — "does this bind looser than ^?" — in both notations. Cycle 5.
+    /// </para>
+    /// </summary>
+    private static bool NeedsPowerBaseDelimiter(Expr b, string renderedBase) =>
+        Prec(b) <= PowPrec || renderedBase.StartsWith("-", StringComparison.Ordinal);
 
     private static readonly Rat OneHalf = Rat.From(1, 2);
     private static readonly Rat MinusOneHalf = Rat.From(-1, 2);
@@ -623,8 +643,9 @@ public static class Printing
                 // shared rule; asking Pretty for parentPrec 3 here wrapped it a second time
                 // (((x + 1))^12). Round 24.
                 var b = Pretty(p.Base, RootPrec, false, unicode);
-                // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2))
-                if (NeedsPowerBaseDelimiter(p.Base))
+                // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2)),
+                // and -1^x is not (-1)^x
+                if (NeedsPowerBaseDelimiter(p.Base, b))
                     b = "(" + b + ")";
                 // 3, not 4: a power exponent is parenthesized by the explicit rule just below, so
                 // asking for 4 wrapped it twice (x^((y^2))). Sums and products still get their
@@ -873,7 +894,7 @@ public static class Printing
                         return LatexDelimit("\\frac{1}{\\sqrt{" + LatexRender(p.Base, RootPrec) + "}}", parentPrec, PowPrec);
                 }
                 var b = LatexRender(p.Base, RootPrec);
-                if (NeedsPowerBaseDelimiter(p.Base))
+                if (NeedsPowerBaseDelimiter(p.Base, b))
                     b = "\\left(" + b + "\\right)";
                 // the exponent's braces are LaTeX's own grouping, so a sum/product/rational
                 // exponent needs no priority delimiters of its own: x^{y + 1}, x^{\frac{1}{2}}

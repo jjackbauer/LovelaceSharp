@@ -44,6 +44,14 @@ public class PrettyParenthesesTests
         "-(x + y)",
         "(-x - 1)^2",
         "(-x)^(1/2)",
+        // negative NUMERIC bases: the value is an atom, but its RENDERING is not — "-1" is a
+        // unary minus applied to the constant 1, and a unary minus binds looser than ^, so the
+        // printed base must be delimited or the text denotes -(1^x) instead of (-1)^x.
+        "(-1)^x",
+        "(-2)^x",
+        "(-1/2)^x",
+        "(-1.5)^x",
+        "(-3)^(-x)",
         // nested powers
         "(x^y)^2",
         "x^(y^2)",
