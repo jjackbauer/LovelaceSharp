@@ -90,14 +90,25 @@ public class InterpreterBuiltinPiTests
     }
 
     // -----------------------------------------------------------------------
-    // Test 28 — pi(10, 20) with two arguments → InvalidOperationException
+    // Test 28 — pi(10, 20) with two arguments → BuiltinArityException
+    //
+    // The documented arity refusal (docs/symbolics/dsh-protocol.md:187-195) is a recoverable
+    // ARGUMENT error: code InvalidArgument / category TypeMismatch, naming the builtin and both
+    // counts. BuiltinArityException derives from ArgumentException, which is the runner's
+    // TypeMismatch path — an InvalidOperationException here would cross as a DomainError and
+    // contradict the contract this test pins.
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Evaluate_GivenPiWithTooManyArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenPiWithTooManyArguments_ThrowsBuiltinArityException()
     {
         var expr = new CallExpr("pi", [new LiteralExpr("10"), new LiteralExpr("20")]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
+        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal("pi(): expected 0 to 1 arguments; got 2.", error.Message);
+        Assert.Equal("pi", error.Builtin);
+        Assert.Equal(2, error.Actual);
+        Assert.IsAssignableFrom<ArgumentException>(error);
     }
 }

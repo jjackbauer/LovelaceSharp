@@ -50,7 +50,12 @@ internal sealed record RunErrorDto(
     string Message,
     bool Recoverable,
     DiagnosticDto[] Diagnostics,
+    // the SAME structural duration pair a success envelope carries: the human string next to the
+    // unit-scaled {value, unit}, produced by the same unit selector, so no consumer parses a suffix
     string Elapsed,
+    DurationDto ElapsedTime,
+    // one entry per top-level statement that ran (empty when none did), exactly as on success
+    TimingDto[] Timings,
     // present only for a cancelled evaluation: everything the engine had already committed
     string[]? PartialOutput = null,
     VariableDto[]? PartialVariables = null);

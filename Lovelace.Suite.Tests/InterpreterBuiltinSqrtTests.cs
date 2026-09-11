@@ -72,26 +72,37 @@ public class InterpreterBuiltinSqrtTests
     }
 
     // -----------------------------------------------------------------------
-    // Test 22 — sqrt() with no arguments → InvalidOperationException
+    // Test 22 — sqrt() with no arguments → BuiltinArityException
+    //
+    // The documented arity refusal (docs/symbolics/dsh-protocol.md:187-195) is a recoverable
+    // ARGUMENT error: InvalidArgument / TypeMismatch on the wire, naming the builtin and both
+    // counts. BuiltinArityException (an ArgumentException) is that path.
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Evaluate_GivenSqrtWithNoArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenSqrtWithNoArguments_ThrowsBuiltinArityException()
     {
         var expr = new CallExpr("sqrt", []);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
+        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal("sqrt(): expected 1 argument; got 0.", error.Message);
+        Assert.Equal("sqrt", error.Builtin);
+        Assert.Equal(0, error.Actual);
     }
 
     // -----------------------------------------------------------------------
-    // Test 23 — sqrt(4, 9) with two arguments → InvalidOperationException
+    // Test 23 — sqrt(4, 9) with two arguments → BuiltinArityException
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Evaluate_GivenSqrtWithTooManyArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenSqrtWithTooManyArguments_ThrowsBuiltinArityException()
     {
         var expr = new CallExpr("sqrt", [new LiteralExpr("4"), new LiteralExpr("9")]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
+        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal("sqrt(): expected 1 argument; got 2.", error.Message);
+        Assert.Equal(2, error.Actual);
     }
 }

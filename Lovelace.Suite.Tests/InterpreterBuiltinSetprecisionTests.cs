@@ -12,7 +12,8 @@ namespace Lovelace.Suite.Tests;
 ///   - BuiltinSetprecision — lifting the cap lets pi(n) exceed the 1000 default
 ///   - BuiltinSetprecision — reject Real argument with InvalidOperationException
 ///   - BuiltinSetprecision — reject n ≤ 0 with InvalidOperationException
-///   - BuiltinSetprecision — reject argument count ≠ 1 with InvalidOperationException
+///   - BuiltinSetprecision — reject argument count ≠ 1 with BuiltinArityException (the
+///     documented InvalidArgument/TypeMismatch arity refusal)
 /// </summary>
 public class InterpreterBuiltinSetprecisionTests
 {
@@ -115,10 +116,16 @@ public class InterpreterBuiltinSetprecisionTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Evaluate_GivenTooManyArguments_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenTooManyArguments_ThrowsBuiltinArityException()
     {
         var expr = new CallExpr("setprecision", [new LiteralExpr("10"), new LiteralExpr("20")]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
+        // the documented arity refusal (docs/symbolics/dsh-protocol.md:187-195): a recoverable
+        // ARGUMENT error naming the builtin and both counts, never a domain error
+        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal("setprecision(): expected 1 argument; got 2.", error.Message);
+        Assert.Equal("setprecision", error.Builtin);
+        Assert.Equal(2, error.Actual);
     }
 }

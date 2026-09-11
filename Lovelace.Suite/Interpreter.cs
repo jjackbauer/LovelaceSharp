@@ -39,6 +39,15 @@ public sealed class Interpreter
     private long _revision;
     private readonly List<OperationTiming> _timings = [];
 
+    /// <summary>
+    /// Nesting depth of "relation preserving" argument evaluation: while this is non-zero the
+    /// interpreter is evaluating the arguments of a plugin-registered builtin, where a relational
+    /// comparison of two concrete operands is built as the SYMBOLIC relation (see
+    /// <see cref="EvaluateComparison"/>) instead of being folded to a Boolean. Restored by
+    /// try/finally, so an error inside an argument cannot leave the mode on.
+    /// </summary>
+    private int _relationPreservingDepth;
+
     // -----------------------------------------------------------------
     // Host-configurable settings
     // -----------------------------------------------------------------
@@ -192,11 +201,14 @@ public sealed class Interpreter
         RegisterBuiltin(name, parameters, implementation, descriptor: null);
 
     /// <summary>Registers a builtin; when a <see cref="BuiltinDescriptor"/> is supplied it is
-    /// stored in <see cref="BuiltinDescriptors"/> for the help/funcs/completion surfaces.</summary>
+    /// stored in <see cref="BuiltinDescriptors"/> for the help/funcs/completion surfaces, and its
+    /// declared arity (<c>Parameters</c>/<c>MinArity</c>/<c>Variadic</c>) travels with the function
+    /// so the ONE call-site validator enforces exactly what the descriptor declares.</summary>
     public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation, BuiltinDescriptor? descriptor)
     {
         BuiltinFunction impl = args => Task.FromResult(implementation(args));
-        _functions[name] = new FunctionDefinition(name, parameters, impl);
+        _functions[name] = new FunctionDefinition(name, parameters, impl,
+            descriptor?.MinArity ?? -1, descriptor?.Variadic ?? false);
         if (descriptor is not null)
             _builtinDescriptors[name] = descriptor;
         RaiseFunctionDefined(_functions[name]);
@@ -534,10 +546,17 @@ public sealed class Interpreter
             : new Value(new Int(magnitude, Int.IsNegative(r)));
     }
 
-    private static Value EvaluateComparison(Value left, Value right, BinaryOp op)
+    private Value EvaluateComparison(Value left, Value right, BinaryOp op)
     {
         if (left.Kind == ValueKind.Symbolic || right.Kind == ValueKind.Symbolic)
             return NumericOps.Apply(op, left, right);
+
+        // Inside the arguments of a plugin builtin the relation keeps its symbolic form (see
+        // EvaluateCallAsync): a comparison of two concrete numbers is still a relation the solver
+        // can decide, and folding it to a Boolean would erase the equation before the kernel sees
+        // it. Outside that channel the folded Boolean is the language's value, unchanged.
+        if (_relationPreservingDepth > 0 && TryRelation(left, right, op, out var relation))
+            return new Value(relation);
 
         int cmp = NumericOps.Compare(left, right);
 
@@ -554,6 +573,40 @@ public sealed class Interpreter
 
         return new Value(result);
     }
+
+    /// <summary>True for the value kinds a symbolic expression can represent exactly.</summary>
+    private static bool IsSymbolicConvertible(Value value) =>
+        value.Kind is ValueKind.Natural or ValueKind.Integer or ValueKind.Real or ValueKind.Complex;
+
+    /// <summary>
+    /// Builds the symbolic relation behind a comparison of two concrete operands. Returns false for
+    /// operand kinds symbolic expressions cannot carry (a comparison of those keeps its Boolean
+    /// semantics and its own error).
+    /// </summary>
+    private static bool TryRelation(Value left, Value right, BinaryOp op,
+        out Lovelace.Symbolics.Expr relation)
+    {
+        if (IsSymbolicConvertible(left) && IsSymbolicConvertible(right))
+        {
+            relation = Lovelace.Symbolics.Exprs.Relation(RelOpOf(op),
+                NumericOps.ToExpr(left), NumericOps.ToExpr(right));
+            return true;
+        }
+
+        relation = null!;
+        return false;
+    }
+
+    private static Lovelace.Symbolics.RelOp RelOpOf(BinaryOp op) => op switch
+    {
+        BinaryOp.Equal => Lovelace.Symbolics.RelOp.Eq,
+        BinaryOp.NotEqual => Lovelace.Symbolics.RelOp.Ne,
+        BinaryOp.Greater => Lovelace.Symbolics.RelOp.Gt,
+        BinaryOp.Less => Lovelace.Symbolics.RelOp.Lt,
+        BinaryOp.GreaterEqual => Lovelace.Symbolics.RelOp.Ge,
+        BinaryOp.LessEqual => Lovelace.Symbolics.RelOp.Le,
+        _ => throw new InvalidOperationException($"Operator '{op}' is not a relation."),
+    };
 
 
     // -----------------------------------------------------------------
@@ -605,18 +658,47 @@ public sealed class Interpreter
 
     private async Task<Value> EvaluateCallAsync(CallExpr call, Scope scope)
     {
-        var args = new List<Value>(call.Arguments.Count);
-        foreach (var a in call.Arguments)
-            args.Add(await EvaluateAsync(a, scope));
+        // The callee is resolved BEFORE the arguments are evaluated so the argument expressions can
+        // be evaluated in the mode the callee's channel needs. A missing function still reports the
+        // same way as before: the arguments are evaluated first, so an undefined variable inside a
+        // call to a missing function is still the error the caller sees.
+        _functions.TryGetValue(call.FunctionName, out var fn);
 
-        if (_functions.TryGetValue(call.FunctionName, out var fn))
+        // A relation written as an argument to a symbolic plugin builtin crosses the payload seam as
+        // a RELATION, not as the Boolean its two concrete sides fold to. That is what makes
+        // solve(0 == 1, x) the provably empty equation instead of a type refusal: the symbolic
+        // kernel has no boolean constant, so folding the two numbers first would destroy the
+        // question the caller asked.
+        //
+        // The exception is a builtin that DECLARES a Boolean result (and/or/not): a condition
+        // consumer must keep receiving the evaluated Boolean, because a branch on not(0 == 1) is a
+        // branch on the folded value. Core builtins consume Values, so they fold as well.
+        bool symbolicChannel = fn is { IsBuiltin: true, PluginName: not null } && !DeclaresBooleanResult(fn.Name);
+        var args = new List<Value>(call.Arguments.Count);
+        if (symbolicChannel)
+            _relationPreservingDepth++;
+        try
         {
-            if (fn.IsBuiltin)
-                return await fn.Builtin!(args);
-            return await CallUserFunctionAsync(fn, args);
+            foreach (var a in call.Arguments)
+                args.Add(await EvaluateAsync(a, scope));
+        }
+        finally
+        {
+            if (symbolicChannel)
+                _relationPreservingDepth--;
         }
 
-        throw new InvalidOperationException($"Unknown function '{call.FunctionName}'.");
+        if (fn is null)
+            throw new InvalidOperationException($"Unknown function '{call.FunctionName}'.");
+
+        if (fn.IsBuiltin)
+        {
+            // ONE validator, computed from the builtin's own declared metadata, before the body runs
+            ValidateArity(fn, args.Count);
+            return await fn.Builtin!(args);
+        }
+
+        return await CallUserFunctionAsync(fn, args);
     }
 
     private async Task<Value> CallUserFunctionAsync(FunctionDefinition fn, IReadOnlyList<Value> args)
@@ -1222,13 +1304,45 @@ public sealed class Interpreter
         }
     }
 
-    private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl) =>
-        _functions[name] = new FunctionDefinition(name, parameters, impl);
+    /// <summary>
+    /// Registers a core builtin. <paramref name="parameters"/> is the declared signature — the
+    /// upper bound on the argument count — and the optional <paramref name="minArity"/> /
+    /// <paramref name="variadic"/> complete the declaration the call-site validator reads. A builtin
+    /// that legitimately accepts fewer arguments than it declares (a trailing optional parameter)
+    /// or arbitrarily many (a repeating tail) says so HERE, in its metadata; the validator itself is
+    /// never widened and no builtin is special-cased by name.
+    /// </summary>
+    private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl,
+        int minArity = -1, bool variadic = false) =>
+        _functions[name] = new FunctionDefinition(name, parameters, impl, minArity, variadic);
 
-    private static void RequireArity(string name, IReadOnlyList<Value> args, int expected)
+    /// <summary>
+    /// True when the builtin's DECLARED result is a Boolean (the condition consumers: and/or/not).
+    /// Such a builtin keeps receiving the folded Boolean, so the language's condition semantics are
+    /// unchanged; every other plugin builtin is a symbolic consumer and receives written relations
+    /// as relations.
+    /// </summary>
+    private bool DeclaresBooleanResult(string name) =>
+        _builtinDescriptors.TryGetValue(name, out var descriptor) &&
+        descriptor.ReturnKind.Contains("Boolean", StringComparison.Ordinal);
+
+    /// <summary>
+    /// The ONE arity validator: every builtin call is checked here, at the call site, before the
+    /// implementation body can run — so a body can never index an argument that was never supplied.
+    /// The bounds are computed from the builtin's DECLARED metadata
+    /// (<see cref="FunctionDefinition.Parameters"/>.Count is the upper bound,
+    /// <see cref="FunctionDefinition.MinArity"/> the lower bound and
+    /// <see cref="FunctionDefinition.Variadic"/> removes the upper bound), so a wrong-arity call
+    /// crosses in one documented shape — <see cref="BuiltinArityException"/>, a recoverable
+    /// argument error naming the builtin and both counts — and never as an internal invariant
+    /// failure. Nothing else in the engine decides arity.
+    /// </summary>
+    private static void ValidateArity(FunctionDefinition fn, int actual)
     {
-        if (args.Count != expected)
-            throw new InvalidOperationException($"{name}() expects exactly {expected} argument(s), but got {args.Count}.");
+        var (min, max) = fn.DeclaredArity();
+        if (actual >= min && actual <= max)
+            return;
+        throw new BuiltinArityException(fn.Name, min, fn.Parameters.Count, fn.Variadic, actual);
     }
 
     /// <summary>Elementwise magnitude for complex arrays (the magnitude-spectrum idiom).</summary>
@@ -1249,21 +1363,18 @@ public sealed class Interpreter
         // type(x): the value-kind name; structured records report their type name
         Register("type", ["x"], args =>
         {
-            RequireArity("type", args, 1);
             return Task.FromResult<Value>(new Value(TypeNameOf(args[0])));
         });
 
         // inspect(x): structural introspection as a record (machine-readable — no prose parsing)
         Register("inspect", ["x"], args =>
         {
-            RequireArity("inspect", args, 1);
             return Task.FromResult<Value>(new Value(Inspect(args[0])));
         });
 
     // abs(x)
         Register("abs", ["x"], args =>
         {
-            RequireArity("abs", args, 1);
             var arg = args[0];
             return Task.FromResult(arg.Kind switch
             {
@@ -1287,7 +1398,6 @@ public sealed class Interpreter
         // inv(x) / inv(matrix)
         Register("inv", ["x"], args =>
         {
-            RequireArity("inv", args, 1);
             var arg = args[0];
             if (arg.Kind == ValueKind.Array)
             {
@@ -1310,7 +1420,6 @@ public sealed class Interpreter
         // inv_full(A): structured inverse with the det != 0 condition
         Register("inv_full", ["x"], args =>
         {
-            RequireArity("inv_full", args, 1);
             var av = args[0].AsArrayValue();
             var (elements, shape) = PayloadElements(av);
             var bridge = SymbolicMatrixBridge;
@@ -1333,7 +1442,6 @@ public sealed class Interpreter
         // matrix_rank(A): generic rank of a symbolic matrix (an exact integer constant)
         Register("matrix_rank", ["a"], args =>
         {
-            RequireArity("matrix_rank", args, 1);
             var av = args[0].AsArrayValue();
             var (elements, shape) = PayloadElements(av);
             var bridge = SymbolicMatrixBridge;
@@ -1350,7 +1458,6 @@ public sealed class Interpreter
         // valid under det(A) != 0 (the condition is implicit in the returned entries)
         Register("linsolve", ["a", "b"], args =>
         {
-            RequireArity("linsolve", args, 2);
             var av = args[0].AsArrayValue();
             var bv = args[1].AsArrayValue();
             var (elements, shape) = PayloadElements(av);
@@ -1368,7 +1475,6 @@ public sealed class Interpreter
         // linsolve_full(A, b): structured linear solve with the det(A) != 0 condition
         Register("linsolve_full", ["a", "b"], args =>
         {
-            RequireArity("linsolve_full", args, 2);
             var av = args[0].AsArrayValue();
             var bv = args[1].AsArrayValue();
             var (elements, shape) = PayloadElements(av);
@@ -1390,7 +1496,6 @@ public sealed class Interpreter
         // divrem(a, b)
         Register("divrem", ["a", "b"], args =>
         {
-            RequireArity("divrem", args, 2);
             var a = args[0];
             var b = args[1];
             (a, b) = Value.WidenPair(a, b);
@@ -1406,7 +1511,6 @@ public sealed class Interpreter
         // is_even(x)
         Register("is_even", ["x"], args =>
         {
-            RequireArity("is_even", args, 1);
             var arg = args[0];
             bool result = arg.Kind switch
             {
@@ -1421,7 +1525,6 @@ public sealed class Interpreter
         // is_odd(x)
         Register("is_odd", ["x"], args =>
         {
-            RequireArity("is_odd", args, 1);
             var arg = args[0];
             bool result = arg.Kind switch
             {
@@ -1436,7 +1539,6 @@ public sealed class Interpreter
         // sign(x)
         Register("sign", ["x"], args =>
         {
-            RequireArity("sign", args, 1);
             var arg = args[0];
             var intArg = arg.Kind switch
             {
@@ -1450,7 +1552,6 @@ public sealed class Interpreter
         // sqrt(x)
         Register("sqrt", ["x"], async args =>
         {
-            RequireArity("sqrt", args, 1);
             var arg = args[0];
             if (arg.Kind == ValueKind.Symbolic)
                 return new Value(Lovelace.Symbolics.Exprs.Power(arg.AsSymbolic(), Lovelace.Symbolics.Exprs.Rational(1, 2)));
@@ -1468,60 +1569,41 @@ public sealed class Interpreter
             return new Value(await Rl.SqrtAsync(real, SubProgress("sqrt")));
         });
 
-        // pi() / pi(digits)
+        // pi() / pi(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
         Register("pi", ["digits"], async args =>
         {
-            switch (args.Count)
+            if (args.Count == 0)
+                return new Value(Rl.Pi);
+
+            var arg = args[0];
+            long digits = arg.Kind switch
             {
-                case 0:
-                    return new Value(Rl.Pi);
+                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+                _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+            };
+            return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
+        }, minArity: 0);
 
-                case 1:
-                {
-                    var arg = args[0];
-                    long digits = arg.Kind switch
-                    {
-                        ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
-                        ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
-                        _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
-                    };
-                    return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
-                }
-
-                default:
-                    throw new InvalidOperationException($"pi() expects 0 or 1 argument, but got {args.Count}.");
-            }
-        });
-
-        // e() / e(digits)
+        // e() / e(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
         Register("e", ["digits"], async args =>
         {
-            switch (args.Count)
+            if (args.Count == 0)
+                return new Value(Rl.E);
+
+            var arg = args[0];
+            long digits = arg.Kind switch
             {
-                case 0:
-                    return new Value(Rl.E);
-
-                case 1:
-                {
-                    var arg = args[0];
-                    long digits = arg.Kind switch
-                    {
-                        ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
-                        ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
-                        _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
-                    };
-                    return new Value(await Rl.EToAsync(digits, SubProgress("e")));
-                }
-
-                default:
-                    throw new InvalidOperationException($"e() expects 0 or 1 argument, but got {args.Count}.");
-            }
-        });
+                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+                _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+            };
+            return new Value(await Rl.EToAsync(digits, SubProgress("e")));
+        }, minArity: 0);
 
         // setprecision(n) — raise both the computation cap and the display precision.
         Register("setprecision", ["digits"], args =>
         {
-            RequireArity("setprecision", args, 1);
             var arg = args[0];
             long n = arg.Kind switch
             {
@@ -1536,17 +1618,16 @@ public sealed class Interpreter
             return Task.FromResult(Value.Void);
         });
 
-        // print(values...)
+        // print(values...) — any number of values, including none (a blank line)
         Register("print", ["values"], args =>
         {
             Output.WriteLine(string.Join(" ", args.Select(v => ValueFormatter.Format(v, UnicodeOutput))));
             return Task.FromResult(Value.Void);
-        });
+        }, minArity: 0, variadic: true);
 
         // len(v) / len(array)
         Register("len", ["v"], args =>
         {
-            RequireArity("len", args, 1);
             var arg = args[0];
             return arg.Kind switch
             {
@@ -1556,8 +1637,8 @@ public sealed class Interpreter
             };
         });
 
-        // plot(...)
-        Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)));
+        // plot(y) / plot(x, y) / plot(x, y, title) — the trailing positions are optional
+        Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)), minArity: 1);
 
         RegisterArrayBuiltins();
     }
@@ -1680,7 +1761,9 @@ public sealed class Interpreter
     /// <summary>Builds a Natural value from a non-negative long.</summary>
     private static Value Natural(long n) => new Value(Nat.Parse(n.ToString(), null));
 
-    /// <summary>Parses trailing arguments as dimension sizes.</summary>
+    /// <summary>Parses trailing arguments as dimension sizes. The call-site validator guarantees
+    /// at least one trailing argument for every caller (zeros/ones declare a variadic tail, reshape
+    /// declares an array plus that tail); the guard documents the helper's own precondition.</summary>
     private static long[] ParseShape(IReadOnlyList<Value> args, int start, string name)
     {
         if (args.Count <= start)
@@ -1699,19 +1782,26 @@ public sealed class Interpreter
         return v.AsVector().Select(ToLong).ToArray();
     }
 
-    /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.</summary>
+    /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.
+    /// The argument COUNT is already guaranteed by the call-site validator (the axis is the declared
+    /// optional tail); the argument SHAPE is checked here, because a scalar handed to a reduction is
+    /// a caller-side mistake that must cross as a recoverable argument error — never as the raw CLR
+    /// cast failure it used to surface as.</summary>
     private static Task<Value> ReduceBuiltin(
+        string name,
         IReadOnlyList<Value> args,
         Func<Value> empty,
         Func<ArrayValue, Value> all,
         Func<ArrayValue, long, ArrayValue> axis)
     {
-        return args.Count switch
-        {
-            1 => Task.FromResult(ReduceAllOrEmpty(args[0], empty, all)),
-            2 => Task.FromResult(ReduceAxisResult(args[0], ToLong(args[1]), axis)),
-            _ => throw new InvalidOperationException($"Expected 1 or 2 arguments, but got {args.Count}."),
-        };
+        var input = args[0];
+        if (input.Kind is not (ValueKind.Vector or ValueKind.Array))
+            throw new ArgumentException(
+                $"{name}(): argument 1 must be an array or vector; got {input.Kind}.");
+
+        return args.Count == 1
+            ? Task.FromResult(ReduceAllOrEmpty(input, empty, all))
+            : Task.FromResult(ReduceAxisResult(input, ToLong(args[1]), axis));
     }
 
     /// <summary>Reduce-all with the D6 empty rule: an empty array yields the builtin's identity or error.</summary>
@@ -1738,19 +1828,19 @@ public sealed class Interpreter
 
     private void RegisterArrayBuiltins()
     {
-        // zeros(d1, …, dn) — Natural-seeded, no dtype arg (D7); supports zero-length dims (D5)
+        // zeros(d1, …, dn) — one or more dimensions; the tail repeats (variadic)
         Register("zeros", ["dims"], args =>
-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero))));
+            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero))),
+            variadic: true);
 
         // ones(d1, …, dn)
         Register("ones", ["dims"], args =>
-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One))));
+            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One))),
+            variadic: true);
 
-        // eye(n) / eye(r, c)
+        // eye(n) / eye(r, c) — the column count is optional
         Register("eye", ["rows", "cols"], args =>
         {
-            if (args.Count != 1 && args.Count != 2)
-                throw new InvalidOperationException($"eye() expects 1 or 2 arguments, but got {args.Count}.");
             long rows = ToLong(args[0]);
             long cols = args.Count == 2 ? ToLong(args[1]) : rows;
             if (rows < 1 || cols < 1)
@@ -1762,96 +1852,83 @@ public sealed class Interpreter
             for (long i = 0; i < Math.Min(rows, cols); i++)
                 buffer[(int)(i * cols + i)] = NumericOps.One;
             return Task.FromResult(WrapArrayValue(TypedArrayAdapter.FromValues(buffer, new long[] { rows, cols })));
-        });
+        }, minArity: 1);
 
-        // reshape(a, d1, …, dn)
+        // reshape(a, d1, …, dn) — an array plus one or more dimensions; the tail repeats
         Register("reshape", ["a", "dims"], args =>
         {
-            if (args.Count < 2)
-                throw new InvalidOperationException("reshape() requires an array and one or more dimensions.");
             var av = args[0].AsArrayValue();
             return Task.FromResult(WrapArrayValue(av.Reshape(ParseShape(args, 1, "reshape"))));
-        });
+        }, variadic: true);
 
         // shape(a)
         Register("shape", ["a"], args =>
         {
-            RequireArity("shape", args, 1);
             return Task.FromResult<Value>(new Value(args[0].AsArrayValue().Shape.ToArray().Select(Natural).ToList()));
         });
 
         // rank(a) / ndims(a)
         Register("rank", ["a"], args =>
         {
-            RequireArity("rank", args, 1);
             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Rank));
         });
         Register("ndims", ["a"], args =>
         {
-            RequireArity("ndims", args, 1);
             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Rank));
         });
 
         // numel(a)
         Register("numel", ["a"], args =>
         {
-            RequireArity("numel", args, 1);
             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Numel));
         });
 
         // flatten(a)
         Register("flatten", ["a"], args =>
         {
-            RequireArity("flatten", args, 1);
             var av = args[0].AsArrayValue();
             return Task.FromResult(WrapArrayValue(av.Reshape(new[] { av.Numel })));
         });
 
-        // transpose(a) / transpose(a, perm)
+        // transpose(a) / transpose(a, perm) — the axis order is optional
         Register("transpose", ["a", "perm"], args =>
         {
             var av = args[0].AsArrayValue();
-            return args.Count switch
-            {
-                1 => Task.FromResult(WrapArrayValue(av.Transpose(null))),
-                2 => Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1])))),
-                _ => throw new InvalidOperationException($"transpose() expects 1 or 2 arguments, but got {args.Count}."),
-            };
-        });
+            return args.Count == 1
+                ? Task.FromResult(WrapArrayValue(av.Transpose(null)))
+                : Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1]))));
+        }, minArity: 1);
 
         // squeeze(a)
         Register("squeeze", ["a"], args =>
         {
-            RequireArity("squeeze", args, 1);
             return Task.FromResult(WrapArrayValue(SqueezeArrayValue(args[0].AsArrayValue())));
         });
 
         // reductions: sum / prod / min / max / mean / norm (all + axis)
-        Register("sum",  ["a", "axis"], args => ReduceBuiltin(args, () => NumericOps.Zero,     TypedArrayOps.SumAll,  TypedArrayOps.SumAxis));
-        Register("prod", ["a", "axis"], args => ReduceBuiltin(args, () => NumericOps.One,      TypedArrayOps.ProdAll, TypedArrayOps.ProdAxis));
-        Register("min",  ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("min"),   TypedArrayOps.MinAll,  TypedArrayOps.MinAxis));
-        Register("max",  ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("max"),   TypedArrayOps.MaxAll,  TypedArrayOps.MaxAxis));
-        Register("mean", ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("mean"),  TypedArrayOps.MeanAll, TypedArrayOps.MeanAxis));
-        Register("norm", ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("norm"),  TypedArrayOps.NormAll, TypedArrayOps.NormAxis));
+        // the axis is an OPTIONAL trailing parameter on all six: reduce-all or reduce-along-axis
+        Register("sum",  ["a", "axis"], args => ReduceBuiltin("sum",  args, () => NumericOps.Zero,   TypedArrayOps.SumAll,  TypedArrayOps.SumAxis),  minArity: 1);
+        Register("prod", ["a", "axis"], args => ReduceBuiltin("prod", args, () => NumericOps.One,    TypedArrayOps.ProdAll, TypedArrayOps.ProdAxis), minArity: 1);
+        Register("min",  ["a", "axis"], args => ReduceBuiltin("min",  args, EmptyReduceError("min"),  TypedArrayOps.MinAll,  TypedArrayOps.MinAxis),  minArity: 1);
+        Register("max",  ["a", "axis"], args => ReduceBuiltin("max",  args, EmptyReduceError("max"),  TypedArrayOps.MaxAll,  TypedArrayOps.MaxAxis),  minArity: 1);
+        Register("mean", ["a", "axis"], args => ReduceBuiltin("mean", args, EmptyReduceError("mean"), TypedArrayOps.MeanAll, TypedArrayOps.MeanAxis), minArity: 1);
+        Register("norm", ["a", "axis"], args => ReduceBuiltin("norm", args, EmptyReduceError("norm"), TypedArrayOps.NormAll, TypedArrayOps.NormAxis), minArity: 1);
 
         // dot(a, b)
         Register("dot", ["a", "b"], args =>
         {
-            RequireArity("dot", args, 2);
             return Task.FromResult<Value>(TypedArrayOps.Dot(args[0].AsArrayValue(), args[1].AsArrayValue()));
         });
 
         // cross(a, b)
         Register("cross", ["a", "b"], args =>
         {
-            RequireArity("cross", args, 2);
             return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(args[0].AsArrayValue(), args[1].AsArrayValue())));
         });
 
         // matmul(a, b)
         Register("matmul", ["a", "b"], args =>
         {
-            RequireArity("matmul", args, 2);
             var a = args[0].AsArrayValue();
             var b = args[1].AsArrayValue();
             if (a.Rank == 1 && b.Rank == 1)
@@ -1862,7 +1939,6 @@ public sealed class Interpreter
         // det(m)
         Register("det", ["m"], args =>
         {
-            RequireArity("det", args, 1);
             var av = args[0].AsArrayValue();
             var (elements, shape) = PayloadElements(av);
             var bridge = SymbolicMatrixBridge;
@@ -1878,23 +1954,19 @@ public sealed class Interpreter
         // trace(m)
         Register("trace", ["m"], args =>
         {
-            RequireArity("trace", args, 1);
             return Task.FromResult<Value>(TypedArrayOps.Trace(args[0].AsArrayValue()));
         });
 
-        // concat(a, b) / concat(a, b, axis)
+        // concat(a, b) / concat(a, b, axis) — the axis is optional
         Register("concat", ["a", "b", "axis"], args =>
         {
-            if (args.Count != 2 && args.Count != 3)
-                throw new InvalidOperationException($"concat() expects 2 or 3 arguments, but got {args.Count}.");
             long axis = args.Count == 3 ? ToLong(args[2]) : 0;
             return Task.FromResult(WrapArrayValue(TypedArrayOps.Concat(args[0].AsArrayValue(), args[1].AsArrayValue(), axis)));
-        });
+        }, minArity: 2);
 
         // append(a, b) — vectors only
         Register("append", ["a", "b"], args =>
         {
-            RequireArity("append", args, 2);
             var a = args[0].AsArrayValue();
             var b = args[1].AsArrayValue();
             if (a.Rank != 1 || b.Rank != 1)

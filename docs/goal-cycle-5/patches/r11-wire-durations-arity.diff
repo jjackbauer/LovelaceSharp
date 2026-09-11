@@ -1,0 +1,1797 @@
+diff --git a/Lovelace.Run.Tests/ArityPropertyTests.cs b/Lovelace.Run.Tests/ArityPropertyTests.cs
+new file mode 100644
+index 0000000..0a27e05
+--- /dev/null
++++ b/Lovelace.Run.Tests/ArityPropertyTests.cs
+@@ -0,0 +1,253 @@
++using System.Reflection;
++using System.Text.Json.Nodes;
++using System.Text.RegularExpressions;
++using Lovelace.Abstractions;
++using Lovelace.Dsp;
++using Lovelace.MathIR;
++using Lovelace.Suite;
++using Lovelace.Symbolics;
++using Xunit;
++using SuiteFunctionDefinition = Lovelace.Suite.FunctionDefinition;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// The arity contract of docs/symbolics/dsh-protocol.md:187-199 ("A call with the wrong number of
++/// arguments is rejected at the call site ... a recoverable argument error (code: InvalidArgument,
++/// category: TypeMismatch) naming the builtin and both counts ... The counts come from the builtin's
++/// declared metadata (Parameters, MinArity, Variadic)"), proved as a PROPERTY over the LIVE registry
++/// rather than with a hand-written list of names.
++/// <para>
++/// Every registered builtin — core and plugin alike — is driven with every argument count in
++/// <c>0..max+2</c>, where the declared range <c>[min, max]</c> is computed from the engine's own
++/// metadata: the registered parameter list is the upper bound, <c>MinArity</c> the lower bound and
++/// <c>Variadic</c> removes the upper bound. A count outside that range MUST cross as the one
++/// documented shape; a count inside it MUST NOT be refused as a wrong-arity call. The two
++/// directions matter: the first fails when the validator is missing (the pre-fix bug), the second
++/// fails when the validator is widened to accept everything.
++/// </para>
++/// </summary>
++public class ArityPropertyTests
++{
++    /// <summary>The registry the published runner wires: core builtins plus the three plugins
++    /// (Lovelace.Run/Program.cs is the reference wiring).</summary>
++    private static SuiteEngine NewRegistry() 
++    {
++        var engine = new SuiteEngine();
++        engine.LoadPlugin(new DspPlugin());
++        var symbolics = new SymbolicsPlugin();
++        engine.LoadPlugin(symbolics);
++        engine.LoadPlugin(new MathIRPlugin(symbolics));
++        return engine;
++    }
++
++    private static async Task<JsonNode> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        await Runner.RunAsync(new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        return TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'");
++    }
++
++    private static string Call(string builtin, int count) =>
++        count == 0 ? $"{builtin}()" : $"{builtin}({string.Join(", ", Enumerable.Repeat("1", count))})";
++
++    /// <summary>
++    /// Reads a property of <see cref="FunctionDefinition"/> by name. The declared arity travels with
++    /// the function after the fix; reading it reflectively keeps this file compilable against the
++    /// pre-fix control tree, where the properties do not exist and the registered parameter list is
++    /// then taken as the whole declaration — which is exactly the declaration the pre-fix engine
++    /// fails to honour.
++    /// </summary>
++    private static object? Declaration(SuiteFunctionDefinition fn, string property) =>
++        typeof(SuiteFunctionDefinition).GetProperty(property, BindingFlags.Public | BindingFlags.Instance)?.GetValue(fn);
++
++    /// <summary>The engine's DECLARED argument-count range for a builtin.</summary>
++    private static (int Min, int Max) DeclaredArity(SuiteFunctionDefinition fn, BuiltinDescriptor? descriptor)
++    {
++        int declared = fn.Parameters.Count;
++        int minArity;
++        bool variadic;
++        if (descriptor is not null)
++        {
++            minArity = descriptor.MinArity;
++            variadic = descriptor.Variadic;
++        }
++        else
++        {
++            // literal names on purpose: this file must also COMPILE against the pre-fix control
++            // tree, where FunctionDefinition does not expose these properties at all
++            minArity = Declaration(fn, "MinArity") as int? ?? -1;
++            variadic = Declaration(fn, "Variadic") as bool? ?? false;
++        }
++
++        int min = minArity >= 0 ? Math.Min(minArity, declared) : declared;
++        return (min, variadic ? int.MaxValue : declared);
++    }
++
++    private static string ExpectedMessage(string builtin, int min, int max, int actual)
++    {
++        string expected = max == int.MaxValue
++            ? $"at least {min} {(min == 1 ? "argument" : "arguments")}"
++            : min == max
++                ? $"{min} {(min == 1 ? "argument" : "arguments")}"
++                : $"{min} to {max} arguments";
++        return $"{builtin}(): expected {expected}; got {actual}.";
++    }
++
++    private static readonly Regex AnyArityMessage =
++        new(@"^[A-Za-z_][A-Za-z0-9_]*\(\): expected .*; got \d+\.$", RegexOptions.Compiled);
++
++    [Fact]
++    public async Task EveryBuiltin_RefusesEveryCountOutsideItsDeclaredArity_WithTheOneDocumentedShape()
++    {
++        var engine = NewRegistry();
++        var registry = engine.Functions.Values.Where(fn => fn.IsBuiltin)
++            .OrderBy(fn => fn.Name, StringComparer.Ordinal)
++            .ToArray();
++
++        // the property is only meaningful over a non-trivial registry
++        Assert.True(registry.Length >= 100, $"the live registry exposed {registry.Length} builtins");
++
++        var violations = new List<string>();
++        var noWrongArityExists = new List<string>();
++        var probed = 0;
++
++        foreach (var fn in registry)
++        {
++            Assert.True(Regex.IsMatch(fn.Name, "^[A-Za-z_][A-Za-z0-9_]*$"),
++                $"'{fn.Name}' is not a plain identifier, so the registry cannot be driven by name");
++
++            engine.InterpreterBuiltinDescriptors.TryGetValue(fn.Name, out var descriptor);
++            var (min, max) = DeclaredArity(fn, descriptor);
++            int probeMax = max == int.MaxValue ? fn.Parameters.Count + 2 : max + 2;
++            int refusals = 0;
++
++            for (int count = 0; count <= probeMax; count++)
++            {
++                probed++;
++                JsonNode envelope = await RunAsync(Call(fn.Name, count));
++                bool ok = envelope["ok"]!.GetValue<bool>();
++                string message = envelope["message"]?.GetValue<string>() ?? string.Empty;
++                bool refusedAsArity = !ok && AnyArityMessage.IsMatch(message);
++
++                bool outside = count < min || count > max;
++                if (outside)
++                {
++                    if (!refusedAsArity)
++                    {
++                        violations.Add(
++                            $"{fn.Name}(): {count} argument(s) is OUTSIDE the declared range [{min}, {max}] but the call " +
++                            $"was not refused as a wrong-arity call — ok={ok}, code={envelope["code"]?.GetValue<string>() ?? "-"}, " +
++                            $"category={envelope["category"]?.GetValue<string>() ?? "-"}, message='{message}'");
++                        continue;
++                    }
++
++                    refusals++;
++                    Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
++                    Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
++                    Assert.True(envelope["recoverable"]!.GetValue<bool>(),
++                        $"{fn.Name}(): an argument count is a caller mistake the caller can fix and retry");
++                    Assert.Equal(ExpectedMessage(fn.Name, min, max, count), message);
++                }
++                else if (refusedAsArity)
++                {
++                    violations.Add(
++                        $"{fn.Name}(): {count} argument(s) is INSIDE the declared range [{min}, {max}] but the call was " +
++                        $"refused as a wrong-arity call: '{message}'");
++                }
++            }
++
++            // a builtin whose declared range covers every count (0..n) has no wrong-arity call to
++            // refuse at all — the declaration says so, it is not the validator being widened
++            if (refusals == 0)
++                noWrongArityExists.Add($"{fn.Name} (declared [{min}, {max}])");
++        }
++
++        Assert.True(violations.Count == 0,
++            $"{violations.Count} violation(s) across the {registry.Length} registered builtins ({probed} probes) of the " +
++            "documented arity contract:" + Environment.NewLine + string.Join(Environment.NewLine, violations.Take(40)));
++
++        // print is the ONE builtin that legitimately accepts every count (0..n values followed by a
++        // newline), which its metadata declares as MinArity 0 + Variadic. Any other builtin with no
++        // wrong-arity call would mean the declaration had been widened to dodge the validator.
++        Assert.Equal(new[] { "print" }, noWrongArityExists
++            .Select(entry => entry.Split(' ')[0])
++            .ToArray());
++    }
++
++    /// <summary>
++    /// The complement of the property: a builtin that legitimately accepts a SHORTER or a LONGER
++    /// form than its parameter list declares keeps working, because its DECLARATION says so
++    /// (MinArity / Variadic) rather than the validator being widened. Every entry here is a
++    /// documented call form of the descriptor's own examples.
++    /// </summary>
++    [Theory]
++    [InlineData("pi()")]
++    [InlineData("e()")]
++    [InlineData("zeros(2, 2)")]
++    [InlineData("ones(3)")]
++    [InlineData("eye(3)")]
++    [InlineData("eye(2, 3)")]
++    [InlineData("transpose([[1, 2], [3, 4]])")]
++    [InlineData("sum([1, 2, 3])")]
++    [InlineData("prod([1, 2, 3])")]
++    [InlineData("min([3, 1, 2])")]
++    [InlineData("max([3, 1, 2])")]
++    [InlineData("mean([1, 2, 3])")]
++    [InlineData("norm([3, 4])")]
++    [InlineData("reshape([1, 2, 3, 4], 2, 2)")]
++    [InlineData("concat([1, 2], [3, 4])")]
++    [InlineData("print(\"A\", \"B\")")]
++    [InlineData("plot([1, 2, 3])")]
++    [InlineData("symbol(\"x\")")]
++    [InlineData("x = symbol(\"x\"); solve(x^2 - 4 == 0, x)")]
++    [InlineData("x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)")]
++    [InlineData("dft([0, 1, 0, 0])")]
++    [InlineData("noise(1, 0, 4)")]
++    [InlineData("noise(1, 0, 4, 3)")]
++    public async Task ADocumentedShorterOrLongerForm_StaysCallable(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        string plotDirectory = Path.Combine(Path.GetTempPath(), "lovelace-arity-plot");
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables", "--plot-dir", plotDirectory },
++            stdout, stderr);
++
++        JsonNode envelope = TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'");
++        Assert.True(exitCode == 0, $"'{script}' exited {exitCode}: {envelope.ToJsonString()}");
++        Assert.True(envelope["ok"]!.GetValue<bool>(), $"'{script}' must still evaluate: {envelope.ToJsonString()}");
++    }
++
++    /// <summary>
++    /// The declaration has to TRAVEL with the function, otherwise the call-site validator cannot be
++    /// the one source: a plugin builtin registered with a descriptor must carry that descriptor's
++    /// MinArity and Variadic on its own definition.
++    /// </summary>
++    [Fact]
++    public void DeclaredArity_TravelsWithEveryPluginBuiltin()
++    {
++        var engine = NewRegistry();
++        var checkedBuiltins = 0;
++
++        foreach (var (name, fn) in engine.Functions.OrderBy(kv => kv.Key, StringComparer.Ordinal))
++        {
++            if (!fn.IsBuiltin || !engine.InterpreterBuiltinDescriptors.TryGetValue(name, out var descriptor))
++                continue;
++
++            checkedBuiltins++;
++            // literal names: FunctionDefinition.MinArity/Variadic are read reflectively so this test
++            // also compiles against the pristine control tree
++            Assert.True(Declaration(fn, "MinArity") is int,
++                $"{name}: the descriptor's declared MinArity ({descriptor.MinArity}) is not carried by the function, " +
++                "so the one call-site validator cannot enforce what the descriptor declares");
++            Assert.True(Declaration(fn, "Variadic") is bool,
++                $"{name}: the descriptor's declared Variadic ({descriptor.Variadic}) is not carried by the function");
++            Assert.Equal(descriptor.MinArity, (int)Declaration(fn, "MinArity")!);
++            Assert.Equal(descriptor.Variadic, (bool)Declaration(fn, "Variadic")!);
++        }
++
++        Assert.True(checkedBuiltins >= 40, $"expected the plugin descriptors to cover the plugin registry, saw {checkedBuiltins}");
++    }
++}
+diff --git a/Lovelace.Run.Tests/EnvelopeDurationTests.cs b/Lovelace.Run.Tests/EnvelopeDurationTests.cs
+new file mode 100644
+index 0000000..3caca89
+--- /dev/null
++++ b/Lovelace.Run.Tests/EnvelopeDurationTests.cs
+@@ -0,0 +1,141 @@
++using System.Globalization;
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// docs/symbolics/dsh-protocol.md:21-23 — "Durations are structural: <c>elapsedTime</c> is
++/// <c>{value, unit}</c> next to the human <c>elapsed</c> string, and <c>timings</c> carries one entry
++/// per top-level statement, so an agent never parses a unit suffix." The invariant is not scoped to
++/// success: an ERROR envelope carries the same two structural durations, and the human string and
++/// the pair come from ONE unit selector (<see cref="Lovelace.Suite.Timing.Scale"/>) so they can
++/// never disagree.
++/// </summary>
++public class EnvelopeDurationTests
++{
++    private static readonly string[] Units = { "ns", "µs", "ms", "s", "min", "h" };
++
++    private static async Task<(int ExitCode, JsonNode Envelope, string Raw)> RunAsync(params string[] arguments)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(arguments, stdout, stderr);
++        string raw = stdout.ToString();
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(raw, "the envelope"), raw);
++    }
++
++    private static Task<(int ExitCode, JsonNode Envelope, string Raw)> RunScriptAsync(string script) =>
++        RunAsync("--eval", script, "--omit-functions", "--omit-variables");
++
++    /// <summary>The structural duration and the human string must agree, from one unit selector.</summary>
++    private static void AssertSameScale(JsonNode envelope, string what)
++    {
++        string human = envelope["elapsed"]!.GetValue<string>();
++        JsonNode? structured = envelope["elapsedTime"];
++        Assert.True(structured is not null, $"{what}: the error envelope carries no elapsedTime");
++
++        string[] parts = human.Split(' ');
++        Assert.Equal(2, parts.Length);
++        Assert.Contains(parts[1], Units);
++        Assert.Equal(parts[1], structured!["unit"]!.GetValue<string>());
++        Assert.Equal(double.Parse(parts[0], CultureInfo.InvariantCulture),
++            structured!["value"]!.GetValue<double>(), 2);
++    }
++
++    private static void AssertTimingShape(JsonNode timing, string what)
++    {
++        Assert.True(timing["position"] is not null, $"{what}: a timing carries its source position");
++        Assert.True(timing["elapsed"] is not null, $"{what}: a timing carries a structural duration");
++        Assert.Contains(timing["elapsed"]!["unit"]!.GetValue<string>(), Units);
++        Assert.True(timing["resultKind"] is not null, $"{what}: a timing carries the result kind");
++        Assert.True(timing["hasOutput"] is not null, $"{what}: a timing says whether the statement printed");
++    }
++
++    /// <summary>The acceptance probe: a two-statement script whose SECOND statement fails.</summary>
++    [Fact]
++    public async Task MultiStatementErrorEnvelope_CarriesBothStructuralDurations()
++    {
++        var (exitCode, envelope, _) = await RunScriptAsync(
++            "x = symbol(\"x\"); solve(x^2 + 1 == 0, x, integer)");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>());
++        AssertSameScale(envelope, "multi-statement error");
++
++        JsonArray timings = envelope["timings"]!.AsArray();
++        Assert.Equal(2, timings.Count);
++        Assert.Equal(0, timings[0]!["position"]!.GetValue<int>());
++        Assert.Equal("Symbolic", timings[0]!["resultKind"]!.GetValue<string>());
++        Assert.Equal(17, timings[1]!["position"]!.GetValue<int>());
++        // the statement that FAILED is still a statement that ran
++        Assert.Equal("Void", timings[1]!["resultKind"]!.GetValue<string>());
++        foreach (JsonNode? timing in timings)
++            AssertTimingShape(timing!, "multi-statement error");
++    }
++
++    /// <summary>A ONE-statement script that fails reports exactly one timed statement.</summary>
++    [Fact]
++    public async Task SingleStatementErrorEnvelope_CarriesOneTiming()
++    {
++        var (exitCode, envelope, _) = await RunScriptAsync(
++            "solve(symbol(\"x\")^2 + 1 == 0, symbol(\"x\"), integer)");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>());
++        AssertSameScale(envelope, "single-statement error");
++
++        JsonArray timings = envelope["timings"]!.AsArray();
++        Assert.Single(timings);
++        Assert.Equal(0, timings[0]!["position"]!.GetValue<int>());
++        AssertTimingShape(timings[0]!, "single-statement error");
++    }
++
++    /// <summary>When NO statement ran (a parse error) the timing array is EMPTY — present, never
++    /// absent, and never null.</summary>
++    [Fact]
++    public async Task ErrorEnvelopeWithoutAnyStatement_CarriesAnEmptyTimingsArray()
++    {
++        var (exitCode, envelope, _) = await RunScriptAsync("1 +");
++
++        Assert.Equal(1, exitCode);
++        Assert.False(envelope["ok"]!.GetValue<bool>());
++        AssertSameScale(envelope, "parse error");
++        Assert.Empty(envelope["timings"]!.AsArray());
++    }
++
++    /// <summary>An error raised before any engine exists (the script file cannot be read) still
++    /// carries the structural pair, so an agent never has to special-case the shape.</summary>
++    [Fact]
++    public async Task FileReadErrorEnvelope_CarriesTheSameStructuralDurations()
++    {
++        var (exitCode, envelope, _) = await RunAsync(
++            "--file", Path.Combine(TestSupport.FixturesDirectory, "does-not-exist.ls"), "--omit-functions");
++
++        Assert.Equal(1, exitCode);
++        Assert.Equal("FileReadError", envelope["code"]!.GetValue<string>());
++        AssertSameScale(envelope, "file read error");
++        Assert.Empty(envelope["timings"]!.AsArray());
++    }
++
++    /// <summary>Success and error envelopes expose the SAME duration keys: a consumer switches on
++    /// <c>ok</c>, not on which duration fields happen to be present.</summary>
++    [Fact]
++    public async Task SuccessAndErrorEnvelopes_CarryTheSameDurationKeys()
++    {
++        var (okExit, ok, _) = await RunScriptAsync("x = symbol(\"x\"); solve(x^2 - 4 == 0, x)");
++        var (badExit, bad, _) = await RunScriptAsync("x = symbol(\"x\"); solve(x^2 + 1 == 0, x, integer)");
++
++        Assert.Equal(0, okExit);
++        Assert.Equal(1, badExit);
++
++        foreach (var envelope in new[] { ok, bad })
++        {
++            Assert.True(envelope["elapsed"] is not null);
++            Assert.True(envelope["elapsedTime"] is not null);
++            Assert.True(envelope["timings"] is not null);
++        }
++
++        Assert.Equal(ok["timings"]!.AsArray().Count, bad["timings"]!.AsArray().Count);
++    }
++}
+diff --git a/Lovelace.Run.Tests/PrintOutputTests.cs b/Lovelace.Run.Tests/PrintOutputTests.cs
+new file mode 100644
+index 0000000..bcbea34
+--- /dev/null
++++ b/Lovelace.Run.Tests/PrintOutputTests.cs
+@@ -0,0 +1,114 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// docs/symbolics/dsh-protocol.md:9-10 — "Anything the script prints with <c>print(...)</c> is
++/// captured and returned in the top-level <c>output</c> array." The array carries the LINES the
++/// script printed; it must not carry the host's line terminator. On Windows the capture path ends
++/// every line with CRLF, so an element that still holds the CR cannot be compared to the text the
++/// script printed.
++/// </summary>
++public class PrintOutputTests
++{
++    private static async Task<(int ExitCode, string Raw, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        string raw = stdout.ToString();
++        return (exitCode, raw, TestSupport.ParseExactlyOneJsonDocument(raw, $"stdout of '{script}'"));
++    }
++
++    private static string[] Output(JsonNode envelope) =>
++        envelope["output"]!.AsArray().Select(node => node!.GetValue<string>()).ToArray();
++
++    /// <summary>The serialized output array exactly as it appears on stdout.</summary>
++    private static string OutputSegment(string raw)
++    {
++        int start = raw.IndexOf("\"output\":", StringComparison.Ordinal);
++        Assert.True(start >= 0, $"the envelope has no output array: {raw}");
++        int end = raw.IndexOf(']', start);
++        Assert.True(end > start, $"the output array is unterminated: {raw}");
++        return raw.Substring(start, end - start + 1);
++    }
++
++    /// <summary>The element count, the exact serialized segment, and the absence of the CR escape
++    /// (a carriage return on the wire is the two characters backslash-r or the \u000d escape).</summary>
++    private static void AssertWireOutputIs(string raw, string expectedSegment)
++    {
++        string segment = OutputSegment(raw);
++        Assert.Equal(expectedSegment, segment);
++        Assert.DoesNotContain("\\r", segment);
++        Assert.DoesNotContain("\\u000d", segment);
++    }
++
++    /// <summary>The absence check alone, for segments whose spelling the JSON encoder escapes.</summary>
++    private static void AssertWireOutputHasNoTerminator(string raw)
++    {
++        string segment = OutputSegment(raw);
++        Assert.DoesNotContain("\\r", segment);
++        Assert.DoesNotContain("\\u000d", segment);
++    }
++
++    [Fact]
++    public async Task TwoPrints_CrossAsTwoLines_WithoutTheHostsLineTerminator()
++    {
++        var (exitCode, raw, envelope) = await RunAsync("print(\"A\"); print(\"B\")");
++
++        Assert.Equal(0, exitCode);
++        Assert.Equal(new[] { "A", "B" }, Output(envelope));
++        AssertWireOutputIs(raw, "\"output\":[\"A\",\"B\"]");
++    }
++
++    /// <summary>Every element — not just the last — is free of the terminator: three prints is
++    /// where the old capture lost only the final CR.</summary>
++    [Fact]
++    public async Task ThreePrints_CrossAsThreeCleanLines()
++    {
++        var (exitCode, raw, envelope) = await RunAsync("print(\"A\"); print(\"B\"); print(\"C\")");
++
++        Assert.Equal(0, exitCode);
++        Assert.Equal(new[] { "A", "B", "C" }, Output(envelope));
++        AssertWireOutputIs(raw, "\"output\":[\"A\",\"B\",\"C\"]");
++    }
++
++    /// <summary>Non-string arguments travel the same path (they are formatted and then written).
++    /// The JSON encoder escapes some punctuation (\u002B for '+'), so the byte-level claim here is
++    /// the absence of a terminator rather than a hand-written spelling of the escaped segment.</summary>
++    [Fact]
++    public async Task PrintedValues_AreAlsoFreeOfTheTerminator()
++    {
++        var (exitCode, raw, envelope) = await RunAsync(
++            "x = symbol(\"x\"); print(x^2 + 1); print(42); print([1, 2])");
++
++        Assert.Equal(0, exitCode);
++        Assert.Equal(new[] { "x^2 + 1", "42", "[1, 2]" }, Output(envelope));
++        AssertWireOutputHasNoTerminator(raw);
++    }
++
++    /// <summary>A printed BLANK line is an empty string — never a bare carriage return, which is
++    /// what the old per-element trim left behind for a leading blank line.</summary>
++    [Fact]
++    public async Task APrintedBlankLine_IsAnEmptyElement()
++    {
++        var (exitCode, raw, envelope) = await RunAsync("print(\"\"); print(\"A\")");
++
++        Assert.Equal(0, exitCode);
++        Assert.Equal(new[] { "", "A" }, Output(envelope));
++        AssertWireOutputIs(raw, "\"output\":[\"\",\"A\"]");
++    }
++
++    /// <summary>The positive control for the absence check: nothing in the output ever contains a
++    /// CR, whatever the script prints.</summary>
++    [Fact]
++    public async Task NoOutputElement_EverContainsACarriageReturn()
++    {
++        var (_, _, envelope) = await RunAsync("print(\"A\"); print(\"B\"); print(1); print(\"\")");
++
++        foreach (string line in Output(envelope))
++            Assert.DoesNotContain('\r', line);
++    }
++}
+diff --git a/Lovelace.Run.Tests/SolveEmptySetTests.cs b/Lovelace.Run.Tests/SolveEmptySetTests.cs
+new file mode 100644
+index 0000000..e94bd6d
+--- /dev/null
++++ b/Lovelace.Run.Tests/SolveEmptySetTests.cs
+@@ -0,0 +1,111 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// docs/symbolics/dsh-protocol.md:166-170 — "NoSolutions means the solution set over the requested
++/// domain is provably empty ... A provably empty set is a complete answer, so it reports
++/// complete: true / completeness: Complete."
++/// <para>
++/// The equation <c>0 == 1</c> is a RELATION the caller wrote, but its two sides are concrete, so the
++/// interpreter used to fold it to the Boolean false before the symbolic kernel saw it — and the
++/// kernel refused it as "argument 1 must be a symbolic expression; got Boolean". A relation written
++/// in the arguments of a symbolic builtin crosses as the relation it is, so the solver can prove
++/// emptiness and answer NoSolutions.
++/// </para>
++/// </summary>
++public class SolveEmptySetTests
++{
++    private static async Task<(int ExitCode, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'"));
++    }
++
++    private static JsonObject Fields(JsonNode structured) => TestSupport.FieldsByName(structured);
++
++    [Fact]
++    public async Task Solve_OfAProvablyFalseEquation_AnswersTheEmptySet_NotADomainError()
++    {
++        var (exitCode, envelope) = await RunAsync("x = symbol(\"x\"); solve(0 == 1, x)");
++
++        Assert.True(exitCode == 0, $"solve(0 == 1, x) must answer, not fail: {envelope.ToJsonString()}");
++        Assert.True(envelope["ok"]!.GetValue<bool>());
++        Assert.Equal("Text", envelope["result"]!["kind"]!.GetValue<string>());
++        Assert.Equal("the equation reduces to a nonzero constant.",
++            envelope["result"]!["structured"]!["value"]!.GetValue<string>());
++        // the old failure mode: the folded Boolean reaching the kernel as an argument type error
++        Assert.DoesNotContain("Boolean", envelope["result"]!["structured"]!["value"]!.GetValue<string>());
++    }
++
++    [Fact]
++    public async Task SolveFull_OfAProvablyFalseEquation_ReportsNoSolutionsComplete()
++    {
++        var (exitCode, envelope) = await RunAsync("x = symbol(\"x\"); solve_full(2 == 3, x)");
++
++        Assert.True(exitCode == 0, $"solve_full(2 == 3, x) must answer, not fail: {envelope.ToJsonString()}");
++        JsonNode structured = envelope["result"]!["structured"]!;
++        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++        Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
++
++        JsonObject fields = Fields(structured);
++        Assert.Equal("Enum", fields["status"]!["kind"]!.GetValue<string>());
++        Assert.Equal("SolveStatus", fields["status"]!["type"]!.GetValue<string>());
++        Assert.Equal("NoSolutions", fields["status"]!["value"]!.GetValue<string>());
++
++        // complete is the derived convenience flag; completeness is the authoritative enum
++        Assert.Equal("true", fields["complete"]!["value"]!.GetValue<string>());
++        Assert.Equal("Completeness", fields["completeness"]!["type"]!.GetValue<string>());
++        Assert.Equal("Complete", fields["completeness"]!["value"]!.GetValue<string>());
++
++        Assert.Equal(0, fields["solutions"]!["shape"]!.AsArray()[0]!.GetValue<int>());
++
++        // the emptiness carries its PROOF as a diagnostic of the no-solution class
++        JsonArray diagnostics = fields["diagnostics"]!["elements"]!.AsArray();
++        Assert.True(diagnostics.Count >= 1, "a NoSolutions answer reports why the set is empty");
++        JsonObject diagnostic = TestSupport.FieldsByName(diagnostics[0]!);
++        Assert.Equal("Enum", diagnostic["category"]!["kind"]!.GetValue<string>());
++        Assert.Equal("ErrorCategory", diagnostic["category"]!["type"]!.GetValue<string>());
++        Assert.Equal("NoSolution", diagnostic["category"]!["value"]!.GetValue<string>());
++        Assert.Equal("solve.no-solutions", diagnostic["code"]!["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The same relation, in a system: the emptiness is proved for the whole system.</summary>
++    [Fact]
++    public async Task SolveSystem_OfAProvablyFalseEquation_AnswersTheEmptySet()
++    {
++        var (exitCode, envelope) = await RunAsync(
++            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system([0 == 1], [x, y])");
++
++        Assert.True(exitCode == 0, $"solve_system([0 == 1], [x, y]) must answer: {envelope.ToJsonString()}");
++        JsonObject fields = Fields(envelope["result"]!["structured"]!);
++        Assert.Equal("NoSolutions", fields["status"]!["value"]!.GetValue<string>());
++        Assert.Equal("true", fields["complete"]!["value"]!.GetValue<string>());
++        Assert.Equal("Complete", fields["completeness"]!["value"]!.GetValue<string>());
++    }
++
++    /// <summary>The narrowed rule, pinned: only SYMBOLIC consumers receive the relation. A builtin
++    /// that declares a Boolean result still consumes the evaluated condition, so the language's
++    /// branching semantics are untouched — and a core builtin still sees the folded Boolean.</summary>
++    [Fact]
++    public async Task TheFoldedBooleanIsUnchangedOutsideTheSymbolicChannel()
++    {
++        var (eqExit, eq) = await RunAsync("type(0 == 1)");
++        Assert.Equal(0, eqExit);
++        Assert.Equal("Boolean", eq["result"]!["structured"]!["value"]!.GetValue<string>());
++
++        var (trueExit, isTrue) = await RunAsync("1 == 1");
++        Assert.Equal(0, trueExit);
++        Assert.Equal("Boolean", isTrue["result"]!["kind"]!.GetValue<string>());
++        Assert.Equal("true", isTrue["result"]!["structured"]!["value"]!.GetValue<string>());
++
++        var (notExit, not) = await RunAsync("not(0 == 1)");
++        Assert.Equal(0, notExit);
++        Assert.Equal("Boolean", not["result"]!["kind"]!.GetValue<string>());
++        Assert.Equal("true", not["result"]!["structured"]!["value"]!.GetValue<string>());
++    }
++}
+diff --git a/Lovelace.Run.Tests/fixtures/error_envelope.json b/Lovelace.Run.Tests/fixtures/error_envelope.json
+index 6cf0ea0..8d14998 100644
+--- a/Lovelace.Run.Tests/fixtures/error_envelope.json
++++ b/Lovelace.Run.Tests/fixtures/error_envelope.json
+@@ -15,5 +15,7 @@
+       "column": 1
+     }
+   ],
+-  "elapsed": "<volatile>"
++  "elapsed": "<volatile>",
++  "elapsedTime": "<volatile>",
++  "timings": "<volatile>"
+ }
+diff --git a/Lovelace.Run/RunProtocol.cs b/Lovelace.Run/RunProtocol.cs
+index bd37ae4..8a03faa 100644
+--- a/Lovelace.Run/RunProtocol.cs
++++ b/Lovelace.Run/RunProtocol.cs
+@@ -50,7 +50,12 @@ internal sealed record RunErrorDto(
+     string Message,
+     bool Recoverable,
+     DiagnosticDto[] Diagnostics,
++    // the SAME structural duration pair a success envelope carries: the human string next to the
++    // unit-scaled {value, unit}, produced by the same unit selector, so no consumer parses a suffix
+     string Elapsed,
++    DurationDto ElapsedTime,
++    // one entry per top-level statement that ran (empty when none did), exactly as on success
++    TimingDto[] Timings,
+     // present only for a cancelled evaluation: everything the engine had already committed
+     string[]? PartialOutput = null,
+     VariableDto[]? PartialVariables = null);
+diff --git a/Lovelace.Run/Runner.cs b/Lovelace.Run/Runner.cs
+index 96da945..6b56121 100644
+--- a/Lovelace.Run/Runner.cs
++++ b/Lovelace.Run/Runner.cs
+@@ -141,7 +141,8 @@ public static class Runner
+             }
+             catch (Exception ex)
+             {
+-                return WriteError(stdout, stderr, json, "FileReadError", "ParseError", $"Cannot read script file '{file}': {ex.Message}", recoverable: true, Array.Empty<DiagnosticDto>(), "0 ms");
++                // no engine ran and no statement executed, so the durations are zero and empty
++                return WriteError(stdout, stderr, json, "FileReadError", "ParseError", $"Cannot read script file '{file}': {ex.Message}", recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>());
+             }
+         }
+         else if (stdinMode)
+@@ -216,13 +217,7 @@ public static class Runner
+                 plot,
+                 engine.LastElapsedDisplay,
+                 Duration(engine.LastElapsed),
+-                engine.OperationTimings
+-                    .Select(t => new TimingDto(
+-                        t.Position,
+-                        new DurationDto(t.ElapsedScale.Value, t.ElapsedScale.Unit),
+-                        t.Result.Kind.ToString(),
+-                        t.Output.Length > 0))
+-                    .ToArray());
++                Timings(engine.OperationTimings));
+ 
+             if (json)
+                 WriteJson(stdout, envelope, RunJsonContext.Default.RunEnvelopeDto);
+@@ -246,8 +241,10 @@ public static class Runner
+                     .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
+                     .ToArray()
+                 : null;
++            // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
++            // from one unit selector and one timing entry per statement that ran before the failure
+             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
+-                engine.LastElapsedDisplay, partialOutput, partialVariables);
++                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables);
+         }
+     }
+ 
+@@ -280,13 +277,17 @@ public static class Runner
+ 
+     private static int WriteError(TextWriter stdout, TextWriter stderr,
+         bool json, string code, string category, string message, bool recoverable,
+-        DiagnosticDto[] diagnostics, string elapsed,
++        DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
+         string[]? output = null, VariableDto[]? variables = null)
+     {
+         if (json)
+         {
++            // the error envelope carries the human string AND the structural duration produced by the
++            // SAME unit selector (Timing.Scale behind both Timing.Format and Duration), so the two
++            // forms can never disagree — exactly like the success envelope
+             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
+-                false, code, category, message, recoverable, diagnostics, elapsed, output, variables),
++                false, code, category, message, recoverable, diagnostics,
++                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables),
+                 RunJsonContext.Default.RunErrorDto);
+         }
+         else
+@@ -305,8 +306,31 @@ public static class Runner
+         return new DurationDto(value, unit);
+     }
+ 
+-    private static string[] SplitLines(string text) =>
+-        text.Length == 0 ? Array.Empty<string>() : text.TrimEnd('\r', '\n').Split('\n');
++    /// <summary>One wire timing per top-level statement that ran, in statement order.</summary>
++    private static TimingDto[] Timings(IReadOnlyList<Lovelace.Suite.OperationTiming> timings) =>
++        timings.Select(t => new TimingDto(
++            t.Position,
++            new DurationDto(t.ElapsedScale.Value, t.ElapsedScale.Unit),
++            t.Result.Kind.ToString(),
++            t.Output.Length > 0))
++        .ToArray();
++
++    /// <summary>
++    /// The script's captured print output as LINES. The capture path terminates every line with
++    /// <see cref="Environment.NewLine"/>, so on Windows each element but the last used to keep the
++    /// \r of the terminator — an artifact of the host's line separator, not something the script
++    /// printed. The envelope's output array carries the line, never its terminator.
++    /// </summary>
++    private static string[] SplitLines(string text)
++    {
++        if (text.Length == 0)
++            return Array.Empty<string>();
++
++        string[] lines = text.TrimEnd('\r', '\n').Split('\n');
++        for (int i = 0; i < lines.Length; i++)
++            lines[i] = lines[i].TrimEnd('\r');
++        return lines;
++    }
+ 
+     private static void PrintText(TextWriter stdout, RunEnvelopeDto envelope)
+     {
+diff --git a/Lovelace.Suite.Tests/InterpreterBuiltinPiTests.cs b/Lovelace.Suite.Tests/InterpreterBuiltinPiTests.cs
+index c8886ca..5643f34 100644
+--- a/Lovelace.Suite.Tests/InterpreterBuiltinPiTests.cs
++++ b/Lovelace.Suite.Tests/InterpreterBuiltinPiTests.cs
+@@ -90,14 +90,25 @@ public class InterpreterBuiltinPiTests
+     }
+ 
+     // -----------------------------------------------------------------------
+-    // Test 28 — pi(10, 20) with two arguments → InvalidOperationException
++    // Test 28 — pi(10, 20) with two arguments → BuiltinArityException
++    //
++    // The documented arity refusal (docs/symbolics/dsh-protocol.md:187-195) is a recoverable
++    // ARGUMENT error: code InvalidArgument / category TypeMismatch, naming the builtin and both
++    // counts. BuiltinArityException derives from ArgumentException, which is the runner's
++    // TypeMismatch path — an InvalidOperationException here would cross as a DomainError and
++    // contradict the contract this test pins.
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenPiWithTooManyArguments_ThrowsInvalidOperationException()
++    public async Task Evaluate_GivenPiWithTooManyArguments_ThrowsBuiltinArityException()
+     {
+         var expr = new CallExpr("pi", [new LiteralExpr("10"), new LiteralExpr("20")]);
+ 
+-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
++        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
++
++        Assert.Equal("pi(): expected 0 to 1 arguments; got 2.", error.Message);
++        Assert.Equal("pi", error.Builtin);
++        Assert.Equal(2, error.Actual);
++        Assert.IsAssignableFrom<ArgumentException>(error);
+     }
+ }
+diff --git a/Lovelace.Suite.Tests/InterpreterBuiltinSetprecisionTests.cs b/Lovelace.Suite.Tests/InterpreterBuiltinSetprecisionTests.cs
+index 974e538..3a18562 100644
+--- a/Lovelace.Suite.Tests/InterpreterBuiltinSetprecisionTests.cs
++++ b/Lovelace.Suite.Tests/InterpreterBuiltinSetprecisionTests.cs
+@@ -12,7 +12,8 @@ namespace Lovelace.Suite.Tests;
+ ///   - BuiltinSetprecision — lifting the cap lets pi(n) exceed the 1000 default
+ ///   - BuiltinSetprecision — reject Real argument with InvalidOperationException
+ ///   - BuiltinSetprecision — reject n ≤ 0 with InvalidOperationException
+-///   - BuiltinSetprecision — reject argument count ≠ 1 with InvalidOperationException
++///   - BuiltinSetprecision — reject argument count ≠ 1 with BuiltinArityException (the
++///     documented InvalidArgument/TypeMismatch arity refusal)
+ /// </summary>
+ public class InterpreterBuiltinSetprecisionTests
+ {
+@@ -115,10 +116,16 @@ public class InterpreterBuiltinSetprecisionTests
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenTooManyArguments_ThrowsInvalidOperationException()
++    public async Task Evaluate_GivenTooManyArguments_ThrowsBuiltinArityException()
+     {
+         var expr = new CallExpr("setprecision", [new LiteralExpr("10"), new LiteralExpr("20")]);
+ 
+-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
++        // the documented arity refusal (docs/symbolics/dsh-protocol.md:187-195): a recoverable
++        // ARGUMENT error naming the builtin and both counts, never a domain error
++        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
++
++        Assert.Equal("setprecision(): expected 1 argument; got 2.", error.Message);
++        Assert.Equal("setprecision", error.Builtin);
++        Assert.Equal(2, error.Actual);
+     }
+ }
+diff --git a/Lovelace.Suite.Tests/InterpreterBuiltinSqrtTests.cs b/Lovelace.Suite.Tests/InterpreterBuiltinSqrtTests.cs
+index 197fde5..171fbe7 100644
+--- a/Lovelace.Suite.Tests/InterpreterBuiltinSqrtTests.cs
++++ b/Lovelace.Suite.Tests/InterpreterBuiltinSqrtTests.cs
+@@ -72,26 +72,37 @@ public class InterpreterBuiltinSqrtTests
+     }
+ 
+     // -----------------------------------------------------------------------
+-    // Test 22 — sqrt() with no arguments → InvalidOperationException
++    // Test 22 — sqrt() with no arguments → BuiltinArityException
++    //
++    // The documented arity refusal (docs/symbolics/dsh-protocol.md:187-195) is a recoverable
++    // ARGUMENT error: InvalidArgument / TypeMismatch on the wire, naming the builtin and both
++    // counts. BuiltinArityException (an ArgumentException) is that path.
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenSqrtWithNoArguments_ThrowsInvalidOperationException()
++    public async Task Evaluate_GivenSqrtWithNoArguments_ThrowsBuiltinArityException()
+     {
+         var expr = new CallExpr("sqrt", []);
+ 
+-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
++        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
++
++        Assert.Equal("sqrt(): expected 1 argument; got 0.", error.Message);
++        Assert.Equal("sqrt", error.Builtin);
++        Assert.Equal(0, error.Actual);
+     }
+ 
+     // -----------------------------------------------------------------------
+-    // Test 23 — sqrt(4, 9) with two arguments → InvalidOperationException
++    // Test 23 — sqrt(4, 9) with two arguments → BuiltinArityException
+     // -----------------------------------------------------------------------
+ 
+     [Fact]
+-    public async Task Evaluate_GivenSqrtWithTooManyArguments_ThrowsInvalidOperationException()
++    public async Task Evaluate_GivenSqrtWithTooManyArguments_ThrowsBuiltinArityException()
+     {
+         var expr = new CallExpr("sqrt", [new LiteralExpr("4"), new LiteralExpr("9")]);
+ 
+-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
++        var error = await Assert.ThrowsAsync<BuiltinArityException>(async () => await _evaluator.EvaluateAsync(expr));
++
++        Assert.Equal("sqrt(): expected 1 argument; got 2.", error.Message);
++        Assert.Equal(2, error.Actual);
+     }
+ }
+diff --git a/Lovelace.Suite/Functions.cs b/Lovelace.Suite/Functions.cs
+index 2e0046f..4ca1510 100644
+--- a/Lovelace.Suite/Functions.cs
++++ b/Lovelace.Suite/Functions.cs
+@@ -27,6 +27,21 @@ public sealed class FunctionDefinition
+     /// <summary><see langword="true"/> for native/built-in functions.</summary>
+     public bool IsBuiltin => Builtin is not null;
+ 
++    /// <summary>
++    /// The declared LOWER bound on the argument count (-1 ⇒ the declared parameter list is the
++    /// exact count). This is the declaration the call-site validator in <see cref="Interpreter"/>
++    /// enforces, together with <see cref="Parameters"/>.Count (the upper bound) and
++    /// <see cref="Variadic"/>: a builtin that legitimately accepts FEWER arguments than it declares
++    /// says so here instead of the validator being widened.
++    /// </summary>
++    public int MinArity { get; }
++
++    /// <summary>
++    /// True when the last declared parameter may repeat, which removes the upper bound on the
++    /// argument count. The lower bound stays <see cref="MinArity"/> (or the declared count).
++    /// </summary>
++    public bool Variadic { get; }
++
+     /// <summary>Source location, when known.</summary>
+     public SourceSpan? Span { get; }
+ 
+@@ -54,17 +69,93 @@ public sealed class FunctionDefinition
+         Builtin = null;
+         Span = span;
+         Documentation = documentation;
++        // a user function takes exactly its declared parameters: there is no shorter or longer form
++        MinArity = -1;
++        Variadic = false;
+     }
+ 
+     /// <summary>Creates a built-in function definition.</summary>
+-    public FunctionDefinition(string name, IReadOnlyList<string> parameters, BuiltinFunction builtin)
++    /// <param name="name">Builtin name as written in source.</param>
++    /// <param name="parameters">Ordered parameter names; the list is the declared signature.</param>
++    /// <param name="builtin">Native implementation.</param>
++    /// <param name="minArity">Declared lower bound on the argument count (-1 ⇒ exactly
++    /// <paramref name="parameters"/>.Count).</param>
++    /// <param name="variadic">True when the last declared parameter may repeat.</param>
++    public FunctionDefinition(string name, IReadOnlyList<string> parameters, BuiltinFunction builtin,
++        int minArity = -1, bool variadic = false)
+     {
+         Name = name;
+         Parameters = parameters;
+         Body = Array.Empty<Statement>();
+         Builtin = builtin;
++        MinArity = minArity;
++        Variadic = variadic;
+     }
+ 
+     public override string ToString() =>
+         $"{Name}({string.Join(", ", Parameters)})" + (IsBuiltin ? " [builtin]" : string.Empty);
++
++    /// <summary>
++    /// The declared lower bound on the argument count (the declared parameter list is the upper
++    /// bound, unless <see cref="Variadic"/> removes it). These two values plus the parameter list
++    /// are the whole arity declaration the call-site validator reads.
++    /// </summary>
++    public (int Min, int Max) DeclaredArity()
++    {
++        int declared = Parameters.Count;
++        int min = MinArity >= 0 ? Math.Min(MinArity, declared) : declared;
++        return (min, Variadic ? int.MaxValue : declared);
++    }
++}
++
++/// <summary>
++/// A call-site arity failure: typed and structural rather than a framework index error. It derives
++/// from <see cref="ArgumentException"/> so the runner's taxonomy classifies it as a RECOVERABLE
++/// argument error (code <c>InvalidArgument</c>, category <c>TypeMismatch</c>) instead of an internal
++/// invariant failure, and it names the builtin and both counts so the caller can fix the call
++/// without parsing prose:
++/// <c>compile_full(): expected 2 arguments; got 1.</c>
++/// <para>
++/// Thrown by the ONE call-site validator (<see cref="Interpreter"/>) from the builtin's declared
++/// metadata — never by a builtin body after it has already indexed an argument.
++/// </para>
++/// </summary>
++public sealed class BuiltinArityException : ArgumentException
++{
++    public BuiltinArityException(string builtin, int expectedMin, int expectedMax, bool variadic, int actual)
++        : base(Describe(builtin, expectedMin, expectedMax, variadic, actual))
++    {
++        Builtin = builtin;
++        ExpectedMin = expectedMin;
++        ExpectedMax = expectedMax;
++        Variadic = variadic;
++        Actual = actual;
++    }
++
++    /// <summary>The builtin whose declared arity the call violated.</summary>
++    public string Builtin { get; }
++
++    /// <summary>The declared minimum argument count.</summary>
++    public int ExpectedMin { get; }
++
++    /// <summary>The declared upper bound (<see cref="int.MaxValue"/> when <see cref="Variadic"/>).</summary>
++    public int ExpectedMax { get; }
++
++    /// <summary>True when the last declared parameter may repeat.</summary>
++    public bool Variadic { get; }
++
++    /// <summary>The argument count the call actually supplied.</summary>
++    public int Actual { get; }
++
++    private static string Describe(string builtin, int min, int max, bool variadic, int actual)
++    {
++        string expected = variadic
++            ? $"at least {min} {Argument(min)}"
++            : min == max
++                ? $"{min} {Argument(min)}"
++                : $"{min} to {max} arguments";
++        return $"{builtin}(): expected {expected}; got {actual}.";
++    }
++
++    private static string Argument(int count) => count == 1 ? "argument" : "arguments";
+ }
+diff --git a/Lovelace.Suite/Interpreter.cs b/Lovelace.Suite/Interpreter.cs
+index cfe7e12..33ef764 100644
+--- a/Lovelace.Suite/Interpreter.cs
++++ b/Lovelace.Suite/Interpreter.cs
+@@ -39,6 +39,15 @@ public sealed class Interpreter
+     private long _revision;
+     private readonly List<OperationTiming> _timings = [];
+ 
++    /// <summary>
++    /// Nesting depth of "relation preserving" argument evaluation: while this is non-zero the
++    /// interpreter is evaluating the arguments of a plugin-registered builtin, where a relational
++    /// comparison of two concrete operands is built as the SYMBOLIC relation (see
++    /// <see cref="EvaluateComparison"/>) instead of being folded to a Boolean. Restored by
++    /// try/finally, so an error inside an argument cannot leave the mode on.
++    /// </summary>
++    private int _relationPreservingDepth;
++
+     // -----------------------------------------------------------------
+     // Host-configurable settings
+     // -----------------------------------------------------------------
+@@ -192,11 +201,14 @@ public sealed class Interpreter
+         RegisterBuiltin(name, parameters, implementation, descriptor: null);
+ 
+     /// <summary>Registers a builtin; when a <see cref="BuiltinDescriptor"/> is supplied it is
+-    /// stored in <see cref="BuiltinDescriptors"/> for the help/funcs/completion surfaces.</summary>
++    /// stored in <see cref="BuiltinDescriptors"/> for the help/funcs/completion surfaces, and its
++    /// declared arity (<c>Parameters</c>/<c>MinArity</c>/<c>Variadic</c>) travels with the function
++    /// so the ONE call-site validator enforces exactly what the descriptor declares.</summary>
+     public void RegisterBuiltin(string name, IReadOnlyList<string> parameters, Func<IReadOnlyList<Value>, Value> implementation, BuiltinDescriptor? descriptor)
+     {
+         BuiltinFunction impl = args => Task.FromResult(implementation(args));
+-        _functions[name] = new FunctionDefinition(name, parameters, impl);
++        _functions[name] = new FunctionDefinition(name, parameters, impl,
++            descriptor?.MinArity ?? -1, descriptor?.Variadic ?? false);
+         if (descriptor is not null)
+             _builtinDescriptors[name] = descriptor;
+         RaiseFunctionDefined(_functions[name]);
+@@ -534,11 +546,18 @@ public sealed class Interpreter
+             : new Value(new Int(magnitude, Int.IsNegative(r)));
+     }
+ 
+-    private static Value EvaluateComparison(Value left, Value right, BinaryOp op)
++    private Value EvaluateComparison(Value left, Value right, BinaryOp op)
+     {
+         if (left.Kind == ValueKind.Symbolic || right.Kind == ValueKind.Symbolic)
+             return NumericOps.Apply(op, left, right);
+ 
++        // Inside the arguments of a plugin builtin the relation keeps its symbolic form (see
++        // EvaluateCallAsync): a comparison of two concrete numbers is still a relation the solver
++        // can decide, and folding it to a Boolean would erase the equation before the kernel sees
++        // it. Outside that channel the folded Boolean is the language's value, unchanged.
++        if (_relationPreservingDepth > 0 && TryRelation(left, right, op, out var relation))
++            return new Value(relation);
++
+         int cmp = NumericOps.Compare(left, right);
+ 
+         bool result = op switch
+@@ -555,6 +574,40 @@ public sealed class Interpreter
+         return new Value(result);
+     }
+ 
++    /// <summary>True for the value kinds a symbolic expression can represent exactly.</summary>
++    private static bool IsSymbolicConvertible(Value value) =>
++        value.Kind is ValueKind.Natural or ValueKind.Integer or ValueKind.Real or ValueKind.Complex;
++
++    /// <summary>
++    /// Builds the symbolic relation behind a comparison of two concrete operands. Returns false for
++    /// operand kinds symbolic expressions cannot carry (a comparison of those keeps its Boolean
++    /// semantics and its own error).
++    /// </summary>
++    private static bool TryRelation(Value left, Value right, BinaryOp op,
++        out Lovelace.Symbolics.Expr relation)
++    {
++        if (IsSymbolicConvertible(left) && IsSymbolicConvertible(right))
++        {
++            relation = Lovelace.Symbolics.Exprs.Relation(RelOpOf(op),
++                NumericOps.ToExpr(left), NumericOps.ToExpr(right));
++            return true;
++        }
++
++        relation = null!;
++        return false;
++    }
++
++    private static Lovelace.Symbolics.RelOp RelOpOf(BinaryOp op) => op switch
++    {
++        BinaryOp.Equal => Lovelace.Symbolics.RelOp.Eq,
++        BinaryOp.NotEqual => Lovelace.Symbolics.RelOp.Ne,
++        BinaryOp.Greater => Lovelace.Symbolics.RelOp.Gt,
++        BinaryOp.Less => Lovelace.Symbolics.RelOp.Lt,
++        BinaryOp.GreaterEqual => Lovelace.Symbolics.RelOp.Ge,
++        BinaryOp.LessEqual => Lovelace.Symbolics.RelOp.Le,
++        _ => throw new InvalidOperationException($"Operator '{op}' is not a relation."),
++    };
++
+ 
+     // -----------------------------------------------------------------
+     // Unary / postfix
+@@ -605,18 +658,47 @@ public sealed class Interpreter
+ 
+     private async Task<Value> EvaluateCallAsync(CallExpr call, Scope scope)
+     {
++        // The callee is resolved BEFORE the arguments are evaluated so the argument expressions can
++        // be evaluated in the mode the callee's channel needs. A missing function still reports the
++        // same way as before: the arguments are evaluated first, so an undefined variable inside a
++        // call to a missing function is still the error the caller sees.
++        _functions.TryGetValue(call.FunctionName, out var fn);
++
++        // A relation written as an argument to a symbolic plugin builtin crosses the payload seam as
++        // a RELATION, not as the Boolean its two concrete sides fold to. That is what makes
++        // solve(0 == 1, x) the provably empty equation instead of a type refusal: the symbolic
++        // kernel has no boolean constant, so folding the two numbers first would destroy the
++        // question the caller asked.
++        //
++        // The exception is a builtin that DECLARES a Boolean result (and/or/not): a condition
++        // consumer must keep receiving the evaluated Boolean, because a branch on not(0 == 1) is a
++        // branch on the folded value. Core builtins consume Values, so they fold as well.
++        bool symbolicChannel = fn is { IsBuiltin: true, PluginName: not null } && !DeclaresBooleanResult(fn.Name);
+         var args = new List<Value>(call.Arguments.Count);
+-        foreach (var a in call.Arguments)
+-            args.Add(await EvaluateAsync(a, scope));
++        if (symbolicChannel)
++            _relationPreservingDepth++;
++        try
++        {
++            foreach (var a in call.Arguments)
++                args.Add(await EvaluateAsync(a, scope));
++        }
++        finally
++        {
++            if (symbolicChannel)
++                _relationPreservingDepth--;
++        }
++
++        if (fn is null)
++            throw new InvalidOperationException($"Unknown function '{call.FunctionName}'.");
+ 
+-        if (_functions.TryGetValue(call.FunctionName, out var fn))
++        if (fn.IsBuiltin)
+         {
+-            if (fn.IsBuiltin)
+-                return await fn.Builtin!(args);
+-            return await CallUserFunctionAsync(fn, args);
++            // ONE validator, computed from the builtin's own declared metadata, before the body runs
++            ValidateArity(fn, args.Count);
++            return await fn.Builtin!(args);
+         }
+ 
+-        throw new InvalidOperationException($"Unknown function '{call.FunctionName}'.");
++        return await CallUserFunctionAsync(fn, args);
+     }
+ 
+     private async Task<Value> CallUserFunctionAsync(FunctionDefinition fn, IReadOnlyList<Value> args)
+@@ -1222,13 +1304,45 @@ public sealed class Interpreter
+         }
+     }
+ 
+-    private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl) =>
+-        _functions[name] = new FunctionDefinition(name, parameters, impl);
++    /// <summary>
++    /// Registers a core builtin. <paramref name="parameters"/> is the declared signature — the
++    /// upper bound on the argument count — and the optional <paramref name="minArity"/> /
++    /// <paramref name="variadic"/> complete the declaration the call-site validator reads. A builtin
++    /// that legitimately accepts fewer arguments than it declares (a trailing optional parameter)
++    /// or arbitrarily many (a repeating tail) says so HERE, in its metadata; the validator itself is
++    /// never widened and no builtin is special-cased by name.
++    /// </summary>
++    private void Register(string name, IReadOnlyList<string> parameters, BuiltinFunction impl,
++        int minArity = -1, bool variadic = false) =>
++        _functions[name] = new FunctionDefinition(name, parameters, impl, minArity, variadic);
+ 
+-    private static void RequireArity(string name, IReadOnlyList<Value> args, int expected)
++    /// <summary>
++    /// True when the builtin's DECLARED result is a Boolean (the condition consumers: and/or/not).
++    /// Such a builtin keeps receiving the folded Boolean, so the language's condition semantics are
++    /// unchanged; every other plugin builtin is a symbolic consumer and receives written relations
++    /// as relations.
++    /// </summary>
++    private bool DeclaresBooleanResult(string name) =>
++        _builtinDescriptors.TryGetValue(name, out var descriptor) &&
++        descriptor.ReturnKind.Contains("Boolean", StringComparison.Ordinal);
++
++    /// <summary>
++    /// The ONE arity validator: every builtin call is checked here, at the call site, before the
++    /// implementation body can run — so a body can never index an argument that was never supplied.
++    /// The bounds are computed from the builtin's DECLARED metadata
++    /// (<see cref="FunctionDefinition.Parameters"/>.Count is the upper bound,
++    /// <see cref="FunctionDefinition.MinArity"/> the lower bound and
++    /// <see cref="FunctionDefinition.Variadic"/> removes the upper bound), so a wrong-arity call
++    /// crosses in one documented shape — <see cref="BuiltinArityException"/>, a recoverable
++    /// argument error naming the builtin and both counts — and never as an internal invariant
++    /// failure. Nothing else in the engine decides arity.
++    /// </summary>
++    private static void ValidateArity(FunctionDefinition fn, int actual)
+     {
+-        if (args.Count != expected)
+-            throw new InvalidOperationException($"{name}() expects exactly {expected} argument(s), but got {args.Count}.");
++        var (min, max) = fn.DeclaredArity();
++        if (actual >= min && actual <= max)
++            return;
++        throw new BuiltinArityException(fn.Name, min, fn.Parameters.Count, fn.Variadic, actual);
+     }
+ 
+     /// <summary>Elementwise magnitude for complex arrays (the magnitude-spectrum idiom).</summary>
+@@ -1249,21 +1363,18 @@ public sealed class Interpreter
+         // type(x): the value-kind name; structured records report their type name
+         Register("type", ["x"], args =>
+         {
+-            RequireArity("type", args, 1);
+             return Task.FromResult<Value>(new Value(TypeNameOf(args[0])));
+         });
+ 
+         // inspect(x): structural introspection as a record (machine-readable — no prose parsing)
+         Register("inspect", ["x"], args =>
+         {
+-            RequireArity("inspect", args, 1);
+             return Task.FromResult<Value>(new Value(Inspect(args[0])));
+         });
+ 
+     // abs(x)
+         Register("abs", ["x"], args =>
+         {
+-            RequireArity("abs", args, 1);
+             var arg = args[0];
+             return Task.FromResult(arg.Kind switch
+             {
+@@ -1287,7 +1398,6 @@ public sealed class Interpreter
+         // inv(x) / inv(matrix)
+         Register("inv", ["x"], args =>
+         {
+-            RequireArity("inv", args, 1);
+             var arg = args[0];
+             if (arg.Kind == ValueKind.Array)
+             {
+@@ -1310,7 +1420,6 @@ public sealed class Interpreter
+         // inv_full(A): structured inverse with the det != 0 condition
+         Register("inv_full", ["x"], args =>
+         {
+-            RequireArity("inv_full", args, 1);
+             var av = args[0].AsArrayValue();
+             var (elements, shape) = PayloadElements(av);
+             var bridge = SymbolicMatrixBridge;
+@@ -1333,7 +1442,6 @@ public sealed class Interpreter
+         // matrix_rank(A): generic rank of a symbolic matrix (an exact integer constant)
+         Register("matrix_rank", ["a"], args =>
+         {
+-            RequireArity("matrix_rank", args, 1);
+             var av = args[0].AsArrayValue();
+             var (elements, shape) = PayloadElements(av);
+             var bridge = SymbolicMatrixBridge;
+@@ -1350,7 +1458,6 @@ public sealed class Interpreter
+         // valid under det(A) != 0 (the condition is implicit in the returned entries)
+         Register("linsolve", ["a", "b"], args =>
+         {
+-            RequireArity("linsolve", args, 2);
+             var av = args[0].AsArrayValue();
+             var bv = args[1].AsArrayValue();
+             var (elements, shape) = PayloadElements(av);
+@@ -1368,7 +1475,6 @@ public sealed class Interpreter
+         // linsolve_full(A, b): structured linear solve with the det(A) != 0 condition
+         Register("linsolve_full", ["a", "b"], args =>
+         {
+-            RequireArity("linsolve_full", args, 2);
+             var av = args[0].AsArrayValue();
+             var bv = args[1].AsArrayValue();
+             var (elements, shape) = PayloadElements(av);
+@@ -1390,7 +1496,6 @@ public sealed class Interpreter
+         // divrem(a, b)
+         Register("divrem", ["a", "b"], args =>
+         {
+-            RequireArity("divrem", args, 2);
+             var a = args[0];
+             var b = args[1];
+             (a, b) = Value.WidenPair(a, b);
+@@ -1406,7 +1511,6 @@ public sealed class Interpreter
+         // is_even(x)
+         Register("is_even", ["x"], args =>
+         {
+-            RequireArity("is_even", args, 1);
+             var arg = args[0];
+             bool result = arg.Kind switch
+             {
+@@ -1421,7 +1525,6 @@ public sealed class Interpreter
+         // is_odd(x)
+         Register("is_odd", ["x"], args =>
+         {
+-            RequireArity("is_odd", args, 1);
+             var arg = args[0];
+             bool result = arg.Kind switch
+             {
+@@ -1436,7 +1539,6 @@ public sealed class Interpreter
+         // sign(x)
+         Register("sign", ["x"], args =>
+         {
+-            RequireArity("sign", args, 1);
+             var arg = args[0];
+             var intArg = arg.Kind switch
+             {
+@@ -1450,7 +1552,6 @@ public sealed class Interpreter
+         // sqrt(x)
+         Register("sqrt", ["x"], async args =>
+         {
+-            RequireArity("sqrt", args, 1);
+             var arg = args[0];
+             if (arg.Kind == ValueKind.Symbolic)
+                 return new Value(Lovelace.Symbolics.Exprs.Power(arg.AsSymbolic(), Lovelace.Symbolics.Exprs.Rational(1, 2)));
+@@ -1468,60 +1569,41 @@ public sealed class Interpreter
+             return new Value(await Rl.SqrtAsync(real, SubProgress("sqrt")));
+         });
+ 
+-        // pi() / pi(digits)
++        // pi() / pi(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
+         Register("pi", ["digits"], async args =>
+         {
+-            switch (args.Count)
+-            {
+-                case 0:
+-                    return new Value(Rl.Pi);
++            if (args.Count == 0)
++                return new Value(Rl.Pi);
+ 
+-                case 1:
+-                {
+-                    var arg = args[0];
+-                    long digits = arg.Kind switch
+-                    {
+-                        ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+-                        ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+-                        _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+-                    };
+-                    return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
+-                }
+-
+-                default:
+-                    throw new InvalidOperationException($"pi() expects 0 or 1 argument, but got {args.Count}.");
+-            }
+-        });
++            var arg = args[0];
++            long digits = arg.Kind switch
++            {
++                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
++                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
++                _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
++            };
++            return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
++        }, minArity: 0);
+ 
+-        // e() / e(digits)
++        // e() / e(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
+         Register("e", ["digits"], async args =>
+         {
+-            switch (args.Count)
+-            {
+-                case 0:
+-                    return new Value(Rl.E);
+-
+-                case 1:
+-                {
+-                    var arg = args[0];
+-                    long digits = arg.Kind switch
+-                    {
+-                        ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
+-                        ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+-                        _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
+-                    };
+-                    return new Value(await Rl.EToAsync(digits, SubProgress("e")));
+-                }
++            if (args.Count == 0)
++                return new Value(Rl.E);
+ 
+-                default:
+-                    throw new InvalidOperationException($"e() expects 0 or 1 argument, but got {args.Count}.");
+-            }
+-        });
++            var arg = args[0];
++            long digits = arg.Kind switch
++            {
++                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
++                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
++                _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
++            };
++            return new Value(await Rl.EToAsync(digits, SubProgress("e")));
++        }, minArity: 0);
+ 
+         // setprecision(n) — raise both the computation cap and the display precision.
+         Register("setprecision", ["digits"], args =>
+         {
+-            RequireArity("setprecision", args, 1);
+             var arg = args[0];
+             long n = arg.Kind switch
+             {
+@@ -1536,17 +1618,16 @@ public sealed class Interpreter
+             return Task.FromResult(Value.Void);
+         });
+ 
+-        // print(values...)
++        // print(values...) — any number of values, including none (a blank line)
+         Register("print", ["values"], args =>
+         {
+             Output.WriteLine(string.Join(" ", args.Select(v => ValueFormatter.Format(v, UnicodeOutput))));
+             return Task.FromResult(Value.Void);
+-        });
++        }, minArity: 0, variadic: true);
+ 
+         // len(v) / len(array)
+         Register("len", ["v"], args =>
+         {
+-            RequireArity("len", args, 1);
+             var arg = args[0];
+             return arg.Kind switch
+             {
+@@ -1556,8 +1637,8 @@ public sealed class Interpreter
+             };
+         });
+ 
+-        // plot(...)
+-        Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)));
++        // plot(y) / plot(x, y) / plot(x, y, title) — the trailing positions are optional
++        Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)), minArity: 1);
+ 
+         RegisterArrayBuiltins();
+     }
+@@ -1680,7 +1761,9 @@ public sealed class Interpreter
+     /// <summary>Builds a Natural value from a non-negative long.</summary>
+     private static Value Natural(long n) => new Value(Nat.Parse(n.ToString(), null));
+ 
+-    /// <summary>Parses trailing arguments as dimension sizes.</summary>
++    /// <summary>Parses trailing arguments as dimension sizes. The call-site validator guarantees
++    /// at least one trailing argument for every caller (zeros/ones declare a variadic tail, reshape
++    /// declares an array plus that tail); the guard documents the helper's own precondition.</summary>
+     private static long[] ParseShape(IReadOnlyList<Value> args, int start, string name)
+     {
+         if (args.Count <= start)
+@@ -1699,19 +1782,26 @@ public sealed class Interpreter
+         return v.AsVector().Select(ToLong).ToArray();
+     }
+ 
+-    /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.</summary>
++    /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.
++    /// The argument COUNT is already guaranteed by the call-site validator (the axis is the declared
++    /// optional tail); the argument SHAPE is checked here, because a scalar handed to a reduction is
++    /// a caller-side mistake that must cross as a recoverable argument error — never as the raw CLR
++    /// cast failure it used to surface as.</summary>
+     private static Task<Value> ReduceBuiltin(
++        string name,
+         IReadOnlyList<Value> args,
+         Func<Value> empty,
+         Func<ArrayValue, Value> all,
+         Func<ArrayValue, long, ArrayValue> axis)
+     {
+-        return args.Count switch
+-        {
+-            1 => Task.FromResult(ReduceAllOrEmpty(args[0], empty, all)),
+-            2 => Task.FromResult(ReduceAxisResult(args[0], ToLong(args[1]), axis)),
+-            _ => throw new InvalidOperationException($"Expected 1 or 2 arguments, but got {args.Count}."),
+-        };
++        var input = args[0];
++        if (input.Kind is not (ValueKind.Vector or ValueKind.Array))
++            throw new ArgumentException(
++                $"{name}(): argument 1 must be an array or vector; got {input.Kind}.");
++
++        return args.Count == 1
++            ? Task.FromResult(ReduceAllOrEmpty(input, empty, all))
++            : Task.FromResult(ReduceAxisResult(input, ToLong(args[1]), axis));
+     }
+ 
+     /// <summary>Reduce-all with the D6 empty rule: an empty array yields the builtin's identity or error.</summary>
+@@ -1738,19 +1828,19 @@ public sealed class Interpreter
+ 
+     private void RegisterArrayBuiltins()
+     {
+-        // zeros(d1, …, dn) — Natural-seeded, no dtype arg (D7); supports zero-length dims (D5)
++        // zeros(d1, …, dn) — one or more dimensions; the tail repeats (variadic)
+         Register("zeros", ["dims"], args =>
+-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero))));
++            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero))),
++            variadic: true);
+ 
+         // ones(d1, …, dn)
+         Register("ones", ["dims"], args =>
+-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One))));
++            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One))),
++            variadic: true);
+ 
+-        // eye(n) / eye(r, c)
++        // eye(n) / eye(r, c) — the column count is optional
+         Register("eye", ["rows", "cols"], args =>
+         {
+-            if (args.Count != 1 && args.Count != 2)
+-                throw new InvalidOperationException($"eye() expects 1 or 2 arguments, but got {args.Count}.");
+             long rows = ToLong(args[0]);
+             long cols = args.Count == 2 ? ToLong(args[1]) : rows;
+             if (rows < 1 || cols < 1)
+@@ -1762,96 +1852,83 @@ public sealed class Interpreter
+             for (long i = 0; i < Math.Min(rows, cols); i++)
+                 buffer[(int)(i * cols + i)] = NumericOps.One;
+             return Task.FromResult(WrapArrayValue(TypedArrayAdapter.FromValues(buffer, new long[] { rows, cols })));
+-        });
++        }, minArity: 1);
+ 
+-        // reshape(a, d1, …, dn)
++        // reshape(a, d1, …, dn) — an array plus one or more dimensions; the tail repeats
+         Register("reshape", ["a", "dims"], args =>
+         {
+-            if (args.Count < 2)
+-                throw new InvalidOperationException("reshape() requires an array and one or more dimensions.");
+             var av = args[0].AsArrayValue();
+             return Task.FromResult(WrapArrayValue(av.Reshape(ParseShape(args, 1, "reshape"))));
+-        });
++        }, variadic: true);
+ 
+         // shape(a)
+         Register("shape", ["a"], args =>
+         {
+-            RequireArity("shape", args, 1);
+             return Task.FromResult<Value>(new Value(args[0].AsArrayValue().Shape.ToArray().Select(Natural).ToList()));
+         });
+ 
+         // rank(a) / ndims(a)
+         Register("rank", ["a"], args =>
+         {
+-            RequireArity("rank", args, 1);
+             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Rank));
+         });
+         Register("ndims", ["a"], args =>
+         {
+-            RequireArity("ndims", args, 1);
+             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Rank));
+         });
+ 
+         // numel(a)
+         Register("numel", ["a"], args =>
+         {
+-            RequireArity("numel", args, 1);
+             return Task.FromResult<Value>(Natural(args[0].AsArrayValue().Numel));
+         });
+ 
+         // flatten(a)
+         Register("flatten", ["a"], args =>
+         {
+-            RequireArity("flatten", args, 1);
+             var av = args[0].AsArrayValue();
+             return Task.FromResult(WrapArrayValue(av.Reshape(new[] { av.Numel })));
+         });
+ 
+-        // transpose(a) / transpose(a, perm)
++        // transpose(a) / transpose(a, perm) — the axis order is optional
+         Register("transpose", ["a", "perm"], args =>
+         {
+             var av = args[0].AsArrayValue();
+-            return args.Count switch
+-            {
+-                1 => Task.FromResult(WrapArrayValue(av.Transpose(null))),
+-                2 => Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1])))),
+-                _ => throw new InvalidOperationException($"transpose() expects 1 or 2 arguments, but got {args.Count}."),
+-            };
+-        });
++            return args.Count == 1
++                ? Task.FromResult(WrapArrayValue(av.Transpose(null)))
++                : Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1]))));
++        }, minArity: 1);
+ 
+         // squeeze(a)
+         Register("squeeze", ["a"], args =>
+         {
+-            RequireArity("squeeze", args, 1);
+             return Task.FromResult(WrapArrayValue(SqueezeArrayValue(args[0].AsArrayValue())));
+         });
+ 
+         // reductions: sum / prod / min / max / mean / norm (all + axis)
+-        Register("sum",  ["a", "axis"], args => ReduceBuiltin(args, () => NumericOps.Zero,     TypedArrayOps.SumAll,  TypedArrayOps.SumAxis));
+-        Register("prod", ["a", "axis"], args => ReduceBuiltin(args, () => NumericOps.One,      TypedArrayOps.ProdAll, TypedArrayOps.ProdAxis));
+-        Register("min",  ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("min"),   TypedArrayOps.MinAll,  TypedArrayOps.MinAxis));
+-        Register("max",  ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("max"),   TypedArrayOps.MaxAll,  TypedArrayOps.MaxAxis));
+-        Register("mean", ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("mean"),  TypedArrayOps.MeanAll, TypedArrayOps.MeanAxis));
+-        Register("norm", ["a", "axis"], args => ReduceBuiltin(args, EmptyReduceError("norm"),  TypedArrayOps.NormAll, TypedArrayOps.NormAxis));
++        // the axis is an OPTIONAL trailing parameter on all six: reduce-all or reduce-along-axis
++        Register("sum",  ["a", "axis"], args => ReduceBuiltin("sum",  args, () => NumericOps.Zero,   TypedArrayOps.SumAll,  TypedArrayOps.SumAxis),  minArity: 1);
++        Register("prod", ["a", "axis"], args => ReduceBuiltin("prod", args, () => NumericOps.One,    TypedArrayOps.ProdAll, TypedArrayOps.ProdAxis), minArity: 1);
++        Register("min",  ["a", "axis"], args => ReduceBuiltin("min",  args, EmptyReduceError("min"),  TypedArrayOps.MinAll,  TypedArrayOps.MinAxis),  minArity: 1);
++        Register("max",  ["a", "axis"], args => ReduceBuiltin("max",  args, EmptyReduceError("max"),  TypedArrayOps.MaxAll,  TypedArrayOps.MaxAxis),  minArity: 1);
++        Register("mean", ["a", "axis"], args => ReduceBuiltin("mean", args, EmptyReduceError("mean"), TypedArrayOps.MeanAll, TypedArrayOps.MeanAxis), minArity: 1);
++        Register("norm", ["a", "axis"], args => ReduceBuiltin("norm", args, EmptyReduceError("norm"), TypedArrayOps.NormAll, TypedArrayOps.NormAxis), minArity: 1);
+ 
+         // dot(a, b)
+         Register("dot", ["a", "b"], args =>
+         {
+-            RequireArity("dot", args, 2);
+             return Task.FromResult<Value>(TypedArrayOps.Dot(args[0].AsArrayValue(), args[1].AsArrayValue()));
+         });
+ 
+         // cross(a, b)
+         Register("cross", ["a", "b"], args =>
+         {
+-            RequireArity("cross", args, 2);
+             return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(args[0].AsArrayValue(), args[1].AsArrayValue())));
+         });
+ 
+         // matmul(a, b)
+         Register("matmul", ["a", "b"], args =>
+         {
+-            RequireArity("matmul", args, 2);
+             var a = args[0].AsArrayValue();
+             var b = args[1].AsArrayValue();
+             if (a.Rank == 1 && b.Rank == 1)
+@@ -1862,7 +1939,6 @@ public sealed class Interpreter
+         // det(m)
+         Register("det", ["m"], args =>
+         {
+-            RequireArity("det", args, 1);
+             var av = args[0].AsArrayValue();
+             var (elements, shape) = PayloadElements(av);
+             var bridge = SymbolicMatrixBridge;
+@@ -1878,23 +1954,19 @@ public sealed class Interpreter
+         // trace(m)
+         Register("trace", ["m"], args =>
+         {
+-            RequireArity("trace", args, 1);
+             return Task.FromResult<Value>(TypedArrayOps.Trace(args[0].AsArrayValue()));
+         });
+ 
+-        // concat(a, b) / concat(a, b, axis)
++        // concat(a, b) / concat(a, b, axis) — the axis is optional
+         Register("concat", ["a", "b", "axis"], args =>
+         {
+-            if (args.Count != 2 && args.Count != 3)
+-                throw new InvalidOperationException($"concat() expects 2 or 3 arguments, but got {args.Count}.");
+             long axis = args.Count == 3 ? ToLong(args[2]) : 0;
+             return Task.FromResult(WrapArrayValue(TypedArrayOps.Concat(args[0].AsArrayValue(), args[1].AsArrayValue(), axis)));
+-        });
++        }, minArity: 2);
+ 
+         // append(a, b) — vectors only
+         Register("append", ["a", "b"], args =>
+         {
+-            RequireArity("append", args, 2);
+             var a = args[0].AsArrayValue();
+             var b = args[1].AsArrayValue();
+             if (a.Rank != 1 || b.Rank != 1)
+diff --git a/Lovelace.Suite/ModusHost.cs b/Lovelace.Suite/ModusHost.cs
+index 877446b..931cf06 100644
+--- a/Lovelace.Suite/ModusHost.cs
++++ b/Lovelace.Suite/ModusHost.cs
+@@ -55,11 +55,11 @@ public sealed class ModusHost : IModusContext
+     public void RegisterArrayBuiltin(string name, Func<ArrayValue, ArrayValue> implementation)
+     {
+         GuardName(name);
++        // the declared arity (exactly one array argument) is registered with the function and is
++        // enforced by the ONE call-site validator before this body runs
+         _interpreter.RegisterBuiltin(name, new[] { "a" }, args =>
+         {
+             using var scope = PluginPrecisionScope();
+-            if (args.Count != 1)
+-                throw new InvalidOperationException($"{name}() expects exactly 1 argument, but got {args.Count}.");
+             var result = implementation(args[0].AsArrayValue());
+             return new Value(result, result.Rank == 1 ? ValueKind.Vector : ValueKind.Array);
+         });
+@@ -74,7 +74,6 @@ public sealed class ModusHost : IModusContext
+         GuardName(name);
+         _interpreter.RegisterBuiltin(name, parameters, args =>
+         {
+-            CheckArity(name, parameters, variadic: false, minArity: -1, args);
+             using var scope = PluginPrecisionScope();
+             return WrapResult(implementation(UnwrapArguments(args)));
+         });
+@@ -90,7 +89,6 @@ public sealed class ModusHost : IModusContext
+         GuardName(descriptor.Name);
+         _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
+         {
+-            CheckArity(descriptor.Name, descriptor.Parameters, descriptor.Variadic, descriptor.MinArity, args);
+             using var scope = PluginPrecisionScope();
+             return WrapResult(implementation(UnwrapArguments(args)));
+         }, descriptor);
+@@ -105,32 +103,12 @@ public sealed class ModusHost : IModusContext
+         GuardName(descriptor.Name);
+         _interpreter.RegisterBuiltin(descriptor.Name, descriptor.Parameters, args =>
+         {
+-            CheckArity(descriptor.Name, descriptor.Parameters, descriptor.Variadic, descriptor.MinArity, args);
+             using var scope = PluginPrecisionScope();
+             return WrapResult(implementation(UnwrapArguments(args)).Payload);
+         }, descriptor);
+         StampPlugin(descriptor.Name);
+     }
+ 
+-    /// <summary>
+-    /// Enforces the DECLARED arity once, before an implementation body can index an argument that
+-    /// was never supplied: <c>Parameters.Count</c> is the upper bound, <c>MinArity</c> the lower
+-    /// bound (<c>-1</c> means exactly the declared count) and <c>Variadic</c> removes the upper
+-    /// bound because the last declared parameter may repeat. A shorter call is legal only when the
+-    /// descriptor says so through <c>MinArity</c> — a metadata correction, never a name special
+-    /// case.
+-    /// </summary>
+-    private static void CheckArity(string name, IReadOnlyList<string> parameters, bool variadic,
+-        int minArity, IReadOnlyList<Value> args)
+-    {
+-        int declared = parameters.Count;
+-        int min = minArity >= 0 ? Math.Min(minArity, declared) : declared;
+-        int max = variadic ? int.MaxValue : declared;
+-        if (args.Count >= min && args.Count <= max)
+-            return;
+-        throw new BuiltinArityException(name, min, declared, variadic, args.Count);
+-    }
+-
+     private void GuardName(string name)
+     {
+         if (_interpreter.Functions.ContainsKey(name))
+@@ -207,51 +185,3 @@ public sealed class ModusHost : IModusContext
+ 
+     private static Value WrapResult(object? result) => PayloadMap.Wrap(result);
+ }
+-
+-/// <summary>
+-/// A call-site arity failure: typed and structural rather than a framework index error. It derives
+-/// from <see cref="ArgumentException"/> so the runner's taxonomy classifies it as a RECOVERABLE
+-/// argument error (code <c>InvalidArgument</c>, category <c>TypeMismatch</c>) instead of an internal
+-/// invariant failure, and it names the builtin and both counts so the caller can fix the call
+-/// without parsing prose:
+-/// <c>compile_full(): expected 2 arguments; got 1.</c>
+-/// </summary>
+-public sealed class BuiltinArityException : ArgumentException
+-{
+-    public BuiltinArityException(string builtin, int expectedMin, int expectedMax, bool variadic, int actual)
+-        : base(Describe(builtin, expectedMin, expectedMax, variadic, actual))
+-    {
+-        Builtin = builtin;
+-        ExpectedMin = expectedMin;
+-        ExpectedMax = expectedMax;
+-        Variadic = variadic;
+-        Actual = actual;
+-    }
+-
+-    /// <summary>The builtin whose declared arity the call violated.</summary>
+-    public string Builtin { get; }
+-
+-    /// <summary>The declared minimum argument count.</summary>
+-    public int ExpectedMin { get; }
+-
+-    /// <summary>The declared upper bound (<see cref="int.MaxValue"/> when <see cref="Variadic"/>).</summary>
+-    public int ExpectedMax { get; }
+-
+-    /// <summary>True when the last declared parameter may repeat.</summary>
+-    public bool Variadic { get; }
+-
+-    /// <summary>The argument count the call actually supplied.</summary>
+-    public int Actual { get; }
+-
+-    private static string Describe(string builtin, int min, int max, bool variadic, int actual)
+-    {
+-        string expected = variadic
+-            ? $"at least {min} {Argument(min)}"
+-            : min == max
+-                ? $"{min} {Argument(min)}"
+-                : $"{min} to {max} arguments";
+-        return $"{builtin}(): expected {expected}; got {actual}.";
+-    }
+-
+-    private static string Argument(int count) => count == 1 ? "argument" : "arguments";
+-}
+diff --git a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+index 62759da..eb3a0a5 100644
+--- a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
++++ b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+@@ -206,10 +206,12 @@ public class CapabilitiesBuiltinTests
+     /// cannot drift into an overclaim (Exhaustive while these exist) or silently keep an
+     /// underclaim it no longer needs.
+     /// <para>
+-    /// The three cast failures are audit finding F4: a caller-side argument error surfacing as
+-    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> with a raw CLR message. They are
+-    /// deliberately NOT advertised as capability boundaries, because the truth there is a defect,
+-    /// not a limit — which is exactly why the enumeration cannot call itself exhaustive.
++    /// The first three probes are audit finding F4: a caller-side argument error surfacing as
++    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> with a raw CLR message. That defect is
++    /// REPAIRED — a scalar handed to a reduction is now a typed argument error
++    /// (<c>InvalidArgument</c>/<c>TypeMismatch</c>) — so the probes below pin the repair instead of
++    /// the defect. The refusals that keep the verdict at BestEffort are the parse layer and the Real
++    /// type's zero base: live, unlisted, and carrying codes no advertised entry claims.
+     /// </para>
+     /// </summary>
+     [Fact]
+@@ -241,8 +243,12 @@ public class CapabilitiesBuiltinTests
+                 e => e.Code == code && e.Category == category && e.Message == message);
+         }
+ 
+-        // the decisive part: these refusals are live, unlisted, and carry a code no entry claims
+-        Assert.Contains("InternalError/InternalInvariantFailure", observed);
++        // the decisive part: these refusals are live, unlisted (asserted row by row above), and at
++        // least one of them is a CALLER-SIDE ARGUMENT ERROR — which must never surface as an
++        // internal invariant failure (docs/symbolics/dsh-protocol.md:187-195). The first three
++        // probes used to; if that regresses, this assertion names the probe list.
++        Assert.Contains("InvalidArgument/TypeMismatch", observed);
++        Assert.DoesNotContain("InternalError/InternalInvariantFailure", observed);
+         Assert.DoesNotContain(advertised.Values, e => e.Code == "InternalError");
+         _output.WriteLine("live refusals the enumeration does not carry: " + string.Join(" | ", observed));
+     }

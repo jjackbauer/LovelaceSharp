@@ -15,5 +15,7 @@
       "column": 1
     }
   ],
-  "elapsed": "<volatile>"
+  "elapsed": "<volatile>",
+  "elapsedTime": "<volatile>",
+  "timings": "<volatile>"
 }

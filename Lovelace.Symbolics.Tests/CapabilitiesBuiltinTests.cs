@@ -206,10 +206,12 @@ public class CapabilitiesBuiltinTests
     /// cannot drift into an overclaim (Exhaustive while these exist) or silently keep an
     /// underclaim it no longer needs.
     /// <para>
-    /// The three cast failures are audit finding F4: a caller-side argument error surfacing as
-    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> with a raw CLR message. They are
-    /// deliberately NOT advertised as capability boundaries, because the truth there is a defect,
-    /// not a limit — which is exactly why the enumeration cannot call itself exhaustive.
+    /// The first three probes are audit finding F4: a caller-side argument error surfacing as
+    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> with a raw CLR message. That defect is
+    /// REPAIRED — a scalar handed to a reduction is now a typed argument error
+    /// (<c>InvalidArgument</c>/<c>TypeMismatch</c>) — so the probes below pin the repair instead of
+    /// the defect. The refusals that keep the verdict at BestEffort are the parse layer and the Real
+    /// type's zero base: live, unlisted, and carrying codes no advertised entry claims.
     /// </para>
     /// </summary>
     [Fact]
@@ -241,8 +243,12 @@ public class CapabilitiesBuiltinTests
                 e => e.Code == code && e.Category == category && e.Message == message);
         }
 
-        // the decisive part: these refusals are live, unlisted, and carry a code no entry claims
-        Assert.Contains("InternalError/InternalInvariantFailure", observed);
+        // the decisive part: these refusals are live, unlisted (asserted row by row above), and at
+        // least one of them is a CALLER-SIDE ARGUMENT ERROR — which must never surface as an
+        // internal invariant failure (docs/symbolics/dsh-protocol.md:187-195). The first three
+        // probes used to; if that regresses, this assertion names the probe list.
+        Assert.Contains("InvalidArgument/TypeMismatch", observed);
+        Assert.DoesNotContain("InternalError/InternalInvariantFailure", observed);
         Assert.DoesNotContain(advertised.Values, e => e.Code == "InternalError");
         _output.WriteLine("live refusals the enumeration does not carry: " + string.Join(" | ", observed));
     }

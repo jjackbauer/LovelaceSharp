@@ -141,7 +141,8 @@ public static class Runner
             }
             catch (Exception ex)
             {
-                return WriteError(stdout, stderr, json, "FileReadError", "ParseError", $"Cannot read script file '{file}': {ex.Message}", recoverable: true, Array.Empty<DiagnosticDto>(), "0 ms");
+                // no engine ran and no statement executed, so the durations are zero and empty
+                return WriteError(stdout, stderr, json, "FileReadError", "ParseError", $"Cannot read script file '{file}': {ex.Message}", recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>());
             }
         }
         else if (stdinMode)
@@ -216,13 +217,7 @@ public static class Runner
                 plot,
                 engine.LastElapsedDisplay,
                 Duration(engine.LastElapsed),
-                engine.OperationTimings
-                    .Select(t => new TimingDto(
-                        t.Position,
-                        new DurationDto(t.ElapsedScale.Value, t.ElapsedScale.Unit),
-                        t.Result.Kind.ToString(),
-                        t.Output.Length > 0))
-                    .ToArray());
+                Timings(engine.OperationTimings));
 
             if (json)
                 WriteJson(stdout, envelope, RunJsonContext.Default.RunEnvelopeDto);
@@ -246,8 +241,10 @@ public static class Runner
                     .Select(v => new VariableDto(v.Name, v.Kind.ToString(), v.Display))
                     .ToArray()
                 : null;
+            // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
+            // from one unit selector and one timing entry per statement that ran before the failure
             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
-                engine.LastElapsedDisplay, partialOutput, partialVariables);
+                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables);
         }
     }
 
@@ -280,13 +277,17 @@ public static class Runner
 
     private static int WriteError(TextWriter stdout, TextWriter stderr,
         bool json, string code, string category, string message, bool recoverable,
-        DiagnosticDto[] diagnostics, string elapsed,
+        DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
         string[]? output = null, VariableDto[]? variables = null)
     {
         if (json)
         {
+            // the error envelope carries the human string AND the structural duration produced by the
+            // SAME unit selector (Timing.Scale behind both Timing.Format and Duration), so the two
+            // forms can never disagree — exactly like the success envelope
             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
-                false, code, category, message, recoverable, diagnostics, elapsed, output, variables),
+                false, code, category, message, recoverable, diagnostics,
+                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables),
                 RunJsonContext.Default.RunErrorDto);
         }
         else
@@ -305,8 +306,31 @@ public static class Runner
         return new DurationDto(value, unit);
     }
 
-    private static string[] SplitLines(string text) =>
-        text.Length == 0 ? Array.Empty<string>() : text.TrimEnd('\r', '\n').Split('\n');
+    /// <summary>One wire timing per top-level statement that ran, in statement order.</summary>
+    private static TimingDto[] Timings(IReadOnlyList<Lovelace.Suite.OperationTiming> timings) =>
+        timings.Select(t => new TimingDto(
+            t.Position,
+            new DurationDto(t.ElapsedScale.Value, t.ElapsedScale.Unit),
+            t.Result.Kind.ToString(),
+            t.Output.Length > 0))
+        .ToArray();
+
+    /// <summary>
+    /// The script's captured print output as LINES. The capture path terminates every line with
+    /// <see cref="Environment.NewLine"/>, so on Windows each element but the last used to keep the
+    /// \r of the terminator — an artifact of the host's line separator, not something the script
+    /// printed. The envelope's output array carries the line, never its terminator.
+    /// </summary>
+    private static string[] SplitLines(string text)
+    {
+        if (text.Length == 0)
+            return Array.Empty<string>();
+
+        string[] lines = text.TrimEnd('\r', '\n').Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+            lines[i] = lines[i].TrimEnd('\r');
+        return lines;
+    }
 
     private static void PrintText(TextWriter stdout, RunEnvelopeDto envelope)
     {
