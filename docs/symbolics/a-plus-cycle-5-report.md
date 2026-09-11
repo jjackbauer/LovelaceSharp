@@ -154,3 +154,55 @@ cycle ran the audit *early* and it paid exactly the same way: the system solver'
 truncation exact, and the additive collapse to zero were all invisible to the item list and all found by
 adversaries in under an hour. Two of them are now closed, one is in flight, and one is the reason the
 grade is withheld.
+
+---
+
+## 7. Wave-2 update (appended; it supersedes the numbers in §4 and the open list in §5)
+
+Between the first draft of this report and now, **eight further commits** landed, each applied to the main
+tree, tested and committed by the orchestrator: `a0a70a6` `86a5fc8` `49f5a4c` `952c761` `40b96d9`
+`d8f03d4` `0a75c3f` `1aa7182`. What they closed:
+
+* **the infinite-family completeness claim** — `solve_full(exp(x) == c, x)` published one member of
+  `log(c) + 2*pi*k*i` with `complete: true`; it now publishes the exact family, and where the family
+  cannot be represented the answer is `Unevaluated`;
+* **the circular "solution"** — `exp(x) == x` answered `log(x)`; a solution value or family template
+  that mentions the solved symbol is now refused at the publication boundary;
+* **the indeterminate limit** — `limit((1+1/x)^x, x, inf)` answered `1`; it now answers `e`, and
+  `(1+2/x)^x` answers `e^2` (SymPy agreeing), with a valueless record reporting
+  `SolutionExactness.None` instead of inheriting `Exact`;
+* **the deep runtime value** — `x = 1; x = [x];` repeated 12 000 times killed the process with
+  `0xC00000FD` and **zero bytes on stdout**; it now crosses as `DepthExceeded/BudgetExceeded`;
+* **trig at the runner's own `pi(100)`** — `sin(pi(100)*2)` returned `+1e-30` marked exact; through
+  the wire it is now `−1.642961730265646132941e-100`, and `tan(pi(100)/2)` is `2.4346…e100` instead of
+  a division-by-zero refusal;
+* **`0.(9) == 1`** is true, and `(5/6)/(7/11)` keeps the exactness its multiplication twin had;
+* **the exactness regression this cycle introduced** — `evalf` of a truncated transcendental reported
+  `exact: true` with a rational form where `9228305` reported `exact: false`; the re-parse in
+  `ComplexMath.TruncateFrac` was dropping the provenance flag, and it no longer is;
+* **the machine-API cluster** — `variables[].structured`, `functions[]` arity metadata, a total
+  `--print-budget`, `divrem` as a record, `inspect(<Real>).exact`, `evalf` honouring its digit count,
+  structured `assumptions()`, `solve` returning the record `solve_full` does, and the protocol
+  document's two stale examples corrected to match the binary.
+
+**Re-measured on the merged tree (commit `1aa7182`)**: Complex **96/0**, Real **2475/0** (plus the
+uninstrumented timing assertion 1/0), Suite **813/0**, Symbolics **1031/0** with the SymPy oracle
+required and 0 skipped, Run **175/0**, Dsp **61/0**, precbench **13/0**. CI has run green on a GitHub
+runner (run #15) and the push is current.
+
+**The open list is now four items**, not seven:
+
+1. `RealLiteral.FromRealExact` (`Lovelace.Symbolics/Expr.cs:82`) drops provenance, so
+   `evalf(sin(pi*1/6), 40)` still reports `exact: true` with a rational form;
+2. `--cancel-after` is ignored inside array/numeric kernels (`sum(1..10000000)` with a 1 ms budget ran
+   4.9–6.0 s and returned `ok: true`, with no field reporting the overrun);
+3. `evalf(f, 0)` raises an internal invariant failure (pre-existing on both trees);
+4. `capabilities()` under-claims `(-4)^(1/2)`, which succeeds, and three refusals remain unlisted.
+
+Also recorded and not fixed: `Real.Sin` of a periodic argument ignores the period (pre-existing,
+byte-identical on `9228305`); and three special-angle lines now show their true residuals instead of a
+hard zero — a deliberate trade made by the round that fixed the π resolution, documented there.
+
+**D1 remains unmet and A+ is therefore not claimed**: a fresh adversarial audit found these, and four of
+its P0/P1 rows are still open. Sections O.2 and `audit2/` carry the reproductions; `state.md` carries the
+commit-by-commit ledger.

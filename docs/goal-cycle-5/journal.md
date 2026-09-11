@@ -432,3 +432,64 @@
 - **Rationale**: a regression introduced by this cycle outranks a pre-existing defect of the same
   severity — it is the one thing the cycle's own evidence discipline is supposed to prevent.
 - **Related**: EVD-229, EVD-230
+
+---
+
+## Reconciliation — the record fell three rounds behind
+
+### OBS-016: evidence.md was kept current; nothing else was
+
+- **Source**: file timestamps and the commit log, checked in this round
+- **Fact**: when the user asked whether I had failed on memory, `evidence.md` was current through
+  `EVD-236` (written after each landing), but `state.md` still named `40b96d9` as the tip three commits
+  earlier, still said "seven open" when four are, and still described two rounds as "in flight" that had
+  both delivered and been committed. `journal.md` had no entry for six landed rounds; the report still
+  carried the pre-wave-2 numbers; `deliverables.md` had no row for the audit-2 reports or the later
+  patches.
+- **Implications**: a state file that looks authoritative and is three commits stale is worse than no
+  state file — the next round (or a fresh context) would plan against a tree that no longer exists. The
+  harness's RECORD step is not bookkeeping; it is the only thing that survives context loss, and I let
+  it lapse exactly when the rounds were landing fastest.
+- **Confidence**: High
+- **Agent**: orchestrator
+- **Related**: DEC-009
+
+### DEC-009: every landing round ends with the RECORD step, or the landing is not finished
+
+- **Decision**: from here, a round is "landed" only when evidence.md, state.md, journal.md and
+  deliverables.md all reflect it; the report is refreshed at the same time when its numbers move.
+- **Rationale**: 16 commits of verified work were in the repository while the harness memory described a
+  tree three commits older. The verification was real; the record of it was not, which makes the
+  verification uninheritable.
+- **Alternatives considered**: reconstructing the journal from the commit log alone — rejected as
+  rewriting history in the one file that must stay append-only; the gap is recorded instead (OBS-016).
+- **Related**: OBS-016
+
+### OBS-017: six rounds landed after the round-2 close, each verified before its commit
+
+- **Source**: `git log --oneline 8aba7ee..1aa7182`
+- **Fact**: `d8f03d4` (a deep runtime value crosses as `DepthExceeded` — it was `0xC00000FD` with zero
+  bytes on stdout), `0a75c3f` + `1aa7182` (trig reduces against a π that resolves the argument;
+  `0.(9) == 1`; division keeps its exactness; and through the wire `sin(pi(100)*2)` = −1.6429…e-100,
+  `tan(pi(100)/2)` = 2.4346…e100, and `evalf` of a truncated transcendental is inexact again — the
+  regression cycle 5 introduced, closed). Merged-tree totals: Complex 96/0, Real 2475/0, Suite 813/0,
+  Symbolics 1031/0 (SymPy oracle required), Run 175/0.
+- **Implications**: the open list fell from seven to four items; all six Tier-0 defects and eight of
+  audit wave 2's P0/P1 defects are now closed with tests that fail on the pre-fix tree.
+- **Confidence**: High
+- **Agent**: orchestrator (each patch applied, suites run and committed by me)
+- **Related**: EVD-235
+
+### OBS-018: a delivery's most alarming claim did not survive my own re-run
+
+- **Source**: EVD-236
+- **Fact**: the complex round reported `Lovelace.Suite.Tests` aborting with a test-host stack overflow
+  "identical on the control tree". On the main tree, same patch, same command: 813 passed / 0 failed /
+  0 skipped, twice.
+- **Implications**: the abort was that agent's environment (several worktrees building concurrently),
+  not the product. Filing it as reported would have put a P0 in the record that does not exist — the
+  mirror image of the failure mode the harness is built against, and the reason every agent claim is
+  re-run before it is believed.
+- **Confidence**: High
+- **Agent**: orchestrator
+- **Related**: EVD-236

@@ -15,3 +15,6 @@
 | ART-011 | Baseline and final measurements | `docs/goal-cycle-5/baseline/`, `docs/goal-cycle-5/final/` | evidence | EVD-202, §4 | High |
 | ART-012 | Cycle-5 amendment (section O) | `docs/symbolics/a-plus-cycle-5-amendment.md` | plan | — | Medium |
 | ART-013 | Cycle-5 report | `docs/symbolics/a-plus-cycle-5-report.md` | report | EVD-201… | High |
+| ART-014 | Audit wave 2, four independent reports | `docs/goal-cycle-5/audit2/` (B1 1323 probes, B2 307 invocations, B3 278 probes, B4 ~330 probes) | evidence | EVD-232, EVD-234 | High |
+| ART-015 | Round patches 12–19 (wire-3a/3b, exact-flag, solver family, limits, value depth, real trig/equality/division, complex) | `docs/goal-cycle-5/patches/r12…r19-*.diff` | implementation | EVD-233, EVD-235 | High |
+| ART-016 | Golden regeneration and depth/nullable helper scripts | `docs/goal-cycle-5/regen-fixture.ps1`, `attrib-probes.ps1` | evidence | EVD-233, EVD-229 | High |
