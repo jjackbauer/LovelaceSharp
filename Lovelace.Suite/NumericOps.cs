@@ -53,7 +53,7 @@ public static class NumericOps
             (BinaryOp.Multiply, ValueKind.Integer) => new Value(left.AsInteger() * right.AsInteger()),
             (BinaryOp.Divide,   ValueKind.Integer) => DivideInteger(left, right),
             (BinaryOp.Modulo,   ValueKind.Integer) => new Value(left.AsInteger() % right.AsInteger()),
-            (BinaryOp.Power,    ValueKind.Integer) => new Value(left.AsInteger().Pow(right.AsInteger())),
+            (BinaryOp.Power,    ValueKind.Integer) => IntegerPower(left.AsInteger(), right.AsInteger()),
 
             // ---- Real arithmetic ----
             (BinaryOp.Add,      ValueKind.Real) => ApplyRealBinary(BinaryOp.Add, left.AsReal(), right.AsReal()),
@@ -220,6 +220,28 @@ public static class NumericOps
             var rightInt = right.Widen(ValueKind.Integer);
             return new Value(leftInt.AsInteger() - rightInt.AsInteger());
         }
+    }
+
+    /// <summary>
+    /// Integer raised to an integer power, with a NEGATIVE exponent supported as the reciprocal
+    /// power: <c>x^-n</c> is <c>1 / x^n</c>, computed in exact Real arithmetic, so <c>2^-1</c> is
+    /// the very value the language already produces for the literal <c>1/2</c> and <c>3^-2</c>
+    /// the one it produces for <c>1/9</c>.
+    /// <para>
+    /// A zero base is delegated to <see cref="Int.Pow"/>: <c>0^-n</c> has no value in any field,
+    /// and the integer type refuses it with a typed, recoverable error that names the base — so
+    /// there is exactly one spelling of that failure in the codebase.
+    /// </para>
+    /// </summary>
+    private static Value IntegerPower(Int baseValue, Int exponent)
+    {
+        if (!Int.IsNegative(exponent) || Int.IsZero(baseValue))
+            return new Value(baseValue.Pow(exponent));
+
+        var magnitude = baseValue.Pow(exponent.Negate());
+        return new Value(Rl.Divide(
+            new Value(Int.One).Widen(ValueKind.Real).AsReal(),
+            new Value(magnitude).Widen(ValueKind.Real).AsReal()));
     }
 
     private static Value DivideNatural(Value left, Value right)

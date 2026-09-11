@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -517,6 +518,44 @@ public sealed class Natural :
         return DivRem(a, Gcd(a, b), out _) * b;
     }
 
+    // -------------------------------------------------------------------------
+    // Cancellation (N17)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Operand size (64-bit limbs) from which one product can take milliseconds. Only operations
+    /// this large pay for an ambient cancellation poll: a poll is an AsyncLocal read, so charging
+    /// it to the small-operand products that dominate ordinary arithmetic would tax the hot path.
+    /// 4096 limbs ≈ 256 Kibit ≈ 78 000 decimal digits; the unpolled stretch is then bounded by the
+    /// work of one such subtree (a few milliseconds), not by the whole statement.
+    /// </summary>
+    private const int CancellationPollLimbs = 4096;
+
+    /// <summary>Limb-multiplies of work between polls inside a single long product (≈ 2–4 ms).</summary>
+    private const long CancellationPollWork = 4_000_000;
+
+    /// <summary>Polls the ambient evaluation token once an operation is large enough for the poll
+    /// to be free relative to the work it guards. The token is installed by the host around the
+    /// whole evaluation (<c>Lovelace.Abstractions.Cancellation.Scope</c>) and flows into every
+    /// thread that joins a parallel product, so this is the same seam the symbolic kernels use.</summary>
+    private static void PollCancellation(int limbs)
+    {
+        if (limbs >= CancellationPollLimbs)
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
+    }
+
+    /// <summary>Re-raises the cancellation a <see cref="Parallel"/> body observed. <c>Parallel.For</c>
+    /// and <c>Parallel.Invoke</c> wrap body exceptions in <see cref="AggregateException"/>, which the
+    /// engine does not classify as cancellation; unwrapping keeps the typed path intact.</summary>
+    private static void RethrowIfCancelled(AggregateException ex)
+    {
+        if (ex.InnerException is OperationCanceledException cancelled)
+            ExceptionDispatchInfo.Capture(cancelled).Throw();
+    }
+
+    /// <summary>Limb count without forcing a representation change beyond what the caller needs.</summary>
+    private int GetLimbCount() => GetLimbs().Length;
+
     /// <summary>
     /// Raises this instance to the power of <paramref name="exponent"/> using binary
     /// (repeated-squaring) exponentiation.
@@ -532,6 +571,9 @@ public sealed class Natural :
 
         while (!IsZero(e))
         {
+            // N17: one squaring of a large base can run for seconds, so the binary-exponentiation
+            // loop polls at its head. The gate keeps the (cheap) poll off small operands.
+            PollCancellation(Math.Max(b.GetLimbCount(), result.GetLimbCount()));
             if (IsOddInteger(e))
                 result *= b;
             b *= b;
@@ -552,6 +594,9 @@ public sealed class Natural :
         int processorCount = Environment.ProcessorCount;
         if (!ulong.TryParse(ToString(), out ulong n) || n <= (ulong)(processorCount * 2))
         {
+            // N17: this branch is bounded by 2 x ProcessorCount factors (tens of iterations at most),
+            // so it needs no poll; the unbounded factor range is the parallel branch below, and the
+            // products themselves poll inside MultiplyCore.
             var seqResult = s_one;
             for (var aux = new Natural(2UL); aux <= this; aux++)
                 seqResult *= aux;
@@ -566,23 +611,39 @@ public sealed class Natural :
         ulong rangeSize = (totalFactors + (ulong)t - 1UL) / (ulong)t;
 
         int completed = 0;
-        Parallel.For(0, t, i =>
+        try
         {
-            ulong start = 2UL + (ulong)i * rangeSize;
-            ulong end = start + rangeSize - 1UL;
-            if (end > n) end = n;
-            if (start > n)
+            Parallel.For(0, t, i =>
             {
-                progress?.Report((double)Interlocked.Increment(ref completed) / t);
-                return;
-            }
+                ulong start = 2UL + (ulong)i * rangeSize;
+                ulong end = start + rangeSize - 1UL;
+                if (end > n) end = n;
+                if (start > n)
+                {
+                    progress?.Report((double)Interlocked.Increment(ref completed) / t);
+                    return;
+                }
 
-            var sub = s_one;
-            for (ulong k = start; k <= end; k++)
-                sub *= new Natural(k);
-            partials[i] = sub;
-            progress?.Report((double)Interlocked.Increment(ref completed) / t);
-        });
+                var sub = s_one;
+                for (ulong k = start; k <= end; k++)
+                {
+                    // N17: the factor range is unbounded (n can be astronomically large), so poll
+                    // every 4096 factors. One iteration of this loop is a multiply of a value that
+                    // grows to megabytes; the stride is free by comparison, and the value-sized
+                    // polls inside the multipliers cover the tail where a single product is slow.
+                    if ((k & 4095UL) == 0)
+                        Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
+                    sub *= new Natural(k);
+                }
+                partials[i] = sub;
+                progress?.Report((double)Interlocked.Increment(ref completed) / t);
+            });
+        }
+        catch (AggregateException ex)
+        {
+            RethrowIfCancelled(ex);
+            throw;
+        }
 
         var result = s_one;
         foreach (var p in partials)
@@ -766,8 +827,18 @@ public sealed class Natural :
     private static ulong[] SchoolbookMultiply(ulong[] a, ulong[] b)
     {
         var r = new ulong[a.Length + b.Length];
+        // A single schoolbook product is unbounded when one operand is long (e.g. 40 × 15M limbs
+        // is ~600M limb-multiplies). Poll once per ~4M limb-multiplies of work: rows are b.Length
+        // wide, so the stride is a row count computed once per call, never per row. Small products
+        // take rowStride == 0 and never touch the token.
+        int rowStride = 0;
+        long work = (long)a.Length * b.Length;
+        if (work >= CancellationPollWork)
+            rowStride = (int)Math.Max(1L, CancellationPollWork / Math.Max(1, b.Length));
         for (int i = 0; i < a.Length; i++)
         {
+            if (rowStride != 0 && i % rowStride == 0)
+                Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
             ulong ai = a[i];
             if (ai == 0) continue;
 
@@ -818,6 +889,12 @@ public sealed class Natural :
     private static ulong[] MultiplyCore(ulong[] a, ulong[] b, int depth)
     {
         if (a.Length == 0 || b.Length == 0) return Array.Empty<ulong>();
+
+        // N17: the recursion head is the choke point for a product that can run for minutes. The
+        // gate means every node above ~78k digits polls, so no more than one such subtree's work
+        // elapses between polls; smaller nodes only pay one integer compare.
+        PollCancellation(Math.Min(a.Length, b.Length));
+
         if (a.Length <= KaratsubaThreshold || b.Length <= KaratsubaThreshold)
             return SchoolbookMultiply(a, b);
 
@@ -849,10 +926,18 @@ public sealed class Natural :
             // The three sub-products a0·b0, a1·b1, (a0+a1)·(b0+b1) are independent; compute
             // them concurrently, then apply only the cheap O(n) recombination serially.
             z0 = null!; z1 = null!; z2 = null!;
-            Parallel.Invoke(
-                () => z0 = MultiplyCore(a0, b0, depth + 1),
-                () => z1 = MultiplyCore(sumA, sumB, depth + 1),
-                () => z2 = MultiplyCore(a1, b1, depth + 1));
+            try
+            {
+                Parallel.Invoke(
+                    () => z0 = MultiplyCore(a0, b0, depth + 1),
+                    () => z1 = MultiplyCore(sumA, sumB, depth + 1),
+                    () => z2 = MultiplyCore(a1, b1, depth + 1));
+            }
+            catch (AggregateException ex)
+            {
+                RethrowIfCancelled(ex);
+                throw;
+            }
             z1 = SubRaw(z1, z0);
             z1 = SubRaw(z1, z2);
         }
@@ -885,14 +970,22 @@ public sealed class Natural :
         int chunks = (big.Length + m - 1) / m;
         var partials = new ulong[chunks][];
 
-        Parallel.For(0, chunks, i =>
+        try
         {
-            int start = i * m;
-            int len = Math.Min(m, big.Length - start);
-            var block = new ulong[len];
-            Array.Copy(big, start, block, 0, len);
-            partials[i] = Multiply(block, small);
-        });
+            Parallel.For(0, chunks, i =>
+            {
+                int start = i * m;
+                int len = Math.Min(m, big.Length - start);
+                var block = new ulong[len];
+                Array.Copy(big, start, block, 0, len);
+                partials[i] = Multiply(block, small);
+            });
+        }
+        catch (AggregateException ex)
+        {
+            RethrowIfCancelled(ex);
+            throw;
+        }
 
         var r = new ulong[big.Length + small.Length];
         for (int i = 0; i < chunks; i++)
@@ -1053,6 +1146,10 @@ public sealed class Natural :
 
         for (int len = 2; len <= n; len <<= 1)
         {
+            // N17: one stage of a 2^23-point transform is ~8M butterflies (tens of ms), and Ntt is
+            // only ever entered for operands of >= 100k limbs, so an unconditional per-stage poll
+            // costs nothing measurable and bounds cancellation latency inside a single product.
+            Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
             long wlen = ModPow(root, (prime - 1) / len, prime);
             int half = len >> 1;
             int groups = n / len;

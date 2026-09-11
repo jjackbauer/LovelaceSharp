@@ -193,9 +193,11 @@ public static class Exprs
         {
             if (coef.IsZero)
             {
-                // a zero coefficient over a pole-carrying remainder must not vanish:
-                // dropping 0·x⁻¹ would define the sum at 0 where it is undefined
-                if (HasPoleRisk(rest))
+                // a zero coefficient over a pole-carrying or non-finite remainder must not
+                // vanish: dropping 0·x⁻¹ would define the sum at 0 where it is undefined, and
+                // dropping 0·inf (or inf - inf, whose coefficient is 0 over the remainder inf)
+                // would return a definite 0 for an indeterminate form
+                if (HasUndefinedRisk(rest))
                     terms.Add(Multiply(Rational(coef), rest));
                 continue;
             }
@@ -263,6 +265,30 @@ public static class Exprs
         _ => false,
     };
 
+    /// <summary>
+    /// True when the expression may fail to denote a defined, finite value: a pole risk
+    /// (see <see cref="HasPoleRisk"/>) or the symbolic constant Infinity, possibly nested.
+    /// The identities a - a = 0 and 0·a = 0 are only valid for a defined, finite a, so the
+    /// zero-coefficient and zero-factor folds must consult this guard: over Infinity both
+    /// forms are indeterminate (inf - inf, 0·inf) and folding them yields a definite wrong
+    /// value. Pi and E are finite and are deliberately NOT hazards.
+    /// </summary>
+    internal static bool HasUndefinedRisk(Expr e) => e switch
+    {
+        NamedConstantExpr n => n.Constant == NamedConstant.Infinity,
+        PowerExpr p => NumericToRational(p.Exponent) is { } er
+            ? er.IsNegative || HasPoleRisk(p.Base) || HasUndefinedRisk(p.Base)
+            : true,
+        AddExpr a => a.Terms.Any(HasUndefinedRisk),
+        MultiplyExpr m => m.Factors.Any(HasUndefinedRisk),
+        FunctionExpr f => f.Arguments.Any(HasUndefinedRisk),
+        PiecewiseExpr pw => pw.Branches.Any(b => HasUndefinedRisk(b.Guard) || HasUndefinedRisk(b.Value)) || HasUndefinedRisk(pw.Otherwise),
+        DerivativeExpr d => HasUndefinedRisk(d.Operand),
+        IntegralExpr i => HasUndefinedRisk(i.Operand),
+        RelationExpr r => HasUndefinedRisk(r.Left) || HasUndefinedRisk(r.Right),
+        _ => false,
+    };
+
     public static Expr Multiply(params Expr[] children) => MultiplyImpl(children);
 
     public static Expr Multiply(IEnumerable<Expr> children) => MultiplyImpl(children.ToArray());
@@ -288,7 +314,7 @@ public static class Exprs
         // the pole set is unchanged.
         var posPowers = new Dictionary<Expr, Rat>();
         var negPowers = new Dictionary<Expr, Rat>();
-        bool anyPoleRisk = flat.Any(HasPoleRisk);
+        bool anyUndefinedRisk = flat.Any(HasUndefinedRisk);
 
         foreach (var c in flat)
         {
@@ -299,8 +325,9 @@ public static class Exprs
                     var v = Rat.From(i.Value);
                     if (v.IsZero)
                     {
-                        // 0·(pole) must stay visible: 0/x is undefined at 0 while 0 is defined
-                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        // 0·(pole) and 0·inf must stay visible: 0/x is undefined at 0 while 0
+                        // is defined, and 0·inf is indeterminate while 0 is defined
+                        if (!anyUndefinedRisk) return Rational(Rat.Zero);
                         exact = Rat.Zero;
                         break;
                     }
@@ -312,7 +339,7 @@ public static class Exprs
                 {
                     if (r.Value.IsZero)
                     {
-                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        if (!anyUndefinedRisk) return Rational(Rat.Zero);
                         exact = Rat.Zero;
                         break;
                     }
@@ -325,7 +352,7 @@ public static class Exprs
                     var v = rl.Value.ToRational();
                     if (v.IsZero)
                     {
-                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        if (!anyUndefinedRisk) return Rational(Rat.Zero);
                         real = Rat.Zero;
                         hasReal = true;
                         break;
@@ -339,7 +366,7 @@ public static class Exprs
                 {
                     if (cx.Re.IsZero && cx.Im.IsZero)
                     {
-                        if (!anyPoleRisk) return Rational(Rat.Zero);
+                        if (!anyUndefinedRisk) return Rational(Rat.Zero);
                         cplxRe = Rat.Zero;
                         cplxIm = Rat.Zero;
                         break;

@@ -377,7 +377,13 @@ public sealed class Polynomial : IEquatable<Polynomial>, IComparable<Polynomial>
         var c = fPrime.DivRem(a, MonomialOrder.Lex).Quotient;
         var d = Subtract(c, b.Derivative(0));
         int i = 1;
-        while (!b.IsOne && !b.IsZero)
+        // Terminate on DEGREE, never on the value 1. A Yun state that reaches the constant -1
+        // (e.g. from -x^2 - 2*x - 1) is neither IsOne nor IsZero, and from there the body is a
+        // no-op -- g = GcdUnivariate(b, d) is the monic gcd 1, so b = b/g = b, c = d/g = d and
+        // d = c - b' = d - 0 = d. b, c and d are invariant and the loop spins forever.
+        // -2 or 1/3 reach the same state, so the value test is the bug, not the set of values
+        // it misses; TotalDegree is 0 for every nonzero constant and -1 for zero.
+        while (b.TotalDegree > 0)
         {
             var g = GcdUnivariate(b, d);
             // Yun: the gcd a_i IS the square-free factor of multiplicity i; the loop state

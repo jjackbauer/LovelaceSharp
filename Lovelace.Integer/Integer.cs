@@ -373,7 +373,11 @@ public class Integer :
     public Integer Pow(Integer exponent)
     {
         if (IsZero(this))
-            throw new ArgumentOutOfRangeException(nameof(exponent), "Base cannot be zero.");
+            // the value out of range is the BASE, and this method's only formal parameter is
+            // the exponent: naming it "exponent" produced "Base cannot be zero. (Parameter
+            // 'exponent')", which reports the wrong quantity. The parameter name states what
+            // actually failed.
+            throw new ArgumentOutOfRangeException("base", "Base cannot be zero.");
         if (exponent <= Zero)
             throw new ArgumentOutOfRangeException(nameof(exponent), "Exponent must be positive.");
 
@@ -459,9 +463,9 @@ public class Integer :
     public override int GetHashCode() => ToString().GetHashCode();
 
     /// <inheritdoc/>
-    public static bool operator ==(Integer left, Integer right) => left.Equals(right);
+    public static bool operator ==(Integer? left, Integer? right) => left!.Equals(right);
     /// <inheritdoc/>
-    public static bool operator !=(Integer left, Integer right) => !left.Equals(right);
+    public static bool operator !=(Integer? left, Integer? right) => !left!.Equals(right);
     /// <inheritdoc/>
     public static bool operator >(Integer left, Integer right) => left.CompareTo(right) > 0;
     /// <inheritdoc/>

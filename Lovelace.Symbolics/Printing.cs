@@ -322,13 +322,16 @@ public static class Printing
     // Pretty print (display only — never used for identity)
     // -----------------------------------------------------------------
 
-    public enum PrintMode { Canonical, Pretty, Debug }
+    public enum PrintMode { Canonical, Pretty, Debug, Latex }
 
     /// <summary>
     /// Formatting options. <see cref="PrintMode.Canonical"/> is the byte-stable versioned
     /// S-expression form; <see cref="PrintMode.Pretty"/> is the human-oriented infix form
     /// (REPL default); <see cref="PrintMode.Debug"/> is a kind-annotated structural form for
-    /// agents. <c>Unicode</c> switches the human form to ∞ √ π ≤ ≥ ≠ (ASCII stays the default).
+    /// agents; <see cref="PrintMode.Latex"/> is the SAME human form rendered as LaTeX source —
+    /// same printer, same precedence decisions (<see cref="Prec"/>, <see cref="Delimit"/>), only
+    /// the notation differs. <c>Unicode</c> switches the human form to ∞ √ π ≤ ≥ ≠ (ASCII stays
+    /// the default) and does not affect the LaTeX form.
     /// </summary>
     public sealed record PrintOptions(
         PrintMode Mode = PrintMode.Pretty, bool Unicode = false, PrintBudget? Budget = null);
@@ -423,7 +426,8 @@ public static class Printing
     {
         PrintMode.Canonical => CanonicalPrint(e),
         PrintMode.Debug => DebugPrint(e),
-        _ => Pretty(e, 0, false, options.Unicode),
+        PrintMode.Latex => LatexRender(e, RootPrec),
+        _ => Pretty(e, RootPrec, false, options.Unicode),
     };
 
     /// <summary>Structural (kind-annotated) print for agent debugging: every node carries its
@@ -454,19 +458,68 @@ public static class Printing
         _ => "?" + e.Kind,
     };
 
+    // -----------------------------------------------------------------
+    // Precedence: ONE table, ONE parenthesis decision, shared by every
+    // infix rendering. Pretty and Latex both read these; there is no
+    // second precedence table anywhere in this file.
+    // -----------------------------------------------------------------
+
+    private const int OrPrec = -1;
+    private const int AndPrec = 0;
+    private const int RelationPrec = 0;
+    private const int AddPrec = 1;
+    private const int MulPrec = 2;
+    private const int PowPrec = 3;
+    private const int AtomPrec = 4;
+
+    /// <summary>The loosest rendering context: an operand nothing further is demanded of. It is
+    /// the root context of both infix renderings, and the context of a child that LaTeX's own
+    /// braces already group (a <c>rac</c> argument, a <c>sqrt</c> radicand, a superscript).</summary>
+    private const int RootPrec = 0;
+
     private static int Prec(Expr e) => e switch
     {
-        OrExpr => -1,
-        AndExpr => 0,
-        RelationExpr => 0,
-        AddExpr => 1,
-        MultiplyExpr => 2,
-        PowerExpr => 3,
-        _ => 4,
+        OrExpr => OrPrec,
+        AndExpr => AndPrec,
+        RelationExpr => RelationPrec,
+        AddExpr => AddPrec,
+        MultiplyExpr => MulPrec,
+        PowerExpr => PowPrec,
+        _ => AtomPrec,
     };
+
+    /// <summary>The ONE parenthesis decision of the infix printers: a node whose own precedence
+    /// is <paramref name="nodePrec"/> is wrapped exactly when the context
+    /// (<paramref name="parentPrec"/>) demands something that binds tighter. Pretty and Latex
+    /// both call this, so the two renderings cannot place a delimiter differently; only the glyph
+    /// pair differs (<see cref="Delimit"/> vs <see cref="LatexDelimit"/>).</summary>
+    private static bool NeedsDelimiter(int parentPrec, int nodePrec) => parentPrec > nodePrec;
+
+    /// <summary>The shared decision applied in the ASCII infix notation.</summary>
+    private static string Delimit(string text, int parentPrec, int nodePrec) =>
+        NeedsDelimiter(parentPrec, nodePrec) ? "(" + text + ")" : text;
+
+    /// <summary>The shared decision applied in LaTeX notation.</summary>
+    private static string LatexDelimit(string text, int parentPrec, int nodePrec) =>
+        NeedsDelimiter(parentPrec, nodePrec) ? "\\left(" + text + "\\right)" : text;
+
+    /// <summary>The ONE power-base rule: a base that does not bind tighter than a power is
+    /// delimited exactly once — <c>(x + 1)^2</c>, <c>(x^y)^2</c>; asking the child renderer for a
+    /// precedence wrapped it twice (((x + 1))^12). Round 24.</summary>
+    private static bool NeedsPowerBaseDelimiter(Expr b) => Prec(b) <= PowPrec;
 
     private static readonly Rat OneHalf = Rat.From(1, 2);
     private static readonly Rat MinusOneHalf = Rat.From(-1, 2);
+
+    /// <summary>Precedence used for an operand that is already delimited by a call's parentheses
+    /// and commas (function arguments, calculus operands). Nothing at or above additive
+    /// precedence needs parentheses there; the logical operators keep theirs. Round 24.</summary>
+    private const int ArgPrec = AddPrec;
+
+    /// <summary>Precedence demanded of the magnitude of a subtracted term: strictly tighter than
+    /// additive, so a sum on the right of a minus keeps its parentheses — <c>x - (y - a)</c> must
+    /// never render as <c>x - y - a</c>, which denotes a different expression. Round 24.</summary>
+    private const int SubtrahendPrec = MulPrec;
 
     private static string Pretty(Expr e, int parentPrec, bool rightOfPower, bool unicode)
     {
@@ -493,59 +546,40 @@ public static class Printing
                     // leading negative constant renders as "rest - |c|" (x - 1, not -1 + x)
                     if (terms.Length == 1)
                     {
-                        var single = "-" + Pretty(leadMag, 1, false, unicode);
-                        return parentPrec > 1 ? "(" + single + ")" : single;
+                        var single = "-" + Pretty(leadMag, AddPrec, false, unicode);
+                        return Delimit(single, parentPrec, AddPrec);
                     }
-                    sb.Append(Pretty(terms[1], 1, false, unicode));
+                    sb.Append(Pretty(terms[1], AddPrec, false, unicode));
                     for (int i = 2; i < terms.Length; i++)
                         AppendSigned(sb, terms[i], unicode);
                     sb.Append(" - ");
-                    sb.Append(Pretty(leadMag, 1, false, unicode));
+                    sb.Append(Pretty(leadMag, AddPrec, false, unicode));
                 }
                 else
                 {
-                    sb.Append(Pretty(terms[0], 1, false, unicode));
+                    sb.Append(Pretty(terms[0], AddPrec, false, unicode));
                     for (int i = 1; i < terms.Length; i++)
                         AppendSigned(sb, terms[i], unicode);
                 }
-                var s = sb.ToString();
-                return parentPrec > 1 ? "(" + s + ")" : s;
+                return Delimit(sb.ToString(), parentPrec, AddPrec);
             }
             case MultiplyExpr m:
             {
-                Rat? coef = null;
-                bool negative = false;
-                int first = 0;
-                if (m.Factors.Length > 0 && m.Factors[0] is RationalConstantExpr rc0)
-                {
-                    coef = rc0.Value;
-                    first = 1;
-                    if (coef.IsNegative)
-                    {
-                        negative = true;
-                        coef = Rat.Negate(coef);
-                    }
-                }
+                var shape = ShapeProduct(m);
                 var nums = new List<string>();
                 var dens = new List<string>();
-                for (int i = first; i < m.Factors.Length; i++)
+                foreach (var f in shape.Numerators)
+                    nums.Add(Pretty(f, MulPrec, false, unicode));
+                foreach (var b in shape.Denominators)
                 {
-                    var f = m.Factors[i];
-                    if (f is PowerExpr p && p.Exponent is RationalConstantExpr pe && pe.Value.IsMinusOne)
-                    {
-                        var dText = Pretty(p.Base, 0, false, unicode);
-                        dens.Add(Prec(p.Base) < 3 ? "(" + dText + ")" : dText);
-                    }
-                    else
-                    {
-                        nums.Add(Pretty(f, 2, false, unicode));
-                    }
+                    var dText = Pretty(b, RootPrec, false, unicode);
+                    dens.Add(Prec(b) < PowPrec ? "(" + dText + ")" : dText);
                 }
                 string text;
                 if (dens.Count == 0)
                 {
                     var body = string.Join("*", nums);
-                    if (coef is { } c0 && !c0.IsOne)
+                    if (shape.Coefficient is { } c0 && !c0.IsOne)
                         text = nums.Count == 0 ? c0.ToString() : c0.ToString() + "*" + body;
                     else
                         text = nums.Count == 0 ? "1" : body;
@@ -555,7 +589,7 @@ public static class Printing
                     // fractions render as num/(den): a rational coefficient folds into the
                     // fraction instead of producing num/coef/den chains (-1/(2*(x + 1)))
                     var numParts = new List<string>();
-                    if (coef is { } c1 && !c1.IsOne)
+                    if (shape.Coefficient is { } c1 && !c1.IsOne)
                     {
                         if (c1.IsInteger)
                         {
@@ -572,8 +606,8 @@ public static class Printing
                     var denText = dens.Count == 1 ? dens[0] : "(" + string.Join("*", dens) + ")";
                     text = numText + "/" + denText;
                 }
-                if (negative) text = "-" + text;
-                return parentPrec > 2 ? "(" + text + ")" : text;
+                if (shape.Negative) text = "-" + text;
+                return Delimit(text, parentPrec, MulPrec);
             }
             case PowerExpr p:
             {
@@ -581,31 +615,32 @@ public static class Printing
                 if (p.Exponent is RationalConstantExpr sq)
                 {
                     if (sq.Value == OneHalf)
-                    {
-                        var rt = "sqrt(" + Pretty(p.Base, 0, false, unicode) + ")";
-                        return parentPrec > 3 ? "(" + rt + ")" : rt;
-                    }
+                        return Delimit("sqrt(" + Pretty(p.Base, RootPrec, false, unicode) + ")", parentPrec, PowPrec);
                     if (sq.Value == MinusOneHalf)
-                    {
-                        var rt = "1/sqrt(" + Pretty(p.Base, 0, false, unicode) + ")";
-                        return parentPrec > 3 ? "(" + rt + ")" : rt;
-                    }
+                        return Delimit("1/sqrt(" + Pretty(p.Base, RootPrec, false, unicode) + ")", parentPrec, PowPrec);
                 }
-                var b = Pretty(p.Base, 3, false, unicode);
+                // the base is rendered at the loosest precedence and wrapped exactly once by the
+                // shared rule; asking Pretty for parentPrec 3 here wrapped it a second time
+                // (((x + 1))^12). Round 24.
+                var b = Pretty(p.Base, RootPrec, false, unicode);
                 // a power base must be parenthesized: x^y^2 is ambiguous ((x^y)^2 vs x^(y^2))
-                if (Prec(p.Base) <= 3)
+                if (NeedsPowerBaseDelimiter(p.Base))
                     b = "(" + b + ")";
-                var ex = Pretty(p.Exponent, 4, true, unicode);
+                // 3, not 4: a power exponent is parenthesized by the explicit rule just below, so
+                // asking for 4 wrapped it twice (x^((y^2))). Sums and products still get their
+                // parentheses from this call. Round 24.
+                var ex = Pretty(p.Exponent, PowPrec, true, unicode);
                 if (p.Exponent is RationalConstantExpr rce && !rce.Value.IsInteger)
                     ex = "(" + ex + ")";
                 else if (p.Exponent is PowerExpr)
                     ex = "(" + ex + ")";
-                var text = b + "^" + ex;
-                return parentPrec > 3 ? "(" + text + ")" : text;
+                return Delimit(b + "^" + ex, parentPrec, PowPrec);
             }
             case FunctionExpr f:
             {
-                var args = string.Join(", ", f.Arguments.Select(a => Pretty(a, 3, false, unicode)));
+                // an argument is delimited by the comma or the closing paren, so it never needs
+                // precedence parentheses; ArgPrec keeps the logical operators wrapped. Round 24.
+                var args = string.Join(", ", f.Arguments.Select(a => Pretty(a, ArgPrec, false, unicode)));
                 return f.Function.Name + "(" + args + ")";
             }
             case RelationExpr r:
@@ -627,41 +662,356 @@ public static class Printing
                 return "piecewise(" + string.Join(", ", parts) + ", " + Pretty(pw.Otherwise, 0, false, unicode) + ")";
             }
             case DerivativeExpr d:
-                return "diff(" + Pretty(d.Operand, 4, false, unicode) + ", " + string.Join(", ", d.Variables.Select(v => v.Name)) + ")";
+                return "diff(" + Pretty(d.Operand, ArgPrec, false, unicode) + ", " + string.Join(", ", d.Variables.Select(v => v.Name)) + ")";
             case IntegralExpr i:
-                return "integrate(" + Pretty(i.Operand, 4, false, unicode) + ", " + string.Join(", ", i.Variables.Select(v => v.Name)) + ")";
+                return "integrate(" + Pretty(i.Operand, ArgPrec, false, unicode) + ", " + string.Join(", ", i.Variables.Select(v => v.Name)) + ")";
             case RootOfExpr r:
-                return "rootof(" + Pretty(r.DefiningPolynomial.ToExpr(), 4, false, unicode) + ", " + r.RootIndex + ")";
+                return "rootof(" + Pretty(r.DefiningPolynomial.ToExpr(), ArgPrec, false, unicode) + ", " + r.RootIndex + ")";
             case AndExpr an:
             {
-                var text = string.Join(" and ", an.Operands.Select(o => Pretty(o, 0, false, unicode)));
-                return parentPrec > 0 ? "(" + text + ")" : text;
+                var text = string.Join(" and ", an.Operands.Select(o => Pretty(o, AndPrec, false, unicode)));
+                return Delimit(text, parentPrec, AndPrec);
             }
             case OrExpr or2:
             {
-                var text = string.Join(" or ", or2.Operands.Select(o => Pretty(o, -1, false, unicode)));
-                return parentPrec > -1 ? "(" + text + ")" : text;
+                var text = string.Join(" or ", or2.Operands.Select(o => Pretty(o, OrPrec, false, unicode)));
+                return Delimit(text, parentPrec, OrPrec);
             }
             case NotExpr nt:
             {
-                var text = "not " + Pretty(nt.Operand, 4, false, unicode);
-                return parentPrec > 4 ? "(" + text + ")" : text;
+                var text = "not " + Pretty(nt.Operand, AtomPrec, false, unicode);
+                return Delimit(text, parentPrec, AtomPrec);
             }
             case OrderExpr o:
             {
-                bool zeroPoint = o.Point is RationalConstantExpr rp && rp.Value.IsZero
-                              || o.Point is IntegerConstantExpr ip && Int.IsZero(ip.Value);
-                var baseExpr = zeroPoint ? o.Variable : Exprs.Subtract(o.Variable, o.Point);
-                var baseText = Pretty(baseExpr, 3, false, unicode);
-                bool degreeOne = o.Degree is RationalConstantExpr rd && rd.Value.IsOne
-                              || o.Degree is IntegerConstantExpr id && id.Value == Int.One;
+                var (baseExpr, zeroPoint, degreeOne) = OrderShape(o);
+                var baseText = Pretty(baseExpr, RelationPrec, false, unicode);
                 if (degreeOne)
                     return "O(" + baseText + ")";
                 var body = zeroPoint ? baseText : "(" + baseText + ")";
-                return "O(" + body + "^" + Pretty(o.Degree, 3, false, unicode) + ")";
+                return "O(" + body + "^" + Pretty(o.Degree, PowPrec, false, unicode) + ")";
             }
             default:
                 return e.Kind.ToString();
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // LaTeX rendering — the SAME expression model, the SAME precedence
+    // table, a different notation. There is exactly one printer: this
+    // arm shares Prec/Delimit/ShapeProduct/OrderTermsForDisplay/
+    // IsNegativeTerm/OrderShape with the Pretty arm, so the two forms
+    // cannot disagree about what an expression is.
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The ONE product decomposition every infix rendering uses: an optional leading rational
+    /// coefficient with its sign split off, the factors that stay in the numerator, and the bases
+    /// of the factors raised to -1 (the denominator). A second copy of this rule is exactly what
+    /// would let two renderings describe different expressions.
+    /// </summary>
+    private sealed record ProductShape(Rat? Coefficient, bool Negative, List<Expr> Numerators, List<Expr> Denominators);
+
+    private static ProductShape ShapeProduct(MultiplyExpr m)
+    {
+        Rat? coef = null;
+        bool negative = false;
+        int first = 0;
+        if (m.Factors.Length > 0 && m.Factors[0] is RationalConstantExpr rc0)
+        {
+            coef = rc0.Value;
+            first = 1;
+            if (coef.IsNegative)
+            {
+                negative = true;
+                coef = Rat.Negate(coef);
+            }
+        }
+        var nums = new List<Expr>();
+        var dens = new List<Expr>();
+        for (int i = first; i < m.Factors.Length; i++)
+        {
+            var f = m.Factors[i];
+            if (f is PowerExpr p && p.Exponent is RationalConstantExpr pe && pe.Value.IsMinusOne)
+                dens.Add(p.Base);
+            else
+                nums.Add(f);
+        }
+        return new ProductShape(coef, negative, nums, dens);
+    }
+
+    /// <summary>The ONE O-term decomposition: the base expression around the expansion point, and
+    /// whether the point is zero and the degree is one. Read by both infix renderings.</summary>
+    private static (Expr Base, bool ZeroPoint, bool DegreeOne) OrderShape(OrderExpr o)
+    {
+        bool zeroPoint = o.Point is RationalConstantExpr rp && rp.Value.IsZero
+                      || o.Point is IntegerConstantExpr ip && Int.IsZero(ip.Value);
+        bool degreeOne = o.Degree is RationalConstantExpr rd && rd.Value.IsOne
+                      || o.Degree is IntegerConstantExpr id && id.Value == Int.One;
+        return (zeroPoint ? o.Variable : Exprs.Subtract(o.Variable, o.Point), zeroPoint, degreeOne);
+    }
+
+    /// <summary>LaTeX source for an expression of the same model. Every precedence decision goes
+    /// through <see cref="Prec"/>/<see cref="Delimit"/> and every structural decision (display
+    /// term order, what a fraction is, what a subtracted term is, which powers are radicals)
+    /// through the helpers the Pretty arm calls; only the notation is new.
+    /// <para>
+    /// Grouping: where LaTeX already groups a child by construction (the braces of
+    /// <c>\frac</c>, <c>\sqrt</c> and <c>^{}</c>) the child is rendered at
+    /// <see cref="RootPrec"/> and no delimiter is emitted — the brace group IS the delimiter.
+    /// Everywhere else the delimiters are exactly the ones <see cref="Delimit"/> asks for, and
+    /// <c>LatexPrinterTests</c> proves both halves: the structural nesting equals the Pretty
+    /// nesting, and removing any <c>\left...\right</c> pair changes the meaning.
+    /// </para>
+    /// </summary>
+    private static string LatexRender(Expr e, int parentPrec)
+    {
+        switch (e)
+        {
+            case IntegerConstantExpr i: return i.Value.ToString();
+            case RationalConstantExpr r: return LatexRational(r.Value);
+            case RealConstantExpr rl: return rl.Value.ToString();
+            case ComplexConstantExpr c: return "(" + c.Re + " + " + c.Im + " i)";
+            case SymbolExpr s: return LatexName(s.Symbol.Name);
+            case NamedConstantExpr n: return n.Constant switch
+            {
+                NamedConstant.Pi => "\\pi",
+                NamedConstant.E => "e",
+                NamedConstant.I => "i",
+                _ => "\\infty",
+            };
+            case AddExpr a:
+            {
+                var terms = OrderTermsForDisplay(a.Terms);
+                var sb = new StringBuilder();
+                if (terms.Length > 0 && IsNegativeConstant(terms[0], out var leadMag))
+                {
+                    if (terms.Length == 1)
+                        return LatexDelimit("-" + LatexRender(leadMag, AddPrec), parentPrec, AddPrec);
+                    sb.Append(LatexRender(terms[1], AddPrec));
+                    for (int i = 2; i < terms.Length; i++)
+                        AppendSignedLatex(sb, terms[i]);
+                    sb.Append(" - ");
+                    sb.Append(LatexRender(leadMag, AddPrec));
+                }
+                else
+                {
+                    sb.Append(LatexRender(terms[0], AddPrec));
+                    for (int i = 1; i < terms.Length; i++)
+                        AppendSignedLatex(sb, terms[i]);
+                }
+                return LatexDelimit(sb.ToString(), parentPrec, AddPrec);
+            }
+            case MultiplyExpr m:
+            {
+                var shape = ShapeProduct(m);
+                string text;
+                if (shape.Denominators.Count == 0)
+                {
+                    var body = string.Join(" \\cdot ", shape.Numerators.Select(f => LatexRender(f, MulPrec)));
+                    if (shape.Coefficient is { } c0 && !c0.IsOne)
+                        text = shape.Numerators.Count == 0
+                            ? LatexRational(c0)
+                            : LatexRational(c0) + " \\cdot " + body;
+                    else
+                        text = shape.Numerators.Count == 0 ? "1" : body;
+                }
+                else
+                {
+                    // The same coefficient fold the Pretty arm performs: an integer coefficient
+                    // joins the numerator as a numeral, a fractional one contributes its
+                    // numerator there and its denominator to the denominator side — never a
+                    // num*coef/den chain (-1/(2*(x + 1))).
+                    var numParts = new List<Func<int, string>>();
+                    var denParts = new List<Func<int, string>>();
+                    if (shape.Coefficient is { } c1 && !c1.IsOne)
+                    {
+                        if (c1.IsInteger)
+                        {
+                            numParts.Add(_ => c1.ToInteger().ToString());
+                        }
+                        else
+                        {
+                            numParts.Add(_ => c1.Numerator.ToString());
+                            denParts.Add(_ => c1.Denominator.ToString());
+                        }
+                    }
+                    foreach (var f in shape.Numerators)
+                    {
+                        var factor = f;
+                        numParts.Add(prec => LatexRender(factor, prec));
+                    }
+                    foreach (var b in shape.Denominators)
+                    {
+                        var basis = b;
+                        denParts.Add(prec => LatexRender(basis, prec));
+                    }
+
+                    // The braces of \frac ARE the delimiter of each side, so a side that is a
+                    // single part is rendered at the loosest precedence and carries no
+                    // \left...\right of its own; a side of several parts is a text-level \cdot
+                    // product whose Add factors do need them (2 > 1), which is why
+                    // \frac{1}{2 \cdot \left(x + 1\right)} groups exactly as 1/(2*(x + 1)).
+                    string Side(List<Func<int, string>> parts, string whenEmpty) =>
+                        parts.Count == 0
+                            ? whenEmpty
+                            : string.Join(" \\cdot ", parts.Select(p => p(parts.Count > 1 ? MulPrec : RootPrec)));
+
+                    text = "\\frac{" + Side(numParts, "1") + "}{" + Side(denParts, "1") + "}";
+                }
+                if (shape.Negative) text = "-" + text;
+                return LatexDelimit(text, parentPrec, MulPrec);
+            }
+            case PowerExpr p:
+            {
+                // the same radical decision the Pretty arm makes (exponent ±1/2)
+                if (p.Exponent is RationalConstantExpr sq)
+                {
+                    if (sq.Value == OneHalf)
+                        return LatexDelimit("\\sqrt{" + LatexRender(p.Base, RootPrec) + "}", parentPrec, PowPrec);
+                    if (sq.Value == MinusOneHalf)
+                        return LatexDelimit("\\frac{1}{\\sqrt{" + LatexRender(p.Base, RootPrec) + "}}", parentPrec, PowPrec);
+                }
+                var b = LatexRender(p.Base, RootPrec);
+                if (NeedsPowerBaseDelimiter(p.Base))
+                    b = "\\left(" + b + "\\right)";
+                // the exponent's braces are LaTeX's own grouping, so a sum/product/rational
+                // exponent needs no priority delimiters of its own: x^{y + 1}, x^{\frac{1}{2}}
+                return LatexDelimit(b + "^{" + LatexRender(p.Exponent, RootPrec) + "}", parentPrec, PowPrec);
+            }
+            case FunctionExpr f:
+            {
+                if (f.Function.Name == "abs" && f.Arguments.Length == 1)
+                    return "\\left|" + LatexRender(f.Arguments[0], RootPrec) + "\\right|";
+                var args = string.Join(", ", f.Arguments.Select(a => LatexRender(a, ArgPrec)));
+                return LatexCallName(f.Function.Name) + "(" + args + ")";
+            }
+            case RelationExpr r:
+            {
+                var op = r.Op switch
+                {
+                    RelOp.Eq => " = ",
+                    RelOp.Ne => " \\ne ",
+                    RelOp.Lt => " < ",
+                    RelOp.Le => " \\le ",
+                    RelOp.Gt => " > ",
+                    _ => " \\ge ",
+                };
+                return LatexRender(r.Left, RelationPrec) + op + LatexRender(r.Right, RelationPrec);
+            }
+            case PiecewiseExpr pw:
+            {
+                var parts = pw.Branches.Select(b =>
+                    LatexRender(b.Value, RootPrec) + " & \\text{if } " + LatexRender(b.Guard, RootPrec));
+                return "\\begin{cases} " + string.Join(" \\\\ ", parts) +
+                       " & \\text{otherwise} \\end{cases}";
+            }
+            case DerivativeExpr d:
+                return "\\operatorname{diff}(" + LatexRender(d.Operand, ArgPrec) + ", " +
+                       string.Join(", ", d.Variables.Select(v => LatexName(v.Name))) + ")";
+            case IntegralExpr i2:
+                return "\\operatorname{integrate}(" + LatexRender(i2.Operand, ArgPrec) + ", " +
+                       string.Join(", ", i2.Variables.Select(v => LatexName(v.Name))) + ")";
+            case RootOfExpr r2:
+                return "\\operatorname{rootof}(" + LatexRender(r2.DefiningPolynomial.ToExpr(), ArgPrec) + ", " +
+                       r2.RootIndex + ")";
+            case AndExpr an:
+                return LatexDelimit(string.Join(" \\land ", an.Operands.Select(o => LatexRender(o, AndPrec))),
+                    parentPrec, AndPrec);
+            case OrExpr or2:
+                return LatexDelimit(string.Join(" \\lor ", or2.Operands.Select(o => LatexRender(o, OrPrec))),
+                    parentPrec, OrPrec);
+            case NotExpr nt:
+                return LatexDelimit("\\neg " + LatexRender(nt.Operand, AtomPrec), parentPrec, AtomPrec);
+            case OrderExpr o:
+            {
+                var (baseExpr, zeroPoint, degreeOne) = OrderShape(o);
+                var baseText = LatexRender(baseExpr, RelationPrec);
+                if (degreeOne)
+                    return "O(" + baseText + ")";
+                var body = zeroPoint ? baseText : "\\left(" + baseText + "\\right)";
+                return "O(" + body + "^{" + LatexRender(o.Degree, RootPrec) + "})";
+            }
+            default:
+                return e.Kind.ToString();
+        }
+    }
+
+    /// <summary>A rational constant as LaTeX: an integer stays a numeral, everything else is a
+    /// fraction. The sign belongs to the numeral, so a negative rational is <c>-\frac{1}{2}</c>.</summary>
+    private static string LatexRational(Rat value)
+    {
+        if (value.IsInteger)
+            return value.ToInteger().ToString();
+        var abs = Rat.Abs(value);
+        var body = "\\frac{" + abs.Numerator + "}{" + abs.Denominator + "}";
+        return value.IsNegative ? "-" + body : body;
+    }
+
+    /// <summary>The LaTeX spelling of a symbol NAME. A name is opaque to the kernel — its identity
+    /// is the string, ordinal — so the LaTeX arm renders it as literal characters, never as
+    /// structure: <c>x_1</c> is <c>x\_1</c>, not <c>x_{1}</c>. The subscript form would be prettier
+    /// for the common case but would invent structure the kernel does not have and is undefined
+    /// for a leading, trailing or doubled underscore; the literal form is never wrong.
+    /// <para>
+    /// All ten characters LaTeX gives a meaning of its own (# $ % &amp; _ { } ~ ^ \) are escaped
+    /// with the LaTeX2e spellings, so a name can neither change what it says nor break the
+    /// surrounding document: a bare <c>%</c> comments out the rest of the line, a bare <c>}</c>
+    /// closes the caller's group, a bare <c>\</c> starts a control sequence. The three characters
+    /// with no control-symbol spelling (~ ^ \) use the text-symbol commands and carry the empty
+    /// group <c>{}</c> that terminates the control word before a letter.
+    /// </para>
+    /// A name with no special character is returned unchanged, so ordinary renderings are
+    /// byte-identical to the ones this arm produced before names were escaped.</summary>
+    private static string LatexName(string name)
+    {
+        if (name.AsSpan().IndexOfAny("#$%&_{}~^\\") < 0)
+            return name;
+        var sb = new StringBuilder(name.Length + 8);
+        foreach (char ch in name)
+        {
+            _ = ch switch
+            {
+                '#' => sb.Append("\\#"),
+                '$' => sb.Append("\\$"),
+                '%' => sb.Append("\\%"),
+                '&' => sb.Append("\\&"),
+                '_' => sb.Append("\\_"),
+                '{' => sb.Append("\\{"),
+                '}' => sb.Append("\\}"),
+                '~' => sb.Append("\\textasciitilde{}"),
+                '^' => sb.Append("\\textasciicircum{}"),
+                '\\' => sb.Append("\\textbackslash{}"),
+                _ => sb.Append(ch),
+            };
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>LaTeX spelling of a function name: the control sequences TeX already defines keep
+    /// their spelling, everything else is an <c>\operatorname{...}</c>. Argument parentheses stay
+    /// plain parentheses — they are call syntax, never a precedence decision.</summary>
+    private static string LatexCallName(string name) => name switch
+    {
+        "sin" or "cos" or "tan" or "sinh" or "cosh" or "tanh" or "exp" or "log"
+            or "min" or "max" or "det" or "lim" => "\\" + name,
+        _ => "\\operatorname{" + name + "}",
+    };
+
+    /// <summary>The LaTeX twin of <see cref="AppendSigned"/>: the same sign decision
+    /// (<see cref="IsNegativeTerm"/>) and the same <see cref="SubtrahendPrec"/>, which is why
+    /// <c>x - (y - a)</c> keeps its parentheses in both renderings.</summary>
+    private static void AppendSignedLatex(StringBuilder sb, Expr t)
+    {
+        if (IsNegativeTerm(t, out var inner))
+        {
+            sb.Append(" - ");
+            sb.Append(LatexRender(inner, SubtrahendPrec));
+        }
+        else
+        {
+            sb.Append(" + ");
+            sb.Append(LatexRender(t, AddPrec));
         }
     }
 
@@ -670,12 +1020,14 @@ public static class Printing
         if (IsNegativeTerm(t, out var inner))
         {
             sb.Append(" - ");
-            sb.Append(Pretty(inner, 1, false, unicode));
+            // the right operand of a minus binds tighter than a sum: x - (y - a) must not
+            // render as x - y - a, which reparses to a different expression. Round 24.
+            sb.Append(Pretty(inner, SubtrahendPrec, false, unicode));
         }
         else
         {
             sb.Append(" + ");
-            sb.Append(Pretty(t, 1, false, unicode));
+            sb.Append(Pretty(t, AddPrec, false, unicode));
         }
     }
 

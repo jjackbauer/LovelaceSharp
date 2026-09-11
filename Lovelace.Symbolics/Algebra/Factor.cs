@@ -42,7 +42,12 @@ public static class Factoring
         var (primitive, content) = PrimitivePart(f);
         var factors = new List<(Polynomial, int)>();
 
-        // 2. square-free decomposition of the primitive part
+        // 2. square-free decomposition of the primitive part.
+        // SquareFreeUnivariate returns MONIC factors, so the leading coefficient of the primitive
+        // part is a unit that the decomposition does not carry. It must be folded back into the
+        // content here, otherwise it is silently discarded (e.g. -x^2+1 factored to (x-1)*(x+1),
+        // whose product is x^2-1 — the sign of the leading coefficient was lost).
+        var leading = primitive.IsZero ? Rat.One : primitive.LeadingCoefficient(MonomialOrder.Lex);
         var sqfree = Polynomial.SquareFreeUnivariate(primitive);
         foreach (var (sf, mult) in sqfree)
         {
@@ -63,7 +68,16 @@ public static class Factoring
                 factors.Add((remaining, mult));
         }
         if (factors.Count == 0)
+        {
+            // Nothing was emitted: the primitive part itself is a unit, returned unmoved here —
+            // so it already carries its own leading coefficient and must NOT be scaled again.
             factors.Add((primitive, 1));
+        }
+        else
+        {
+            // Every emitted factor is monic; restore the discarded leading coefficient.
+            content = content * leading;
+        }
         return new PolyFactors(content, factors);
     }
 

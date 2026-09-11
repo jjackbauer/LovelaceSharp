@@ -493,7 +493,7 @@ x = symbol("x")
 integrate(1/(x^2 - 1), x)
 ```
 ```result
--1/2*log((x + 1)) + 1/2*log((x - 1)) (Symbolic)
+-1/2*log(x + 1) + 1/2*log(x - 1) (Symbolic)
 ```
 
 ```lovelace
@@ -511,7 +511,7 @@ x = symbol("x")
 integrate(exp(-(x^2)), x)
 ```
 ```result
-integrate(exp((-x^2)), x) (Symbolic)
+integrate(exp(-x^2), x) (Symbolic)
 ```
 
 
