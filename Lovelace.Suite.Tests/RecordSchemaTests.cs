@@ -49,6 +49,10 @@ public class RecordSchemaTests
             "x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)",
             "x = symbol(\"x\"); solve_full(sin(x) == 0, x)",
             "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1, x - y == 3], [x, y])",
+            // the non-full call form publishes the SAME record type (the frozen contract declares
+            // one), so the corpus drives it too: a record only one of the two forms produces would
+            // leave half the contract unvalidated
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system([x + y == 1, x - y == 3], [x, y])",
             "x = symbol(\"x\"); simplify_full(x/x)",
             "x = symbol(\"x\", real); simplify_full(sqrt(x^2))",
             // a PARTIAL solve and a refuted transformation are the two runs that carry a
@@ -144,7 +148,7 @@ public class RecordSchemaTests
     public void SolverSchemas_DeclareTheStructuralKinds()
     {
         AssertSchema("SystemSolveResult",
-            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"),
+            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"), ("completeness", "Enum"),
             ("solutions", "Array"), ("diagnostics", "Array"));
         AssertSchema("SystemSolution",
             ("bindings", "Array"), ("conditions", "Array"), ("exactness", "Enum"));

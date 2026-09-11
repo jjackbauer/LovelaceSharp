@@ -620,7 +620,9 @@ solve(x + y == 0, x)
 ```
 
 Polynomial systems solve via Gröbner-basis elimination and back-substitution
-(`solve_system`):
+(`solve_system`). Like `solve_system_full`, it publishes the `SystemSolveResult` record — the
+status is an enum, each solution's bindings are records, and `complete`/`completeness` are read off
+the one mapping the protocol documents:
 
 ```lovelace
 x = symbol("x")
@@ -628,7 +630,7 @@ y = symbol("y")
 solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
 ```
 ```result
-x = 0, y = -1; x = -1, y = 0; x = 1, y = 0; x = 0, y = 1
+SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)
 ```
 
 An inconsistent equation reports why (no solutions); an unsupported

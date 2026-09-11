@@ -172,9 +172,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 {
                     return Run(() => impl(tracked));
                 }
+                catch (BuiltinShapeError ex)
+                {
+                    // a wrong SHAPE is a call-site mistake, not a domain refusal: it crosses as the
+                    // documented recoverable argument error (InvalidArgument / TypeMismatch) while
+                    // the message still names the builtin, the position, the expectation and the
+                    // payload kind that was actually supplied
+                    throw new ArgumentException(DescribeArgument(name, tracked, ex.Expected));
+                }
                 catch (BuiltinArgumentError ex)
                 {
-                    throw new InvalidOperationException(DescribeArgument(name, tracked, ex));
+                    throw new InvalidOperationException(DescribeArgument(name, tracked, ex.Expected));
                 }
             });
         }
@@ -426,36 +434,19 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
         Add("solve_system", new[] { "eqs", "vars" }, args =>
         {
-            var eqs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
-            var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
-            var result = SystemSolvers.Solve(eqs, vs, Context);
-            if (result.Solutions.Count == 0)
-                return "no solutions" + (result.Note is { } note ? ": " + note : "");
-            return string.Join("; ", result.Solutions.Select(sol =>
-                string.Join(", ", vs.Select(v => v.Name + " = " + Printing.PrettyPrint(sol.Assignment[v])))));
+            var eqs = ExprVector(args[0], EquationVectorExpectation);
+            var vs = SymbolVector(args[1], ParameterVectorExpectation);
+            return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
         },
         new BuiltinDescriptor("solve_system", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
-            "Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions).",
-            ["solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "Text",
+            "Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions) and returns the SAME SystemSolveResult record solve_system_full does.",
+            ["solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult",
             ["solve_system_full", "solve"]));
         Add("solve_system_full", new[] { "eqs", "vars" }, args =>
         {
-            var eqs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
-            var vs = NameList(args[1]).Select(Context.Symbol).ToArray();
-            var result = SystemSolvers.Solve(eqs, vs, Context);
-            var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
-                new RecordField("bindings", vs.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
-                new RecordField("conditions", ConditionExprs(sol.Conditions)),
-                new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
-            // the SAME projection SolveResult uses: an inconsistent system is a provably empty
-            // solution set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
-            var (complete, _) = SolveCompletenessMapping.Of(result.Status, result.Complete);
-            return new RecordValue("SystemSolveResult",
-                new RecordField("status", EnumField("SolveStatus", result.Status)),
-                new RecordField("domain", DomainOf(result.Domain)),
-                new RecordField("complete", complete),
-                new RecordField("solutions", solutions),
-                new RecordField("diagnostics", Diagnostics(SystemSolveDiagnostic(result))));
+            var eqs = ExprVector(args[0], EquationVectorExpectation);
+            var vs = SymbolVector(args[1], ParameterVectorExpectation);
+            return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
         });
         Add("solve", new[] { "f", "x", "domain" }, args =>
         {
@@ -567,8 +558,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             ["jacobian", "diff"]));
         Add("jacobian", new[] { "fs", "vars" }, args =>
         {
-            var fs = ((IReadOnlyList<object?>)args[0]!).Select(AsExpr).ToArray();
-            var vars = NameList(args[1]).Select(Context.Symbol).ToArray();
+            var fs = ExprVector(args[0], FunctionVectorExpectation);
+            var vars = SymbolVector(args[1], ParameterVectorExpectation);
             return (object)MatrixPayload(SymbolicMatrix.Jacobian(fs, vars, Context));
         },
         new BuiltinDescriptor("jacobian", new[] { "fs", "vars" }, BuiltinCategories.Calculus,
@@ -660,6 +651,35 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             result.Status == SolveStatus.NoSolutions ? ErrorCategory.NoSolution : ErrorCategory.UnsupportedOperation,
             note)
         : null;
+
+    /// <summary>The ONE SystemSolveResult builder. Both call forms (<c>solve_system</c> and
+    /// <c>solve_system_full</c>) publish this record — the frozen contract declares ONE record type
+    /// for a system solve — so the two forms cannot drift, and neither can degrade the result to the
+    /// joined prose it used to return.
+    /// <para>
+    /// <c>complete</c> and <c>completeness</c> are read off the SAME projection
+    /// <c>SolveResult</c> uses (<see cref="SolveCompletenessMapping.Of"/>, with the kernel's own
+    /// completeness claim as the budget-stop subset), so the two records cannot disagree either.</para>
+    /// </summary>
+    private static RecordValue SystemSolveRecord(SystemSolveResult result, IReadOnlyList<Symbol> vars)
+    {
+        var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
+            new RecordField("bindings", vars.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
+            new RecordField("conditions", ConditionExprs(sol.Conditions)),
+            new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
+
+        // the SAME projection SolveResult uses: an inconsistent system is a provably empty solution
+        // set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
+        var (complete, completeness) = SolveCompletenessMapping.Of(result.Status, result.Complete);
+
+        return new RecordValue("SystemSolveResult",
+            new RecordField("status", EnumField("SolveStatus", result.Status)),
+            new RecordField("domain", DomainOf(result.Domain)),
+            new RecordField("complete", complete),
+            new RecordField("completeness", EnumField("Completeness", completeness)),
+            new RecordField("solutions", solutions),
+            new RecordField("diagnostics", Diagnostics(SystemSolveDiagnostic(result))));
+    }
 
     /// <summary>A limit reports its kernel failure reason; null means an EMPTY array.</summary>
     private static Diagnostic? LimitDiagnostic(LimitResult result) => result.FailureReason is { } reason
@@ -939,6 +959,46 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 yield return sx.Symbol.Name;
             else
                 throw new BuiltinArgumentError("a list of parameter symbols, e.g. [x]");
+        }
+    }
+
+    // the declared expectation text of the three system-solving vector positions: one constant per
+    // position, so the message a caller reads and the descriptor's parameter name cannot drift
+    private const string EquationVectorExpectation = "a list of equations, e.g. [x + y == 2, x - y == 0]";
+    private const string FunctionVectorExpectation = "a list of expressions, e.g. [x*y, x + y]";
+    private const string ParameterVectorExpectation = "a list of parameter symbols, e.g. [x, y]";
+
+    /// <summary>The EQUATION / FUNCTION vector position. The direct cast this replaces threw
+    /// <c>InvalidCastException</c> for a relation or a bare expression and the whole call crossed as
+    /// an internal invariant failure; a wrong shape here is the documented recoverable argument
+    /// error instead, naming the builtin and what the position wanted. An element that is not an
+    /// expression at all is the same class of mistake, not a second one.</summary>
+    private static Expr[] ExprVector(object? o, string expected)
+    {
+        if (o is not IReadOnlyList<object?> list)
+            throw new BuiltinShapeError(expected);
+        try
+        {
+            return list.Select(AsExpr).ToArray();
+        }
+        catch (BuiltinArgumentError)
+        {
+            throw new BuiltinShapeError(expected);
+        }
+    }
+
+    /// <summary>The PARAMETER vector position, the second-argument twin of
+    /// <see cref="ExprVector"/>: a bare symbol where a list is declared is a call-shape violation
+    /// and crosses the same way.</summary>
+    private Symbol[] SymbolVector(object? o, string expected)
+    {
+        try
+        {
+            return NameList(o).Select(Context.Symbol).ToArray();
+        }
+        catch (BuiltinArgumentError)
+        {
+            throw new BuiltinShapeError(expected);
         }
     }
 
@@ -1419,11 +1479,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         public string Expected { get; } = expected;
     }
 
-    private static string DescribeArgument(string name, BuiltinArgs args, BuiltinArgumentError error)
+    /// <summary>A wrong-SHAPED argument: the value supplied is not the KIND of thing the builtin's
+    /// declared parameter names — a relation where a list of equations is required, a bare symbol
+    /// where a parameter list is required, an element that is not an expression. It carries the same
+    /// expectation text as <see cref="BuiltinArgumentError"/>, but derives from
+    /// <see cref="ArgumentException"/> so the runner's taxonomy classifies the call as the
+    /// documented RECOVERABLE argument error (<c>code: InvalidArgument</c>,
+    /// <c>category: TypeMismatch</c>) rather than a domain error or — as the direct cast this
+    /// replaced did — an internal invariant failure.</summary>
+    private sealed class BuiltinShapeError(string expected) : ArgumentException
+    {
+        public string Expected { get; } = expected;
+    }
+
+    private static string DescribeArgument(string name, BuiltinArgs args, string expected)
     {
         int index = args.LastIndex;
         object? actual = index >= 0 && index < args.Count ? args[index] : null;
-        return $"{name}(): argument {index + 1} must be {error.Expected}; got {DescribePayload(actual)}.";
+        return $"{name}(): argument {index + 1} must be {expected}; got {DescribePayload(actual)}.";
     }
 
     /// <summary>The payload kind as an agent sees it: the value-kind vocabulary, not a CLR type name.</summary>

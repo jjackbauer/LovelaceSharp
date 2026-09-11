@@ -6,8 +6,8 @@
   "revision": "<volatile>",
   "result": {
     "kind": "Record",
-    "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
-    "typed": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
+    "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])",
+    "typed": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
     "structured": {
       "kind": "Record",
       "type": "SystemSolveResult",
@@ -32,6 +32,14 @@
           "value": {
             "kind": "Boolean",
             "value": "true"
+          }
+        },
+        {
+          "name": "completeness",
+          "value": {
+            "kind": "Enum",
+            "type": "Completeness",
+            "value": "Complete"
           }
         },
         {
@@ -166,7 +174,7 @@
     {
       "name": "_",
       "kind": "Record",
-      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
+      "display": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 2), Binding(name: y, value: -1)], conditions: [], exactness: Exact)], diagnostics: [])"
     },
     {
       "name": "x",

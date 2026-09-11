@@ -474,9 +474,11 @@ public class DxStructuredResultsTests
         engine.Evaluate("x = symbol(\"x\"); y = symbol(\"y\")");
         var r = engine.Evaluate("solve_system_full([x + y == 1, x - y == 3], [x, y])").AsRecord();
 
-        // field order is the wire contract: the two contract-completion fields follow status
+        // field order is the wire contract: the two contract-completion fields follow status —
+        // complete is the derived Boolean and completeness is the Completeness Enum the protocol
+        // calls the authoritative field (dsh-protocol.md:57, :153-156)
         Assert.Equal(
-            new[] { "status", "domain", "complete", "solutions", "diagnostics" },
+            new[] { "status", "domain", "complete", "completeness", "solutions", "diagnostics" },
             r.Fields.Select(f => f.Name).ToArray());
 
         var domain = Field(r, "domain");
@@ -486,6 +488,8 @@ public class DxStructuredResultsTests
         var complete = Field(r, "complete");
         Assert.Equal(ValueKind.Boolean, complete.Kind);
         Assert.True(complete.AsBoolean());
+
+        AssertEnumField(Field(r, "completeness"), "Completeness", "Complete");
 
         var solution = Field(r, "solutions").AsVector()[0].AsRecord();
         Assert.Equal("SystemSolution", solution.TypeName);

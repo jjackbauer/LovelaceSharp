@@ -72,8 +72,11 @@ public static class RecordSchemas
         Schema("SolutionFamily",
             ("template", "Symbolic"), ("parameter", "Symbolic"), ("period", "Symbolic"),
             ("parameter_domain", "Domain"), ("conditions", "Array"), ("exactness", "Enum")),
+        // the SAME solve vocabulary as SolveResult: the Enum status, the derived complete Boolean
+        // and the Completeness Enum the protocol calls the authoritative field (dsh-protocol.md:57,
+        // :153-156), then the payload and diagnostics LAST
         Schema("SystemSolveResult",
-            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"),
+            ("status", "Enum"), ("domain", "Domain"), ("complete", "Boolean"), ("completeness", "Enum"),
             ("solutions", "Array"), ("diagnostics", "Array")),
         // the two matrix result records (inv_full / linsolve_full): the SAME solve vocabulary as
         // SolveResult/SystemSolveResult — an Enum status, the derived complete Boolean and the
