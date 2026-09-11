@@ -1,0 +1,765 @@
+diff --git a/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs b/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs
+new file mode 100644
+index 0000000..d6a8d09
+--- /dev/null
++++ b/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs
+@@ -0,0 +1,318 @@
++using Lovelace.Abstractions;
++using Lovelace.MathIR;
++using Lovelace.Suite;
++using Lovelace.Symbolics;
++using Rl = Lovelace.Real.Real;
++using Xunit;
++
++namespace Lovelace.Symbolics.Tests;
++
++/// <summary>
++/// The indeterminate exponential family <c>(1 + u)^v</c> with <c>u → 0</c> and <c>v → ∞</c>: the
++/// value at the point does not exist, so direct substitution is NOT a proof there. The kernel used
++/// to substitute anyway, the canonicaliser folded <c>Power(1, 1/0)</c> to <c>1</c>, and the record
++/// published <c>1</c> with <c>exists: true</c> and an exactness claim:
++/// <c>limit((1 + 1/x)^x, x, ∞)</c> answered 1 where the limit is <c>e</c>.
++/// <para>
++/// Every SymPy value quoted below is the output of the local SymPy 1.14.0 (the differential oracle
++/// in <c>DifferentialOracleTests</c> compares the same cases numerically; this file pins them
++/// exactly and runs without python). The exactness comparisons are spelled as
++/// <c>ToString()</c> strings on purpose: this file is the falsification test that must also COMPILE
++/// and FAIL on the pristine control tree, so it cannot name the kernel's exactness enum member
++/// directly — the wire assertion next to it names the declared <c>SolutionExactness</c> value that
++/// actually crosses the protocol.
++/// </para>
++/// </summary>
++public class IndeterminateExponentialLimitTests
++{
++    private const string TightTolerance = "0.000000000000000000001";   // 1e-21, 30+ digits available
++
++    private static Symbol NewContext(out ExprContext ctx)
++    {
++        ctx = new ExprContext();
++        Exprs.Current = ctx;
++        return ctx.Symbol("x");
++    }
++
++    private static SuiteEngine NewEngine()
++    {
++        var engine = new SuiteEngine();
++        var symbolics = new SymbolicsPlugin();
++        engine.LoadPlugin(symbolics);
++        engine.LoadPlugin(new MathIRPlugin(symbolics));
++        return engine;
++    }
++
++    private static Value F(RecordValue record, string name) =>
++        (Value)record.Fields.First(f => f.Name == name).Value!;
++
++    private static void AssertEnumField(object? payload, string typeName, string memberName)
++    {
++        var value = (Value)payload!;
++        Assert.Equal(ValueKind.Enum, value.Kind);
++        Assert.Equal(typeName, value.AsEnum().TypeName);
++        Assert.Equal(memberName, value.AsEnum().Name);
++    }
++
++    /// <summary>The kernel value IS the expected exact closed form, it is not an approximation
++    /// (a float would be <c>Approximate</c> and a RealConstant), and it evaluates to SymPy's own
++    /// 30-digit value.</summary>
++    private static void AssertExactClosedForm(LimitResult r, ExprContext ctx, Expr expected, string? sympy30Digits)
++    {
++        Assert.Equal(LimitStatus.Value, r.Status);
++        Assert.True(expected.Equals(r.Value),
++            $"kernel answered {Printing.CanonicalPrint(r.Value!)} instead of the exact {Printing.CanonicalPrint(expected)}");
++        Assert.Equal("AlgebraicExact", r.Exactness.ToString());
++        Assert.IsNotType<RealConstantExpr>(r.Value);
++        if (sympy30Digits is null)
++            return;   // a template with a free parameter has no single numeric value to compare
++
++        using var precision = Rl.WithPrecision(80, 40);
++        Num mine = Evaluation.EvaluateToNum(r.Value!, ctx, new Dictionary<Symbol, Num>());
++        Num difference = NumOps.Abs(
++            NumOps.Subtract(mine, NumOps.FromReal(Rl.Parse(sympy30Digits, null))), ctx);
++        Assert.True(NumOps.Compare(difference, NumOps.FromReal(Rl.Parse(TightTolerance, null))) < 0,
++            $"kernel value {Printing.CanonicalPrint(r.Value!)} evaluates to {OracleCompare.Show(mine)}, not to sympy's {sympy30Digits}");
++    }
++
++    // ------------------------------------------------------------------
++    // 1. the three probes, against SymPy's own values
++    // ------------------------------------------------------------------
++
++    /// <summary>SymPy 1.14.0:
++    /// <c>limit((1 + 1/x)**x, x, oo)</c> = <c>E</c>, <c>N(E, 30)</c> = 2.71828182845904523536028747135.
++    /// Before the fix the kernel answered the exact rational 1 — its value at the (undefined) point.</summary>
++    [Fact]
++    public void Probe_LimitOfOnePlusOneOverXToTheX_IsE()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        Expr f = Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x);
++        AssertExactClosedForm(
++            Limits.Limit(f, x, Exprs.Infinity, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.E, "2.71828182845904523536028747135");
++    }
++
++    /// <summary>SymPy 1.14.0: <c>limit((1 + x)**(1/x), x, 0)</c> = <c>E</c> from either side
++    /// (<c>dir='+'</c> and <c>dir='-'</c> are both <c>E</c>), N(E, 30) = 2.71828182845904523536028747135.</summary>
++    [Fact]
++    public void Probe_LimitOfOnePlusXToTheOneOverX_IsE()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        Expr f = Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x));
++        AssertExactClosedForm(
++            Limits.Limit(f, x, Exprs.Zero, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.E, "2.71828182845904523536028747135");
++        AssertExactClosedForm(
++            Limits.Limit(f, x, Exprs.Zero, LimitDirection.FromRight, ctx), ctx,
++            Exprs.E, "2.71828182845904523536028747135");
++        AssertExactClosedForm(
++            Limits.Limit(f, x, Exprs.Zero, LimitDirection.FromLeft, ctx), ctx,
++            Exprs.E, "2.71828182845904523536028747135");
++    }
++
++    /// <summary>SymPy 1.14.0: <c>limit((1 + 2/x)**x, x, oo)</c> = <c>exp(2)</c>,
++    /// <c>N(exp(2), 30)</c> = 7.38905609893065022723042746058. Before the fix the kernel answered 1.</summary>
++    [Fact]
++    public void Probe_LimitOfOnePlusTwoOverXToTheX_IsESquared()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        Expr f = Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(2, x)), x);
++        AssertExactClosedForm(
++            Limits.Limit(f, x, Exprs.Infinity, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.Power(Exprs.E, Exprs.Integer(2)), "7.38905609893065022723042746058");
++    }
++
++    /// <summary>The same family with neither a unit rate nor a unit exponent, and at −∞:
++    /// SymPy 1.14.0 gives <c>limit((1 + 1/x)**(3*x), x, oo)</c> = <c>exp(3)</c>
++    /// (N = 20.0855369231876677409285296546), <c>limit((1 + 1/x)**x, x, -oo)</c> = <c>E</c>, and
++    /// <c>limit((1 + 3/x)**(x/2), x, oo)</c> = <c>exp(3/2)</c> (N = 4.48168907033806482260205546012).
++    /// A parameter in the rate stays exact too: SymPy gives <c>exp(a)</c> for
++    /// <c>limit((1 + x)**(a/x), x, 0)</c> with a positive symbol a.</summary>
++    [Fact]
++    public void Family_AnswersEveryExactExponent()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        AssertExactClosedForm(
++            Limits.Limit(
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), Exprs.Multiply(3, x)),
++                x, Exprs.Infinity, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.Power(Exprs.E, Exprs.Integer(3)), "20.0855369231876677409285296546");
++        AssertExactClosedForm(
++            Limits.Limit(
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x),
++                x, Exprs.Negate(Exprs.Infinity), LimitDirection.TwoSided, ctx), ctx,
++            Exprs.E, "2.71828182845904523536028747135");
++        AssertExactClosedForm(
++            Limits.Limit(
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(3, x)), Exprs.Divide(x, 2)),
++                x, Exprs.Infinity, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.Power(Exprs.E, Exprs.Rational(3, 2)), "4.48168907033806482260205546012");
++        AssertExactClosedForm(
++            Limits.Limit(
++                Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(ctx.Symbol("a"), x)),
++                x, Exprs.Zero, LimitDirection.TwoSided, ctx), ctx,
++            Exprs.Power(Exprs.E, Exprs.Symbol(ctx.Symbol("a"))), null);   // e^a: exact template, no numeric value
++    }
++
++    // ------------------------------------------------------------------
++    // 2. the substitution value is never the answer
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// Every one of these has a FINITE value at the point (1, 1, 1 and 0 respectively) that is not
++    /// its limit, so answering it would publish a wrong number with <c>exists: true</c>. SymPy
++    /// 1.14.0 gives +oo for the first three and e − 1 for the sum; the kernel refuses each with a
++    /// typed Unevaluated instead. A finite wrong answer is worse than a refusal here.
++    /// </summary>
++    [Fact]
++    public void IndeterminateShapes_AreRefused_NeverAnsweredWithTheValueAtThePoint()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        var cases = new (string Where, Expr F, Expr Point, LimitDirection Direction, string Sympy, string Substituted)[]
++        {
++            ("limit((2 + x)^(1/x), x, 0, right)",                       // sympy oo, substitution would answer 1
++                Exprs.Power(Exprs.Add(2, x), Exprs.Divide(Exprs.One, x)),
++                Exprs.Zero, LimitDirection.FromRight, "oo", "1"),
++            ("limit((1 + 1/x)^(x^2), x, inf)",                          // sympy oo, substitution would answer 1
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), Exprs.Power(x, 2)),
++                Exprs.Infinity, LimitDirection.TwoSided, "oo", "1"),
++            ("limit((2^(1/x))^x, x, 0, right)",                         // sympy 2, substitution would answer 1
++                Exprs.Power(Exprs.Power(2, Exprs.Divide(Exprs.One, x)), x),
++                Exprs.Zero, LimitDirection.FromRight, "2", "1"),
++            ("limit((1 + x)^(1/x) - 1, x, 0)",                          // sympy e - 1, substitution would answer 0
++                Exprs.Subtract(Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x)), Exprs.One),
++                Exprs.Zero, LimitDirection.TwoSided, "E - 1", "0"),
++        };
++
++        foreach ((string where, Expr f, Expr point, LimitDirection direction, string sympy, string substituted) in cases)
++        {
++            LimitResult r = Limits.Limit(f, x, point, direction, ctx);
++            string answered = r.Value is null ? "(no value)" : Printing.CanonicalPrint(r.Value);
++            Assert.True(r.Status == LimitStatus.Unevaluated,
++                $"{where}: kernel answered {r.Status} {answered} — sympy says {sympy}, " +
++                $"and the value at the point ({substituted}) is not the limit");
++            Assert.Null(r.Value);
++            Assert.False(string.IsNullOrWhiteSpace(r.FailureReason), $"{where}: a refusal must carry its reason");
++            Assert.Equal("None", r.Exactness.ToString());
++        }
++    }
++
++    // ------------------------------------------------------------------
++    // 3. nothing else moved
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// The five limits measured on the pristine tree BEFORE this change, with exactly the values it
++    /// answered then: the guard has to leave every determined limit alone. 1/x is the odd pole
++    /// whose sides disagree (DoesNotExist with both sides attached).
++    /// </summary>
++    [Fact]
++    public void DeterminedLimits_KeepExactlyTheirPreviousAnswers()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        FunctionId sin = ctx.Function("sin");
++        FunctionId log = ctx.Function("log");
++
++        LimitResult ratio = Limits.Limit(Exprs.Divide(Exprs.Function(sin, x), x), x, Exprs.Zero, LimitDirection.TwoSided, ctx);
++        Assert.Equal(LimitStatus.Value, ratio.Status);
++        Assert.Equal(Exprs.One, ratio.Value);
++        Assert.Equal("Exact", ratio.Exactness.ToString());
++
++        LimitResult pole = Limits.Limit(Exprs.Divide(Exprs.One, x), x, Exprs.Zero, LimitDirection.TwoSided, ctx);
++        Assert.Equal(LimitStatus.DoesNotExist, pole.Status);
++        Assert.Equal(LimitStatus.MinusInfinity, pole.FromLeft!.Status);
++        Assert.Equal(LimitStatus.PlusInfinity, pole.FromRight!.Status);
++
++        LimitResult atInfinity = Limits.Limit(
++            Exprs.Divide(Exprs.Add(Exprs.Power(x, 2), Exprs.One), Exprs.Subtract(Exprs.Power(x, 2), Exprs.One)),
++            x, Exprs.Infinity, LimitDirection.TwoSided, ctx);
++        Assert.Equal(LimitStatus.Value, atInfinity.Status);
++        Assert.Equal(Exprs.One, atInfinity.Value);
++
++        LimitResult polynomial = Limits.Limit(Exprs.Add(Exprs.Power(x, 2), Exprs.One), x, Exprs.Integer(2), LimitDirection.TwoSided, ctx);
++        Assert.Equal(LimitStatus.Value, polynomial.Status);
++        Assert.Equal(Exprs.Integer(5), polynomial.Value);
++
++        LimitResult squeezed = Limits.Limit(Exprs.Multiply(x, Exprs.Function(log, x)), x, Exprs.Zero, LimitDirection.FromRight, ctx);
++        Assert.Equal(LimitStatus.Value, squeezed.Status);
++        Assert.Equal(Exprs.Zero, squeezed.Value);
++    }
++
++    /// <summary>A limit that IS the substitution value still takes the fast path: the guard fires on
++    /// an exponent with no value at the point, not on every power. SymPy 1.14.0 agrees on all four
++    /// through the published builtin.</summary>
++    [Fact]
++    public void SubstitutionShapedLimits_StillAnswerImmediately()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++        Assert.Equal("5", ValueFormatter.Format(engine.Evaluate("limit(x^2 + 1, x, 2)")));
++        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^2, x, 0)")));
++        Assert.Equal("8", ValueFormatter.Format(engine.Evaluate("limit(2^x, x, 3)")));
++        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit(x^x, x, 0)")));
++        // and the probes answer SymPy's E and exp(2) through the same builtin
++        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + 1/x)^x, x, inf)")));
++        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^(1/x), x, 0)")));
++        Assert.Equal("e^2", ValueFormatter.Format(engine.Evaluate("limit((1 + 2/x)^x, x, inf)")));
++    }
++
++    // ------------------------------------------------------------------
++    // 4. a record with no value claims no exactness
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// The audit's P0 for this record: <c>limit_full(x*sin(1/x), x, 0)</c> is Unevaluated with
++    /// <c>value</c> and <c>exists</c> both Null, and it used to report
++    /// <c>exactness = SolutionExactness.Exact</c> — an exactness claim about no result. The wire now
++    /// carries <c>None</c> for it, while a determined record keeps the exactness it earns.
++    /// </summary>
++    [Fact]
++    public void UndeterminedLimit_ClaimsNoExactness_AndDeterminedOnesKeepTheirs()
++    {
++        Symbol x = NewContext(out ExprContext ctx);
++        Expr squeezed = Exprs.Multiply(x, Exprs.Function(ctx.Function("sin"), Exprs.Divide(Exprs.One, x)));
++        LimitResult kernel = Limits.Limit(squeezed, x, Exprs.Zero, LimitDirection.TwoSided, ctx);
++        Assert.Equal(LimitStatus.Unevaluated, kernel.Status);
++        Assert.Null(kernel.Value);
++        Assert.Null(kernel.FromLeft);
++        Assert.Null(kernel.FromRight);
++        Assert.Equal("None", kernel.Exactness.ToString());
++
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++
++        RecordValue undetermined = engine.Evaluate("limit_full(x*sin(1/x), x, 0)").AsRecord();
++        AssertEnumField(F(undetermined, "status"), "LimitStatus", "Unevaluated");
++        Assert.Equal(ValueKind.Void, F(undetermined, "exists").Kind);
++        Assert.Equal(ValueKind.Void, F(undetermined, "value").Kind);
++        AssertEnumField(F(undetermined, "exactness"), "SolutionExactness", "None");
++
++        RecordValue determined = engine.Evaluate("limit_full(sin(x)/x, x, 0)").AsRecord();
++        AssertEnumField(F(determined, "exactness"), "SolutionExactness", "Exact");
++
++        // a DoesNotExist record carries a determination (its two one-sided results), so its
++        // exactness is derived from those sides — it is not a value claim
++        RecordValue pole = engine.Evaluate("limit_full(1/x, x, 0)").AsRecord();
++        AssertEnumField(F(pole, "status"), "LimitStatus", "DoesNotExist");
++        AssertEnumField(F(pole, "exactness"), "SolutionExactness", "Exact");
++    }
++
++    /// <summary>The probes through the wire: the value is the exact <c>e</c> / <c>e^2</c> and the
++    /// record says so (AlgebraicExact, a closed form — never Approximate).</summary>
++    [Fact]
++    public void Probes_CrossTheWireAsExactClosedForms()
++    {
++        var engine = NewEngine();
++        engine.Evaluate("x = symbol(\"x\")");
++
++        RecordValue first = engine.Evaluate("limit_full((1 + 1/x)^x, x, inf)").AsRecord();
++        AssertEnumField(F(first, "status"), "LimitStatus", "Value");
++        Assert.Equal("e", ValueFormatter.Format(F(first, "value")));
++        AssertEnumField(F(first, "exactness"), "SolutionExactness", "AlgebraicExact");
++
++        RecordValue second = engine.Evaluate("limit_full((1 + 2/x)^x, x, inf)").AsRecord();
++        AssertEnumField(F(second, "status"), "LimitStatus", "Value");
++        Assert.Equal("e^2", ValueFormatter.Format(F(second, "value")));
++        AssertEnumField(F(second, "exactness"), "SolutionExactness", "AlgebraicExact");
++    }
++}
+diff --git a/Lovelace.Symbolics.Tests/OracleCorpus.cs b/Lovelace.Symbolics.Tests/OracleCorpus.cs
+index ddc8276..3cd55d7 100644
+--- a/Lovelace.Symbolics.Tests/OracleCorpus.cs
++++ b/Lovelace.Symbolics.Tests/OracleCorpus.cs
+@@ -207,6 +207,19 @@ internal static class OracleCorpus
+         const string atInfinity =
+             "real limit at infinity by exact degree comparison of the rational function; compared with " +
+             "sympy.limit(..., x, oo) / (..., x, -oo)";
++        // cycle 5 (round limits2): the indeterminate exponential family. The value at the point does
++        // not exist for (1 + u)^v with u → 0 and v → ∞, so substitution is not a proof there; the
++        // limit is the exact e^(lim u·v). Before this round the kernel published its value at the
++        // (undefined) point — the rational 1 — for every one of these. SymPy 1.14.0 prints E and
++        // exp(2)/exp(3)/exp(3/2), and the comparison below is numeric at 30+ digits
++        // (N(E, 30) = 2.71828182845904523536028747135, N(exp(2), 30) = 7.38905609893065022723042746058).
++        // NOTE the corpus admits only cases whose TWO sides have a definite answer: shapes the
++        // kernel refuses while sympy answers (e.g. (1 + 1/x)^(x^2), whose u·v = 1/x diverges and
++        // does not cancel) are deliberately NOT entries here.
++        const string indeterminateExponential =
++            "the indeterminate exponential family (1 + u)^v with u → 0 and v → ∞: the limit is the EXACT " +
++            "closed form e^(lim u·v), answered by cancelling u·v to a constant, compared with " +
++            "sympy.limit(..., x, oo) / (..., x, 0) which returns E and exp(a·b)";
+ 
+         return new[]
+         {
+@@ -260,6 +273,27 @@ internal static class OracleCorpus
+             new LimitCase(atInfinity,
+                 Exprs.Subtract(Exprs.Power(x, 3), Exprs.Multiply(2, x)), "x**3 - 2*x",
+                 Exprs.Negate(infinite), "-sympy.oo", LimitDirection.TwoSided),
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x),
++                "(1 + 1/x)**x", infinite, "sympy.oo", LimitDirection.TwoSided),                 // E
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), x),
++                "(1 + 1/x)**x", Exprs.Negate(infinite), "-sympy.oo", LimitDirection.TwoSided),    // E
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x)),
++                "(1 + x)**(1/x)", Exprs.Zero, "0", LimitDirection.TwoSided),                      // E
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, x), Exprs.Divide(Exprs.One, x)),
++                "(1 + x)**(1/x)", Exprs.Zero, "0", LimitDirection.FromLeft),                      // E
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(2, x)), x),
++                "(1 + 2/x)**x", infinite, "sympy.oo", LimitDirection.TwoSided),                   // exp(2)
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(Exprs.One, x)), Exprs.Multiply(3, x)),
++                "(1 + 1/x)**(3*x)", infinite, "sympy.oo", LimitDirection.TwoSided),               // exp(3)
++            new LimitCase(indeterminateExponential,
++                Exprs.Power(Exprs.Add(Exprs.One, Exprs.Divide(3, x)), Exprs.Divide(x, 2)),
++                "(1 + 3/x)**(x/2)", infinite, "sympy.oo", LimitDirection.TwoSided),               // exp(3/2)
+         };
+     }
+ 
+diff --git a/Lovelace.Symbolics/Calculus/Limits.cs b/Lovelace.Symbolics/Calculus/Limits.cs
+index 0e62410..3a40212 100644
+--- a/Lovelace.Symbolics/Calculus/Limits.cs
++++ b/Lovelace.Symbolics/Calculus/Limits.cs
+@@ -7,6 +7,26 @@ public enum LimitStatus { Value, PlusInfinity, MinusInfinity, DoesNotExist, Unev
+ 
+ public enum LimitDirection { TwoSided, FromLeft, FromRight }
+ 
++/// <summary>
++/// Exactness of the ANSWER a limit record carries — never of a value it does not carry. A record
++/// the engine did not determine (<see cref="LimitStatus.Unevaluated"/>, <see cref="LimitStatus.Failed"/>)
++/// carries <see cref="None"/>: there is no result for an exactness to describe. The members a
++/// determined record can carry keep the names the frozen <c>SolutionExactness</c> vocabulary
++/// already publishes on the wire, so every previous answer is spelled exactly as before.
++/// </summary>
++public enum LimitExactness
++{
++    /// <summary>No answer at all: no value, no side, nothing an exactness could describe.</summary>
++    None,
++    /// <summary>An exact constant value (integer or rational).</summary>
++    Exact,
++    /// <summary>An exact closed form that is not a rational (e.g. e, e^2), or an exact +-infinity
++    /// determination.</summary>
++    AlgebraicExact,
++    /// <summary>A numeric approximation produced by the evaluator.</summary>
++    Approximate,
++}
++
+ public sealed record LimitResult(
+     LimitStatus Status,
+     Expr? Value = null,
+@@ -18,12 +38,27 @@ public sealed record LimitResult(
+     /// point is unconditional); a one-sided value at a branch point carries the side constraint.</summary>
+     public AssumptionSet Conditions { get; init; } = AssumptionSet.Empty;
+ 
+-    /// <summary>Exactness of the reported value: an exact constant, an algebraic closed form, or
+-    /// an approximation produced by numeric evaluation.</summary>
+-    public SolutionExactness Exactness { get; init; } = SolutionExactness.Exact;
++    /// <summary>
++    /// Exactness of the answer this record carries, DERIVED from what it carries instead of
++    /// defaulted at construction. The previous default (<c>Exact</c>, inherited by the
++    /// <see cref="Uneval"/> / <see cref="Dne"/> / infinity constructors) made a record with no
++    /// value, no side and <c>exists: Null</c> claim an exactness about no result — a claim nothing
++    /// in the record backstops.
++    /// <para>A determined value reports its own exactness; a divergence is an exact +-infinity
++    /// determination; a <see cref="LimitStatus.DoesNotExist"/> determination reports the exactness
++    /// of the two one-sided results that prove the disagreement (they ARE the content of that
++    /// record, so an approximate side makes the determination approximate); everything the engine
++    /// did not determine reports <see cref="LimitExactness.None"/>.</para>
++    /// </summary>
++    public LimitExactness Exactness => Status switch
++    {
++        LimitStatus.Value => ExactnessOf(Value!),
++        LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => LimitExactness.Exact,
++        LimitStatus.DoesNotExist => LeastExact(FromLeft, FromRight),
++        _ => LimitExactness.None,   // Unevaluated / Failed: the record carries no answer
++    };
+ 
+-    public static LimitResult Of(Expr v) =>
+-        new(LimitStatus.Value, v) { Exactness = ExactnessOf(v) };
++    public static LimitResult Of(Expr v) => new(LimitStatus.Value, v);
+ 
+     public static LimitResult PlusInf => new(LimitStatus.PlusInfinity);
+     public static LimitResult MinusInf => new(LimitStatus.MinusInfinity);
+@@ -31,33 +66,69 @@ public sealed record LimitResult(
+         new(LimitStatus.DoesNotExist, FromLeft: left, FromRight: right);
+     public static LimitResult Uneval(string reason) => new(LimitStatus.Unevaluated, FailureReason: reason);
+ 
+-    private static SolutionExactness ExactnessOf(Expr v) => v switch
++    private static LimitExactness ExactnessOf(Expr v) => v switch
+     {
+-        IntegerConstantExpr or RationalConstantExpr => SolutionExactness.Exact,
+-        RealConstantExpr => SolutionExactness.Approximate,
+-        _ => SolutionExactness.AlgebraicExact,
++        IntegerConstantExpr or RationalConstantExpr => LimitExactness.Exact,
++        RealConstantExpr => LimitExactness.Approximate,
++        _ => LimitExactness.AlgebraicExact,
+     };
++
++    /// <summary>The strongest exactness both sides of a DoesNotExist determination support: the two
++    /// sides are that record's content, so the less exact of them is what it can claim, and a side
++    /// with no answer at all leaves nothing to claim.</summary>
++    private static LimitExactness LeastExact(LimitResult? left, LimitResult? right)
++    {
++        if (left is null || right is null)
++            return LimitExactness.None;
++        LimitExactness a = left.Exactness;
++        LimitExactness b = right.Exactness;
++        if (a == LimitExactness.None || b == LimitExactness.None)
++            return LimitExactness.None;
++        if (a == LimitExactness.Approximate || b == LimitExactness.Approximate)
++            return LimitExactness.Approximate;
++        if (a == LimitExactness.AlgebraicExact || b == LimitExactness.AlgebraicExact)
++            return LimitExactness.AlgebraicExact;
++        return LimitExactness.Exact;
++    }
+ }
+ 
+ /// <summary>
+-/// Symbolic limits: direct substitution, exact rational-infinity degree comparison, and local
+-/// series analysis. Pole directions come from the local leading-order behavior — denominator
+-/// multiplicity parity plus the leading coefficient ratio sign — never from the numerator sign
+-/// alone. One-sided limits are first-class; a two-sided limit whose sides disagree is reported
+-/// as DoesNotExist with both one-sided results attached.
++/// Symbolic limits: direct substitution, exact rational-infinity degree comparison, local
++/// series analysis, and the indeterminate exponential family. Pole directions come from the local
++/// leading-order behavior — denominator multiplicity parity plus the leading coefficient ratio sign
++/// — never from the numerator sign alone. One-sided limits are first-class; a two-sided limit whose
++/// sides disagree is reported as DoesNotExist with both one-sided results attached.
++/// <para>
++/// Direct substitution is a proof only when every subexpression HAS a value at the point. A power
++/// whose exponent is singular there does not: <c>(1 + u)^v</c> with <c>u → 0</c> and
++/// <c>v → ∞</c> is the standard indeterminate form, and the canonicaliser folds it to a number
++/// before anyone can object (<c>Power(1, 1/0)</c> is <c>1</c>), so substituting first used to
++/// publish <c>1</c> for <c>limit((1 + 1/x)^x, x, ∞)</c> — whose value is <c>e</c> — with
++/// <c>exists: true</c> and an exactness claim attached. Such a limit is now answered exactly, as
++/// <c>e^(lim u·v)</c>, or refused with a typed <see cref="LimitStatus.Unevaluated"/>; it is never
++/// answered with the value at a point where the expression has none.
++/// </para>
+ /// </summary>
+ public static class Limits
+ {
+-    public static LimitResult Limit(Expr f, Symbol x, Expr point, LimitDirection direction, ExprContext? ctx = null)
+-    {
+-        ctx ??= Exprs.Current;
++    public static LimitResult Limit(Expr f, Symbol x, Expr point, LimitDirection direction, ExprContext? ctx = null) =>
++        LimitCore(f, x, point, direction, ctx ?? Exprs.Current);
+ 
++    private static LimitResult LimitCore(Expr f, Symbol x, Expr point, LimitDirection direction, ExprContext ctx)
++    {
+         // infinite limits: rational functions by degree comparison, else t = 1/x substitution
+         if (point is NamedConstantExpr { Constant: NamedConstant.Infinity })
+             return AtInfinity(f, x, plus: true, direction, ctx);
+         if (IsNegInfinity(point))
+             return AtInfinity(f, x, plus: false, direction, ctx);
+ 
++        // 0. an exponent with no value at the point. Substitution folds such a power to a number
++        // regardless — Power(1, 1/0) is 1, and (b^e)^0 is 1 whatever b^e was doing — so the number
++        // it computes is the value at a point where the expression has none, not a limit. Decide
++        // the shape here, before anything can fold it.
++        if (HasSingularExponent(f, x, point, ctx))
++            return IndeterminateExponential(f, x, point, direction, ctx);
++
+         // 1. direct substitution (numerator/denominator separately: 0/0 must not fold to 0)
+         try
+         {
+@@ -90,6 +161,233 @@ public static class Limits
+         }
+     }
+ 
++    /// <summary>
++    /// <paramref name="f"/> has an exponent with no value at the point, so its substituted value is
++    /// not a proof. When f is a product (or quotient) of the indeterminate exponential family
++    /// <c>(1 + u)^v</c> with <c>u → 0</c> and a rest whose own limit exists, the product rule
++    /// decides it; every other shape is refused with a typed non-answer. A finite wrong answer here
++    /// would carry <c>exists: true</c> and an exactness claim, which is worse than the refusal.
++    /// </summary>
++    private static LimitResult IndeterminateExponential(Expr f, Symbol x, Expr point, LimitDirection direction, ExprContext ctx)
++    {
++        if (!TryIsolateExponentialFactor(f, x, point, ctx, out Expr rest, out PowerExpr? factor, out bool inDenominator))
++            return LimitResult.Uneval(
++                "a subexpression carries an exponent with no value at the point: the substituted value is not the limit");
++
++        LimitResult? factorLimit = ExponentialFamily(factor!, x, point, ctx);
++        if (factorLimit is null)
++            return LimitResult.Uneval(
++                "an exponent has no value at the point and the base does not substitute to 1, so the limit is not e^(lim u*v)");
++
++        LimitResult restLimit = LimitCore(rest, x, point, direction, ctx);
++        return Compose(restLimit, factorLimit, inDenominator);
++    }
++
++    /// <summary>
++    /// Splits f as <c>R·P</c> (or <c>R/P</c>) where P is THE factor whose exponent has no value at
++    /// the point, and R is everything else. False when f is not such a product: a SUM containing
++    /// the shape (e.g. <c>(1 + x)^(1/x) − 1</c>) offers no product rule, a nested one
++    /// (<c>(2^(1/x))^x</c>) is not a factor of its own, and two indeterminate factors at once are
++    /// past what this rewrite can justify.
++    /// </summary>
++    private static bool TryIsolateExponentialFactor(
++        Expr f, Symbol x, Expr point, ExprContext ctx, out Expr rest, out PowerExpr? factor, out bool inDenominator)
++    {
++        var (n, d) = SplitFraction(f);
++        IReadOnlyList<Expr> numerator = n is MultiplyExpr nm ? nm.Factors : new Expr[] { n };
++        IReadOnlyList<Expr> denominator = d is MultiplyExpr dm ? dm.Factors : new Expr[] { d };
++        int nIndex = -1;
++        int dIndex = -1;
++        for (int i = 0; i < numerator.Count; i++)
++        {
++            if (!HasSingularExponent(numerator[i], x, point, ctx))
++                continue;
++            if (nIndex >= 0 || dIndex >= 0)
++                return No(out rest, out factor, out inDenominator);
++            nIndex = i;
++        }
++        for (int i = 0; i < denominator.Count; i++)
++        {
++            if (!HasSingularExponent(denominator[i], x, point, ctx))
++                continue;
++            if (nIndex >= 0 || dIndex >= 0)
++                return No(out rest, out factor, out inDenominator);
++            dIndex = i;
++        }
++        if (nIndex >= 0 && numerator[nIndex] is PowerExpr np)
++        {
++            rest = Exprs.Divide(Product(numerator, nIndex), d);
++            factor = np;
++            inDenominator = false;
++            return true;
++        }
++        if (dIndex >= 0 && denominator[dIndex] is PowerExpr dp)
++        {
++            rest = Exprs.Divide(n, Product(denominator, dIndex));
++            factor = dp;
++            inDenominator = true;
++            return true;
++        }
++        return No(out rest, out factor, out inDenominator);
++
++        static bool No(out Expr rest, out PowerExpr? factor, out bool inDenominator)
++        {
++            rest = Exprs.One;
++            factor = null;
++            inDenominator = false;
++            return false;
++        }
++    }
++
++    private static Expr Product(IReadOnlyList<Expr> factors, int skip)
++    {
++        var kept = new List<Expr>(factors.Count);
++        for (int i = 0; i < factors.Count; i++)
++        {
++            if (i != skip)
++                kept.Add(factors[i]);
++        }
++        return kept.Count == 0 ? Exprs.One : Exprs.Multiply(kept);
++    }
++
++    /// <summary>
++    /// The indeterminate exponential family: <c>P = (1 + u)^v</c> with <c>u → 0</c> at the point,
++    /// whose value there does not exist. Since <c>(1 + u)^v = exp(v·ln(1 + u))</c> and
++    /// <c>v·ln(1 + u) = (u·v)·(ln(1 + u)/u)</c> with <c>ln(1 + u)/u → 1</c> as <c>u → 0</c>, the
++    /// limit is exactly <c>e^(lim u·v)</c> — the kernel never has to expand a logarithm. For
++    /// <c>u = a/x</c> and <c>v = b·x</c> that is <c>e^(a·b)</c>, the closed form SymPy returns.
++    /// <para>Both operands are decided by EXACT ALGEBRA and nothing else: u must substitute to 0
++    /// (so the base is 1 at the point) and u·v must CANCEL to a form free of x, which makes it an
++    /// exact constant whose limit is itself. The answer is therefore an exact closed form, never a
++    /// float. An un-cancelled quotient is never substituted — 0/0 folds to 0 there, and removing
++    /// the common factor is the one step that makes a value at the point meaningful — and the series
++    /// machinery is never handed these operands either (a composite exponential is exactly the shape
++    /// it can explode on, observed as a stack overflow on <c>(2^(1/x))^x</c>). A shape this test
++    /// cannot decide is refused by the caller, not guessed.</para>
++    /// <para>Returns null when the base does not substitute to 1 at the point: then P is some other
++    /// power (e.g. <c>(2 + x)^(1/x)</c>) and the caller must refuse rather than guess.</para>
++    /// </summary>
++    private static LimitResult? ExponentialFamily(PowerExpr power, Symbol x, Expr point, ExprContext ctx)
++    {
++        Expr u = Exprs.Subtract(power.Base, Exprs.One);
++        if (SubstituteToNum(u, x, point, ctx) is not { } uValue || !NumOps.IsZero(uValue))
++            return null;
++
++        // u = a/x and v = b·x cancel to the constant a·b — the exact exponent of e — while the
++        // operands of a shape that does not cancel (u·v still mentions x) say nothing.
++        Expr product = RationalFunctions.Cancel(Exprs.Multiply(u, power.Exponent), ctx);
++        if (Mentions(product, x))
++            return LimitResult.Uneval("(1 + u)^v with u -> 0, but the product u*v does not reduce to a constant");
++        return LimitResult.Of(Exprs.Power(Exprs.E, product));
++    }
++
++    /// <summary>
++    /// The product rule for the isolated factor: <c>lim R·P = (lim R)·(lim P)</c> and
++    /// <c>lim R/P = (lim R)/(lim P)</c> when both limits exist. A rest that was not determined, or
++    /// a zero divisor, is refused — the rewrite does not turn an undetermined product into a claim.
++    /// </summary>
++    private static LimitResult Compose(LimitResult rest, LimitResult factor, bool inDenominator)
++    {
++        if (rest.Status != LimitStatus.Value || factor.Status != LimitStatus.Value)
++            return LimitResult.Uneval("the indeterminate factor's cofactor has no limit at the point");
++        if (!inDenominator)
++            return LimitResult.Of(Exprs.Multiply(rest.Value!, factor.Value!));
++        if (IsZeroConstant(factor.Value!))
++            return LimitResult.Uneval("the indeterminate factor is 0 in the denominator: 0/0 is not decided by this rewrite");
++        return LimitResult.Of(Exprs.Divide(rest.Value!, factor.Value!));
++    }
++
++    /// <summary>
++    /// True when <paramref name="e"/> contains a power whose EXPONENT mentions x and has no finite
++    /// value at the point (a pole, a branch point, or another free parameter). Substitution folds
++    /// such a power to a number before anyone can object — <c>Power(1, 1/0)</c> is <c>1</c> by the
++    /// canonicaliser, and <c>(b^e)^0</c> is <c>1</c> whatever <c>b^e</c> was doing — so a finite
++    /// quotient computed from it is the value at a point where the expression has none.
++    /// </summary>
++    private static bool HasSingularExponent(Expr e, Symbol x, Expr point, ExprContext ctx) => e switch
++    {
++        PowerExpr p =>
++            (Mentions(p.Exponent, x) && !IsFiniteAtPoint(p.Exponent, x, point, ctx))
++            || HasSingularExponent(p.Base, x, point, ctx)
++            || HasSingularExponent(p.Exponent, x, point, ctx),
++        AddExpr a => a.Terms.Any(t => HasSingularExponent(t, x, point, ctx)),
++        MultiplyExpr m => m.Factors.Any(t => HasSingularExponent(t, x, point, ctx)),
++        FunctionExpr f => f.Arguments.Any(t => HasSingularExponent(t, x, point, ctx)),
++        PiecewiseExpr pw =>
++            pw.Branches.Any(b => HasSingularExponent(b.Guard, x, point, ctx) || HasSingularExponent(b.Value, x, point, ctx))
++            || HasSingularExponent(pw.Otherwise, x, point, ctx),
++        RelationExpr r => HasSingularExponent(r.Left, x, point, ctx) || HasSingularExponent(r.Right, x, point, ctx),
++        DerivativeExpr d => HasSingularExponent(d.Operand, x, point, ctx),
++        IntegralExpr i => HasSingularExponent(i.Operand, x, point, ctx),
++        NotExpr n => HasSingularExponent(n.Operand, x, point, ctx),
++        AndExpr an => an.Operands.Any(t => HasSingularExponent(t, x, point, ctx)),
++        OrExpr or => or.Operands.Any(t => HasSingularExponent(t, x, point, ctx)),
++        _ => false,
++    };
++
++    /// <summary>Whether the expression has a finite numeric value at the point. A rejected
++    /// substitution (a pole, a branch cut, a free parameter) and a refused numeric evaluation are
++    /// both "no value": the exponent's value at the point is what decides whether the power may be
++    /// substituted at all.</summary>
++    private static bool IsFiniteAtPoint(Expr e, Symbol x, Expr point, ExprContext ctx)
++    {
++        try
++        {
++            var substituted = Evaluation.Substitute(e, ctx, new Dictionary<Symbol, Expr> { [x] = point });
++            Evaluation.EvaluateToNum(substituted, ctx, new Dictionary<Symbol, Num>());
++            return true;
++        }
++        catch (EvaluationException)
++        {
++            return false;
++        }
++    }
++
++    /// <summary>The value of e at the point by direct substitution alone: null when the point is
++    /// not numerically substitutable (a pole, a branch cut, an undefined constituent) or when the
++    /// denominator vanishes there. The cheap, terminating half of the limit engine — used by the
++    /// exponential family, which must never recurse back through the series machinery.</summary>
++    private static Num? SubstituteToNum(Expr e, Symbol x, Expr point, ExprContext ctx)
++    {
++        try
++        {
++            var (n, d) = SplitFraction(e);
++            var nv = Evaluation.EvaluateToNum(
++                Evaluation.Substitute(n, ctx, new Dictionary<Symbol, Expr> { [x] = point }), ctx, new Dictionary<Symbol, Num>());
++            var dv = Evaluation.EvaluateToNum(
++                Evaluation.Substitute(d, ctx, new Dictionary<Symbol, Expr> { [x] = point }), ctx, new Dictionary<Symbol, Num>());
++            return NumOps.IsZero(dv) ? null : NumOps.Divide(nv, dv);
++        }
++        catch (EvaluationException)
++        {
++            return null;
++        }
++    }
++
++    /// <summary>True when x occurs anywhere in e (a limit's operands must be re-limited only when
++    /// they actually depend on the point variable).</summary>
++    private static bool Mentions(Expr e, Symbol x) => e switch
++    {
++        SymbolExpr s => s.Symbol.Name == x.Name,
++        AddExpr a => a.Terms.Any(t => Mentions(t, x)),
++        MultiplyExpr m => m.Factors.Any(t => Mentions(t, x)),
++        PowerExpr p => Mentions(p.Base, x) || Mentions(p.Exponent, x),
++        FunctionExpr f => f.Arguments.Any(t => Mentions(t, x)),
++        PiecewiseExpr pw => pw.Branches.Any(b => Mentions(b.Guard, x) || Mentions(b.Value, x)) || Mentions(pw.Otherwise, x),
++        RelationExpr r => Mentions(r.Left, x) || Mentions(r.Right, x),
++        DerivativeExpr d => Mentions(d.Operand, x),
++        IntegralExpr i => Mentions(i.Operand, x),
++        OrderExpr o => Mentions(o.Variable, x) || Mentions(o.Point, x) || Mentions(o.Degree, x),
++        NotExpr n => Mentions(n.Operand, x),
++        AndExpr an => an.Operands.Any(t => Mentions(t, x)),
++        OrExpr or => or.Operands.Any(t => Mentions(t, x)),
++        _ => false,
++    };
++
++    /// <summary>True when the expression is the exact constant zero, the sense in which u → 0 is
++    /// required before (1 + u)^v may be read as exp((u·v)·(ln(1 + u)/u)).</summary>
++    private static bool IsZeroConstant(Expr e) => Evaluation.ConstantToNum(e) is { } n && NumOps.IsZero(n);
++
+     private static bool IsNegInfinity(Expr e) =>
+         e is MultiplyExpr m && m.Factors.Length == 2 &&
+         m.Factors[0] is RationalConstantExpr rc && rc.Value.IsMinusOne &&
+@@ -104,7 +402,7 @@ public static class Limits
+         var t = ctx.Symbol("__t");
+         var g = Evaluation.Substitute(f, ctx, new Dictionary<Symbol, Expr> { [x] = Exprs.Divide(Exprs.One, Exprs.Symbol(t)) });
+         // x → +∞ ⟺ t → 0⁺ ; x → −∞ ⟺ t → 0⁻
+-        return Limit(g, t, Exprs.Zero, plus ? LimitDirection.FromRight : LimitDirection.FromLeft, ctx);
++        return LimitCore(g, t, Exprs.Zero, plus ? LimitDirection.FromRight : LimitDirection.FromLeft, ctx);
+     }
+ 
+     /// <summary>
