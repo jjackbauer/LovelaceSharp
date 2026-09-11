@@ -93,6 +93,16 @@ public class RelationsAndFamiliesTests
         Assert.Equal(0, NumOps.Compare(NumOps.FromLong(0), IrEvaluator.Evaluate(prog, two, ctx)));
     }
 
+    /// <summary>The display FIELD of the AssumptionSet record assumptions() returns.</summary>
+    private static string AssumptionDisplay(SuiteEngine engine) =>
+        ((Value)engine.Evaluate("assumptions()").AsRecord()
+            .Fields.First(f => f.Name == "display").Value!).AsText();
+
+    /// <summary>The structured assumption atoms (relations, domain conditions, predicates).</summary>
+    private static IReadOnlyList<Value> AssumptionAtoms(SuiteEngine engine) =>
+        ((Value)engine.Evaluate("assumptions()").AsRecord()
+            .Fields.First(f => f.Name == "assumptions").Value!).AsVector();
+
     [Fact]
     public void Assume_ConjunctionAndNegation_ThroughEngine()
     {
@@ -102,9 +112,13 @@ public class RelationsAndFamiliesTests
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
         engine.Evaluate("assume(and(x > 0, x < 5))");
-        Assert.Equal("x > 0; x < 5", engine.Evaluate("assumptions()").AsText());
+        // assumptions() is an AssumptionSet record: the human rendering is the display FIELD and
+        // the atoms themselves are structured values, so nothing has to be parsed out of it
+        Assert.Equal("x > 0; x < 5", AssumptionDisplay(engine));
+        Assert.Equal(2, AssumptionAtoms(engine).Count);
         engine.Evaluate("assume(not(x == 2))");
-        Assert.Equal("x > 0; x < 5; x != 2", engine.Evaluate("assumptions()").AsText());
+        Assert.Equal("x > 0; x < 5; x != 2", AssumptionDisplay(engine));
+        Assert.Equal(3, AssumptionAtoms(engine).Count);
         // logical builtins produce symbolic conditions
         var combo = engine.Evaluate("and(x > 0, x < 1)");
         Assert.Equal(ValueKind.Symbolic, combo.Kind);
@@ -188,8 +202,17 @@ public class RelationsAndFamiliesTests
         engine.LoadPlugin(symbolics);
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
-        var result = engine.Evaluate("solve(sin(x) == 0, x)");
-        Assert.Equal("k*pi for integer k", ValueFormatter.Format(result));
+        // the periodic inverse is a structured family inside the SolveResult record
+        var result = engine.Evaluate("solve(sin(x) == 0, x)").AsRecord();
+        Assert.Equal("SolveResult", result.TypeName);
+        var family = ((Value)result.Fields.First(f => f.Name == "families").Value!).AsVector().Single().AsRecord();
+        Assert.Equal("SolutionFamily", family.TypeName);
+        Assert.Equal("k*pi",
+            Printing.PrettyPrint(((Value)family.Fields.First(f => f.Name == "template").Value!).AsSymbolic()));
+        Assert.Equal("k",
+            Printing.PrettyPrint(((Value)family.Fields.First(f => f.Name == "parameter").Value!).AsSymbolic()));
+        Assert.Equal("Integer",
+            ((Value)family.Fields.First(f => f.Name == "parameter_domain").Value!).AsDomain().ToString());
     }
 
     // ------------------------------------------------------------------

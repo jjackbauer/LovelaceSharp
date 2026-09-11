@@ -125,24 +125,61 @@ public class CapabilitiesBuiltinTests
         Assert.Equal("CapabilitiesResult", value.AsRecord().TypeName);
     }
 
+    private static MathDomain[] DomainField(RecordValue capabilities, string field) =>
+        Field(capabilities, field).AsVector()
+            .Select(d => d.Kind == ValueKind.Domain
+                ? d.AsDomain()
+                : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}"))
+            .ToArray();
+
+    /// <summary>
+    /// Audit A2-F12. The record's domain pair is scoped to the operation it constrains: as
+    /// <c>supported_domains</c>/<c>unsupported_domains</c> it read as a claim about the RUNTIME, and
+    /// two live counterexamples existed — <c>symbol("x", integer)</c> succeeds, and a
+    /// SolutionFamily's <c>parameter_domain</c> IS the integer domain. The fields now name the
+    /// solver, and this test walks both directions of that scope against the live runner:
+    /// every REFUSED domain must refuse (with the advertised code/category), every ACCEPTED domain
+    /// must answer with the requested domain on the record, and every domain value must stay usable
+    /// by the other domain-consuming surface the name no longer speaks for.
+    /// </summary>
     [Fact]
-    public void SupportedDomains_AreRealAndComplex_AsDomainValues()
+    public async Task SolveDomainStatement_NamesItsOperation_AndEveryDomainStaysUsableElsewhere()
     {
         var engine = NewEngine();
-        var domains = Field(Capabilities(engine), "supported_domains").AsVector();
+        RecordValue capabilities = Capabilities(engine);
 
-        Assert.Equal(new[] { MathDomain.Real, MathDomain.Complex },
-            domains.Select(d => d.Kind == ValueKind.Domain ? d.AsDomain() : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}")).ToArray());
-    }
+        Assert.Equal(new[] { MathDomain.Real, MathDomain.Complex }, DomainField(capabilities, "solve_domains_accepted"));
+        Assert.Equal(new[] { MathDomain.Integer, MathDomain.Rational }, DomainField(capabilities, "solve_domains_refused"));
+        // the ambiguous runtime-wide claim is GONE, not merely re-valued
+        Assert.DoesNotContain(capabilities.Fields, f => f.Name is "supported_domains" or "unsupported_domains");
 
-    [Fact]
-    public void UnsupportedDomains_AreIntegerAndRational_AsDomainValues()
-    {
-        var engine = NewEngine();
-        var domains = Field(Capabilities(engine), "unsupported_domains").AsVector();
+        var refusal = AdvertisedByOperationClass(engine)["solve.unsupported-domain"];
+        foreach (string domain in new[] { "integer", "rational" })
+        {
+            JsonNode envelope = await RunEnvelopeAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
+            Assert.False(envelope["ok"]!.GetValue<bool>(), $"the statement refuses {domain}, so the live call must refuse it");
+            Assert.Equal(refusal.Code, envelope["code"]!.GetValue<string>());
+            Assert.Equal(refusal.Category, envelope["category"]!.GetValue<string>());
+            Assert.Contains($"got {domain}", envelope["message"]!.GetValue<string>());
+        }
 
-        Assert.Equal(new[] { MathDomain.Integer, MathDomain.Rational },
-            domains.Select(d => d.Kind == ValueKind.Domain ? d.AsDomain() : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}")).ToArray());
+        foreach (string domain in new[] { "real", "complex" })
+        {
+            JsonNode envelope = await RunEnvelopeAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
+            Assert.True(envelope["ok"]!.GetValue<bool>(), $"the statement accepts {domain}, so the live call must answer");
+            JsonNode structured = envelope["result"]!["structured"]!;
+            Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
+            Assert.Equal(domain, StructuredFields(structured)["domain"]!["domain"]!.GetValue<string>());
+        }
+
+        // the surface the renamed fields no longer speak for: every domain value works, including
+        // the two the SOLVER refuses
+        foreach (string domain in new[] { "real", "complex", "integer", "rational" })
+        {
+            JsonNode envelope = await RunEnvelopeAsync($"symbol(\"s\", {domain})");
+            Assert.True(envelope["ok"]!.GetValue<bool>(),
+                $"symbol(name, {domain}) is supported; the solver-scoped statement must not deny it");
+        }
     }
 
     [Fact]

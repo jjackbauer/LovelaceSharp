@@ -306,9 +306,18 @@ public class DxSemanticClosureTests
         engine.LoadPlugin(symbolics);
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
-        var result = engine.Evaluate("solve(x^4 + 1 == 0, x)");
-        Assert.Equal("unevaluated: complex algebraic roots not supported (RootOf is real-only in v1).",
-            ValueFormatter.FormatTyped(result));
+        // solve() publishes the SolveResult record (not a prose sentence), so the note is a
+        // DIAGNOSTIC of the record: the same information, recoverable without parsing English.
+        var result = engine.Evaluate("solve(x^4 + 1 == 0, x)").AsRecord();
+        Assert.Equal("SolveResult", result.TypeName);
+        AssertEnumField(result.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Unevaluated");
+        Assert.Equal("False", ValueFormatter.Format((Value)result.Fields.First(f => f.Name == "complete").Value!));
+        var diagnostic = ((Value)result.Fields.First(f => f.Name == "diagnostics").Value!)
+            .AsVector().Single().AsRecord();
+        Assert.Equal("solve.unevaluated",
+            ((Value)diagnostic.Fields.First(f => f.Name == "code").Value!).AsText());
+        Assert.Equal("complex algebraic roots not supported (RootOf is real-only in v1).",
+            ((Value)diagnostic.Fields.First(f => f.Name == "message").Value!).AsText());
     }
 
     [Fact]
@@ -323,10 +332,16 @@ public class DxSemanticClosureTests
         AssertEnumField(engine, "solve_full(x^4 - x^2 - 1 == 0, x).status", "SolveStatus", "Partial");
         Assert.False(engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).complete").AsBoolean());
         Assert.Equal("2", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count").AsInteger().ToString());
-        // and the convenience API must not hand back an apparently complete vector
-        Assert.Equal(ValueKind.Text, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x)").Kind);
-        // the real domain is complete and still returns a vector
-        Assert.Equal(ValueKind.Vector, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x, real)").Kind);
+        // and the short form publishes the SAME record: it can neither hand back an apparently
+        // complete vector nor describe the gap in prose (audit A2-F5)
+        var short_ = engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x)").AsRecord();
+        Assert.Equal("SolveResult", short_.TypeName);
+        AssertEnumField(short_.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Partial");
+        Assert.Equal("2", ValueFormatter.Format((Value)short_.Fields.First(f => f.Name == "represented_count").Value!));
+        // the real domain is complete, and says so in the same shape
+        var real = engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x, real)").AsRecord();
+        AssertEnumField(real.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Solved");
+        AssertEnumField(real.Fields.First(f => f.Name == "completeness").Value, "Completeness", "Complete");
     }
 
     [Fact]
@@ -351,8 +366,13 @@ public class DxSemanticClosureTests
         engine.LoadPlugin(symbolics);
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
-        // (x+1)^2 = 4 has TWO solutions: emitting only the principal root was a wrong answer
-        Assert.Equal("[-3, 1]", ValueFormatter.Format(engine.Evaluate("solve((x+1)^2 - 4 == 0, x)")));
+        // (x+1)^2 = 4 has TWO solutions: emitting only the principal root was a wrong answer.
+        // The record's solutions[] is where they are read from now that solve() is structured.
+        var quad = engine.Evaluate("solve((x+1)^2 - 4 == 0, x)").AsRecord();
+        var roots = ((Value)quad.Fields.First(f => f.Name == "solutions").Value!).AsVector()
+            .Select(s => Printing.PrettyPrint(((Value)s.AsRecord().Fields.First(f => f.Name == "value").Value!).AsSymbolic()))
+            .ToArray();
+        Assert.Equal(new[] { "-3", "1" }, roots);
         // (x+1)^3 = 8 has three
         var cube = engine.Evaluate("solve_full((x+1)^3 == 8, x)").AsRecord();
         AssertEnumField(cube.Fields[0].Value, "SolveStatus", "Solved");

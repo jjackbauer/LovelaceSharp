@@ -54,7 +54,9 @@ public class HelpServiceTests
         Assert.Contains("solve(f, x [, domain])", text);
         Assert.Contains("Solve", text);
         Assert.Contains("solve(x^2 - 4 == 0, x)", text);
-        Assert.Contains("Returns: Vector | Text", text);
+        // the declared return kind follows the behaviour: solve() publishes the SolveResult record
+        // solve_full does (audit A2-F5), so the help text must say so rather than "Vector | Text"
+        Assert.Contains("Returns: SolveResult", text);
         Assert.Contains("See also:", text);
         Assert.Contains("solve_full", text);
     }

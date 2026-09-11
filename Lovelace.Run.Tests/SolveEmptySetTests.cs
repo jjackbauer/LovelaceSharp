@@ -35,11 +35,22 @@ public class SolveEmptySetTests
 
         Assert.True(exitCode == 0, $"solve(0 == 1, x) must answer, not fail: {envelope.ToJsonString()}");
         Assert.True(envelope["ok"]!.GetValue<bool>());
-        Assert.Equal("Text", envelope["result"]!["kind"]!.GetValue<string>());
+        // solve() publishes the SAME NoSolutions record solve_full does, so the empty set is
+        // structural. Two failure modes are gone: the folded Boolean reaching the kernel as an
+        // argument type error, and the prose sentence that used to BE the result.
+        JsonNode structured = envelope["result"]!["structured"]!;
+        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
+        Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
+
+        JsonObject fields = Fields(structured);
+        Assert.Equal("NoSolutions", fields["status"]!["value"]!.GetValue<string>());
+        Assert.Equal("true", fields["complete"]!["value"]!.GetValue<string>());
+        JsonArray diagnostics = fields["diagnostics"]!["elements"]!.AsArray();
+        Assert.True(diagnostics.Count >= 1, "the empty set reports why it is empty");
+        JsonObject diagnostic = TestSupport.FieldsByName(diagnostics[0]!);
+        Assert.Equal("solve.no-solutions", diagnostic["code"]!["value"]!.GetValue<string>());
         Assert.Equal("the equation reduces to a nonzero constant.",
-            envelope["result"]!["structured"]!["value"]!.GetValue<string>());
-        // the old failure mode: the folded Boolean reaching the kernel as an argument type error
-        Assert.DoesNotContain("Boolean", envelope["result"]!["structured"]!["value"]!.GetValue<string>());
+            diagnostic["message"]!["value"]!.GetValue<string>());
     }
 
     [Fact]

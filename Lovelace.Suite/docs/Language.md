@@ -1075,8 +1075,12 @@ x = symbol("x")
 solve(x^4 - 5*x^2 + 4 == 0, x)
 ```
 ```result
-[-2, -1, 1, 2] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
+
+The short form returns the same structured record as `solve_full` (cycle 5): a caller that wants the
+vector reads `solutions`, and a caller that needs to know whether the set is complete reads
+`completeness` — the prose vector could not say either.
 
 ```lovelace
 x = symbol("x")

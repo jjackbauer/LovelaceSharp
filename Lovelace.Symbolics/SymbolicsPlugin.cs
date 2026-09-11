@@ -127,7 +127,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             ["assume_clear"] = new("assume_clear", Array.Empty<string>(), BuiltinCategories.Symbolics,
                 "Clears every active assumption.", ["assume_clear()"], "Text", ["assume", "assumptions"]),
             ["assumptions"] = new("assumptions", Array.Empty<string>(), BuiltinCategories.Symbolics,
-                "Lists the active assumptions.", ["assumptions()"], "Text", ["assume", "assume_clear"]),
+                "Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions.",
+                ["assumptions()"], "AssumptionSet", ["assume", "assume_clear"]),
             ["limit_left"] = new("limit_left", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
                 "One-sided limit from the left as x approaches x0.", ["limit_left(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
@@ -222,7 +223,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         // Round 03 moved sqrt(-1) and (-1)^(1/2) OUT of this list by making them answerable.
         Add("capabilities", Array.Empty<string>(), _ => CapabilitiesRecord(),
             new BuiltinDescriptor("capabilities", Array.Empty<string>(), BuiltinCategories.Introspection,
-                "Reports the domains this runtime solves over and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces.",
+                "Reports which domain values the solver's domain argument accepts (solve_domains_accepted) and refuses (solve_domains_refused), and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces. The domain pair is scoped to solve(f, x, domain): symbol(name, domain), assume_* and a SolutionFamily's parameter_domain accept every domain value.",
                 ["capabilities()"], "CapabilitiesResult", ["solve", "solve_full", "symbol", "type"]));
 
         // Round 28 (item 13): the LaTeX rendering of the SAME expression model. It is a print
@@ -270,14 +271,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             _assumptions = AssumptionSet.Empty;
             return "assumptions cleared";
         });
-        Add("assumptions", Array.Empty<string>(), _ =>
-            string.Join("; ", _assumptions.Atoms.Select(a => a switch
-            {
-                SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
-                SymbolDomainAssumption d => d.S.Name + " in " + d.D,
-                SymbolPropertyAssumption p => p.S.Name + " is " + p.P,
-                _ => AssumptionSet.Describe(a),
-            })));
+        Add("assumptions", Array.Empty<string>(), _ => AssumptionSetRecord());
 
         Add("diff", new[] { "f", "x" }, args =>
             Calculus.Diff(AsExpr(args[0]), AsSymbol(args[1]), Context),
@@ -448,83 +442,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             var vs = SymbolVector(args[1], ParameterVectorExpectation);
             return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
         });
-        Add("solve", new[] { "f", "x", "domain" }, args =>
-        {
-            var fx = AsExpr(args[0]);
-            var sx = AsSymbol(args[1]);
-            var domain = SolveDomainOf(args);
-            var set = Solvers.Solve(fx, sx, Context, domain);
-            var kept = AcceptedSolutions(set, sx);
-            if (set.Status == SolveStatus.Solved && kept.Count > 0)
-                return (object)kept.Select(s => s.Value).ToArray();
-            if (set.Status == SolveStatus.Solved && set.Families.Count > 0)
-                return string.Join("; ", set.Families.Select(f =>
-                    Printing.PrettyPrint(f.Template) + " for integer " + f.Parameter.Name));
-            if (set.Status == SolveStatus.Solved)
-                return "no solutions";
-            if (set.Status == SolveStatus.NoSolutions)
-                return set.Note ?? "no solutions";
-            // A partial or unevaluated result must never be presented as a complete vector.
-            if (set.Status == SolveStatus.Partial)
-            {
-                var shown = kept.Count > 0
-                    ? string.Join(", ", kept.Select(s => Printing.PrettyPrint(s.Value)))
-                    : "none";
-                return $"partially representable ({set.UnrepresentedCount} root(s) missing: " +
-                       $"{set.UnrepresentedReason ?? "not representable"}); representable: [{shown}]";
-            }
-            return "unevaluated: " + (set.Note ?? "no solver for this structure");
-        },
+        // The short form and the _full form publish the SAME record: solve() used to answer a
+        // Vector when the set was complete and a prose SENTENCE otherwise ("partially
+        // representable (2 root(s) missing: …)"), so an agent had to parse English to learn the
+        // status, and could not read .status off the complete case either. solve_system() already
+        // took this decision (it returns the same SystemSolveResult solve_system_full does); the
+        // vector is still recoverable structurally from .solutions[].value, so nothing is lost.
+        Add("solve", new[] { "f", "x", "domain" }, args => SolveResultRecord(args),
         new BuiltinDescriptor("solve", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
-            "Solves an equation for x. The default domain is Complex. A result is returned as a vector only when the solver can represent the COMPLETE solution set over the requested domain; partial results are reported as text (use solve_full for the structured form); pass real for real solutions only.",
-            ["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"], "Vector | Text",
+            "Solves an equation for x and returns the SAME SolveResult record solve_full returns: status, domain (a Domain value), complete/completeness, per-solution conditions/multiplicity/exactness, parametric families and diagnostics. The default domain is Complex; pass real for real solutions only.",
+            ["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"], "SolveResult",
             ["solve_full", "solve_system", "linsolve"], MinArity: 2));
-        Add("solve_full", new[] { "f", "x", "domain" }, args =>
-        {
-            var fx = AsExpr(args[0]);
-            var sx = AsSymbol(args[1]);
-            var domain = SolveDomainOf(args);
-            var set = Solvers.Solve(fx, sx, Context, domain);
-            var accepted = AcceptedSolutions(set, sx);
-
-            // rejections after solving are what make a "solved" set empty
-            var status = set.Status;
-            if (status == SolveStatus.Solved && accepted.Count == 0 && set.Families.Count == 0)
-                status = SolveStatus.NoSolutions;
-
-            var solutions = accepted.Select(s => (object)new RecordValue("Solution",
-                new RecordField("value", s.Value),
-                new RecordField("conditions", ConditionExprs(s.Conditions)),
-                new RecordField("multiplicity", (long)s.Multiplicity),
-                new RecordField("exactness", EnumField("SolutionExactness", s.Exactness)))).ToArray();
-
-            var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
-                new RecordField("template", f.Template),
-                new RecordField("parameter", Exprs.Symbol(f.Parameter)),
-                new RecordField("period", f.Period),
-                new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
-                new RecordField("conditions", ConditionExprs(f.Conditions)),
-                new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
-
-            // ONE function derives BOTH published fields from the effective status, so
-            // complete and completeness can never disagree (RISK-003) and NoSolutions reports the
-            // complete answer the frozen contract says it is
-            var (complete, completeness) = SolveCompletenessMapping.Of(status, set.Complete);
-
-            return new RecordValue("SolveResult",
-                new RecordField("status", EnumField("SolveStatus", status)),
-                new RecordField("variable", Exprs.Symbol(sx)),
-                new RecordField("domain", DomainOf(domain)),
-                new RecordField("complete", complete),
-                new RecordField("completeness", EnumField("Completeness", completeness)),
-                new RecordField("solutions", solutions),
-                new RecordField("families", families),
-                new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
-                new RecordField("represented_count", (long)accepted.Count),
-                new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
-                new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
-                new RecordField("diagnostics", Diagnostics(SolveDiagnostic(set, status))));
-        },
+        Add("solve_full", new[] { "f", "x", "domain" }, args => SolveResultRecord(args),
         new BuiltinDescriptor("solve_full", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
             "Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain.",
             ["solve_full(x^2 - 4 == 0, x)", "solve_full(x^4 - x^2 - 1 == 0, x)"], "SolveResult",
@@ -536,8 +465,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             "Substitutes value for the symbol x in f.", ["subs(x^2 + 1, x, 3)"], "Symbolic", ["evalf"]));
         Add("evalf", new[] { "f", "digits" }, args =>
         {
-            var f = AsExpr(args[0]);
             var digits = (int)AsLong(args[1]);
+            // The digit count must hold for BOTH shapes of argument. An argument that reaches this
+            // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
+            // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
+            // cannot honour the request — the value has to be re-materialised at the requested
+            // count. It is projected back onto the exact value it carries and put through the SAME
+            // precision scope as a symbolic argument, which bounds it the way RationalReal.ToReal
+            // bounds an exact rational. An exact expression (1/3) keeps taking the path below.
+            var f = AsExpr(NumericAtRequestedPrecision(args[0]) ?? args[0]);
             using (Rl.WithPrecision(digits, Math.Min(digits, 50)))
             {
                 var num = Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
@@ -545,8 +481,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             }
         },
         new BuiltinDescriptor("evalf", new[] { "f", "digits" }, BuiltinCategories.Numerics,
-            "Numerically evaluates a symbolic expression to the given number of digits.",
-            ["evalf(sqrt(2), 30)"], "Real | Complex", ["subs"]));
+            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike.",
+            ["evalf(sqrt(2), 30)", "evalf(1/3, 30)"], "Real | Complex", ["subs"]));
         Add("hessian", new[] { "f", "vars" }, args =>
         {
             var f = AsExpr(args[0]);
@@ -776,6 +712,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// message is true for the whole class.
     /// </para>
     /// <para>
+    /// The domain pair is scoped by its NAME rather than by prose: <c>solve_domains_accepted</c> and
+    /// <c>solve_domains_refused</c> describe the domain ARGUMENT of <c>solve(f, x, domain)</c>.
+    /// Audit A2-F12 measured the old <c>unsupported_domains</c> being read as a claim about the
+    /// runtime while two live counterexamples existed — <c>symbol("x", integer)</c> succeeds and a
+    /// SolutionFamily's <c>parameter_domain</c> IS the integer domain — so the names now carry the
+    /// operation they constrain. Every refused domain is also listed below as an operation class
+    /// with the live refusal it produces, and the tests walk all three directions: a refused domain
+    /// must refuse, an accepted domain must solve, and every domain value must stay usable by
+    /// <c>symbol(name, domain)</c>.
+    /// </para>
+    /// <para>
     /// The four entries that predate round 10, unchanged:
     /// </para>
     /// <list type="bullet">
@@ -845,9 +792,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// </summary>
     private static RecordValue CapabilitiesRecord() => new(
         "CapabilitiesResult",
-        // solver domain options: what solve(..., domain) accepts, and what it rejects
-        new RecordField("supported_domains", new object?[] { MathDomain.Real, MathDomain.Complex }),
-        new RecordField("unsupported_domains", new object?[] { MathDomain.Integer, MathDomain.Rational }),
+        // The domain pair names the operation it constrains. As "unsupported_domains" it read as a
+        // claim about the RUNTIME, and the audit (A2-F12) exhibited two live counterexamples:
+        // symbol("x", integer) succeeds, and a SolutionFamily's parameter_domain IS the integer
+        // Domain. What is true — and what the kernel enforces — is that the DOMAIN ARGUMENT of
+        // solve(f, x, domain) accepts real/complex and refuses integer/rational, which is the same
+        // refusal advertised below as solve.unsupported-domain. The field names carry that scope,
+        // so the statement can no longer be read as a global denial of integer domains.
+        new RecordField("solve_domains_accepted", new object?[] { MathDomain.Real, MathDomain.Complex }),
+        new RecordField("solve_domains_refused", new object?[] { MathDomain.Integer, MathDomain.Rational }),
         new RecordField("unsupported_operations", new object?[]
         {
             // ---- the four entries that predate round 10 (byte-identical, still live-verified) ----
@@ -1092,6 +1045,58 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             "solve(): argument 3 (domain) must be a domain value such as real or complex.");
     }
 
+    /// <summary>The ONE SolveResult builder: <c>solve</c> and <c>solve_full</c> both publish this
+    /// record, so the short form can no longer answer a prose sentence (audit A2-F5) and the two
+    /// forms cannot drift apart — the decision <c>solve_system</c>/<c>solve_system_full</c> already
+    /// made. A complete finite set is still readable structurally, from
+    /// <c>solutions[]</c>; nothing the vector form carried is lost.</summary>
+    private RecordValue SolveResultRecord(IReadOnlyList<object?> args)
+    {
+        var fx = AsExpr(args[0]);
+        var sx = AsSymbol(args[1]);
+        var domain = SolveDomainOf(args);
+        var set = Solvers.Solve(fx, sx, Context, domain);
+        var accepted = AcceptedSolutions(set, sx);
+
+        // rejections after solving are what make a "solved" set empty
+        var status = set.Status;
+        if (status == SolveStatus.Solved && accepted.Count == 0 && set.Families.Count == 0)
+            status = SolveStatus.NoSolutions;
+
+        var solutions = accepted.Select(s => (object)new RecordValue("Solution",
+            new RecordField("value", s.Value),
+            new RecordField("conditions", ConditionExprs(s.Conditions)),
+            new RecordField("multiplicity", (long)s.Multiplicity),
+            new RecordField("exactness", EnumField("SolutionExactness", s.Exactness)))).ToArray();
+
+        var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
+            new RecordField("template", f.Template),
+            new RecordField("parameter", Exprs.Symbol(f.Parameter)),
+            new RecordField("period", f.Period),
+            new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
+            new RecordField("conditions", ConditionExprs(f.Conditions)),
+            new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
+
+        // ONE function derives BOTH published fields from the effective status, so
+        // complete and completeness can never disagree (RISK-003) and NoSolutions reports the
+        // complete answer the frozen contract says it is
+        var (complete, completeness) = SolveCompletenessMapping.Of(status, set.Complete);
+
+        return new RecordValue("SolveResult",
+            new RecordField("status", EnumField("SolveStatus", status)),
+            new RecordField("variable", Exprs.Symbol(sx)),
+            new RecordField("domain", DomainOf(domain)),
+            new RecordField("complete", complete),
+            new RecordField("completeness", EnumField("Completeness", completeness)),
+            new RecordField("solutions", solutions),
+            new RecordField("families", families),
+            new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
+            new RecordField("represented_count", (long)accepted.Count),
+            new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
+            new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
+            new RecordField("diagnostics", Diagnostics(SolveDiagnostic(set, status))));
+    }
+
     /// <summary>Decides a single relation of the form symbol OP constant against the active
     /// assumptions. Returns false when the relation is not of that shape or is not decided.</summary>
     private bool TryDecideRelation(RelationExpr rel, out bool truth)
@@ -1199,6 +1204,27 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         }
         return rows;
     }
+
+    /// <summary>The structured assumption set: the SAME atom projection every other condition
+    /// array uses (<see cref="ConditionExprs"/>), next to the human rendering in <c>display</c>.
+    /// Before this the whole set was recoverable only by parsing that spelling, which the protocol
+    /// forbids, and the atoms a caller needs (relation/domain/predicate/interval) were already
+    /// available through <c>inspect(...).assumptions</c>.</summary>
+    private RecordValue AssumptionSetRecord() => new(
+        "AssumptionSet",
+        new RecordField("display", AssumptionText()),
+        new RecordField("assumptions", ConditionExprs(_assumptions)));
+
+    /// <summary>The human rendering of the active assumptions ("x &gt; 5; x in Integer"), which is
+    /// the value the Text-returning form used to publish on its own.</summary>
+    private string AssumptionText() =>
+        string.Join("; ", _assumptions.Atoms.Select(a => a switch
+        {
+            SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
+            SymbolDomainAssumption d => d.S.Name + " in " + d.D,
+            SymbolPropertyAssumption p => p.S.Name + " is " + p.P,
+            _ => AssumptionSet.Describe(a),
+        }));
 
     /// <summary>ISymbolicInspectionBridge: the active assumptions that constrain the symbols free
     /// in the inspected expression, projected as structured condition leaves (the same projection
@@ -1405,6 +1431,22 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, domain));
         return Exprs.Symbol(s);
     }
+
+    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the exact expression its
+    /// digits denote, so the evalf precision scope re-materialises it at the requested count.
+    /// Returns null for an argument the evaluation path already handles (a symbolic expression,
+    /// and the integer payloads that have no fractional digits to bound).</summary>
+    private static Expr? NumericAtRequestedPrecision(object? payload) => payload switch
+    {
+        // Real inherits Integer: check before Int/Nat. RationalReal.FromReal reads the FULL
+        // magnitude (never the display-truncated ToString), so no digit is invented or lost here;
+        // the precision scope is what bounds the result.
+        Rl r => Exprs.Rational(RationalReal.FromReal(r)),
+        Cplx c => Exprs.Add(
+            Exprs.Rational(RationalReal.FromReal(c.Re)),
+            Exprs.Multiply(Exprs.Rational(RationalReal.FromReal(c.Im)), Exprs.I)),
+        _ => null,
+    };
 
     private static object NumToPayload(Num n) => n switch
     {

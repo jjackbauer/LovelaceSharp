@@ -1,0 +1,1205 @@
+diff --git a/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs b/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs
+new file mode 100644
+index 0000000..0128d11
+--- /dev/null
++++ b/Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs
+@@ -0,0 +1,295 @@
++using System.Text.Json.Nodes;
++using Xunit;
++
++namespace Lovelace.Run.Tests;
++
++/// <summary>
++/// The cycle-5 audit findings on the Symbolics builtin surface, each pinned through the PUBLISHED
++/// machine API (the Lovelace.Run envelope), because that is the surface the findings are about:
++/// <list type="number">
++/// <item>audit A1-N-10 / A2-F25 — <c>evalf(f, digits)</c> ignored <c>digits</c> for an argument that
++/// is already numeric, so <c>evalf(sqrt(2), 5)</c> answered with a 100-digit Real.</item>
++/// <item>audit A4-P1-6 — <c>assumptions()</c> returned a bare Text value, so the assumption set was
++/// recoverable only by parsing a display string.</item>
++/// <item>audit A2-F5 — the short form <c>solve(f, x)</c> returned a prose Text SENTENCE as its
++/// result whenever it could not represent the whole solution set.</item>
++/// <item>audit A2-F12 — <c>capabilities()</c> listed <c>integer</c> among the unsupported DOMAINS
++/// while <c>symbol("x", integer)</c> succeeds and a solution family's parameter domain IS integer.</item>
++/// <item>audit A4-F1/A4-F4 — two examples in docs/symbolics/dsh-protocol.md contradicted the binary
++/// (the canonical integer atom, and an error envelope without the structural durations invariant 4
++/// requires).</item>
++/// </list>
++/// </summary>
++public class BuiltinSurfaceContractTests
++{
++    private static async Task<(int ExitCode, JsonNode Envelope)> RunAsync(string script)
++    {
++        var stdout = new StringWriter();
++        var stderr = new StringWriter();
++        int exitCode = await Runner.RunAsync(
++            new[] { "--eval", script, "--omit-functions", "--omit-variables" }, stdout, stderr);
++        return (exitCode, TestSupport.ParseExactlyOneJsonDocument(stdout.ToString(), $"stdout of '{script}'"));
++    }
++
++    private static JsonNode Structured(JsonNode envelope) => envelope["result"]!["structured"]!;
++
++    private static JsonObject Fields(JsonNode structured) => TestSupport.FieldsByName(structured);
++
++    private static string Text(JsonNode field) => field["value"]!.GetValue<string>();
++
++    // ------------------------------------------------------------------
++    // 1. evalf honours the digit count for an already-numeric argument
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// The interpreter evaluates an argument BEFORE the builtin body runs, so <c>sqrt(2)</c> reaches
++    /// <c>evalf</c> as a numeric value computed at the AMBIENT precision. The documented contract
++    /// ("numerically evaluates a symbolic expression to the given number of digits") has to hold for
++    /// that shape too: the value is truncated to the requested count instead of being passed through
++    /// at 100 digits.
++    /// </summary>
++    [Fact]
++    public async Task Evalf_HonoursTheDigitCount_ForAnAlreadyNumericArgument()
++    {
++        var (exit, envelope) = await RunAsync("evalf(sqrt(2), 5)");
++        Assert.Equal(0, exit);
++        JsonNode structured = Structured(envelope);
++        Assert.Equal("Real", structured["kind"]!.GetValue<string>());
++        Assert.Equal("1.41421", Text(structured));
++
++        // pi arrives numeric as well (the core constant is evaluated eagerly): the count holds there
++        var (piExit, piEnvelope) = await RunAsync("evalf(pi, 5)");
++        Assert.Equal(0, piExit);
++        Assert.Equal("3.14159", Text(Structured(piEnvelope)));
++
++        // the symbolic path already honoured it; the two must answer alike
++        var (thirdExit, thirdEnvelope) = await RunAsync("evalf(1/3, 5)");
++        Assert.Equal(0, thirdExit);
++        Assert.Equal("0.33333", Text(Structured(thirdEnvelope)));
++
++        // a larger request is answered with exactly that many digits, not with the ambient 100
++        var (fiftyExit, fiftyEnvelope) = await RunAsync("evalf(sqrt(2), 50)");
++        Assert.Equal(0, fiftyExit);
++        Assert.Equal("1.41421356237309504880168872420969807856967187537694", Text(Structured(fiftyEnvelope)));
++
++        // and the documented example that already worked is untouched by the fix
++        var (readmeExit, readmeEnvelope) = await RunAsync("setprecision(20); evalf(sqrt(2), 20)");
++        Assert.Equal(0, readmeExit);
++        Assert.Equal("1.4142135623730950488", Text(Structured(readmeEnvelope)));
++    }
++
++    // ------------------------------------------------------------------
++    // 2. assumptions() is structured, and keeps the human rendering
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// An agent must not have to parse <c>"x &gt; 5"</c> to recover the set. The record carries the
++    /// SAME atom projection <c>inspect(f).assumptions</c> uses — a relation stays a symbolic value
++    /// and a domain restriction becomes a record carrying a Domain value — while <c>display</c>
++    /// keeps the one-line rendering a human reads.
++    /// </summary>
++    [Fact]
++    public async Task Assumptions_ReturnsStructuredAtoms_WithTheHumanRenderingInDisplay()
++    {
++        var (exit, envelope) = await RunAsync("x = symbol(\"x\"); assume(x > 5); assumptions()");
++        Assert.Equal(0, exit);
++        JsonNode structured = Structured(envelope);
++        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++        Assert.Equal("AssumptionSet", structured["type"]!.GetValue<string>());
++
++        JsonObject fields = Fields(structured);
++        Assert.Equal("x > 5", Text(fields["display"]!));
++        JsonArray atoms = fields["assumptions"]!["elements"]!.AsArray();
++        Assert.Single(atoms);
++        Assert.Equal("Symbolic", atoms[0]!["kind"]!.GetValue<string>());
++        Assert.Equal("(gt (sym x) (rat 5 1))", atoms[0]!["canonical"]!.GetValue<string>());
++
++        // a domain restriction crosses as a Domain VALUE, not as the word "Integer"
++        var (domainExit, domainEnvelope) = await RunAsync("x = symbol(\"x\"); assume_integer(x); assumptions()");
++        Assert.Equal(0, domainExit);
++        JsonNode atom = Fields(Structured(domainEnvelope))["assumptions"]!["elements"]!.AsArray()[0]!;
++        Assert.Equal("DomainCondition", atom["type"]!.GetValue<string>());
++        Assert.Equal("Domain", Fields(atom)["domain"]!["kind"]!.GetValue<string>());
++        Assert.Equal("integer", Fields(atom)["domain"]!["domain"]!.GetValue<string>());
++    }
++
++    // ------------------------------------------------------------------
++    // 3. solve(f, x) publishes the same record solve_full does
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// Every shape the short form can produce — complete, parametric, empty, inconsistent,
++    /// unevaluated, partial — is a SolveResult record. The prose sentences are gone, and the
++    /// complete case is not a Vector either: the record is the ONE shape, exactly as
++    /// <c>solve_system</c> already published the SystemSolveResult <c>solve_system_full</c> does.
++    /// </summary>
++    [Fact]
++    public async Task Solve_ShortForm_PublishesTheSameSolveResultRecord_AsTheFullForm()
++    {
++        string[] shapes =
++        {
++            "x = symbol(\"x\"); solve(x^2 - 4 == 0, x)",            // complete, finite
++            "x = symbol(\"x\"); solve(sin(x) == 0, x)",             // parametric family
++            "x = symbol(\"x\"); solve(x^2 + 1 == 0, x, real)",      // provably empty
++            "x = symbol(\"x\"); solve(x - x + 1 == 0, x)",          // inconsistent
++            "x = symbol(\"x\"); solve(exp(x) + x == 0, x)",         // unevaluated
++            "x = symbol(\"x\"); solve(x^4 - x^2 - 1 == 0, x)",      // partial
++        };
++        foreach (string script in shapes)
++        {
++            var (exit, envelope) = await RunAsync(script);
++            Assert.Equal(0, exit);
++            JsonNode structured = Structured(envelope);
++            Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++            Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
++        }
++
++        // the SAME record as the _full form, field for field
++        var (shortExit, shortEnvelope) = await RunAsync("x = symbol(\"x\"); solve(x^2 - 4 == 0, x)");
++        var (fullExit, fullEnvelope) = await RunAsync("x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)");
++        Assert.Equal(0, shortExit);
++        Assert.Equal(0, fullExit);
++        TestSupport.AssertSameJson(
++            TestSupport.Normalise(Structured(fullEnvelope)),
++            TestSupport.Normalise(Structured(shortEnvelope)),
++            "solve() vs solve_full() for x^2 - 4 == 0");
++
++        // the values the old vector carried are still there, in solutions[]
++        JsonObject fields = Fields(Structured(shortEnvelope));
++        Assert.Equal("Solved", fields["status"]!["value"]!.GetValue<string>());
++        Assert.Equal(2, fields["solutions"]!["shape"]!.AsArray()[0]!.GetValue<int>());
++        Assert.Equal(new[] { "(rat -2 1)", "(rat 2 1)" },
++            fields["solutions"]!["elements"]!.AsArray()
++                .Select(s => Fields(s!)["value"]!["canonical"]!.GetValue<string>()).ToArray());
++
++        // a parametric family is structure too: template, parameter and its Domain
++        var (familyExit, familyEnvelope) = await RunAsync("x = symbol(\"x\"); solve(sin(x) == 0, x)");
++        Assert.Equal(0, familyExit);
++        JsonNode family = Fields(Structured(familyEnvelope))["families"]!["elements"]!.AsArray()[0]!;
++        Assert.Equal("SolutionFamily", family["type"]!.GetValue<string>());
++        Assert.Equal("(mul (sym k) (pi))", Fields(family)["template"]!["canonical"]!.GetValue<string>());
++        Assert.Equal("integer", Fields(family)["parameter_domain"]!["domain"]!.GetValue<string>());
++    }
++
++    // ------------------------------------------------------------------
++    // 4. the capability statement names the operation its domain pair constrains
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// As <c>unsupported_domains</c> the pair read as a claim about the RUNTIME. Two live
++    /// counterexamples made that reading false: <c>symbol("x", integer)</c> succeeds, and a solution
++    /// family's parameter domain IS integer. The fields now name the solver's domain argument, and
++    /// this test walks both directions of that scope — plus the surface the name no longer speaks
++    /// for — through the published envelope.
++    /// </summary>
++    [Fact]
++    public async Task Capabilities_DomainStatement_IsScopedToSolve_AndIntegerDomainsStillWork()
++    {
++        var (exit, envelope) = await RunAsync("capabilities()");
++        Assert.Equal(0, exit);
++        JsonObject fields = Fields(Structured(envelope));
++
++        Assert.False(fields.ContainsKey("supported_domains"), "the runtime-wide domain claim must be gone");
++        Assert.False(fields.ContainsKey("unsupported_domains"), "the runtime-wide domain claim must be gone");
++        Assert.Equal(new[] { "real", "complex" }, Domains(fields["solve_domains_accepted"]!));
++        Assert.Equal(new[] { "integer", "rational" }, Domains(fields["solve_domains_refused"]!));
++
++        // every REFUSED domain really refuses, naming the domain it was handed
++        foreach (string domain in new[] { "integer", "rational" })
++        {
++            var (refusedExit, refused) = await RunAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
++            Assert.Equal(1, refusedExit);
++            Assert.False(refused["ok"]!.GetValue<bool>(), $"the statement refuses {domain}, so the live call must refuse it");
++            Assert.Contains($"got {domain}", refused["message"]!.GetValue<string>());
++        }
++
++        // every ACCEPTED domain really answers, over the requested domain
++        foreach (string domain in new[] { "real", "complex" })
++        {
++            var (acceptedExit, accepted) = await RunAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
++            Assert.Equal(0, acceptedExit);
++            Assert.Equal(domain, Fields(Structured(accepted))["domain"]!["domain"]!.GetValue<string>());
++        }
++
++        // and the surface the renamed fields no longer speak for accepts every domain, including
++        // the two the SOLVER refuses
++        foreach (string domain in new[] { "real", "complex", "integer", "rational" })
++        {
++            var (symbolExit, symbolEnvelope) = await RunAsync($"symbol(\"s\", {domain})");
++            Assert.Equal(0, symbolExit);
++            Assert.True(symbolEnvelope["ok"]!.GetValue<bool>(),
++                $"symbol(name, {domain}) is supported; the solver-scoped statement must not deny it");
++        }
++    }
++
++    private static string[] Domains(JsonNode array) =>
++        array["elements"]!.AsArray()
++            .Select(d => d!["domain"]!.GetValue<string>())
++            .ToArray();
++
++    // ------------------------------------------------------------------
++    // 5. the protocol document's examples are the binary's output
++    // ------------------------------------------------------------------
++
++    /// <summary>
++    /// docs/symbolics/dsh-protocol.md is the machine contract, so its examples are checked against
++    /// the binary rather than the other way round. Two of them were false: the canonical form of an
++    /// integer atom (the binary writes rationals — the document even contradicted itself two
++    /// sections later) and the error envelope, which lacked the <c>elapsedTime</c>/<c>timings</c>
++    /// pair invariant 4 requires of EVERY envelope.
++    /// </summary>
++    [Fact]
++    public async Task ProtocolDocumentExamples_MatchTheBinary()
++    {
++        string doc = File.ReadAllText(ProtocolDocumentPath());
++
++        // the canonical atom of the Symbolic value form
++        var (canonicalExit, canonicalEnvelope) = await RunAsync("x = symbol(\"x\"); x^2 + 1");
++        Assert.Equal(0, canonicalExit);
++        string liveCanonical = Structured(canonicalEnvelope)["canonical"]!.GetValue<string>();
++        Assert.Contains($"\"canonical\": \"{liveCanonical}\"", JsonFence(doc, "## Value forms"));
++
++        // the error envelope example carries the structural durations
++        var (errorExit, errorEnvelope) = await RunAsync("x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)");
++        Assert.Equal(1, errorExit);
++        Assert.False(errorEnvelope["ok"]!.GetValue<bool>());
++        JsonNode documented = JsonNode.Parse(JsonFence(doc, "## Error envelope"))!;
++        foreach (string key in new[] { "elapsed", "elapsedTime", "timings" })
++            Assert.True(documented[key] is not null,
++                $"the documented error envelope must show {key} (invariant 4 is not scoped to success)");
++        // ... and the live envelope really has them
++        Assert.True(errorEnvelope["elapsedTime"] is not null, "the live error envelope carries elapsedTime");
++        Assert.True(errorEnvelope["timings"] is not null, "the live error envelope carries timings");
++    }
++
++    /// <summary>The first fenced <c>json</c> block after a heading in the protocol document.</summary>
++    private static string JsonFence(string doc, string heading)
++    {
++        int at = doc.IndexOf(heading, StringComparison.Ordinal);
++        Assert.True(at >= 0, $"'{heading}' is not in the protocol document any more");
++        string tail = doc[at..];
++        const string open = "\u0060\u0060\u0060json";
++        int start = tail.IndexOf(open, StringComparison.Ordinal);
++        Assert.True(start >= 0, $"'{heading}' has no json example");
++        start += open.Length;
++        int end = tail.IndexOf("\u0060\u0060\u0060", start, StringComparison.Ordinal);
++        Assert.True(end > start, $"'{heading}' has an unterminated json example");
++        return tail[start..end];
++    }
++
++    /// <summary>The protocol document in THIS checkout: found by walking up from the test binary,
++    /// so the same test works in a worktree and in the main tree.</summary>
++    private static string ProtocolDocumentPath()
++    {
++        var dir = new DirectoryInfo(AppContext.BaseDirectory);
++        while (dir is not null)
++        {
++            string candidate = Path.Combine(dir.FullName, "docs", "symbolics", "dsh-protocol.md");
++            if (File.Exists(candidate))
++                return candidate;
++            dir = dir.Parent;
++        }
++        throw new Xunit.Sdk.XunitException(
++            $"docs/symbolics/dsh-protocol.md was not found above {AppContext.BaseDirectory}");
++    }
++}
+diff --git a/Lovelace.Run.Tests/SolveEmptySetTests.cs b/Lovelace.Run.Tests/SolveEmptySetTests.cs
+index e94bd6d..adffb57 100644
+--- a/Lovelace.Run.Tests/SolveEmptySetTests.cs
++++ b/Lovelace.Run.Tests/SolveEmptySetTests.cs
+@@ -35,11 +35,22 @@ public class SolveEmptySetTests
+ 
+         Assert.True(exitCode == 0, $"solve(0 == 1, x) must answer, not fail: {envelope.ToJsonString()}");
+         Assert.True(envelope["ok"]!.GetValue<bool>());
+-        Assert.Equal("Text", envelope["result"]!["kind"]!.GetValue<string>());
++        // solve() publishes the SAME NoSolutions record solve_full does, so the empty set is
++        // structural. Two failure modes are gone: the folded Boolean reaching the kernel as an
++        // argument type error, and the prose sentence that used to BE the result.
++        JsonNode structured = envelope["result"]!["structured"]!;
++        Assert.Equal("Record", structured["kind"]!.GetValue<string>());
++        Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
++
++        JsonObject fields = Fields(structured);
++        Assert.Equal("NoSolutions", fields["status"]!["value"]!.GetValue<string>());
++        Assert.Equal("true", fields["complete"]!["value"]!.GetValue<string>());
++        JsonArray diagnostics = fields["diagnostics"]!["elements"]!.AsArray();
++        Assert.True(diagnostics.Count >= 1, "the empty set reports why it is empty");
++        JsonObject diagnostic = TestSupport.FieldsByName(diagnostics[0]!);
++        Assert.Equal("solve.no-solutions", diagnostic["code"]!["value"]!.GetValue<string>());
+         Assert.Equal("the equation reduces to a nonzero constant.",
+-            envelope["result"]!["structured"]!["value"]!.GetValue<string>());
+-        // the old failure mode: the folded Boolean reaching the kernel as an argument type error
+-        Assert.DoesNotContain("Boolean", envelope["result"]!["structured"]!["value"]!.GetValue<string>());
++            diagnostic["message"]!["value"]!.GetValue<string>());
+     }
+ 
+     [Fact]
+diff --git a/Lovelace.Run.Tests/fixtures/capabilities.json b/Lovelace.Run.Tests/fixtures/capabilities.json
+index b117c2f..b8da07f 100644
+--- a/Lovelace.Run.Tests/fixtures/capabilities.json
++++ b/Lovelace.Run.Tests/fixtures/capabilities.json
+@@ -6,14 +6,14 @@
+   "revision": "<volatile>",
+   "result": {
+     "kind": "Record",
+-    "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)",
+-    "typed": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort) (CapabilitiesResult)",
++    "display": "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)",
++    "typed": "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort) (CapabilitiesResult)",
+     "structured": {
+       "kind": "Record",
+       "type": "CapabilitiesResult",
+       "fields": [
+         {
+-          "name": "supported_domains",
++          "name": "solve_domains_accepted",
+           "value": {
+             "kind": "Array",
+             "type": "Vector",
+@@ -33,7 +33,7 @@
+           }
+         },
+         {
+-          "name": "unsupported_domains",
++          "name": "solve_domains_refused",
+           "value": {
+             "kind": "Array",
+             "type": "Vector",
+@@ -752,7 +752,7 @@
+     {
+       "name": "_",
+       "kind": "Record",
+-      "display": "CapabilitiesResult(supported_domains: [real, complex], unsupported_domains: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)"
++      "display": "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2)), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3)), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x)), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf)), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x)), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x))), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2])), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1)), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x)), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1)), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1)), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0)), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3])), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b)), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]))], exactness: BestEffort)"
+     }
+   ],
+   "functions": [],
+diff --git a/Lovelace.Suite.Tests/HelpServiceTests.cs b/Lovelace.Suite.Tests/HelpServiceTests.cs
+index 57be919..ae85688 100644
+--- a/Lovelace.Suite.Tests/HelpServiceTests.cs
++++ b/Lovelace.Suite.Tests/HelpServiceTests.cs
+@@ -54,7 +54,9 @@ public class HelpServiceTests
+         Assert.Contains("solve(f, x [, domain])", text);
+         Assert.Contains("Solve", text);
+         Assert.Contains("solve(x^2 - 4 == 0, x)", text);
+-        Assert.Contains("Returns: Vector | Text", text);
++        // the declared return kind follows the behaviour: solve() publishes the SolveResult record
++        // solve_full does (audit A2-F5), so the help text must say so rather than "Vector | Text"
++        Assert.Contains("Returns: SolveResult", text);
+         Assert.Contains("See also:", text);
+         Assert.Contains("solve_full", text);
+     }
+diff --git a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+index eb3a0a5..ca7f054 100644
+--- a/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
++++ b/Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs
+@@ -125,24 +125,61 @@ public class CapabilitiesBuiltinTests
+         Assert.Equal("CapabilitiesResult", value.AsRecord().TypeName);
+     }
+ 
++    private static MathDomain[] DomainField(RecordValue capabilities, string field) =>
++        Field(capabilities, field).AsVector()
++            .Select(d => d.Kind == ValueKind.Domain
++                ? d.AsDomain()
++                : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}"))
++            .ToArray();
++
++    /// <summary>
++    /// Audit A2-F12. The record's domain pair is scoped to the operation it constrains: as
++    /// <c>supported_domains</c>/<c>unsupported_domains</c> it read as a claim about the RUNTIME, and
++    /// two live counterexamples existed — <c>symbol("x", integer)</c> succeeds, and a
++    /// SolutionFamily's <c>parameter_domain</c> IS the integer domain. The fields now name the
++    /// solver, and this test walks both directions of that scope against the live runner:
++    /// every REFUSED domain must refuse (with the advertised code/category), every ACCEPTED domain
++    /// must answer with the requested domain on the record, and every domain value must stay usable
++    /// by the other domain-consuming surface the name no longer speaks for.
++    /// </summary>
+     [Fact]
+-    public void SupportedDomains_AreRealAndComplex_AsDomainValues()
++    public async Task SolveDomainStatement_NamesItsOperation_AndEveryDomainStaysUsableElsewhere()
+     {
+         var engine = NewEngine();
+-        var domains = Field(Capabilities(engine), "supported_domains").AsVector();
++        RecordValue capabilities = Capabilities(engine);
+ 
+-        Assert.Equal(new[] { MathDomain.Real, MathDomain.Complex },
+-            domains.Select(d => d.Kind == ValueKind.Domain ? d.AsDomain() : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}")).ToArray());
+-    }
++        Assert.Equal(new[] { MathDomain.Real, MathDomain.Complex }, DomainField(capabilities, "solve_domains_accepted"));
++        Assert.Equal(new[] { MathDomain.Integer, MathDomain.Rational }, DomainField(capabilities, "solve_domains_refused"));
++        // the ambiguous runtime-wide claim is GONE, not merely re-valued
++        Assert.DoesNotContain(capabilities.Fields, f => f.Name is "supported_domains" or "unsupported_domains");
+ 
+-    [Fact]
+-    public void UnsupportedDomains_AreIntegerAndRational_AsDomainValues()
+-    {
+-        var engine = NewEngine();
+-        var domains = Field(Capabilities(engine), "unsupported_domains").AsVector();
++        var refusal = AdvertisedByOperationClass(engine)["solve.unsupported-domain"];
++        foreach (string domain in new[] { "integer", "rational" })
++        {
++            JsonNode envelope = await RunEnvelopeAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
++            Assert.False(envelope["ok"]!.GetValue<bool>(), $"the statement refuses {domain}, so the live call must refuse it");
++            Assert.Equal(refusal.Code, envelope["code"]!.GetValue<string>());
++            Assert.Equal(refusal.Category, envelope["category"]!.GetValue<string>());
++            Assert.Contains($"got {domain}", envelope["message"]!.GetValue<string>());
++        }
+ 
+-        Assert.Equal(new[] { MathDomain.Integer, MathDomain.Rational },
+-            domains.Select(d => d.Kind == ValueKind.Domain ? d.AsDomain() : throw new Xunit.Sdk.XunitException($"not a Domain value: {d.Kind}")).ToArray());
++        foreach (string domain in new[] { "real", "complex" })
++        {
++            JsonNode envelope = await RunEnvelopeAsync($"x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})");
++            Assert.True(envelope["ok"]!.GetValue<bool>(), $"the statement accepts {domain}, so the live call must answer");
++            JsonNode structured = envelope["result"]!["structured"]!;
++            Assert.Equal("SolveResult", structured["type"]!.GetValue<string>());
++            Assert.Equal(domain, StructuredFields(structured)["domain"]!["domain"]!.GetValue<string>());
++        }
++
++        // the surface the renamed fields no longer speak for: every domain value works, including
++        // the two the SOLVER refuses
++        foreach (string domain in new[] { "real", "complex", "integer", "rational" })
++        {
++            JsonNode envelope = await RunEnvelopeAsync($"symbol(\"s\", {domain})");
++            Assert.True(envelope["ok"]!.GetValue<bool>(),
++                $"symbol(name, {domain}) is supported; the solver-scoped statement must not deny it");
++        }
+     }
+ 
+     [Fact]
+diff --git a/Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs b/Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs
+index ba1fc13..6242a8e 100644
+--- a/Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs
++++ b/Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs
+@@ -306,9 +306,18 @@ public class DxSemanticClosureTests
+         engine.LoadPlugin(symbolics);
+         engine.LoadPlugin(new MathIRPlugin(symbolics));
+         engine.Evaluate("x = symbol(\"x\")");
+-        var result = engine.Evaluate("solve(x^4 + 1 == 0, x)");
+-        Assert.Equal("unevaluated: complex algebraic roots not supported (RootOf is real-only in v1).",
+-            ValueFormatter.FormatTyped(result));
++        // solve() publishes the SolveResult record (not a prose sentence), so the note is a
++        // DIAGNOSTIC of the record: the same information, recoverable without parsing English.
++        var result = engine.Evaluate("solve(x^4 + 1 == 0, x)").AsRecord();
++        Assert.Equal("SolveResult", result.TypeName);
++        AssertEnumField(result.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Unevaluated");
++        Assert.Equal("False", ValueFormatter.Format((Value)result.Fields.First(f => f.Name == "complete").Value!));
++        var diagnostic = ((Value)result.Fields.First(f => f.Name == "diagnostics").Value!)
++            .AsVector().Single().AsRecord();
++        Assert.Equal("solve.unevaluated",
++            ((Value)diagnostic.Fields.First(f => f.Name == "code").Value!).AsText());
++        Assert.Equal("complex algebraic roots not supported (RootOf is real-only in v1).",
++            ((Value)diagnostic.Fields.First(f => f.Name == "message").Value!).AsText());
+     }
+ 
+     [Fact]
+@@ -323,10 +332,16 @@ public class DxSemanticClosureTests
+         AssertEnumField(engine, "solve_full(x^4 - x^2 - 1 == 0, x).status", "SolveStatus", "Partial");
+         Assert.False(engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).complete").AsBoolean());
+         Assert.Equal("2", engine.Evaluate("solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count").AsInteger().ToString());
+-        // and the convenience API must not hand back an apparently complete vector
+-        Assert.Equal(ValueKind.Text, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x)").Kind);
+-        // the real domain is complete and still returns a vector
+-        Assert.Equal(ValueKind.Vector, engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x, real)").Kind);
++        // and the short form publishes the SAME record: it can neither hand back an apparently
++        // complete vector nor describe the gap in prose (audit A2-F5)
++        var short_ = engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x)").AsRecord();
++        Assert.Equal("SolveResult", short_.TypeName);
++        AssertEnumField(short_.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Partial");
++        Assert.Equal("2", ValueFormatter.Format((Value)short_.Fields.First(f => f.Name == "represented_count").Value!));
++        // the real domain is complete, and says so in the same shape
++        var real = engine.Evaluate("solve(x^4 - x^2 - 1 == 0, x, real)").AsRecord();
++        AssertEnumField(real.Fields.First(f => f.Name == "status").Value, "SolveStatus", "Solved");
++        AssertEnumField(real.Fields.First(f => f.Name == "completeness").Value, "Completeness", "Complete");
+     }
+ 
+     [Fact]
+@@ -351,8 +366,13 @@ public class DxSemanticClosureTests
+         engine.LoadPlugin(symbolics);
+         engine.LoadPlugin(new MathIRPlugin(symbolics));
+         engine.Evaluate("x = symbol(\"x\")");
+-        // (x+1)^2 = 4 has TWO solutions: emitting only the principal root was a wrong answer
+-        Assert.Equal("[-3, 1]", ValueFormatter.Format(engine.Evaluate("solve((x+1)^2 - 4 == 0, x)")));
++        // (x+1)^2 = 4 has TWO solutions: emitting only the principal root was a wrong answer.
++        // The record's solutions[] is where they are read from now that solve() is structured.
++        var quad = engine.Evaluate("solve((x+1)^2 - 4 == 0, x)").AsRecord();
++        var roots = ((Value)quad.Fields.First(f => f.Name == "solutions").Value!).AsVector()
++            .Select(s => Printing.PrettyPrint(((Value)s.AsRecord().Fields.First(f => f.Name == "value").Value!).AsSymbolic()))
++            .ToArray();
++        Assert.Equal(new[] { "-3", "1" }, roots);
+         // (x+1)^3 = 8 has three
+         var cube = engine.Evaluate("solve_full((x+1)^3 == 8, x)").AsRecord();
+         AssertEnumField(cube.Fields[0].Value, "SolveStatus", "Solved");
+diff --git a/Lovelace.Symbolics.Tests/KernelHardeningTests.cs b/Lovelace.Symbolics.Tests/KernelHardeningTests.cs
+index abffd7a..296caa4 100644
+--- a/Lovelace.Symbolics.Tests/KernelHardeningTests.cs
++++ b/Lovelace.Symbolics.Tests/KernelHardeningTests.cs
+@@ -405,9 +405,14 @@ public class KernelHardeningTests
+         engine.LoadPlugin(symbolics);
+         engine.LoadPlugin(new MathIRPlugin(symbolics));
+         engine.Evaluate("x = symbol(\"x\")");
+-        var result = engine.Evaluate("solve((x^2 - 1)/(x - 1) == 0, x)");
+-        // x = 1 must be excluded: the pole of the cancelled denominator is not a solution
+-        Assert.Equal("[-1] (Vector)", ValueFormatter.FormatTyped(result));
++        var result = engine.Evaluate("solve((x^2 - 1)/(x - 1) == 0, x)").AsRecord();
++        // x = 1 must be excluded: the pole of the cancelled denominator is not a solution. The
++        // surviving root is read off the record's solutions[], which solve() now publishes.
++        var roots = ((Value)result.Fields.First(f => f.Name == "solutions").Value!).AsVector()
++            .Select(s => ValueFormatter.Format((Value)s.AsRecord().Fields.First(f => f.Name == "value").Value!))
++            .ToArray();
++        Assert.Equal(new[] { "-1" }, roots);
++        Assert.Equal("1", ValueFormatter.Format((Value)result.Fields.First(f => f.Name == "represented_count").Value!));
+     }
+ 
+     // ------------------------------------------------------------------
+diff --git a/Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs b/Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs
+index 7634404..144d69b 100644
+--- a/Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs
++++ b/Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs
+@@ -93,6 +93,16 @@ public class RelationsAndFamiliesTests
+         Assert.Equal(0, NumOps.Compare(NumOps.FromLong(0), IrEvaluator.Evaluate(prog, two, ctx)));
+     }
+ 
++    /// <summary>The display FIELD of the AssumptionSet record assumptions() returns.</summary>
++    private static string AssumptionDisplay(SuiteEngine engine) =>
++        ((Value)engine.Evaluate("assumptions()").AsRecord()
++            .Fields.First(f => f.Name == "display").Value!).AsText();
++
++    /// <summary>The structured assumption atoms (relations, domain conditions, predicates).</summary>
++    private static IReadOnlyList<Value> AssumptionAtoms(SuiteEngine engine) =>
++        ((Value)engine.Evaluate("assumptions()").AsRecord()
++            .Fields.First(f => f.Name == "assumptions").Value!).AsVector();
++
+     [Fact]
+     public void Assume_ConjunctionAndNegation_ThroughEngine()
+     {
+@@ -102,9 +112,13 @@ public class RelationsAndFamiliesTests
+         engine.LoadPlugin(new MathIRPlugin(symbolics));
+         engine.Evaluate("x = symbol(\"x\")");
+         engine.Evaluate("assume(and(x > 0, x < 5))");
+-        Assert.Equal("x > 0; x < 5", engine.Evaluate("assumptions()").AsText());
++        // assumptions() is an AssumptionSet record: the human rendering is the display FIELD and
++        // the atoms themselves are structured values, so nothing has to be parsed out of it
++        Assert.Equal("x > 0; x < 5", AssumptionDisplay(engine));
++        Assert.Equal(2, AssumptionAtoms(engine).Count);
+         engine.Evaluate("assume(not(x == 2))");
+-        Assert.Equal("x > 0; x < 5; x != 2", engine.Evaluate("assumptions()").AsText());
++        Assert.Equal("x > 0; x < 5; x != 2", AssumptionDisplay(engine));
++        Assert.Equal(3, AssumptionAtoms(engine).Count);
+         // logical builtins produce symbolic conditions
+         var combo = engine.Evaluate("and(x > 0, x < 1)");
+         Assert.Equal(ValueKind.Symbolic, combo.Kind);
+@@ -188,8 +202,17 @@ public class RelationsAndFamiliesTests
+         engine.LoadPlugin(symbolics);
+         engine.LoadPlugin(new MathIRPlugin(symbolics));
+         engine.Evaluate("x = symbol(\"x\")");
+-        var result = engine.Evaluate("solve(sin(x) == 0, x)");
+-        Assert.Equal("k*pi for integer k", ValueFormatter.Format(result));
++        // the periodic inverse is a structured family inside the SolveResult record
++        var result = engine.Evaluate("solve(sin(x) == 0, x)").AsRecord();
++        Assert.Equal("SolveResult", result.TypeName);
++        var family = ((Value)result.Fields.First(f => f.Name == "families").Value!).AsVector().Single().AsRecord();
++        Assert.Equal("SolutionFamily", family.TypeName);
++        Assert.Equal("k*pi",
++            Printing.PrettyPrint(((Value)family.Fields.First(f => f.Name == "template").Value!).AsSymbolic()));
++        Assert.Equal("k",
++            Printing.PrettyPrint(((Value)family.Fields.First(f => f.Name == "parameter").Value!).AsSymbolic()));
++        Assert.Equal("Integer",
++            ((Value)family.Fields.First(f => f.Name == "parameter_domain").Value!).AsDomain().ToString());
+     }
+ 
+     // ------------------------------------------------------------------
+diff --git a/Lovelace.Symbolics/README.md b/Lovelace.Symbolics/README.md
+index d07064b..d7efc85 100644
+--- a/Lovelace.Symbolics/README.md
++++ b/Lovelace.Symbolics/README.md
+@@ -174,9 +174,14 @@ assume(x > 5)
+ assumptions()
+ ```
+ ```result
+-x > 5
++AssumptionSet(display: x > 5, assumptions: [x > 5]) (AssumptionSet)
+ ```
+ 
++`assumptions()` is a structured record, not a display string: `display` carries the one-line
++rendering above and `assumptions` carries the atoms themselves (a relation is a symbolic value, a
++domain restriction a `DomainCondition` record), which is also what `inspect(f).assumptions`
++projects.
++
+ Domain and property shortcuts: `assume_positive`, `assume_nonnegative`, `assume_negative`,
+ `assume_real`, `assume_integer`.
+ 
+@@ -554,14 +559,16 @@ error: Assumption x <= 0 contradicts the existing assumptions (its negation x >
+ 
+ Dispatch is by mathematical structure: linear, polynomial (formulas to degree 3, then
+ `RootOf`), rational, and invertible elementary compositions — always with explicit
+-conditions.
++conditions. Every answer, complete or not, is the same `SolveResult` record `solve_full` returns:
++the status is an enum, the solutions are records, and a parametric family is a record too, so
++nothing has to be recovered from a display string.
+ 
+ ```lovelace
+ x = symbol("x")
+ solve(2*x - 4 == 0, x)
+ ```
+ ```result
+-[2] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ ```lovelace
+@@ -569,7 +576,7 @@ x = symbol("x")
+ solve(x^2 - 4 == 0, x)
+ ```
+ ```result
+-[-2, 2] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ ```lovelace
+@@ -577,7 +584,7 @@ x = symbol("x")
+ solve(x^4 - 5*x^2 + 4 == 0, x)
+ ```
+ ```result
+-[-2, -1, 1, 2] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ ```lovelace
+@@ -585,7 +592,7 @@ x = symbol("x")
+ solve(x^3 - 1 == 0, x)
+ ```
+ ```result
+-[1/2*(i*sqrt(3) - 1), 1/2*(-i*sqrt(3) - 1), 1] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 1/2*(i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1/2*(-i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 3, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ (In the cubic roots above the principal complex square root is now written out in closed form:
+@@ -597,17 +604,19 @@ x = symbol("x")
+ solve(exp(x) == 5, x)
+ ```
+ ```result
+-[log(5)] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: log(5), conditions: [1 != 0], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+-Periodic inverses return parametric families rather than a single principal branch:
++Periodic inverses return parametric families rather than a single principal branch — the family is a
++`SolutionFamily` record, so the parameter, its domain and the period are all readable from structure
++(`solutions` stays empty because a family is not a finite list of values):
+ 
+ ```lovelace
+ x = symbol("x")
+ solve(sin(x) == 0, x)
+ ```
+ ```result
+-k*pi for integer k
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ ```lovelace
+@@ -616,7 +625,7 @@ y = symbol("y")
+ solve(x + y == 0, x)
+ ```
+ ```result
+-[-y] (Vector)
++SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -y, conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
+ ```
+ 
+ Polynomial systems solve via Gröbner-basis elimination and back-substitution
+@@ -633,15 +642,15 @@ solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
+ SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)
+ ```
+ 
+-An inconsistent equation reports why (no solutions); an unsupported
+-structure is reported unevaluated:
++An inconsistent equation is a structured `NoSolutions` answer (the reason rides in `diagnostics`);
++an unsupported structure is `Unevaluated`:
+ 
+ ```lovelace
+ x = symbol("x")
+ solve(x - x + 1 == 0, x)
+ ```
+ ```result
+-the equation reduces to a nonzero constant.
++SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: the equation reduces to a nonzero constant., recoverable: True, location: , details: [])]) (SolveResult)
+ ```
+ 
+ ```lovelace
+@@ -649,7 +658,7 @@ x = symbol("x")
+ solve(exp(x) + x == 0, x)
+ ```
+ ```result
+-unevaluated: No solver for this structure.
++SolveResult(status: Unevaluated, variable: x, domain: complex, complete: False, completeness: Unknown, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.unevaluated, category: UnsupportedOperation, message: No solver for this structure., recoverable: True, location: , details: [])]) (SolveResult)
+ ```
+ 
+ 
+@@ -779,7 +788,7 @@ assume(not(x == 2))
+ assumptions()
+ ```
+ ```result
+-x > 0; x < 5; x != 2
++AssumptionSet(display: x > 0; x < 5; x != 2, assumptions: [x > 0, x < 5, x != 2]) (AssumptionSet)
+ ```
+ 
+ ## 15. Symbolic matrices: rank and linear systems
+@@ -838,6 +847,17 @@ evalf(1/3, 25)
+ 0.3333333333333333333333333 (Real)
+ ```
+ 
++The digit count holds for an argument that arrives **already numeric** too. `sqrt(2)` is evaluated
++at the ambient precision before `evalf` runs, so the value is truncated to the requested count
++instead of being passed through at 100 digits:
++
++```lovelace
++evalf(sqrt(2), 5)
++```
++```result
++1.41421 (Real)
++```
++
+ ```lovelace
+ setprecision(20)
+ evalf(sqrt(2), 20)
+@@ -868,9 +888,10 @@ byte-identical output on every run and platform — including under Native AOT
+ 
+ ## 18b. Structured results (the `*_full` APIs)
+ 
+-The convenience forms keep their concise projections; the `*_full` builtins return
+-first-class structured records. Property access (`r.solutions`) reads the fields, and the
+-same records serialize structurally through the DSH runner — no prose parsing anywhere.
++The `*_full` builtins return first-class structured records, and the short forms that have one
++(`solve`, `solve_system`) publish the SAME record rather than a second, looser projection — so no
++answer has to be recovered from prose. Property access (`r.solutions`) reads the fields, and the
++same records serialize structurally through the DSH runner.
+ 
+ ```lovelace
+ x = symbol("x")
+@@ -1036,14 +1057,15 @@ inspect(x^2 + 1).free_symbols
+ [x] (Vector)
+ ```
+ 
+-Solver domains are first-class values (never magic strings); the default is Complex:
++Solver domains are first-class values (never magic strings); the default is Complex, and an empty
++result is a structured `NoSolutions` answer rather than prose:
+ 
+ ```lovelace
+ x = symbol("x")
+ solve(x^2 + 1 == 0, x, real)
+ ```
+ ```result
+-no real solutions
++SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)
+ ```
+ 
+ ## 19. Library usage (C#)
+@@ -1122,15 +1144,19 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
+ - Cubic roots use the branch-coupled Cardano form (`u·v = −P/3`), verified against their
+   polynomial; quartic and higher-degree factors yield `RootOf` roots over the exact Sturm
+   count of REAL roots (complex algebraic numbers are deferred), numerically evaluated on
+-  request. The solver domain is explicit and never widened: the default is Complex, and a
+-  `solve(…, integer)` or `solve(…, rational)` request is REJECTED rather than silently
+-  answered over the complexes.
++  request. The solver's domain argument is explicit and never widened: the default is Complex,
++  and `solve(…, integer)` / `solve(…, rational)` is REJECTED rather than silently answered over
++  the complexes. The refusal is scoped to the SOLVER's domain argument — `symbol(name, integer)`,
++  `assume_integer` and a solution family's integer parameter domain stay supported (see §2), so
++  `capabilities()` reports the pair as `solve_domains_accepted` / `solve_domains_refused` rather
++  than as a claim about the runtime's domains as a whole.
+ - **A result is reported as a complete solution set only when it is one.** A degree ≥ 4
+-  factor with real roots *and* non-real ones is reported `Partial` by `solve_full`
++  factor with real roots *and* non-real ones is reported `Partial`
+   (`complete: False`, with `unrepresented_count` and `unrepresented_reason`); with no real
+-  roots at all it is `Unevaluated`. The convenience `solve` returns a vector only for a
+-  complete result and describes a partial one in words instead of showing a subset. Real
+-  roots come back in ascending order; other roots follow a deterministic canonical order.
++  roots at all it is `Unevaluated`. `solve` and `solve_full` publish the same `SolveResult`
++  record, so a partial set is never shown as a complete vector and never described in prose:
++  the status, the counts and the reason are all fields. Real roots come back in ascending
++  order; other roots follow a deterministic canonical order.
+ - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
+   compositions (with parametric families for periodic inverses); inequality solving is not
+   yet implemented.
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index 4c7e7df..07d100c 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -127,7 +127,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             ["assume_clear"] = new("assume_clear", Array.Empty<string>(), BuiltinCategories.Symbolics,
+                 "Clears every active assumption.", ["assume_clear()"], "Text", ["assume", "assumptions"]),
+             ["assumptions"] = new("assumptions", Array.Empty<string>(), BuiltinCategories.Symbolics,
+-                "Lists the active assumptions.", ["assumptions()"], "Text", ["assume", "assume_clear"]),
++                "Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions.",
++                ["assumptions()"], "AssumptionSet", ["assume", "assume_clear"]),
+             ["limit_left"] = new("limit_left", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+                 "One-sided limit from the left as x approaches x0.", ["limit_left(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+@@ -222,7 +223,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         // Round 03 moved sqrt(-1) and (-1)^(1/2) OUT of this list by making them answerable.
+         Add("capabilities", Array.Empty<string>(), _ => CapabilitiesRecord(),
+             new BuiltinDescriptor("capabilities", Array.Empty<string>(), BuiltinCategories.Introspection,
+-                "Reports the domains this runtime solves over and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces.",
++                "Reports which domain values the solver's domain argument accepts (solve_domains_accepted) and refuses (solve_domains_refused), and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces. The domain pair is scoped to solve(f, x, domain): symbol(name, domain), assume_* and a SolutionFamily's parameter_domain accept every domain value.",
+                 ["capabilities()"], "CapabilitiesResult", ["solve", "solve_full", "symbol", "type"]));
+ 
+         // Round 28 (item 13): the LaTeX rendering of the SAME expression model. It is a print
+@@ -270,14 +271,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             _assumptions = AssumptionSet.Empty;
+             return "assumptions cleared";
+         });
+-        Add("assumptions", Array.Empty<string>(), _ =>
+-            string.Join("; ", _assumptions.Atoms.Select(a => a switch
+-            {
+-                SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
+-                SymbolDomainAssumption d => d.S.Name + " in " + d.D,
+-                SymbolPropertyAssumption p => p.S.Name + " is " + p.P,
+-                _ => AssumptionSet.Describe(a),
+-            })));
++        Add("assumptions", Array.Empty<string>(), _ => AssumptionSetRecord());
+ 
+         Add("diff", new[] { "f", "x" }, args =>
+             Calculus.Diff(AsExpr(args[0]), AsSymbol(args[1]), Context),
+@@ -448,83 +442,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             var vs = SymbolVector(args[1], ParameterVectorExpectation);
+             return SystemSolveRecord(SystemSolvers.Solve(eqs, vs, Context), vs);
+         });
+-        Add("solve", new[] { "f", "x", "domain" }, args =>
+-        {
+-            var fx = AsExpr(args[0]);
+-            var sx = AsSymbol(args[1]);
+-            var domain = SolveDomainOf(args);
+-            var set = Solvers.Solve(fx, sx, Context, domain);
+-            var kept = AcceptedSolutions(set, sx);
+-            if (set.Status == SolveStatus.Solved && kept.Count > 0)
+-                return (object)kept.Select(s => s.Value).ToArray();
+-            if (set.Status == SolveStatus.Solved && set.Families.Count > 0)
+-                return string.Join("; ", set.Families.Select(f =>
+-                    Printing.PrettyPrint(f.Template) + " for integer " + f.Parameter.Name));
+-            if (set.Status == SolveStatus.Solved)
+-                return "no solutions";
+-            if (set.Status == SolveStatus.NoSolutions)
+-                return set.Note ?? "no solutions";
+-            // A partial or unevaluated result must never be presented as a complete vector.
+-            if (set.Status == SolveStatus.Partial)
+-            {
+-                var shown = kept.Count > 0
+-                    ? string.Join(", ", kept.Select(s => Printing.PrettyPrint(s.Value)))
+-                    : "none";
+-                return $"partially representable ({set.UnrepresentedCount} root(s) missing: " +
+-                       $"{set.UnrepresentedReason ?? "not representable"}); representable: [{shown}]";
+-            }
+-            return "unevaluated: " + (set.Note ?? "no solver for this structure");
+-        },
++        // The short form and the _full form publish the SAME record: solve() used to answer a
++        // Vector when the set was complete and a prose SENTENCE otherwise ("partially
++        // representable (2 root(s) missing: …)"), so an agent had to parse English to learn the
++        // status, and could not read .status off the complete case either. solve_system() already
++        // took this decision (it returns the same SystemSolveResult solve_system_full does); the
++        // vector is still recoverable structurally from .solutions[].value, so nothing is lost.
++        Add("solve", new[] { "f", "x", "domain" }, args => SolveResultRecord(args),
+         new BuiltinDescriptor("solve", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
+-            "Solves an equation for x. The default domain is Complex. A result is returned as a vector only when the solver can represent the COMPLETE solution set over the requested domain; partial results are reported as text (use solve_full for the structured form); pass real for real solutions only.",
+-            ["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"], "Vector | Text",
++            "Solves an equation for x and returns the SAME SolveResult record solve_full returns: status, domain (a Domain value), complete/completeness, per-solution conditions/multiplicity/exactness, parametric families and diagnostics. The default domain is Complex; pass real for real solutions only.",
++            ["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"], "SolveResult",
+             ["solve_full", "solve_system", "linsolve"], MinArity: 2));
+-        Add("solve_full", new[] { "f", "x", "domain" }, args =>
+-        {
+-            var fx = AsExpr(args[0]);
+-            var sx = AsSymbol(args[1]);
+-            var domain = SolveDomainOf(args);
+-            var set = Solvers.Solve(fx, sx, Context, domain);
+-            var accepted = AcceptedSolutions(set, sx);
+-
+-            // rejections after solving are what make a "solved" set empty
+-            var status = set.Status;
+-            if (status == SolveStatus.Solved && accepted.Count == 0 && set.Families.Count == 0)
+-                status = SolveStatus.NoSolutions;
+-
+-            var solutions = accepted.Select(s => (object)new RecordValue("Solution",
+-                new RecordField("value", s.Value),
+-                new RecordField("conditions", ConditionExprs(s.Conditions)),
+-                new RecordField("multiplicity", (long)s.Multiplicity),
+-                new RecordField("exactness", EnumField("SolutionExactness", s.Exactness)))).ToArray();
+-
+-            var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
+-                new RecordField("template", f.Template),
+-                new RecordField("parameter", Exprs.Symbol(f.Parameter)),
+-                new RecordField("period", f.Period),
+-                new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
+-                new RecordField("conditions", ConditionExprs(f.Conditions)),
+-                new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
+-
+-            // ONE function derives BOTH published fields from the effective status, so
+-            // complete and completeness can never disagree (RISK-003) and NoSolutions reports the
+-            // complete answer the frozen contract says it is
+-            var (complete, completeness) = SolveCompletenessMapping.Of(status, set.Complete);
+-
+-            return new RecordValue("SolveResult",
+-                new RecordField("status", EnumField("SolveStatus", status)),
+-                new RecordField("variable", Exprs.Symbol(sx)),
+-                new RecordField("domain", DomainOf(domain)),
+-                new RecordField("complete", complete),
+-                new RecordField("completeness", EnumField("Completeness", completeness)),
+-                new RecordField("solutions", solutions),
+-                new RecordField("families", families),
+-                new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
+-                new RecordField("represented_count", (long)accepted.Count),
+-                new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
+-                new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
+-                new RecordField("diagnostics", Diagnostics(SolveDiagnostic(set, status))));
+-        },
++        Add("solve_full", new[] { "f", "x", "domain" }, args => SolveResultRecord(args),
+         new BuiltinDescriptor("solve_full", new[] { "f", "x", "domain" }, BuiltinCategories.Solving,
+             "Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain.",
+             ["solve_full(x^2 - 4 == 0, x)", "solve_full(x^4 - x^2 - 1 == 0, x)"], "SolveResult",
+@@ -536,8 +465,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             "Substitutes value for the symbol x in f.", ["subs(x^2 + 1, x, 3)"], "Symbolic", ["evalf"]));
+         Add("evalf", new[] { "f", "digits" }, args =>
+         {
+-            var f = AsExpr(args[0]);
+             var digits = (int)AsLong(args[1]);
++            // The digit count must hold for BOTH shapes of argument. An argument that reaches this
++            // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
++            // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
++            // cannot honour the request — the value has to be re-materialised at the requested
++            // count. It is projected back onto the exact value it carries and put through the SAME
++            // precision scope as a symbolic argument, which bounds it the way RationalReal.ToReal
++            // bounds an exact rational. An exact expression (1/3) keeps taking the path below.
++            var f = AsExpr(NumericAtRequestedPrecision(args[0]) ?? args[0]);
+             using (Rl.WithPrecision(digits, Math.Min(digits, 50)))
+             {
+                 var num = Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
+@@ -545,8 +481,8 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             }
+         },
+         new BuiltinDescriptor("evalf", new[] { "f", "digits" }, BuiltinCategories.Numerics,
+-            "Numerically evaluates a symbolic expression to the given number of digits.",
+-            ["evalf(sqrt(2), 30)"], "Real | Complex", ["subs"]));
++            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike.",
++            ["evalf(sqrt(2), 30)", "evalf(1/3, 30)"], "Real | Complex", ["subs"]));
+         Add("hessian", new[] { "f", "vars" }, args =>
+         {
+             var f = AsExpr(args[0]);
+@@ -776,6 +712,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// message is true for the whole class.
+     /// </para>
+     /// <para>
++    /// The domain pair is scoped by its NAME rather than by prose: <c>solve_domains_accepted</c> and
++    /// <c>solve_domains_refused</c> describe the domain ARGUMENT of <c>solve(f, x, domain)</c>.
++    /// Audit A2-F12 measured the old <c>unsupported_domains</c> being read as a claim about the
++    /// runtime while two live counterexamples existed — <c>symbol("x", integer)</c> succeeds and a
++    /// SolutionFamily's <c>parameter_domain</c> IS the integer domain — so the names now carry the
++    /// operation they constrain. Every refused domain is also listed below as an operation class
++    /// with the live refusal it produces, and the tests walk all three directions: a refused domain
++    /// must refuse, an accepted domain must solve, and every domain value must stay usable by
++    /// <c>symbol(name, domain)</c>.
++    /// </para>
++    /// <para>
+     /// The four entries that predate round 10, unchanged:
+     /// </para>
+     /// <list type="bullet">
+@@ -845,9 +792,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// </summary>
+     private static RecordValue CapabilitiesRecord() => new(
+         "CapabilitiesResult",
+-        // solver domain options: what solve(..., domain) accepts, and what it rejects
+-        new RecordField("supported_domains", new object?[] { MathDomain.Real, MathDomain.Complex }),
+-        new RecordField("unsupported_domains", new object?[] { MathDomain.Integer, MathDomain.Rational }),
++        // The domain pair names the operation it constrains. As "unsupported_domains" it read as a
++        // claim about the RUNTIME, and the audit (A2-F12) exhibited two live counterexamples:
++        // symbol("x", integer) succeeds, and a SolutionFamily's parameter_domain IS the integer
++        // Domain. What is true — and what the kernel enforces — is that the DOMAIN ARGUMENT of
++        // solve(f, x, domain) accepts real/complex and refuses integer/rational, which is the same
++        // refusal advertised below as solve.unsupported-domain. The field names carry that scope,
++        // so the statement can no longer be read as a global denial of integer domains.
++        new RecordField("solve_domains_accepted", new object?[] { MathDomain.Real, MathDomain.Complex }),
++        new RecordField("solve_domains_refused", new object?[] { MathDomain.Integer, MathDomain.Rational }),
+         new RecordField("unsupported_operations", new object?[]
+         {
+             // ---- the four entries that predate round 10 (byte-identical, still live-verified) ----
+@@ -1092,6 +1045,58 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             "solve(): argument 3 (domain) must be a domain value such as real or complex.");
+     }
+ 
++    /// <summary>The ONE SolveResult builder: <c>solve</c> and <c>solve_full</c> both publish this
++    /// record, so the short form can no longer answer a prose sentence (audit A2-F5) and the two
++    /// forms cannot drift apart — the decision <c>solve_system</c>/<c>solve_system_full</c> already
++    /// made. A complete finite set is still readable structurally, from
++    /// <c>solutions[]</c>; nothing the vector form carried is lost.</summary>
++    private RecordValue SolveResultRecord(IReadOnlyList<object?> args)
++    {
++        var fx = AsExpr(args[0]);
++        var sx = AsSymbol(args[1]);
++        var domain = SolveDomainOf(args);
++        var set = Solvers.Solve(fx, sx, Context, domain);
++        var accepted = AcceptedSolutions(set, sx);
++
++        // rejections after solving are what make a "solved" set empty
++        var status = set.Status;
++        if (status == SolveStatus.Solved && accepted.Count == 0 && set.Families.Count == 0)
++            status = SolveStatus.NoSolutions;
++
++        var solutions = accepted.Select(s => (object)new RecordValue("Solution",
++            new RecordField("value", s.Value),
++            new RecordField("conditions", ConditionExprs(s.Conditions)),
++            new RecordField("multiplicity", (long)s.Multiplicity),
++            new RecordField("exactness", EnumField("SolutionExactness", s.Exactness)))).ToArray();
++
++        var families = set.Families.Select(f => (object)new RecordValue("SolutionFamily",
++            new RecordField("template", f.Template),
++            new RecordField("parameter", Exprs.Symbol(f.Parameter)),
++            new RecordField("period", f.Period),
++            new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
++            new RecordField("conditions", ConditionExprs(f.Conditions)),
++            new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
++
++        // ONE function derives BOTH published fields from the effective status, so
++        // complete and completeness can never disagree (RISK-003) and NoSolutions reports the
++        // complete answer the frozen contract says it is
++        var (complete, completeness) = SolveCompletenessMapping.Of(status, set.Complete);
++
++        return new RecordValue("SolveResult",
++            new RecordField("status", EnumField("SolveStatus", status)),
++            new RecordField("variable", Exprs.Symbol(sx)),
++            new RecordField("domain", DomainOf(domain)),
++            new RecordField("complete", complete),
++            new RecordField("completeness", EnumField("Completeness", completeness)),
++            new RecordField("solutions", solutions),
++            new RecordField("families", families),
++            new RecordField("common_conditions", ConditionExprs(CommonConditions(accepted))),
++            new RecordField("represented_count", (long)accepted.Count),
++            new RecordField("unrepresented_count", (long)set.UnrepresentedCount),
++            new RecordField("unrepresented_reason", set.UnrepresentedReason ?? ""),
++            new RecordField("diagnostics", Diagnostics(SolveDiagnostic(set, status))));
++    }
++
+     /// <summary>Decides a single relation of the form symbol OP constant against the active
+     /// assumptions. Returns false when the relation is not of that shape or is not decided.</summary>
+     private bool TryDecideRelation(RelationExpr rel, out bool truth)
+@@ -1200,6 +1205,27 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         return rows;
+     }
+ 
++    /// <summary>The structured assumption set: the SAME atom projection every other condition
++    /// array uses (<see cref="ConditionExprs"/>), next to the human rendering in <c>display</c>.
++    /// Before this the whole set was recoverable only by parsing that spelling, which the protocol
++    /// forbids, and the atoms a caller needs (relation/domain/predicate/interval) were already
++    /// available through <c>inspect(...).assumptions</c>.</summary>
++    private RecordValue AssumptionSetRecord() => new(
++        "AssumptionSet",
++        new RecordField("display", AssumptionText()),
++        new RecordField("assumptions", ConditionExprs(_assumptions)));
++
++    /// <summary>The human rendering of the active assumptions ("x &gt; 5; x in Integer"), which is
++    /// the value the Text-returning form used to publish on its own.</summary>
++    private string AssumptionText() =>
++        string.Join("; ", _assumptions.Atoms.Select(a => a switch
++        {
++            SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
++            SymbolDomainAssumption d => d.S.Name + " in " + d.D,
++            SymbolPropertyAssumption p => p.S.Name + " is " + p.P,
++            _ => AssumptionSet.Describe(a),
++        }));
++
+     /// <summary>ISymbolicInspectionBridge: the active assumptions that constrain the symbols free
+     /// in the inspected expression, projected as structured condition leaves (the same projection
+     /// every other condition array uses).</summary>
+@@ -1406,6 +1432,22 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         return Exprs.Symbol(s);
+     }
+ 
++    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the exact expression its
++    /// digits denote, so the evalf precision scope re-materialises it at the requested count.
++    /// Returns null for an argument the evaluation path already handles (a symbolic expression,
++    /// and the integer payloads that have no fractional digits to bound).</summary>
++    private static Expr? NumericAtRequestedPrecision(object? payload) => payload switch
++    {
++        // Real inherits Integer: check before Int/Nat. RationalReal.FromReal reads the FULL
++        // magnitude (never the display-truncated ToString), so no digit is invented or lost here;
++        // the precision scope is what bounds the result.
++        Rl r => Exprs.Rational(RationalReal.FromReal(r)),
++        Cplx c => Exprs.Add(
++            Exprs.Rational(RationalReal.FromReal(c.Re)),
++            Exprs.Multiply(Exprs.Rational(RationalReal.FromReal(c.Im)), Exprs.I)),
++        _ => null,
++    };
++
+     private static object NumToPayload(Num n) => n switch
+     {
+         NumInt i => i.V,
+diff --git a/docs/symbolics/dsh-protocol.md b/docs/symbolics/dsh-protocol.md
+index f66c30a..bf05c61 100644
+--- a/docs/symbolics/dsh-protocol.md
++++ b/docs/symbolics/dsh-protocol.md
+@@ -28,7 +28,7 @@ string to recover mathematical meaning.
+ ## Value forms
+ 
+ ```json
+-{ "kind": "Symbolic", "pretty": "x^2 + 1", "canonical": "(add (pow (sym x) (int 2)) (int 1))",
++{ "kind": "Symbolic", "pretty": "x^2 + 1", "canonical": "(add (rat 1 1) (pow (sym x) (rat 2 1)))",
+   "domain": "complex", "exact": true, "nodeCount": 5, "freeSymbols": ["x"] }
+ { "kind": "Array", "type": "Array", "shape": [2, 2], "elements": [ /* row-major */ ] }
+ { "kind": "Complex", "re": "0", "im": "1", "exact": true }
+@@ -95,13 +95,18 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
+ 
+ ## A real solve envelope (abridged)
+ 
++The script is `x = symbol("x"); solve(x^2 - 4 == 0, x)`. `solve` and `solve_full` publish this
++SAME record: the short form no longer answers a vector (or, worse, a prose sentence) for one shape of
++answer and a record for another. Abridged below only in the nested symbolic renderings, which keep
++`pretty`/`canonical` and drop `domain`/`exact`/`nodeCount`/`freeSymbols`.
++
+ ```json
+ {
+   "protocolVersion": 1,
+   "symbolicFormatVersion": "#!lovelace-sym 1",
+   "mathIrVersion": 2,
+   "ok": true,
+-  "revision": 77,
++  "revision": 83,
+   "result": {
+     "kind": "Record",
+     "display": "SolveResult(status: Solved, ...)",
+@@ -111,6 +116,7 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
+       "type": "SolveResult",
+       "fields": [
+         { "name": "status", "value": { "kind": "Enum", "type": "SolveStatus", "value": "Solved" } },
++        { "name": "variable", "value": { "kind": "Symbolic", "pretty": "x", "canonical": "(sym x)" } },
+         { "name": "domain", "value": { "kind": "Domain", "domain": "complex" } },
+         { "name": "complete", "value": { "kind": "Boolean", "value": "true" } },
+         { "name": "completeness", "value": { "kind": "Enum", "type": "Completeness", "value": "Complete" } },
+@@ -119,7 +125,16 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
+             { "name": "value", "value": { "kind": "Symbolic", "pretty": "-2", "canonical": "(rat -2 1)" } },
+             { "name": "conditions", "value": { "kind": "Array", "shape": [0], "elements": [] } },
+             { "name": "multiplicity", "value": { "kind": "Integer", "value": "1" } },
++            { "name": "exactness", "value": { "kind": "Enum", "type": "SolutionExactness", "value": "Exact" } } ] },
++          { "kind": "Record", "type": "Solution", "fields": [
++            { "name": "value", "value": { "kind": "Symbolic", "pretty": "2", "canonical": "(rat 2 1)" } },
++            { "name": "conditions", "value": { "kind": "Array", "shape": [0], "elements": [] } },
++            { "name": "multiplicity", "value": { "kind": "Integer", "value": "1" } },
+             { "name": "exactness", "value": { "kind": "Enum", "type": "SolutionExactness", "value": "Exact" } } ] } ] } },
++        { "name": "families", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } },
++        { "name": "common_conditions", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } },
++        { "name": "represented_count", "value": { "kind": "Integer", "value": "2" } },
++        { "name": "unrepresented_count", "value": { "kind": "Integer", "value": "0" } },
+         { "name": "unrepresented_reason", "value": { "kind": "Text", "value": "" } },
+         { "name": "diagnostics", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } }
+       ]
+@@ -177,9 +192,18 @@ condition removed every candidate. A provably empty set is a complete answer, so
+   "message": "solve(): currently supports domains real and complex; got integer.",
+   "recoverable": true,
+   "diagnostics": [ { "message": "...", "position": 0, "line": 1, "column": 1 } ],
+-  "elapsed": "12 ms" }
++  "elapsed": "46.22 ms",
++  "elapsedTime": { "value": 46.22, "unit": "ms" },
++  "timings": [
++    { "position": 0,  "elapsed": { "value": 8.89,  "unit": "ms" }, "resultKind": "Symbolic", "hasOutput": false },
++    { "position": 17, "elapsed": { "value": 16.41, "unit": "ms" }, "resultKind": "Void",     "hasOutput": false } ] }
+ ```
+ 
++Invariant 4 is **not scoped to success**: the two structural durations are present on the error path
++too, including for an error raised before any engine exists (a parse error, an unreadable script
++file), where `timings` is present and empty. A consumer never parses a unit suffix on either path.
++The statement that FAILED is still a timed statement: it is reported with `resultKind` `Void`.
++
+ Categories are spelled from the one taxonomy, `ErrorCategory`: `ParseError`, `DomainError`,
+ `UnsupportedOperation`, `BudgetExceeded`, `NoSolution`, `TypeMismatch`,
+ `InternalInvariantFailure`. Exit codes: 0 success, 1 script/diagnostic error, 2 usage error.

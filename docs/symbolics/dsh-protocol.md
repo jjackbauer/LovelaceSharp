@@ -28,7 +28,7 @@ string to recover mathematical meaning.
 ## Value forms
 
 ```json
-{ "kind": "Symbolic", "pretty": "x^2 + 1", "canonical": "(add (pow (sym x) (int 2)) (int 1))",
+{ "kind": "Symbolic", "pretty": "x^2 + 1", "canonical": "(add (rat 1 1) (pow (sym x) (rat 2 1)))",
   "domain": "complex", "exact": true, "nodeCount": 5, "freeSymbols": ["x"] }
 { "kind": "Array", "type": "Array", "shape": [2, 2], "elements": [ /* row-major */ ] }
 { "kind": "Complex", "re": "0", "im": "1", "exact": true }
@@ -95,13 +95,18 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
 
 ## A real solve envelope (abridged)
 
+The script is `x = symbol("x"); solve(x^2 - 4 == 0, x)`. `solve` and `solve_full` publish this
+SAME record: the short form no longer answers a vector (or, worse, a prose sentence) for one shape of
+answer and a record for another. Abridged below only in the nested symbolic renderings, which keep
+`pretty`/`canonical` and drop `domain`/`exact`/`nodeCount`/`freeSymbols`.
+
 ```json
 {
   "protocolVersion": 1,
   "symbolicFormatVersion": "#!lovelace-sym 1",
   "mathIrVersion": 2,
   "ok": true,
-  "revision": 77,
+  "revision": 83,
   "result": {
     "kind": "Record",
     "display": "SolveResult(status: Solved, ...)",
@@ -111,6 +116,7 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
       "type": "SolveResult",
       "fields": [
         { "name": "status", "value": { "kind": "Enum", "type": "SolveStatus", "value": "Solved" } },
+        { "name": "variable", "value": { "kind": "Symbolic", "pretty": "x", "canonical": "(sym x)" } },
         { "name": "domain", "value": { "kind": "Domain", "domain": "complex" } },
         { "name": "complete", "value": { "kind": "Boolean", "value": "true" } },
         { "name": "completeness", "value": { "kind": "Enum", "type": "Completeness", "value": "Complete" } },
@@ -119,7 +125,16 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
             { "name": "value", "value": { "kind": "Symbolic", "pretty": "-2", "canonical": "(rat -2 1)" } },
             { "name": "conditions", "value": { "kind": "Array", "shape": [0], "elements": [] } },
             { "name": "multiplicity", "value": { "kind": "Integer", "value": "1" } },
+            { "name": "exactness", "value": { "kind": "Enum", "type": "SolutionExactness", "value": "Exact" } } ] },
+          { "kind": "Record", "type": "Solution", "fields": [
+            { "name": "value", "value": { "kind": "Symbolic", "pretty": "2", "canonical": "(rat 2 1)" } },
+            { "name": "conditions", "value": { "kind": "Array", "shape": [0], "elements": [] } },
+            { "name": "multiplicity", "value": { "kind": "Integer", "value": "1" } },
             { "name": "exactness", "value": { "kind": "Enum", "type": "SolutionExactness", "value": "Exact" } } ] } ] } },
+        { "name": "families", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } },
+        { "name": "common_conditions", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } },
+        { "name": "represented_count", "value": { "kind": "Integer", "value": "2" } },
+        { "name": "unrepresented_count", "value": { "kind": "Integer", "value": "0" } },
         { "name": "unrepresented_reason", "value": { "kind": "Text", "value": "" } },
         { "name": "diagnostics", "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } }
       ]
@@ -177,8 +192,17 @@ condition removed every candidate. A provably empty set is a complete answer, so
   "message": "solve(): currently supports domains real and complex; got integer.",
   "recoverable": true,
   "diagnostics": [ { "message": "...", "position": 0, "line": 1, "column": 1 } ],
-  "elapsed": "12 ms" }
+  "elapsed": "46.22 ms",
+  "elapsedTime": { "value": 46.22, "unit": "ms" },
+  "timings": [
+    { "position": 0,  "elapsed": { "value": 8.89,  "unit": "ms" }, "resultKind": "Symbolic", "hasOutput": false },
+    { "position": 17, "elapsed": { "value": 16.41, "unit": "ms" }, "resultKind": "Void",     "hasOutput": false } ] }
 ```
+
+Invariant 4 is **not scoped to success**: the two structural durations are present on the error path
+too, including for an error raised before any engine exists (a parse error, an unreadable script
+file), where `timings` is present and empty. A consumer never parses a unit suffix on either path.
+The statement that FAILED is still a timed statement: it is reported with `resultKind` `Void`.
 
 Categories are spelled from the one taxonomy, `ErrorCategory`: `ParseError`, `DomainError`,
 `UnsupportedOperation`, `BudgetExceeded`, `NoSolution`, `TypeMismatch`,

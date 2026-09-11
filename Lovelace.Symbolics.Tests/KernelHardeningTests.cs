@@ -405,9 +405,14 @@ public class KernelHardeningTests
         engine.LoadPlugin(symbolics);
         engine.LoadPlugin(new MathIRPlugin(symbolics));
         engine.Evaluate("x = symbol(\"x\")");
-        var result = engine.Evaluate("solve((x^2 - 1)/(x - 1) == 0, x)");
-        // x = 1 must be excluded: the pole of the cancelled denominator is not a solution
-        Assert.Equal("[-1] (Vector)", ValueFormatter.FormatTyped(result));
+        var result = engine.Evaluate("solve((x^2 - 1)/(x - 1) == 0, x)").AsRecord();
+        // x = 1 must be excluded: the pole of the cancelled denominator is not a solution. The
+        // surviving root is read off the record's solutions[], which solve() now publishes.
+        var roots = ((Value)result.Fields.First(f => f.Name == "solutions").Value!).AsVector()
+            .Select(s => ValueFormatter.Format((Value)s.AsRecord().Fields.First(f => f.Name == "value").Value!))
+            .ToArray();
+        Assert.Equal(new[] { "-1" }, roots);
+        Assert.Equal("1", ValueFormatter.Format((Value)result.Fields.First(f => f.Name == "represented_count").Value!));
     }
 
     // ------------------------------------------------------------------

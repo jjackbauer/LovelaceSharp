@@ -174,8 +174,13 @@ assume(x > 5)
 assumptions()
 ```
 ```result
-x > 5
+AssumptionSet(display: x > 5, assumptions: [x > 5]) (AssumptionSet)
 ```
+
+`assumptions()` is a structured record, not a display string: `display` carries the one-line
+rendering above and `assumptions` carries the atoms themselves (a relation is a symbolic value, a
+domain restriction a `DomainCondition` record), which is also what `inspect(f).assumptions`
+projects.
 
 Domain and property shortcuts: `assume_positive`, `assume_nonnegative`, `assume_negative`,
 `assume_real`, `assume_integer`.
@@ -554,14 +559,16 @@ error: Assumption x <= 0 contradicts the existing assumptions (its negation x > 
 
 Dispatch is by mathematical structure: linear, polynomial (formulas to degree 3, then
 `RootOf`), rational, and invertible elementary compositions — always with explicit
-conditions.
+conditions. Every answer, complete or not, is the same `SolveResult` record `solve_full` returns:
+the status is an enum, the solutions are records, and a parametric family is a record too, so
+nothing has to be recovered from a display string.
 
 ```lovelace
 x = symbol("x")
 solve(2*x - 4 == 0, x)
 ```
 ```result
-[2] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 ```lovelace
@@ -569,7 +576,7 @@ x = symbol("x")
 solve(x^2 - 4 == 0, x)
 ```
 ```result
-[-2, 2] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 ```lovelace
@@ -577,7 +584,7 @@ x = symbol("x")
 solve(x^4 - 5*x^2 + 4 == 0, x)
 ```
 ```result
-[-2, -1, 1, 2] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 ```lovelace
@@ -585,7 +592,7 @@ x = symbol("x")
 solve(x^3 - 1 == 0, x)
 ```
 ```result
-[1/2*(i*sqrt(3) - 1), 1/2*(-i*sqrt(3) - 1), 1] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 1/2*(i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1/2*(-i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 3, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 (In the cubic roots above the principal complex square root is now written out in closed form:
@@ -597,17 +604,19 @@ x = symbol("x")
 solve(exp(x) == 5, x)
 ```
 ```result
-[log(5)] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: log(5), conditions: [1 != 0], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
-Periodic inverses return parametric families rather than a single principal branch:
+Periodic inverses return parametric families rather than a single principal branch — the family is a
+`SolutionFamily` record, so the parameter, its domain and the period are all readable from structure
+(`solutions` stays empty because a family is not a finite list of values):
 
 ```lovelace
 x = symbol("x")
 solve(sin(x) == 0, x)
 ```
 ```result
-k*pi for integer k
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 ```lovelace
@@ -616,7 +625,7 @@ y = symbol("y")
 solve(x + y == 0, x)
 ```
 ```result
-[-y] (Vector)
+SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -y, conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)
 ```
 
 Polynomial systems solve via Gröbner-basis elimination and back-substitution
@@ -633,15 +642,15 @@ solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])
 SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)
 ```
 
-An inconsistent equation reports why (no solutions); an unsupported
-structure is reported unevaluated:
+An inconsistent equation is a structured `NoSolutions` answer (the reason rides in `diagnostics`);
+an unsupported structure is `Unevaluated`:
 
 ```lovelace
 x = symbol("x")
 solve(x - x + 1 == 0, x)
 ```
 ```result
-the equation reduces to a nonzero constant.
+SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: the equation reduces to a nonzero constant., recoverable: True, location: , details: [])]) (SolveResult)
 ```
 
 ```lovelace
@@ -649,7 +658,7 @@ x = symbol("x")
 solve(exp(x) + x == 0, x)
 ```
 ```result
-unevaluated: No solver for this structure.
+SolveResult(status: Unevaluated, variable: x, domain: complex, complete: False, completeness: Unknown, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.unevaluated, category: UnsupportedOperation, message: No solver for this structure., recoverable: True, location: , details: [])]) (SolveResult)
 ```
 
 
@@ -779,7 +788,7 @@ assume(not(x == 2))
 assumptions()
 ```
 ```result
-x > 0; x < 5; x != 2
+AssumptionSet(display: x > 0; x < 5; x != 2, assumptions: [x > 0, x < 5, x != 2]) (AssumptionSet)
 ```
 
 ## 15. Symbolic matrices: rank and linear systems
@@ -838,6 +847,17 @@ evalf(1/3, 25)
 0.3333333333333333333333333 (Real)
 ```
 
+The digit count holds for an argument that arrives **already numeric** too. `sqrt(2)` is evaluated
+at the ambient precision before `evalf` runs, so the value is truncated to the requested count
+instead of being passed through at 100 digits:
+
+```lovelace
+evalf(sqrt(2), 5)
+```
+```result
+1.41421 (Real)
+```
+
 ```lovelace
 setprecision(20)
 evalf(sqrt(2), 20)
@@ -868,9 +888,10 @@ byte-identical output on every run and platform — including under Native AOT
 
 ## 18b. Structured results (the `*_full` APIs)
 
-The convenience forms keep their concise projections; the `*_full` builtins return
-first-class structured records. Property access (`r.solutions`) reads the fields, and the
-same records serialize structurally through the DSH runner — no prose parsing anywhere.
+The `*_full` builtins return first-class structured records, and the short forms that have one
+(`solve`, `solve_system`) publish the SAME record rather than a second, looser projection — so no
+answer has to be recovered from prose. Property access (`r.solutions`) reads the fields, and the
+same records serialize structurally through the DSH runner.
 
 ```lovelace
 x = symbol("x")
@@ -1036,14 +1057,15 @@ inspect(x^2 + 1).free_symbols
 [x] (Vector)
 ```
 
-Solver domains are first-class values (never magic strings); the default is Complex:
+Solver domains are first-class values (never magic strings); the default is Complex, and an empty
+result is a structured `NoSolutions` answer rather than prose:
 
 ```lovelace
 x = symbol("x")
 solve(x^2 + 1 == 0, x, real)
 ```
 ```result
-no real solutions
+SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)
 ```
 
 ## 19. Library usage (C#)
@@ -1122,15 +1144,19 @@ Assert.False(Exprs.Power(Exprs.Rational(2L), Exprs.Rational(1, 2)).IsExact);  //
 - Cubic roots use the branch-coupled Cardano form (`u·v = −P/3`), verified against their
   polynomial; quartic and higher-degree factors yield `RootOf` roots over the exact Sturm
   count of REAL roots (complex algebraic numbers are deferred), numerically evaluated on
-  request. The solver domain is explicit and never widened: the default is Complex, and a
-  `solve(…, integer)` or `solve(…, rational)` request is REJECTED rather than silently
-  answered over the complexes.
+  request. The solver's domain argument is explicit and never widened: the default is Complex,
+  and `solve(…, integer)` / `solve(…, rational)` is REJECTED rather than silently answered over
+  the complexes. The refusal is scoped to the SOLVER's domain argument — `symbol(name, integer)`,
+  `assume_integer` and a solution family's integer parameter domain stay supported (see §2), so
+  `capabilities()` reports the pair as `solve_domains_accepted` / `solve_domains_refused` rather
+  than as a claim about the runtime's domains as a whole.
 - **A result is reported as a complete solution set only when it is one.** A degree ≥ 4
-  factor with real roots *and* non-real ones is reported `Partial` by `solve_full`
+  factor with real roots *and* non-real ones is reported `Partial`
   (`complete: False`, with `unrepresented_count` and `unrepresented_reason`); with no real
-  roots at all it is `Unevaluated`. The convenience `solve` returns a vector only for a
-  complete result and describes a partial one in words instead of showing a subset. Real
-  roots come back in ascending order; other roots follow a deterministic canonical order.
+  roots at all it is `Unevaluated`. `solve` and `solve_full` publish the same `SolveResult`
+  record, so a partial set is never shown as a complete vector and never described in prose:
+  the status, the counts and the reason are all fields. Real roots come back in ascending
+  order; other roots follow a deterministic canonical order.
 - `solve` handles linear, polynomial (univariate), rational, and invertible elementary
   compositions (with parametric families for periodic inverses); inequality solving is not
   yet implemented.
