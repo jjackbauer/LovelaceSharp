@@ -115,23 +115,49 @@ internal static class FalsificationRegions
     // is only licensed on that strip cannot be falsely falsified by this sweep.
     public static readonly ComplexProbe[] ComplexProbes =
     {
-        new("complex", "1", "1", "1+i", "first quadrant, unit imaginary part"),
-        new("complex", "1", "-1", "1-i", "fourth quadrant, conjugate of 1+i"),
-        new("complex", "-1", "1", "-1+i", "second quadrant (negative real part: |z|^2 != z^2 territory)"),
-        new("complex", "-1", "-1", "-1-i", "third quadrant, conjugate of -1+i"),
-        new("complex", "0", "1", "i", "purely imaginary: re(z) = 0, |z| = 1"),
-        new("complex", "0", "-1", "-i", "purely imaginary, negative: conjugate of i"),
-        new("complex", "0.5", "0.5", "0.5+0.5i", "small modulus (|z| ~ 0.707) near the branch point"),
-        new("complex", "-0.5", "1.5", "-0.5+1.5i", "small negative real part, |Im| = 1.5 < pi"),
-        new("complex", "1.5", "-0.5", "1.5-0.5i", "mirror of the above across the real axis"),
-        new("complex", "2", "0.5", "2+0.5i", "moderate modulus with a small imaginary part"),
-        new("complex", "-2", "-0.5", "-2-0.5i", "moderate negative modulus, |Im| = 0.5 < pi"),
-        new("complex", "2", "0", "2+0i", "complex-typed value on the real axis: exercises the real/complex promotion path"),
+        new(ComplexRegion, "1", "1", "1+i", "first quadrant, unit imaginary part"),
+        new(ComplexRegion, "1", "-1", "1-i", "fourth quadrant, conjugate of 1+i"),
+        new(ComplexRegion, "-1", "1", "-1+i", "second quadrant (negative real part: |z|^2 != z^2 territory)"),
+        new(ComplexRegion, "-1", "-1", "-1-i", "third quadrant, conjugate of -1+i"),
+        new(ComplexRegion, "0", "1", "i", "purely imaginary: re(z) = 0, |z| = 1"),
+        new(ComplexRegion, "0", "-1", "-i", "purely imaginary, negative: conjugate of i"),
+        new(ComplexRegion, "0.5", "0.5", "0.5+0.5i", "small modulus (|z| ~ 0.707) near the branch point"),
+        new(ComplexRegion, "-0.5", "1.5", "-0.5+1.5i", "small negative real part, |Im| = 1.5 < pi"),
+        new(ComplexRegion, "1.5", "-0.5", "1.5-0.5i", "mirror of the above across the real axis"),
+        new(ComplexRegion, "2", "0.5", "2+0.5i", "moderate modulus with a small imaginary part"),
+        new(ComplexRegion, "-2", "-0.5", "-2-0.5i", "moderate negative modulus, |Im| = 0.5 < pi"),
+        new(ComplexRegion, "2", "0", "2+0i", "complex-typed value on the real axis: exercises the real/complex promotion path"),
     };
+
+    /// <summary>The region name the complex sweep carries.</summary>
+    public const string ComplexRegion = "complex";
+
+    /// <summary>The region tag of the extra exclusion witnesses, deliberately NOT a sweep region:
+    /// it never contributes a gate comparison, so it is not in <see cref="RequiredRegions"/>.</summary>
+    public const string OutsideStripRegion = "complex-outside-strip";
+
+    /// <summary>Complex points a complex-EXCLUDED rule is attacked at, deliberately OUTSIDE that
+    /// rule's own assumption boundary. The gate must not compare there - that is exactly the guard
+    /// this file refuses to loosen - but a negative control must show the exclusion is load-bearing
+    /// by OBSERVING the identity fail.
+    /// <para>The first twelve witnesses are the ordinary sweep, in sweep order, so a control cannot
+    /// pick a friendlier point than the sweep itself would have reached. The last two lie outside
+    /// log's principal strip (|Im z| &lt; pi). The sweep deliberately keeps |Im z| &lt;= 2 &lt; pi so a
+    /// strip-licensed rule cannot be falsely falsified by it - which also means no sweep point can
+    /// witness log(exp(z)) != z; those two points supply the missing witness without being added to
+    /// the sweep.</para></summary>
+    public static readonly ComplexProbe[] ComplexExclusionWitnesses = ComplexProbes.Concat(new[]
+    {
+        new ComplexProbe(OutsideStripRegion, "0", "5", "5i",
+            "outside log's principal strip (Im z = 5 > pi): the only place log(exp(z)) != z can be observed"),
+        new ComplexProbe(OutsideStripRegion, "0", "-5", "-5i",
+            "below the strip (Im z = -5 < -pi), the conjugate-side companion of 5i"),
+    }).ToArray();
 
     public static readonly string[] RequiredRegions =
     {
-        "legacy-interior", "near-pole", "near-branch-cut", "near-discontinuity", "assumption-boundary", "complex",
+        "legacy-interior", "near-pole", "near-branch-cut", "near-discontinuity", "assumption-boundary",
+        ComplexRegion,
     };
 }
 
@@ -150,6 +176,16 @@ internal sealed class GateReport
     public List<string> UnhandledAtoms { get; } = new();
     public Dictionary<string, int> Compared { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, HashSet<string>> Regions { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Every complex comparison the gate actually made: rule, environment index and probe
+    /// label. The complex-treatment audit reads this to prove that a complex point was skipped for
+    /// a NAMED reason and never silently.</summary>
+    public List<(string RuleId, int Env, string Label)> ComplexCompared { get; } = new();
+
+    /// <summary>The shape the gate used per rule: the environments it was licensed under, and the
+    /// instantiated LHS/RHS it compared there. The complex-exclusion controls re-attack exactly
+    /// these expressions, so a control can never drift from what the gate actually swept.</summary>
+    public Dictionary<string, List<(AssumptionSet Env, Expr Lhs, Expr Rhs)>> LicensedShapes { get; } = new(StringComparer.Ordinal);
 
     /// <summary>Unexpected exception from rule code, or a value disagreement: both are failures.</summary>
     public bool Failed => Threw.Count > 0 || Falsified.Count > 0;
@@ -209,8 +245,12 @@ internal static class RegistryFalsificationGate
                 match.Bind(b.Key, b.Value);
 
             var licensed = false;
+            var shapes = new List<(AssumptionSet Env, Expr Lhs, Expr Rhs)>();
+            report.LicensedShapes[rule.Id] = shapes;
+            var envIndex = -1;
             foreach (var env in Environments(rule, match, ctx, x))
             {
+                envIndex++;
                 if (!Licensed(rule, match, ctx, env, out var why))
                 {
                     report.LicenseNotes.Add(rule.Id + " under " + Describe(env) + ": " + why);
@@ -231,15 +271,16 @@ internal static class RegistryFalsificationGate
                     report.Threw.Add(rule.Id + " replacement: " + ex.GetType().Name + ": " + ex.Message);
                     continue;
                 }
+                shapes.Add((env, lhs, rhs));
 
                 using (ctx.WithAssumptions(env))
                 {
                     foreach (var probe in FalsificationRegions.AllRealProbes)
-                        ComparePoint(report, rule.Id, probe.Region, probe.Label, NumOps.FromRat(probe.Value), lhs, rhs, env, ctx, x, tol);
+                        ComparePoint(report, rule.Id, envIndex, probe.Region, probe.Label, NumOps.FromRat(probe.Value), lhs, rhs, env, ctx, x, tol, complex: false);
                     foreach (var probe in FalsificationRegions.ComplexProbes)
-                        ComparePoint(report, rule.Id, probe.Region, probe.Label,
+                        ComparePoint(report, rule.Id, envIndex, probe.Region, probe.Label,
                             NumOps.FromComplex(new Cplx(Rl.Parse(probe.Re, null), Rl.Parse(probe.Im, null))),
-                            lhs, rhs, env, ctx, x, tol);
+                            lhs, rhs, env, ctx, x, tol, complex: true);
                 }
             }
             if (licensed)
@@ -251,8 +292,8 @@ internal static class RegistryFalsificationGate
     }
 
     private static void ComparePoint(
-        GateReport report, string ruleId, string region, string label, Num value,
-        Expr lhs, Expr rhs, AssumptionSet env, ExprContext ctx, Symbol x, Num tol)
+        GateReport report, string ruleId, int envIndex, string region, string label, Num value,
+        Expr lhs, Expr rhs, AssumptionSet env, ExprContext ctx, Symbol x, Num tol, bool complex)
     {
         foreach (var atom in env.Atoms)
             if (!AtomHolds(atom, value, ctx, x, report))
@@ -275,11 +316,28 @@ internal static class RegistryFalsificationGate
             return;
         }
 
+        if (complex)
+            report.ComplexCompared.Add((ruleId, envIndex, label));
         report.Count(ruleId, region);
-        var delta = NumOps.Abs(NumOps.Subtract(lv, rv), ctx);
-        if (NumOps.Compare(delta, tol) >= 0)
+        if (ExceedsTolerance(lv, rv, tol, ctx))
             report.Falsified.Add(ruleId + " at " + region + ":" + label + ": " + Printing.PrettyPrint(lhs) +
                                  " != " + Printing.PrettyPrint(rhs));
+    }
+
+    /// <summary>Whether |lhs - rhs| reaches the tolerance. The predicate is unchanged - both sides
+    /// are non-negative, so comparing squares decides the same question - but a complex difference
+    /// is decided on its EXACT squared magnitude re^2 + im^2 instead of |delta| = sqrt(re^2 + im^2).
+    /// That keeps the tolerance check out of the transcendental sqrt path: a numeric failure there
+    /// is a magnitude-computation defect, not evidence about the rule, and must not be able to
+    /// decide (or abort) a rule's verdict. Real differences keep the original |delta| vs tol form.
+    /// The exact squared magnitude is also the sharper test: no rounding is introduced by a 40-digit
+    /// square root before the comparison.</summary>
+    private static bool ExceedsTolerance(Num lv, Num rv, Num tol, ExprContext ctx)
+    {
+        var delta = NumOps.Subtract(lv, rv);
+        if (delta is NumComplex c)
+            return NumOps.Compare(NumOps.FromReal(c.V.MagnitudeSquared), NumOps.Multiply(tol, tol)) >= 0;
+        return NumOps.Compare(NumOps.Abs(delta, ctx), tol) >= 0;
     }
 
     /// <summary>Assumption ladders a rule may be licensed under: its own declared conditions,
@@ -498,6 +556,188 @@ internal static class RegistryFalsificationGate
         AtomHolds(atom, value, ctx, x, report);
 }
 
+/// <summary>How one registered rule is treated in the complex region.</summary>
+internal enum ComplexDisposition
+{
+    /// <summary>At least one complex probe satisfied every assumption atom and was compared.</summary>
+    ComplexSampled,
+
+    /// <summary>No complex probe was compared; every complex probe is excluded by a NAMED
+    /// assumption atom, and at least one complex probe shows the identity genuinely failing.</summary>
+    ComplexExclusionProven,
+}
+
+/// <summary>What the complex-treatment audit observed for one rule. Everything is a value so a
+/// test can assert on the observation rather than on prose.</summary>
+internal sealed class ComplexTreatment
+{
+    public ComplexTreatment(string ruleId) => RuleId = ruleId;
+
+    public string RuleId { get; }
+    public ComplexDisposition Disposition { get; set; }
+
+    /// <summary>Complex sweep points the gate actually compared for this rule.</summary>
+    public int SampledPoints { get; set; }
+
+    /// <summary>Licensed environments the gate used for this rule.</summary>
+    public int EnvsConsidered { get; set; }
+
+    /// <summary>(environment, witness) pairs the gate skipped because a named atom failed.</summary>
+    public int SkipsAttributedToNamedAtom { get; set; }
+
+    /// <summary>(environment, witness) pairs not compared because the identity is not DEFINED
+    /// there (EvaluationException) - the kernel's own domain boundary, not a guard decision.</summary>
+    public int SkipsAttributedToDomain { get; set; }
+
+    /// <summary>Pairs where no atom blocked the guard, both sides evaluated, and yet no comparison
+    /// was recorded: a skip with no stated reason. Must be zero for every rule.</summary>
+    public int UnexplainedSkips { get; set; }
+    public List<string> UnexplainedDetail { get; } = new();
+
+    // ---- the exclusion witness: an OBSERVED complex counterexample outside the rule's boundary ----
+    public string WitnessLabel { get; set; } = "";
+    public string WitnessRegion { get; set; } = "";
+    public string WitnessPoint { get; set; } = "";
+    public string WitnessEnv { get; set; } = "";
+    public List<string> BlockingAtoms { get; } = new();
+    public string WitnessLhs { get; set; } = "";
+    public string WitnessRhs { get; set; } = "";
+    public string WitnessLhsValue { get; set; } = "";
+    public string WitnessRhsValue { get; set; } = "";
+    public Num? WitnessDeltaSquared { get; set; }
+}
+
+/// <summary>
+/// The complex half of the gate, kept OUT of the gate's verdicts. The gate must not compare a
+/// real-only rule at a complex point where it makes no claim, so this audit instead asks, per
+/// registered rule: was the rule complex-sampled, and if not, is every complex skip explained by a
+/// named failing atom AND does at least one complex point show the identity genuinely failing?
+/// A "proven" exclusion therefore means: the rule is real-only because it is FALSE over complex
+/// numbers at an observed point, not because the gate declined to look.
+/// </summary>
+internal static class ComplexTreatmentAudit
+{
+    public static List<ComplexTreatment> Run(IReadOnlyList<RewriteRule> rules, ExprContext ctx, Symbol x, GateReport report)
+    {
+        using var scope = Rl.WithPrecision(40, 20);
+        var tol = NumOps.FromReal(Rl.Parse("0." + new string('0', 11) + "1", null)); // 1e-11, as in the gate
+        var tolSquared = NumOps.Multiply(tol, tol);
+        var treatments = new List<ComplexTreatment>();
+
+        foreach (var rule in rules)
+        {
+            var t = new ComplexTreatment(rule.Id);
+            treatments.Add(t);
+            if (!report.LicensedShapes.TryGetValue(rule.Id, out var shape))
+                continue;   // unlicensed/uninstantiable: the gate itself reports that, out loud
+
+            t.EnvsConsidered = shape.Count;
+            t.SampledPoints = report.ComplexCompared.Count(c => c.RuleId == rule.Id);
+
+            // (a) Skip accounting over the SWEEP points themselves: each (environment, sweep point)
+            // pair is compared, blocked by a named atom, or undefined there. The two extra exclusion
+            // witnesses are not sweep points, so they are deliberately NOT part of this accounting.
+            for (var envIndex = 0; envIndex < shape.Count; envIndex++)
+            {
+                var (env, lhs, rhs) = shape[envIndex];
+                foreach (var probe in FalsificationRegions.ComplexProbes)
+                {
+                    var value = NumOps.FromComplex(new Cplx(Rl.Parse(probe.Re, null), Rl.Parse(probe.Im, null)));
+                    var blocked = env.Atoms
+                        .Where(a => !RegistryFalsificationGate.AtomHoldsForTesting(a, value, ctx, x, report))
+                        .ToArray();
+                    if (blocked.Length > 0)
+                    {
+                        t.SkipsAttributedToNamedAtom++;
+                        continue;
+                    }
+                    if (report.ComplexCompared.Contains((rule.Id, envIndex, probe.Label)))
+                        continue;                                  // compared: nothing was skipped
+                    if (Evaluate(lhs, rhs, ctx, x, value) is null)
+                    {
+                        t.SkipsAttributedToDomain++;               // undefined there, so no claim to test
+                        continue;
+                    }
+                    t.UnexplainedSkips++;                          // skipped with no stated reason
+                    t.UnexplainedDetail.Add(Describe(env) + " at " + probe.Label + " (every atom held)");
+                }
+            }
+
+            // (b) The exclusion witness: for a rule the sweep never compared, search the sweep points
+            // first and then the strip-crossing points for a complex value where the identity is
+            // blocked by a named atom AND genuinely fails. Rules the sweep did compare need no
+            // witness - their coverage is the comparison itself.
+            if (t.SampledPoints == 0)
+            {
+                for (var envIndex = 0; envIndex < shape.Count && t.WitnessLabel.Length == 0; envIndex++)
+                {
+                    var (env, lhs, rhs) = shape[envIndex];
+                    foreach (var witness in FalsificationRegions.ComplexExclusionWitnesses)
+                    {
+                        var value = NumOps.FromComplex(new Cplx(Rl.Parse(witness.Re, null), Rl.Parse(witness.Im, null)));
+                        var blocking = env.Atoms
+                            .Where(a => !RegistryFalsificationGate.AtomHoldsForTesting(a, value, ctx, x, report))
+                            .ToArray();
+                        if (blocking.Length == 0)
+                            continue;                                  // the guard would have compared it
+                        if (Evaluate(lhs, rhs, ctx, x, value) is not var (lv, rv))
+                            continue;
+                        var deltaSquared = SquaredMagnitude(NumOps.Subtract(lv, rv), ctx);
+                        if (NumOps.Compare(deltaSquared, tolSquared) < 0)
+                            continue;                                  // the identity still holds here
+                        t.WitnessLabel = witness.Label;
+                        t.WitnessRegion = witness.Region;
+                        t.WitnessPoint = "z = " + witness.Label + " (re=" + witness.Re + ", im=" + witness.Im + ")";
+                        t.WitnessEnv = Describe(env);
+                        t.BlockingAtoms.AddRange(blocking.Select(a => a.ToString()));
+                        t.WitnessLhs = Printing.PrettyPrint(lhs);
+                        t.WitnessRhs = Printing.PrettyPrint(rhs);
+                        t.WitnessLhsValue = Text(lv);
+                        t.WitnessRhsValue = Text(rv);
+                        t.WitnessDeltaSquared = deltaSquared;
+                        break;
+                    }
+                }
+            }
+
+            t.Disposition = t.SampledPoints > 0 ? ComplexDisposition.ComplexSampled : ComplexDisposition.ComplexExclusionProven;
+        }
+        return treatments;
+    }
+
+    /// <summary>|delta|^2, exactly where the value is exact: a complex difference is squared through
+    /// its real and imaginary parts (re^2 + im^2, no square root), a real one through |delta|^2.</summary>
+    private static Num SquaredMagnitude(Num delta, ExprContext ctx)
+    {
+        if (delta is NumComplex c)
+            return NumOps.FromReal(c.V.MagnitudeSquared);
+        var abs = NumOps.Abs(delta, ctx);
+        return NumOps.Multiply(abs, abs);
+    }
+
+    /// <summary>A numeric value as evidence text - the Num union carries no printer of its own, so
+    /// it goes through the kernel's expression printer.</summary>
+    public static string Text(Num value) => Printing.PrettyPrint(Evaluation.NumToExpr(value));
+
+    /// <summary>Both sides at one point, or null when the identity is not defined there (the
+    /// kernel's typed domain failure) - an unexpected exception still surfaces as a gate defect.</summary>
+    private static (Num Lv, Num Rv)? Evaluate(Expr lhs, Expr rhs, ExprContext ctx, Symbol x, Num value)
+    {
+        var bindings = new Dictionary<Symbol, Num> { [x] = value };
+        try
+        {
+            return (Evaluation.EvaluateToNum(lhs, ctx, bindings), Evaluation.EvaluateToNum(rhs, ctx, bindings));
+        }
+        catch (EvaluationException)
+        {
+            return null;
+        }
+    }
+
+    private static string Describe(AssumptionSet env) =>
+        env.Atoms.Length == 0 ? "{}" : "{" + string.Join("; ", env.Atoms.Select(a => a.ToString())) + "}";
+}
+
 /// <summary>
 /// Round 27: the falsification gate is registry-driven and samples five new regions on top of the
 /// original 13 points. Every [Fact] in FalsificationTests still runs unchanged (superset), so the
@@ -519,11 +759,14 @@ public class FalsificationGateTests
     [Fact]
     public void RegistryGate_EveryRegisteredRuleIsSampled_OnEveryRegion()
     {
-        var ctx = NewCtx();
-        var x = ctx.Symbol("x");
-        var registered = Simplify.RulesForTesting(ctx);
+        // the shared read-only sweep: the same registry, the same gate run, the same report the
+        // complex-treatment facts read. Assertions below are exactly as before.
+        var sweep = SharedSweep.Value;
+        var ctx = sweep.Ctx;
+        var x = sweep.X;
+        var registered = sweep.Rules;
         var shippedIds = Simplify.ShippedRuleIds(ctx);
-        var report = RegistryFalsificationGate.Run(registered, ctx, x);
+        var report = sweep.Report;
 
         _out.WriteLine("REGISTRY COUNT (RulesForTesting / ShippedRuleIds / sampled) = " +
             registered.Count + " / " + shippedIds.Count + " / " + report.Sampled.Count);
@@ -644,5 +887,212 @@ public class FalsificationGateTests
         Assert.True(RegistryFalsificationGate.AtomHoldsForTesting(atom, NumOps.FromRat(Rat.From(1, 1000000)), ctx, x, report));
         Assert.True(RegistryFalsificationGate.AtomHoldsForTesting(atom, NumOps.FromRat(Rat.Zero), ctx, x, report));
         Assert.False(RegistryFalsificationGate.AtomHoldsForTesting(atom, NumOps.FromRat(Rat.From(-1, 1000000)), ctx, x, report));
+    }
+
+    // -------------------------------------------------------------------------------------------
+    // The complex treatment. Every registered rule is either complex-SAMPLED (its identity was
+    // compared at complex points) or complex-EXCLUSION-PROVEN (no complex point was compared,
+    // every complex skip carries a named failing atom, and a complex counterexample was OBSERVED).
+    // Nothing else is allowed. The guard is untouched: a rule that needs real arguments is still
+    // never compared at a complex point - the controls attack it OUTSIDE its boundary instead.
+    // -------------------------------------------------------------------------------------------
+
+    /// <summary>The rules the complex sweep reaches, observed over the registry at this round.
+    /// Hard-coded on purpose: a rule appearing, vanishing or switching disposition must break the
+    /// partition test loudly rather than quietly changing the treatment.</summary>
+    private static readonly string[] ComplexSampledRuleIds =
+    {
+        "abs.abs-neg",
+        "logexp.exp-log",
+        "rat.cancel-x-over-x",
+        "rat.cancel-zero-over-x",
+        "trig.pythagorean-sin2-cos2",
+    };
+
+    /// <summary>The real-only rules, and the complex point at which each one's identity is observed
+    /// to FAIL - the evidence that excluding them from complex sampling is necessary, not a dodge.</summary>
+    private static readonly (string RuleId, string WitnessLabel)[] ComplexExclusionProvenRules =
+    {
+        ("abs.abs-square", "1+i"),
+        ("logexp.log-exp", "5i"),
+        ("pow.sqrt-square-nonnegative", "-1+i"),
+        ("pow.sqrt-square-real", "1+i"),
+    };
+
+    private static (IReadOnlyList<RewriteRule> Rules, GateReport Report, List<ComplexTreatment> Treatments) RunComplexAudit(
+        ExprContext ctx, Symbol x)
+    {
+        var rules = Simplify.RulesForTesting(ctx);
+        var report = RegistryFalsificationGate.Run(rules, ctx, x);
+        return (rules, report, ComplexTreatmentAudit.Run(rules, ctx, x, report));
+    }
+
+    /// <summary>One registry sweep, shared by the facts that read it. The sweep is deterministic and
+    /// read-only - the complex audit adds no verdict to it - so repeating it once per fact would only
+    /// buy test time (~9 s per sweep at 40-digit precision). The facts in this class run sequentially
+    /// (one xunit collection), and every assertion below is unchanged by the sharing.</summary>
+    private sealed record RegistrySweep(
+        ExprContext Ctx, Symbol X, IReadOnlyList<RewriteRule> Rules, GateReport Report, List<ComplexTreatment> Treatments);
+
+    private static readonly Lazy<RegistrySweep> SharedSweep = new(() =>
+    {
+        var ctx = NewCtx();
+        var x = ctx.Symbol("x");
+        var (rules, report, treatments) = RunComplexAudit(ctx, x);
+        return new RegistrySweep(ctx, x, rules, report, treatments);
+    });
+
+    [Fact]
+    public void ComplexTreatment_PartitionsTheRegistry_WithExplicitCounts()
+    {
+        var sweep = SharedSweep.Value;
+        var rules = sweep.Rules;
+        var report = sweep.Report;
+        var treatments = sweep.Treatments;
+
+        var sampled = treatments.Where(t => t.Disposition == ComplexDisposition.ComplexSampled)
+            .Select(t => t.RuleId).OrderBy(i => i, StringComparer.Ordinal).ToArray();
+        var excluded = treatments.Where(t => t.Disposition == ComplexDisposition.ComplexExclusionProven)
+            .Select(t => t.RuleId).OrderBy(i => i, StringComparer.Ordinal).ToArray();
+
+        _out.WriteLine("COMPLEX TREATMENT (registered / complex-sampled / complex-exclusion-proven) = " +
+            rules.Count + " / " + sampled.Length + " / " + excluded.Length);
+        foreach (var t in treatments.OrderBy(t => t.RuleId, StringComparer.Ordinal))
+            _out.WriteLine("  " + t.RuleId + ": " + t.Disposition +
+                " complexPointsCompared=" + t.SampledPoints +
+                " envs=" + t.EnvsConsidered +
+                " skips[named-atom=" + t.SkipsAttributedToNamedAtom +
+                ",domain=" + t.SkipsAttributedToDomain +
+                ",unexplained=" + t.UnexplainedSkips + "]" +
+                (t.WitnessLabel.Length > 0 ? " witness=" + t.WitnessPoint : ""));
+
+        // the registry, the two dispositions and both counts: explicit, so the set can neither
+        // shrink nor grow without this failing
+        Assert.Equal(9, rules.Count);
+        Assert.Equal(9, treatments.Count);
+        Assert.Equal(rules.Count, treatments.Select(t => t.RuleId).Distinct().Count());
+        Assert.Equal(ComplexSampledRuleIds, sampled);
+        Assert.Equal(ComplexExclusionProvenRules.Select(r => r.RuleId).OrderBy(i => i, StringComparer.Ordinal).ToArray(), excluded);
+        Assert.Equal(5, sampled.Length);
+        Assert.Equal(4, excluded.Length);
+        Assert.Equal(rules.Count, sampled.Length + excluded.Length);
+
+        // non-vacuity in both directions
+        Assert.All(treatments.Where(t => t.Disposition == ComplexDisposition.ComplexSampled),
+            t => Assert.True(t.SampledPoints > 0, $"'{t.RuleId}' is complex-sampled but compared no complex point"));
+        Assert.All(treatments.Where(t => t.Disposition == ComplexDisposition.ComplexExclusionProven),
+            t => Assert.Equal(0, t.SampledPoints));
+
+        // no complex point is skipped silently: every (environment, point) pair is either compared,
+        // or blocked by a NAMED atom, or undefined there by the kernel's own typed domain failure
+        Assert.All(treatments, t => Assert.True(t.UnexplainedSkips == 0,
+            $"'{t.RuleId}' skipped complex points with no stated reason: {string.Join(" | ", t.UnexplainedDetail)}"));
+        Assert.Empty(report.UnhandledAtoms);
+
+        // and the guard's strictness is untouched by any of this
+        Assert.Empty(report.Threw);
+        Assert.Empty(report.Falsified);
+        Assert.False(report.Failed, report.Summary());
+    }
+
+    [Fact]
+    public void ComplexExclusion_EveryRealOnlyRuleHasAnObservedComplexCounterexample()
+    {
+        var sweep = SharedSweep.Value;
+        var report = sweep.Report;
+        var treatments = sweep.Treatments;
+        using var scope = Rl.WithPrecision(40, 20);
+        var tol = NumOps.FromReal(Rl.Parse("0." + new string('0', 11) + "1", null));
+        var tolSquared = NumOps.Multiply(tol, tol);
+
+        var excluded = treatments.Where(t => t.Disposition == ComplexDisposition.ComplexExclusionProven)
+            .OrderBy(t => t.RuleId, StringComparer.Ordinal).ToArray();
+
+        Assert.Equal(4, excluded.Length);
+        Assert.Equal(ComplexExclusionProvenRules.Select(r => r.RuleId).OrderBy(i => i, StringComparer.Ordinal).ToArray(),
+            excluded.Select(t => t.RuleId).ToArray());
+
+        foreach (var t in excluded)
+        {
+            _out.WriteLine("EXCLUSION PROOF " + t.RuleId + ": " + t.WitnessLhs + " vs " + t.WitnessRhs +
+                " at " + t.WitnessPoint + " => lhs=" + t.WitnessLhsValue + ", rhs=" + t.WitnessRhsValue +
+                ", |lhs-rhs|^2 = " + ComplexTreatmentAudit.Text(t.WitnessDeltaSquared!) +
+                "; blocked by " + string.Join(" & ", t.BlockingAtoms) + " under " + t.WitnessEnv);
+
+            // (1) the exclusion is decided by a NAMED atom at an OBSERVED complex point
+            Assert.False(string.IsNullOrEmpty(t.WitnessLabel),
+                $"'{t.RuleId}' is complex-excluded without a witnessed complex counterexample");
+            Assert.NotEmpty(t.BlockingAtoms);
+
+            // (2) the identity genuinely FAILS there. If someone later "fixes" the rule so it holds
+            // over the complexes, this is the assertion that fails loudly.
+            Assert.NotNull(t.WitnessDeltaSquared);
+            Assert.True(NumOps.Compare(t.WitnessDeltaSquared!, tolSquared) >= 0,
+                $"'{t.RuleId}' must genuinely fail at {t.WitnessPoint}: |lhs-rhs|^2 was below the gate's tolerance");
+            Assert.True(NumOps.Compare(t.WitnessDeltaSquared!, NumOps.FromLong(1L)) > 0,
+                $"'{t.RuleId}' witnessed difference must be O(1), not rounding noise: |lhs-rhs|^2 = " +
+                ComplexTreatmentAudit.Text(t.WitnessDeltaSquared!));
+        }
+
+        // (3) the exact point each rule is falsified at, pinned so a control cannot drift to a
+        // friendlier point. These are the observed witnesses, not chosen prose.
+        foreach (var (ruleId, witnessLabel) in ComplexExclusionProvenRules)
+            Assert.Equal(witnessLabel, excluded.Single(t => t.RuleId == ruleId).WitnessLabel);
+
+        // the exclusion is a property of the guard, never a gate failure
+        Assert.Empty(report.Falsified);
+        Assert.False(report.Failed, report.Summary());
+    }
+
+    [Fact]
+    public void ComplexExclusion_LogExp_IsStoppedByRealness_NotByUndefinedness()
+    {
+        var ctx = NewCtx();
+        var x = ctx.Symbol("x");
+        using var scope = Rl.WithPrecision(40, 20);
+        var report = new GateReport();
+
+        // The registry's own side condition for log(exp(z)) -> z is membership of im(z) in
+        // (-pi, pi] (Simplify.cs, logexp.log-exp), and the gate can only discharge it for a PROVABLY
+        // REAL probe - which is why the effective gate environment carries the realness atom.
+        var strip = new IntervalAssumption(
+            Exprs.Function(ctx.Function("im"), x), Exprs.Negate(Exprs.Pi), true, Exprs.Pi, false);
+        var realness = new SymbolDomainAssumption(x, Domain.Real);
+        Num At(string re, string im) => NumOps.FromComplex(new Cplx(Rl.Parse(re, null), Rl.Parse(im, null)));
+
+        // inside the strip the rule's own condition HOLDS at a complex point: what stops the gate
+        // there is the realness atom, not "complex points are undefined for this rule"
+        Assert.True(RegistryFalsificationGate.AtomHoldsForTesting(strip, At("1", "1"), ctx, x, report));
+        Assert.False(RegistryFalsificationGate.AtomHoldsForTesting(realness, At("1", "1"), ctx, x, report));
+        // outside the strip the rule's own condition fails - and the identity fails with it (the
+        // witness in ComplexExclusion_EveryRealOnlyRuleHasAnObservedComplexCounterexample):
+        // complex points genuinely include values where the claim is false
+        Assert.False(RegistryFalsificationGate.AtomHoldsForTesting(strip, At("0", "5"), ctx, x, report));
+        _out.WriteLine("LOGEXP STRIP: strip atom holds at 1+i = True, at 5i = False; realness atom at 1+i = False");
+    }
+
+    [Fact]
+    public void Gate_StillFalsifies_AComplexOnlyWrongRule()   // negative control for the complex tolerance path
+    {
+        var ctx = NewCtx();
+        var x = ctx.Symbol("x");
+        // z^2 -> |z|^2 is TRUE at every real point and FALSE at complex ones (1+i: 2i vs 2), so only
+        // the complex region can catch it: the tolerance check must still report the disagreement
+        // there - the squared-magnitude form may not become a way of missing complex failures.
+        var wrong = new RewriteRule(
+            "test.control-complex-only-wrong-rule", "test",
+            new PowPat(new WildPat("z"), new LiteralPat(Exprs.Integer(2))),
+            (m, c) => RuleApplicability.Applicable,
+            (m, c) => Exprs.Power(Exprs.Function(ctx.Function("abs"), m.Get("z")), Exprs.Integer(2)));
+
+        var report = RegistryFalsificationGate.Run(new[] { wrong }, ctx, x);
+
+        Assert.True(report.Falsified.Count > 0, "a rule that is wrong only over the complexes must still be falsified. " + report.Summary());
+        Assert.Contains(report.Falsified, f => f.Contains("test.control-complex-only-wrong-rule") &&
+                                               f.Contains(FalsificationRegions.ComplexRegion + ":"));
+        Assert.True(report.Failed, report.Summary());
+        _out.WriteLine("COMPLEX-ONLY WRONG-RULE CONTROL: Failed=" + report.Failed + " falsified=" + report.Falsified.Count);
+        foreach (var line in report.Falsified.Take(2))
+            _out.WriteLine("  " + line);
     }
 }
