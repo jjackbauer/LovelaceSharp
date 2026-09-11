@@ -379,3 +379,31 @@
 - **Confidence**: High
 - **Agent**: orchestrator
 - **Related**: OBS-010, DEC-005
+
+### OBS-014: the push falsified one of the cycle's own residual bounds
+
+- **Source**: GitHub Actions run #14 and #13, read through the public API (EVD-223)
+- **Fact**: cycle 4 recorded "the CI jobs have never executed on a GitHub runner" and this cycle carried
+  that forward into section O as O-B13. It is false: CI #13 was a **success** on the previous remote tip
+  and run #14 executed all three jobs on this cycle's push — `sympy-oracle` **success**, `aot-smoke`
+  **success**, `fast-tests` **failure**.
+- **Implications**: (a) the residual bound is closed by measurement, not by acceptance; (b) **CI found
+  something my local sweep could not** — a wall-clock assertion inflated past its budget by coverage
+  instrumentation — which is precisely the value a third-party runner has, and the reason the bound
+  should never have been stated as a caveat in the first place. A locally green tree is not a green tree.
+- **Confidence**: High
+- **Agent**: orchestrator
+- **Related**: EVD-223, EVD-224
+
+### DEC-007: a timing assertion gets an uninstrumented CI step, not a looser budget
+
+- **Decision**: `Cos_AtDefaultPrecision_StaysInteractive` is tagged `Category=Timing`; the coverage
+  steps in `.github/workflows/ci.yml` exclude that category and a new step runs it **without** a
+  collector.
+- **Rationale**: raising the 10 s budget would stop the test from catching the N23 class it exists for
+  (the defect it guards against took 25 s); deleting or skipping it would remove a real guard. Running a
+  wall-clock verdict uninstrumented keeps the assertion, keeps its meaning, and removes the false red.
+- **Alternatives considered**: (a) raise the budget to 30-60 s — rejected, it would no longer catch the
+  historical regression; (b) drop the test — rejected, N23 is a real class; (c) detect the collector in
+  the test — rejected as unreviewable magic in a test.
+- **Related**: EVD-224

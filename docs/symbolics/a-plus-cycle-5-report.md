@@ -109,7 +109,9 @@ scripts under `docs/goal-cycle-5/`:
 | Every advertised capability entry vs its live call | **MATCH=16 MISMATCH=0** on the published binary | `final/republish.txt` |
 | The round-trip property, 30 shapes, through the published binary | **ok=30 bad=0 other=0** (the pre-fix binary: `ok=15 bad=12`) | `probes/roundtrip/roundtrip-post.txt` |
 | `git status --porcelain` | no tracked source file modified; only this cycle's untracked documents | `final/final.txt` |
-| Commits | **8**, each applied and re-verified by the orchestrator | `git log --oneline 9228305..HEAD` |
+| Commits | **11** (`34c970c`…`b920b8c`), each applied and re-verified by the orchestrator | `git log --oneline 9228305..HEAD` |
+| Pushed to `origin/main` and CI **executed on a GitHub runner** | run #14 on `ubuntu-latest`: `sympy-oracle` **success**, `Native AOT publish + runner smoke` **success**, `fast-tests` **failure** — in the `Lovelace.Real.Tests (correctness subset)` step only | `api.github.com/.../actions/runs/34629205803`, recorded as EVD-223 |
+| The CI failure, attributed and fixed | not a product defect: the one wall-clock assertion in `Lovelace.Real.Tests` (`Cos_AtDefaultPrecision_StaysInteractive`, 10 s budget) crosses its limit under coverage instrumentation — reproduced locally by adding the collector the CI uses. Fixed by tagging it `Category=Timing` and running it in its own **uninstrumented** CI step, so it still runs in CI; both steps verified locally (2436/0 with coverage, Timing 1/1 without) | EVD-224 |
 
 Two amendments to the freshness check itself, both recorded because a check whose definition moves
 silently is worth less than no check. Cycle 4's rule was "the exe is newer than the newest source file",
