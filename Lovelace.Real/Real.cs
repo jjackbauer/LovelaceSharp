@@ -171,6 +171,46 @@ public class Real :
     /// </summary>
     public bool IsPeriodic => PeriodLength > 0;
 
+    /// <summary>
+    /// Provenance of the stored digits, carried by the value itself: <see langword="false"/> when a
+    /// TRUNCATION produced this value — a decimal division that ran out of
+    /// <see cref="MaxComputationDecimalPlaces"/> digits, the square root of a non-square, π or e, a
+    /// Taylor series, an explicit fixed-width expansion, or a text literal as wide as the active
+    /// computation cap (which is how the symbolic kernel's approximate boundaries arrive here).
+    /// <para>
+    /// This replaces the exponent-shape guess (<c>-Exponent &lt;= 18</c>) the wire used to read off
+    /// the value, because shape cannot tell <c>1/(10^19)</c> (exact, exponent −19) from an 18-digit
+    /// truncation of <c>1/1009</c> (inexact, exponent −18). The flag defaults to exact and is
+    /// cleared where a digit is lost, then propagated by every operation that consumes a truncated
+    /// operand.
+    /// </para>
+    /// <para>
+    /// Equality, comparison, hashing, <see cref="ToString"/> and every constructor that takes
+    /// already-computed digits IGNORE it: two Reals with the same digits denote the same number
+    /// however they were produced, and provenance is a statement about the route, not the value.
+    /// The internal digit-taking constructors therefore default to exact; a producer that lost a
+    /// digit says so explicitly through <see cref="MarkInexact"/>.
+    /// </para>
+    /// </summary>
+    public bool IsExact => !_inexact;
+
+    private bool _inexact;
+
+    /// <summary>Marks <paramref name="value"/> as the product of a truncation and returns it.</summary>
+    internal static Real MarkInexact(Real value)
+    {
+        value._inexact = true;
+        return value;
+    }
+
+    /// <summary>Returns <paramref name="value"/> carrying <paramref name="source"/>'s provenance.</summary>
+    private static Real WithProvenanceOf(Real value, Real source) =>
+        source._inexact ? MarkInexact(value) : value;
+
+    /// <summary>Returns <paramref name="value"/> inexact when either source is inexact.</summary>
+    private static Real WithProvenanceOf(Real value, Real first, Real second) =>
+        first._inexact || second._inexact ? MarkInexact(value) : value;
+
     // -------------------------------------------------------------------------
     // INumberBase<Real> — required static constants
     // -------------------------------------------------------------------------
@@ -230,6 +270,7 @@ public class Real :
         Exponent = other.Exponent;
         PeriodStart = other.PeriodStart;
         PeriodLength = other.PeriodLength;
+        _inexact = other._inexact;
     }
 
     /// <summary>
@@ -283,7 +324,9 @@ public class Real :
     /// Corresponds to C++ <c>atribuir(const RealLovelace &amp;A)</c>.
     /// </summary>
     public Real Assign(Real other) =>
-        new(other.ToNatural(), Int.IsNegative(other), other.Exponent, other.PeriodStart, other.PeriodLength);
+        WithProvenanceOf(
+            new(other.ToNatural(), Int.IsNegative(other), other.Exponent, other.PeriodStart, other.PeriodLength),
+            other);
 
     // -------------------------------------------------------------------------
     // INumberBase<Real> — static predicates
@@ -339,7 +382,8 @@ public class Real :
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public static Real Abs(Real value) => new(value.ToNatural(), false, value.Exponent, value.PeriodStart, value.PeriodLength);
+    public static Real Abs(Real value) =>
+        WithProvenanceOf(new(value.ToNatural(), false, value.Exponent, value.PeriodStart, value.PeriodLength), value);
 
     /// <inheritdoc/>
     public static Real MaxMagnitude(Real x, Real y)
@@ -520,7 +564,9 @@ public class Real :
             Int leftInt  = new Int(left.ToNatural(),  Int.IsNegative(left));
             Int rightInt = new Int(right.ToNatural(), Int.IsNegative(right));
             var product  = leftInt * rightInt;
-            return Normalize(new Real(product.ToNatural(), Int.IsNegative(product), resultExp));
+            Real productReal = Normalize(new Real(product.ToNatural(), Int.IsNegative(product), resultExp));
+            // A magnitude product loses nothing, so the product is as exact as its operands.
+            return WithProvenanceOf(productReal, left, right);
         }
         else
         {
@@ -540,7 +586,8 @@ public class Real :
             // FromExactFraction reduces the fraction first (the identity case (p/q)*q cancels
             // completely, e.g. 17/17 → 1/1) and then divides, so the product is exact whenever its
             // own period fits MaxComputationDecimalPlaces.
-            return FromExactFraction(leftNum * rightNum, leftDen * rightDen);
+            Real product = FromExactFraction(leftNum * rightNum, leftDen * rightDen);
+            return WithProvenanceOf(product, left, right);
         }
     }
 
@@ -663,9 +710,14 @@ public class Real :
         if (shift == 0L)
             return quotient;
 
-        return new Real(quotient.ToNatural(), Int.IsNegative(quotient),
-                        quotient.Exponent - shift, quotient.PeriodStart + shift,
-                        quotient.PeriodLength);
+        // Moving the decimal point moves Exponent and PeriodStart together and touches no digit, so
+        // the quotient keeps its own provenance (an exact period, a terminating value, or a
+        // truncation at the cap).
+        return WithProvenanceOf(
+            new Real(quotient.ToNatural(), Int.IsNegative(quotient),
+                     quotient.Exponent - shift, quotient.PeriodStart + shift,
+                     quotient.PeriodLength),
+            quotient);
     }
 
     /// <inheritdoc cref="Multiply"/>
@@ -689,7 +741,7 @@ public class Real :
             throw new DivideByZeroException("Cannot divide a Real by zero.");
 
         if (Real.IsZero(left))
-            return Zero;
+            return left.IsExact && right.IsExact ? Zero : MarkInexact(Zero);
 
         // Periodic guard: mirrors the Add / Multiply pattern.
         // Only periodic operands are expanded; non-periodic operands are used as-is to
@@ -706,9 +758,16 @@ public class Real :
             Real expandedLeft  = left.IsPeriodic  ? ExpandToNonPeriodic(left,  workingFrac) : left;
             Real expandedRight = right.IsPeriodic ? ExpandToNonPeriodic(right, workingFrac) : right;
             Real rawQuotient   = Divide(expandedLeft, expandedRight);
+            bool periodicExact = rawQuotient.IsExact;
             if (rawQuotient.IsPeriodic && rawQuotient.PeriodLength >= workingFrac)
+            {
+                // A period that long is the expansion boundary repeating, not the quotient's own
+                // period, so stripping it leaves a prefix of the true quotient: not exact.
                 rawQuotient = new Real(rawQuotient.ToNatural(), Int.IsNegative(rawQuotient), rawQuotient.Exponent);
-            return DetectAndNormalizePeriod(rawQuotient);
+                periodicExact = false;
+            }
+            Real normalizedQuotient = DetectAndNormalizePeriod(rawQuotient);
+            return periodicExact ? normalizedQuotient : MarkInexact(normalizedQuotient);
         }
 
         bool resultNeg = Real.IsNegative(left) != Real.IsNegative(right);
@@ -733,6 +792,21 @@ public class Real :
             numerator = numerator.ShiftLeftDecimal(exponentAdjustment);
         else if (exponentAdjustment < 0L)
             denominator = denominator.ShiftLeftDecimal(-exponentAdjustment);
+
+        // A quotient terminates exactly iff its denominator's only prime factors are 2 and 5:
+        // den = 2^a·5^b makes num/den = num·5^(a−b) / 10^a (a ≥ b), or num·2^(b−a) / 10^b (b > a),
+        // a finite decimal with no division left to perform.  Deciding that HERE, before the digit
+        // loop, is what keeps 2^-100000 exact: the loop charges every digit it generates — the
+        // 30103 leading zeros included — to MaxComputationDecimalPlaces, so it spent the whole
+        // budget on zeros and returned 0, while one integer scaling costs no digit of budget at
+        // all.  The loop below still owns every NON-terminating quotient (the periodic and the
+        // irrational cases) under exactly the accounting it had.
+        if (TryTerminateExactly(numerator, denominator, out Nat terminatingMagnitude, out long terminatingScale))
+        {
+            bool terminatingNeg = resultNeg && !Nat.IsZero(terminatingMagnitude);
+            return WithProvenanceOf(
+                Normalize(new Real(terminatingMagnitude, terminatingNeg, -terminatingScale)), left, right);
+        }
 
         Nat ten = new Nat(10UL);
 
@@ -791,9 +865,16 @@ public class Real :
 
         bool actualNeg = resultNeg && !Nat.IsZero(mag);
         var divResult = new Real(mag, actualNeg, resultExponent,
-                                 foundPeriod ? periodStart  : 0L,
+                                 foundPeriod ? periodStart : 0L,
                                  foundPeriod ? periodLength : 0L);
-        return foundPeriod ? divResult : Normalize(divResult);
+        Real result = foundPeriod ? divResult : Normalize(divResult);
+
+        // The loop stops for one of three reasons: the remainder ran out (exact), a remainder
+        // repeated (an exact period), or MaxComputationDecimalPlaces digits were generated with a
+        // nonzero remainder still to divide — the last is a TRUNCATION of the true quotient, and a
+        // truncation must not advertise exactness whatever its exponent looks like.
+        bool truncated = !foundPeriod && !Nat.IsZero(remainder);
+        return truncated ? MarkInexact(result) : WithProvenanceOf(result, left, right);
     }
 
     /// <inheritdoc cref="Divide"/>
@@ -813,7 +894,7 @@ public class Real :
             throw new DivideByZeroException("Cannot divide a Real by zero.");
 
         if (IsZero(left))
-            return Zero;
+            return left.IsExact && right.IsExact ? Zero : MarkInexact(Zero);
 
         bool resultNeg = IsNegative(left) != IsNegative(right);
         Nat numerator   = left.ToNatural();
@@ -821,9 +902,91 @@ public class Real :
         long exponentAdjustment = left.Exponent - right.Exponent;
 
         // scaled = floor(numerator · 10^fracDigits / denominator) — one integer division.
-        Nat scaled = Nat.DivRem(numerator.ShiftLeftDecimal(fracDigits), denominator, out _);
+        Nat scaled = Nat.DivRem(numerator.ShiftLeftDecimal(fracDigits), denominator, out Nat remainder);
 
-        return Normalize(new Real(scaled, resultNeg, -fracDigits + exponentAdjustment));
+        Real quotient = Normalize(new Real(scaled, resultNeg, -fracDigits + exponentAdjustment));
+
+        // This is the deliberately fixed-point fast path: a nonzero remainder means the last stored
+        // place was cut off, so the value approximates the quotient and says so.
+        return Nat.IsZero(remainder) ? WithProvenanceOf(quotient, left, right) : MarkInexact(quotient);
+    }
+
+    // -------------------------------------------------------------------------
+    // Terminal-denominator decomposition — what makes an exact quotient decidable
+    // -------------------------------------------------------------------------
+
+    // Factor ladders: the widest power of 2 (resp. 5) that fits one 64-bit limb is tried first and
+    // the ladder steps down only when that chunk stops dividing, so pulling 2^100000 out of a
+    // denominator costs about 1600 divisions instead of one per factor.
+    private static readonly Nat[] s_twoChunks        = { TwoToThe(62L), TwoToThe(31L), TwoToThe(15L), TwoToThe(7L), TwoToThe(3L), TwoToThe(1L) };
+    private static readonly long[] s_twoChunkPowers  = { 62L, 31L, 15L, 7L, 3L, 1L };
+    private static readonly Nat[] s_fiveChunks       = { FiveToThe(27L), FiveToThe(13L), FiveToThe(6L), FiveToThe(3L), FiveToThe(1L) };
+    private static readonly long[] s_fiveChunkPowers = { 27L, 13L, 6L, 3L, 1L };
+
+    private static Nat TwoToThe(long exponent)  => new Nat(2UL).Pow(new Nat((ulong)exponent));
+    private static Nat FiveToThe(long exponent) => new Nat(5UL).Pow(new Nat((ulong)exponent));
+
+    /// <summary>
+    /// Decides whether <c>numerator / denominator</c> is a finite decimal — it is exactly when the
+    /// denominator's only prime factors are 2 and 5 — and, when it is, produces the two integers
+    /// that spell the quotient out as <c>magnitude · 10^-scale</c> without dividing.
+    /// <para>
+    /// The decomposition runs on a copy, so the caller's denominator is left intact for the digit
+    /// loop.  The quotient is <c>num·5^(a−b)/10^a</c> for <c>den = 2^a·5^b</c> with <c>a ≥ b</c>
+    /// and <c>num·2^(b−a)/10^b</c> otherwise.
+    /// </para>
+    /// </summary>
+    private static bool TryTerminateExactly(Nat numerator, Nat denominator, out Nat magnitude, out long scale)
+    {
+        Nat probe = new Nat(denominator);
+        long twos  = StripPrimeFactors(ref probe, s_twoChunks,  s_twoChunkPowers);
+        long fives = StripPrimeFactors(ref probe, s_fiveChunks, s_fiveChunkPowers);
+
+        if (probe != Nat.One)
+        {
+            // A prime other than 2 or 5 survives: the expansion is periodic or irrational.
+            magnitude = numerator;
+            scale = 0L;
+            return false;
+        }
+
+        if (twos >= fives)
+        {
+            magnitude = twos == fives ? numerator : numerator * FiveToThe(twos - fives);
+            scale = twos;
+        }
+        else
+        {
+            magnitude = numerator * TwoToThe(fives - twos);
+            scale = fives;
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Divides every factor of the prime behind <paramref name="chunks"/> out of
+    /// <paramref name="value"/> and returns how many were removed.
+    /// </summary>
+    private static long StripPrimeFactors(ref Nat value, Nat[] chunks, long[] powers)
+    {
+        long count = 0L;
+        int step = 0;
+
+        while (step < chunks.Length)
+        {
+            Nat reduced = Nat.DivRem(value, chunks[step], out Nat remainder);
+            if (Nat.IsZero(remainder))
+            {
+                value = reduced;
+                count += powers[step];
+            }
+            else
+            {
+                step++;
+            }
+        }
+
+        return count;
     }
 
     /// <summary>Returns the arithmetic negation of <paramref name="value"/>.
@@ -836,7 +999,9 @@ public class Real :
     public static Real Negate(Real value)
     {
         bool isNeg = Int.IsZero(value) ? false : !Int.IsNegative(value);
-        return Normalize(new Real(value.ToNatural(), isNeg, value.Exponent, value.PeriodStart, value.PeriodLength));
+        return WithProvenanceOf(
+            Normalize(new Real(value.ToNatural(), isNeg, value.Exponent, value.PeriodStart, value.PeriodLength)),
+            value);
     }
 
     /// <inheritdoc cref="Negate"/>
@@ -863,14 +1028,25 @@ public class Real :
     /// Non-integer exponents and negative exponents are not yet implemented.
     /// </para>
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the base is zero and the exponent
+    /// is negative — the same refusal <see cref="Int.Pow"/> makes, with the same message.</exception>
     /// <exception cref="NotImplementedException">Thrown for non-integer or negative exponents.</exception>
     public Real Pow(Real exponent)
     {
         // x^0 = 1 for any base (including zero).
         if (Real.IsZero(exponent)) return Real.One;
 
-        // 0^n = 0 for any positive exponent.
-        if (Real.IsZero(this)) return Real.Zero;
+        // 0^n = 0 for a POSITIVE exponent; a zero base under a NEGATIVE one has no value, and the
+        // integer path already refuses it with a typed error naming the base (Int.Pow: "Base cannot
+        // be zero.").  The sign is read here, before the digits, on purpose: the old zero-base short
+        // circuit sat above the negative-exponent handling, so 0^(-1.0) answered 0 and the refusal
+        // was never reached.
+        if (Real.IsZero(this))
+        {
+            if (exponent < Real.Zero)
+                throw new ArgumentOutOfRangeException("base", "Base cannot be zero.");
+            return Real.Zero;
+        }
 
         // Extract integer value of exponent from its string representation.
         // "3.0" → 3, "1.0" → 1.  Fractional part must be all zeros.
@@ -1040,14 +1216,17 @@ public class Real :
             x = (x + DivideNonPeriodic(value, x, divPrecision)) / two;
             progress?.Report((double)currentTarget / targetPrecision);
 
-            // Exact convergence (perfect squares): if x*x == value, stop early.
+            // Exact convergence (perfect squares): the square root of the STORED value is then exact
+            // — but an inexact input makes the answer relative to an approximation, so its
+            // provenance still propagates.
             if (IsZero(x * x - value))
-                return Normalize(new Real(x.ToNatural(), false, x.Exponent));
+                return WithProvenanceOf(Normalize(new Real(x.ToNatural(), false, x.Exponent)), value);
         }
 
-        // Strip guard-digit tail so callers see exactly `precision` fractional digits.
-        return Normalize(TruncateFracDigits(
-            new Real(x.ToNatural(), false, x.Exponent), precision));
+        // Strip guard-digit tail so callers see exactly `precision` fractional digits.  A root that
+        // did not square back to `value` is irrational: the stored digits are a truncation of it.
+        return MarkInexact(Normalize(TruncateFracDigits(
+            new Real(x.ToNatural(), false, x.Exponent), precision)));
 
         // Truncates x to at most maxFrac fractional digits by dropping the tail.
         static Real TruncateFracDigits(Real x, long maxFrac)
@@ -1193,8 +1372,9 @@ public class Real :
 
         progress?.Report(1.0);
 
-        // Truncate to exactly `digits` fractional places.
-        return TruncatePiFracDigits(pi, digits);
+        // Truncate to exactly `digits` fractional places: π is irrational, so these digits are an
+        // approximation of it however many places were asked for.
+        return MarkInexact(TruncatePiFracDigits(pi, digits));
 
         static Real TruncatePiFracDigits(Real x, long maxFrac)
         {
@@ -1254,7 +1434,8 @@ public class Real :
         Real e = DivideNonPeriodic(new Real(sumNum), new Real(new Int(nFact, false)), guardDigits);
 
         progress?.Report(1.0);
-        return TruncateFracDigits(e, digits);
+        // e is irrational: the series sum is an approximation of it.
+        return MarkInexact(TruncateFracDigits(e, digits));
 
         static Real TruncateFracDigits(Real x, long maxFrac)
         {
@@ -1337,11 +1518,12 @@ public class Real :
 
         string natStr = x.ToNatural().ToString();
         long keepLen = natStr.Length - toDrop;
-        if (keepLen <= 0) return new Real("0");
+        // Dropping the tail is a truncation whatever produced x, so the shorter view is inexact.
+        if (keepLen <= 0) return MarkInexact(new Real("0"));
 
         string truncStr = natStr.Substring(0, (int)keepLen);
         if (!Nat.TryParse(truncStr, null, out Nat? truncNat)) return x;
-        return new Real(truncNat, false, x.Exponent + toDrop);
+        return MarkInexact(new Real(truncNat, false, x.Exponent + toDrop));
     }
 
     // -------------------------------------------------------------------------
@@ -1353,11 +1535,38 @@ public class Real :
     private static Real? s_sqrt3Half;
     private static long s_sqrt3HalfDigits;
 
-    private static Real Sqrt2Half => CachedConstant(ref s_sqrt2Half, ref s_sqrt2HalfDigits,
+    private static Real Sqrt2Half => CachedConstantAtPrecision(ref s_sqrt2Half, ref s_sqrt2HalfDigits,
         _ => Sqrt(new Real("2")) / new Real("2"));
 
-    private static Real Sqrt3Half => CachedConstant(ref s_sqrt3Half, ref s_sqrt3HalfDigits,
+    private static Real Sqrt3Half => CachedConstantAtPrecision(ref s_sqrt3Half, ref s_sqrt3HalfDigits,
         _ => Sqrt(new Real("3")) / new Real("2"));
+
+    /// <summary>
+    /// Like <see cref="CachedConstant"/>, but the cache is only valid for the precision it was
+    /// computed at: a scope at any other precision recomputes instead of taking a prefix.
+    /// <para>
+    /// These two constants are a square root HALVED, and halving a <c>p</c>-digit root produces a
+    /// value one place further down (<c>p+1</c> digits) whenever the root's last digit is odd —
+    /// <see cref="Divide"/> answers a terminating quotient exactly rather than truncating it at the
+    /// cap.  The <c>p</c>-digit prefix of a higher-precision value is therefore not what computing at
+    /// <c>p</c> produces (it drops the place the exact half adds), whereas for the irrational π and e
+    /// the prefix of a truncation IS the truncation, which is what <see cref="CachedConstant"/>
+    /// relies on.
+    /// </para>
+    /// </summary>
+    private static Real CachedConstantAtPrecision(ref Real? cache, ref long cachedDigits, Func<long, Real> compute)
+    {
+        long need = MaxComputationDecimalPlaces;
+        lock (s_constantsLock)
+        {
+            if (cache is null || cachedDigits != need)
+            {
+                cache = compute(need);
+                cachedDigits = need;
+            }
+            return cache;
+        }
+    }
 
     /// <summary>
     /// Computes sin(x) to <see cref="MaxComputationDecimalPlaces"/> decimal places. Angles that are
@@ -1409,8 +1618,9 @@ public class Real :
         else if (x <= pi + halfPi) { x = x - pi; negative = true; }
         else { x = twoPi - x; negative = true; }
 
+        // The general angle has no exact decimal sine: the series result is an approximation.
         Real sin = SinTaylor(x, guard);
-        return negative ? -sin : sin;
+        return MarkInexact(negative ? -sin : sin);
     }
 
     private static Real Cos(Real value, long digits, IProgress<double>? progress)
@@ -1440,8 +1650,9 @@ public class Real :
         else if (x <= pi + halfPi) { x = x - pi; negate = true; }
         else { x = twoPi - x; }
 
+        // The general angle has no exact decimal cosine: the series result is an approximation.
         Real cos = CosTaylor(x, guard);
-        return negate ? -cos : cos;
+        return MarkInexact(negate ? -cos : cos);
     }
 
     /// <summary>Reduces <paramref name="value"/> into [0, 2π) without truncating small angles.</summary>
@@ -1482,35 +1693,53 @@ public class Real :
 
         Nat whole = Nat.DivRem(numerator, denominator, out _);
         bool isNeg = Int.IsNegative(left) != Int.IsNegative(right) && !Nat.IsZero(whole);
-        return new Real(whole, isNeg, 0L);
+        return WithProvenanceOf(new Real(whole, isNeg, 0L), left, right);
     }
 
     /// <summary>
     /// Exactly <c><paramref name="value"/> / 2</c>.  Halving a decimal only moves its point one
     /// place, and <paramref name="value"/> here is stored at the active computation precision
-    /// (<see cref="Pi"/> and <see cref="E"/> are), so one integer halving of the magnitude
-    /// reproduces <c>Divide(value, 2)</c> digit for digit — Divide truncates the exact rational
-    /// quotient at the active precision, which for this operand shape is exactly
-    /// <c>floor(magnitude / 2)</c> at the operand's own scale.  Anything not in that shape keeps
-    /// the general path.
+    /// (<see cref="Pi"/> and <see cref="E"/> are), so <c>magnitude · 5</c> one place down is the
+    /// exact half — digit for digit what <see cref="Divide"/> now returns for a divisor of 2, since
+    /// a denominator of 2 terminates and is computed exactly rather than truncated at the cap.
+    /// Anything not in that shape keeps the general path, which agrees with this one.
     /// </summary>
     private static Real HalfOf(Real value)
     {
         if (value.IsPeriodic || value.Exponent != -MaxComputationDecimalPlaces)
             return value / new Real("2");
 
-        Nat halved = Nat.DivRem(value.ToNatural(), new Nat(2UL), out _);
-        return Normalize(new Real(halved, Int.IsNegative(value), value.Exponent));
+        Nat doubled = value.ToNatural() * new Nat(5UL);
+        return WithProvenanceOf(
+            Normalize(new Real(doubled, Int.IsNegative(value), value.Exponent - 1L)), value);
+    }
+
+    /// <summary>
+    /// The value <c>pi · num / den</c> produces for one table entry, in integer arithmetic.
+    /// <see cref="Multiply"/> is a plain magnitude product at π's scale, and <see cref="Divide"/>
+    /// answers a TERMINATING quotient (den = 2^a·5^b) exactly while truncating every other one at
+    /// that scale — so the single integer division is right only for the latter.  A candidate built
+    /// from the truncating form alone stops matching the caller's own angle for denominators like 2,
+    /// and an exact special angle would silently fall through to the Taylor series (whose value is
+    /// not exactly 1/2 or 1).
+    /// </summary>
+    private static Real SpecialAngleCandidate(Real pi, Nat piMagnitude, ulong num, ulong den)
+    {
+        Nat numerator = piMagnitude * new Nat(num);
+
+        if (TryTerminateExactly(numerator, new Nat(den), out Nat magnitude, out long scale))
+            return Normalize(new Real(magnitude, false, pi.Exponent - scale));
+
+        return Normalize(new Real(Nat.DivRem(numerator, new Nat(den), out _), false, pi.Exponent));
     }
 
     /// <summary>
     /// Returns the exact sin/cos for the 16 special angles that are rational multiples of π
     /// (multiples of π/6 and π/4 in [0, 2π)), or <see langword="false"/> for any other angle.
     /// <para>
-    /// Each candidate angle is <c>π·num/den</c> at π's own scale, which — because Divide aligns the
-    /// operands to a single exponent — is exactly <c>floor(π's magnitude · num / den)</c> at that
-    /// scale, so one integer division reproduces the value that <c>pi * num / den</c> produces
-    /// without Divide's remainder-tracking decimal loop.  A non-periodic <paramref name="x"/> whose
+    /// Each candidate angle is <c>π·num/den</c> at π's own scale, computed by
+    /// <see cref="SpecialAngleCandidate"/> with integer arithmetic instead of Divide's
+    /// remainder-tracking decimal loop.  A non-periodic <paramref name="x"/> whose
     /// own last stored place sits above the angle's (the angle is normalised, so its last stored
     /// digit is non-zero) cannot equal it and is rejected before the comparison is attempted.
     /// </para>
@@ -1551,10 +1780,7 @@ public class Real :
 
         foreach (var (num, den, s, c) in table)
         {
-            Real angle = num == 0
-                ? Zero
-                : Normalize(new Real(Nat.DivRem(piMagnitude * new Nat((ulong)num), new Nat((ulong)den), out _),
-                                      false, pi.Exponent));
+            Real angle = num == 0 ? Zero : SpecialAngleCandidate(pi, piMagnitude, (ulong)num, (ulong)den);
 
             if (!x.IsPeriodic && x.Exponent > angle.Exponent)
                 continue;
@@ -1680,8 +1906,9 @@ public class Real :
             n <<= 1;
         }
 
+        // exp(x) is irrational for every nonzero rational x: the series sum approximates it.
         Real expY = ExpTaylor(y, guard);
-        return expY.Pow(new Real(new Int(n)));
+        return MarkInexact(expY.Pow(new Real(new Int(n))));
     }
 
     /// <summary>exp(y) = Σ yᵏ/k! for |y| &lt; 1.</summary>
@@ -1799,7 +2026,9 @@ public class Real :
 
     /// <summary>Unary plus — returns the value unchanged.</summary>
     public static Real operator +(Real value) =>
-        new(value.ToNatural(), Int.IsNegative(value), value.Exponent, value.PeriodStart, value.PeriodLength);
+        WithProvenanceOf(
+            new(value.ToNatural(), Int.IsNegative(value), value.Exponent, value.PeriodStart, value.PeriodLength),
+            value);
 
     /// <summary>Explicit <see cref="IUtf8SpanFormattable"/> implementation to resolve ambiguity with <see cref="Int"/>.</summary>
     bool IUtf8SpanFormattable.TryFormat(Span<byte> utf8Destination, out int bytesWritten, ReadOnlySpan<char> format, IFormatProvider? provider)
@@ -1949,7 +2178,22 @@ public class Real :
         bool actualNeg = isNeg && !Nat.IsZero(magnitude);
         result = new Real(magnitude, actualNeg, exponent, periodStart, periodLength);
         if (periodLength == 0)
+        {
             result = Normalize(result);
+
+            // A decimal string is exact by construction, with ONE exception: the kernel's own
+            // approximate boundaries render a budget-limited value and re-parse it
+            // (RationalReal.ToReal asks for exactly Min(MaxComputationDecimalPlaces, 1000) fractional
+            // digits, so evalf(1/3, 50) arrives here as a full-width literal).  Normalize above has
+            // already dropped trailing zeros, so a rational that IS a finite decimal of that width
+            // never fills it; a literal that still does is the residue of such a renderer, and
+            // calling it exact is the mistake this flag exists to stop.  Nothing is lost the other
+            // way: the old shape guess called every literal wider than 18 places inexact, a superset
+            // of this.
+            long boundary = Math.Min(MaxComputationDecimalPlaces, 1000L);
+            if (boundary > 0L && -result.Exponent >= boundary)
+                MarkInexact(result);
+        }
         return true;
     }
 
@@ -2098,7 +2342,7 @@ public class Real :
             // Already an integer value — return as Real with Exponent = 0.
             var mag = r.ToNatural();
             bool neg = Int.IsNegative(r) && !Nat.IsZero(mag);
-            return new Real(mag, neg, 0L);
+            return WithProvenanceOf(new Real(mag, neg, 0L), r);
         }
 
         // Exponent < 0: there are fractional digits to strip.
@@ -2109,7 +2353,7 @@ public class Real :
         if (intCount <= 0)
         {
             // The value is a pure fraction (e.g. 0.5, 0.001) — integer part is 0.
-            return Zero;
+            return WithProvenanceOf(Zero, r);
         }
 
         string intDigits = digits[..(int)intCount];
@@ -2117,7 +2361,7 @@ public class Real :
             intMag = Nat.Zero;
 
         bool isNeg = Int.IsNegative(r) && !Nat.IsZero(intMag);
-        return new Real(intMag, isNeg, 0L);
+        return WithProvenanceOf(new Real(intMag, isNeg, 0L), r);
     }
 
     /// <summary>
@@ -2203,7 +2447,9 @@ public class Real :
             mag = Nat.Zero;
 
         bool isNeg = Int.IsNegative(r) && !Nat.IsZero(mag);
-        return new Real(mag, isNeg, -fracDigits);
+        // Writing a periodic value out to a fixed number of places TRUNCATES it — that is the whole
+        // reason Add, Multiply and Divide keep exact-fraction paths beside this one.
+        return MarkInexact(new Real(mag, isNeg, -fracDigits));
     }
 
     /// <summary>
@@ -2387,7 +2633,7 @@ public class Real :
             var incremented = new Int(cMag, false) + Int.One;
             bool isNeg = Int.IsNegative(r) && !Nat.IsZero(incremented.ToNatural());
             long newExp = -(long)nonRepeating.Length;
-            return new Real(incremented.ToNatural(), isNeg, newExp);
+            return WithProvenanceOf(new Real(incremented.ToNatural(), isNeg, newExp), r);
         }
 
         // An all-zero period repeats nothing: 0.(0) is 0 and 3.0(0) is 3, so the canonical form
@@ -2405,7 +2651,7 @@ public class Real :
             if (!Nat.TryParse(combined, null, out var zMag))
                 zMag = Nat.Zero;
             bool isNeg = Int.IsNegative(r) && !Nat.IsZero(zMag);
-            return Normalize(new Real(zMag, isNeg, -(long)nonRepeating.Length));
+            return WithProvenanceOf(Normalize(new Real(zMag, isNeg, -(long)nonRepeating.Length)), r);
         }
 
         // Build periodic Real: store intPart + nonRepeating + one period block.
@@ -2413,7 +2659,7 @@ public class Real :
         if (!Nat.TryParse(storedDigits, null, out var mag))
             mag = Nat.Zero;
         bool negative = Int.IsNegative(r) && !Nat.IsZero(mag);
-        return new Real(mag, negative, -(pStart + pLen), pStart, pLen);
+        return WithProvenanceOf(new Real(mag, negative, -(pStart + pLen), pStart, pLen), r);
     }
 
     // -------------------------------------------------------------------------
@@ -2449,7 +2695,8 @@ public class Real :
                 : right.ToInteger(exB - resultExp);
 
             var sum = leftInt + rightInt;
-            return Normalize(new Real(sum.ToNatural(), Int.IsNegative(sum), resultExp));
+            Real sumReal = Normalize(new Real(sum.ToNatural(), Int.IsNegative(sum), resultExp));
+            return WithProvenanceOf(sumReal, left, right);
         }
         else
         {
@@ -2464,7 +2711,8 @@ public class Real :
 
             // a/b ± c/d = (a·d ± c·b) / (b·d).  Subtract is Add(left, Negate(right)), so the sign
             // of the second numerator already carries the subtraction.
-            return FromExactFraction(leftNum * rightDen + rightNum * leftDen, leftDen * rightDen);
+            Real sumValue = FromExactFraction(leftNum * rightDen + rightNum * leftDen, leftDen * rightDen);
+            return WithProvenanceOf(sumValue, left, right);
         }
     }
 

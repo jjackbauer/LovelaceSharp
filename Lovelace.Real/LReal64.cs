@@ -36,11 +36,29 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
     private readonly int _pStart;  // period start (fractional digit index); meaningful when periodic
     private readonly int _pLen;    // period length; 0 => non-periodic
     private readonly bool _neg;
+    private readonly bool _inexact; // provenance: true => a truncation produced these digits
 
-    private LReal64(ulong sig, int exp, int pStart, int pLen, bool neg)
+    private LReal64(ulong sig, int exp, int pStart, int pLen, bool neg, bool inexact = false)
     {
-        _sig = sig; _exp = exp; _pStart = pStart; _pLen = pLen; _neg = neg;
+        _sig = sig; _exp = exp; _pStart = pStart; _pLen = pLen; _neg = neg; _inexact = inexact;
     }
+
+    /// <summary>
+    /// Provenance, mirroring <see cref="Real.IsExact"/>: <see langword="false"/> when a truncation
+    /// produced these digits — the fixed-width expansion of a periodic operand
+    /// (<see cref="WorkingFractionalDigits"/> places), or an inexact <see cref="Real"/> converted in.
+    /// Equality, comparison, hashing and <see cref="ToString"/> ignore it, and
+    /// <c>default(LReal64)</c>/<see cref="Zero"/> stay exact because the field defaults to
+    /// <see langword="false"/>.  Every promotion to <see cref="Real"/> carries it across in
+    /// <see cref="ToReal"/>, so a fixed-width truncation is never published as an exact
+    /// <see cref="Real"/>.
+    /// </summary>
+    public bool IsExact => !_inexact;
+
+    /// <summary>Returns <paramref name="v"/> marked inexact (or <paramref name="v"/> unchanged).</summary>
+    private static LReal64 AsInexact(LReal64 v) =>
+        v._inexact ? v : new LReal64(v._sig, v._exp, v._pStart, v._pLen, v._neg, inexact: true);
+
 
     public static LReal64 Zero => default;
     public static LReal64 One => new(1UL, 0, 0, 0, false);
@@ -63,15 +81,17 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
         if (r.Exponent > int.MaxValue || r.Exponent < int.MinValue) return false;
         string digits = r.ToNatural().ToString();
         if (!ulong.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out ulong sig)) return false;
-        result = new LReal64(sig, (int)r.Exponent, (int)r.PeriodStart, (int)r.PeriodLength, Real.IsNegative(r));
+        result = new LReal64(sig, (int)r.Exponent, (int)r.PeriodStart, (int)r.PeriodLength,
+                             Real.IsNegative(r), inexact: !r.IsExact);
         return true;
     }
 
     /// <summary>Converts this value back to the arbitrary-precision <see cref="Real"/> type.</summary>
     public Real ToReal()
     {
-        if (_sig == 0) return Real.Zero;
-        return new Real(Nat.Parse(_sig.ToString(), null), _neg, _exp, _pStart, _pLen);
+        if (_sig == 0) return _inexact ? Real.MarkInexact(Real.Zero) : Real.Zero;
+        Real value = new Real(Nat.Parse(_sig.ToString(), null), _neg, _exp, _pStart, _pLen);
+        return _inexact ? Real.MarkInexact(value) : value;
     }
 
     private static LRealPromoteException Promote() =>
@@ -177,16 +197,16 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
         UInt128 s = r._sig;
         int e = r._exp;
         while (e < 0 && s % 10 == 0) { s /= 10; e++; }
-        return new LReal64((ulong)s, e, 0, 0, r._neg);
+        return new LReal64((ulong)s, e, 0, 0, r._neg, r._inexact);
     }
 
-    private static LReal64 FromNormalized(UInt128 mag, int exp, bool neg)
+    private static LReal64 FromNormalized(UInt128 mag, int exp, bool neg, bool inexact = false)
     {
-        if (mag == 0) return Zero;
+        if (mag == 0) return inexact ? AsInexact(Zero) : Zero;
         UInt128 s = mag; int e = exp;
         while (e < 0 && s % 10 == 0) { s /= 10; e++; }
         if (s > ulong.MaxValue) throw Promote();
-        return new LReal64((ulong)s, e, 0, 0, neg);
+        return new LReal64((ulong)s, e, 0, 0, neg, inexact);
     }
 
     // ------------------------------------------------------------------
@@ -195,11 +215,12 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
 
     public static LReal64 Add(LReal64 a, LReal64 b)
     {
-        if (a.IsZero) return b;
-        if (b.IsZero) return a;
+        if (a.IsZero) return a.IsExact ? b : AsInexact(b);
+        if (b.IsZero) return b.IsExact ? a : AsInexact(a);
 
         if (a.IsPeriodic || b.IsPeriodic)
         {
+            // The expansion of a periodic operand is a truncation, and so is everything built on it.
             var ea = ExpandToNonPeriodic(a, WorkingFractionalDigits);
             var eb = ExpandToNonPeriodic(b, WorkingFractionalDigits);
             var raw = Add(ea, eb);
@@ -218,14 +239,14 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
         else if (magA >= magB) { sum = magA - magB; neg = a._neg; }
         else { sum = magB - magA; neg = b._neg; }
 
-        return FromNormalized(sum, resultExp, neg);
+        return FromNormalized(sum, resultExp, neg, a._inexact || b._inexact);
     }
 
     public static LReal64 Subtract(LReal64 a, LReal64 b) => Add(a, Negate(b));
 
     public static LReal64 Multiply(LReal64 a, LReal64 b)
     {
-        if (a.IsZero || b.IsZero) return Zero;
+        if (a.IsZero || b.IsZero) return a.IsExact && b.IsExact ? Zero : AsInexact(Zero);
 
         if (a.IsPeriodic || b.IsPeriodic)
         {
@@ -237,13 +258,13 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
 
         int exp = a._exp + b._exp;
         UInt128 prod = (UInt128)a._sig * b._sig;
-        return FromNormalized(prod, exp, a._neg != b._neg);
+        return FromNormalized(prod, exp, a._neg != b._neg, a._inexact || b._inexact);
     }
 
     public static LReal64 Divide(LReal64 a, LReal64 b)
     {
         if (b.IsZero) throw new DivideByZeroException("Cannot divide by zero.");
-        if (a.IsZero) return Zero;
+        if (a.IsZero) return a.IsExact && b.IsExact ? Zero : AsInexact(Zero);
 
         if (a.IsPeriodic || b.IsPeriodic)
         {
@@ -251,7 +272,11 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
             var eb = ExpandToNonPeriodic(b, WorkingFractionalDigits);
             var raw = Divide(ea, eb);
             if (raw.IsPeriodic && raw._pLen >= WorkingFractionalDigits)
-                raw = new LReal64(raw._sig, raw._exp, 0, 0, raw._neg);
+            {
+                // A period as long as the expansion width is the boundary repeating, not the
+                // quotient's own period: stripping it leaves a prefix, so the result is not exact.
+                raw = new LReal64(raw._sig, raw._exp, 0, 0, raw._neg, inexact: true);
+            }
             return DetectAndNormalizePeriod(raw);
         }
 
@@ -286,11 +311,11 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
         if (found)
         {
             if (pLen > MaxSignificantDigits) throw Promote();
-            return new LReal64((ulong)sig, resultExp, pStart, pLen, neg);
+            return new LReal64((ulong)sig, resultExp, pStart, pLen, neg, a._inexact || b._inexact);
         }
         if (rem == 0)
         {
-            return FromNormalized(sig, resultExp, neg);
+            return FromNormalized(sig, resultExp, neg, a._inexact || b._inexact);
         }
         throw Promote(); // exhausted without terminating or a short period
     }
@@ -298,7 +323,7 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
     public static LReal64 Negate(LReal64 v)
     {
         bool neg = v.IsZero ? false : !v._neg;
-        return new LReal64(v._sig, v._exp, v._pStart, v._pLen, neg);
+        return new LReal64(v._sig, v._exp, v._pStart, v._pLen, neg, v._inexact);
     }
 
     public static LReal64 Abs(LReal64 v) => v.IsNegative ? Negate(v) : v;
@@ -368,7 +393,8 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
             throw Promote();
         if (mag > ulong.MaxValue) throw Promote();
         bool neg = r._neg && mag != 0;
-        return new LReal64((ulong)mag, -fracDigits, 0, 0, neg);
+        // Writing a periodic value out to a fixed number of places truncates it.
+        return new LReal64((ulong)mag, -fracDigits, 0, 0, neg, inexact: true);
     }
 
     private static LReal64 DetectAndNormalizePeriod(LReal64 r)
@@ -397,7 +423,7 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
             int newExp = -nonRepeating.Length;
             if (cMag > ulong.MaxValue) throw Promote();
             bool neg = r._neg && cMag != 0;
-            return new LReal64((ulong)cMag, newExp, 0, 0, neg);
+            return new LReal64((ulong)cMag, newExp, 0, 0, neg, r._inexact);
         }
 
         string stored = intPart + fracPart[..(pStart + pLen)];
@@ -405,7 +431,7 @@ public readonly struct LReal64 : IComparable<LReal64>, IEquatable<LReal64>
             throw Promote();
         if (mag > ulong.MaxValue) throw Promote();
         bool negative = r._neg && mag != 0;
-        return new LReal64((ulong)mag, -(pStart + pLen), pStart, pLen, negative);
+        return new LReal64((ulong)mag, -(pStart + pLen), pStart, pLen, negative, r._inexact);
     }
 
     private static (int start, int len) FindSmallestPeriod(string fracPart, int slack = 0)

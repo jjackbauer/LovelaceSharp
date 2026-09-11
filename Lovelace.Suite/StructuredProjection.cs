@@ -123,12 +123,18 @@ public static class StructuredProjection
         };
     }
 
-    /// <summary>A Real is exact when it is a finite/periodic decimal the kernel carries exactly;
-    /// a truncated irrational is an approximation and must not advertise exactness.</summary>
-    private static bool RealExact(Rl value) =>
-        // zero is exact however it was produced: 1/3 - 1/3 carries the negative exponent of the
-        // subtraction, and reading that as "approximate" told an agent that 0 was not exact
-        Rl.IsZero(value) || value.IsPeriodic || -value.Exponent <= 18;
+    /// <summary>A Real is exact when the digits it carries ARE the value it came from — the
+    /// provenance its own operations recorded, not a guess read off its exponent.
+    /// <para>
+    /// The old test here was <c>IsZero || IsPeriodic || -Exponent &lt;= 18</c>: an exponent shape.
+    /// It certified an 18-digit truncation of <c>1/1009</c> as exact (its exponent is exactly −18)
+    /// and called <c>1/(10^19)</c> inexact (its exponent is −19) although that quotient terminates
+    /// and is carried digit for digit.  <see cref="Rl.IsExact"/> is cleared where the loss happens —
+    /// the division that ran out of digits, the square root of a non-square, π/e, the Taylor series —
+    /// and is propagated by every operation that consumes a truncated operand, so the answer no
+    /// longer depends on how many places the value happens to occupy.</para>
+    /// </summary>
+    private static bool RealExact(Rl value) => value.IsExact;
 
     private static bool ExactOf(Value value) => value.Kind switch
     {

@@ -127,9 +127,26 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
     private readonly int _pStart;
     private readonly int _pLen;
     private readonly bool _neg;
+    private readonly bool _inexact; // provenance: true => a truncation produced these digits
 
-    private LReal128(UInt128 sig, int exp, int pStart, int pLen, bool neg)
-    { _sig = sig; _exp = exp; _pStart = pStart; _pLen = pLen; _neg = neg; }
+    private LReal128(UInt128 sig, int exp, int pStart, int pLen, bool neg, bool inexact = false)
+    { _sig = sig; _exp = exp; _pStart = pStart; _pLen = pLen; _neg = neg; _inexact = inexact; }
+
+    /// <summary>
+    /// Provenance, mirroring <see cref="Real.IsExact"/>: <see langword="false"/> when a truncation
+    /// produced these digits — the fixed-width expansion of a periodic operand
+    /// (<see cref="WorkingFractionalDigits"/> places), or an inexact <see cref="Real"/> converted in.
+    /// Equality, comparison, hashing and <see cref="ToString"/> ignore it, and
+    /// <c>default(LReal128)</c>/<see cref="Zero"/> stay exact because the field defaults to
+    /// <see langword="false"/>.  Every promotion to <see cref="Real"/> carries it across in
+    /// <see cref="ToReal"/>, so a fixed-width truncation is never published as an exact
+    /// <see cref="Real"/>.
+    /// </summary>
+    public bool IsExact => !_inexact;
+
+    /// <summary>Returns <paramref name="v"/> marked inexact (or <paramref name="v"/> unchanged).</summary>
+    private static LReal128 AsInexact(LReal128 v) =>
+        v._inexact ? v : new LReal128(v._sig, v._exp, v._pStart, v._pLen, v._neg, inexact: true);
 
     public static LReal128 Zero => default;
     public static LReal128 One => new(1, 0, 0, 0, false);
@@ -148,15 +165,17 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
         if (r.Exponent > int.MaxValue || r.Exponent < int.MinValue) return false;
         string digits = r.ToNatural().ToString();
         if (!UInt128.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out UInt128 sig)) return false;
-        result = new LReal128(sig, (int)r.Exponent, (int)r.PeriodStart, (int)r.PeriodLength, Real.IsNegative(r));
+        result = new LReal128(sig, (int)r.Exponent, (int)r.PeriodStart, (int)r.PeriodLength,
+                              Real.IsNegative(r), inexact: !r.IsExact);
         return true;
     }
 
     /// <summary>Converts this value back to the arbitrary-precision <see cref="Real"/> type.</summary>
     public Real ToReal()
     {
-        if (_sig == 0) return Real.Zero;
-        return new Real(Nat.Parse(_sig.ToString(), null), _neg, _exp, _pStart, _pLen);
+        if (_sig == 0) return _inexact ? Real.MarkInexact(Real.Zero) : Real.Zero;
+        Real value = new Real(Nat.Parse(_sig.ToString(), null), _neg, _exp, _pStart, _pLen);
+        return _inexact ? Real.MarkInexact(value) : value;
     }
 
     private static LRealPromoteException Promote() =>
@@ -227,12 +246,12 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
             if (rem != 0) break;
             s = q; e++;
         }
-        return new LReal128(s.ToUInt128(), e, 0, 0, r._neg);
+        return new LReal128(s.ToUInt128(), e, 0, 0, r._neg, r._inexact);
     }
 
-    private static LReal128 FromNormalized(UInt256 mag, int exp, bool neg)
+    private static LReal128 FromNormalized(UInt256 mag, int exp, bool neg, bool inexact = false)
     {
-        if (mag.IsZero) return Zero;
+        if (mag.IsZero) return inexact ? AsInexact(Zero) : Zero;
         UInt256 s = mag; int e = exp;
         while (e < 0)
         {
@@ -241,13 +260,13 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
             s = q; e++;
         }
         if (!s.FitsInUInt128) throw Promote();
-        return new LReal128(s.ToUInt128(), e, 0, 0, neg);
+        return new LReal128(s.ToUInt128(), e, 0, 0, neg, inexact);
     }
 
     public static LReal128 Add(LReal128 a, LReal128 b)
     {
-        if (a.IsZero) return b;
-        if (b.IsZero) return a;
+        if (a.IsZero) return a.IsExact ? b : AsInexact(b);
+        if (b.IsZero) return b.IsExact ? a : AsInexact(a);
         if (a.IsPeriodic || b.IsPeriodic)
         {
             var ea = ExpandToNonPeriodic(a, WorkingFractionalDigits);
@@ -261,14 +280,14 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
         if (a._neg == b._neg) { sum = UInt256.Add(magA, magB); neg = a._neg; }
         else if (magA.CompareTo(magB) >= 0) { sum = UInt256.Sub(magA, magB); neg = a._neg; }
         else { sum = UInt256.Sub(magB, magA); neg = b._neg; }
-        return FromNormalized(sum, resultExp, neg);
+        return FromNormalized(sum, resultExp, neg, a._inexact || b._inexact);
     }
 
     public static LReal128 Subtract(LReal128 a, LReal128 b) => Add(a, Negate(b));
 
     public static LReal128 Multiply(LReal128 a, LReal128 b)
     {
-        if (a.IsZero || b.IsZero) return Zero;
+        if (a.IsZero || b.IsZero) return a.IsExact && b.IsExact ? Zero : AsInexact(Zero);
         if (a.IsPeriodic || b.IsPeriodic)
         {
             var ea = ExpandToNonPeriodic(a, WorkingFractionalDigits);
@@ -277,20 +296,24 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
         }
         int exp = a._exp + b._exp;
         UInt256 prod = UInt256.Mul(a._sig, b._sig);
-        return FromNormalized(prod, exp, a._neg != b._neg);
+        return FromNormalized(prod, exp, a._neg != b._neg, a._inexact || b._inexact);
     }
 
     public static LReal128 Divide(LReal128 a, LReal128 b)
     {
         if (b.IsZero) throw new DivideByZeroException("Cannot divide by zero.");
-        if (a.IsZero) return Zero;
+        if (a.IsZero) return a.IsExact && b.IsExact ? Zero : AsInexact(Zero);
         if (a.IsPeriodic || b.IsPeriodic)
         {
             var ea = ExpandToNonPeriodic(a, WorkingFractionalDigits);
             var eb = ExpandToNonPeriodic(b, WorkingFractionalDigits);
             var raw = Divide(ea, eb);
             if (raw.IsPeriodic && raw._pLen >= WorkingFractionalDigits)
-                raw = new LReal128(raw._sig, raw._exp, 0, 0, raw._neg);
+            {
+                // A period as long as the expansion width is the boundary repeating, not the
+                // quotient's own period: stripping it leaves a prefix, so the result is not exact.
+                raw = new LReal128(raw._sig, raw._exp, 0, 0, raw._neg, inexact: true);
+            }
             return DetectAndNormalizePeriod(raw);
         }
         bool neg = a._neg != b._neg;
@@ -314,15 +337,19 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
             fracCount++;
         }
         int resultExp = -fracCount + expAdj;
-        if (found) { if (pLen > MaxSignificantDigits) throw Promote(); return new LReal128(sig, resultExp, pStart, pLen, neg); }
-        if (rem == 0) return FromNormalized(UInt256.From(sig), resultExp, neg);
+        if (found)
+        {
+            if (pLen > MaxSignificantDigits) throw Promote();
+            return new LReal128(sig, resultExp, pStart, pLen, neg, a._inexact || b._inexact);
+        }
+        if (rem == 0) return FromNormalized(UInt256.From(sig), resultExp, neg, a._inexact || b._inexact);
         throw Promote();
     }
 
     public static LReal128 Negate(LReal128 v)
     {
         bool neg = v.IsZero ? false : !v._neg;
-        return new LReal128(v._sig, v._exp, v._pStart, v._pLen, neg);
+        return new LReal128(v._sig, v._exp, v._pStart, v._pLen, neg, v._inexact);
     }
 
     public static LReal128 Abs(LReal128 v) => v.IsNegative ? Negate(v) : v;
@@ -374,7 +401,8 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
         for (int i = 0; i < fracDigits; i++) sb.Append((char)('0' + r.GetDecimalDigit(i)));
         if (!UInt128.TryParse(sb.ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var mag)) throw Promote();
         bool neg = r._neg && mag != 0;
-        return new LReal128(mag, -fracDigits, 0, 0, neg);
+        // Writing a periodic value out to a fixed number of places truncates it.
+        return new LReal128(mag, -fracDigits, 0, 0, neg, inexact: true);
     }
 
     private static LReal128 DetectAndNormalizePeriod(LReal128 r)
@@ -399,12 +427,12 @@ public readonly struct LReal128 : IComparable<LReal128>, IEquatable<LReal128>
             cMag += 1;
             int newExp = -nonRepeating.Length;
             bool neg = r._neg && cMag != 0;
-            return new LReal128(cMag, newExp, 0, 0, neg);
+            return new LReal128(cMag, newExp, 0, 0, neg, r._inexact);
         }
         string stored = intPart + fracPart[..(pStart + pLen)];
         if (!UInt128.TryParse(stored, NumberStyles.None, CultureInfo.InvariantCulture, out var mag)) throw Promote();
         bool negative = r._neg && mag != 0;
-        return new LReal128(mag, -(pStart + pLen), pStart, pLen, negative);
+        return new LReal128(mag, -(pStart + pLen), pStart, pLen, negative, r._inexact);
     }
 
     private static (int start, int len) FindSmallestPeriod(string fracPart, int slack = 0)
