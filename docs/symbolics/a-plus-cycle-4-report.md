@@ -184,7 +184,8 @@ Three independent falsifiers attacked `out/aot/Lovelace.Run.exe`, re-published f
 |---|---|---|---|---|
 | P1 numeric boundaries | 222 | 156 | **62** | 4 |
 | P2+P6 wire contract and capability honesty | 51 | 27 | **20** | 4 |
-| P4 symbolic correctness | (see `round-09/`) | | | |
+| P4 symbolic correctness | 59 | 45 | **12** | 2 |
+| **Total** | **332** | **228** | **94** | **10** |
 
 Full tables and reproductions: `docs/goal-cycle-4/round-09/audit-P1-numeric.md`,
 `audit-P2P6-wire.md`.
@@ -203,6 +204,9 @@ whether Cycle 4 broke something or merely failed to notice it.
 | A4 | `solve_system(x + y == 2, x - y == 0)` — the documented form — returns `InternalError / InternalInvariantFailure` ("Specified cast is not valid."), which `dsh-protocol.md` says must never be an answer | confirmed | not checked |
 | A5 | **§4.1's exhaustiveness claim is false**: all four advertised unsupported entries are byte-accurate (the honesty half holds), but at least **eight** refused operations are unlisted — including `limit_full(sin(x),x,inf)`, whose own diagnostic carries the kernel's `UnsupportedOperation` category, and `integrate_full(exp(-x^2),x)`, which reports `Unevaluated` with **empty** diagnostics | auditor's, with my confirmation of the `solve_system` case | claim was added this cycle |
 | A6 | Stack overflow (exit `0xC00000FD`, zero stdout) on 3000-deep nesting; a `\r` leaks into `print()` output; `SystemSolveResult` has no `completeness` field; error envelopes omit `elapsedTime`/`timings` | auditor's | not checked |
+| **A7** | **The printer emits text that means a different expression.** `(-1)^x` renders as `-1^x` while its canonical form is `(pow (rat -1 1) (sym x))`; substituting `x = 2` gives **1** for the expression and **-1** for its rendering. Same for `(-2)^x` (4 vs −4). This is the defect class Cycle 3 fixed for subtraction, still live for negative numeric bases | **confirmed** | printer is Cycle-3 code; not a Cycle-4 regression |
+| **A8** | **The solver claims completeness for an unsatisfiable equation.** `solve_full(sqrt(x)+2 == 0, x)` returns `status: Solved`, `complete: true`, `completeness: Complete`, `represented_count: 1` — but substituting the claimed root gives `4`, not `0`, and `sqrt(x)+2 >= 2` has no root at all. `dsh-protocol.md` promises that `complete: true` means the represented set is the whole solution set | **confirmed** | not checked |
+| A9 | Cycle 4's own new feature is not round-trippable: the printer emits `i`, which the parser rejects (`Undefined variable 'i'`), so no complex closed form survives a print/parse cycle. Related: `2^(1/2)` errors while `solve_full` prints `2^(1/3)` and `rootof(...)`, both unparseable | auditor's | introduced by Cycle 4's complex work — the gap is in what Cycle 4 added |
 
 The audit's most valuable property is that it attacked the *system* rather than the item list. A5 is
 the direct consequence: Cycle 4 closed §4.1 on an exhaustiveness claim that an independent search
@@ -226,11 +230,20 @@ softens:
    is honest about the entries it has and is not exhaustive: at least eight refused operations are
    missing, each with a reproduction in `round-09/audit-P2P6-wire.md`. Closing it means transcribing
    and asserting those classes the way the existing four are — bounded work, not yet done.
-2. **The audit found wrong answers that are labelled exact** (A2, A3) plus a round-trip identity that
-   fails (A1) and an internal invariant failure on a documented call form (A4). All are **pre-existing**
-   — verified against the pre-Cycle-4 tree — so they are inherited, not introduced. They are also the
-   kind of defect that matters most, because `"exact":true` is a machine-readable promise and A2 breaks
-   it silently.
+2. **The audit found two P0-class defects, and I reproduced both.** (a) **The solver claims
+   completeness for an unsatisfiable equation**: `solve_full(sqrt(x)+2 == 0, x)` reports
+   `complete: true` / `completeness: Complete` with one solution, while the claimed root does not
+   satisfy the equation and the equation has no root at all — a direct violation of the protocol's
+   promise that `complete: true` means the whole solution set. (b) **The printer still emits text that
+   means a different expression**: `(-1)^x` renders as `-1^x`, which re-parses to a different value
+   (1 vs −1 at `x = 2`), the same defect class Cycle 3 fixed for subtraction. Alongside them the
+   numeric attacker found wrong values **labelled `exact:true`** (`2^-100000` → 0, `0^(-1.0)` → 0) and
+   a round-trip identity that fails (`(1/17)*17` ≠ 1). All of these are **pre-existing** — verified
+   against the pre-Cycle-4 tree — so they are inherited rather than introduced, but they are P0-class
+   and they are the reason this cycle does not claim A+.
+3. **Cycle 4's own new feature is not round-trippable.** The complex closed forms it added render as
+   `i`, which the parser rejects, so a complex result cannot survive a print/parse cycle. The gap is in
+   what this cycle added, and it is recorded as such.
 
 Residual bounds stated in writing rather than implied away: alignment section N.3 (general rational
 exponents, denominator ≥ 3 roots of negative bases, degree ≥ 4 complex algebraic roots, complex `log`

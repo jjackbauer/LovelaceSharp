@@ -22,13 +22,14 @@
 
 | verdict | count |
 |---|---|
-| HELD | 42 |
+| HELD | 45 |
 | FINDING | 12 |
 | INCONCLUSIVE | 2 |
+| **rows total** | **59** |
 
-Nine distinct defects (**F1–F9**). **F1 is a P0 printer defect: a rendering that parses to a
-different value.** **F4 is a P0 solve over-claim: `Solved` + `complete: true` with a root that does
-not satisfy the equation.**
+Twelve FINDING rows, covering **nine distinct defects (F1–F9)**; F3 has a sub-case (F3b).
+**F1 is a P0 printer defect: a rendering that parses to a different value.** **F4 is a P0 solve
+over-claim: `Solved` + `complete: true` with a root that does not satisfy the equation.**
 
 ---
 
@@ -68,7 +69,7 @@ drawn from `{1,-1,2,-2,3,-3,1/2,-1/2,2/3,-5/7,5,-4,7/3}`).
 | P2.10 numeric base with rational exponent | `solve_full(x^3 - 2, x)` solution values `2^(1/3)`, `2^(1/3)*(-1/2*i*sqrt(3) - 1/2)` | reparse `2^(1/3)` → `UnsupportedOperation: Non-integer exponents are not yet supported.` | rendering must be re-readable | **FINDING (F3)** |
 | P2.11 `rootof` rendering | `solve_full(x^4 - 2*x^2 - 3, x)` solution values `rootof(x^4 - 2*x^2 - 3, 0)` | reparse → `DomainError: Unknown function 'rootof'.` | rendering must be re-readable | **FINDING (F3)** |
 | P2.12 π-containing expressions | `pi*x` | pretty is 1004 chars (`3.14159…(500 digits)*x`); reparse canonical is byte-identical to the original | identical canonical | HELD (π is never rendered as `pi`, but the decimal round-trips) |
-| P2.13 35-expression fuzz | depth-3 random expressions over `{x,y,a,1,2,3,-1,1/2,2/3,4}` with `+ - * / ^` and `sqrt log sin cos exp abs` | `tested=35 held=29 canonical_mismatch=6 reparse_err=0`; all 6 mismatches fall in the two classes F5 and F1/real-folding; 0 new classes | 35 held | **FINDING (same classes as F5)** |
+| P2.13 35-expression fuzz | depth-3 random expressions over `{x,y,a,1,2,3,-1,1/2,2/3,4}` with `+ - * / ^` and `sqrt log sin cos exp abs` | `tested=35 held=29 canonical_mismatch=6 reparse_err=0`; the 6 decompose as 3× the F5 division-of-product class, 1× the F1 value-changing class (`((-(-1)^(2/1))^(-3/cos(x)))`), 1× real-coefficient folding (rejected as rounding, P2.14), 1× harness false positive (`(((1^x)^(2-2))^((3-1)/(4-a)))` prints `1`; EVAL of `1` yields a non-Symbolic result with no `canonical` field, so no comparison exists); 0 new defect classes | 35 held | **FINDING (same classes as F1/F5)** |
 | P2.14 apparent value difference from the fuzz | `(((-1 / 1/2) / log(-1)) * (abs(y) + (4 ^ a)))` vs its rendering `-1*(abs(y) + 4^a)/(2*log(-1))` | difference at evalf 20 = `5.135e-18 i`, at 40 = `5.135e-38 i`, at 60 = `0` | scales with requested precision ⇒ rounding, not a value defect | HELD (false positive rejected) |
 
 ### Property 3 — `solve_full` completeness claims
@@ -190,6 +191,14 @@ The original is right (28 leading digits match SymPy); **its own rendering is wr
 only because it is special-cased to `i`. The defect is specific to a negative **number** base whose
 power stays unevaluated.
 
+**This is a printer defect, not a parser defect.** The parser's precedence rule is unambiguous and
+consistent — `-2^2` evaluates to `-4` and `-2^x` canonicalises to
+`(mul (rat -1 1) (pow (rat 2 1) (sym x)))`, i.e. `^` binds tighter than unary minus (the same rule as
+SymPy/Python). The printer is what removes the parentheses, so the text it emits denotes
+`-(2^x)` rather than `(-2)^x`. Confirmation that the *source* expression is stored correctly while
+only its rendering is wrong: `(-2)^x` has canonical `(pow (rat -2 1) (sym x))` and
+`subs((-2)^x, x, 2)` = 4, whereas its own pretty `-2^x` gives `subs(-2^x, x, 2)` = -4.
+
 **Also observed:** the envelope marks `(-1)^x` as `"exact":false` even though both operands are exact.
 
 ### F2 — P1: the printer emits `i` for the imaginary unit, and `i` is not a readable identifier
@@ -226,6 +235,13 @@ Three defects in one: (a) a printed form the parser cannot read; (b) `^` with a 
 fails on *literal* bases while the equivalent `sqrt()` call and the symbolic case succeed; (c) the
 message “Non-integer exponents are not yet supported” is false for `x^(1/2)`, `x^(2/3)`, `(-1)^(1/2)`
 and `(4*x)^(1/2)`, all of which are accepted.
+
+The blocked capability has a well-defined principal-branch answer that this binary cannot reach at
+all: SYMPY gives `N((-8)**Rational(1,3), 30)` = `1.0 + 1.73205080756887729352744634151*I` and
+`N(Rational(-1,8)**Rational(2,3), 30)` = `-0.125 + 0.216506350946109661690930792688*I`, whereas
+EVAL of `(0-8)^(1/3)`, `(1/8 - 1/4)^(2/3)`, `(0-1)^(2/3)` and `evalf((0-8)^(1/3), 30)` all fail with
+the same `UnsupportedOperation`. Only the `1/2` power on a negative numeric base is special-cased
+(`(-1)^(1/2)` → `i`).
 
 **F3b — same class:** `solve_full(x^4 - 2*x^2 - 3, x)` prints solution values
 `rootof(x^4 - 2*x^2 - 3, 0)`; EVAL of that string gives
@@ -361,6 +377,11 @@ produces; and the user-facing message leaks an internal type name (`NamedConstan
    (`(-1-x)^x`), products with negative real coefficients, or negative reals such as `pi`
    (`(0-pi)^x`) were not systematically enumerated; the fuzz sample of 35 expressions found no
    additional class, but it is a small sample.
+7. **One unlogged fuzz failure.** An earlier, larger fuzz run reported
+   `tested=77 held=54 mismatch=22 reparse_err=1 parse1_err=3`, but its console output was truncated
+   and the single `reparse_err` line was lost before I could capture it. It did not recur in the
+   compact 35-expression run (`reparse_err=0`), so I cannot state which rendering failed or why.
+   Only the two reparse failures I reproduced by hand (F2, F3) are reported as findings.
 
 ---
 
