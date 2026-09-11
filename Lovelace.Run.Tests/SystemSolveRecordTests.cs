@@ -114,8 +114,10 @@ public class SystemSolveRecordTests
         var (secondExit, second) = await RunAsync(Declare + "solve_system_full(" + system + ")");
 
         Assert.True(firstExit == 0 && secondExit == 0, $"exits: {firstExit}/{secondExit}");
-        JsonNode a = TestSupport.Normalise(first["result"]!["structured"]!);
-        JsonNode b = TestSupport.Normalise(second["result"]!["structured"]!);
-        Assert.Equal(b.ToJsonString(), a.ToJsonString());
+        JsonNode? a = TestSupport.Normalise(first["result"]!["structured"]!);
+        JsonNode? b = TestSupport.Normalise(second["result"]!["structured"]!);
+        Assert.NotNull(a);
+        Assert.NotNull(b);
+        Assert.Equal(b!.ToJsonString(), a!.ToJsonString());
     }
 }
