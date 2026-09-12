@@ -1,6 +1,6 @@
 # A+ Convergence — Cycle 6 report
 
-**Repository**: `jjackbauer/LovelaceSharp` · **HEAD at writing**: `d945133` (pushed; `origin/main` matches)
+**Repository**: `jjackbauer/LovelaceSharp` · **HEAD at writing**: `185d2e6` (pushed; `origin/main` matches)
 **Commits this cycle**: `98a9049`, `70241dc`, `300f6bb`, `1b70a32`, `e8638c0`, `d4d7ccf`, `b009dfe`, `e8b52b3`, `aa27753`, `c5c1437`, `55c8cab`, `be89e55`
 **Harness memory**: `docs/goal-cycle-6/{goal,journal,evidence,state,deliverables}.md`
 **Amendment**: section **P** at `docs/symbolics/a-plus-cycle-6-amendment.md` (summarised in the plan)
@@ -19,7 +19,7 @@ inherited.
 
 | ID | Dimension | Status | The command and what it printed |
 |---|---|---|---|
-| **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` (the fix), **#36** on `be89e55` and **#40** on the final HEAD `d945133` — each with `Fast accuracy test suites` **success**, `Differential oracle (SymPy installed)` **success** and `Native AOT publish + runner smoke` **success**. Between them the record shows the whole arc: #27 failure (the stale pin), #28 green, #30/#33 cancelled by the 30-minute job timeout, #32 failed at 189 s on a coverage-inflated cancellation assertion, #36 green with the costly corpus running uninstrumented. EVD-237, EVD-238, EVD-248, EVD-265 |
+| **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` (the fix), **#36** on `be89e55`, **#40** on `d945133` and **#41** on the final HEAD `185d2e6` (all three jobs `success`, 567 s) — each with `Fast accuracy test suites` **success**, `Differential oracle (SymPy installed)` **success** and `Native AOT publish + runner smoke` **success**. Between them the record shows the whole arc: #27 failure (the stale pin), #28 green, #30/#33 cancelled by the 30-minute job timeout, #32 failed at 189 s on a coverage-inflated cancellation assertion, #36 green with the costly corpus running uninstrumented. EVD-237, EVD-238, EVD-248, EVD-265 |
 | **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
 | **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
 | **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P written: nine rows CLOSED with evidence; three rows OPEN as defects; seven rows are scope decisions put to the maintainer **twice in writing** with no answer recorded, so none is marked ACCEPTED |
