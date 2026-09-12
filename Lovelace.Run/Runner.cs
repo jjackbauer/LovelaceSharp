@@ -163,10 +163,6 @@ public static class Runner
         if (plotDir is not null) engine.PlotOutputDirectory = plotDir;
         if (plotFile is not null) engine.PlotFileName = plotFile;
 
-        // plot() writes into PlotOutputDirectory without creating it, so ensure a
-        // fresh --plot-dir works (a no-op when the directory already exists).
-        Directory.CreateDirectory(engine.PlotOutputDirectory);
-
         // capture print() output: the envelope must be the only thing on stdout. Declared outside the
         // try so a cancelled evaluation can still return the output it produced (the partial result).
         var output = new StringWriter();
@@ -176,6 +172,25 @@ public static class Runner
 
         try
         {
+            // plot() writes into PlotOutputDirectory without creating it, so ensure a fresh --plot-dir
+            // works (a no-op when the directory already exists). The preflight runs INSIDE the guarded
+            // region on purpose: a directory the caller named but the process cannot create is a
+            // caller-level failure, and it must cross as an error envelope with a code and a category —
+            // never as an unhandled exception with an empty stdout. This call used to sit BEFORE the
+            // try and aborted the process (F1-C: exit 0xC0000409, 0 bytes on stdout, no envelope).
+            try
+            {
+                Directory.CreateDirectory(engine.PlotOutputDirectory);
+            }
+            catch (Exception ex) when (IsUnusablePlotDirectory(ex))
+            {
+                // no engine ran and no statement executed, so the durations are zero and empty — the
+                // same shape the unreadable-script-file path publishes
+                return WriteError(stdout, stderr, json, "PlotDirectoryError", "TypeMismatch",
+                    $"Cannot use plot directory '{engine.PlotOutputDirectory}': {ex.Message}",
+                    recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>());
+            }
+
             var result = await engine.EvaluateAsync(
                 ScriptSource.ToSemicolonStatements(source), output, cancellation.Token);
 
@@ -267,6 +282,24 @@ public static class Runner
                 engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables, failedDeadline);
         }
     }
+
+    /// <summary>
+    /// The failures a caller-supplied plot directory can produce: an empty or malformed path
+    /// (<see cref="ArgumentException"/> / <see cref="NotSupportedException"/>), a path that names an
+    /// existing FILE or a volume that cannot be reached (<see cref="IOException"/>, which also covers
+    /// <see cref="PathTooLongException"/>), and a missing permission
+    /// (<see cref="UnauthorizedAccessException"/>). Each is a property of the ARGUMENT, not of the
+    /// engine, so each crosses as the caller-level <c>PlotDirectoryError</c>/<c>TypeMismatch</c>
+    /// failure instead of being reported as an internal invariant failure (F1-C).
+    /// <para>
+    /// The filter is deliberately narrow and never swallows the diagnostic: the exception object is
+    /// what the envelope's message is built from, and any exception outside this set keeps
+    /// propagating to the general handler below, which still answers with an envelope (code
+    /// <c>InternalError</c>) rather than aborting the process or leaving stdout empty.
+    /// </para>
+    /// </summary>
+    private static bool IsUnusablePlotDirectory(Exception ex) =>
+        ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException;
 
     /// <summary>Maps a failure onto the stable error taxonomy. Message matching is never required
     /// by a consumer: the code and category are structural.</summary>
