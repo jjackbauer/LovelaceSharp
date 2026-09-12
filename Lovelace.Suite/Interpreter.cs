@@ -1797,14 +1797,10 @@ public sealed class Interpreter
             if (args.Count == 0)
                 return new Value(Rl.Pi);
 
-            var arg = args[0];
-            long digits = arg.Kind switch
-            {
-                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
-                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
-                _ => throw new InvalidOperationException($"pi() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
-            };
-            return new Value(await Rl.PiToAsync(digits, SubProgress("pi")));
+            // The count is bounded by the ENGINE before the kernel's own guard can see it (see
+            // DigitCount): an untyped ArgumentOutOfRangeException naming only the parameter is not
+            // an answer a language caller can act on.
+            return new Value(await Rl.PiToAsync(DigitCount("pi", args[0]), SubProgress("pi")));
         }, minArity: 0);
 
         // e() / e(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
@@ -1813,14 +1809,8 @@ public sealed class Interpreter
             if (args.Count == 0)
                 return new Value(Rl.E);
 
-            var arg = args[0];
-            long digits = arg.Kind switch
-            {
-                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
-                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
-                _ => throw new InvalidOperationException($"e() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
-            };
-            return new Value(await Rl.EToAsync(digits, SubProgress("e")));
+            // same boundary as pi(digits): the engine's precision decides, and it decides TYPED
+            return new Value(await Rl.EToAsync(DigitCount("e", args[0]), SubProgress("e")));
         }, minArity: 0);
 
         // setprecision(n) — raise both the computation cap and the display precision.
@@ -1869,6 +1859,60 @@ public sealed class Interpreter
         Register("plot", ["x", "y", "title"], args => Task.FromResult(BuiltinPlot(args)), minArity: 1);
 
         RegisterArrayBuiltins();
+    }
+
+    /// <summary>The <c>digits</c> argument of a constant builtin (<c>pi(n)</c>, <c>e(n)</c>): a
+    /// Natural or Integer in <c>[1, the engine's computation precision]</c>. A count outside that
+    /// range is a CALLER-SIDE ARGUMENT problem, so it is answered as one.
+    /// <para>
+    /// THE KERNEL'S OWN GUARD IS NOT THE ANSWER. <c>Real.PiTo</c> / <c>Real.ETo</c> bound the count
+    /// by <c>Rl.MaxComputationDecimalPlaces</c> and refuse an out-of-range one with an
+    /// <see cref="ArgumentOutOfRangeException"/> that names neither the count nor the engine state
+    /// (<c>Lovelace.Real/Real.cs:1440-1441</c>, <c>:1574-1575</c>) — idiomatic for the LIBRARY, whose
+    /// public guard semantics this does not change, and unreadable at the LANGUAGE surface this
+    /// builtin is: "Specified argument was out of the range of valid values. (Parameter 'digits')"
+    /// tells a caller neither what was asked for nor what bounded it. The builtin therefore refuses
+    /// FIRST, as the recoverable argument error the rest of the digit-count surface already produces
+    /// (<c>InvalidArgument</c>/<c>TypeMismatch</c>, <c>docs/symbolics/dsh-protocol.md</c> §Error
+    /// envelope): the builtin, the argument, the acceptable range — which IS the ambient computation
+    /// precision the kernel guard would compare against, because a statement runs inside the
+    /// engine's own precision scope (<c>Interpreter.cs:319-321</c> re-enters it per statement, which
+    /// is also what makes a mid-script <c>setprecision</c> take effect) — and the count that was
+    /// refused.
+    /// </para>
+    /// <para>
+    /// A count WIDER THAN INT64 is the same argument problem and crosses the same way, naming the
+    /// caller's own digits; it used to escape as the raw CLR conversion message ("Value was either
+    /// too large or too small for an Int64." as <c>ArithmeticError</c>/<c>DomainError</c>). A
+    /// NON-INTEGER count stays the type refusal it already is
+    /// (<see cref="InvalidOperationException"/>, pinned by the documented <c>pi(3.0)</c> contract):
+    /// the kind is a different question from the range.
+    /// </para></summary>
+    /// <exception cref="ArgumentException">The count is outside <c>[1, the engine's computation
+    /// precision]</c>, or wider than Int64.</exception>
+    /// <exception cref="InvalidOperationException">The count is not a Natural or an Integer.</exception>
+    private static long DigitCount(string builtin, Value arg)
+    {
+        string? text = arg.Kind switch
+        {
+            ValueKind.Natural => arg.AsNatural().ToString(),
+            ValueKind.Integer => arg.AsInteger().ToString(),
+            _ => null,
+        };
+        if (text is null)
+            throw new InvalidOperationException(
+                $"{builtin}() expects a Natural or Integer digit count, but got '{arg.Kind}'.");
+
+        long cap = Rl.MaxComputationDecimalPlaces;
+        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long digits)
+            || digits < 1L || digits > cap)
+        {
+            throw new ArgumentException(
+                $"{builtin}(): argument 1 (digits) must be a digit count between 1 and {cap} " +
+                $"(the engine's computation precision); got {text}.");
+        }
+
+        return digits;
     }
 
     private Value BuiltinPlot(IReadOnlyList<Value> args)
