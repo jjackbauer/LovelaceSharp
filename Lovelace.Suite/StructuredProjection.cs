@@ -1,6 +1,7 @@
 using Lovelace.Abstractions;
 using Lovelace.Symbolics;
 using Rl = global::Lovelace.Real.Real;
+using Cplx = global::Lovelace.Complex.Complex;
 // Lovelace.Suite.Expr is the language AST; the symbolic kernel's expression is aliased here
 using SymExpr = Lovelace.Symbolics.Expr;
 
@@ -63,10 +64,7 @@ public static class StructuredProjection
         ValueKind.Record => Record(value.AsRecord(), budget),
         ValueKind.Vector or ValueKind.Array => Array(value, budget),
         ValueKind.Symbolic => Symbolic(value.AsSymbolic(), budget),
-        ValueKind.Complex => new StructuredValueDto("Complex",
-            Re: value.AsComplex().Re.ToString(),
-            Im: value.AsComplex().Im.ToString(),
-            Exact: ExactOf(value)),
+        ValueKind.Complex => Complex(value.AsComplex()),
         ValueKind.Natural => new StructuredValueDto("Natural", Value: value.AsNatural().ToString(), Exact: true),
         ValueKind.Integer => new StructuredValueDto("Integer", Value: value.AsInteger().ToString(), Exact: true),
         ValueKind.Real => Real(value.AsReal()),
@@ -150,25 +148,60 @@ public static class StructuredProjection
         // maxNodes < nodeCount, so this is always a STRICT prefix: a prefix is never passed off as
         // the whole rendering.
         int allowed = (int)Math.Max(1L, (long)full.Length * maxNodes / nodeCount);
-        string text = full[..CutAtTokenBoundary(full, allowed)] + " …";
+        int cut = CutAtTokenBoundary(full, allowed);
+        string text = cut == 0 ? "…" : full[..cut] + " …";
         return new Printing.PrintOutcome(text, true,
             new Printing.PrintTruncation("node-budget", nodeCount, maxNodes, text));
     }
 
     /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token —
-    /// the same rule the kernel printer applies to its own abbreviations.</summary>
+    /// the same rule the kernel printer applies to its own abbreviations, including its fallback:
+    /// the last boundary AT OR BEFORE <paramref name="cut"/> when there is one, otherwise the whole
+    /// FIRST token (the boundary after it), otherwise nothing (0), because a prefix that reproduced
+    /// the only token would drop nothing. Round-20 audit I, I-3 found the old fallback returning the
+    /// raw cut here too: a 40-character identifier with a proportional allowance of 14 crossed as 14
+    /// of its characters plus " …".</summary>
     private static int CutAtTokenBoundary(string text, int cut)
     {
         int i = Math.Min(cut, text.Length);
-        while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '.'))
+        while (i > 0 && IsTokenChar(text[i - 1]))
             i--;
-        return i > 0 ? i : cut;
+        if (i > 0)
+            return i;
+        int after = Math.Min(cut, text.Length);
+        while (after < text.Length && IsTokenChar(text[after]))
+            after++;
+        return after < text.Length ? after : 0;
     }
 
+    /// <summary>The characters a token is made of: a number or an identifier.</summary>
+    private static bool IsTokenChar(char c) => char.IsLetterOrDigit(c) || c == '.';
+
+    /// <summary>One complex value: its two components and, when a producer clamped either of
+    /// them, the SAME clamp a Real carries (see <see cref="Real"/>).</summary>
+    private static StructuredValueDto Complex(Cplx value) => new(
+        "Complex",
+        Re: value.Re.ToString(),
+        Im: value.Im.ToString(),
+        Exact: RealExact(value.Re) && RealExact(value.Im),
+        Truncated: value.Re.ClampNotice is null && value.Im.ClampNotice is null ? null : true,
+        TruncationReason: (value.Re.ClampNotice ?? value.Im.ClampNotice)?.Reason,
+        Budget: (int?)(value.Re.ClampNotice ?? value.Im.ClampNotice)?.Budget);
+
+    /// <summary>One real value: its digits, its exactness, and — when a producer CLAMPED them — the
+    /// clamp in the same three fields a bounded rendering uses (<c>truncated</c>,
+    /// <c>truncationReason</c>, <c>budget</c>). The notice is the value's own provenance
+    /// (<see cref="Rl.ClampNotice"/>), never a guess: <c>evalf</c>'s 1000-place cap sets it when the
+    /// cap actually dropped digits, so a value the caller asked 5000 places for and got 1000 of
+    /// cannot cross as if the count had been honoured (round-20 audit I, I-2). Its digits are
+    /// unchanged by the notice: the same <c>value</c> and the same <c>exact</c> as before.</summary>
     private static StructuredValueDto Real(Rl value)
     {
         bool exact = RealExact(value);
-        var dto = new StructuredValueDto("Real", Value: value.ToString(), Exact: exact);
+        var dto = new StructuredValueDto("Real", Value: value.ToString(), Exact: exact,
+            Truncated: value.ClampNotice is null ? null : true,
+            TruncationReason: value.ClampNotice?.Reason,
+            Budget: (int?)value.ClampNotice?.Budget);
         if (!exact)
             return dto;
         // an exact Real IS a rational: publish it as one, so 1/3 does not have to be parsed back
@@ -193,10 +226,4 @@ public static class StructuredProjection
     /// longer depends on how many places the value happens to occupy.</para>
     /// </summary>
     private static bool RealExact(Rl value) => value.IsExact;
-
-    private static bool ExactOf(Value value) => value.Kind switch
-    {
-        ValueKind.Complex => RealExact(value.AsComplex().Re) && RealExact(value.AsComplex().Im),
-        _ => true,
-    };
 }

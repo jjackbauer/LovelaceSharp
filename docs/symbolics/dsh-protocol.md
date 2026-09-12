@@ -18,6 +18,14 @@ string to recover mathematical meaning.
    ` …`-terminated prefix of the real rendering (never a re-ordered one) and the value reports
    `truncated: true`, `truncationReason` (`node-budget`/`depth-limit`) and `budget`. Without the
    flag the full canonical form is always available.
+   An abbreviation NEVER ends inside a token: the cut lands on the last token boundary at or before
+   the allowance, and when the allowance falls inside the rendering's first token that whole token is
+   kept (a cut that split it would publish an identifier the value does not contain).
+   The same three fields carry the one bound the ENGINE applies to a value of its own accord:
+   `evalf(f, digits)` publishes at most **1000** decimal places, so a request above 1000 answers a
+   value carrying at most 1000 and reports `truncated: true`, `truncationReason: "digit-cap"` and
+   `budget: 1000` — never a silent clamp. A value the cap did not cut (an exact answer, or a count
+   at or below 1000) carries none of the three fields.
    Durations are structural: `elapsedTime` is `{value, unit}` next to the human `elapsed`
    string, and `timings` carries one entry per top-level statement, so an agent never parses a
    unit suffix.

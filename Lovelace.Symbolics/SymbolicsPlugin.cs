@@ -496,7 +496,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             return EvalfPayload(EvalfWorkingPrecision(f, digits), digits);
         },
         new BuiltinDescriptor("evalf", new[] { "f", "digits" }, BuiltinCategories.Numerics,
-            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike. The DECIMAL PLACES are COMPUTED, not merely printed: the evaluation runs at the requested count plus the integer digits of the result plus a guard, so a value with k integer digits keeps all N of its decimals (evalf(sinh(34/3), 30) answers 41780.548053564065925188446077567339), and the published value is bounded back to the N places that were asked for.",
+            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike. The DECIMAL PLACES are COMPUTED, not merely printed: the evaluation runs at the requested count plus the integer digits of the result plus a guard, so a value with k integer digits keeps all N of its decimals (evalf(sinh(34/3), 30) answers 41780.548053564065925188446077567339), and the published count is bounded by the builtin's own 1000-place computation cap: a request above 1000 answers a value carrying at most 1000 decimal places (a request the builtin CAN honour in full is never reduced, and an exact answer stays exact), so the value that was cut says so on the wire — truncated: true, truncationReason: digit-cap, budget: 1000 — instead of crossing as if the count had been honoured.",
             ["evalf(sqrt(2), 30)", "evalf(1/3, 30)"], "Real | Complex", ["subs"]));
         Add("hessian", new[] { "f", "vars" }, args =>
         {
@@ -1606,7 +1606,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     /// <summary>One already-numeric component at the requested digit count: the exact rational it
     /// denotes when it is exact, and an inexact literal carrying the digits the request keeps when it
-    /// is not. <paramref name="digits"/> is bounded by the same 1000-place computation cap
+    /// is not. <paramref name="digits"/> is bounded by the same <see cref="EvalfDecimalPlaceCap"/>
     /// <see cref="EvalfPayload"/> applies to a rational payload, so the two routes truncate
     /// identically. A truncated value is re-materialised from its own digits and re-marked inexact —
     /// <see cref="RationalReal.ToReal"/> parses a decimal string back, and a parse owns a FRESH
@@ -1615,7 +1615,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         value.IsExact
             ? Exprs.Rational(RationalReal.FromReal(value))
             : Exprs.Real(RealLiteral.FromRealExact(Rl.AsInexact(
-                RationalReal.ToReal(RationalReal.FromReal(value), Math.Min(digits, 1000)))));
+                RationalReal.ToReal(RationalReal.FromReal(value), Math.Min(digits, EvalfDecimalPlaceCap)))));
 
     /// <summary>The GUARD <c>evalf</c> keeps on top of the requested decimal count, and the same
     /// number <c>ComplexMath</c> already reserves inside every elementary function
@@ -1729,20 +1729,56 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// AN EXACT VALUE IS NOT PADDED AND NOT FLATTENED. An integer stays an Integer payload, and an
     /// exact rational that terminates inside the window (<c>evalf(1/2, 40)</c>) stays the exact
     /// rational it denotes — the bound only removes digits that are there, it never adds any.
+    /// </para>
+    /// <para>
+    /// THE CAP IS NOT SILENT. <see cref="EvalfDecimalPlaceCap"/> bounds what ANY request can publish,
+    /// so a request above it asks for places the builtin cannot deliver; a value that is a
+    /// TRUNCATION (inexact) therefore carries <see cref="Rl.AsClamped"/> with the reason
+    /// <c>digit-cap</c> and the cap as its budget, and the wire publishes the same three fields a
+    /// bounded rendering reports (<c>truncated: true</c>, <c>truncationReason</c>, <c>budget</c>)
+    /// instead of a value indistinguishable from one the request was honoured for (round-20 audit
+    /// I, I-2). The test is the value's own provenance, not the request: an EXACT value (0.5, 2) is
+    /// NOT marked, because nothing was dropped and so nothing may be claimed.
     /// </para></summary>
     private static object EvalfPayload(Num n, int digits)
     {
-        int places = Math.Min(digits, 1000);
+        int places = Math.Min(digits, EvalfDecimalPlaceCap);
+        bool overCap = digits > EvalfDecimalPlaceCap;
         return n switch
         {
             NumInt i => i.V,
             // the Modus payload vocabulary carries Real (exact periodic), not Rational
-            NumRat r => r.V.IsInteger ? r.V.ToInteger() : RationalReal.ToReal(r.V, places),
-            NumReal rl => BoundDecimalPlaces(rl.V, places),
-            NumComplex c => new Cplx(BoundDecimalPlaces(c.V.Re, places), BoundDecimalPlaces(c.V.Im, places)),
+            NumRat r => r.V.IsInteger ? r.V.ToInteger() : ClampNoticeIfCut(RationalReal.ToReal(r.V, places), overCap),
+            NumReal rl => ClampNoticeIfCut(BoundDecimalPlaces(rl.V, places), overCap),
+            NumComplex c => new Cplx(
+                ClampNoticeIfCut(BoundDecimalPlaces(c.V.Re, places), overCap),
+                ClampNoticeIfCut(BoundDecimalPlaces(c.V.Im, places), overCap)),
             _ => throw new InvalidOperationException(),
         };
     }
+
+    /// <summary>The builtin's own decimal-place COMPUTATION cap: the most fractional places any
+    /// <c>evalf</c> request can publish. It is a bound, not a secret — EVD-276 records it, the
+    /// descriptor names it, and a value the cap cut says so through <see cref="ClampNoticeIfCut"/>.
+    /// It is deliberately NOT <c>Real.MaxComputationDecimalPlaces</c>: the request is a count of
+    /// places the builtin promises to COMPUTE, and the cap bounds that promise whatever the ambient
+    /// precision has been raised to.</summary>
+    private const int EvalfDecimalPlaceCap = 1000;
+
+    /// <summary>The reason a value the cap cut carries to the wire — the same vocabulary a bounded
+    /// rendering uses (<c>node-budget</c>, <c>depth-limit</c>), naming WHAT stopped it: the decimal
+    /// place cap.</summary>
+    private const string EvalfClampReason = "digit-cap";
+
+    /// <summary>Attaches the clamp notice to a value the request could not be honoured for: the
+    /// request was above <see cref="EvalfDecimalPlaceCap"/> and the value is INEXACT, i.e. it is a
+    /// truncation, so the places past the cap are not there whatever the request said. An exact
+    /// value is returned untouched: nothing was dropped, so nothing is claimed. The value is copied
+    /// by <see cref="Rl.AsClamped"/>, so a value the evaluation still owns is never mutated.</summary>
+    private static Rl ClampNoticeIfCut(Rl value, bool overCap) =>
+        overCap && !value.IsExact
+            ? Rl.AsClamped(value, EvalfClampReason, EvalfDecimalPlaceCap)
+            : value;
 
     /// <summary>Truncates <paramref name="value"/> to <paramref name="places"/> fractional places,
     /// keeping its PROVENANCE: a value that already fits is returned untouched (same instance, same

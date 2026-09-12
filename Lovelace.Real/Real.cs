@@ -218,6 +218,40 @@ public class Real :
     /// </summary>
     public static Real AsInexact(Real value) => value.IsExact ? MarkInexact(new Real(value)) : value;
 
+    /// <summary>
+    /// A producer's notice that it CLAMPED this value's fractional digits to a budget:
+    /// <see langword="null"/> when no producer did. <c>Reason</c> names what stopped it and
+    /// <c>Budget</c> is the limit that stopped it, so a consumer never has to infer the bound from
+    /// the digit count it happens to see.
+    /// <para>
+    /// Like <see cref="IsExact"/> this is PROVENANCE, not value: equality, comparison, hashing,
+    /// <see cref="ToString"/> and every constructor that takes already-computed digits ignore it,
+    /// and the copy constructor carries it. It is set by the producer that did the clamping — the
+    /// symbolic kernel's <c>evalf</c>, whose 1000-place computation cap publishes fewer places than
+    /// a larger request asked for — and is deliberately NOT propagated by arithmetic: a computed
+    /// result is a new value, and the digits IT lost are its own.
+    /// </para>
+    /// </summary>
+    public DigitClampNotice? ClampNotice { get; private set; }
+
+    /// <summary>What stopped a producer's digit clamp: the reason (the caller-visible vocabulary the
+    /// wire publishes as <c>truncationReason</c>) and the budget it clamped to (the wire's
+    /// <c>budget</c>). Carried by <see cref="ClampNotice"/>.</summary>
+    public readonly record struct DigitClampNotice(string Reason, long Budget);
+
+    /// <summary>
+    /// Returns <paramref name="value"/> carrying a <see cref="ClampNotice"/>: the public, COPYING
+    /// half of the marker, for the producer that clamped it. The argument is never mutated — the
+    /// notice is attached to a copy, exactly as <see cref="AsInexact"/> copies an exact value
+    /// instead of clearing its flag under its owner's feet.
+    /// </summary>
+    public static Real AsClamped(Real value, string reason, long budget)
+    {
+        var clamped = new Real(value);
+        clamped.ClampNotice = new DigitClampNotice(reason, budget);
+        return clamped;
+    }
+
     /// <summary>Returns <paramref name="value"/> carrying <paramref name="source"/>'s provenance.</summary>
     private static Real WithProvenanceOf(Real value, Real source) =>
         source._inexact ? MarkInexact(value) : value;
@@ -286,6 +320,7 @@ public class Real :
         PeriodStart = other.PeriodStart;
         PeriodLength = other.PeriodLength;
         _inexact = other._inexact;
+        ClampNotice = other.ClampNotice;
     }
 
     /// <summary>

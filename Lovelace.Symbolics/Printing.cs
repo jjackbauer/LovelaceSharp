@@ -390,7 +390,11 @@ public static class Printing
         if (full.Length <= charBudget)
             return new PrintOutcome(full, false, null);
 
-        string text = full[..SafeCut(full, charBudget)] + " …";
+        int cut = SafeCut(full, charBudget);
+        // an empty cut is the degenerate end of the boundary rule below: the rendering IS one
+        // token longer than the allowance, so nothing can be retained and the ellipsis alone is the
+        // abbreviation (a leading space would be the start of nothing)
+        string text = cut == 0 ? "…" : full[..cut] + " …";
         return new PrintOutcome(text, true, new PrintTruncation(reason, nodes, limit, text));
     }
 
@@ -399,14 +403,35 @@ public static class Printing
     /// bound the returned text.</summary>
     private const int CharsPerNode = 6;
 
-    /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token.</summary>
+    /// <summary>Cuts at a token boundary so a number or identifier is never split mid-token.
+    /// <para>
+    /// The boundary is the last one AT OR BEFORE <paramref name="cut"/> — the walk back over the
+    /// token characters the allowance would split. When the allowance falls inside the rendering's
+    /// FIRST token there is no boundary before it, and the cut lands on the boundary AFTER that
+    /// token instead: the whole token is kept. Keeping one token can exceed the character
+    /// allowance by that token's width; splitting it would publish an identifier the value does not
+    /// contain (round-20 audit I, I-3: a 54-character name at <c>MaxNodes 1</c> came back as 48 of
+    /// its characters plus " …"). A rendering that IS one token longer than the allowance retains
+    /// nothing (<c>0</c>), because a prefix that reproduced the whole token would drop nothing and
+    /// could not honestly be reported as an abbreviation. Either way the cut is never inside a
+    /// token.
+    /// </para></summary>
     private static int SafeCut(string text, int cut)
     {
         int i = Math.Min(cut, text.Length);
-        while (i > 0 && (char.IsLetterOrDigit(text[i - 1]) || text[i - 1] == '.'))
+        while (i > 0 && IsTokenChar(text[i - 1]))
             i--;
-        return i > 0 ? i : cut;
+        if (i > 0)
+            return i;
+        // the allowance fell inside the FIRST token: the boundary after it, or nothing at all
+        int after = Math.Min(cut, text.Length);
+        while (after < text.Length && IsTokenChar(text[after]))
+            after++;
+        return after < text.Length ? after : 0;
     }
+
+    /// <summary>The characters a token is made of: a number or an identifier.</summary>
+    private static bool IsTokenChar(char c) => char.IsLetterOrDigit(c) || c == '.';
 
     private static int ExprDepth(Expr e) => e switch
     {
