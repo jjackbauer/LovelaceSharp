@@ -222,3 +222,118 @@
 - **Raised by**: Round 1, orchestrator
 - **Related**: RISK-002, EVD-246
 
+### OBS-007: The three interrupted worktrees triaged — two landable, one needs a repair
+
+- **Source**: `docs/goal-cycle-6/round-2/triage-r20.md`, `triage-r21.md`, `triage-r22.md` (three
+  independent analysts, one patch each, each with its own scratch tree and pristine control)
+- **Fact**: `wip-r20-exact2` (row 1) — applies exit 0, builds 0/0, 13 of 32 new cases fail on a pristine
+  control tree, **but one of its own tests fails on the patched tree** (`TruncatingEvaluationStaysInexactTests.cs:360`,
+  `Assert.IsType<NumInt>` → actual `NumRat`) and `C5Probe.cs` is an assertion-free 2 m 29 s probe:
+  **NEEDS REPAIR**. `wip-r21-cancel` (row 2) — patched `sum`/`matmul`/`prod` under a 100 ms budget stop in
+  289/228/338 ms with `exit 1, code=Cancelled, category=BudgetExceeded` and a `cancellation` ledger, control
+  takes 4104/4153/27 658 ms with `ok:true` and no ledger; 9 of 11 new tests have teeth; Run 180/0,
+  Suite 819/0, Dsp 61/0: **LANDABLE AS-IS**. `wip-r22-caps` (rows 3 and 4) — patched whole solution green
+  (5261 passed / 8 skipped), control fails 50 cases, `evalf(sin(1),0)` answers `0.8` at base and is a typed
+  `InvalidArgument/TypeMismatch` after: **LANDABLE AS-IS**.
+- **Implications**: rows 2, 3 and 4 can be closed from preserved work; row 1 needs one repaired assertion
+  and the removal of a probe file before it can land. All three reports name their own "no teeth" cases
+  (2 for r21, 10 for r22, 18 for r20), which is what makes them usable.
+- **Confidence**: High for the reports' internal consistency and the commands they paste; the suite totals
+  are *their* observations and are re-measured by me in the landing rounds.
+- **Agent**: three Triage analysts (round 2)
+- **Related**: EVD-247, EVD-249, DEC-003
+
+### DEC-003: Land the three patches in the order r20 (repaired), r22, r21 — each verified by me first
+
+- **Decision**: Row 1 lands first (after the :360 repair and without `C5Probe.cs`), then rows 3+4
+  (`wip-r22` as-is), then row 2 (`wip-r21` as-is). Each landing round re-runs the affected suites and the
+  control tree itself before the commit; no patch lands on a triage verdict alone.
+- **Rationale**: the triage reports are agent claims (OBS-007); the harness gate requires my own
+  reproduction (G4), and each patch's control run is cheap to repeat because the control trees already
+  exist at `.worktrees/c6-r2*-ctl`/`c6-r2*-control`.
+- **Alternatives considered**: landing all three at once (rejected: one bounded change per round, and a
+  single red suite would be unattributable); discarding the WIP work and re-implementing (rejected: the
+  evidence shows the work is sound and the controls are already built).
+- **Related**: OBS-007, EVD-249
+
+### OBS-008: A PowerShell pipeline artifact produced a false "does not apply" verdict — mine
+
+- **Source**: my own round-2 note in EVD-247 vs the re-measurement in EVD-249
+- **Fact**: `git apply --check … 2>&1 | Select-Object -First 6` followed by reading `$LASTEXITCODE` reported
+  exit `-1` for `wip-r21-cancel`; re-running the same check through `cmd /c` with `%errorlevel%` reports
+  **exit 0** for all three patches. The short-circuit in the pipeline, not git, produced the -1.
+- **Implications**: This is the same class of probe artifact the cycle-5 handoff warned about
+  (`HANDOFF-from-cycle-5.md`: "most likely $LASTEXITCODE read after a pipeline"). Exit codes are now read
+  through `cmd /c` or from `$LASTEXITCODE` immediately after the command with no pipeline.
+- **Confidence**: High
+- **Agent**: orchestrator
+- **Related**: EVD-247, EVD-249
+
+### OBS-009: Round 3 — both Falsifiers falsify the row-closure claim, and agree on the cause
+
+- **Source**: `docs/goal-cycle-6/round-3/falsify-A.md`, `falsify-B.md`, `implementation.md`
+- **Fact**: On the landed tree **both** Falsifiers returned `Falsified` for claims 1 and 2 and
+  `Supported` for claims 3 and 4 (0 `NotCheckable`). Counterexample, found independently by both and
+  reproduced by me: `evalf(cos(pi(30)), 40)` crosses the runner's wire as
+  `{"kind":"Real","value":"-1","exact":true,"numerator":"-1","denominator":"1"}` while the same
+  expression is `Symbolic exact:false` and `inspect(cos(pi(30))).exact` is `false`; at 100 digits the
+  **value** is also wrong (the wire says `-1`; mpmath at 110 dps says
+  −0.99999999999999999999999999999999999999999999999999999999999987355374…, differring at the 61st
+  decimal). A's located cause: `Lovelace.Real/Real.cs:1742-1743` returns the special-angle table's value
+  (`:1935`, `cos(pi)=negOne`) without propagating the input's inexactness, and its `ReducingPi` twin
+  `:1749-1750` does the same.
+- **Implications**: Row 1 has **two** routes; the round-3 change closes `FromRealExact`/ToReal but not the
+  special-angle shortcut. The claim "no member of that family can still be published exact" is false.
+- **Confidence**: High
+- **Agent**: Falsifiers A and B; adjudicated by the orchestrator
+- **Related**: VAL-003, DEC-004, EVD-251
+
+### VAL-003: Round-3 claim batch — Falsified on two of four claims
+
+- **Target**: HYP-002 ("row 1 is closed")
+- **Method**: two Falsifiers with the identical claim list and prompt, independent scratch copies; then I
+  re-ran every counterexample myself through the published runner's entry point and against mpmath.
+- **Evidence examined**: `falsify-A.md` (own sweeps of 192 + 100 expressions, mechanism at
+  `Real.cs:1742-1743`), `falsify-B.md` (same counterexample from a different route; pre-fix comparison);
+  my own probes: `evalf(cos(pi(30)), 40)` → `exact:true, numerator -1, denominator 1`;
+  `inspect(cos(pi(30))).exact` → `false`; `evalf(cos(pi(30)), 100)` → `-1` vs mpmath's
+  −0.999…87355…; the pristine control tree (`.worktrees/c6-r20-ctl`) reproduces the same envelope, so the
+  route is pre-existing, not introduced by this round.
+- **Result**: **Falsified** (claims 1 and 2), Supported (claims 3 and 4: the 32-case file's 14-fail control,
+  no weakening, `C5Probe.cs` absent, solution green).
+- **Conclusion**: The round's change is a strict, verified improvement *and* insufficient to close row 1.
+  Two sub-parts of the falsification need adjudication rather than acceptance: (a) `inspect(sin(1)).exact
+  = true` beside `evalf(sin(1), 40).exact = false` is **not** a defect — the first asks whether the
+  *expression* is exact, the second whether the *approximation* is; my claim 2's wording was ill-posed and
+  is corrected here. (b) `subs(subs(x+y,x,pi(30)),y,1-pi(30)) = 1` moving from `exact:true` to
+  `exact:false` is the **intended** provenance semantics (cycle 5's T0-3: "exactness is provenance"), not
+  an over-correction. The `cos(pi(30))` counterexample, by contrast, is a real wrong-exactness **and**
+  wrong-value claim, and it is the reason the row stays open.
+- **Related**: OBS-009, DEC-004, EVD-251, EVD-252
+
+### DEC-004: Land the first route, keep row 1 open, close the special-angle route next
+
+- **Decision**: commit the round-3 change as `e8638c0` (it is a verified improvement with 13 teeth tests,
+  the whole solution green and CI back to green), state in the commit message that row 1 is **not** closed,
+  and make the special-angle route the next round's single objective.
+- **Rationale**: VAL-003; `Real.cs:1742-1743`/`:1749-1750` is a located root cause with a reproduced,
+  quantified counterexample (EVD-251), which is exactly the input a repair round needs.
+- **Alternatives considered**: holding the change uncommitted until both routes were closed (rejected: it
+  leaves verified work unsaved in a workspace a second writer is also committing to, and it makes the
+  eventual diff unattributable); reopening the whole row from scratch (rejected: 13 of the 32 new cases
+  already have teeth against the pristine tree).
+- **Related**: VAL-003, OBS-009
+
+### RISK-003: A second wall-clock assertion inside the coverage loop
+
+- **Risk**: `Lovelace.Symbolics.Tests.AssumptionAddScalingTests.Add_Scaling_800AtomsStaysUnder250ms_AndKeepsEveryAtomInOrder`
+  asserts a 250 ms wall-clock bound and runs **instrumented** in the CI loop; on a loaded machine it can
+  redden the job for reasons unrelated to any change.
+- **Likelihood**: Medium
+- **Impact**: Medium
+- **Evidence**: EVD-252 — my own `dotnet test LovelaceSharp.slnx` with `LOVELACE_REQUIRE_SYMPY=1`, run
+  while the implementer and two falsifiers were building, failed exactly this case ("[2 s]" against a
+  250 ms bound); re-run alone it passes 4/4 in 625 ms, three times.
+- **Mitigation**: same policy as RISK-002 — never loosen the bound; if CI reddens there, re-run first.
+- **Gate**: —
+
