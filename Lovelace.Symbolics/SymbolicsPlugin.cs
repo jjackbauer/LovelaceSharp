@@ -45,6 +45,18 @@ public static class SolveCompletenessMapping
 /// (the DspPlugin pattern) that registers the CAS builtins. Symbolic values cross the Modus
 /// payload boundary as <see cref="Expr"/> objects via the Suite core bridge
 /// (ValueKind.Symbolic).
+/// <para>
+/// ONE INSTANCE PER ENGINE IS THE WIRING; A SHARED INSTANCE IS SAFE. A plugin object is a factory
+/// over the engines that load it: <see cref="Register"/> runs once per <c>LoadPlugin</c> and every
+/// piece of SESSION state the builtins touch — the assumption store above all — is created per
+/// registration (<see cref="EngineSession"/>), so loading ONE instance into TWO engines gives each
+/// engine its own set. The kernel's <see cref="Context"/> (symbol/function tables and the
+/// hash-consing pool) is shared by such engines deliberately: it carries identity, not session
+/// state, and <see cref="Expr"/> equality is structural. A host that loads one instance into
+/// several engines is therefore correct for the language surface; it only loses the direct-caller
+/// reading <c>Context.Assumptions</c> (see <see cref="RelevantAssumptions(object)"/>), which
+/// reports the store of the engine that evaluated last.
+/// </para>
 /// </summary>
 public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymbolicInspectionBridge
 {
@@ -151,13 +163,102 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         return m;
     }
 
-    private AssumptionSet _assumptions = AssumptionSet.Empty;
+    /// <summary>
+    /// The assumption store of ONE engine — the "session" the assumption builtins document.
+    /// <para>
+    /// A <see cref="SymbolicsPlugin"/> instance is a FACTORY over the engines that load it:
+    /// <see cref="Register"/> runs once per <c>SuiteEngine.LoadPlugin</c> and one
+    /// <see cref="EngineSession"/> is created per registration, so the atoms <c>assume(...)</c>
+    /// adds belong to the engine that ran the script. They used to live in a field of the plugin
+    /// object itself, and ONE instance loaded into TWO engines then answered the second engine's
+    /// <c>simplify(x &gt; 0)</c> with the FIRST engine's assumption — a wrong Boolean produced by
+    /// state the asking engine never set (round-21 audit K, K-3).
+    /// </para>
+    /// <para>
+    /// The kernel's documented home for per-engine/session state is an <see cref="ExprContext"/>
+    /// ("hosts create one context per engine/session", <see cref="Context"/>), whose
+    /// <see cref="ExprContext.Assumptions"/> already carries a flow-local scope
+    /// (<see cref="ExprContext.WithAssumptions"/>). The store is therefore held per registration
+    /// and installed into that context FLOW-LOCALLY for the duration of one builtin call: two
+    /// engines that share one plugin instance and evaluate concurrently each install their own
+    /// scope, so neither can read or overwrite the other's set mid-call.
+    /// </para>
+    /// </summary>
+    private sealed class EngineSession
+    {
+        private readonly ExprContext _context;
+        private AssumptionSet _assumptions = AssumptionSet.Empty;
+
+        public EngineSession(ExprContext context) => _context = context;
+
+        /// <summary>This engine's active set (immutable; extended by <see cref="Assume"/>).</summary>
+        public AssumptionSet Assumptions => _assumptions;
+
+        /// <summary>Adds one atom to THIS engine's set; throws on contradiction.</summary>
+        public void Assume(Assumption a) => _assumptions = _assumptions.Add(a);
+
+        /// <summary>Drops every atom of THIS engine's set — the set a fresh engine has.</summary>
+        public void Clear() => _assumptions = AssumptionSet.Empty;
+
+        /// <summary>
+        /// Runs one builtin body under this engine's assumptions. The install is the context's
+        /// flow-local scope, never the base slot alone: the base slot is ONE value per context, so
+        /// two engines sharing a context would overwrite each other's set between a builtin's
+        /// first and last read.
+        /// </summary>
+        public object Run(Func<object?> impl)
+        {
+            var previous = Exprs.Current;
+            Exprs.Current = _context;
+            // A scope the IMMEDIATE caller installed on purpose (Context.WithAssumptions) keeps the
+            // precedence it has always had inside an engine evaluation; with no such scope the
+            // engine's own store is what the builtin reads, installed flow-locally so a concurrent
+            // evaluation that shares this context cannot overwrite it mid-call.
+            using IDisposable? scope = _context.AssumptionScopeIsActive
+                ? null
+                : _context.WithAssumptions(_assumptions);
+            try
+            {
+                return impl() ?? throw new InvalidOperationException("Symbolic builtin returned null.");
+            }
+            finally
+            {
+                // Publish the post-call set to the context's BASE slot as well: a direct
+                // (non-builtin) kernel caller is not inside a scope and must see the atoms this
+                // call added — Studio's inspection panel reads exactly this
+                // (Studio/EngineHost.cs, session.Symbolics.Context.Assumptions).
+                _context.Assumptions = _assumptions;
+                Exprs.Current = previous;   // restore the ambient context: never leak across calls
+            }
+        }
+    }
+
+    /// <summary>The per-engine inspection bridge: the SAME projection the plugin publishes, read
+    /// against the store of the engine that was handed this bridge, so
+    /// <c>inspect(x).assumptions</c> answers for the engine that ran the script.</summary>
+    private sealed class EngineInspectionBridge : ISymbolicInspectionBridge
+    {
+        private readonly EngineSession _session;
+
+        public EngineInspectionBridge(EngineSession session) => _session = session;
+
+        /// <summary>The projection is the plugin's own (one implementation, two stores): the
+        /// overload that takes the set explicitly is what keeps the two engines' answers apart.
+        /// The call is typed because this method hides the outer overloads by name.</summary>
+        public object?[] RelevantAssumptions(object expression) =>
+            SymbolicsPlugin.RelevantAssumptions(_session.Assumptions, expression);
+    }
 
     public void Register(IModusContext c)
     {
+        // ONE assumption store per ENGINE, not per plugin object: see EngineSession.
+        var session = new EngineSession(Context);
+
         // the D14 seam: core inv/linsolve/matrix_rank/det dispatch symbolic matrices here
         c.RegisterSymbolicMatrixBridge(this);
-        c.RegisterSymbolicInspectionBridge(this);
+        // the assumption reader is per-engine too: the core asks the bridge of the engine whose
+        // script is running, never a bridge shared by every engine that loaded this instance
+        c.RegisterSymbolicInspectionBridge(new EngineInspectionBridge(session));
 
         void Add(string name, string[] parameters, Func<IReadOnlyList<object?>, object?> impl, BuiltinDescriptor? descriptor = null)
         {
@@ -173,7 +274,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 var tracked = args as BuiltinArgs ?? new BuiltinArgs(args);
                 try
                 {
-                    return Run(() => impl(tracked));
+                    return session.Run(() => impl(tracked));
                 }
                 catch (BuiltinShapeError ex)
                 {
@@ -194,7 +295,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         {
             var name = AsTextName(args[0]);
             return args.Count >= 2 && args[1] is MathDomain md
-                ? SymbolWithDomain(name, md)
+                ? SymbolWithDomain(session, name, md)
                 : Exprs.Symbol(name);
         },
             new BuiltinDescriptor("symbol", new[] { "name", "domain" }, BuiltinCategories.Symbolics,
@@ -249,12 +350,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         Add("assume", new[] { "relation" }, args =>
         {
             var rel = AsRelation(args[0]);
-            if (!AssumeRecursive(rel))
+            if (!AssumeRecursive(session, rel))
                 throw new InvalidOperationException("assume() accepts relations and their conjunctions/negations with constant bounds.");
             return rel;
         },
         new BuiltinDescriptor("assume", new[] { "relation" }, BuiltinCategories.Symbolics,
-            "Assumes a relation (or conjunction of relations) with a constant bound for the session, e.g. x > 5.",
+            "Assumes a relation (or conjunction of relations) with a constant bound for the session (the engine this plugin was loaded into), e.g. x > 5.",
             ["assume(x > 5)", "assume(and(x > 0, x < 10))"], "Symbolic",
             ["assume_positive", "assumptions", "assume_clear"]));
         Add("and", new[] { "a", "b" }, args => LogicalOp(args, isAnd: true));
@@ -266,17 +367,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             var e = AsExpr(args[0]);
             return Exprs.Not(e);
         });
-        Add("assume_positive", new[] { "x" }, args => AssumePred(args, SymbolPredicate.Positive));
-        Add("assume_nonnegative", new[] { "x" }, args => AssumePred(args, SymbolPredicate.NonNegative));
-        Add("assume_negative", new[] { "x" }, args => AssumePred(args, SymbolPredicate.Negative));
-        Add("assume_real", new[] { "x" }, args => AssumeDomain(args, Domain.Real));
-        Add("assume_integer", new[] { "x" }, args => AssumeDomain(args, Domain.Integer));
+        Add("assume_positive", new[] { "x" }, args => AssumePred(session, args, SymbolPredicate.Positive));
+        Add("assume_nonnegative", new[] { "x" }, args => AssumePred(session, args, SymbolPredicate.NonNegative));
+        Add("assume_negative", new[] { "x" }, args => AssumePred(session, args, SymbolPredicate.Negative));
+        Add("assume_real", new[] { "x" }, args => AssumeDomain(session, args, Domain.Real));
+        Add("assume_integer", new[] { "x" }, args => AssumeDomain(session, args, Domain.Integer));
         Add("assume_clear", Array.Empty<string>(), _ =>
         {
-            _assumptions = AssumptionSet.Empty;
+            session.Clear();
             return "assumptions cleared";
         });
-        Add("assumptions", Array.Empty<string>(), _ => AssumptionSetRecord());
+        Add("assumptions", Array.Empty<string>(), _ => AssumptionSetRecord(session));
 
         Add("diff", new[] { "f", "x" }, args =>
             Calculus.Diff(AsExpr(args[0]), AsSymbol(args[1]), Context),
@@ -1067,7 +1168,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         _ => null,
     };
 
-    private bool AssumeRecursive(Expr rel)
+    private static bool AssumeRecursive(EngineSession session, Expr rel)
     {
         switch (rel)
         {
@@ -1075,7 +1176,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             {
                 if (r.Left is SymbolExpr sx && r.Right is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr))
                 {
-                    _assumptions = _assumptions.Add(new SymbolRelationAssumption(sx.Symbol, r.Op, r.Right));
+                    session.Assume(new SymbolRelationAssumption(sx.Symbol, r.Op, r.Right));
                     return true;
                 }
                 // "1/2 < x" states the same fact as "x > 1/2": normalise the mirrored spelling.
@@ -1085,7 +1186,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                     r.Left is (RationalConstantExpr or IntegerConstantExpr or RealConstantExpr) &&
                     Flipped(r.Op) is { } flipped)
                 {
-                    _assumptions = _assumptions.Add(new SymbolRelationAssumption(rs.Symbol, flipped, r.Left));
+                    session.Assume(new SymbolRelationAssumption(rs.Symbol, flipped, r.Left));
                     return true;
                 }
                 return false;
@@ -1094,7 +1195,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             {
                 var ok = true;
                 foreach (var o in an.Operands)
-                    ok &= AssumeRecursive(o);
+                    ok &= AssumeRecursive(session, o);
                 return ok;
             }
             case NotExpr nt when nt.Operand is RelationExpr nr && nr.Left is SymbolExpr nx &&
@@ -1103,7 +1204,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 var negated = AssumptionSet.Negate(new SymbolRelationAssumption(nx.Symbol, nr.Op, nr.Right));
                 if (negated is SymbolRelationAssumption sra)
                 {
-                    _assumptions = _assumptions.Add(sra);
+                    session.Assume(sra);
                     return true;
                 }
                 return false;
@@ -1201,6 +1302,9 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         truth = false;
         if (rel.Left is not SymbolExpr sx)
             return false;
+        // the ACTIVE set, read through the context: inside a builtin call that is this engine's
+        // store (installed flow-locally by EngineSession.Run), and when the caller installed a
+        // scope of its own, that scope — the precedence it has always had.
         var answer = Context.Assumptions.Ask(new SymbolRelationAssumption(sx.Symbol, rel.Op, rel.Right));
         if (answer == Tristate.True)
         {
@@ -1307,15 +1411,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// Before this the whole set was recoverable only by parsing that spelling, which the protocol
     /// forbids, and the atoms a caller needs (relation/domain/predicate/interval) were already
     /// available through <c>inspect(...).assumptions</c>.</summary>
-    private RecordValue AssumptionSetRecord() => new(
+    private static RecordValue AssumptionSetRecord(EngineSession session) => new(
         "AssumptionSet",
-        new RecordField("display", AssumptionText()),
-        new RecordField("assumptions", ConditionExprs(_assumptions)));
+        new RecordField("display", AssumptionText(session.Assumptions)),
+        new RecordField("assumptions", ConditionExprs(session.Assumptions)));
 
     /// <summary>The human rendering of the active assumptions ("x &gt; 5; x in Integer"), which is
     /// the value the Text-returning form used to publish on its own.</summary>
-    private string AssumptionText() =>
-        string.Join("; ", _assumptions.Atoms.Select(a => a switch
+    private static string AssumptionText(AssumptionSet assumptions) =>
+        string.Join("; ", assumptions.Atoms.Select(a => a switch
         {
             SymbolRelationAssumption r => Printing.PrettyPrint(Exprs.Relation(r.Op, Exprs.Symbol(r.S), r.Bound)),
             SymbolDomainAssumption d => d.S.Name + " in " + d.D,
@@ -1325,15 +1429,25 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     /// <summary>ISymbolicInspectionBridge: the active assumptions that constrain the symbols free
     /// in the inspected expression, projected as structured condition leaves (the same projection
-    /// every other condition array uses).</summary>
-    public object?[] RelevantAssumptions(object expression)
+    /// every other condition array uses).
+    /// <para>
+    /// This overload is the DIRECT-CALLER form: it reports the set the plugin last published to
+    /// <see cref="Context"/>, i.e. the store of the engine that evaluated last on this instance.
+    /// An engine's own <c>inspect(...)</c> goes through the per-engine bridge
+    /// (<see cref="EngineInspectionBridge"/>), so a script always inspects its own engine's
+    /// assumptions even when several engines share one plugin object.
+    /// </para></summary>
+    public object?[] RelevantAssumptions(object expression) =>
+        RelevantAssumptions(Context.Assumptions, expression);
+
+    private static object?[] RelevantAssumptions(AssumptionSet assumptions, object expression)
     {
         if (expression is not Expr e)
             return Array.Empty<object?>();
         var names = new HashSet<string>(Printing.FreeSymbolNames(e), StringComparer.Ordinal);
         if (names.Count == 0)
             return Array.Empty<object?>();
-        var relevant = _assumptions.Atoms.Where(a => MentionsAny(a, names)).ToArray();
+        var relevant = assumptions.Atoms.Where(a => MentionsAny(a, names)).ToArray();
         return relevant.Length == 0 ? Array.Empty<object?>() : ConditionExprs(AssumptionSet.FromAtoms(relevant));
     }
 
@@ -1378,10 +1492,10 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         return result.Vector?.Select(e => (object)e).ToArray();
     }
 
-    private object SymbolWithDomain(string name, MathDomain domain)
+    private object SymbolWithDomain(EngineSession session, string name, MathDomain domain)
     {
         var s = Context.Symbol(name);
-        _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, Domains.ToKernelDomain(domain)));
+        session.Assume(new SymbolDomainAssumption(s, Domains.ToKernelDomain(domain)));
         return Exprs.Symbol(s);
     }
 
@@ -1521,53 +1635,33 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
     }
 
-    private object Run(Func<object?> impl)
-    {
-        var previous = Exprs.Current;
-        Exprs.Current = Context;
-        try
-        {
-            // install the pre-call set for the builtin's own reads, then re-sync after the call
-            // so assumption updates made during the call (assume/assume_*) become visible
-            // immediately — including to direct (non-builtin) kernel callers like Studio
-            Context.Assumptions = _assumptions;
-            var result = impl() ?? throw new InvalidOperationException("Symbolic builtin returned null.");
-            Context.Assumptions = _assumptions;
-            return result;
-        }
-        finally
-        {
-            Exprs.Current = previous;   // restore the ambient context: never leak across calls
-        }
-    }
-
-    private object AssumePred(IReadOnlyList<object?> args, SymbolPredicate pred)
+    private object AssumePred(EngineSession session, IReadOnlyList<object?> args, SymbolPredicate pred)
     {
         if (args[0] is SymbolExpr or Expr)
         {
             var e = AsExpr(args[0]);
             if (e is SymbolExpr sx)
             {
-                _assumptions = _assumptions.Add(new SymbolPropertyAssumption(sx.Symbol, pred));
+                session.Assume(new SymbolPropertyAssumption(sx.Symbol, pred));
                 return e;
             }
-            _assumptions = _assumptions.Add(new ExpressionPropertyAssumption(e, pred));
+            session.Assume(new ExpressionPropertyAssumption(e, pred));
             return e;
         }
         var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
-        _assumptions = _assumptions.Add(new SymbolPropertyAssumption(s, pred));
+        session.Assume(new SymbolPropertyAssumption(s, pred));
         return Exprs.Symbol(s);
     }
 
-    private object AssumeDomain(IReadOnlyList<object?> args, Domain domain)
+    private object AssumeDomain(EngineSession session, IReadOnlyList<object?> args, Domain domain)
     {
         if (args[0] is Expr e && e is SymbolExpr sx)
         {
-            _assumptions = _assumptions.Add(new SymbolDomainAssumption(sx.Symbol, domain));
+            session.Assume(new SymbolDomainAssumption(sx.Symbol, domain));
             return e;
         }
         var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
-        _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, domain));
+        session.Assume(new SymbolDomainAssumption(s, domain));
         return Exprs.Symbol(s);
     }
 

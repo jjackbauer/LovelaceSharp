@@ -218,8 +218,13 @@ public sealed class SuiteEngine
     /// <summary>
     /// Serializes evaluations per engine so session-scoped state (variables, assumptions held
     /// by plugins, precision scopes) cannot interleave across concurrent requests — the
-    /// <c>Studio.Session.Gate</c> precedent. Cross-engine isolation is structural (each engine
-    /// hosts its own plugin instances).
+    /// <c>Studio.Session.Gate</c> precedent. Cross-engine isolation does NOT depend on the host
+    /// creating one plugin object per engine: a plugin is loaded once per engine
+    /// (<see cref="LoadPlugin"/>) and the session state its builtins own — the assumptions
+    /// <c>assume(...)</c> records above all — is created per LOAD, so one plugin object handed to
+    /// two engines gives two assumption sets and neither engine can answer from the other's
+    /// (round-21 audit K, K-3; the per-load store is
+    /// <c>Lovelace.Symbolics.SymbolicsPlugin.EngineSession</c>).
     /// </summary>
     private readonly SemaphoreSlim _evaluationGate = new(1, 1);
 

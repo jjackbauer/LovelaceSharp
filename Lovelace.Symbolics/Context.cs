@@ -68,6 +68,13 @@ public sealed class ExprContext
     /// <summary>Flow-local scope override; null means "no scope active, use the base set".</summary>
     private readonly AsyncLocal<AssumptionSet?> _scope = new();
 
+    /// <summary>True while a flow-local scope installed by <see cref="WithAssumptions"/> is active
+    /// in THIS flow, as opposed to the context's base set. A builtin that owns a per-engine store
+    /// asks this before installing its own scope, so a scope the immediate caller installed
+    /// deliberately keeps its precedence (the assumption builtins of a plugin loaded into several
+    /// engines install their engine's set only when the caller has not spoken).</summary>
+    internal bool AssumptionScopeIsActive => _scope.Value is not null;
+
     /// <summary>Registered function definitions (name → definition).</summary>
     public FunctionRegistry Functions { get; } = new();
 
