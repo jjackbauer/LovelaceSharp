@@ -1,17 +1,29 @@
 # Harness State — cycle-6
 
+- **Round**: 20 — **the third audit wave (new strategies: cross-surface consistency, determinism/idempotence, budget honesty) falsified the closure claim again**: **H-1 (P0)** `series(abs(x), x, 0, 3)` returns a different value every run (`__t<guid>` from `Series.cs:56` survives into the published `piecewise`) **and denotes 0 where SymPy says x**; **G-2 (P1)** byte-identical BOM text reports `position 12` via `--file` but `13` via `--eval`/`--stdin`; two P2s (`SymbolicsPlugin.cs` stale capability prose — **fixed by me**; `--omit-*` emitting `[]` instead of omitting the key). Fixers dispatched for H-1 and G-2 with control trees; **D1 is NOT MET at `d87e910`**. A+ not claimed.
 - **Round**: 19 — the second wave's P1s are closed too (published positions `63774da`; print output and `ParseError` `6424e27`), so **all fourteen P0/P1s from both audit waves are closed with control-failing tests**. **CI run #66 on `3d27d61` is green in all three jobs.** **D1 remains NOT MET** because no CLEAN fresh wave has been run against the closure tree, and **D3 remains PARTIAL** (seven bound acceptances unanswered). A+ not claimed.
 
-> **Close the audit's remaining P0 and P1s, one bounded round each, all three in parallel worktrees:**
-> (a) **A-P0** — at the ambient-precision boundary the leading significant digit of a reduced
-> trigonometric value is wrong (`setprecision(31); evalf(sin(pi(30)), 40)` → `…4` where mpmath says
-> `5.0288…e-31`); the diagnosis starts at `ComplexMath.PiDigitsFor`/`SinCosAtPrecision`, and the pinned
-> values `Sin(Rl.Pi) == 0`, `Cos(Rl.Pi) == -1` and `sin(pi(100)*2)`'s true residual must not change.
-> (b) **A-P1a** — the structured payload silently truncates every Real at 100 decimal places while the
-> display carries the full value; the contract is to be read from the protocol document and
-> `DisplayDecimalPlaces` before any code moves. (c) **C-P1c/d/e** — `zeros(1000000000)` raises an
-> internal invariant failure instead of a typed refusal, a failed plot WRITE is internal while a failed
-> READ is typed, and `len` refuses the zero-dimension arrays that `shape` reports.
+> **Round 20 objective: run the third fresh audit wave against the binary published from HEAD, then
+> close whatever it finds before the tree is called clean.** Wave 3 (three new strategies: cross-surface
+> consistency, determinism/idempotence, budget/limit honesty) found **one P0 and one P1**, both NEW:
+> (a) **H-1 (P0, two defects in one)** — `series(abs(x), x, 0, 3)` is **nondeterministic** (the
+> substitution variable `"__t" + Guid.NewGuid().ToString("N")[..6]` from `Lovelace.Symbolics/Calculus/
+> Series.cs:56` survives into the published `piecewise` node, so 4/4 runs differ) **and wrong**: both
+> branches are `diff(0, t)` = 0 under the always-false condition `0 != 0`, so it denotes `0 + O(x^3)`
+> where SymPy 1.14.0 says `x`. The family is every series at a non-smooth point — `x*abs(x)`,
+> `abs(sin(x))`, `abs(x-1)`, and `sqrt(abs(x))` which even publishes `1/sqrt(0)`. The
+> `x0 = 1` case is *correct* (condition `1 != 0` is true), so the fix must pin the correct value per
+> shape rather than assume uniform wrongness. `Limits.cs:402`'s deterministic `"__t"` never leaks —
+> leave its four answers alone.
+> (b) **G-2 (P1)** — the same bytes report different positions per surface (`--file` strips the BOM →
+> `12`; `--eval`/`--stdin` keep it → `13`); the reading must be taken from the documents and enforced in
+> one place so the surfaces cannot drift again.
+> Two P2s ride along: the stale capability prose in `SymbolicsPlugin.cs:824-829` (**already corrected by
+> the orchestrator**, with the four live refusals re-measured) and `--omit-functions`/`--omit-variables`
+> emitting `[]` instead of omitting the key.
+> **Then**: re-verify both fixes on the wire myself, re-measure D4, and run a fourth fresh wave with new
+> strategies against the final binary — the closure wave is not a substitute for a fresh audit (OBS-022,
+> OBS-024).
 
 - **Round**: 18 — the second audit wave (CLI-surface differential fuzzing, against the binary published from the FINAL tree) falsified the "no P0/P1 outstanding" claim: **D1 is NOT MET** with three new P1s and two live cycle-5 P1s recorded; an attack-the-fixes persona is still running. **CI run #59 on `9fa52c5` is green in all three jobs**; D4 re-measured clean on the final tree. A+ not claimed. Historical: round 17 — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their

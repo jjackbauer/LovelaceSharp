@@ -821,12 +821,15 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// <c>sum(1,2,3)</c>), the <c>Cancelled</c>/<c>BudgetExceeded</c> cancellation envelope, and
     /// <c>UnsatisfiableAssumptions</c> from <c>assume()</c>. They are real refusals, but they are
     /// not per-operation capability boundaries of this kernel.</item>
-    /// <item>the caller-side argument errors that are still BUGS rather than capabilities:
-    /// <c>mean(1)</c>, <c>max(1,2)</c> and <c>sum(x, 5)</c> surface as
-    /// <c>InternalError</c>/<c>InternalInvariantFailure</c> carrying the raw CLR message "Specified
-    /// cast is not valid." (audit finding F4), and a 3000-deep script overflows the native stack and
-    /// emits no envelope at all (F11). Advertising any of them would claim a capability boundary
-    /// where the truth is a defect; they stay unadvertised until they are fixed or typed.</item>
+    /// <item>the caller-side argument errors that were BUGS and are now typed refusals:
+    /// <c>mean(1)</c>, <c>max(1,2)</c> and <c>sum(x, 5)</c> answer
+    /// <c>InvalidArgument</c>/<c>TypeMismatch</c> naming the builtin and the offending argument
+    /// ("mean(): argument 1 must be an array or vector; got Natural."), and a deeply nested script
+    /// answers <c>DepthExceeded</c>/<c>BudgetExceeded</c> ("expression nesting depth 257 exceeds the
+    /// maximum supported nesting depth") instead of overflowing the native stack with no envelope
+    /// (audit findings F4/F11, closed in round 17; re-measured 2026-09-12). Neither is a
+    /// per-operation capability boundary of this kernel — they are the uniform argument-shape and
+    /// nesting checks every builtin goes through — so they stay out of the list below.</item>
     /// </list>
     /// <para>
     /// So the honest reading of this record is: <b>exhaustive over the refusal classes the round-09

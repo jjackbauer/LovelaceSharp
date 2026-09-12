@@ -776,4 +776,85 @@
   which the unauthenticated checks API can read, so the next occurrence names itself. Until then, treat
   a single red run on unchanged code as this risk and re-run before investigating the product.
 - **Gate**: —
+---
+
+### OBS-023: A stale build artifact can be mistaken for a product regression — and for a stale audit finding
+
+- **Source**: my own probe of the freshly published AOT binary, `out/posprobe.lv` (round 20).
+- **Fact**: the AOT binary published from HEAD reports `det(1)` (first statement, byte offset 0) at
+  `{"position":0,"line":1,"column":1}`, and **Release agrees on every deciding field**. The only binary
+  that disagreed was `Lovelace.Run/bin/Debug/net10.0`, which was **71 633 s (20 h) old** — built before
+  `63774da` — and answered the pre-fix `InternalError/InternalInvariantFailure` with a raw
+  `InvalidCastException` message. Rebuilding Debug (`0 Warning(s) / 0 Error(s)`) makes it agree.
+- **Why it matters**: two independent failure modes were live at once. (a) A stale artifact looks exactly
+  like a regression, and round 19's recorded `12/3/1` looked like it contradicted `0/1/1` (it does not:
+  a different script, third statement at offset 12). (b) A stale artifact also **re-manufactures closed
+  findings** — probing `bin/Debug` resurrected the audit-E array-argument defect that `63774da` closed,
+  which an auditor would honestly report as a fresh P0 unless it checks the timestamp.
+- **Also settled**: stopping the run at the first failing statement (one `Void` timing, `output` holding
+  only the lines printed before the failure) is the documented shape — `docs/symbolics/dsh-protocol.md:
+  187-205` shows it in its own error example — and `recoverable` scopes the *caller*, not the run
+  (`dsh-protocol.md:86`). So the probe is not a finding about error handling either.
+- **Mitigation**: the round-20 briefs name the published `out/aot/Lovelace.Run.exe` as the artefact under
+  test, and `bin/Debug` was rebuilt before the wave started so the tree carries no pre-fix binary.
+- **Evidence**: `docs/goal-cycle-6/round-20/positions-probe.md`, EVD-296.
+- **Gate**: —
+---
+
+### OBS-024: The third audit wave falsifies "no P0/P1 outstanding" again — and that is the gate working
+
+- **Source**: audits G and H of wave 3 (fresh agents, new strategies: cross-surface consistency and
+  determinism/idempotence), run against the AOT binary published from HEAD `d87e910`.
+- **Fact**: wave 3 found a **P0 and a P1** that waves 1–2 and my own re-verification all missed:
+  - **H-1 (P0)** — `series(abs(x), x, 0, 3)` returns a different value on **every run** (4/4 distinct
+    here, 12/12 across concurrent processes for the auditor) because `Series.cs:56` mints the
+    substitution variable as `"__t" + Guid.NewGuid().ToString("N")[..6]` and it survives into the
+    published `piecewise` node. The published value is also **mathematically wrong**: both branches are
+    `diff(0, t)` = 0 under the always-false condition `0 != 0`, so it denotes `0 + O(x^3)` where SymPy
+    answers `x`. So this is a wrong-value P0 with a nondeterminism P0 on top.
+  - **G-2 (P1)** — byte-identical text with a leading BOM reports `position 12` through `--file` and
+    `13` through `--eval`/`--stdin`, because `--file` strips the BOM; the divergence was measured in
+    round 19 but never carried into §P.2, so nothing owned it.
+- **Why it matters**: this is the second consecutive wave in which a fresh strategy set found P0/P1s
+  after a closure wave had declared the tree clean (OBS-022). The lesson is not "audit harder" but
+  **"closure waves do not substitute for a fresh audit"**, and a *new strategy* is what finds them: waves
+  1–2 tested metamorphic invariants and hostile inputs; determinism and cross-surface agreement were
+  simply never asked. Both defects live in the same blind spot — a value that is *self-consistent per
+  route and per run* only until you compare two runs or two routes.
+- **Also from wave 3 (not new)**: audit G re-confirmed six recorded divergences and found one new P2
+  (`SymbolicsPlugin.cs:824-829` documents `mean(1)`/`max(1,2)`/`sum(x,5)` and a 3000-deep script as
+  internal failures when all four are typed refusals today — doc-only, the defects are closed). Audit H's
+  second finding is `--omit-functions`/`--omit-variables` emitting `[]` rather than omitting the key
+  (`Runner.cs:652-653` vs `218-230`) — a P2 against the flag's own help text.
+- **Consequence**: D1 is **not** met at `d87e910`. Fixers are dispatched for H-1 and G-2, both test-first
+  with control trees; the P2s are recorded for the same landing if the fixers have room, and every one of
+  the three must be re-measured by me on the wire before it counts.
+- **Evidence**: EVD-297 (H-1, my 4-run probe + SymPy truth), EVD-298 (G-2, my two-route probe), EVD-299 (a
+  false finding I generated and refuted — PowerShell 5.1 strips embedded double quotes before `argv`, so
+  `--eval 'a = "hi"; a'` fails through the shell and succeeds through a `.bat`); audit deliverables
+  `round-20/audit-G-consistency.md`, `round-20/audit-H-determinism.md`.
+- **Gate**: —
+---
+
+### DEC-009: H-2 resolves as a documentation defect, because the behaviour is pinned by an existing test
+
+- **Decision**: do **not** make `--omit-functions`/`--omit-variables` drop the key from the envelope —
+  reword their `--help` lines instead.
+- **Why**: audit H's P2 (wave 3) is that the flags "send `[]` instead of omitting the array,
+  contradicting `--help`". Both readings were open until I read the tests:
+  `Lovelace.Run.Tests/VariableStructuredProjectionTests.cs:153-160` asserts
+  `Assert.Empty(envelope["variables"]!.AsArray())` — the key must be *present and empty*, because the
+  null-forgiving operator would throw if it were absent — and the test's own comment describes the flag
+  as "the payload knob it was". So the behaviour is the pinned contract and the help sentence is the
+  thing that is false. Changing the behaviour would mean weakening an existing assertion, which the
+  cycle's hard rules forbid; a P2 does not outrank that.
+- **Consequence**: the fix is two lines of help text (`Runner.cs:652-653`), queued behind the BOM
+  fixer's commit because both touch `Runner.cs`. The P2 closes as a documentation defect with the
+  contract kept — the same disposition shape as the wave-3 G-1 doc finding (`SymbolicsPlugin.cs`),
+  which I already corrected.
+- **Evidence**: EVD-304.
+- **Gate**: —
+
+
+
 
