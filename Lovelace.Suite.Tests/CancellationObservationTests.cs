@@ -9,6 +9,14 @@ namespace Lovelace.Suite.Tests;
 /// <see cref="SuiteEngine.EvaluateAsync(string, TextWriter?, CancellationToken)"/> installs
 /// (SuiteEngine.cs:223) together with the <see cref="EvaluationCancelledException"/> it raises.
 /// </summary>
+/// <para>
+/// <c>Category=Timing</c>: both cases below are WALL-CLOCK verdicts. CI's instrumented loop
+/// excludes this category and runs it in its own uninstrumented step, because the coverage
+/// collector inflates a 1.5 s budget into tens of seconds and turns promptness into a flake
+/// (measured: 29 s under the collector on a loaded machine, 1-4 s without). It is excluded,
+/// never skipped, and it still runs on every push.
+/// </para>
+[Trait("Category", "Timing")]
 public class CancellationObservationTests
 {
     /// <summary>Test-side fence: an implementation that never observes cancellation must FAIL

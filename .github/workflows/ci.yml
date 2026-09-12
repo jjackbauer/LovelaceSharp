@@ -79,9 +79,15 @@ jobs:
             # low-precision sqrt paths).
             precbench.Tests/precbench.Tests.csproj
           )
+          # Category=Timing is excluded here and run in its own uninstrumented step below:
+          # its assertions are WALL-CLOCK verdicts and the coverage collector inflates them
+          # (cycle 6: a 1.5 s cancellation budget measured 29 s under the collector on a
+          # loaded runner and turned this job red; cycle 5 hit the same class in
+          # Lovelace.Real.Tests). Excluded from the instrumented loop, never skipped.
           for project in "${suites[@]}"; do
             echo "::group::dotnet test $project"
             dotnet test "$project" --configuration Release --nologo \
+              --filter "Category!=Timing" \
               --collect:"XPlat Code Coverage"
             echo "::endgroup::"
           done
@@ -106,8 +112,14 @@ jobs:
         run: |
           set -euo pipefail
           # Category=Timing must still run in CI, without a coverage collector, so its
-          # wall-clock budget means what it says.
+          # wall-clock budget means what it says. Every project that carries one runs here.
           dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category=Timing"
+          dotnet test Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category=Timing"
+          dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
             --configuration Release --nologo \
             --filter "Category=Timing"
 

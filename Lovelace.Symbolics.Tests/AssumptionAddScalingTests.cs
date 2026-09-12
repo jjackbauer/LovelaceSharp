@@ -93,7 +93,15 @@ public class AssumptionAddScalingTests
         return (k * sxy - sx * sy) / (k * sxx - sx * sx);
     }
 
+    /// <summary>
+    /// <c>Category=Timing</c>: the 250 ms bound below is a wall-clock verdict. CI's instrumented
+    /// loop excludes this category and runs it in its own uninstrumented step, because the coverage
+    /// collector turns a healthy sub-second measurement into seconds (measured: this case fails at
+    /// "[2 s]" under the collector on a loaded machine and passes 4/4 in 625 ms alone). Excluded,
+    /// never skipped.
+    /// </summary>
     [Fact]
+    [Trait("Category", "Timing")]
     public void Add_Scaling_800AtomsStaysUnder250ms_AndKeepsEveryAtomInOrder()
     {
         var lines = new List<string> { "| workload | atoms | elapsed ms (min of " + Reps + ") | stored atoms |", "|---|---|---|---|" };
