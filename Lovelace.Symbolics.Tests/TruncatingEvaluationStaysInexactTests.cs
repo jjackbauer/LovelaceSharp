@@ -38,6 +38,15 @@ namespace Lovelace.Symbolics.Tests;
 /// dft([1,2,3])[0]) must still report exact, and the literal round trip must preserve the DIGITS as
 /// well as the flag — a fix that marked every literal inexact would fail this file too.</para>
 /// </summary>
+/// <para>
+/// <c>Category=Costly</c>: the cases here evaluate elementary functions of truncated constants at
+/// tens of digits, and the COVERAGE COLLECTOR turns that into minutes (measured: the filtered run
+/// under the collector did not finish in 35 minutes before the corpus was bounded and still took
+/// 404 s after it, against about a minute without the collector). CI therefore excludes the category
+/// from its instrumented loop and runs it, uninstrumented, in its own step - excluded, never
+/// skipped.
+/// </para>
+[Trait("Category", "Costly")]
 public class TruncatingEvaluationStaysInexactTests
 {
     /// <summary>The digit count the acceptance transcript requests.</summary>

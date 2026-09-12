@@ -87,7 +87,7 @@ jobs:
           for project in "${suites[@]}"; do
             echo "::group::dotnet test $project"
             dotnet test "$project" --configuration Release --nologo \
-              --filter "Category!=Timing" \
+              --filter "Category!=Timing&Category!=Costly" \
               --collect:"XPlat Code Coverage"
             echo "::endgroup::"
           done
@@ -122,6 +122,13 @@ jobs:
           dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
             --configuration Release --nologo \
             --filter "Category=Timing"
+
+          # Category=Costly is the same idea for a different cause: the work is legitimate but the
+          # collector makes it minutes rather than seconds (cycle 6: an elementary-function sweep
+          # over truncated constants). It runs here, uninstrumented, so it still gates every push.
+          dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category=Costly"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
