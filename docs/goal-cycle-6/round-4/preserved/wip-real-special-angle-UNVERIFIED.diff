@@ -1,0 +1,89 @@
+﻿diff --git a/Lovelace.Real/Real.cs b/Lovelace.Real/Real.cs
+index af7a157..21243ec 100644
+--- a/Lovelace.Real/Real.cs
++++ b/Lovelace.Real/Real.cs
+@@ -1699,14 +1699,23 @@ public class Real :
+ 
+         Real x = ReduceToTwoPi(value, pi, twoPi);
+ 
+-        if (TrySpecialAngle(x, pi, out Real sinValue, out _))
++        // A table entry is the value of the ANGLE, and it may only be returned for an argument
++        // that IS that angle.  An INEXACT argument — <c>pi(30)</c>, or the ambient <see cref="Pi"/>
++        // itself, both truncations of π — only matches an angle's stored digits: its true distance
++        // to the angle is below its own last place, and the table's exact value is that distance
++        // away from the answer (<c>cos(pi(30))</c> is not −1; it deviates in the 61st decimal,
++        // <c>sin(pi(30)/2)</c> not 1).  Such a match is recorded rather than answered: the
++        // reduction is redone against a π that reaches below the argument's own scale, and the
++        // series — whose result is marked inexact — carries the distance instead.
++        bool matchedSpecialAngle = TrySpecialAngle(x, pi, out Real sinValue, out _);
++        if (matchedSpecialAngle && value.IsExact)
+             return sinValue;
+ 
+-        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
++        if (matchedSpecialAngle || ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
+         {
+-            (pi, twoPi, halfPi) = ReducingPi(value, digits);
++            (pi, twoPi, halfPi) = ReducingPi(value, digits, matchedSpecialAngle);
+             x = ReduceToTwoPi(value, pi, twoPi);
+-            if (TrySpecialAngle(x, pi, out sinValue, out _))
++            if (value.IsExact && TrySpecialAngle(x, pi, out sinValue, out _))
+                 return sinValue;
+         }
+ 
+@@ -1739,14 +1748,19 @@ public class Real :
+ 
+         Real x = ReduceToTwoPi(value, pi, twoPi);
+ 
+-        if (TrySpecialAngle(x, pi, out _, out Real cosValue))
++        // The same rule as <see cref="Sin(Real, long, IProgress{double}?)"/>: only an argument that
++        // IS the angle may be answered with the table's exact value.  For an inexact match the
++        // reduction is redone against a π that reaches below the argument, so the series measures
++        // the distance to the angle instead of the angle itself.
++        bool matchedSpecialAngle = TrySpecialAngle(x, pi, out _, out Real cosValue);
++        if (matchedSpecialAngle && value.IsExact)
+             return cosValue;
+ 
+-        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
++        if (matchedSpecialAngle || ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
+         {
+-            (pi, twoPi, halfPi) = ReducingPi(value, digits);
++            (pi, twoPi, halfPi) = ReducingPi(value, digits, matchedSpecialAngle);
+             x = ReduceToTwoPi(value, pi, twoPi);
+-            if (TrySpecialAngle(x, pi, out _, out cosValue))
++            if (value.IsExact && TrySpecialAngle(x, pi, out _, out cosValue))
+                 return cosValue;
+         }
+ 
+@@ -1812,10 +1826,30 @@ public class Real :
+     /// precision — is served from it (a lower-precision scope receives its prefix, which is exactly
+     /// what computing at that precision produces).
+     /// </summary>
+-    private static (Real Pi, Real TwoPi, Real HalfPi) ReducingPi(Real value, long digits)
++    private static (Real Pi, Real TwoPi, Real HalfPi) ReducingPi(Real value, long digits, bool resolveTheArgument = false)
+     {
++        long resolution = ResolvedPiDigits(value, digits);
++
++        // An inexact argument that matched a special angle sits ON that angle to within its own
++        // last stored place: the distance between them is below the argument's own scale, so π has
++        // to reach BELOW that scale — by as many places as the answer is asked for — to measure it.
++        // <see cref="ResolvedPiDigits"/> alone answers the ambient precision here, because the
++        // argument carries no more places than the ambient π does; that is exactly the case this
++        // flag exists for (the ambient π and the argument agree digit for digit, and only a π that
++        // reaches further down can see the difference).
++        if (resolveTheArgument)
++        {
++            long argumentPlaces = value.IsPeriodic ? 0L : -value.Exponent;
++            if (argumentPlaces < 0L)
++                argumentPlaces = 0L;
++
++            long wanted = argumentPlaces + digits + 10L;
++            if (wanted > resolution)
++                resolution = wanted;
++        }
++
+         Real pi;
+-        using (WithLocalPrecision(ResolvedPiDigits(value, digits)))
++        using (WithLocalPrecision(resolution))
+             pi = Pi;
+ 
+         return (pi, pi * new Real("2"), HalfOf(pi));

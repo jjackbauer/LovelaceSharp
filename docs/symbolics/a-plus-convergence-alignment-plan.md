@@ -657,3 +657,25 @@ unchanged and is its acceptance test: every advertised `code`, `category` and `m
 what the live call produces. §F's record shapes are unchanged; the `CapabilitiesResult` record keeps
 its `exactness` field, whose value must state what is still not enumerated (see N.3).
 
+## P. Amendment — Cycle 6
+
+> Sections C–J remain frozen law. Section N was Cycle 4's amendment and section O Cycle 5's. Cycle 6's
+> amendment is written in full at [`a-plus-cycle-6-amendment.md`](a-plus-cycle-6-amendment.md); this
+> section is the pointer and the summary, so that a reader of the plan alone sees the disposition.
+
+Cycle 6 **closed**: the CI breakage the previous cycle left unpolled (`98a9049`, `70241dc`); row 1's
+first route, the `RealLiteral` provenance leak (`e8638c0`); row 2, `--cancel-after` inside the numeric
+kernels (`b009dfe`); row 3, `evalf(f, digits)` with a count it cannot honour (`d4d7ccf`); and row 4,
+`capabilities()`'s under-claim (`d4d7ccf`, now 19 advertised entries with 19/19 reproducing their
+advertised code and category). It re-measured the section-O bounds and closes O-B7, O-B8a…i, O-B10
+(second half) and the under-claim in O-B14 as **no longer true**.
+
+Cycle 6 does **not** close — and names rather than grades around — three defects: the special-angle
+table still hands an exact value to an inexact argument on the wire (`evalf(cos(pi(30)), 100)` is
+`-1` `exact:true` where mpmath differs at the 61st decimal, and two tests pin the current behaviour,
+so closing it is a contract change); deep user-function recursion still kills the process with
+`0xC00000FD` and 0 bytes on stdout (O-B11); and `1/(3*10^1000)` is still returned as `0`, once
+declared `exact:true` (O-B10, first half). Seven further bounds (O-B1…O-B6, O-B9, O-B12) are scope
+decisions the maintainer was asked, twice, to accept or reject in writing; no answer was recorded, so
+none is marked ACCEPTED and all remain OPEN. **A+ is not claimed.**
+

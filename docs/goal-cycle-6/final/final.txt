@@ -1,0 +1,130 @@
+﻿=== forced rebuild 2026-09-12T02:11:01.8735386-03:00 ===
+rebuild exit=0 warnings=0 errors=0
+=== full sweep (LOVELACE_REQUIRE_SYMPY=1) ===
+Lovelace.Abstractions.Tests      passed=20    failed=0   skipped=0
+Lovelace.Array.Tests             passed=19    failed=0   skipped=0
+Lovelace.Complex.Tests           passed=96    failed=0   skipped=0
+Lovelace.Console.Tests           passed=15    failed=0   skipped=0
+Lovelace.Dsp.Tests               passed=61    failed=0   skipped=0
+Lovelace.Integer.Tests           passed=148   failed=0   skipped=0
+Lovelace.Knowledge.Tests         passed=28    failed=0   skipped=0
+Lovelace.Natural.Tests           passed=195   failed=0   skipped=0
+Lovelace.Representation.Tests    passed=91    failed=0   skipped=0
+Lovelace.Studio.Tests            passed=22    failed=0   skipped=0
+Lovelace.Suite.Tests             passed=819   failed=0   skipped=0
+Lovelace.Symbolics.Tests         passed=1105  failed=0   skipped=0
+Lovelace.Run.Tests               passed=190   failed=1   skipped=0
+precbench.Tests                  passed=13    failed=0   skipped=0
+Lovelace.Real.Tests(nonHeavy)    passed=2476  failed=0   skipped=0
+TOTAL passed=5298 failed=1 skipped=0
+elapsed=229.8s
+=== AOT publish + freshness + five smoke scenarios ===
+=== publish 2026-09-12T02:15:02.7133470-03:00 ===
+publish exit=0
+publish warnings=0 errors=0
+  [PASS] AOT publish succeeded - exit 0
+  [PASS] published binary exists - out\aot\Lovelace.Run.exe
+exe LastWriteTime=09/12/2026 02:15:17  size=5774336
+newest source: C:\Users\ricar\dev\LovelaceSharp\Lovelace.Suite\TypedArrayOps.cs at 09/12/2026 02:09:20
+  [PASS] binary is newer than the newest source file - 357.5s newer
+=== smoke 1: a complete solve reports Solved / Complete with per-solution conditions ===
+  [PASS] ok is true
+  [PASS] protocolVersion == 1
+  [PASS] symbolicFormatVersion starts with #!lovelace-sym
+  [PASS] mathIrVersion >= 1
+  [PASS] structured is Record/SolveResult
+  [PASS] status value Solved
+  [PASS] status kind Enum
+  [PASS] status type SolveStatus
+  [PASS] completeness kind Enum / Completeness
+  [PASS] complete kind Boolean
+  [PASS] complete value is the STRING true
+  [PASS] domain complex
+  [PASS] solutions Array shape [2]
+  [PASS] solution value Symbolic with rational canonical
+  [PASS] solution exactness is an Enum (Exact|AlgebraicExact)
+=== smoke 2: an incomplete solve over the complex field must NOT claim completeness ===
+  [PASS] status Partial (Enum/SolveStatus)
+  [PASS] completeness Partial (Enum)
+  [PASS] complete is the STRING false
+  [PASS] unrepresented_count == 2
+=== smoke 3: arrays preserve shape into the protocol ===
+  [PASS] rank-2 Array shape [2,2]
+  [PASS] four elements
+  [PASS] first element is Symbolic (sym y)
+=== smoke 4: stdout carries the envelope and nothing else ===
+  [PASS] output array holds the printed line
+  [PASS] result value == 2
+=== smoke 5: errors are structural (code + category), never message matching ===
+  [PASS] non-zero exit for an unsupported domain - exit 1
+  [PASS] ok is false
+  [PASS] message names the domain
+  [PASS] code and category are present - code=InvalidOperation category=DomainError
+
+SMOKE FAILURES: 0
+=== capability honesty ===
+advertised entries: 19
+pow.non-integer-exponent-of-a-positive-base  UnsupportedOperation               UnsupportedOperation MATCH (error)
+pow.negative-base-unrepresentable-exponent   UnsupportedOperation               UnsupportedOperation MATCH (error)
+solve.unsupported-domain                     InvalidOperation                   DomainError          MATCH (error)
+rootof.complex-algebraic                     solve.unrepresented-roots          UnsupportedOperation MATCH (diagnostic)
+limit.unevaluated-in-record-diagnostics      limit.unevaluated                  UnsupportedOperation MATCH (diagnostic)
+integration.unevaluated-in-record-diagnostics integration.unevaluated            UnsupportedOperation MATCH (diagnostic)
+plot.symbolic-expression                     InvalidOperation                   DomainError          MATCH (error)
+plot.symbolic-element                        InvalidOperation                   DomainError          MATCH (error)
+solve.non-symbolic-variable                  InvalidOperation                   DomainError          MATCH (error)
+solve.non-symbolic-expression                InvalidOperation                   DomainError          MATCH (error)
+diff.non-symbolic-variable                   InvalidOperation                   DomainError          MATCH (error)
+integrate.non-symbolic-variable              InvalidOperation                   DomainError          MATCH (error)
+limit.non-symbolic-variable                  InvalidOperation                   DomainError          MATCH (error)
+dsp.symbolic-element                         InvalidOperation                   DomainError          MATCH (error)
+linsolve.non-symbolic-matrix                 InvalidOperation                   DomainError          MATCH (error)
+fft.non-power-of-two-length                  InvalidArgument                    TypeMismatch         MATCH (error)
+solve.unevaluated-in-record-diagnostics      solve.unevaluated                  UnsupportedOperation MATCH (diagnostic)
+system-solve.unevaluated-in-record-diagnostics system-solve.unevaluated           UnsupportedOperation MATCH (diagnostic)
+integration.no-closed-form-in-record-diagnostics integration.no-closed-form         UnsupportedOperation MATCH (diagnostic)
+
+MATCH=19  MISMATCH=0
+
+--- the eight audit classes present in the statement? ---
+limit.unevaluated      -> limit.unevaluated-in-record-diagnostics
+integration            -> integration.unevaluated-in-record-diagnostics, integration.no-closed-form-in-record-diagnostics
+plot                   -> plot.symbolic-expression, plot.symbolic-element
+solve                  -> solve.unsupported-domain, rootof.complex-algebraic, solve.non-symbolic-variable, solve.non-symbolic-expression, linsolve.non-symbolic-matrix, solve.unevaluated-in-record-diagnostics, system-solve.unevaluated-in-record-diagnostics
+dsp                    -> dsp.symbolic-element
+linsolve               -> linsolve.non-symbolic-matrix
+fft                    -> fft.non-power-of-two-length
+=== printer round-trip through the published binary ===
+(-1)^x               | OK | (-1)^x
+(-2)^x               | OK | (-2)^x
+(-1/2)^x             | OK | (-1/2)^x
+(-1.5)^x             | OK | (-3/2)^x
+(-x)^2               | OK | (-x)^2
+(-x - 1)^2           | OK | (-x - 1)^2
+(-3)^(-x)            | OK | (-3)^(-x)
+(1/2)^x              | OK | (1/2)^x
+(2/3)^x              | OK | (2/3)^x
+(-3/2)^x             | OK | (-3/2)^x
+(x/y)/z              | OK | x/y/z
+x/y/z                | OK | x/y/z
+x/y/z/w              | OK | x/w/y/z
+(x/y)/(z/w)          | OK | x/y/(z/w)
+x/(y*z)              | OK | x/(y*z)
+(x*y)/(z*w)          | OK | x*y/(w*z)
+(x/y)*z              | OK | x*z/y
+x*y/z                | OK | x*y/z
+x/y/x                | OK | x/x/y
+x - (y - a)          | OK | x - (y - a)
+-(x + y)             | OK | -(x + y)
+x^(-2)               | OK | x^-2
+(x + 1)^(-1)         | OK | (x + 1)^-1
+sqrt(x + y)          | OK | sqrt(x + y)
+x^y^2                | OK | x^(y^2)
+(x^y)^2              | OK | (x^y)^2
+-x^2                 | OK | -x^2
+exp(-x^2)            | OK | exp(-x^2)
+1/(2*(x + 1))        | OK | (2*(x + 1))^-1
+apart(1/(x^2 - 1), x) | OK | -1/2/(x + 1) + 1/2/(x - 1)
+SUMMARY ok=30 bad=0 other=0 of 30; source=AOT published binary
+=== Lovelace.Real.Tests, unfiltered (Heavy included) ===
+Real unrestricted exit=0 :: Passed!  - Failed:     0, Passed:  2489, Skipped:     0, Total:  2489, Duration: 3 s - Lovelace.Real.Tests.dll (net10.0)

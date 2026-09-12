@@ -1,0 +1,21 @@
+Cos(PiTo(30))        @ 30  exact=False |actual-gt| = +31612351655141 x10^-102   value=-99999999999999 x10^-1
+Cos(PiTo(30)*2)      @ 30  exact=False |actual-gt| = +12644940662056 x10^-101   value=+99999999999999 x10^-1
+Sin(PiTo(30))        @ 30  exact=False |actual-gt| = +62862089986280 x10^-72   value=+50288419716939 x10^-31
+Sin(PiTo(30)*2)      @ 30  exact=False |actual-gt| = +12572417997256 x10^-71   value=-10057683943387 x10^-30
+Sin(PiTo(30)/2)      @ 30  exact=False |actual-gt| = +44819511668951 x10^-45   value=+10000000000000 x10^0
+Cos(PiTo(30)/3)      @ 30  exact=False |actual-gt| = +77485983710150 x10^-48   value=+50000000000000 x10^-1
+Sin(PiTo(30)/6)      @ 30  exact=False |actual-gt| = +43301270189221 x10^-31   value=+49999999999999 x10^-1
+Cos(PiTo(30)/4)      @ 30  exact=False |actual-gt| = +44927274894020 x10^-46   value=+70710678118654 x10^-1
+Tan(PiTo(30)/4)      @ 30  exact=False |actual-gt| = +74855790141530 x10^-31   value=+99999999999999 x10^-1
+Cos(PiTo(40))        @ 40  exact=False |actual-gt| = +23742710730996 x10^-131   value=-99999999999999 x10^-1
+Cos(PiTo(40)*2)      @ 40  exact=False |actual-gt| = +94970842923987 x10^-131   value=+99999999999999 x10^-1
+Sin(PiTo(40))        @ 40  exact=False |actual-gt| = +34211706798214 x10^-91   value=+69399375105820 x10^-41
+Sin(PiTo(40)/2)      @ 40  exact=False |actual-gt| = +64726185302191 x10^-57   value=+10000000000000 x10^0
+Cos(PiTo(40)/3)      @ 40  exact=False |actual-gt| = +15154292666744 x10^-57   value=+50000000000000 x10^-1
+Tan(PiTo(40)/4)      @ 40  exact=False |actual-gt| = +65300312447089 x10^-41   value=+99999999999999 x10^-1
+Cos(PiTo(100))       @100  exact=False |actual-gt| = +36619482861090 x10^-233   value=-99999999999999 x10^-1
+Cos(PiTo(100)*2)     @100  exact=False |actual-gt| = +46477931444361 x10^-233   value=+99999999999999 x10^-1
+Sin(PiTo(100))       @100  exact=False |actual-gt| = +66593344612847 x10^-211   value=+82148086513282 x10^-101
+Sin(PiTo(100)/2)     @100  exact=False |actual-gt| = +54761066662770 x10^-116   value=+10000000000000 x10^0
+Cos(PiTo(100)/3)     @100  exact=False |actual-gt| = +55910067545370 x10^-118   value=+50000000000000 x10^-1
+Tan(PiTo(100)/4)     @100  exact=False |actual-gt| = +58925956743358 x10^-101   value=+99999999999999 x10^-1

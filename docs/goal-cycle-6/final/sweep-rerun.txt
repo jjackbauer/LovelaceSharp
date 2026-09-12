@@ -1,4 +1,4 @@
-Lovelace.Abstractions.Tests      passed=20    failed=0   skipped=0
+﻿Lovelace.Abstractions.Tests      passed=20    failed=0   skipped=0
 Lovelace.Array.Tests             passed=19    failed=0   skipped=0
 Lovelace.Complex.Tests           passed=96    failed=0   skipped=0
 Lovelace.Console.Tests           passed=15    failed=0   skipped=0
@@ -15,3 +15,4 @@ precbench.Tests                  passed=13    failed=0   skipped=0
 Lovelace.Real.Tests(nonHeavy)    passed=2476  failed=0   skipped=0
 TOTAL passed=5298 failed=1 skipped=0
 elapsed=214.6s
+
