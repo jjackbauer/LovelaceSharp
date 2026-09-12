@@ -1,6 +1,6 @@
 # Harness State — cycle-6
 
-- **Round**: 13 in flight — rounds 10–12 landed P-B1's flag half, P-B3, the evalf flag leaks and the CI knife-edge repairs; **CI run #49 on `2f13efc` is green in all three jobs**; the four-persona fresh audit (D1) is running against the published AOT binary; round cap 40
+- **Round**: 16 — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their
   residual bounds, and claim A+ only if a fresh adversarial audit cannot falsify it.
 - **Definition of done**: **D0 met** (run #36, all three jobs, on `be89e55`); **D2** rows 2/3/4 closed
@@ -17,7 +17,7 @@
 | Gate | Status | Detail |
 |---|---|---|
 | G1 Evidence | PASS | EVD-237…EVD-259 each resolve to a command I ran or a `file:line` I read |
-| G2 Falsification | **FAIL (open row)** | round 3's claims 1 and 2 were Falsified by both falsifiers; the cause is located (`ComplexMath`, OQ-003) but **not closed** |
+| G2 Falsification | **PASS for the work, FAIL for the claim** | the round-3 falsification was closed in `78c19d8`, and the fresh audit's own findings were triaged and four closed; the audit's remaining P0/P1 keep the A+ claim falsified |
 | G3 Coverage | PASS | every dimension at least Partial except D1 (None) |
 | G4 Reproduction | PASS | every landing re-run by me: wire probes, four suites, forced rebuild (0/0) |
 | G5 Honesty | PASS | the stopped rounds, the reverted partial fix, the open defects and the missing maintainer acceptance are all recorded, not hidden |
