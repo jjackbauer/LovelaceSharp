@@ -154,3 +154,61 @@ inside instrumented runs.
 - That the four rows were closed by one agent each. Two came from preserved work that had never been
   verified (cycles 5's stopped rounds), one needed a repaired assertion, and one — row 1 — turned out to
   have a second route that only falsification found.
+
+## 7. Rounds 20–22 — the third and fourth waves, and where the cycle actually stands
+
+This section SUPERSEDES the status table in §2, which was written before the third wave ran. The
+dimensions are the same; the numbers are the ones measured after it.
+
+| ID | Dimension | Status at the time of writing | Evidence |
+|---|---|---|---|
+| **D0** | CI green on a GitHub runner | **MET** | **#69** on `9852a2f` green in all three jobs in 10.7 min, after the series kink repair and the positions contract; the runs the fix cycle superseded read `cancelled` because `ci.yml:17-19` cancels in progress, which is policy and not a failure (EVD-307, EVD-311) |
+| **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | **Wave 3** (cross-surface consistency, determinism/idempotence, budget honesty) found **1 P0 + 2 P1 + 4 P2** — all but audit K's below are now closed. **Wave 4's first persona** (library-embedding, the first wave to drive the product assemblies instead of the CLI) found **3 P1 + 1 P2** in the engine's own host surface, and two fixers are on them. **No wave has yet come back clean against a final binary**, so the gate is open (EVD-297, EVD-298, EVD-308, EVD-315) |
+| **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **MET** | rows 1–4 closed in rounds 1–14; every closure carries a pristine-control failure: 33 kink cases, 5 of 6 surface-agreement cases, 5 of 6 pole/branch-point cases, 8 of 14 evalf/printer cases, and the cancellation cases (EVD-294, EVD-305, EVD-306, EVD-313, EVD-315) |
+| **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P now carries **P-1…P-23** closed with evidence, and §P.2 names what is not: audit K's P1s while their fixers run, the recorded P2s, and the **seven §P.3 scope bounds**, for which six written requests have produced no answer. Nothing is marked ACCEPTED, and nothing is silently reduced (EVD-304, DEC-009) |
+| **D4** | The final tree re-measures green | **PARTIAL** | the full 15-project sweep with `LOVELACE_REQUIRE_SYMPY=1` is **5556 passed / 0 failed / 0 skipped in 132 s** on the tree carrying every landed fix (EVD-307); the forced rebuild, the AOT re-publish from the FINAL commit, the five smoke scenarios, the capability-honesty harness and the `RT_USE_AOT=1` printer round-trip have NOT yet been re-run after the last three commits — `out/aot/Lovelace.Run.exe` predates them (EVD-310) |
+| **D5** | Every claim traces to an EVD row I reproduced | **MET so far** | `docs/goal-cycle-6/evidence.md` EVD-237…EVD-315; every number above is from a transcript cited there, including the two rows that correct my own work (EVD-299, the false finding a shell quoting trap produced; EVD-314, the fix my own sweep falsified) |
+
+### 7.1 The third wave, and why a new strategy is what finds these
+
+Wave 3's two serious findings share one blind spot: a value that is self-consistent **per route and per
+run** until you compare two runs or two routes. **H-1 (P0)** — `series(abs(x), x, 0, 3)` returned a
+different value on every run (`Guid`-named substitution variable) *and* denoted `0 + O(x^3)` where
+`|x|` is `x`; closed in `9852a2f` by resolving the kink the way SymPy resolves it. **G-2 (P1)** —
+byte-identical text reported `position 12` through `--file` and `13` through `--eval`/`--stdin`,
+because only `--file` consumed the BOM; closed in `effd054` by one reader all three surfaces share.
+**I-1 (P1)** — the `--cancel-after` ledger could report a stop that denied its own overrun; closed in
+`fd658d0` and corrected in `d3a1f50`. Four P2s followed (stale capability prose, `--help` claiming an
+omission the envelope does not perform, `evalf`'s silent clamp, a truncation that split an identifier).
+
+### 7.2 The mistake worth keeping
+
+My first I-1 fix was wrong twice, and **my own sweep is what caught it**: `Lovelace.Run.Tests passed=291
+failed=1`, the single failure being the test I had just written. One half was a clock started on the wrong
+side of the token; the other half was a test demanding a verdict no clock can guarantee — the OS timer can
+fire a little before the engine's stopwatch reaches the budget, which is what the auditor's own 11
+instances actually show (95.7–99.7 ms of a 100 ms budget). Both are corrected in `d3a1f50`, and the
+disposition is written into §P (P-21) rather than smoothed over. Two further rows correct earlier claims
+of mine: EVD-299 (a "defect" that was PowerShell 5.1 stripping quotes before `argv`) and EVD-314.
+
+### 7.3 What the fourth wave adds
+
+Audit K drove the product assemblies directly — outside the CLI — the way Studio and any other host does,
+and found what no CLI wave could: **K-1**, one engine where a `setprecision(20)` evaluation permanently
+lowers the computation cap so a later *unrelated* evaluation is refused with a raw
+`ArgumentOutOfRangeException`, with interleaving changing a valid script's outcome; **K-2**, the library
+projection truncating 1100 digits to 100 while reporting `Truncated: null`; **K-3**, assumptions leaking
+between two engines through one shared plugin; **K-4**, a one-way precision latch. It also documented what
+it could not falsify: 100× determinism, interleaving, 8-thread safety, cancellation-then-reuse, and all
+1000 published digits of `sqrt(2)`/`pi`/`e`/`sqrt(3)`/`sqrt(2)+sqrt(3)` matching mpmath.
+
+### 7.4 The A+ decision, in the maintainer's absence
+
+**A+ is not claimed, and the reason is now two-sided.** D1 requires a fresh wave that comes back clean
+against a final binary; wave 4's first persona has just come back with three P1s, so that gate is open by
+measurement, not by caution. D3 requires the maintainer's own words for seven scope bounds; six written
+requests — each quoting the measured behaviour and each offering Accept/Reject/Partial — have produced no
+answer, so none is marked ACCEPTED and §P.3 stands as written. What the cycle can say on its own evidence:
+**D0 met, D2 met, D5 met so far, D4 partially re-measured, D1 and D3 open**, with every open item named in
+§P.2 and every closed one carrying a control-failing test and a command.
+
