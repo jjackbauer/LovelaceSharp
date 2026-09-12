@@ -194,4 +194,43 @@ public class CancellationBudgetTests
             Assert.Empty(diagnostics);
         }
     }
+    /// <summary>
+    /// I-1 (round-20 audit I): a run the DEADLINE stopped must say so in its own verdict. The token is
+    /// armed before the evaluation starts, so the engine's measurement can land inside the budget and
+    /// the envelope published "stopped:true" next to "exceeded:false"/"excessMs":0 with an EMPTY
+    /// diagnostics array — nothing in it said the budget had been consumed (the auditor reproduced it
+    /// 11 times over 3 sessions and 6 workloads). The ledger now reports the deadline's own clock when
+    /// the deadline is what ended the run, so its three numbers agree with each other
+    /// (excessMs == elapsedMs - budgetMs), the verdict is never "not exceeded" for a stop the deadline
+    /// caused, and the machine-readable overrun diagnostic is always published. Repeated five times so
+    /// a lucky scheduling window cannot pass it by accident.
+    /// </summary>
+    [Fact]
+    public async Task Run_GivenTheDeadlineStoppedIt_AlwaysReportsTheOverrun()
+    {
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            var (exitCode, stdout, stderr) = await TestSupport.RunScriptAsync(
+                "sum(1..10000000)", "--json", "--omit-functions", "--omit-variables",
+                "--cancel-after", "100");
+
+            JsonNode envelope = Envelope(stdout, $"attempt {attempt} (stderr: {stderr})");
+            Assert.Equal(1, exitCode);
+
+            JsonNode ledger = envelope["cancellation"]!;
+            Assert.True(ledger["stopped"]!.GetValue<bool>(),
+                $"attempt {attempt}: the deadline did not stop the run: {ledger.ToJsonString()}");
+            Assert.True(ledger["exceeded"]!.GetValue<bool>(),
+                $"attempt {attempt}: the deadline stopped the run but the ledger denies the overrun: {ledger.ToJsonString()}");
+
+            double elapsedMs = ledger["elapsedMs"]!.GetValue<double>();
+            double excessMs = ledger["excessMs"]!.GetValue<double>();
+            Assert.True(excessMs > 0, $"attempt {attempt}: {ledger.ToJsonString()}");
+            Assert.Equal(ledger["exceeded"]!.GetValue<bool>(), excessMs > 0);
+
+            Assert.Contains(envelope["diagnostics"]!.AsArray(), d =>
+                d!["message"]!.GetValue<string>()
+                    .Contains("cancellation deadline exceeded", StringComparison.Ordinal));
+        }
+    }
 }

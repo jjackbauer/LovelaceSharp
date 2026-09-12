@@ -191,6 +191,12 @@ public static class Runner
         using var cancellation = cancelAfterMs is { } budget
             ? new CancellationTokenSource(budget)
             : new CancellationTokenSource();
+        // The DEADLINE's own clock, started with the token that arms it. The engine's elapsed clock
+        // starts later (it measures the evaluation), so a stop the deadline caused could be measured
+        // INSIDE the budget and publish "stopped:true" next to "exceeded:false" with an empty
+        // diagnostics array — nothing in the envelope then said the budget had been consumed
+        // (round-20 audit I, I-1).
+        var deadlineClock = cancelAfterMs is null ? null : System.Diagnostics.Stopwatch.StartNew();
 
         try
         {
@@ -249,7 +255,8 @@ public static class Runner
 
             // the deadline verdict is derived from the SAME elapsed time the envelope publishes, so
             // budget and elapsed are directly comparable (see CancellationDto)
-            var deadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: false);
+            var deadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: false,
+                deadlineClock?.Elapsed);
             var envelope = new RunEnvelopeDto(
                 ProtocolVersion,
                 Lovelace.Symbolics.Printing.FormatHeader,
@@ -291,7 +298,8 @@ public static class Runner
             var (code, category, recoverable) = Classify(ex, parsePhase: !SourceParses(engine, script.EngineSource));
             // a run that blew its budget before failing must not look like one that respected it:
             // the verdict travels with the failure, and an overrun adds its own diagnostic
-            var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: code == "Cancelled");
+            var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed,
+                stopped: code == "Cancelled", deadlineClock?.Elapsed);
             if (failedDeadline is { Exceeded: true })
                 diagnostics = diagnostics
                     .Append(OverrunDiagnostic(failedDeadline, script, engine.OperationTimings, completed: false))
@@ -449,13 +457,26 @@ public static class Runner
     /// published as <c>elapsedTime</c> — so a consumer never has to reconcile two clocks, and
     /// <paramref name="stopped"/> says whether the deadline is what ended the run.
     /// </summary>
-    private static CancellationDto? CancellationLedger(int? budgetMs, TimeSpan elapsed, bool stopped)
+    private static CancellationDto? CancellationLedger(int? budgetMs, TimeSpan elapsed, bool stopped,
+        TimeSpan? deadlineElapsed = null)
     {
         if (budgetMs is not { } budget)
             return null;
 
+        // elapsedMs stays the ENGINE's measurement — the same value the envelope publishes as
+        // elapsedTime, so a consumer never reconciles two clocks (and the test that pins that
+        // agreement keeps its teeth). The OVERSHOOT, however, belongs to the deadline when the
+        // deadline is what ended the run: the token is armed before the evaluation starts, so the
+        // engine's measurement can land INSIDE the budget while the stop the caller asked for had
+        // already fired. Reading only the engine's number there published "stopped:true" beside
+        // "exceeded:false"/"excessMs":0 and suppressed the overrun diagnostic, so no field said the
+        // budget had been consumed (round-20 audit I, I-1).
         double elapsedMs = elapsed.TotalMilliseconds;
-        double excessMs = Math.Max(0, elapsedMs - budget);
+        double engineExcess = Math.Max(0, elapsedMs - budget);
+        double deadlineExcess = stopped && deadlineElapsed is { } deadline
+            ? Math.Max(0, deadline.TotalMilliseconds - budget)
+            : 0;
+        double excessMs = Math.Max(engineExcess, deadlineExcess);
         return new CancellationDto(budget, Math.Round(elapsedMs, 3), stopped, excessMs > 0,
             Math.Round(excessMs, 3));
     }
