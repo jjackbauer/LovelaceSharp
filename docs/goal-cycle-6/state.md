@@ -1,6 +1,6 @@
 # Harness State — cycle-6
 
-## Round 17 objectives, recorded as dispatched
+- **Round**: 19 — the second wave's P1s are closed too (published positions `63774da`; print output and `ParseError` `6424e27`), so **all fourteen P0/P1s from both audit waves are closed with control-failing tests**. **CI run #66 on `3d27d61` is green in all three jobs.** **D1 remains NOT MET** because no CLEAN fresh wave has been run against the closure tree, and **D3 remains PARTIAL** (seven bound acceptances unanswered). A+ not claimed.
 
 > **Close the audit's remaining P0 and P1s, one bounded round each, all three in parallel worktrees:**
 > (a) **A-P0** — at the ambient-precision boundary the leading significant digit of a reduced
