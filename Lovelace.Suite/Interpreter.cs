@@ -49,6 +49,74 @@ public sealed class Interpreter
     private int _relationPreservingDepth;
 
     // -----------------------------------------------------------------
+    // Evaluation budget (InputDepth.MaxEvaluationDepth)
+    // -----------------------------------------------------------------
+
+    /// <summary>Budget units one user-function call level costs: its frame, its scope, and the
+    /// entry into its body's statement list.</summary>
+    private const int CallLevelUnits = 4;
+
+    /// <summary>Budget units a top-level statement starts with: the statement itself (one unit), the
+    /// script's own outermost call expression (one unit) and the frame it pushes
+    /// (<see cref="CallLevelUnits"/>). That call is the script's entry into user code — the BASE of
+    /// the measurement — so the budget bounds the depth the script's function bodies add below it,
+    /// and every script has exactly one such entry. It is a CREDIT consumed by the statement's first
+    /// charges rather than a per-call exemption, so a chain of calls nested in ARGUMENTS cannot
+    /// collect the exemption once per call.</summary>
+    private const int EntryCredit = CallLevelUnits + 2;
+
+    /// <summary>The interpreter's LIVE evaluation depth in budget units: one per expression node
+    /// that descends (a leaf costs nothing), one per statement executed (a BlockStatement is
+    /// grouping and costs nothing), and <see cref="CallLevelUnits"/> per user-function call level.
+    /// Every increment is undone by its own <c>finally</c>, so the counter is back where it started
+    /// after a statement, an error, or a cancellation — the engine reuses one
+    /// <see cref="Interpreter"/> for a whole session (leaked depth would poison every later
+    /// evaluation).</summary>
+    private int _evaluationDepth;
+
+    /// <summary>The unspent part of the current statement's <see cref="EntryCredit"/>.</summary>
+    private int _entryCredit = EntryCredit;
+
+    /// <summary>How many user-function frames are executing right now.</summary>
+    private int _userFrameDepth;
+
+    /// <summary>Charges <paramref name="units"/> of the evaluation budget and returns the part that
+    /// actually has to be given back (the <see cref="EntryCredit"/> absorbs the first units of a
+    /// top-level statement). Throws the cycle-5 refusal when the depth passes
+    /// <see cref="InputDepth.MaxEvaluationDepth"/>.</summary>
+    private int EnterEvaluation(int units)
+    {
+        if (_entryCredit > 0)
+        {
+            int free = Math.Min(_entryCredit, units);
+            _entryCredit -= free;
+            units -= free;
+            if (units == 0)
+                return 0;
+        }
+
+        _evaluationDepth += units;
+        if (_evaluationDepth > InputDepth.MaxEvaluationDepth)
+        {
+            int depth = _evaluationDepth;
+            _evaluationDepth -= units;   // leave the counter exactly as it was found
+            throw new InputDepthExceededException(
+                "evaluation", depth, InputDepth.MaxEvaluationDepth, "evaluation");
+        }
+        return units;
+    }
+
+    private void ExitEvaluation(int units) => _evaluationDepth -= units;
+
+    /// <summary>Starts a fresh evaluation budget for one top-level statement: the statement is a new
+    /// entry into user code, so its <see cref="EntryCredit"/> is restored. The depth itself must
+    /// already be back to zero (every charge has a matching <c>finally</c>).</summary>
+    private void ResetEvaluationBudget()
+    {
+        _entryCredit = EntryCredit;
+    }
+
+    // -----------------------------------------------------------------
     // Host-configurable settings
     // -----------------------------------------------------------------
 
@@ -222,6 +290,7 @@ public sealed class Interpreter
     public async Task<Value> EvaluateAsync(Expr expr)
     {
         using var scope = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
+        ResetEvaluationBudget();
         return await EvaluateAsync(expr, _global);
     }
 
@@ -241,6 +310,9 @@ public sealed class Interpreter
                 // statement granularity: a cancelled script stops between statements, so the
                 // result it already produced (variables, captured output) stays readable
                 Lovelace.Abstractions.Cancellation.ThrowIfCancellationRequested();
+                // Every top-level statement is its own entry into user code: it gets a fresh
+                // evaluation budget (and the depth itself is balanced by its own finallys).
+                ResetEvaluationBudget();
                 var statement = program.Statements[i];
                 int position = i < program.StatementPositions.Count ? program.StatementPositions[i] : 0;
 
@@ -291,22 +363,39 @@ public sealed class Interpreter
 
     private async Task<Value> EvaluateAsync(Expr expr, Scope scope)
     {
-        switch (expr)
+        // The evaluation budget is charged HERE: every per-node descent of the walk re-enters this
+        // one method, so a single counter covers a deep expression chain, a deep statement nest and
+        // unbounded user recursion alike. The charge is undone by the finally, so an error or a
+        // cancellation inside the node cannot leave depth behind.
+        //
+        // A LEAF -- a literal, a variable, a string -- descends nowhere, so it costs no unit: the
+        // budget measures the depth of the DESCENT, not the number of nodes (otherwise a wide list
+        // of literals would be charged for width).
+        bool leaf = expr is LiteralExpr or VariableExpr or StringExpr;
+        int charged = leaf ? 0 : EnterEvaluation(1);
+        try
         {
-            case LiteralExpr lit: return EvaluateLiteral(lit);
-            case VariableExpr var: return EvaluateVariable(var, scope);
-            case AssignExpr assign: return await EvaluateAssignAsync(assign, scope);
-            case BinaryExpr bin: return await EvaluateBinaryAsync(bin, scope);
-            case UnaryExpr unary: return await EvaluateUnaryAsync(unary, scope);
-            case PostfixExpr postfix: return await EvaluatePostfixAsync(postfix, scope);
-            case CallExpr call: return await EvaluateCallAsync(call, scope);
-            case StringExpr str: return new Value(str.Value);
-            case RangeExpr range: return await EvaluateRangeAsync(range, scope);
-            case IndexExpr idx: return await EvaluateIndexAsync(idx, scope);
-            case MemberExpr member: return await EvaluateMemberAsync(member, scope);
-            case ListExpr list: return await EvaluateListAsync(list, scope);
-            case InterpolatedStringExpr interp: return await EvaluateInterpolatedAsync(interp, scope);
-            default: throw new NotImplementedException($"Unsupported expression type: {expr.GetType().Name}");
+            switch (expr)
+            {
+                case LiteralExpr lit: return EvaluateLiteral(lit);
+                case VariableExpr var: return EvaluateVariable(var, scope);
+                case AssignExpr assign: return await EvaluateAssignAsync(assign, scope);
+                case BinaryExpr bin: return await EvaluateBinaryAsync(bin, scope);
+                case UnaryExpr unary: return await EvaluateUnaryAsync(unary, scope);
+                case PostfixExpr postfix: return await EvaluatePostfixAsync(postfix, scope);
+                case CallExpr call: return await EvaluateCallAsync(call, scope);
+                case StringExpr str: return new Value(str.Value);
+                case RangeExpr range: return await EvaluateRangeAsync(range, scope);
+                case IndexExpr idx: return await EvaluateIndexAsync(idx, scope);
+                case MemberExpr member: return await EvaluateMemberAsync(member, scope);
+                case ListExpr list: return await EvaluateListAsync(list, scope);
+                case InterpolatedStringExpr interp: return await EvaluateInterpolatedAsync(interp, scope);
+                default: throw new NotImplementedException($"Unsupported expression type: {expr.GetType().Name}");
+            }
+        }
+        finally
+        {
+            ExitEvaluation(charged);
         }
     }
 
@@ -725,6 +814,10 @@ public sealed class Interpreter
         for (int i = 0; i < fn.Parameters.Count; i++)
             frame.Define(fn.Parameters[i], args[i]);
 
+        // One call LEVEL of the evaluation budget: the frame, its scope, and the entry into the
+        // body. This is what turns unbounded user recursion into a typed refusal.
+        int charged = EnterEvaluation(CallLevelUnits);
+        _userFrameDepth++;
         try
         {
             return await ExecuteStatementListAsync(fn.Body, frame);
@@ -732,6 +825,11 @@ public sealed class Interpreter
         catch (ReturnSignal rs)
         {
             return rs.Value;
+        }
+        finally
+        {
+            _userFrameDepth--;
+            ExitEvaluation(charged);
         }
     }
 
@@ -980,38 +1078,51 @@ public sealed class Interpreter
 
     private async Task<Value> ExecuteAsync(Statement stmt, Scope scope)
     {
-        switch (stmt)
+        // Every statement the walk executes is one unit of evaluation depth for as long as it runs:
+        // a nest of `if`s, a deep expression and a recursive call chain all pay for their depth here,
+        // whether or not the source spells the blocks with braces. A BlockStatement is GROUPING
+        // rather than a step of its own -- the statements inside it are charged individually -- so it
+        // costs nothing (a nest of empty braces is bounded by the parser's own descent budget).
+        int charged = stmt is BlockStatement ? 0 : EnterEvaluation(1);
+        try
         {
-            case ExpressionStatement es:
-                return await EvaluateAsync(es.Expression, scope);
+            switch (stmt)
+            {
+                case ExpressionStatement es:
+                    return await EvaluateAsync(es.Expression, scope);
 
-            case BlockStatement block:
-                return await ExecuteBlockAsync(block, scope);
+                case BlockStatement block:
+                    return await ExecuteBlockAsync(block, scope);
 
-            case IfStatement ifStmt:
-                return await ExecuteIfAsync(ifStmt, scope);
+                case IfStatement ifStmt:
+                    return await ExecuteIfAsync(ifStmt, scope);
 
-            case WhileStatement whileStmt:
-                return await ExecuteWhileAsync(whileStmt, scope);
+                case WhileStatement whileStmt:
+                    return await ExecuteWhileAsync(whileStmt, scope);
 
-            case ForStatement forStmt:
-                return await ExecuteForAsync(forStmt, scope);
+                case ForStatement forStmt:
+                    return await ExecuteForAsync(forStmt, scope);
 
-            case ReturnStatement returnStmt:
-                return await ExecuteReturnAsync(returnStmt, scope);
+                case ReturnStatement returnStmt:
+                    return await ExecuteReturnAsync(returnStmt, scope);
 
-            case BreakStatement:
-                throw new BreakSignal();
+                case BreakStatement:
+                    throw new BreakSignal();
 
-            case ContinueStatement:
-                throw new ContinueSignal();
+                case ContinueStatement:
+                    throw new ContinueSignal();
 
-            case FunctionStatement funcStmt:
-                DefineFunction(funcStmt.Definition);
-                return Value.Void;
+                case FunctionStatement funcStmt:
+                    DefineFunction(funcStmt.Definition);
+                    return Value.Void;
 
-            default:
-                throw new NotImplementedException($"Unsupported statement type: {stmt.GetType().Name}");
+                default:
+                    throw new NotImplementedException($"Unsupported statement type: {stmt.GetType().Name}");
+            }
+        }
+        finally
+        {
+            ExitEvaluation(charged);
         }
     }
 
