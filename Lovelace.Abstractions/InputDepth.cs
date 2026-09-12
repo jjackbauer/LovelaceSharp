@@ -45,10 +45,19 @@ public static class InputDepth
     /// The unit is one step of that walk (enforced in <c>Interpreter.EnterEvaluation</c>): one unit
     /// per expression node that descends (a leaf descends nowhere), one per statement executed (a
     /// BlockStatement is grouping and is covered by the statements inside it), and four per
-    /// user-function call level (its frame, its scope, and the entry into its body). A script's own
-    /// outermost call — its entry into user code — starts each top-level statement with a six-unit
-    /// credit, so the depth that counts is the depth the script's function bodies add below their
-    /// entry.
+    /// user-function call level (its frame, its scope, and the entry into its body). The BASE of the
+    /// measurement is per top-level statement and is the depth at which that statement enters user
+    /// code: its own statement, the expressions that enclose the call, and the first frame it pushes
+    /// are the six units of ZERO, so the depth that counts is the depth the script's function bodies
+    /// add below their entry.
+    /// </para>
+    /// <para>
+    /// Only what is LIVE at the call counts, which is what makes the number a NESTING: a statement
+    /// that already ran has returned every unit it charged, so a sibling cannot spend the call's
+    /// budget (<c>{ 1; f(85) }</c> and <c>{ f(85); 1 }</c> measure the same depth for the same call
+    /// — round-22 audit M, M-2, where the preceding sibling moved the boundary from 85 to 84 and the
+    /// refusal's own number with the sibling count). A user-function frame that is still on the
+    /// stack when the call runs is the one thing that does move it, one call level per frame.
     /// </para>
     /// <para>
     /// The audit's shape — <c>func f(n) { if (n == 0) { return 0 }; return f(n - 1) }</c> plus

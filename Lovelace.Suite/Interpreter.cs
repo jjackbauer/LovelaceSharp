@@ -56,15 +56,6 @@ public sealed class Interpreter
     /// entry into its body's statement list.</summary>
     private const int CallLevelUnits = 4;
 
-    /// <summary>Budget units a top-level statement starts with: the statement itself (one unit), the
-    /// script's own outermost call expression (one unit) and the frame it pushes
-    /// (<see cref="CallLevelUnits"/>). That call is the script's entry into user code — the BASE of
-    /// the measurement — so the budget bounds the depth the script's function bodies add below it,
-    /// and every script has exactly one such entry. It is a CREDIT consumed by the statement's first
-    /// charges rather than a per-call exemption, so a chain of calls nested in ARGUMENTS cannot
-    /// collect the exemption once per call.</summary>
-    private const int EntryCredit = CallLevelUnits + 2;
-
     /// <summary>The interpreter's LIVE evaluation depth in budget units: one per expression node
     /// that descends (a leaf costs nothing), one per statement executed (a BlockStatement is
     /// grouping and costs nothing), and <see cref="CallLevelUnits"/> per user-function call level.
@@ -74,31 +65,58 @@ public sealed class Interpreter
     /// evaluation).</summary>
     private int _evaluationDepth;
 
-    /// <summary>The unspent part of the current statement's <see cref="EntryCredit"/>.</summary>
-    private int _entryCredit = EntryCredit;
+    /// <summary>The BASE of the current top-level statement's measurement: the depth at which that
+    /// statement entered user code (see <see cref="EstablishEvaluationBase"/>). The budget compares
+    /// <c>_evaluationDepth - _evaluationBase</c>, so the statement itself and the expressions that
+    /// enclose the call are the ZERO of the measurement, and what the budget bounds is exactly the
+    /// depth the function bodies add below their entry.</summary>
+    private int _evaluationBase;
+
+    /// <summary>Whether the current top-level statement has already found its base.</summary>
+    private bool _evaluationBaseEstablished;
 
     /// <summary>How many user-function frames are executing right now.</summary>
     private int _userFrameDepth;
 
-    /// <summary>Charges <paramref name="units"/> of the evaluation budget and returns the part that
-    /// actually has to be given back (the <see cref="EntryCredit"/> absorbs the first units of a
-    /// top-level statement). Throws the cycle-5 refusal when the depth passes
+    /// <summary>
+    /// Marks the BASE of the evaluation budget for the current top-level statement: the first
+    /// user-function frame the statement enters, together with everything the statement charged to
+    /// reach it (its own statement and the expressions that enclose the call).
+    /// <para>
+    /// A SIBLING statement is not part of the measurement. A statement that has already run has
+    /// returned every unit it charged before this one starts, so it cannot spend this call's budget:
+    /// <c>{ 1; f(85) }</c> and <c>{ f(85); 1 }</c> measure the same depth for the same call
+    /// (round-22 audit M, M-2, where the preceding sibling cost the call its headroom and the
+    /// refusal's own number moved with the sibling count). Neither is the scaffold the call hangs
+    /// from — a builtin call, a binary operator, an <c>if</c> or a loop body above it adds native
+    /// frames but no recursion, and the budget's own claim is the depth the function BODIES add
+    /// below their entry.
+    /// </para>
+    /// <para>
+    /// What DOES move the measurement is a user-function frame that is still LIVE when the call
+    /// runs: a wrapper such as <c>func g() { return f(N) }</c> keeps g's frame below the entry, so
+    /// it costs its units and admits exactly one call level less. Monotone by construction.
+    /// </para>
+    /// </summary>
+    private void EstablishEvaluationBase()
+    {
+        if (_userFrameDepth == 0 && !_evaluationBaseEstablished)
+        {
+            _evaluationBaseEstablished = true;
+            _evaluationBase = _evaluationDepth + CallLevelUnits;
+        }
+    }
+
+    /// <summary>Charges <paramref name="units"/> of the evaluation budget and returns them, so the
+    /// caller can give them back in its own <c>finally</c>. Throws the cycle-5 refusal when the
+    /// depth BELOW the statement's base (see <see cref="EstablishEvaluationBase"/>) passes
     /// <see cref="InputDepth.MaxEvaluationDepth"/>.</summary>
     private int EnterEvaluation(int units)
     {
-        if (_entryCredit > 0)
-        {
-            int free = Math.Min(_entryCredit, units);
-            _entryCredit -= free;
-            units -= free;
-            if (units == 0)
-                return 0;
-        }
-
         _evaluationDepth += units;
-        if (_evaluationDepth > InputDepth.MaxEvaluationDepth)
+        int depth = _evaluationDepth - _evaluationBase;
+        if (depth > InputDepth.MaxEvaluationDepth)
         {
-            int depth = _evaluationDepth;
             _evaluationDepth -= units;   // leave the counter exactly as it was found
             throw new InputDepthExceededException(
                 "evaluation", depth, InputDepth.MaxEvaluationDepth, "evaluation");
@@ -108,12 +126,13 @@ public sealed class Interpreter
 
     private void ExitEvaluation(int units) => _evaluationDepth -= units;
 
-    /// <summary>Starts a fresh evaluation budget for one top-level statement: the statement is a new
-    /// entry into user code, so its <see cref="EntryCredit"/> is restored. The depth itself must
+    /// <summary>Starts a fresh evaluation budget for one top-level statement: it finds its base again
+    /// when it enters user code (see <see cref="EstablishEvaluationBase"/>). The depth itself must
     /// already be back to zero (every charge has a matching <c>finally</c>).</summary>
     private void ResetEvaluationBudget()
     {
-        _entryCredit = EntryCredit;
+        _evaluationBase = 0;
+        _evaluationBaseEstablished = false;
     }
 
     // -----------------------------------------------------------------
@@ -876,6 +895,11 @@ public sealed class Interpreter
         for (int i = 0; i < fn.Parameters.Count; i++)
             frame.Define(fn.Parameters[i], args[i]);
 
+        // The BASE of the measurement is the current top-level statement's own entry into user
+        // code, so it is found HERE, before this frame's units are charged: the frame about to be
+        // pushed and everything the statement charged to reach it are the zero of the depth this
+        // budget measures (see EstablishEvaluationBase).
+        EstablishEvaluationBase();
         // One call LEVEL of the evaluation budget: the frame, its scope, and the entry into the
         // body. This is what turns unbounded user recursion into a typed refusal.
         int charged = EnterEvaluation(CallLevelUnits);
