@@ -45,12 +45,41 @@ public sealed class Series
     /// negative for Laurent tails; positive after dividing by vanishing denominators).</summary>
     public int LeadingPower { get; }
 
+    /// <summary>
+    /// True when every coefficient IS a value at the point, so the expansion is a power series —
+    /// possibly LAURENT, since a pole is carried by a negative <see cref="LeadingPower"/> and not by
+    /// a coefficient (<c>1/x</c> at 0 is <c>1/x + O(x^2)</c>).
+    /// <para>
+    /// False at a BRANCH POINT, where the coefficients are not values at all:
+    /// <c>sqrt(t)</c> differentiates to <c>1/(2·sqrt(t))</c>, which at <c>t = 0</c> is
+    /// <c>1/(2·sqrt(0))</c>. It is also false when a coefficient still carries the expansion's own
+    /// substitution variable — a derivative that did not evaluate at the point (Round 20, H-1).
+    /// <see cref="ToExpression"/> publishes the source function unchanged in that case rather than a
+    /// junk expression: SymPy publishes exactly that for these inputs
+    /// (<c>series(sqrt(x), x, 0, 2) = sqrt(x)</c>, <c>series(log(x), x, 0, 2) = log(x)</c>), and the
+    /// input is never a wrong value.
+    /// </para>
+    /// </summary>
+    public bool IsPowerSeries { get; }
+
+    /// <summary>The function this expansion was built from, after kink resolution. It is published
+    /// verbatim when <see cref="IsPowerSeries"/> is false and is otherwise only the record of where
+    /// the expansion came from.</summary>
+    private readonly Expr? _source;
+
     public Series(Symbol variable, Expr point, Expr[] coefficients, int leadingPower = 0)
+        : this(variable, point, coefficients, leadingPower, source: null, isPowerSeries: true)
+    {
+    }
+
+    private Series(Symbol variable, Expr point, Expr[] coefficients, int leadingPower, Expr? source, bool isPowerSeries)
     {
         Variable = variable;
         Point = point;
         Coefficients = coefficients;
         LeadingPower = leadingPower;
+        _source = source;
+        IsPowerSeries = isPowerSeries;
     }
 
     /// <summary>True leading order of the expansion: LeadingPower + first nonzero coefficient index.</summary>
@@ -73,9 +102,23 @@ public sealed class Series
         var (fn, fd) = SplitFraction(f);
         if (fd is not RationalConstantExpr { Value.IsOne: true })
         {
-            var sn = OfNoSplit(fn, x, x0, order, ctx);
-            var sd = OfNoSplit(fd, x, x0, order, ctx);
-            return Divide(sn, sd);
+            // A QUOTIENT needs both operands expanded PAST their own leading terms. Coefficient k of
+            // a/b is (a[la+k] − Σ_{i<k} q_i·b[lb+k−i]) / b[lb], so a leading term that sits beyond
+            // the requested order must still be carried by the operands: 1/x^2 has its leading term
+            // at index 2 of the denominator (invisible to a 2-coefficient expansion, which is why
+            // this used to throw "division by a zero series"), and the x^2 coefficient of sin(x)/x
+            // reads sin(x)'s x^3 coefficient (invisible at order 3, which is why the term was
+            // silently dropped).
+            int la = LeadingIndexWithin(fn, x, x0, order, ctx);
+            int lb = LeadingIndexWithin(fd, x, x0, order, ctx);
+            var sn = OfNoSplit(fn, x, x0, order + Math.Max(lb, 0), ctx);
+            var sd = OfNoSplit(fd, x, x0, order + Math.Max(2 * lb - la, 0), ctx);
+            // the TRUNCATION power stays the requested order — SymPy's convention, in which the
+            // published tail of 1/x at order 2 is O(x^2) — and the quotient is therefore built down
+            // to its own leading power, negative powers included.
+            var quotient = Divide(sn, sd, order);
+            return new Series(quotient.Variable, quotient.Point, quotient.Coefficients, quotient.LeadingPower,
+                source: f, isPowerSeries: quotient.IsPowerSeries);
         }
         return OfNoSplit(fn, x, x0, order, ctx);
     }
@@ -177,6 +220,64 @@ public sealed class Series
         return ctx.Symbol(name);
     }
 
+    /// <summary>Upper bound on the doubling probe below, so an operand that is identically zero
+    /// (whose leading term therefore does not exist at ANY order) cannot spin: past the bound the
+    /// index is reported as -1 and the division reports the zero series it truly is.</summary>
+    private const int MaxLeadingProbe = 64;
+
+    /// <summary>The first index of g's Maclaurin series in t that carries a non-zero coefficient, or
+    /// -1 when the series is zero through the probe bound. The probe DOUBLES because a leading term
+    /// can sit beyond the requested order: x² is invisible to a two-coefficient expansion of the
+    /// denominator of 1/x², which is why that expansion used to throw instead of answering.</summary>
+    private static int LeadingIndexWithin(Expr g, Symbol x, Expr x0, int order, ExprContext ctx)
+    {
+        int probe = Math.Max(order, 1);
+        while (true)
+        {
+            int index = OfNoSplit(g, x, x0, probe, ctx).LeadingIndex();
+            if (index >= 0 || probe >= MaxLeadingProbe)
+                return index;
+            probe = Math.Min(probe * 2, MaxLeadingProbe);
+        }
+    }
+
+    /// <summary>True when the expression contains a constant that is not a value at the point: a
+    /// NEGATIVE power of a vanishing base — <c>1/0</c>, <c>0^(−1/2)</c>, <c>log(0)</c>'s derivative
+    /// <c>1/0</c>. That is what differentiating a BRANCH POINT leaves behind (<c>sqrt(t)</c>'s
+    /// derivative is <c>1/(2·sqrt(t))</c>, which at <c>t = 0</c> is <c>1/(2·sqrt(0))</c>), and it must
+    /// never be published as a value.</summary>
+    private static bool HasUndefinedValue(Expr e) => e switch
+    {
+        PowerExpr p => (IsNegativeExponent(p.Exponent) && IsZeroConstant(p.Base))
+                       || HasUndefinedValue(p.Base) || HasUndefinedValue(p.Exponent),
+        AddExpr a => a.Terms.Any(HasUndefinedValue),
+        MultiplyExpr m => m.Factors.Any(HasUndefinedValue),
+        FunctionExpr f => f.Arguments.Any(HasUndefinedValue),
+        PiecewiseExpr pw => pw.Branches.Any(b => HasUndefinedValue(b.Guard) || HasUndefinedValue(b.Value))
+                            || HasUndefinedValue(pw.Otherwise),
+        RelationExpr r => HasUndefinedValue(r.Left) || HasUndefinedValue(r.Right),
+        DerivativeExpr d => HasUndefinedValue(d.Operand),
+        IntegralExpr i => HasUndefinedValue(i.Operand),
+        NotExpr n => HasUndefinedValue(n.Operand),
+        AndExpr an => an.Operands.Any(HasUndefinedValue),
+        OrExpr or => or.Operands.Any(HasUndefinedValue),
+        _ => false,
+    };
+
+    private static bool IsNegativeExponent(Expr e) => e switch
+    {
+        IntegerConstantExpr i => Int.IsNegative(i.Value),
+        RationalConstantExpr r => r.Value.IsNegative,
+        _ => false,
+    };
+
+    private static bool IsZeroConstant(Expr e) => e switch
+    {
+        IntegerConstantExpr i => Int.IsZero(i.Value),
+        RationalConstantExpr r => r.Value.IsZero,
+        _ => false,
+    };
+
     private static Series OfNoSplit(Expr f, Symbol x, Expr x0, int order, ExprContext ctx)
     {
         // substitute x = t + x0 (fresh t), then compute Maclaurin coefficients in t
@@ -185,15 +286,21 @@ public sealed class Series
 
         var coeffs = new Expr[order];
         var bindings = new Dictionary<Symbol, Num> { [t] = new NumInt(new Int(0L)) };
+        bool isPowerSeries = true;
         for (int k = 0; k < order; k++)
         {
             var dk = Calculus.DiffN(shifted, t, k, ctx);
             var at0 = Evaluation.Substitute(dk, ctx, new Dictionary<Symbol, Expr> { [t] = Exprs.Zero });
             // numeric evaluation folds constants; keep symbolic parts symbolic
             var evaluated = Evaluation.EvaluateToExpr(at0, ctx, bindings);
+            // a coefficient that still mentions t is a derivative that did not evaluate at the
+            // point; one that holds a negative power of a vanishing base is a BRANCH POINT's
+            // derivative. Neither is a value, so neither may be published (see ToExpression).
+            if (!Calculus.FreeOf(evaluated, t) || HasUndefinedValue(evaluated))
+                isPowerSeries = false;
             coeffs[k] = Exprs.Divide(evaluated, FactorialExpr(k));
         }
-        return new Series(x, x0, coeffs);
+        return new Series(x, x0, coeffs, 0, source: f, isPowerSeries: isPowerSeries);
     }
 
     private static (Expr Numerator, Expr Denominator) SplitFraction(Expr f)
@@ -228,6 +335,15 @@ public sealed class Series
 
     public Expr ToExpression()
     {
+        // No power series exists at this point (a branch point: sqrt(x) at 0 differentiates to
+        // 1/(2·sqrt(0))). Publishing the coefficients would publish a division by zero as a value,
+        // and publishing an O term would claim a truncation nobody computed, so the SOURCE function
+        // is published unchanged — which is what SymPy publishes for these inputs
+        // (series(sqrt(x), x, 0, 2) = sqrt(x), series(log(x), x, 0, 2) = log(x)) and is never wrong.
+        if (!IsPowerSeries)
+            return _source ?? throw new InvalidOperationException(
+                "a series with no power series at the point must carry the function it was built from");
+
         var terms = new List<Expr>();
         var dx = Exprs.Subtract(Exprs.Symbol(Variable), Point);
         for (int k = 0; k < Coefficients.Length; k++)
@@ -261,12 +377,13 @@ public sealed class Series
                 sum = Exprs.Add(sum, b.Coefficients[ib]);
             c[i] = sum;
         }
-        return new Series(a.Variable, a.Point, c, lp);
+        return new Series(a.Variable, a.Point, c, lp, a._source ?? b._source, a.IsPowerSeries && b.IsPowerSeries);
     }
 
     public static Series Negate(Series a)
     {
-        return new Series(a.Variable, a.Point, a.Coefficients.Select(c => Exprs.Negate(c)).ToArray(), a.LeadingPower);
+        return new Series(a.Variable, a.Point, a.Coefficients.Select(c => Exprs.Negate(c)).ToArray(), a.LeadingPower,
+            a._source, a.IsPowerSeries);
     }
 
     public static Series Multiply(Series a, Series b)
@@ -281,21 +398,43 @@ public sealed class Series
                     sum = Exprs.Add(sum, Exprs.Multiply(a.Coefficients[i], b.Coefficients[k - i]));
             c[k] = sum;
         }
-        return new Series(a.Variable, a.Point, c, a.LeadingPower + b.LeadingPower);
+        return new Series(a.Variable, a.Point, c, a.LeadingPower + b.LeadingPower,
+            a._source ?? b._source, a.IsPowerSeries && b.IsPowerSeries);
     }
 
     /// <summary>
-    /// Power-series division a/b, Laurent-aware: the quotient carries the leading-power
-    /// offset (leading powers subtract), so (1−cos x)/x yields the correct first term x/2
-    /// instead of a misindexed constant.
+    /// Power-series division a/b, Laurent-aware: with <c>a = x^(LP_a)·Σ_{i≥la} a_i·x^i</c> and
+    /// <c>b = x^(LP_b)·Σ_{j≥lb} b_j·x^j</c>, the quotient is
+    /// <c>x^(LP_a − LP_b + la − lb)·Σ_k q_k·x^k</c> — so the LEADING-INDEX shift belongs in the
+    /// leading power, not only the plain leading-power difference. That missing <c>(la − lb)</c> is
+    /// why <c>series(1/x, x, 0, 2)</c> published <c>1 + O(x^2)</c>: the pole was computed and then
+    /// announced at the wrong power, and the published expansion claimed 1 where the function is
+    /// 1/x. This also makes <c>series(sin(x)/x, x, 0, 3)</c> carry its x² coefficient.
+    /// <para>
+    /// <paramref name="truncationPower"/> is the power of the TAIL, so the quotient carries every
+    /// power below it (SymPy's convention: <c>series(1/x, x, 0, 2)</c> truncates at x², and
+    /// <c>1/x²</c> therefore carries four coefficients, powers −2…1). Without it the coefficient
+    /// count stays <c>min(a.Order, b.Order)</c>, which is what the Taylor callers want.
+    /// </para>
     /// </summary>
-    public static Series Divide(Series a, Series b)
+    public static Series Divide(Series a, Series b, int? truncationPower = null)
     {
         int la = a.LeadingIndex();
         int lb = b.LeadingIndex();
         if (lb < 0)
             throw new DivideByZeroException("Series division by a zero series.");
-        int n = Math.Min(a.Order, b.Order);
+        int leadingPower = a.LeadingPower + la - (b.LeadingPower + lb);
+        int n = truncationPower is { } tail ? Math.Max(tail - leadingPower, 1) : Math.Min(a.Order, b.Order);
+        bool isPowerSeries = a.IsPowerSeries && b.IsPowerSeries;
+        Expr? source = a._source ?? b._source;
+        if (la < 0)
+        {
+            // the numerator is zero through the order it was expanded to: the quotient is zero
+            var zeros = new Expr[n];
+            for (int i = 0; i < n; i++)
+                zeros[i] = Exprs.Zero;
+            return new Series(a.Variable, a.Point, zeros, leadingPower, source, isPowerSeries);
+        }
         var b0 = b.Coefficients[lb];
         var q = new Expr[n];
         for (int k = 0; k < n; k++)
@@ -310,7 +449,7 @@ public sealed class Series
             }
             q[k] = Exprs.Divide(sum, b0);
         }
-        return new Series(a.Variable, a.Point, q, a.LeadingPower - b.LeadingPower);
+        return new Series(a.Variable, a.Point, q, leadingPower, source, isPowerSeries);
     }
 
     /// <summary>Leading (first nonzero) coefficient index, or -1 when all coefficients are zero.</summary>
