@@ -157,6 +157,12 @@ public static class Runner
             return Usage(stderr, "No script provided. Use --eval <script>, --file <path>, --stdin, or a bare file path.");
         }
 
+        // The protocol's positions index into the text the CALLER supplied; the engine indexes
+        // into the semicolon-joined text it is handed. One map per run, built from the caller's own
+        // text, so every position the envelope publishes (timings, diagnostics, the overrun
+        // diagnostic) is translated by the same rule (see ScriptPositions).
+        var script = new ScriptPositions(source);
+
         var engine = new SuiteEngine();
         engine.LoadPlugin(new DspPlugin());
         var symbolics = new Lovelace.Symbolics.SymbolicsPlugin();
@@ -194,7 +200,7 @@ public static class Runner
             }
 
             var result = await engine.EvaluateAsync(
-                ScriptSource.ToSemicolonStatements(source), output, cancellation.Token);
+                script.EngineSource, output, cancellation.Token);
 
             var snapshot = engine.CaptureState();
             // one budget for every structured rendering in the envelope: the result AND each
@@ -242,10 +248,10 @@ public static class Runner
                 plot,
                 engine.LastElapsedDisplay,
                 Duration(engine.LastElapsed),
-                Timings(engine.OperationTimings),
+                Timings(engine.OperationTimings, script),
                 deadline,
                 deadline is { Exceeded: true }
-                    ? new[] { OverrunDiagnostic(deadline, source, engine.OperationTimings, completed: true) }
+                    ? new[] { OverrunDiagnostic(deadline, script, engine.OperationTimings, completed: true) }
                     : null);
 
             if (json)
@@ -258,7 +264,7 @@ public static class Runner
         catch (Exception ex)
         {
             var diagnostics = engine.Diagnostics
-                .Select(d => new DiagnosticDto(d.Message, d.Position, d.Line, d.Column))
+                .Select(d => PublishDiagnostic(script, d, engine.OperationTimings))
                 .ToArray();
             var (code, category, recoverable) = Classify(ex);
             // a run that blew its budget before failing must not look like one that respected it:
@@ -266,7 +272,7 @@ public static class Runner
             var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: code == "Cancelled");
             if (failedDeadline is { Exceeded: true })
                 diagnostics = diagnostics
-                    .Append(OverrunDiagnostic(failedDeadline, source, engine.OperationTimings, completed: false))
+                    .Append(OverrunDiagnostic(failedDeadline, script, engine.OperationTimings, completed: false))
                     .ToArray();
             // a cancelled run is not a failed run: the host reports the structured status together
             // with everything the engine had already committed
@@ -281,7 +287,7 @@ public static class Runner
             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
             // from one unit selector and one timing entry per statement that ran before the failure
             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
-                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables, failedDeadline);
+                engine.LastElapsed, Timings(engine.OperationTimings, script), partialOutput, partialVariables, failedDeadline);
         }
     }
 
@@ -393,15 +399,14 @@ public static class Runner
     /// The diagnostic that names an exceeded deadline — published on the success envelope's
     /// <c>diagnostics</c> array and appended to the failure envelope's, so a consumer that reads only
     /// diagnostics still cannot mistake an overrun for a normal run. The position is the last
-    /// top-level statement that ran (the statement the deadline passed inside); the line/column rule
-    /// is the one the engine uses (<c>SuiteEngine.ComputeLineColumn</c>), kept here because the
-    /// runner owns the source text it was handed.
+    /// top-level statement that ran (the statement the deadline passed inside), translated into the
+    /// caller's source by the same map every other published position uses.
     /// </summary>
-    private static DiagnosticDto OverrunDiagnostic(CancellationDto ledger, string source,
+    private static DiagnosticDto OverrunDiagnostic(CancellationDto ledger, ScriptPositions script,
         IReadOnlyList<OperationTiming> timings, bool completed)
     {
-        int position = timings.Count > 0 ? timings[timings.Count - 1].Position : 0;
-        var (line, column) = ComputeLineColumn(source, position);
+        int enginePosition = timings.Count > 0 ? timings[timings.Count - 1].Position : 0;
+        var (position, line, column) = Locate(script, enginePosition);
         string outcome = ledger.Stopped
             ? "the deadline was observed, but only after the excess had already been spent"
             : completed
@@ -414,24 +419,33 @@ public static class Runner
             position, line, column);
     }
 
-    /// <summary>1-based line and column of a source offset, matching the engine's own rule.</summary>
-    private static (int Line, int Column) ComputeLineColumn(string source, int position)
+    /// <summary>
+    /// One engine diagnostic in the caller's coordinates. A lexer/parser refusal carries the only
+    /// position the engine ever knows by itself (scraped from its "at position N" message); a RUNTIME
+    /// failure carries none (<c>SuiteEngine.ToDiagnostic</c> defaults to 0), because the exception it
+    /// is built from is not annotated. But the interpreter records the offset of the statement that
+    /// was running when it threw, and the failing statement is always the LAST timing — its
+    /// <c>finally</c> adds the entry on the way out (<c>Lovelace.Suite/Interpreter.cs:333-341</c>) — so
+    /// whenever any statement ran, the last timing IS the failure's source position. Only a failure
+    /// before the first statement (a tokenizer/parser refusal) falls back to the engine's own value.
+    /// </summary>
+    private static DiagnosticDto PublishDiagnostic(ScriptPositions script, Diagnostic diagnostic,
+        IReadOnlyList<OperationTiming> timings)
     {
-        if (position < 0 || position > source.Length)
-            return (1, position + 1);
+        int enginePosition = timings.Count > 0
+            ? timings[timings.Count - 1].Position
+            : diagnostic.Position;
+        var (position, line, column) = Locate(script, enginePosition);
+        return new DiagnosticDto(diagnostic.Message, position, line, column);
+    }
 
-        int line = 1;
-        int lastNewline = -1;
-        for (int i = 0; i < position && i < source.Length; i++)
-        {
-            if (source[i] == '\n')
-            {
-                line++;
-                lastNewline = i;
-            }
-        }
-
-        return (line, position - lastNewline);
+    /// <summary>An engine offset as a caller offset together with its 1-based line and column: the
+    /// one translation every published position goes through.</summary>
+    private static (int Position, int Line, int Column) Locate(ScriptPositions script, int enginePosition)
+    {
+        int position = script.ToSourceOffset(enginePosition);
+        var (line, column) = script.LineColumn(position);
+        return (position, line, column);
     }
 
     /// <summary>A millisecond count as an invariant-culture string: the envelope must read the same
@@ -505,10 +519,13 @@ public static class Runner
         return new DurationDto(value, unit);
     }
 
-    /// <summary>One wire timing per top-level statement that ran, in statement order.</summary>
-    private static TimingDto[] Timings(IReadOnlyList<Lovelace.Suite.OperationTiming> timings) =>
+    /// <summary>One wire timing per top-level statement that ran, in statement order, each carrying
+    /// the statement's offset in the CALLER's source (the engine indexes into the semicolon-joined
+    /// text, which is not the caller's text for a CRLF or BOM-prefixed script — see ScriptPositions).</summary>
+    private static TimingDto[] Timings(IReadOnlyList<Lovelace.Suite.OperationTiming> timings,
+        ScriptPositions script) =>
         timings.Select(t => new TimingDto(
-            t.Position,
+            script.ToSourceOffset(t.Position),
             new DurationDto(t.ElapsedScale.Value, t.ElapsedScale.Unit),
             t.Result.Kind.ToString(),
             t.Output.Length > 0))

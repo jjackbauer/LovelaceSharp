@@ -10,9 +10,9 @@
   "diagnostics": [
     {
       "message": "solve(): currently supports domains real and complex; got integer.",
-      "position": 0,
+      "position": 17,
       "line": 1,
-      "column": 1
+      "column": 18
     }
   ],
   "elapsed": "<volatile>",

@@ -24,8 +24,12 @@ internal sealed record VariableDto(string Name, string Kind, string Display, Str
 /// <summary>A duration as a unit-scaled value plus its unit, so an agent never parses a suffix.</summary>
 internal sealed record DurationDto(double Value, string Unit);
 
-/// <summary>One timed top-level statement: its zero-based source position, the elapsed time as a
-/// structured duration, the kind of the value it produced, and whether it wrote print output.</summary>
+/// <summary>One timed top-level statement: its elapsed time as a structured duration, the kind of
+/// the value it produced, and whether it wrote print output. <c>Position</c> is the ZERO-BASED OFFSET
+/// OF THE STATEMENT IN THE CALLER'S SCRIPT — the text handed to <c>--eval</c>/<c>--file</c>/<c>--stdin</c>,
+/// whatever its line endings (<c>docs/symbolics/dsh-protocol.md:153-155</c>). The engine itself
+/// indexes into the semicolon-joined text it is handed; <see cref="ScriptPositions"/> translates, so a
+/// Windows (CRLF) script reports the offsets a consumer can slice the caller's text with.</summary>
 internal sealed record TimingDto(int Position, DurationDto Elapsed, string ResultKind, bool HasOutput);
 /// <summary>One entry of the builtin registry, carrying the arity metadata the call-site
 /// validator computes the arity contract from (A2-F15): <c>parameters</c> is the declared
@@ -38,6 +42,12 @@ internal sealed record FunctionDto(string Name, string[] Parameters, int MinArit
     bool Variadic, bool Builtin, string? Plugin);
 internal sealed record PlotDto(string Path, string Title, string Svg);
 internal sealed record ResultDto(string Kind, string Display, string Typed, StructuredValueDto Structured);
+/// <summary>One entry of the error envelope's <c>diagnostics</c> array: the parser's source-position
+/// form (<c>docs/symbolics/dsh-protocol.md:225-228</c>). <c>Position</c> is the zero-based offset of the
+/// failing place in the CALLER's script, and <c>Line</c>/<c>Column</c> are its 1-based line and column
+/// there (CRLF, CR and LF each end a line once). A runtime failure names the statement that was
+/// running when it threw; a lexer/parser refusal names the token the engine refused. All four fields
+/// are unchanged in NAME and COUNT from the version-1 contract.</summary>
 internal sealed record DiagnosticDto(string Message, int Position, int Line, int Column);
 
 /// <summary>The cancellation-budget ledger, published whenever <c>--cancel-after</c> was given (and
