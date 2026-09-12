@@ -655,8 +655,8 @@ public static class Runner
             "  --stdin              read the script from standard input\n" +
             "  --plot-dir <dir>     directory for plot() SVG output\n" +
             "  --plot-file <name>   filename for plot() SVG output (default: plot.svg)\n" +
-            "  --omit-functions     omit the builtin registry from the envelope (agent loops)\n" +
-            "  --omit-variables     omit the variables array from the envelope (agent loops)\n" +
+            "  --omit-functions     send an EMPTY builtin registry, not the populated one (agent loops)\n" +
+            "  --omit-variables     send an EMPTY variables array, not the populated one (agent loops)\n" +
             "  --print-budget <n>   abbreviate structured renderings beyond n nodes, reporting the truncation\n" +
             "  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result;\n" +
             "                       the envelope's cancellation block reports the deadline verdict\n" +

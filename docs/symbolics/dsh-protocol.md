@@ -25,6 +25,12 @@ string to recover mathematical meaning.
    kernel records and are part of the contract).
 6. **Errors are structural**: `code`, `category`, `message`, `recoverable`, `diagnostics`.
 
+**Payload control.** `--omit-functions` and `--omit-variables` are for agent loops that never read the
+registry or the variable table: each flag replaces its array with an EMPTY one — the key stays present, so
+a consumer written against the full envelope never has to handle a missing field, and an empty array is
+what the flag produced rather than a claim that the registry itself is empty. They change no value, no
+display and no `output[]` entry.
+
 ## Value forms
 
 ```json
