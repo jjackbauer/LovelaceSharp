@@ -1,3 +1,6 @@
+﻿=== forced rebuild at 2026-09-12T16:53:38.4684221-03:00 ===
+rebuild exit=0 warnings=0 errors=0
+=== full sweep ===
 Lovelace.Abstractions.Tests      passed=20    failed=0   skipped=0
 Lovelace.Array.Tests             passed=19    failed=0   skipped=0
 Lovelace.Complex.Tests           passed=121   failed=0   skipped=0
@@ -15,3 +18,13 @@ precbench.Tests                  passed=13    failed=0   skipped=0
 Lovelace.Real.Tests(nonHeavy)    passed=2482  failed=0   skipped=0
 TOTAL passed=5473 failed=0 skipped=0
 elapsed=134.1s
+=== capability honesty (published binary) ===
+solve                  -> solve.unsupported-domain, rootof.complex-algebraic, solve.non-symbolic-variable, solve.non-symbolic-expression, linsolve.non-symbolic-matrix, solve.unevaluated-in-record-diagnostics, system-solve.unevaluated-in-record-diagnostics
+dsp                    -> dsp.symbolic-element
+linsolve               -> linsolve.non-symbolic-matrix
+fft                    -> fft.non-power-of-two-length
+=== round-trip through the published binary ===
+exp(-x^2)            | OK | exp(-x^2)
+1/(2*(x + 1))        | OK | (2*(x + 1))^-1
+apart(1/(x^2 - 1), x) | OK | -1/2/(x + 1) + 1/2/(x - 1)
+SUMMARY ok=30 bad=0 other=0 of 30; source=AOT published binary

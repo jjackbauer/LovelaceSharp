@@ -1,0 +1,8 @@
+﻿=== AOT publish from the final tree ===
+publish exit=0 warnings=0 errors=0
+exe=2026-09-12T16:56:28.5913414-03:00 bytes=5801472 newestCode=C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run\Runner.cs at 2026-09-12T16:42:04.5411861-03:00 -> newerBySeconds=864
+=== capability honesty (fresh published binary) ===
+advertised entries: 19
+MATCH=19  MISMATCH=0
+=== round-trip through the fresh published binary ===
+SUMMARY ok=30 bad=0 other=0 of 30; source=AOT published binary
