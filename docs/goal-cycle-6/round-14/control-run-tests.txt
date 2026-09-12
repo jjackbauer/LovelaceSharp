@@ -1,0 +1,321 @@
+﻿  Determining projects to restore...
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Real\Lovelace.Real.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Abstractions\Lovelace.Abstractions.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Array\Lovelace.Array.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Rational\Lovelace.Rational.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Integer\Lovelace.Integer.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Natural\Lovelace.Natural.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Dsp\Lovelace.Dsp.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Complex\Lovelace.Complex.csproj (in 2.07 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.MathIR\Lovelace.MathIR.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\Lovelace.Suite.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics\Lovelace.Symbolics.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run\Lovelace.Run.csproj (in 2.08 sec).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\Lovelace.Run.Tests.csproj (in 2.09 sec).
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Run.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet.exe : [xUnit.net 00:00:02.16]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_right(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [FAIL]
+At line:6 char:1
++ & dotnet test (Join-Path $ctl 'Lovelace.Run.Tests\Lovelace.Run.Tests. ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...lue: "") [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:02.18]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit(1/x, x, 0)", status: "DoesNotExist", existsKind: "Boolean", existsValue: "false") [FAIL]
+[xUnit.net 00:00:02.18]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_left(1/x, x, 0)", status: "MinusInfinity", existsKind: "Boolean", existsValue: "true") [FAIL]
+[xUnit.net 00:00:02.18]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_left(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [FAIL]
+[xUnit.net 00:00:02.27]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_left(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [FAIL]
+[xUnit.net 00:00:02.27]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_right(1/x, x, 0)", status: "PlusInfinity", existsKind: "Boolean", existsValue: "true") [FAIL]
+[xUnit.net 00:00:02.27]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit_right(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [FAIL]
+[xUnit.net 00:00:02.37]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [FAIL]
+[xUnit.net 00:00:02.37]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); 
+limit(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [FAIL]
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_right(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [1 s]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit(1/x, x, 0)", status: "DoesNotExist", existsKind: "Boolean", existsValue: "false") [7 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_left(1/x, x, 0)", status: "MinusInfinity", existsKind: "Boolean", existsValue: "true") [11 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_left(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [3 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_left(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [85 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_right(1/x, x, 0)", status: "PlusInfinity", existsKind: "Boolean", existsValue: "true") [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit_right(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit(sin(x), x, inf)", status: "Unevaluated", existsKind: "Null", existsValue: "") [97 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(script: "x = symbol(\"x\"); limit(sin(x)/x, x, 0)", status: "Value", existsKind: "Boolean", existsValue: "true") [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.ShortForm_PublishesALimitResultRecord_NeverProse(String script, String status, String existsKind, String existsValue) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 89
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.39]     Lovelace.Run.Tests.LimitShortFormRecordTests.Success_PublishesValueAndExactnessAsStructure 
+[FAIL]
+[xUnit.net 00:00:02.39]     Lovelace.Run.Tests.LimitShortFormRecordTests.NoLimit_KeepsEveryValueTheProseSpelledOut [FAIL]
+[xUnit.net 00:00:02.48]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: 
+"limit_left(sin(x), x, inf)", message: "coefficient does not evaluate at the point") [FAIL]
+[xUnit.net 00:00:02.56]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit(sin(x), 
+x, inf)", message: "coefficient does not evaluate at the point") [FAIL]
+[xUnit.net 00:00:02.56]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit(a/x, x, 
+0)", message: "leading coefficient is symbolic") [FAIL]
+[xUnit.net 00:00:02.64]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: 
+"limit_right(sin(x), x, inf)", message: "coefficient does not evaluate at the point") [FAIL]
+[xUnit.net 00:00:02.64]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: 
+"limit_left(a/x, x, 0)", message: "leading coefficient is symbolic") [FAIL]
+[xUnit.net 00:00:02.64]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: 
+"limit_right(a/x, x, 0)", message: "leading coefficient is symbolic") [FAIL]
+[xUnit.net 00:00:02.83]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(sin(x), x, 
+inf)", fullCall: "limit_full(sin(x), x, inf)") [FAIL]
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Success_PublishesValueAndExactnessAsStructure [3 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Success_PublishesValueAndExactnessAsStructure() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 176
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.NoLimit_KeepsEveryValueTheProseSpelledOut [4 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.NoLimit_KeepsEveryValueTheProseSpelledOut() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 137
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit_left(sin(x), x, inf)", message: "coefficient does not evaluate at the point") [100 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit(sin(x), x, inf)", message: "coefficient does not evaluate at the point") [77 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit(a/x, x, 0)", message: "leading coefficient is symbolic") [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit_right(sin(x), x, inf)", message: "coefficient does not evaluate at the point") [70 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit_left(a/x, x, 0)", message: "leading coefficient is symbolic") [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(call: "limit_right(a/x, x, 0)", message: "leading coefficient is symbolic") [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Text"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises(String call, String message) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 212
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(sin(x), x, inf)", fullCall: "limit_full(sin(x), x, inf)") [188 ms]
+  Error Message:
+   limit(sin(x), x, inf) vs limit_full(sin(x), x, inf): envelope does not match the golden fixture:
+$: keys [fields, kind, type] != [kind, value]
+$.kind: expected "Record", got "Text"
+  Stack Trace:
+     at Lovelace.Run.Tests.TestSupport.AssertSameJson(JsonNode expected, JsonNode actual, String what) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\TestSupport.cs:line 143
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(String shortCall, String fullCall) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 116
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.83]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(1/x, x, 0)", 
+fullCall: "limit_full(1/x, x, 0)") [FAIL]
+[xUnit.net 00:00:02.84]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(sin(x)/x, x, 
+0)", fullCall: "limit_full(sin(x)/x, x, 0)") [FAIL]
+[xUnit.net 00:00:02.84]     
+Lovelace.Run.Tests.LimitShortFormRecordTests.OneSidedShortForms_PublishTheOneSidedAnswerAsStructure [FAIL]
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(1/x, x, 0)", fullCall: "limit_full(1/x, x, 0)") [4 ms]
+  Error Message:
+   limit(1/x, x, 0) vs limit_full(1/x, x, 0): envelope does not match the golden fixture:
+$: keys [fields, kind, type] != [kind, value]
+$.kind: expected "Record", got "Text"
+  Stack Trace:
+     at Lovelace.Run.Tests.TestSupport.AssertSameJson(JsonNode expected, JsonNode actual, String what) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\TestSupport.cs:line 143
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(String shortCall, String fullCall) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 116
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(shortCall: "limit(sin(x)/x, x, 0)", fullCall: "limit_full(sin(x)/x, x, 0)") [4 ms]
+  Error Message:
+   limit(sin(x)/x, x, 0) vs limit_full(sin(x)/x, x, 0): envelope does not match the golden fixture:
+$: keys [fields, kind, type] != [canonical, domain, exact, freeSymbols, kind, nodeCount, pretty]
+$.kind: expected "Record", got "Symbolic"
+  Stack Trace:
+     at Lovelace.Run.Tests.TestSupport.AssertSameJson(JsonNode expected, JsonNode actual, String what) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\TestSupport.cs:line 143
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.TwoSidedShortForm_IsTheSameRecordAsTheFullForm(String shortCall, String fullCall) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 116
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.LimitShortFormRecordTests.OneSidedShortForms_PublishTheOneSidedAnswerAsStructure [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "Record"
+Actual:   "Symbolic"
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Run.Tests.LimitShortFormRecordTests.Record(JsonNode envelope) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 36
+   at Lovelace.Run.Tests.LimitShortFormRecordTests.OneSidedShortForms_PublishTheOneSidedAnswerAsStructure() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run.Tests\LimitShortFormRecordTests.cs:line 156
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:    21, Passed:     0, Skipped:     0, Total:    21, Duration: 2 s - Lovelace.Run.Tests.dll (net10.0)

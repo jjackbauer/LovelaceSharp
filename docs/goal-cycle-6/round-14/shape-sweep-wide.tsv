@@ -1,0 +1,459 @@
+builtin	shape	ok	code	category	recoverable	message
+abs	record	False	InvalidOperation	DomainError	True	abs() is not supported for values of kind 'Record'.
+abs	matrix	False	InvalidOperation	DomainError	True	abs() on arrays requires a Complex array (got DType.Natural); use abs() on individual scalars for Natural/Integer/Real.
+abs	text	False	InvalidOperation	DomainError	True	abs() is not supported for values of kind 'Text'.
+abs	bool	False	InvalidOperation	DomainError	True	abs() is not supported for values of kind 'Boolean'.
+abs	empty	False	InvalidOperation	DomainError	True	abs() on arrays requires a Complex array (got DType.Natural); use abs() on individual scalars for Natural/Integer/Real.
+acos	record	False	InvalidOperation	DomainError	True	acos(): argument 1 must be a symbolic expression; got Record.
+acos	matrix	False	InvalidOperation	DomainError	True	acos(): argument 1 must be a symbolic expression; got Vector.
+acos	empty	False	InvalidOperation	DomainError	True	acos(): argument 1 must be a symbolic expression; got Vector.
+acosh	record	False	InvalidOperation	DomainError	True	acosh(): argument 1 must be a symbolic expression; got Record.
+acosh	matrix	False	InvalidOperation	DomainError	True	acosh(): argument 1 must be a symbolic expression; got Vector.
+acosh	empty	False	InvalidOperation	DomainError	True	acosh(): argument 1 must be a symbolic expression; got Vector.
+and	record	False	InvalidOperation	DomainError	True	and(): argument 1 must be a symbolic expression; got Record.
+and	matrix	False	InvalidOperation	DomainError	True	and(): argument 1 must be a symbolic expression; got Vector.
+and	empty	False	InvalidOperation	DomainError	True	and(): argument 1 must be a symbolic expression; got Vector.
+apart	record	False	InvalidOperation	DomainError	True	apart(): argument 1 must be a symbolic expression; got Record.
+apart	matrix	False	InvalidOperation	DomainError	True	apart(): argument 1 must be a symbolic expression; got Vector.
+apart	bool	False	InvalidOperation	DomainError	True	apart(): argument 2 must be a symbolic variable; got Symbolic.
+apart	empty	False	InvalidOperation	DomainError	True	apart(): argument 1 must be a symbolic expression; got Vector.
+append	record	False	InvalidArgument	TypeMismatch	True	append(): argument 1 must be an array or vector; got Record.
+append	matrix	False	InvalidOperation	DomainError	True	append() expects two vectors.
+append	text	False	InvalidArgument	TypeMismatch	True	append(): argument 1 must be an array or vector; got Text.
+append	bool	False	InvalidArgument	TypeMismatch	True	append(): argument 1 must be an array or vector; got Boolean.
+asin	record	False	InvalidOperation	DomainError	True	asin(): argument 1 must be a symbolic expression; got Record.
+asin	matrix	False	InvalidOperation	DomainError	True	asin(): argument 1 must be a symbolic expression; got Vector.
+asin	empty	False	InvalidOperation	DomainError	True	asin(): argument 1 must be a symbolic expression; got Vector.
+asinh	record	False	InvalidOperation	DomainError	True	asinh(): argument 1 must be a symbolic expression; got Record.
+asinh	matrix	False	InvalidOperation	DomainError	True	asinh(): argument 1 must be a symbolic expression; got Vector.
+asinh	empty	False	InvalidOperation	DomainError	True	asinh(): argument 1 must be a symbolic expression; got Vector.
+assume	record	False	InvalidArgument	TypeMismatch	True	assume(): argument 1 must be a relation such as x > 5; got Record.
+assume	matrix	False	InvalidArgument	TypeMismatch	True	assume(): argument 1 must be a relation such as x > 5; got Vector.
+assume	text	False	InvalidArgument	TypeMismatch	True	assume(): argument 1 must be a relation such as x > 5; got Text.
+assume	bool	False	InvalidOperation	DomainError	True	assume() accepts relations and their conjunctions/negations with constant bounds.
+assume	empty	False	InvalidArgument	TypeMismatch	True	assume(): argument 1 must be a relation such as x > 5; got Vector.
+assume_integer	record	False	InvalidArgument	TypeMismatch	True	assume_integer(): argument 1 must be a symbolic expression or the text name of one; got Record.
+assume_integer	matrix	False	InvalidArgument	TypeMismatch	True	assume_integer(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_integer	bool	False	InvalidArgument	TypeMismatch	True	assume_integer(): argument 1 must be a symbolic expression or the text name of one; got Symbolic.
+assume_integer	empty	False	InvalidArgument	TypeMismatch	True	assume_integer(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_negative	record	False	InvalidArgument	TypeMismatch	True	assume_negative(): argument 1 must be a symbolic expression or the text name of one; got Record.
+assume_negative	matrix	False	InvalidArgument	TypeMismatch	True	assume_negative(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_negative	empty	False	InvalidArgument	TypeMismatch	True	assume_negative(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_nonnegative	record	False	InvalidArgument	TypeMismatch	True	assume_nonnegative(): argument 1 must be a symbolic expression or the text name of one; got Record.
+assume_nonnegative	matrix	False	InvalidArgument	TypeMismatch	True	assume_nonnegative(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_nonnegative	empty	False	InvalidArgument	TypeMismatch	True	assume_nonnegative(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_positive	record	False	InvalidArgument	TypeMismatch	True	assume_positive(): argument 1 must be a symbolic expression or the text name of one; got Record.
+assume_positive	matrix	False	InvalidArgument	TypeMismatch	True	assume_positive(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_positive	empty	False	InvalidArgument	TypeMismatch	True	assume_positive(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_real	record	False	InvalidArgument	TypeMismatch	True	assume_real(): argument 1 must be a symbolic expression or the text name of one; got Record.
+assume_real	matrix	False	InvalidArgument	TypeMismatch	True	assume_real(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+assume_real	bool	False	InvalidArgument	TypeMismatch	True	assume_real(): argument 1 must be a symbolic expression or the text name of one; got Symbolic.
+assume_real	empty	False	InvalidArgument	TypeMismatch	True	assume_real(): argument 1 must be a symbolic expression or the text name of one; got Vector.
+atan	record	False	InvalidOperation	DomainError	True	atan(): argument 1 must be a symbolic expression; got Record.
+atan	matrix	False	InvalidOperation	DomainError	True	atan(): argument 1 must be a symbolic expression; got Vector.
+atan	empty	False	InvalidOperation	DomainError	True	atan(): argument 1 must be a symbolic expression; got Vector.
+atanh	record	False	InvalidOperation	DomainError	True	atanh(): argument 1 must be a symbolic expression; got Record.
+atanh	matrix	False	InvalidOperation	DomainError	True	atanh(): argument 1 must be a symbolic expression; got Vector.
+atanh	empty	False	InvalidOperation	DomainError	True	atanh(): argument 1 must be a symbolic expression; got Vector.
+cancel	record	False	InvalidOperation	DomainError	True	cancel(): argument 1 must be a symbolic expression; got Record.
+cancel	matrix	False	InvalidOperation	DomainError	True	cancel(): argument 1 must be a symbolic expression; got Vector.
+cancel	empty	False	InvalidOperation	DomainError	True	cancel(): argument 1 must be a symbolic expression; got Vector.
+cancel_full	record	False	InvalidOperation	DomainError	True	cancel_full(): argument 1 must be a symbolic expression; got Record.
+cancel_full	matrix	False	InvalidOperation	DomainError	True	cancel_full(): argument 1 must be a symbolic expression; got Vector.
+cancel_full	empty	False	InvalidOperation	DomainError	True	cancel_full(): argument 1 must be a symbolic expression; got Vector.
+collect	record	False	InvalidOperation	DomainError	True	collect(): argument 1 must be a symbolic expression; got Record.
+collect	matrix	False	InvalidOperation	DomainError	True	collect(): argument 1 must be a symbolic expression; got Vector.
+collect	bool	False	InvalidOperation	DomainError	True	collect(): argument 2 must be a symbolic variable; got Symbolic.
+collect	empty	False	InvalidOperation	DomainError	True	collect(): argument 1 must be a symbolic expression; got Vector.
+compile	record	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile	matrix	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile	text	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile	bool	False	InvalidOperation	DomainError	True	compile(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+compile	empty	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	record	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	matrix	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	text	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	bool	False	InvalidOperation	DomainError	True	compile_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+compile_full	empty	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+concat	record	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Record'.
+concat	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+concat	text	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Text'.
+concat	bool	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Boolean'.
+concat	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+conj	record	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RecordValue'.
+conj	text	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'String'.
+conj	bool	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RelationExpr'.
+conv	record	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+conv	text	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+conv	bool	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+cos	record	False	InvalidOperation	DomainError	True	cos(): argument 1 must be a symbolic expression; got Record.
+cos	matrix	False	InvalidOperation	DomainError	True	cos(): argument 1 must be a symbolic expression; got Vector.
+cos	empty	False	InvalidOperation	DomainError	True	cos(): argument 1 must be a symbolic expression; got Vector.
+cosh	record	False	InvalidOperation	DomainError	True	cosh(): argument 1 must be a symbolic expression; got Record.
+cosh	matrix	False	InvalidOperation	DomainError	True	cosh(): argument 1 must be a symbolic expression; got Vector.
+cosh	empty	False	InvalidOperation	DomainError	True	cosh(): argument 1 must be a symbolic expression; got Vector.
+cosine	record	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'RecordValue'.
+cosine	matrix	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'PayloadArray'.
+cosine	text	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'String'.
+cosine	bool	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'RelationExpr'.
+cosine	empty	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'PayloadArray'.
+cross	record	False	InvalidArgument	TypeMismatch	True	cross(): argument 1 must be a vector of length 3; got Record.
+cross	matrix	False	InvalidArgument	TypeMismatch	True	cross(): argument 1 must be a vector of length 3; got Array.
+cross	text	False	InvalidArgument	TypeMismatch	True	cross(): argument 1 must be a vector of length 3; got Text.
+cross	bool	False	InvalidArgument	TypeMismatch	True	cross(): argument 1 must be a vector of length 3; got Boolean.
+cross	empty	False	InvalidArgument	TypeMismatch	True	cross(): argument 1 must be a vector of length 3; got Vector.
+delay	record	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'RecordValue'.
+delay	matrix	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'PayloadArray'.
+delay	text	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'String'.
+delay	bool	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'RelationExpr'.
+delay	empty	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'PayloadArray'.
+det	record	False	InvalidArgument	TypeMismatch	True	det(): argument 1 must be a square matrix; got Record.
+det	text	False	InvalidArgument	TypeMismatch	True	det(): argument 1 must be a square matrix; got Text.
+det	bool	False	InvalidArgument	TypeMismatch	True	det(): argument 1 must be a square matrix; got Boolean.
+det	empty	False	InvalidArgument	TypeMismatch	True	det(): argument 1 must be a square matrix; got Vector.
+dft	record	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'RecordValue'.
+dft	matrix	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'PayloadArray'.
+dft	text	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'String'.
+dft	bool	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'RelationExpr'.
+dft	empty	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'PayloadArray'.
+diff	record	False	InvalidOperation	DomainError	True	diff(): argument 1 must be a symbolic expression; got Record.
+diff	matrix	False	InvalidOperation	DomainError	True	diff(): argument 1 must be a symbolic expression; got Vector.
+diff	bool	False	InvalidOperation	DomainError	True	diff(): argument 2 must be a symbolic variable; got Symbolic.
+diff	empty	False	InvalidOperation	DomainError	True	diff(): argument 1 must be a symbolic expression; got Vector.
+divrem	record	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Record'. Use Natural or Integer operands.
+divrem	matrix	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Array'. Use Natural or Integer operands.
+divrem	text	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Text'. Use Natural or Integer operands.
+divrem	bool	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Boolean'. Use Natural or Integer operands.
+divrem	empty	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Vector'. Use Natural or Integer operands.
+dot	record	False	InvalidArgument	TypeMismatch	True	dot(): argument 1 must be an array or vector; got Record.
+dot	matrix	False	InvalidArgument	TypeMismatch	True	dot() operands must be rank-1 vectors.
+dot	text	False	InvalidArgument	TypeMismatch	True	dot(): argument 1 must be an array or vector; got Text.
+dot	bool	False	InvalidArgument	TypeMismatch	True	dot(): argument 1 must be an array or vector; got Boolean.
+e	record	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Record'.
+e	matrix	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Array'.
+e	text	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Text'.
+e	bool	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Boolean'.
+e	empty	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Vector'.
+evalf	record	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Record.
+evalf	matrix	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Vector.
+evalf	text	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Text.
+evalf	bool	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Symbolic.
+evalf	empty	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Vector.
+evalir	record	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir	matrix	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir	text	False	InvalidInput	ParseError	True	Malformed IR line: x
+evalir	bool	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir	empty	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	record	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	matrix	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	text	False	InvalidInput	ParseError	True	Malformed IR line: x
+evalir_batch	bool	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	empty	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+exp	record	False	InvalidOperation	DomainError	True	exp(): argument 1 must be a symbolic expression; got Record.
+exp	matrix	False	InvalidOperation	DomainError	True	exp(): argument 1 must be a symbolic expression; got Vector.
+exp	empty	False	InvalidOperation	DomainError	True	exp(): argument 1 must be a symbolic expression; got Vector.
+expand	record	False	InvalidOperation	DomainError	True	expand(): argument 1 must be a symbolic expression; got Record.
+expand	matrix	False	InvalidOperation	DomainError	True	expand(): argument 1 must be a symbolic expression; got Vector.
+expand	empty	False	InvalidOperation	DomainError	True	expand(): argument 1 must be a symbolic expression; got Vector.
+exponential	record	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'RecordValue'.
+exponential	matrix	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'PayloadArray'.
+exponential	text	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'String'.
+exponential	bool	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'RelationExpr'.
+exponential	empty	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'PayloadArray'.
+eye	record	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Record'.
+eye	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+eye	text	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Text'.
+eye	bool	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Boolean'.
+eye	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+factor	record	False	InvalidOperation	DomainError	True	factor(): argument 1 must be a symbolic expression; got Record.
+factor	matrix	False	InvalidOperation	DomainError	True	factor(): argument 1 must be a symbolic expression; got Vector.
+factor	empty	False	InvalidOperation	DomainError	True	factor(): argument 1 must be a symbolic expression; got Vector.
+fft	record	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+fft	text	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+fft	bool	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	record	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	text	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	bool	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	empty	False	InvalidArgument	TypeMismatch	True	The denominator coefficient vector 'a' must not be empty. (Parameter 'a')
+flatten	record	False	InvalidArgument	TypeMismatch	True	flatten(): argument 1 must be an array or vector; got Record.
+flatten	text	False	InvalidArgument	TypeMismatch	True	flatten(): argument 1 must be an array or vector; got Text.
+flatten	bool	False	InvalidArgument	TypeMismatch	True	flatten(): argument 1 must be an array or vector; got Boolean.
+hessian	record	False	InvalidOperation	DomainError	True	hessian(): argument 1 must be a symbolic expression; got Record.
+hessian	matrix	False	InvalidOperation	DomainError	True	hessian(): argument 1 must be a symbolic expression; got Vector.
+hessian	text	False	InvalidOperation	DomainError	True	hessian(): argument 2 must be a list of parameter symbols, e.g. [x]; got Text.
+hessian	bool	False	InvalidOperation	DomainError	True	hessian(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+hessian	empty	False	InvalidOperation	DomainError	True	hessian(): argument 1 must be a symbolic expression; got Vector.
+im	record	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RecordValue'.
+im	text	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'String'.
+im	bool	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RelationExpr'.
+impulse	record	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'RecordValue'.
+impulse	matrix	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'PayloadArray'.
+impulse	text	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'String'.
+impulse	bool	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'RelationExpr'.
+impulse	empty	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'PayloadArray'.
+integrate	record	False	InvalidOperation	DomainError	True	integrate(): argument 1 must be a symbolic expression; got Record.
+integrate	matrix	False	InvalidOperation	DomainError	True	integrate(): argument 1 must be a symbolic expression; got Vector.
+integrate	bool	False	InvalidOperation	DomainError	True	integrate(): argument 2 must be a symbolic variable; got Symbolic.
+integrate	empty	False	InvalidOperation	DomainError	True	integrate(): argument 1 must be a symbolic expression; got Vector.
+integrate_full	record	False	InvalidOperation	DomainError	True	integrate_full(): argument 1 must be a symbolic expression; got Record.
+integrate_full	matrix	False	InvalidOperation	DomainError	True	integrate_full(): argument 1 must be a symbolic expression; got Vector.
+integrate_full	bool	False	InvalidOperation	DomainError	True	integrate_full(): argument 2 must be a symbolic variable; got Symbolic.
+integrate_full	empty	False	InvalidOperation	DomainError	True	integrate_full(): argument 1 must be a symbolic expression; got Vector.
+inv	record	False	InvalidOperation	DomainError	True	Cannot widen from Record to Real: only numeric kinds (Natural, Integer, Real) support widening.
+inv	text	False	InvalidOperation	DomainError	True	Cannot widen from Text to Real: only numeric kinds (Natural, Integer, Real) support widening.
+inv	bool	False	InvalidOperation	DomainError	True	Cannot widen from Boolean to Real: only numeric kinds (Natural, Integer, Real) support widening.
+inv	empty	False	InvalidOperation	DomainError	True	Cannot widen from Vector to Real: only numeric kinds (Natural, Integer, Real) support widening.
+inv_full	record	False	InvalidArgument	TypeMismatch	True	inv_full(): argument 1 must be an array or vector; got Record.
+inv_full	matrix	False	InvalidOperation	DomainError	True	inv_full() requires a symbolic matrix.
+inv_full	text	False	InvalidArgument	TypeMismatch	True	inv_full(): argument 1 must be an array or vector; got Text.
+inv_full	bool	False	InvalidArgument	TypeMismatch	True	inv_full(): argument 1 must be an array or vector; got Boolean.
+inv_full	empty	False	InvalidOperation	DomainError	True	inv_full() requires a symbolic matrix.
+is_even	record	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Record'.
+is_even	matrix	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Array'.
+is_even	text	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Text'.
+is_even	bool	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Boolean'.
+is_even	empty	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Vector'.
+is_odd	record	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Record'.
+is_odd	matrix	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Array'.
+is_odd	text	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Text'.
+is_odd	bool	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Boolean'.
+is_odd	empty	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Vector'.
+jacobian	record	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 1 must be a list of expressions, e.g. [x*y, x + y]; got Record.
+jacobian	matrix	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+jacobian	text	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 1 must be a list of expressions, e.g. [x*y, x + y]; got Text.
+jacobian	bool	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 1 must be a list of expressions, e.g. [x*y, x + y]; got Symbolic.
+latex	record	False	InvalidOperation	DomainError	True	latex(): argument 1 must be a symbolic expression; got Record.
+latex	matrix	False	InvalidOperation	DomainError	True	latex(): argument 1 must be a symbolic expression; got Vector.
+latex	empty	False	InvalidOperation	DomainError	True	latex(): argument 1 must be a symbolic expression; got Vector.
+len	record	False	InvalidOperation	DomainError	True	len() expects a vector or array, but got 'Record'.
+len	text	False	InvalidOperation	DomainError	True	len() expects a vector or array, but got 'Text'.
+len	bool	False	InvalidOperation	DomainError	True	len() expects a vector or array, but got 'Boolean'.
+limit	record	False	InvalidOperation	DomainError	True	limit(): argument 1 must be a symbolic expression; got Record.
+limit	matrix	False	InvalidOperation	DomainError	True	limit(): argument 1 must be a symbolic expression; got Vector.
+limit	bool	False	InvalidOperation	DomainError	True	limit(): argument 2 must be a symbolic variable; got Symbolic.
+limit	empty	False	InvalidOperation	DomainError	True	limit(): argument 1 must be a symbolic expression; got Vector.
+limit_full	record	False	InvalidOperation	DomainError	True	limit_full(): argument 2 must be a symbolic variable; got Record.
+limit_full	matrix	False	InvalidOperation	DomainError	True	limit_full(): argument 2 must be a symbolic variable; got Vector.
+limit_full	bool	False	InvalidOperation	DomainError	True	limit_full(): argument 2 must be a symbolic variable; got Symbolic.
+limit_full	empty	False	InvalidOperation	DomainError	True	limit_full(): argument 2 must be a symbolic variable; got Vector.
+limit_left	record	False	InvalidOperation	DomainError	True	limit_left(): argument 1 must be a symbolic expression; got Record.
+limit_left	matrix	False	InvalidOperation	DomainError	True	limit_left(): argument 1 must be a symbolic expression; got Vector.
+limit_left	bool	False	InvalidOperation	DomainError	True	limit_left(): argument 2 must be a symbolic variable; got Symbolic.
+limit_left	empty	False	InvalidOperation	DomainError	True	limit_left(): argument 1 must be a symbolic expression; got Vector.
+limit_right	record	False	InvalidOperation	DomainError	True	limit_right(): argument 1 must be a symbolic expression; got Record.
+limit_right	matrix	False	InvalidOperation	DomainError	True	limit_right(): argument 1 must be a symbolic expression; got Vector.
+limit_right	bool	False	InvalidOperation	DomainError	True	limit_right(): argument 2 must be a symbolic variable; got Symbolic.
+limit_right	empty	False	InvalidOperation	DomainError	True	limit_right(): argument 1 must be a symbolic expression; got Vector.
+linsolve	record	False	InvalidArgument	TypeMismatch	True	linsolve(): argument 1 must be an array or vector; got Record.
+linsolve	matrix	False	InvalidOperation	DomainError	True	linsolve() requires a symbolic matrix A.
+linsolve	text	False	InvalidArgument	TypeMismatch	True	linsolve(): argument 1 must be an array or vector; got Text.
+linsolve	bool	False	InvalidArgument	TypeMismatch	True	linsolve(): argument 1 must be an array or vector; got Boolean.
+linsolve	empty	False	InvalidOperation	DomainError	True	linsolve() requires a symbolic matrix A.
+linsolve_full	record	False	InvalidArgument	TypeMismatch	True	linsolve_full(): argument 1 must be an array or vector; got Record.
+linsolve_full	matrix	False	InvalidOperation	DomainError	True	linsolve_full() requires a symbolic matrix A.
+linsolve_full	text	False	InvalidArgument	TypeMismatch	True	linsolve_full(): argument 1 must be an array or vector; got Text.
+linsolve_full	bool	False	InvalidArgument	TypeMismatch	True	linsolve_full(): argument 1 must be an array or vector; got Boolean.
+linsolve_full	empty	False	InvalidOperation	DomainError	True	linsolve_full() requires a symbolic matrix A.
+log	record	False	InvalidOperation	DomainError	True	log(): argument 1 must be a symbolic expression; got Record.
+log	matrix	False	InvalidOperation	DomainError	True	log(): argument 1 must be a symbolic expression; got Vector.
+log	empty	False	InvalidOperation	DomainError	True	log(): argument 1 must be a symbolic expression; got Vector.
+lower	record	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+lower	matrix	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+lower	text	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+lower	bool	False	InvalidOperation	DomainError	True	lower(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+lower	empty	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+matmul	record	False	InvalidArgument	TypeMismatch	True	matmul(): argument 1 must be an array or vector; got Record.
+matmul	text	False	InvalidArgument	TypeMismatch	True	matmul(): argument 1 must be an array or vector; got Text.
+matmul	bool	False	InvalidArgument	TypeMismatch	True	matmul(): argument 1 must be an array or vector; got Boolean.
+matrix_rank	record	False	InvalidArgument	TypeMismatch	True	matrix_rank(): argument 1 must be an array or vector; got Record.
+matrix_rank	matrix	False	InvalidOperation	DomainError	True	matrix_rank() requires a symbolic matrix.
+matrix_rank	text	False	InvalidArgument	TypeMismatch	True	matrix_rank(): argument 1 must be an array or vector; got Text.
+matrix_rank	bool	False	InvalidArgument	TypeMismatch	True	matrix_rank(): argument 1 must be an array or vector; got Boolean.
+matrix_rank	empty	False	InvalidOperation	DomainError	True	matrix_rank() requires a symbolic matrix.
+max	record	False	InvalidArgument	TypeMismatch	True	max(): argument 1 must be an array or vector; got Record.
+max	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+max	text	False	InvalidArgument	TypeMismatch	True	max(): argument 1 must be an array or vector; got Text.
+max	bool	False	InvalidArgument	TypeMismatch	True	max(): argument 1 must be an array or vector; got Boolean.
+max	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+mean	record	False	InvalidArgument	TypeMismatch	True	mean(): argument 1 must be an array or vector; got Record.
+mean	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+mean	text	False	InvalidArgument	TypeMismatch	True	mean(): argument 1 must be an array or vector; got Text.
+mean	bool	False	InvalidArgument	TypeMismatch	True	mean(): argument 1 must be an array or vector; got Boolean.
+mean	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+min	record	False	InvalidArgument	TypeMismatch	True	min(): argument 1 must be an array or vector; got Record.
+min	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+min	text	False	InvalidArgument	TypeMismatch	True	min(): argument 1 must be an array or vector; got Text.
+min	bool	False	InvalidArgument	TypeMismatch	True	min(): argument 1 must be an array or vector; got Boolean.
+min	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+movingavg	record	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'RecordValue'.
+movingavg	matrix	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'PayloadArray'.
+movingavg	text	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'String'.
+movingavg	bool	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'RelationExpr'.
+movingavg	empty	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'PayloadArray'.
+ndims	record	False	InvalidArgument	TypeMismatch	True	ndims(): argument 1 must be an array or vector; got Record.
+ndims	text	False	InvalidArgument	TypeMismatch	True	ndims(): argument 1 must be an array or vector; got Text.
+ndims	bool	False	InvalidArgument	TypeMismatch	True	ndims(): argument 1 must be an array or vector; got Boolean.
+noise	record	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'RecordValue'.
+noise	matrix	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'PayloadArray'.
+noise	text	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'String'.
+noise	bool	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'RelationExpr'.
+noise	empty	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'PayloadArray'.
+norm	record	False	InvalidArgument	TypeMismatch	True	norm(): argument 1 must be an array or vector; got Record.
+norm	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+norm	text	False	InvalidArgument	TypeMismatch	True	norm(): argument 1 must be an array or vector; got Text.
+norm	bool	False	InvalidArgument	TypeMismatch	True	norm(): argument 1 must be an array or vector; got Boolean.
+norm	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+not	record	False	InvalidOperation	DomainError	True	not(): argument 1 must be a symbolic expression; got Record.
+not	matrix	False	InvalidOperation	DomainError	True	not(): argument 1 must be a symbolic expression; got Vector.
+not	empty	False	InvalidOperation	DomainError	True	not(): argument 1 must be a symbolic expression; got Vector.
+numel	record	False	InvalidArgument	TypeMismatch	True	numel(): argument 1 must be an array or vector; got Record.
+numel	text	False	InvalidArgument	TypeMismatch	True	numel(): argument 1 must be an array or vector; got Text.
+numel	bool	False	InvalidArgument	TypeMismatch	True	numel(): argument 1 must be an array or vector; got Boolean.
+ones	record	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Record'.
+ones	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+ones	text	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Text'.
+ones	bool	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Boolean'.
+ones	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+optimize	record	False	InvalidOperation	DomainError	True	optimize(): argument 1 must be a symbolic expression; got Record.
+optimize	matrix	False	InvalidOperation	DomainError	True	optimize(): argument 1 must be a symbolic expression; got Vector.
+optimize	text	False	InvalidOperation	DomainError	True	optimize(): argument 2 must be a list of parameter symbols, e.g. [x]; got Text.
+optimize	bool	False	InvalidOperation	DomainError	True	optimize(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+optimize	empty	False	InvalidOperation	DomainError	True	optimize(): argument 1 must be a symbolic expression; got Vector.
+optimize_full	record	False	InvalidOperation	DomainError	True	optimize_full(): argument 1 must be a symbolic expression; got Record.
+optimize_full	matrix	False	InvalidOperation	DomainError	True	optimize_full(): argument 1 must be a symbolic expression; got Vector.
+optimize_full	text	False	InvalidOperation	DomainError	True	optimize_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Text.
+optimize_full	bool	False	InvalidOperation	DomainError	True	optimize_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+optimize_full	empty	False	InvalidOperation	DomainError	True	optimize_full(): argument 1 must be a symbolic expression; got Vector.
+or	record	False	InvalidOperation	DomainError	True	or(): argument 1 must be a symbolic expression; got Record.
+or	matrix	False	InvalidOperation	DomainError	True	or(): argument 1 must be a symbolic expression; got Vector.
+or	empty	False	InvalidOperation	DomainError	True	or(): argument 1 must be a symbolic expression; got Vector.
+pi	record	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Record'.
+pi	matrix	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Array'.
+pi	text	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Text'.
+pi	bool	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Boolean'.
+pi	empty	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Vector'.
+plot	record	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Record'.
+plot	matrix	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Array'.
+plot	text	False	InvalidOperation	DomainError	True	plot() argument 1 must be a vector, but got 'Text'.
+plot	bool	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Boolean'.
+plot	empty	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Vector'.
+powerseries	record	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'RecordValue'.
+powerseries	matrix	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'PayloadArray'.
+powerseries	text	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'String'.
+powerseries	bool	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'RelationExpr'.
+powerseries	empty	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'PayloadArray'.
+prod	record	False	InvalidArgument	TypeMismatch	True	prod(): argument 1 must be an array or vector; got Record.
+prod	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+prod	text	False	InvalidArgument	TypeMismatch	True	prod(): argument 1 must be an array or vector; got Text.
+prod	bool	False	InvalidArgument	TypeMismatch	True	prod(): argument 1 must be an array or vector; got Boolean.
+prod	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+rank	record	False	InvalidArgument	TypeMismatch	True	rank(): argument 1 must be an array or vector; got Record.
+rank	text	False	InvalidArgument	TypeMismatch	True	rank(): argument 1 must be an array or vector; got Text.
+rank	bool	False	InvalidArgument	TypeMismatch	True	rank(): argument 1 must be an array or vector; got Boolean.
+re	record	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RecordValue'.
+re	text	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'String'.
+re	bool	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'RelationExpr'.
+reshape	record	False	InvalidArgument	TypeMismatch	True	reshape(): argument 1 must be an array or vector; got Record.
+reshape	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+reshape	text	False	InvalidArgument	TypeMismatch	True	reshape(): argument 1 must be an array or vector; got Text.
+reshape	bool	False	InvalidArgument	TypeMismatch	True	reshape(): argument 1 must be an array or vector; got Boolean.
+reshape	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+scale	record	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+scale	matrix	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'PayloadArray'.
+scale	text	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+scale	bool	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+scale	empty	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'PayloadArray'.
+series	record	False	InvalidOperation	DomainError	True	series(): argument 1 must be a symbolic expression; got Record.
+series	matrix	False	InvalidOperation	DomainError	True	series(): argument 1 must be a symbolic expression; got Vector.
+series	text	False	InvalidOperation	DomainError	True	series(): argument 4 must be an integer; got Text.
+series	bool	False	InvalidOperation	DomainError	True	series(): argument 2 must be a symbolic variable; got Symbolic.
+series	empty	False	InvalidOperation	DomainError	True	series(): argument 1 must be a symbolic expression; got Vector.
+setprecision	record	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Record'.
+setprecision	matrix	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Array'.
+setprecision	text	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Text'.
+setprecision	bool	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Boolean'.
+setprecision	empty	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Vector'.
+shape	record	False	InvalidArgument	TypeMismatch	True	shape(): argument 1 must be an array or vector; got Record.
+shape	text	False	InvalidArgument	TypeMismatch	True	shape(): argument 1 must be an array or vector; got Text.
+shape	bool	False	InvalidArgument	TypeMismatch	True	shape(): argument 1 must be an array or vector; got Boolean.
+sign	record	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Record'. Use Natural or Integer operands.
+sign	matrix	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Array'. Use Natural or Integer operands.
+sign	text	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Text'. Use Natural or Integer operands.
+sign	bool	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Boolean'. Use Natural or Integer operands.
+sign	empty	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Vector'. Use Natural or Integer operands.
+simplify	record	False	InvalidOperation	DomainError	True	simplify(): argument 1 must be a symbolic expression; got Record.
+simplify	matrix	False	InvalidOperation	DomainError	True	simplify(): argument 1 must be a symbolic expression; got Vector.
+simplify	empty	False	InvalidOperation	DomainError	True	simplify(): argument 1 must be a symbolic expression; got Vector.
+simplify_full	record	False	InvalidOperation	DomainError	True	simplify_full(): argument 1 must be a symbolic expression; got Record.
+simplify_full	matrix	False	InvalidOperation	DomainError	True	simplify_full(): argument 1 must be a symbolic expression; got Vector.
+simplify_full	empty	False	InvalidOperation	DomainError	True	simplify_full(): argument 1 must be a symbolic expression; got Vector.
+sin	record	False	InvalidOperation	DomainError	True	sin(): argument 1 must be a symbolic expression; got Record.
+sin	matrix	False	InvalidOperation	DomainError	True	sin(): argument 1 must be a symbolic expression; got Vector.
+sin	empty	False	InvalidOperation	DomainError	True	sin(): argument 1 must be a symbolic expression; got Vector.
+sinh	record	False	InvalidOperation	DomainError	True	sinh(): argument 1 must be a symbolic expression; got Record.
+sinh	matrix	False	InvalidOperation	DomainError	True	sinh(): argument 1 must be a symbolic expression; got Vector.
+sinh	empty	False	InvalidOperation	DomainError	True	sinh(): argument 1 must be a symbolic expression; got Vector.
+solve	record	False	InvalidOperation	DomainError	True	solve(): argument 1 must be a symbolic expression; got Record.
+solve	matrix	False	InvalidOperation	DomainError	True	solve(): argument 1 must be a symbolic expression; got Vector.
+solve	text	False	InvalidOperation	DomainError	True	solve(): argument 3 (domain) must be a domain value such as real or complex.
+solve	bool	False	InvalidOperation	DomainError	True	solve(): argument 2 must be a symbolic variable; got Symbolic.
+solve	empty	False	InvalidOperation	DomainError	True	solve(): argument 1 must be a symbolic expression; got Vector.
+solve_full	record	False	InvalidOperation	DomainError	True	solve_full(): argument 1 must be a symbolic expression; got Record.
+solve_full	matrix	False	InvalidOperation	DomainError	True	solve_full(): argument 1 must be a symbolic expression; got Vector.
+solve_full	text	False	InvalidOperation	DomainError	True	solve(): argument 3 (domain) must be a domain value such as real or complex.
+solve_full	bool	False	InvalidOperation	DomainError	True	solve_full(): argument 2 must be a symbolic variable; got Symbolic.
+solve_full	empty	False	InvalidOperation	DomainError	True	solve_full(): argument 1 must be a symbolic expression; got Vector.
+solve_system	record	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Record.
+solve_system	matrix	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+solve_system	text	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Text.
+solve_system	bool	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Symbolic.
+solve_system_full	record	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Record.
+solve_system_full	matrix	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+solve_system_full	text	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Text.
+solve_system_full	bool	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Symbolic.
+sqrt	record	False	InvalidOperation	DomainError	True	Cannot widen from Record to Real: only numeric kinds (Natural, Integer, Real) support widening.
+sqrt	matrix	False	InvalidOperation	DomainError	True	Cannot widen from Array to Real: only numeric kinds (Natural, Integer, Real) support widening.
+sqrt	text	False	InvalidOperation	DomainError	True	Cannot widen from Text to Real: only numeric kinds (Natural, Integer, Real) support widening.
+sqrt	bool	False	InvalidOperation	DomainError	True	Cannot widen from Boolean to Real: only numeric kinds (Natural, Integer, Real) support widening.
+sqrt	empty	False	InvalidOperation	DomainError	True	Cannot widen from Vector to Real: only numeric kinds (Natural, Integer, Real) support widening.
+squeeze	record	False	InvalidArgument	TypeMismatch	True	squeeze(): argument 1 must be an array or vector; got Record.
+squeeze	text	False	InvalidArgument	TypeMismatch	True	squeeze(): argument 1 must be an array or vector; got Text.
+squeeze	bool	False	InvalidArgument	TypeMismatch	True	squeeze(): argument 1 must be an array or vector; got Boolean.
+step	record	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'RecordValue'.
+step	matrix	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'PayloadArray'.
+step	text	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'String'.
+step	bool	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'RelationExpr'.
+step	empty	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'PayloadArray'.
+subs	record	False	InvalidOperation	DomainError	True	subs(): argument 1 must be a symbolic expression; got Record.
+subs	matrix	False	InvalidOperation	DomainError	True	subs(): argument 1 must be a symbolic expression; got Vector.
+subs	bool	False	InvalidOperation	DomainError	True	subs(): argument 2 must be a symbolic variable; got Symbolic.
+subs	empty	False	InvalidOperation	DomainError	True	subs(): argument 1 must be a symbolic expression; got Vector.
+sum	record	False	InvalidArgument	TypeMismatch	True	sum(): argument 1 must be an array or vector; got Record.
+sum	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+sum	text	False	InvalidArgument	TypeMismatch	True	sum(): argument 1 must be an array or vector; got Text.
+sum	bool	False	InvalidArgument	TypeMismatch	True	sum(): argument 1 must be an array or vector; got Boolean.
+sum	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+symbol	record	False	InvalidArgument	TypeMismatch	True	symbol(): argument 1 must be a text name such as "x"; got Record.
+symbol	matrix	False	InvalidArgument	TypeMismatch	True	symbol(): argument 1 must be a text name such as "x"; got Vector.
+symbol	bool	False	InvalidArgument	TypeMismatch	True	symbol(): argument 1 must be a text name such as "x"; got Symbolic.
+symbol	empty	False	InvalidArgument	TypeMismatch	True	symbol(): argument 1 must be a text name such as "x"; got Vector.
+tan	record	False	InvalidOperation	DomainError	True	tan(): argument 1 must be a symbolic expression; got Record.
+tan	matrix	False	InvalidOperation	DomainError	True	tan(): argument 1 must be a symbolic expression; got Vector.
+tan	empty	False	InvalidOperation	DomainError	True	tan(): argument 1 must be a symbolic expression; got Vector.
+tanh	record	False	InvalidOperation	DomainError	True	tanh(): argument 1 must be a symbolic expression; got Record.
+tanh	matrix	False	InvalidOperation	DomainError	True	tanh(): argument 1 must be a symbolic expression; got Vector.
+tanh	empty	False	InvalidOperation	DomainError	True	tanh(): argument 1 must be a symbolic expression; got Vector.
+trace	record	False	InvalidArgument	TypeMismatch	True	trace(): argument 1 must be a square matrix; got Record.
+trace	text	False	InvalidArgument	TypeMismatch	True	trace(): argument 1 must be a square matrix; got Text.
+trace	bool	False	InvalidArgument	TypeMismatch	True	trace(): argument 1 must be a square matrix; got Boolean.
+trace	empty	False	InvalidArgument	TypeMismatch	True	trace(): argument 1 must be a square matrix; got Vector.
+transpose	record	False	InvalidArgument	TypeMismatch	True	transpose(): argument 1 must be an array or vector; got Record.
+transpose	matrix	False	InvalidArgument	TypeMismatch	True	transpose(): argument 2 must be a permutation of the 2 axes; got Array.
+transpose	text	False	InvalidArgument	TypeMismatch	True	transpose(): argument 1 must be an array or vector; got Text.
+transpose	bool	False	InvalidArgument	TypeMismatch	True	transpose(): argument 1 must be an array or vector; got Boolean.
+transpose	empty	False	InvalidArgument	TypeMismatch	True	transpose(): argument 2 must be a permutation of the 1 axes; got Vector.
+zeros	record	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Record'.
+zeros	matrix	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Array'.
+zeros	text	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Text'.
+zeros	bool	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Boolean'.
+zeros	empty	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.

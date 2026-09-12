@@ -1,0 +1,115 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Abstractions.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Abstractions.Tests\bin\Release\net10.0\Lovelace.Abstractions.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Abstractions.Tests\bin\Release\net10.0\Lovelace.Abstractions.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    20, Skipped:     0, Total:    20, Duration: 56 ms - Lovelace.Abstractions.Tests.dll (net10.0)
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Array.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Array.Tests\bin\Release\net10.0\Lovelace.Array.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Array.Tests\bin\Release\net10.0\Lovelace.Array.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    19, Skipped:     0, Total:    19, Duration: 57 ms - Lovelace.Array.Tests.dll (net10.0)
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Complex.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   115, Skipped:     0, Total:   115, Duration: 1 s - Lovelace.Complex.Tests.dll (net10.0)
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Console -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Console\bin\Release\net10.0\Lovelace.Console.dll
+  Lovelace.Console.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Console.Tests\bin\Release\net10.0\Lovelace.Console.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Console.Tests\bin\Release\net10.0\Lovelace.Console.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    15, Skipped:     0, Total:    15, Duration: 196 ms - Lovelace.Console.Tests.dll (net10.0)
+  Lovelace.Dsp.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Dsp.Tests\bin\Release\net10.0\Lovelace.Dsp.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Dsp.Tests\bin\Release\net10.0\Lovelace.Dsp.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    61, Skipped:     0, Total:    61, Duration: 2 s - Lovelace.Dsp.Tests.dll (net10.0)
+  Lovelace.Integer.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Integer.Tests\bin\Release\net10.0\Lovelace.Integer.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Integer.Tests\bin\Release\net10.0\Lovelace.Integer.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 52 ms - Lovelace.Integer.Tests.dll (net10.0)
+  Lovelace.Knowledge -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Knowledge\bin\Release\net10.0\Lovelace.Knowledge.dll
+  Lovelace.Knowledge.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Knowledge.Tests\bin\Release\net10.0\Lovelace.Knowledge.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Knowledge.Tests\bin\Release\net10.0\Lovelace.Knowledge.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    28, Skipped:     0, Total:    28, Duration: 95 ms - Lovelace.Knowledge.Tests.dll (net10.0)
+  Lovelace.Natural.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Natural.Tests\bin\Release\net10.0\Lovelace.Natural.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Natural.Tests\bin\Release\net10.0\Lovelace.Natural.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   195, Skipped:     0, Total:   195, Duration: 68 ms - Lovelace.Natural.Tests.dll (net10.0)
+  Lovelace.Real.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Real.Tests\bin\Release\net10.0\Lovelace.Real.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Real.Tests\bin\Release\net10.0\Lovelace.Real.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:  2495, Skipped:     0, Total:  2495, Duration: 3 s - Lovelace.Real.Tests.dll (net10.0)
+  Lovelace.Representation -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Representation\bin\Release\net10.0\Lovelace.Representation.dll
+  Lovelace.Representation.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Representation.Tests\bin\Release\net10.0\Lovelace.Representation.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Representation.Tests\bin\Release\net10.0\Lovelace.Representation.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    91, Skipped:     0, Total:    91, Duration: 81 ms - Lovelace.Representation.Tests.dll (net10.0)
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Run.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   222, Skipped:     0, Total:   222, Duration: 21 s - Lovelace.Run.Tests.dll (net10.0)
+  Lovelace.Studio -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Studio\bin\Release\net10.0\Lovelace.Studio.dll
+  Lovelace.Studio.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Studio.Tests\bin\Release\net10.0\Lovelace.Studio.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Studio.Tests\bin\Release\net10.0\Lovelace.Studio.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    22, Skipped:     0, Total:    22, Duration: 219 ms - Lovelace.Studio.Tests.dll (net10.0)
+  Lovelace.Statistics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Statistics\bin\Release\net10.0\Lovelace.Statistics.dll
+  Lovelace.Suite.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.25] Lovelace.Suite.Tests: Skipping test case with duplicate ID 'c9911250b046dcf84796305f808001a176905a85' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "1..5", expected: "[1, 2, 3, 4, 5] (Vector)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "1..5", expected: "[1, 2, 3, 4, 5] (Vector)")')
+[xUnit.net 00:00:00.25] Lovelace.Suite.Tests: Skipping test case with duplicate ID '3aa1a90b76d7e8316e6da758d86b4c779819760b' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "[1, 2, 3]", expected: "[1, 2, 3] (Vector)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "[1, 2, 3]", expected: "[1, 2, 3] (Vector)")')
+[xUnit.net 00:00:00.25] Lovelace.Suite.Tests: Skipping test case with duplicate ID '6e511df28cec102d726c45a0bf0eb07ecba895a9' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "\"hello\"", expected: "hello")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "\"hello\"", expected: "hello")')
+[xUnit.net 00:00:00.25] Lovelace.Suite.Tests: Skipping test case with duplicate ID '05547e4def2f1ea98c279b36032f6d5a5d8e0448' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "$\"x = {3 + 4}\"", expected: "x = 7")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "$\"x = {3 + 4}\"", expected: "x = 7")')
+[xUnit.net 00:00:00.25] Lovelace.Suite.Tests: Skipping test case with duplicate ID '2795418b59cf54f1e662029970c762a671d9d4e8' ('Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "len([5, 6, 7, 8])", expected: "4 (Natural)")' and 'Lovelace.Suite.Tests.LanguageDocumentationTests.DocumentedExample_MatchesEngine(script: "len([5, 6, 7, 8])", expected: "4 (Natural)")')
+
+Passed!  - Failed:     0, Passed:   828, Skipped:     0, Total:   828, Duration: 13 s - Lovelace.Suite.Tests.dll (net10.0)
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:00.96]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [SKIP]
+[xUnit.net 00:00:00.96]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [SKIP]
+[xUnit.net 00:00:00.97]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [SKIP]
+[xUnit.net 00:00:00.97]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [SKIP]
+[xUnit.net 00:00:00.97]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [SKIP]
+[xUnit.net 00:00:00.97]     Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [SKIP]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Solve_Agrees [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Roots_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_MatrixOperations_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Derivatives_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Limits_Agree [1 ms]
+  Skipped Lovelace.Symbolics.Tests.DifferentialOracleTests.SympyOracle_Factorization_Agrees [1 ms]
+[xUnit.net 00:00:02.09]     Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests.SympyOracle_ExpOverComplexes_IsAnImageSet_AndTheTemplateMatchesIt [SKIP]
+  Skipped Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests.SympyOracle_ExpOverComplexes_IsAnImageSet_AndTheTemplateMatchesIt [1 ms]
+[xUnit.net 00:00:02.75]     Lovelace.Symbolics.Tests.SystemSolveProofTests.NonlinearElimination_AndTheBoundary_AgreeWithSympySolve [SKIP]
+  Skipped Lovelace.Symbolics.Tests.SystemSolveProofTests.NonlinearElimination_AndTheBoundary_AgreeWithSympySolve [1 ms]
+
+Passed!  - Failed:     0, Passed:  1119, Skipped:     8, Total:  1127, Duration: 19 s - Lovelace.Symbolics.Tests.dll (net10.0)
+  precbench.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\precbench.Tests\bin\Release\net10.0\precbench.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1\precbench.Tests\bin\Release\net10.0\precbench.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    13, Skipped:     0, Total:    13, Duration: 64 ms - precbench.Tests.dll (net10.0)

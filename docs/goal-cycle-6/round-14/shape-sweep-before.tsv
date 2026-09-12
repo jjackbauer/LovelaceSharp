@@ -1,0 +1,354 @@
+builtin	shape	params	ok	code	category	recoverable	message
+abs	scalar	1	True	-	-	-	
+abs	vector	1	False	InvalidOperation	DomainError	True	abs() on arrays requires a Complex array (got DType.Natural); use abs() on individual scalars for Natural/Integer/Real.
+abs	symbol	1	True	-	-	-	
+acos	scalar	1	True	-	-	-	
+acos	vector	1	False	InvalidArgument	TypeMismatch	True	acos(): argument 1 must be a symbolic expression; got Vector.
+acos	symbol	1	True	-	-	-	
+acosh	scalar	1	True	-	-	-	
+acosh	vector	1	False	InvalidArgument	TypeMismatch	True	acosh(): argument 1 must be a symbolic expression; got Vector.
+acosh	symbol	1	True	-	-	-	
+and	scalar	2	True	-	-	-	
+and	vector	2	False	InvalidArgument	TypeMismatch	True	and(): argument 1 must be a symbolic expression; got Vector.
+and	symbol	2	True	-	-	-	
+apart	scalar	2	False	InvalidArgument	TypeMismatch	True	apart(): argument 2 must be a symbolic variable; got Natural.
+apart	vector	2	False	InvalidArgument	TypeMismatch	True	apart(): argument 1 must be a symbolic expression; got Vector.
+apart	symbol	2	True	-	-	-	
+append	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+append	vector	2	True	-	-	-	
+append	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+asin	scalar	1	True	-	-	-	
+asin	vector	1	False	InvalidArgument	TypeMismatch	True	asin(): argument 1 must be a symbolic expression; got Vector.
+asin	symbol	1	True	-	-	-	
+asinh	scalar	1	True	-	-	-	
+asinh	vector	1	False	InvalidArgument	TypeMismatch	True	asinh(): argument 1 must be a symbolic expression; got Vector.
+asinh	symbol	1	True	-	-	-	
+assume	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Symbolics.Expr'.
+assume	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'Lovelace.Symbolics.Expr'.
+assume	symbol	1	False	InvalidOperation	DomainError	True	assume() accepts relations and their conjunctions/negations with constant bounds.
+assume_clear	-	0	(no position)				
+assume_integer	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+assume_integer	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+assume_integer	symbol	1	True	-	-	-	
+assume_negative	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+assume_negative	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+assume_negative	symbol	1	True	-	-	-	
+assume_nonnegative	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+assume_nonnegative	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+assume_nonnegative	symbol	1	True	-	-	-	
+assume_positive	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+assume_positive	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+assume_positive	symbol	1	True	-	-	-	
+assume_real	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+assume_real	vector	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+assume_real	symbol	1	True	-	-	-	
+assumptions	-	0	(no position)				
+atan	scalar	1	True	-	-	-	
+atan	vector	1	False	InvalidArgument	TypeMismatch	True	atan(): argument 1 must be a symbolic expression; got Vector.
+atan	symbol	1	True	-	-	-	
+atanh	scalar	1	True	-	-	-	
+atanh	vector	1	False	InvalidArgument	TypeMismatch	True	atanh(): argument 1 must be a symbolic expression; got Vector.
+atanh	symbol	1	True	-	-	-	
+cancel	scalar	1	True	-	-	-	
+cancel	vector	1	False	InvalidArgument	TypeMismatch	True	cancel(): argument 1 must be a symbolic expression; got Vector.
+cancel	symbol	1	True	-	-	-	
+cancel_full	scalar	1	True	-	-	-	
+cancel_full	vector	1	False	InvalidArgument	TypeMismatch	True	cancel_full(): argument 1 must be a symbolic expression; got Vector.
+cancel_full	symbol	1	True	-	-	-	
+capabilities	-	0	(no position)				
+collect	scalar	2	False	InvalidArgument	TypeMismatch	True	collect(): argument 2 must be a symbolic variable; got Natural.
+collect	vector	2	False	InvalidArgument	TypeMismatch	True	collect(): argument 1 must be a symbolic expression; got Vector.
+collect	symbol	2	True	-	-	-	
+compile	scalar	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile	vector	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile	symbol	2	False	InvalidOperation	DomainError	True	compile(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+compile_full	scalar	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	vector	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+compile_full	symbol	2	False	InvalidOperation	DomainError	True	compile_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+complex	-	0	(no position)				
+concat	scalar	3	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+concat	vector	3	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+concat	symbol	3	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Symbolic'.
+conj	scalar	1	True	-	-	-	
+conj	vector	1	True	-	-	-	
+conj	symbol	1	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'SymbolExpr'.
+conv	scalar	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+conv	vector	2	True	-	-	-	
+conv	symbol	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+cos	scalar	1	True	-	-	-	
+cos	vector	1	False	InvalidArgument	TypeMismatch	True	cos(): argument 1 must be a symbolic expression; got Vector.
+cos	symbol	1	True	-	-	-	
+cosh	scalar	1	True	-	-	-	
+cosh	vector	1	False	InvalidArgument	TypeMismatch	True	cosh(): argument 1 must be a symbolic expression; got Vector.
+cosh	symbol	1	True	-	-	-	
+cosine	scalar	3	True	-	-	-	
+cosine	vector	3	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'PayloadArray'.
+cosine	symbol	3	False	InvalidOperation	DomainError	True	cosine() expects a Natural or Integer argument, but got 'SymbolExpr'.
+cross	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+cross	vector	2	False	InvalidArgument	TypeMismatch	True	cross() operands must be vectors of length 3.
+cross	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+delay	scalar	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+delay	vector	2	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'PayloadArray'.
+delay	symbol	2	False	InvalidOperation	DomainError	True	delay() expects a Natural or Integer argument, but got 'SymbolExpr'.
+det	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+det	vector	1	False	InvalidArgument	TypeMismatch	True	det() requires a square matrix.
+det	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+dft	scalar	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+dft	vector	2	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'PayloadArray'.
+dft	symbol	2	False	InvalidOperation	DomainError	True	dft() expects a Natural or Integer argument, but got 'SymbolExpr'.
+diff	scalar	2	False	InvalidArgument	TypeMismatch	True	diff(): argument 2 must be a symbolic variable; got Natural.
+diff	vector	2	False	InvalidArgument	TypeMismatch	True	diff(): argument 1 must be a symbolic expression; got Vector.
+diff	symbol	2	True	-	-	-	
+divrem	scalar	2	True	-	-	-	
+divrem	vector	2	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Vector'. Use Natural or Integer operands.
+divrem	symbol	2	False	InvalidOperation	DomainError	True	divrem() is not supported for values of kind 'Symbolic'. Use Natural or Integer operands.
+dot	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+dot	vector	2	True	-	-	-	
+dot	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+e	scalar	1	True	-	-	-	
+e	vector	1	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Vector'.
+e	symbol	1	False	InvalidOperation	DomainError	True	e() expects a Natural or Integer digit count, but got 'Symbolic'.
+evalf	scalar	2	True	-	-	-	
+evalf	vector	2	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Vector.
+evalf	symbol	2	False	InvalidArgument	TypeMismatch	True	evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Symbolic.
+evalir	scalar	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir	vector	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir	symbol	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	scalar	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	vector	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+evalir_batch	symbol	3	False	InvalidOperation	DomainError	True	evalir/evalir_batch expect the IR from compile() or compile_full().
+exp	scalar	1	True	-	-	-	
+exp	vector	1	False	InvalidArgument	TypeMismatch	True	exp(): argument 1 must be a symbolic expression; got Vector.
+exp	symbol	1	True	-	-	-	
+expand	scalar	1	True	-	-	-	
+expand	vector	1	False	InvalidArgument	TypeMismatch	True	expand(): argument 1 must be a symbolic expression; got Vector.
+expand	symbol	1	True	-	-	-	
+exponential	scalar	2	True	-	-	-	
+exponential	vector	2	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'PayloadArray'.
+exponential	symbol	2	False	InvalidOperation	DomainError	True	exponential() expects a Natural or Integer argument, but got 'SymbolExpr'.
+eye	scalar	2	True	-	-	-	
+eye	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+eye	symbol	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Symbolic'.
+factor	scalar	1	True	-	-	-	
+factor	vector	1	False	InvalidArgument	TypeMismatch	True	factor(): argument 1 must be a symbolic expression; got Vector.
+factor	symbol	1	True	-	-	-	
+fft	scalar	1	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+fft	vector	1	True	-	-	-	
+fft	symbol	1	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	scalar	3	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+filter	vector	3	True	-	-	-	
+filter	symbol	3	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+flatten	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+flatten	vector	1	True	-	-	-	
+flatten	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+hessian	scalar	2	False	InvalidArgument	TypeMismatch	True	hessian(): argument 2 must be a list of parameter symbols, e.g. [x]; got Natural.
+hessian	vector	2	False	InvalidArgument	TypeMismatch	True	hessian(): argument 1 must be a symbolic expression; got Vector.
+hessian	symbol	2	False	InvalidArgument	TypeMismatch	True	hessian(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+im	scalar	1	True	-	-	-	
+im	vector	1	True	-	-	-	
+im	symbol	1	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'SymbolExpr'.
+impulse	scalar	1	True	-	-	-	
+impulse	vector	1	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'PayloadArray'.
+impulse	symbol	1	False	InvalidOperation	DomainError	True	impulse() expects a Natural or Integer argument, but got 'SymbolExpr'.
+inf	-	0	(no position)				
+inspect	scalar	1	True	-	-	-	
+inspect	vector	1	True	-	-	-	
+inspect	symbol	1	True	-	-	-	
+integer	-	0	(no position)				
+integrate	scalar	2	False	InvalidArgument	TypeMismatch	True	integrate(): argument 2 must be a symbolic variable; got Natural.
+integrate	vector	2	False	InvalidArgument	TypeMismatch	True	integrate(): argument 1 must be a symbolic expression; got Vector.
+integrate	symbol	2	True	-	-	-	
+integrate_full	scalar	2	False	InvalidArgument	TypeMismatch	True	integrate_full(): argument 2 must be a symbolic variable; got Natural.
+integrate_full	vector	2	False	InvalidArgument	TypeMismatch	True	integrate_full(): argument 1 must be a symbolic expression; got Vector.
+integrate_full	symbol	2	True	-	-	-	
+inv	scalar	1	True	-	-	-	
+inv	vector	1	False	InvalidOperation	DomainError	True	Cannot widen from Vector to Real: only numeric kinds (Natural, Integer, Real) support widening.
+inv	symbol	1	False	InvalidOperation	DomainError	True	Cannot widen from Symbolic to Real: only numeric kinds (Natural, Integer, Real) support widening. Symbolic is a domain type; use subs()/evalf() to bridge back to numeric values.
+inv_full	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+inv_full	vector	1	False	InvalidOperation	DomainError	True	inv_full() requires a symbolic matrix.
+inv_full	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+is_even	scalar	1	True	-	-	-	
+is_even	vector	1	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Vector'.
+is_even	symbol	1	False	InvalidOperation	DomainError	True	is_even() is not supported for values of kind 'Symbolic'.
+is_odd	scalar	1	True	-	-	-	
+is_odd	vector	1	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Vector'.
+is_odd	symbol	1	False	InvalidOperation	DomainError	True	is_odd() is not supported for values of kind 'Symbolic'.
+jacobian	scalar	2	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 1 must be a list of expressions, e.g. [x*y, x + y]; got Natural.
+jacobian	vector	2	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+jacobian	symbol	2	False	InvalidArgument	TypeMismatch	True	jacobian(): argument 1 must be a list of expressions, e.g. [x*y, x + y]; got Symbolic.
+latex	scalar	1	True	-	-	-	
+latex	vector	1	False	InvalidArgument	TypeMismatch	True	latex(): argument 1 must be a symbolic expression; got Vector.
+latex	symbol	1	True	-	-	-	
+len	scalar	1	False	InvalidOperation	DomainError	True	len() expects a vector or array, but got 'Natural'.
+len	vector	1	True	-	-	-	
+len	symbol	1	False	InvalidOperation	DomainError	True	len() expects a vector or array, but got 'Symbolic'.
+limit	scalar	3	False	InvalidArgument	TypeMismatch	True	limit(): argument 2 must be a symbolic variable; got Natural.
+limit	vector	3	False	InvalidArgument	TypeMismatch	True	limit(): argument 1 must be a symbolic expression; got Vector.
+limit	symbol	3	True	-	-	-	
+limit_full	scalar	3	False	InvalidArgument	TypeMismatch	True	limit_full(): argument 2 must be a symbolic variable; got Natural.
+limit_full	vector	3	False	InvalidArgument	TypeMismatch	True	limit_full(): argument 2 must be a symbolic variable; got Vector.
+limit_full	symbol	3	True	-	-	-	
+limit_left	scalar	3	False	InvalidArgument	TypeMismatch	True	limit_left(): argument 2 must be a symbolic variable; got Natural.
+limit_left	vector	3	False	InvalidArgument	TypeMismatch	True	limit_left(): argument 1 must be a symbolic expression; got Vector.
+limit_left	symbol	3	True	-	-	-	
+limit_right	scalar	3	False	InvalidArgument	TypeMismatch	True	limit_right(): argument 2 must be a symbolic variable; got Natural.
+limit_right	vector	3	False	InvalidArgument	TypeMismatch	True	limit_right(): argument 1 must be a symbolic expression; got Vector.
+limit_right	symbol	3	True	-	-	-	
+linsolve	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+linsolve	vector	2	False	InvalidOperation	DomainError	True	linsolve() requires a symbolic matrix A.
+linsolve	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+linsolve_full	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+linsolve_full	vector	2	False	InvalidOperation	DomainError	True	linsolve_full() requires a symbolic matrix A.
+linsolve_full	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+log	scalar	1	True	-	-	-	
+log	vector	1	False	InvalidArgument	TypeMismatch	True	log(): argument 1 must be a symbolic expression; got Vector.
+log	symbol	1	True	-	-	-	
+lower	scalar	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+lower	vector	2	False	InvalidOperation	DomainError	True	Expected a symbolic expression.
+lower	symbol	2	False	InvalidOperation	DomainError	True	lower(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+matmul	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+matmul	vector	2	True	-	-	-	
+matmul	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+matrix_rank	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+matrix_rank	vector	1	False	InvalidOperation	DomainError	True	matrix_rank() requires a symbolic matrix.
+matrix_rank	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+max	scalar	2	False	InvalidArgument	TypeMismatch	True	max(): argument 1 must be an array or vector; got Natural.
+max	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+max	symbol	2	False	InvalidArgument	TypeMismatch	True	max(): argument 1 must be an array or vector; got Symbolic.
+mean	scalar	2	False	InvalidArgument	TypeMismatch	True	mean(): argument 1 must be an array or vector; got Natural.
+mean	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+mean	symbol	2	False	InvalidArgument	TypeMismatch	True	mean(): argument 1 must be an array or vector; got Symbolic.
+min	scalar	2	False	InvalidArgument	TypeMismatch	True	min(): argument 1 must be an array or vector; got Natural.
+min	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+min	symbol	2	False	InvalidArgument	TypeMismatch	True	min(): argument 1 must be an array or vector; got Symbolic.
+movingavg	scalar	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+movingavg	vector	2	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'PayloadArray'.
+movingavg	symbol	2	False	InvalidOperation	DomainError	True	movingavg() expects a Natural or Integer argument, but got 'SymbolExpr'.
+ndims	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+ndims	vector	1	True	-	-	-	
+ndims	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+noise	scalar	4	True	-	-	-	
+noise	vector	4	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'PayloadArray'.
+noise	symbol	4	False	InvalidOperation	DomainError	True	noise() expects a Natural or Integer argument, but got 'SymbolExpr'.
+norm	scalar	2	False	InvalidArgument	TypeMismatch	True	norm(): argument 1 must be an array or vector; got Natural.
+norm	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+norm	symbol	2	False	InvalidArgument	TypeMismatch	True	norm(): argument 1 must be an array or vector; got Symbolic.
+not	scalar	1	True	-	-	-	
+not	vector	1	False	InvalidArgument	TypeMismatch	True	not(): argument 1 must be a symbolic expression; got Vector.
+not	symbol	1	True	-	-	-	
+numel	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+numel	vector	1	True	-	-	-	
+numel	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+ones	scalar	1	True	-	-	-	
+ones	vector	1	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+ones	symbol	1	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Symbolic'.
+optimize	scalar	2	False	InvalidArgument	TypeMismatch	True	optimize(): argument 2 must be a list of parameter symbols, e.g. [x]; got Natural.
+optimize	vector	2	False	InvalidArgument	TypeMismatch	True	optimize(): argument 1 must be a symbolic expression; got Vector.
+optimize	symbol	2	False	InvalidArgument	TypeMismatch	True	optimize(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+optimize_full	scalar	2	False	InvalidArgument	TypeMismatch	True	optimize_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Natural.
+optimize_full	vector	2	False	InvalidArgument	TypeMismatch	True	optimize_full(): argument 1 must be a symbolic expression; got Vector.
+optimize_full	symbol	2	False	InvalidArgument	TypeMismatch	True	optimize_full(): argument 2 must be a list of parameter symbols, e.g. [x]; got Symbolic.
+or	scalar	2	True	-	-	-	
+or	vector	2	False	InvalidArgument	TypeMismatch	True	or(): argument 1 must be a symbolic expression; got Vector.
+or	symbol	2	True	-	-	-	
+pi	scalar	1	True	-	-	-	
+pi	vector	1	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Vector'.
+pi	symbol	1	False	InvalidOperation	DomainError	True	pi() expects a Natural or Integer digit count, but got 'Symbolic'.
+plot	scalar	3	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Natural'.
+plot	vector	3	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Vector'.
+plot	symbol	3	False	InvalidOperation	DomainError	True	plot() title must be a string, but got 'Symbolic'.
+powerseries	scalar	3	True	-	-	-	
+powerseries	vector	3	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'PayloadArray'.
+powerseries	symbol	3	False	InvalidOperation	DomainError	True	powerseries() expects a Natural or Integer argument, but got 'SymbolExpr'.
+print	scalar	1	True	-	-	-	
+print	vector	1	True	-	-	-	
+print	symbol	1	True	-	-	-	
+prod	scalar	2	False	InvalidArgument	TypeMismatch	True	prod(): argument 1 must be an array or vector; got Natural.
+prod	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+prod	symbol	2	False	InvalidArgument	TypeMismatch	True	prod(): argument 1 must be an array or vector; got Symbolic.
+rank	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+rank	vector	1	True	-	-	-	
+rank	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+rational	-	0	(no position)				
+re	scalar	1	True	-	-	-	
+re	vector	1	True	-	-	-	
+re	symbol	1	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'SymbolExpr'.
+real	-	0	(no position)				
+reshape	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+reshape	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+reshape	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+scale	scalar	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+scale	vector	2	False	InvalidOperation	DomainError	True	DSP builtins expect numeric/complex elements, but got 'PayloadArray'.
+scale	symbol	2	False	InvalidOperation	DomainError	True	DSP builtins expect an array argument, but got a scalar.
+series	scalar	4	False	InvalidArgument	TypeMismatch	True	series(): argument 2 must be a symbolic variable; got Natural.
+series	vector	4	False	InvalidArgument	TypeMismatch	True	series(): argument 1 must be a symbolic expression; got Vector.
+series	symbol	4	False	InvalidArgument	TypeMismatch	True	series(): argument 4 must be an integer; got Symbolic.
+setprecision	scalar	1	True	-	-	-	
+setprecision	vector	1	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Vector'.
+setprecision	symbol	1	False	InvalidOperation	DomainError	True	setprecision() expects a Natural or Integer digit count, but got 'Symbolic'.
+shape	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+shape	vector	1	True	-	-	-	
+shape	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+sign	scalar	1	True	-	-	-	
+sign	vector	1	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Vector'. Use Natural or Integer operands.
+sign	symbol	1	False	InvalidOperation	DomainError	True	sign() is not supported for values of kind 'Symbolic'. Use Natural or Integer operands.
+simplify	scalar	1	True	-	-	-	
+simplify	vector	1	False	InvalidArgument	TypeMismatch	True	simplify(): argument 1 must be a symbolic expression; got Vector.
+simplify	symbol	1	True	-	-	-	
+simplify_full	scalar	1	True	-	-	-	
+simplify_full	vector	1	False	InvalidArgument	TypeMismatch	True	simplify_full(): argument 1 must be a symbolic expression; got Vector.
+simplify_full	symbol	1	True	-	-	-	
+sin	scalar	1	True	-	-	-	
+sin	vector	1	False	InvalidArgument	TypeMismatch	True	sin(): argument 1 must be a symbolic expression; got Vector.
+sin	symbol	1	True	-	-	-	
+sinh	scalar	1	True	-	-	-	
+sinh	vector	1	False	InvalidArgument	TypeMismatch	True	sinh(): argument 1 must be a symbolic expression; got Vector.
+sinh	symbol	1	True	-	-	-	
+solve	scalar	3	False	InvalidArgument	TypeMismatch	True	solve(): argument 2 must be a symbolic variable; got Natural.
+solve	vector	3	False	InvalidArgument	TypeMismatch	True	solve(): argument 1 must be a symbolic expression; got Vector.
+solve	symbol	3	False	InvalidOperation	DomainError	True	solve(): argument 3 (domain) must be a domain value such as real or complex.
+solve_full	scalar	3	False	InvalidArgument	TypeMismatch	True	solve_full(): argument 2 must be a symbolic variable; got Natural.
+solve_full	vector	3	False	InvalidArgument	TypeMismatch	True	solve_full(): argument 1 must be a symbolic expression; got Vector.
+solve_full	symbol	3	False	InvalidOperation	DomainError	True	solve(): argument 3 (domain) must be a domain value such as real or complex.
+solve_system	scalar	2	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Natural.
+solve_system	vector	2	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+solve_system	symbol	2	False	InvalidArgument	TypeMismatch	True	solve_system(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Symbolic.
+solve_system_full	scalar	2	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Natural.
+solve_system_full	vector	2	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 2 must be a list of parameter symbols, e.g. [x, y]; got Vector.
+solve_system_full	symbol	2	False	InvalidArgument	TypeMismatch	True	solve_system_full(): argument 1 must be a list of equations, e.g. [x + y == 2, x - y == 0]; got Symbolic.
+sqrt	scalar	1	True	-	-	-	
+sqrt	vector	1	False	InvalidOperation	DomainError	True	Cannot widen from Vector to Real: only numeric kinds (Natural, Integer, Real) support widening.
+sqrt	symbol	1	True	-	-	-	
+squeeze	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+squeeze	vector	1	True	-	-	-	
+squeeze	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+step	scalar	1	True	-	-	-	
+step	vector	1	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'PayloadArray'.
+step	symbol	1	False	InvalidOperation	DomainError	True	step() expects a Natural or Integer argument, but got 'SymbolExpr'.
+subs	scalar	3	False	InvalidArgument	TypeMismatch	True	subs(): argument 2 must be a symbolic variable; got Natural.
+subs	vector	3	False	InvalidArgument	TypeMismatch	True	subs(): argument 1 must be a symbolic expression; got Vector.
+subs	symbol	3	True	-	-	-	
+sum	scalar	2	False	InvalidArgument	TypeMismatch	True	sum(): argument 1 must be an array or vector; got Natural.
+sum	vector	2	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+sum	symbol	2	False	InvalidArgument	TypeMismatch	True	sum(): argument 1 must be an array or vector; got Symbolic.
+symbol	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.
+symbol	vector	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.
+symbol	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'System.String'.
+tan	scalar	1	True	-	-	-	
+tan	vector	1	False	InvalidArgument	TypeMismatch	True	tan(): argument 1 must be a symbolic expression; got Vector.
+tan	symbol	1	True	-	-	-	
+tanh	scalar	1	True	-	-	-	
+tanh	vector	1	False	InvalidArgument	TypeMismatch	True	tanh(): argument 1 must be a symbolic expression; got Vector.
+tanh	symbol	1	True	-	-	-	
+trace	scalar	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+trace	vector	1	False	InvalidArgument	TypeMismatch	True	trace() requires a square matrix.
+trace	symbol	1	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+transpose	scalar	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.
+transpose	vector	2	False	InvalidArgument	TypeMismatch	True	transpose() expects a permutation of 1 axes. (Parameter 'permutation')
+transpose	symbol	2	False	InternalError	InternalInvariantFailure	False	Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.
+type	scalar	1	True	-	-	-	
+type	vector	1	True	-	-	-	
+type	symbol	1	True	-	-	-	
+zeros	scalar	1	True	-	-	-	
+zeros	vector	1	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Vector'.
+zeros	symbol	1	False	InvalidOperation	DomainError	True	Index must be Natural or Integer, but got 'Symbolic'.

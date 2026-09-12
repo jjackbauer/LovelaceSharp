@@ -1,0 +1,64 @@
+﻿  Determining projects to restore...
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Statistics\Lovelace.Statistics.csproj (in 191 ms).
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\Lovelace.Suite.Tests.csproj (in 192 ms).
+  11 of 13 projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Statistics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Statistics\bin\Release\net10.0\Lovelace.Statistics.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\bin\Release\net10.0\Lovelace.Suite.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.87]     Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCastsItsOwnP
+ayload_IsAttributedToTheArgumentItReadLast [FAIL]
+At line:7 char:1
++ dotnet test Lovelace.Suite.Tests\Lovelace.Suite.Tests.csproj --config ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...ReadLast [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.88]     Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ACoercionFailureOnAnEngineInternalValue_IsN
+otDisguisedAsAnArgumentError [FAIL]
+[xUnit.net 00:00:00.89]     Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCoercesItsArgument_Is
+AttributedToTheBuiltinAndThePosition [FAIL]
+  Failed Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCastsItsOwnPayload_IsAttributedToTheArgumentItReadLast [142 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "probe(): argument 2 must be a value this "···
+Actual:   "Unable to cast object of type 'Lovelace.S"···
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCastsItsOwnPayload_IsAttributedToTheArgumentItReadLast() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\BuiltinArgumentShapeGuardTests.cs:line 56
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ACoercionFailureOnAnEngineInternalValue_IsNotDisguisedAsAnArgumentError [2 ms]
+  Error Message:
+   Assert.IsAssignableFrom() Failure: Value is an incompatible type
+Expected: typeof(System.InvalidCastException)
+Actual:   typeof(System.NullReferenceException)
+  Stack Trace:
+     at Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ACoercionFailureOnAnEngineInternalValue_IsNotDisguisedAsAnArgumentError() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\BuiltinArgumentShapeGuardTests.cs:line 78
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCoercesItsArgument_IsAttributedToTheBuiltinAndThePosition [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+           ↓ (pos 0)
+Expected: "probe(): argument 2 must be an array or v"···
+Actual:   "Unable to cast object of type 'Lovelace.N"···
+           ↑ (pos 0)
+  Stack Trace:
+     at Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests.ARegisteredBuiltinThatCoercesItsArgument_IsAttributedToTheBuiltinAndThePosition() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite.Tests\BuiltinArgumentShapeGuardTests.cs:line 40
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     3, Passed:     0, Skipped:     0, Total:     3, Duration: 168 ms - Lovelace.Suite.Tests.dll (net10.0)

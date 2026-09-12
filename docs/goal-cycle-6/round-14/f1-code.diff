@@ -1,0 +1,410 @@
+diff --git a/Lovelace.Suite/Functions.cs b/Lovelace.Suite/Functions.cs
+index 4ca1510..0d32572 100644
+--- a/Lovelace.Suite/Functions.cs
++++ b/Lovelace.Suite/Functions.cs
+@@ -159,3 +159,45 @@ public sealed class BuiltinArityException : ArgumentException
+ 
+     private static string Argument(int count) => count == 1 ? "argument" : "arguments";
+ }
++
++/// <summary>
++/// A call-site SHAPE failure: the argument the builtin's declared parameter names is not the KIND
++/// of thing the body requires — a bare scalar where a matrix is required, a symbolic value where a
++/// text name is required, a non-permutation where an axis order is required. Like
++/// <see cref="BuiltinArityException"/> it derives from <see cref="ArgumentException"/>, so the
++/// runner's taxonomy classifies the call as the documented RECOVERABLE argument error
++/// (<c>code: InvalidArgument</c>, <c>category: TypeMismatch</c>) — never as a domain refusal, and
++/// never, as the direct cast it replaced did, as an internal invariant failure carrying the raw CLR
++/// message (audit D, finding F1).
++/// <para>
++/// The message is the one grammar every argument-shape refusal shares, so a caller reads the
++/// builtin, the 1-based position, what was required and what actually arrived without parsing
++/// prose: <c>det(): argument 1 must be an array or vector; got Natural.</c>
++/// </para>
++/// </summary>
++public sealed class BuiltinShapeException : ArgumentException
++{
++    public BuiltinShapeException(string builtin, int position, string expected, ValueKind arrived)
++        : base(Describe(builtin, position, expected, arrived))
++    {
++        Builtin = builtin;
++        Position = position;
++        Expected = expected;
++        Arrived = arrived;
++    }
++
++    /// <summary>The builtin whose argument shape the call violated.</summary>
++    public string Builtin { get; }
++
++    /// <summary>The 1-based position of the offending argument.</summary>
++    public int Position { get; }
++
++    /// <summary>What that position requires, as prose.</summary>
++    public string Expected { get; }
++
++    /// <summary>The kind that actually arrived in that position.</summary>
++    public ValueKind Arrived { get; }
++
++    private static string Describe(string builtin, int position, string expected, ValueKind arrived) =>
++        $"{builtin}(): argument {position} must be {expected}; got {arrived}.";
++}
+diff --git a/Lovelace.Suite/Interpreter.cs b/Lovelace.Suite/Interpreter.cs
+index 134a5fb..62fd03f 100644
+--- a/Lovelace.Suite/Interpreter.cs
++++ b/Lovelace.Suite/Interpreter.cs
+@@ -798,12 +798,74 @@ public sealed class Interpreter
+         {
+             // ONE validator, computed from the builtin's own declared metadata, before the body runs
+             ValidateArity(fn, args.Count);
+-            return await fn.Builtin!(args);
++            // ... and ONE guard for the argument SHAPE. The body reads its arguments through this
++            // list, so a coercion failure is attributed to the argument that caused it and crosses
++            // as the documented recoverable argument error naming the builtin, the position and the
++            // kind that arrived — instead of escaping as a raw CLR cast and being reported as an
++            // internal invariant failure (audit D, finding F1).
++            var tracked = new BuiltinArguments(args);
++            try
++            {
++                return await fn.Builtin!(tracked);
++            }
++            catch (ValueShapeException ex)
++            {
++                // an exact attribution to one of the call's arguments is the documented argument
++                // error; a coercion that failed on an engine-internal value is NOT a caller mistake
++                // and keeps crossing as an internal invariant failure
++                if (tracked.PositionOf(ex.Offender) is not int position)
++                    throw;
++
++                throw new BuiltinShapeException(fn.Name, position + 1, ex.Expected, tracked[position].Kind);
++            }
++            catch (InvalidCastException) when (tracked.LastIndex >= 0)
++            {
++                // a body that casts its payload itself rather than through a Value accessor: the
++                // argument it read last is the one it was working on
++                throw new BuiltinShapeException(fn.Name, tracked.LastIndex + 1,
++                    "a value this builtin can use", tracked[tracked.LastIndex].Kind);
++            }
+         }
+ 
+         return await CallUserFunctionAsync(fn, args);
+     }
+ 
++    /// <summary>
++    /// The argument list a builtin body reads. It records the position read last, so the call-site
++    /// shape guard can name the argument a failed coercion came from even when the failure is
++    /// raised deep inside the array kernel and carries no <see cref="Value"/> of its own.
++    /// </summary>
++    private sealed class BuiltinArguments(IReadOnlyList<Value> inner) : IReadOnlyList<Value>
++    {
++        /// <summary>0-based index of the argument read last, or -1 when the body has read none.</summary>
++        public int LastIndex { get; private set; } = -1;
++
++        public Value this[int index]
++        {
++            get { LastIndex = index; return inner[index]; }
++        }
++
++        public int Count => inner.Count;
++        public IEnumerator<Value> GetEnumerator() => inner.GetEnumerator();
++        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
++
++        /// <summary>The 0-based position of <paramref name="value"/> among these arguments; the
++        /// position read last when the failing value is not identifiable; <see langword="null"/> when
++        /// neither is known — an engine-internal value, which must stay an internal failure.</summary>
++        public int? PositionOf(Value? value)
++        {
++            if (value is not null)
++            {
++                for (int i = 0; i < inner.Count; i++)
++                    if (ReferenceEquals(inner[i], value))
++                        return i;
++                return null;
++            }
++
++            return LastIndex >= 0 ? LastIndex : null;
++        }
++    }
++
+     private async Task<Value> CallUserFunctionAsync(FunctionDefinition fn, IReadOnlyList<Value> args)
+     {
+         if (args.Count != fn.Parameters.Count)
+@@ -1953,6 +2015,49 @@ public sealed class Interpreter
+         return v.AsVector().Select(ToLong).ToArray();
+     }
+ 
++    /// <summary>A call-site SHAPE guard for a builtin body whose expectation the <see cref="Value"/>
++    /// accessors cannot name (a square matrix, a length-3 vector, an axis permutation). It reports
++    /// the builtin, the 1-based position, the expectation and the kind that arrived — the same
++    /// grammar as the coercion guard — so a shape mistake never surfaces as the CLR text of a
++    /// refusal raised deep inside the array kernel (audit D, finding F1).</summary>
++    private static ArrayValue RequireSquare(string builtin, IReadOnlyList<Value> args, int index)
++    {
++        var value = args[index];
++        if (value.Kind is ValueKind.Vector or ValueKind.Array
++            && value.AsArrayValue() is { Rank: 2 } matrix
++            && matrix.Shape.ToArray()[0] == matrix.Shape.ToArray()[1])
++            return matrix;
++
++        throw new BuiltinShapeException(builtin, index + 1, "a square matrix", value.Kind);
++    }
++
++    /// <summary>The length-3 operand of <c>cross</c>: the same call-site shape guard.</summary>
++    private static ArrayValue RequireLength3(string builtin, IReadOnlyList<Value> args, int index)
++    {
++        var value = args[index];
++        if (value.Kind is ValueKind.Vector or ValueKind.Array
++            && value.AsArrayValue() is { Rank: 1, Numel: 3 } vector)
++            return vector;
++
++        throw new BuiltinShapeException(builtin, index + 1, "a vector of length 3", value.Kind);
++    }
++
++    /// <summary>The axis order of <c>transpose</c>: the same call-site shape guard, applied before
++    /// the array kernel sees a permutation that is not one.</summary>
++    private static long[] RequirePermutation(string builtin, IReadOnlyList<Value> args, int index, int rank)
++    {
++        var value = args[index];
++        if (value.Kind is ValueKind.Vector or ValueKind.Array && value.AsArrayValue().Rank == 1)
++        {
++            long[] permutation = ToLongArray(value);
++            if (permutation.Length == rank && permutation.All(axis => axis >= 0 && axis < rank)
++                && permutation.Distinct().Count() == rank)
++                return permutation;
++        }
++
++        throw new BuiltinShapeException(builtin, index + 1, $"a permutation of the {rank} axes", value.Kind);
++    }
++
+     /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.
+     /// The argument COUNT is already guaranteed by the call-site validator (the axis is the declared
+     /// optional tail); the argument SHAPE is checked here, because a scalar handed to a reduction is
+@@ -1967,8 +2072,7 @@ public sealed class Interpreter
+     {
+         var input = args[0];
+         if (input.Kind is not (ValueKind.Vector or ValueKind.Array))
+-            throw new ArgumentException(
+-                $"{name}(): argument 1 must be an array or vector; got {input.Kind}.");
++            throw new BuiltinShapeException(name, 1, "an array or vector", input.Kind);
+ 
+         return args.Count == 1
+             ? Task.FromResult(ReduceAllOrEmpty(input, empty, all))
+@@ -2067,7 +2171,7 @@ public sealed class Interpreter
+             var av = args[0].AsArrayValue();
+             return args.Count == 1
+                 ? Task.FromResult(WrapArrayValue(av.Transpose(null)))
+-                : Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1]))));
++                : Task.FromResult(WrapArrayValue(av.Transpose(RequirePermutation("transpose", args, 1, av.Rank))));
+         }, minArity: 1);
+ 
+         // squeeze(a)
+@@ -2094,7 +2198,8 @@ public sealed class Interpreter
+         // cross(a, b)
+         Register("cross", ["a", "b"], args =>
+         {
+-            return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(args[0].AsArrayValue(), args[1].AsArrayValue())));
++            return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(
++                RequireLength3("cross", args, 0), RequireLength3("cross", args, 1))));
+         });
+ 
+         // matmul(a, b)
+@@ -2110,7 +2215,7 @@ public sealed class Interpreter
+         // det(m)
+         Register("det", ["m"], args =>
+         {
+-            var av = args[0].AsArrayValue();
++            var av = RequireSquare("det", args, 0);
+             var (elements, shape) = PayloadElements(av);
+             var bridge = SymbolicMatrixBridge;
+             if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
+@@ -2125,7 +2230,7 @@ public sealed class Interpreter
+         // trace(m)
+         Register("trace", ["m"], args =>
+         {
+-            return Task.FromResult<Value>(TypedArrayOps.Trace(args[0].AsArrayValue()));
++            return Task.FromResult<Value>(TypedArrayOps.Trace(RequireSquare("trace", args, 0)));
+         });
+ 
+         // concat(a, b) / concat(a, b, axis) — the axis is optional
+diff --git a/Lovelace.Suite/Value.cs b/Lovelace.Suite/Value.cs
+index 7998a98..4de98b0 100644
+--- a/Lovelace.Suite/Value.cs
++++ b/Lovelace.Suite/Value.cs
+@@ -184,23 +184,23 @@ public sealed class Value
+     // -----------------------------------------------------------------
+ 
+     /// <summary>Returns the stored value cast to <see cref="Nat"/>.</summary>
+-    public Nat AsNatural() => (Nat)_inner;
++    public Nat AsNatural() => Require<Nat>("a Natural");
+ 
+     /// <summary>Returns the stored value cast to <see cref="Int"/>.</summary>
+-    public Int AsInteger() => (Int)_inner;
++    public Int AsInteger() => Require<Int>("an Integer");
+ 
+     /// <summary>Returns the stored value cast to <see cref="Rl"/>.</summary>
+-    public Rl AsReal() => (Rl)_inner;
++    public Rl AsReal() => Require<Rl>("a Real");
+ 
+-    public Cplx AsComplex() => (Cplx)_inner;
++    public Cplx AsComplex() => Require<Cplx>("a Complex");
+ 
+-    public Lovelace.Symbolics.Expr AsSymbolic() => (Lovelace.Symbolics.Expr)_inner;
++    public Lovelace.Symbolics.Expr AsSymbolic() => Require<Lovelace.Symbolics.Expr>("a symbolic expression");
+ 
+     /// <summary>Returns the stored value cast to <see cref="bool"/>.</summary>
+-    public bool AsBoolean() => (bool)_inner;
++    public bool AsBoolean() => _inner is bool value ? value : throw new ValueShapeException("a Boolean", this);
+ 
+     /// <summary>Returns the stored value cast to <see cref="string"/>.</summary>
+-    public string AsText() => (string)_inner;
++    public string AsText() => Require<string>("text");
+ 
+     /// <summary>Returns the stored value cast to a read-only list of values.</summary>
+     public IReadOnlyList<Value> AsVector() => TypedArrayAdapter.ToElements(AsArrayValue());
+@@ -209,19 +209,29 @@ public sealed class Value
+     public NdArray<Value> AsArray() => TypedArrayAdapter.ToNdArray(AsArrayValue());
+ 
+     /// <summary>Returns the stored value cast to an <see cref="ArrayValue"/>.</summary>
+-    public ArrayValue AsArrayValue() => (ArrayValue)_inner;
++    public ArrayValue AsArrayValue() => Require<ArrayValue>("an array or vector");
+ 
+     /// <summary>Returns the stored value cast to a <see cref="FunctionDefinition"/>.</summary>
+-    public FunctionDefinition AsFunction() => (FunctionDefinition)_inner;
++    public FunctionDefinition AsFunction() => Require<FunctionDefinition>("a function");
+ 
+     /// <summary>Returns the stored value cast to a <see cref="RecordValue"/>.</summary>
+-    public RecordValue AsRecord() => (RecordValue)_inner;
++    public RecordValue AsRecord() => Require<RecordValue>("a record");
+ 
+     /// <summary>Returns the stored value cast to a <see cref="MathDomain"/>.</summary>
+-    public MathDomain AsDomain() => (MathDomain)_inner;
++    public MathDomain AsDomain() =>
++        _inner is MathDomain domain ? domain : throw new ValueShapeException("a domain value such as real or complex", this);
+ 
+     /// <summary>Returns the stored value cast to an <see cref="EnumValue"/>.</summary>
+-    public EnumValue AsEnum() => (EnumValue)_inner;
++    public EnumValue AsEnum() => Require<EnumValue>("an enumerated value");
++
++    /// <summary>The ONE coercion guard behind every <c>As…</c> accessor: the value is not the KIND
++    /// the caller requires. It raises <see cref="ValueShapeException"/> — carrying the expectation
++    /// and this value — instead of letting a raw CLR cast escape as <c>InvalidCastException</c>,
++    /// which the runner can only report as an internal invariant failure (audit D, finding F1). The
++    /// call-site guard in <see cref="Interpreter"/> turns it into the documented recoverable
++    /// argument error naming the builtin, the argument position and the kind that arrived.</summary>
++    private T Require<T>(string expected) where T : class =>
++        _inner as T ?? throw new ValueShapeException(expected, this);
+ 
+     // -----------------------------------------------------------------
+     // Widening
+@@ -310,3 +320,32 @@ public sealed class Value
+         _                 => throw new InvalidOperationException($"Unknown kind: {Kind}"),
+     };
+ }
++
++/// <summary>
++/// A coercion failure inside the engine: the value is not the KIND the caller requires, so the
++/// <c>As…</c> accessors on <see cref="Value"/> raise this instead of a raw CLR cast — with the
++/// expectation in the message rather than the framework's "Specified cast is not valid.".
++/// <para>
++/// The call-site guard in <see cref="Interpreter"/> catches it for a builtin body and re-raises
++/// <see cref="BuiltinShapeException"/> (an <see cref="ArgumentException"/>, so the wire carries the
++/// documented <c>InvalidArgument</c>/<c>TypeMismatch</c>), naming the builtin, the 1-based argument
++/// position and the kind that arrived. <see cref="Offender"/> is the value that failed the
++/// coercion: when it is one of the call's arguments the attribution is exact. A failure on an
++/// ENGINE-INTERNAL value is not a caller mistake and keeps crossing as it did before — an internal
++/// invariant failure — so a genuine engine bug is never disguised as a user error. Deriving from
++/// <see cref="InvalidCastException"/> keeps that escape hatch (and every existing host that catches
++/// the framework type) behaving exactly as it did.
++/// </para>
++/// </summary>
++internal sealed class ValueShapeException(string expected, Value? offender = null) : InvalidCastException(
++    offender is null
++        ? $"a value is not {expected}."
++        : $"a value of kind {offender.Kind} is not {expected}.")
++{
++    /// <summary>The kind the caller required, as prose: <c>an array or vector</c>, <c>a Real</c>.</summary>
++    public string Expected { get; } = expected;
++
++    /// <summary>The value that failed the coercion, or <see langword="null"/> when the failing value
++    /// is not a single <see cref="Value"/> (a shape check inside the array kernel, for example).</summary>
++    public Value? Offender { get; } = offender;
++}
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index c3097f1..aa46a63 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -189,9 +189,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         }
+ 
+         Add("symbol", new[] { "name", "domain" }, args =>
+-            args.Count >= 2 && args[1] is MathDomain md
+-                ? SymbolWithDomain((string)args[0]!, md)
+-                : Exprs.Symbol((string)args[0]!),
++        {
++            var name = AsTextName(args[0]);
++            return args.Count >= 2 && args[1] is MathDomain md
++                ? SymbolWithDomain(name, md)
++                : Exprs.Symbol(name);
++        },
+             new BuiltinDescriptor("symbol", new[] { "name", "domain" }, BuiltinCategories.Symbolics,
+                 "Creates a symbolic variable; an optional domain (integer/rational/real/complex) is assumed for it.",
+                 ["symbol(\"x\")", "symbol(\"x\", real)"], "Symbolic", ["assume", "real", "complex"], MinArity: 1));
+@@ -243,7 +246,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         }
+         Add("assume", new[] { "relation" }, args =>
+         {
+-            var rel = (Expr)args[0]!;
++            var rel = AsRelation(args[0]);
+             if (!AssumeRecursive(rel))
+                 throw new InvalidOperationException("assume() accepts relations and their conjunctions/negations with constant bounds.");
+             return rel;
+@@ -1499,7 +1502,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             _assumptions = _assumptions.Add(new ExpressionPropertyAssumption(e, pred));
+             return e;
+         }
+-        var s = Context.Symbol((string)args[0]!);
++        var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
+         _assumptions = _assumptions.Add(new SymbolPropertyAssumption(s, pred));
+         return Exprs.Symbol(s);
+     }
+@@ -1511,7 +1514,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             _assumptions = _assumptions.Add(new SymbolDomainAssumption(sx.Symbol, domain));
+             return e;
+         }
+-        var s = Context.Symbol((string)args[0]!);
++        var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
+         _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, domain));
+         return Exprs.Symbol(s);
+     }
+@@ -1681,6 +1684,32 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         throw new BuiltinArgumentError("a symbolic variable");
+     }
+ 
++    /// <summary>What an assume* builtin requires when the payload is not already symbolic: a text
++    /// name (or a symbolic expression). Shared so the expectation text and the refusal variant
++    /// cannot drift between the six assume* surfaces.</summary>
++    private const string AssumeExpectation = "a symbolic expression or the text name of one";
++
++    /// <summary>The text NAME an argument must carry where the builtin declares one
++    /// (<c>symbol("x")</c>). A payload of another kind is a wrong-SHAPED argument, so it is refused
++    /// through <see cref="BuiltinShapeError"/> — the documented recoverable argument error naming
++    /// the builtin, the position and the kind that arrived — instead of the raw
++    /// <c>(string)args[0]!</c> cast that used to escape as an internal invariant failure carrying
++    /// "Specified cast is not valid." (audit D, finding F1).</summary>
++    private static string AsTextName(object? o) =>
++        o as string ?? throw new BuiltinShapeError("a text name such as \"x\"");
++
++    /// <summary>The same guard for the name form of the assume* builtins, which also accept an
++    /// already-symbolic argument (handled before this helper is reached).</summary>
++    private static string AsSymbolName(object? o, string expected) =>
++        o as string ?? throw new BuiltinShapeError(expected);
++
++    /// <summary>The relation an <c>assume</c> argument must carry. A non-expression payload is a
++    /// wrong SHAPE, not a domain refusal: it crosses as the documented recoverable argument error
++    /// naming the builtin, the position and the kind that arrived — never as the raw
++    /// <c>(Expr)args[0]!</c> cast failure it used to cross as (audit D, finding F1).</summary>
++    private static Expr AsRelation(object? o) =>
++        o as Expr ?? throw new BuiltinShapeError("a relation such as x > 5");
++
+     private static Expr AsExpr(object? o) => o switch
+     {
+         Expr e => e,

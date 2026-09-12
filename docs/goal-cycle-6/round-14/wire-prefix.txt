@@ -1,0 +1,27 @@
+﻿=== CASE limit-dne :: x = symbol("x"); limit(1/x, x, 0)
+  ok=True  result.kind=Text  display=does not exist (left: -inf, right: +inf)
+  structured={"kind":"Text","value":"does not exist (left: -inf, right: +inf)"}
+=== CASE limit-left-dne :: x = symbol("x"); limit_left(1/x, x, 0)
+  ok=True  result.kind=Symbolic  display=-inf
+  structured={"kind":"Symbolic","pretty":"-inf","canonical":"(mul (rat -1 1) (inf))","domain":"real","exact":false,"nodeCount":3,"freeSymbols":[]}
+=== CASE limit-right-dne :: x = symbol("x"); limit_right(1/x, x, 0)
+  ok=True  result.kind=Symbolic  display=inf
+  structured={"kind":"Symbolic","pretty":"inf","canonical":"(inf)","domain":"real","exact":false,"nodeCount":1,"freeSymbols":[]}
+=== CASE limit-unev :: x = symbol("x"); limit(sin(x), x, inf)
+  ok=True  result.kind=Text  display=unevaluated: coefficient does not evaluate at the point
+  structured={"kind":"Text","value":"unevaluated: coefficient does not evaluate at the point"}
+=== CASE limit-left-unev :: x = symbol("x"); limit_left(sin(x), x, inf)
+  ok=True  result.kind=Text  display=unevaluated: coefficient does not evaluate at the point
+  structured={"kind":"Text","value":"unevaluated: coefficient does not evaluate at the point"}
+=== CASE limit-right-unev :: x = symbol("x"); limit_right(sin(x), x, inf)
+  ok=True  result.kind=Text  display=unevaluated: coefficient does not evaluate at the point
+  structured={"kind":"Text","value":"unevaluated: coefficient does not evaluate at the point"}
+=== CASE limit-ok :: x = symbol("x"); limit(sin(x)/x, x, 0)
+  ok=True  result.kind=Symbolic  display=1
+  structured={"kind":"Symbolic","pretty":"1","canonical":"(rat 1 1)","domain":"rational","exact":true,"nodeCount":1,"freeSymbols":[]}
+=== CASE limit-left-ok :: x = symbol("x"); limit_left(sin(x)/x, x, 0)
+  ok=True  result.kind=Symbolic  display=1
+  structured={"kind":"Symbolic","pretty":"1","canonical":"(rat 1 1)","domain":"rational","exact":true,"nodeCount":1,"freeSymbols":[]}
+=== CASE limit-right-ok :: x = symbol("x"); limit_right(sin(x)/x, x, 0)
+  ok=True  result.kind=Symbolic  display=1
+  structured={"kind":"Symbolic","pretty":"1","canonical":"(rat 1 1)","domain":"rational","exact":true,"nodeCount":1,"freeSymbols":[]}

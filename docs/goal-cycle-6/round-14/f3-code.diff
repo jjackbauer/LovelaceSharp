@@ -1,0 +1,202 @@
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index c3097f1..ba8c13a 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -479,14 +479,17 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             // projection carries the payload's PROVENANCE with it (cycle 6, row 11): pi(30)/e(30)
+             // arrive inexact and must not come back as exact rationals.
+             var f = AsExpr(NumericAtRequestedPrecision(args[0], digits) ?? args[0]);
+-            using (Rl.WithPrecision(digits, Math.Min(digits, 50)))
+-            {
+-                var num = Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
+-                return NumToPayload(num);
+-            }
++            // The request is a count of DECIMAL PLACES, so it is NOT the working precision. The
++            // evaluation runs at the request plus the integer digits the value turns out to carry
++            // plus a guard (see EvalfWorkingPrecision), and the published value is bounded back to
++            // the request (see EvalfPayload). Running at the bare request made the last k decimals
++            // of a value with k integer digits noise: an inexact argument is materialised at the
++            // ambient budget, so an argument error of 10^-N is amplified by the function's
++            // derivative into an error of 10^(k-N) in the result.
++            return EvalfPayload(EvalfWorkingPrecision(f, digits), digits);
+         },
+         new BuiltinDescriptor("evalf", new[] { "f", "digits" }, BuiltinCategories.Numerics,
+-            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike.",
++            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike. The DECIMAL PLACES are COMPUTED, not merely printed: the evaluation runs at the requested count plus the integer digits of the result plus a guard, so a value with k integer digits keeps all N of its decimals (evalf(sinh(34/3), 30) answers 41780.548053564065925188446077567339), and the published value is bounded back to the N places that were asked for.",
+             ["evalf(sqrt(2), 30)", "evalf(1/3, 30)"], "Real | Complex", ["subs"]));
+         Add("hessian", new[] { "f", "vars" }, args =>
+         {
+@@ -1528,7 +1531,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// <para>
+     /// AN INEXACT VALUE KEEPS ITS ROUTE. The rational tier has no provenance to carry — a
+     /// <c>NumRat</c> is exact by construction — so a truncation projected onto it came back out of
+-    /// <see cref="NumToPayload"/> as a FRESH Real whose exactness was read off the width of its
++    /// <see cref="EvalfPayload"/> as a FRESH Real whose exactness was read off the width of its
+     /// rendering: <c>evalf(pi(30), 40)</c> published a 30-place truncation of π as <c>exact:true</c>
+     /// with numerator 3141592653589793238462643383279 over 10^30, <c>evalf(pi(1), 40)</c> published
+     /// <c>3.1</c> exact as 31/10, and <c>e(30)</c> answered the same shape — while <c>pi(30)</c>
+@@ -1552,7 +1555,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+     /// <summary>One already-numeric component at the requested digit count: the exact rational it
+     /// denotes when it is exact, and an inexact literal carrying the digits the request keeps when it
+     /// is not. <paramref name="digits"/> is bounded by the same 1000-place computation cap
+-    /// <see cref="NumToPayload"/> applies to a rational payload, so the two routes truncate
++    /// <see cref="EvalfPayload"/> applies to a rational payload, so the two routes truncate
+     /// identically. A truncated value is re-materialised from its own digits and re-marked inexact —
+     /// <see cref="RationalReal.ToReal"/> parses a decimal string back, and a parse owns a FRESH
+     /// instance whose flag says "exact by construction" (see <see cref="Rl.AsInexact"/>).</summary>
+@@ -1562,16 +1565,148 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             : Exprs.Real(RealLiteral.FromRealExact(Rl.AsInexact(
+                 RationalReal.ToReal(RationalReal.FromReal(value), Math.Min(digits, 1000)))));
+ 
+-    private static object NumToPayload(Num n) => n switch
++    /// <summary>The GUARD <c>evalf</c> keeps on top of the requested decimal count, and the same
++    /// number <c>ComplexMath</c> already reserves inside every elementary function
++    /// (<c>ComplexMath.GuardDigits</c>). The working precision is the request plus the integer digits
++    /// of the result plus this guard, so a value with <c>k</c> integer digits is computed with
++    /// <c>N + Guard - k</c> decimals of slack instead of losing its last <c>k</c>.
++    /// <para>
++    /// WHY THE INTEGER PART IS THE RIGHT TERM. An argument that is not exactly representable at the
++    /// working budget — an exact rational whose decimal expansion does not terminate — is
++    /// materialised as a Real truncated at that budget, i.e. with an absolute error of
++    /// <c>10^-places</c>. Evaluating <c>f</c> on it multiplies that error by <c>|f'|</c>, which for
++    /// the elementary family is of the order of the result's own magnitude <c>10^k</c> — for
++    /// <c>sinh</c>, exactly <c>cosh(x) ≈ 10^k</c>. The error in the published value is therefore
++    /// <c>10^(k-places)</c>, and it stays below the last requested decimal exactly when
++    /// <c>k &lt; places - N</c>, i.e. when the value's integer digits fit inside the guard.
++    /// </para></summary>
++    private const int EvalfGuardDigits = 20;
++
++    /// <summary>Evaluates <paramref name="f"/> so that the requested number of DECIMAL PLACES is
++    /// actually computed, and returns the un-bounded value (see <see cref="EvalfPayload"/> for the
++    /// published form).
++    /// <para>
++    /// The ambient budget is a count of fractional places, so running at the bare request leaves a
++    /// value with <c>k</c> integer digits about <c>N</c> significant digits of room; the request is
++    /// answered at <c>N + EvalfGuardDigits</c> and, when the result turns out to carry at least
++    /// <c>EvalfGuardDigits</c> integer digits — the case the guard cannot cover — RE-evaluated at
++    /// <c>N + k + EvalfGuardDigits</c>. The second pass exists because <c>k</c> is a property of the
++    /// value and not of the expression: it cannot be known before the value is computed, and a fixed
++    /// guard alone would leave every large-magnitude request as wrong as before (measured:
++    /// <c>evalf(sinh(65/3), 30)</c> lost its last 10 decimals, <c>evalf(sinh(1000/3), 30)</c> its
++    /// last 145). The re-evaluation is reached only for values of order <c>10^20</c> and above.
++    /// </para>
++    /// <para>
++    /// The magnitude read is an OVER-estimate for a rational argument (by at most one digit), which
++    /// is the safe direction: it can only add working room, never remove it.
++    /// </para></summary>
++    private Num EvalfWorkingPrecision(Expr f, int digits)
++    {
++        long places = digits + (long)EvalfGuardDigits;
++        var num = EvaluateAtPlaces(f, places);
++        long integerDigits = IntegerDigits(num);
++        if (integerDigits >= EvalfGuardDigits)
++        {
++            places = digits + integerDigits + EvalfGuardDigits;
++            num = EvaluateAtPlaces(f, places);
++        }
++        return num;
++    }
++
++    /// <summary>One evaluation of <paramref name="f"/> inside a precision scope that bounds the
++    /// computation to <paramref name="places"/> fractional places (and the display to at most 50, the
++    /// ceiling the previous rounds pinned). The scope is disposed before the caller reads the value,
++    /// so no ambient precision leaks out of the call.</summary>
++    private Num EvaluateAtPlaces(Expr f, long places)
+     {
+-        NumInt i => i.V,
+-        // the Modus payload vocabulary carries Real (exact periodic), not Rational
+-        NumRat r => r.V.IsInteger ? r.V.ToInteger() : RationalReal.ToReal(r.V, (int)Math.Min(Rl.MaxComputationDecimalPlaces, 1000)),
+-        NumReal rl => rl.V,
+-        NumComplex c => c.V,
+-        _ => throw new InvalidOperationException(),
++        using (Rl.WithPrecision(places, Math.Min(places, 50)))
++            return Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
++    }
++
++    /// <summary>An upper bound on the number of INTEGER digits of a value — the count of decimal
++    /// places that lie to the left of the point, and 0 for anything below 1. It only sizes the
++    /// working precision, so an over-estimate is safe and an under-estimate is not; the rational
++    /// tier is bounded from the two magnitudes without ever dividing.</summary>
++    private static long IntegerDigits(Num n) => n switch
++    {
++        NumInt i => IntegerDigitsOf(i.V),
++        NumRat r => IntegerDigitsOf(r.V),
++        NumReal rl => IntegerDigitsOf(rl.V),
++        NumComplex c => Math.Max(IntegerDigitsOf(c.V.Re), IntegerDigitsOf(c.V.Im)),
++        _ => 0L,
+     };
+ 
++    /// <summary>The integer digits of an arbitrary-precision integer: its own decimal width.</summary>
++    private static long IntegerDigitsOf(Int value) =>
++        Int.IsZero(value) ? 0L : Int.Abs(value).ToString().Length;
++
++    /// <summary>The integer digits of <c>|value|</c> for a Real: the stored magnitude's width
++    /// shifted by the exponent, so <c>41780.548…</c> (35 stored digits, exponent -30) answers 5.
++    /// Period metadata never moves the point, so the same arithmetic serves a repeating value.</summary>
++    private static long IntegerDigitsOf(Rl value)
++    {
++        if (Rl.IsZero(value)) return 0L;
++        long integerDigits = value.ToNatural().ToString().Length + value.Exponent;
++        return integerDigits > 0L ? integerDigits : 0L;
++    }
++
++    /// <summary>An upper bound on the integer digits of <c>|value|</c> for an exact rational: the
++    /// numerator's width minus the denominator's, plus one. The bound never under-estimates (it is
++    /// exact except when the numerator's leading digits are below the denominator's), and it is
++    /// computed by counting digits instead of dividing two arbitrary-precision integers.</summary>
++    private static long IntegerDigitsOf(Rat value)
++    {
++        if (value.IsZero) return 0L;
++        long bound = (long)Int.Abs(value.Numerator).ToString().Length
++                   - (long)Int.Abs(value.Denominator).ToString().Length + 1L;
++        return bound > 0L ? bound : 0L;
++    }
++
++    /// <summary>The payload <c>evalf</c> publishes: the evaluated value bounded to the REQUESTED
++    /// decimal count, never to the working precision.
++    /// <para>
++    /// THE WORKING PRECISION IS NOT THE ANSWER. The evaluation runs with room for the integer part
++    /// (see <see cref="EvalfWorkingPrecision"/>), so it carries more fractional places than were
++    /// asked for; publishing them would print the guard. The value is therefore truncated back to
++    /// the request through the SAME boundary the already-numeric argument path uses
++    /// (<see cref="RationalReal.ToReal"/>, bounded at the same 1000-place computation cap), and the
++    /// route that produced it is re-attached, so the decimal count a caller asks for is the decimal
++    /// count they get.
++    /// </para>
++    /// <para>
++    /// AN EXACT VALUE IS NOT PADDED AND NOT FLATTENED. An integer stays an Integer payload, and an
++    /// exact rational that terminates inside the window (<c>evalf(1/2, 40)</c>) stays the exact
++    /// rational it denotes — the bound only removes digits that are there, it never adds any.
++    /// </para></summary>
++    private static object EvalfPayload(Num n, int digits)
++    {
++        int places = Math.Min(digits, 1000);
++        return n switch
++        {
++            NumInt i => i.V,
++            // the Modus payload vocabulary carries Real (exact periodic), not Rational
++            NumRat r => r.V.IsInteger ? r.V.ToInteger() : RationalReal.ToReal(r.V, places),
++            NumReal rl => BoundDecimalPlaces(rl.V, places),
++            NumComplex c => new Cplx(BoundDecimalPlaces(c.V.Re, places), BoundDecimalPlaces(c.V.Im, places)),
++            _ => throw new InvalidOperationException(),
++        };
++    }
++
++    /// <summary>Truncates <paramref name="value"/> to <paramref name="places"/> fractional places,
++    /// keeping its PROVENANCE: a value that already fits is returned untouched (same instance, same
++    /// exactness), and a value that is cut is re-read from the rational it denotes and re-marked
++    /// inexact when it was inexact — <see cref="RationalReal.ToReal"/> parses a decimal string back,
++    /// and a parse owns a FRESH instance whose flag says "exact by construction"
++    /// (see <see cref="Rl.AsInexact"/>). A periodic value has no last place to cut and is left
++    /// alone.</summary>
++    private static Rl BoundDecimalPlaces(Rl value, int places)
++    {
++        if (value.IsPeriodic || -value.Exponent <= places)
++            return value;
++        var truncated = RationalReal.ToReal(RationalReal.FromReal(value), places);
++        return value.IsExact ? truncated : Rl.AsInexact(truncated);
++    }
++
+     private static object LimitToExpr(LimitResult r) => r.Status switch
+     {
+         LimitStatus.Value => r.Value!,

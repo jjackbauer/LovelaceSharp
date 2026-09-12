@@ -1,0 +1,398 @@
+diff --git a/Lovelace.Suite/docs/Language.md b/Lovelace.Suite/docs/Language.md
+index ed854a8..3c0463f 100644
+--- a/Lovelace.Suite/docs/Language.md
++++ b/Lovelace.Suite/docs/Language.md
+@@ -1095,7 +1095,7 @@ x = symbol("x")
+ limit(sin(x)/x, x, 0)
+ ```
+ ```result
+-1 (Symbolic)
++LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+diff --git a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+index 564609d..43d583d 100644
+--- a/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
++++ b/Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs
+@@ -166,8 +166,21 @@ public class DxStructuredResultsTests
+         Assert.Equal("[x < 0] (Vector)", ValueFormatter.FormatTyped(F(r, "left_conditions")));
+         Assert.Equal("[x > 0] (Vector)", ValueFormatter.FormatTyped(F(r, "right_conditions")));
+         AssertEnumField(F(r, "exactness"), "SolutionExactness", "Exact");
+-        // the projection stays a readable string (compatibility), the record is structural
+-        Assert.Equal("does not exist (left: -inf, right: +inf)", engine.Evaluate("limit(1/x, x, 0)").AsText());
++        // audit D F2 (cycle 6): the SHORT form publishes the SAME LimitResult record, not a prose
++        // sentence — the two one-sided values the old text spelled out are the record's own fields,
++        // each with the side constraint it holds under. The sentence is gone; no claim it made is.
++        var shortForm = engine.Evaluate("limit(1/x, x, 0)").AsRecord();
++        Assert.Equal("LimitResult", shortForm.TypeName);
++        Assert.False(F(shortForm, "exists").AsBoolean());
++        Assert.Equal("-inf", ValueFormatter.Format(F(shortForm, "left")));
++        Assert.Equal("inf", ValueFormatter.Format(F(shortForm, "right")));
++        Assert.Equal("[x < 0] (Vector)", ValueFormatter.FormatTyped(F(shortForm, "left_conditions")));
++        Assert.Equal("[x > 0] (Vector)", ValueFormatter.FormatTyped(F(shortForm, "right_conditions")));
++        AssertEnumField(F(shortForm, "exactness"), "SolutionExactness", "Exact");
++        // and the two-sided short form is the full form's record, field for field
++        Assert.Equal(
++            ValueFormatter.FormatTyped(F(r, "left_conditions")),
++            ValueFormatter.FormatTyped(F(shortForm, "left_conditions")));
+     }
+ 
+     // ------------------------------------------------------------------
+diff --git a/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs b/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs
+index d6a8d09..0afd03a 100644
+--- a/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs
++++ b/Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs
+@@ -246,14 +246,29 @@ public class IndeterminateExponentialLimitTests
+     {
+         var engine = NewEngine();
+         engine.Evaluate("x = symbol(\"x\")");
+-        Assert.Equal("5", ValueFormatter.Format(engine.Evaluate("limit(x^2 + 1, x, 2)")));
+-        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^2, x, 0)")));
+-        Assert.Equal("8", ValueFormatter.Format(engine.Evaluate("limit(2^x, x, 3)")));
+-        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit(x^x, x, 0)")));
++        // audit D F2 (cycle 6): the short form publishes the LimitResult record, so the value a
++        // caller wants is the record's own "value" field. Same seven values, read off structure.
++        AssertShortFormValue(engine, "limit(x^2 + 1, x, 2)", "5");
++        AssertShortFormValue(engine, "limit((1 + x)^2, x, 0)", "1");
++        AssertShortFormValue(engine, "limit(2^x, x, 3)", "8");
++        AssertShortFormValue(engine, "limit(x^x, x, 0)", "1");
+         // and the probes answer SymPy's E and exp(2) through the same builtin
+-        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + 1/x)^x, x, inf)")));
+-        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^(1/x), x, 0)")));
+-        Assert.Equal("e^2", ValueFormatter.Format(engine.Evaluate("limit((1 + 2/x)^x, x, inf)")));
++        AssertShortFormValue(engine, "limit((1 + 1/x)^x, x, inf)", "e");
++        AssertShortFormValue(engine, "limit((1 + x)^(1/x), x, 0)", "e");
++        AssertShortFormValue(engine, "limit((1 + 2/x)^x, x, inf)", "e^2");
++    }
++
++    /// <summary>audit D F2 (cycle 6): a short-form limit is a LimitResult record, so the answer is
++    /// the record's <c>value</c> field and the record's own <c>status</c>/<c>exists</c> say that it
++    /// IS an answer. The value assertion is the one this file already made; the two beside it are
++    /// what the bare result could not carry.</summary>
++    private static void AssertShortFormValue(SuiteEngine engine, string call, string expected)
++    {
++        var record = engine.Evaluate(call).AsRecord();
++        Assert.Equal("LimitResult", record.TypeName);
++        AssertEnumField(F(record, "status"), "LimitStatus", "Value");
++        Assert.True(F(record, "exists").AsBoolean(), $"{call}: a determined limit reports exists: true");
++        Assert.Equal(expected, ValueFormatter.Format(F(record, "value")));
+     }
+ 
+     // ------------------------------------------------------------------
+diff --git a/Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs b/Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs
+index 7efe5f6..4ec52e4 100644
+--- a/Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs
++++ b/Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs
+@@ -107,10 +107,29 @@ public class LimitExistenceTriStateTests
+         var engine = NewEngine();
+         engine.Evaluate("x = symbol(\"x\")");
+ 
+-        Assert.StartsWith("unevaluated", engine.Evaluate("limit_left(x*sin(1/x), x, 0)").AsText());
+-        Assert.StartsWith("unevaluated", engine.Evaluate("limit_right(x*sin(1/x), x, 0)").AsText());
+-        Assert.Equal("-inf", ValueFormatter.Format(engine.Evaluate("limit_left(1/x, x, 0)")));
+-        Assert.Equal("inf", ValueFormatter.Format(engine.Evaluate("limit_right(1/x, x, 0)")));
++        // audit D F2 (cycle 6): the one-sided SHORT forms publish the SAME LimitResult record the
++        // full form does, so "no value" and "which value" are read off the fields instead of off a
++        // prose prefix. The two values asserted before are asserted here, with their status beside
++        // them — a strictly larger claim than the bare Symbolic/Text answer used to carry.
++        var leftUndetermined = engine.Evaluate("limit_left(x*sin(1/x), x, 0)").AsRecord();
++        AssertStatus(leftUndetermined, "Unevaluated");
++        Assert.Equal(ValueKind.Void, F(leftUndetermined, "value").Kind);
++        Assert.Equal("Null", StructuredProjection.ToStructured(F(leftUndetermined, "value")).Kind);
++
++        var rightUndetermined = engine.Evaluate("limit_right(x*sin(1/x), x, 0)").AsRecord();
++        AssertStatus(rightUndetermined, "Unevaluated");
++        Assert.Equal(ValueKind.Void, F(rightUndetermined, "value").Kind);
++        Assert.Equal("Null", StructuredProjection.ToStructured(F(rightUndetermined, "value")).Kind);
++
++        var leftPole = engine.Evaluate("limit_left(1/x, x, 0)").AsRecord();
++        AssertStatus(leftPole, "MinusInfinity");
++        Assert.True(F(leftPole, "exists").AsBoolean());
++        Assert.Equal("-inf", ValueFormatter.Format(F(leftPole, "value")));
++
++        var rightPole = engine.Evaluate("limit_right(1/x, x, 0)").AsRecord();
++        AssertStatus(rightPole, "PlusInfinity");
++        Assert.True(F(rightPole, "exists").AsBoolean());
++        Assert.Equal("inf", ValueFormatter.Format(F(rightPole, "value")));
+     }
+ 
+     /// <summary>Kernel level: an undetermined one-sided result is Unevaluated with NO value —
+diff --git a/Lovelace.Symbolics/README.md b/Lovelace.Symbolics/README.md
+index 293313e..286f885 100644
+--- a/Lovelace.Symbolics/README.md
++++ b/Lovelace.Symbolics/README.md
+@@ -381,12 +381,17 @@ The trailing `O(x^n)` marks the truncation order explicitly.
+ 
+ ## 9. Limits
+ 
++`limit`, `limit_left` and `limit_right` all return the SAME `LimitResult` record `limit_full`
++returns — `status`, `exists`, `value`, the one-sided `left`/`right` values each with the constraint
++it holds under, `exactness` and `diagnostics` — so a caller reads the answer off the structure
++instead of parsing prose out of the result:
++
+ ```lovelace
+ x = symbol("x")
+ limit(sin(x)/x, x, 0)
+ ```
+ ```result
+-1 (Symbolic)
++LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+@@ -394,7 +399,7 @@ x = symbol("x")
+ limit((1 - cos(x))/x^2, x, 0)
+ ```
+ ```result
+-1/2 (Symbolic)
++LimitResult(status: Value, exists: True, value: 1/2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ Two-sided limits report disagreement between the one-sided limits instead of forcing a
+@@ -405,7 +410,7 @@ x = symbol("x")
+ limit(1/x, x, 0)
+ ```
+ ```result
+-does not exist (left: -inf, right: +inf)
++LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ One-sided limits are first-class (`limit_left`, `limit_right`):
+@@ -415,7 +420,7 @@ x = symbol("x")
+ limit_left(1/x, x, 0)
+ ```
+ ```result
+--inf (Symbolic)
++LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+@@ -423,7 +428,7 @@ x = symbol("x")
+ limit_right(1/x, x, 0)
+ ```
+ ```result
+-inf (Symbolic)
++LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+@@ -431,7 +436,7 @@ x = symbol("x")
+ limit(1/x^2, x, 0)
+ ```
+ ```result
+-inf (Symbolic)
++LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ Rational functions at infinity use exact degree comparison:
+@@ -441,7 +446,7 @@ x = symbol("x")
+ limit(1/(x+1), x, inf)
+ ```
+ ```result
+-0 (Symbolic)
++LimitResult(status: Value, exists: True, value: 0, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+@@ -449,7 +454,7 @@ x = symbol("x")
+ limit(x^2 + 1, x, inf)
+ ```
+ ```result
+-inf (Symbolic)
++LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ ```lovelace
+@@ -457,7 +462,7 @@ x = symbol("x")
+ limit((2*x^2 + 1)/(x^2 - 1), x, inf)
+ ```
+ ```result
+-2 (Symbolic)
++LimitResult(status: Value, exists: True, value: 2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
+ ```
+ 
+ When no safe closed form is found the limit is reported unevaluated — never guessed:
+@@ -467,7 +472,7 @@ x = symbol("x")
+ limit(exp(-(x^2)), x, inf)
+ ```
+ ```result
+-unevaluated: coefficient does not evaluate at the point
++LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics: [Diagnostic(code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, recoverable: True, location: , details: [])]) (LimitResult)
+ ```
+ 
+ 
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index c3097f1..12cb2ab 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -130,9 +130,11 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+                 "Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions.",
+                 ["assumptions()"], "AssumptionSet", ["assume", "assume_clear"]),
+             ["limit_left"] = new("limit_left", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+-                "One-sided limit from the left as x approaches x0.", ["limit_left(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
++                "One-sided limit from the left as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
++                ["limit_left(1/x, x, 0)"], "LimitResult", ["limit", "limit_full"]),
+             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+-                "One-sided limit from the right as x approaches x0.", ["limit_right(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
++                "One-sided limit from the right as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
++                ["limit_right(1/x, x, 0)"], "LimitResult", ["limit", "limit_full"]),
+             ["solve_system_full"] = new("solve_system_full", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
+                 "Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions.",
+                 ["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult", ["solve_system", "solve_full"]),
+@@ -383,49 +385,51 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         new BuiltinDescriptor("series", new[] { "f", "x", "x0", "order" }, BuiltinCategories.Calculus,
+             "Power series of f around x = x0 to the given order (with an O-term).",
+             ["series(sin(x)/x, x, 0, 8)"], "Symbolic", ["limit", "diff"]));
++        // audit D F2 (cycle 6): the short forms and the _full form publish the SAME LimitResult
++        // record, produced by the ONE projection below. Before this, limit() answered a bare Text
++        // for every shape the kernel did not determine — "does not exist (left: -inf, right: +inf)"
++        // for a proven disagreement, "unevaluated: <reason>" for a refusal — under ok:true, with no
++        // code, no category and nothing structured, while limit_full on the SAME input published a
++        // record whose left/right fields already held those two values: an agent had to parse
++        // English to learn the status. solve() and solve_system() took this decision in cycle 5 for
++        // the same reason (see the comment on the solve registration below). Nothing the prose said
++        // is lost — it is published as structure: status, exists, each side value with the
++        // constraint it holds under, exactness, and the refusal’s code/category in diagnostics.
+         Add("limit", new[] { "f", "x", "x0" }, args =>
+-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.TwoSided, Context)),
++        {
++            var x = AsSymbol(args[1]);
++            var point = AsExpr(args[2]);
++            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context), x, point);
++        },
+         new BuiltinDescriptor("limit", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+-            "Two-sided limit of f as x → x0. Use limit_full for the structured result (existence, left/right values).",
+-            ["limit(sin(x)/x, x, 0)", "limit(1/x, x, 0)"], "Symbolic | Text",
++            "Two-sided limit of f as x → x0, returned as the SAME LimitResult record limit_full returns: status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint it holds under, exactness and diagnostics. Nothing has to be parsed out of prose.",
++            ["limit(sin(x)/x, x, 0)", "limit(1/x, x, 0)"], "LimitResult",
+             ["limit_left", "limit_right", "limit_full"]));
+         Add("limit_full", new[] { "f", "x", "x0" }, args =>
+         {
+             var x = AsSymbol(args[1]);
+             var point = AsExpr(args[2]);
+-            var r = Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context);
+-            // N19: "exists" is THREE-VALUED, not derived from "a value came back or not".
+-            // true  — a limit was determined;
+-            // false — non-existence was PROVEN (DoesNotExist: the two sides disagree);
+-            // null  — the engine did not determine it (Unevaluated, Failed), emitted as the
+-            //         protocol Null ({kind:Null}), which is neither false nor "". Asserting
+-            //         "does not exist" here would be a false mathematical claim (e.g. the
+-            //         squeezed limit x*sin(1/x) -> 0, which the engine cannot yet solve).
+-            bool? exists = r.Status switch
+-            {
+-                LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => true,
+-                LimitStatus.DoesNotExist => false,
+-                _ => null,
+-            };
+-            return new RecordValue("LimitResult",
+-                new RecordField("status", EnumField("LimitStatus", r.Status)),
+-                new RecordField("exists", exists),
+-                new RecordField("value", LimitSide(r)),
+-                new RecordField("left", LimitSide(r.FromLeft)),
+-                new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists is true)),
+-                new RecordField("right", LimitSide(r.FromRight)),
+-                new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists is true)),
+-                new RecordField("conditions", ConditionExprs(r.Conditions)),
+-                new RecordField("exactness", EnumField("SolutionExactness", r.Exactness)),
+-                new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
++            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context), x, point);
+         },
+         new BuiltinDescriptor("limit_full", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
+             "Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics.",
+             ["limit_full(1/x, x, 0)"], "LimitResult", ["limit", "limit_left", "limit_right"]));
++        // The one-sided forms run the one-sided kernel query and publish that result through the
++        // SAME projection: a one-sided answer is a primary result, so it rides in the record’s
++        // "value" field with its own status/exists/exactness (the kernel splits a result into
++        // FromLeft/FromRight only for a TWO-SIDED query whose sides disagree).
+         Add("limit_left", new[] { "f", "x", "x0" }, args =>
+-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromLeft, Context)));
++        {
++            var x = AsSymbol(args[1]);
++            var point = AsExpr(args[2]);
++            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.FromLeft, Context), x, point);
++        });
+         Add("limit_right", new[] { "f", "x", "x0" }, args =>
+-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
++        {
++            var x = AsSymbol(args[1]);
++            var point = AsExpr(args[2]);
++            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.FromRight, Context), x, point);
++        });
+         Add("solve_system", new[] { "eqs", "vars" }, args =>
+         {
+             var eqs = ExprVector(args[0], EquationVectorExpectation);
+@@ -1466,6 +1470,48 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         _ => null,
+     };
+ 
++    /// <summary>
++    /// The ONE projection from a kernel <see cref="LimitResult"/> onto the published record.
++    /// <c>limit</c>, <c>limit_left</c>, <c>limit_right</c> and <c>limit_full</c> all call it, so the
++    /// four surfaces cannot describe the same kernel result differently and a short form has no
++    /// path that can fall back to prose.
++    /// <para>
++    /// N19: "exists" is THREE-VALUED, not derived from "a value came back or not".
++    /// true  — a limit was determined;
++    /// false — non-existence was PROVEN (DoesNotExist: the two sides disagree);
++    /// null  — the engine did not determine it (Unevaluated, Failed), emitted as the
++    ///         protocol Null ({kind:Null}), which is neither false nor "". Asserting
++    ///         "does not exist" here would be a false mathematical claim (e.g. the
++    ///         squeezed limit x*sin(1/x) -> 0, which the engine cannot yet solve).
++    /// </para>
++    /// <para>
++    /// A ONE-SIDED query runs through this same projection: its answer is the kernel’s primary
++    /// result, so it rides in <c>value</c> with its own status/exists/exactness, and <c>left</c>/
++    /// <c>right</c> stay Null because the kernel splits a result into the two sides only for a
++    /// two-sided query whose sides disagree.
++    /// </para>
++    /// </summary>
++    private static RecordValue LimitRecord(LimitResult r, Symbol x, Expr point)
++    {
++        bool? exists = r.Status switch
++        {
++            LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => true,
++            LimitStatus.DoesNotExist => false,
++            _ => null,
++        };
++        return new RecordValue("LimitResult",
++            new RecordField("status", EnumField("LimitStatus", r.Status)),
++            new RecordField("exists", exists),
++            new RecordField("value", LimitSide(r)),
++            new RecordField("left", LimitSide(r.FromLeft)),
++            new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists is true)),
++            new RecordField("right", LimitSide(r.FromRight)),
++            new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists is true)),
++            new RecordField("conditions", ConditionExprs(r.Conditions)),
++            new RecordField("exactness", EnumField("SolutionExactness", r.Exactness)),
++            new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
++    }
++
+     private object Run(Func<object?> impl)
+     {
+         var previous = Exprs.Current;
+@@ -1572,24 +1618,6 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         _ => throw new InvalidOperationException(),
+     };
+ 
+-    private static object LimitToExpr(LimitResult r) => r.Status switch
+-    {
+-        LimitStatus.Value => r.Value!,
+-        LimitStatus.PlusInfinity => Exprs.Infinity,
+-        LimitStatus.MinusInfinity => Exprs.Negate(Exprs.Infinity),
+-        LimitStatus.DoesNotExist =>
+-            $"does not exist (left: {SideText(r.FromLeft)}, right: {SideText(r.FromRight)})",
+-        _ => "unevaluated: " + (r.FailureReason ?? "no limit"),
+-    };
+-
+-    private static string SideText(LimitResult? r) => r?.Status switch
+-    {
+-        LimitStatus.PlusInfinity => "+inf",
+-        LimitStatus.MinusInfinity => "-inf",
+-        LimitStatus.Value => Printing.PrettyPrint(r.Value!),
+-        _ => "unknown",
+-    };
+-
+     /// <summary>True when the solution provably violates one of its excluded-domain conditions.</summary>
+     private static bool ViolatesConditions(Solution sol, Symbol x)
+     {

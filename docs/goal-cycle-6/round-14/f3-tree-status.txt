@@ -1,0 +1,2 @@
+﻿ M Lovelace.Symbolics/SymbolicsPlugin.cs
+?? Lovelace.Symbolics.Tests/EvalfWorkingPrecisionHonoursRequestedDecimalsTests.cs

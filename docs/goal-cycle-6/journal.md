@@ -666,6 +666,69 @@
 - **Agent**: Auditor A (fresh persona) + my own reproduction
 - **Related**: EVD-279, VAL-004, OQ-004
 
+### OBS-020: Audit B found a P0, and it corrects one of my own evidence rows
+
+- **Source**: `docs/goal-cycle-6/round-13/audit-B-lattice.md`; my own probes (EVD-280, EVD-281)
+- **Fact**: **P0 (new)**: at the ambient-precision boundary the LEADING significant digit can be wrong —
+  `setprecision(31); evalf(sin(pi(30)), 40)` → `0.0000000000000000000000000000004` where the true value
+  is `5.0288419716939937…e-31`; at 32 the last digit is `9` where the true rounded digit is `0`. The
+  root is truncation where rounding is required. **P1 (L1)**: the structured payload truncates every Real
+  at 100 decimals with no marker (`setprecision(1100); pi(1100)` → 100 digits in
+  `result.structured.value`). **P1 (L3)**: the last delivered decimal is off by one — which also corrects
+  **EVD-276**, whose "matching mpmath to the digits printed" claim was wrong. Two P2s (over-delivery for a
+  small request; a raw .NET message for `pi(30)` at `setprecision(20)`). Audit B found **no** misuse of
+  `exact:true`: every zero and every truncation it probed carried `exact:false`.
+- **Implications**: the fresh audit has now produced **one P0 and four P1s** across two personas. D1 cannot
+  be met this cycle: closing them properly is several more rounds with control-failing tests, and the
+  cycle's report must name them instead of grading around them — the standard cycles 4 and 5 held
+  themselves to. A+ is **not** claimed.
+- **Confidence**: High (both probes reproduced by me; the EVD-276 correction is mine to make).
+- **Agent**: Auditor B (fresh persona) + my own reproduction
+- **Related**: EVD-280, EVD-281, EVD-276, VAL-004
+
+### DEC-008: The audit falsifies the A+ claim — the cycle reports below A+, with both P0s named
+
+- **Decision**: **A+ is not claimed.** D1 is **not met**: the fresh four-persona audit produced two P0s
+  and at least seven P1s, all reproduced by me on the published binary built from this tree. The report
+  names them instead of grading around them, and the cycle ends below A+ exactly as cycles 4 and 5 did.
+- **The two P0s**: (1) **audit B** — at the ambient-precision boundary the LEADING significant digit can
+  be wrong (`setprecision(31); evalf(sin(pi(30)), 40)` = `…4` where the true digit is `5`); (2) **audit C**
+  — a `--plot-dir` naming an existing file kills the process with `0xC0000409` and **0 bytes** on
+  stdout, because `Runner.cs:168` sits outside the try at `:177`.
+- **The P1s, by persona**: audit A — the evalf working precision loses the integer part's digits
+  (`evalf(sinh(34/3), 30)` is wrong from the 26th decimal); audit B — the structured payload silently
+  truncates every Real at 100 decimals, and the last delivered decimal is truncated rather than rounded
+  (which also corrects my EVD-276); audit C — `zeros(1000000000)` raises an internal invariant failure
+  (OOM), a failed plot write is an internal failure while a failed read is a typed recoverable one, and
+  `len` refuses every zero-dimension array that `shape` reports; audit D — 52 wrong-shaped calls across
+  26 builtins cross as `InternalError/InternalInvariantFailure`, and the short `limit` family returns a
+  refusal as bare prose under `ok:true`.
+- **Rationale**: the gate exists to be believed. Three of the four personas are still finding defects on
+  their first pass, so closing all of them properly — each with a control-failing test, each verified by
+  me, each through CI — is several more rounds than this cycle has; pretending otherwise would be the one
+  thing the brief forbids.
+- **Alternatives considered**: closing only the P0s and claiming A+ over the P1s (rejected: D1 says no
+  P0/P1); stopping the audit at the first P0 (rejected: four personas were the point, and their findings
+  are the next cycle's work list).
+- **Related**: EVD-280, EVD-282, EVD-279, EVD-277, EVD-278, OBS-020
+
+### OBS-021: The audit's first pass closed three of its own findings in the same cycle
+
+- **Source**: commits `9a671c0` (F1 + F2) and `d9f2a7c` (F1-C, the P0); my own verification
+- **Fact**: three of the audit's findings are closed on `main` with control-failing tests — the
+  wrong-shaped-argument cluster (52 internal failures of 345 probes -> **0**), the short `limit` family
+  returning prose, and the `--plot-dir` process abort (0 bytes on stdout -> a 443-byte
+  `PlotDirectoryError/TypeMismatch` envelope). A fourth (audit A's evalf working precision) is fixed and
+  waiting on a rebase because `main` advanced under it; **two P0s/P1s remain open**: audit B's
+  leading-digit truncation at the ambient-precision boundary, and its two precision-payload findings
+  (structured truncation at 100 decimals; last decimal truncated rather than rounded).
+- **Implications**: the audit is not a formality — it found nine defects that four bounded rounds had not,
+  and six of them are closed or in flight. D1 remains **not met** and A+ is **not claimed**; the report
+  names what is left.
+- **Confidence**: High (every closure re-run by me on the wire and against a control tree).
+- **Agent**: three Implementers (rounds 14-15) + my own verification
+- **Related**: EVD-283, EVD-280, DEC-008
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,

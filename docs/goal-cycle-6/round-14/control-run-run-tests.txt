@@ -1,0 +1,154 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Run.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\bin\Release\net10.0\Lovelace.Run.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.59]     Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.EveryWrongShapedArgument_IsNeverAnIn
+ternalFailure_AndEveryArgumentRefusalNamesTheBuiltinAndThePosition [FAIL]
+At line:3 char:1
++ dotnet test Lovelace.Run.Tests\Lovelace.Run.Tests.csproj --configurat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...Position [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.60]     
+Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: 
+"assume(1)", builtin: "assume", position: 1) [FAIL]
+[xUnit.net 00:00:00.60]     
+Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: 
+"matmul(1, 1)", builtin: "matmul", position: 1) [FAIL]
+[xUnit.net 00:00:00.60]     
+Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: 
+"transpose(1, 1)", builtin: "transpose", position: 1) [FAIL]
+[xUnit.net 00:00:00.60]     
+Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: 
+"det(1)", builtin: "det", position: 1) [FAIL]
+[xUnit.net 00:00:00.60]     
+Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: 
+"symbol(1)", builtin: "symbol", position: 1) [FAIL]
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.EveryWrongShapedArgument_IsNeverAnInternalFailure_AndEveryArgumentRefusalNamesTheBuiltinAndThePosition [228 ms]
+  Error Message:
+   56 of 232 refusals (345 probes over 123 builtins) violate the frozen argument-shape contract (52 crossed as internal invariant failures):
+append(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+append(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+assume(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Symbolics.Expr'.')
+assume([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'Lovelace.Symbolics.Expr'.')
+assume_integer(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+assume_integer([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+assume_negative(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+assume_negative([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+assume_nonnegative(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+assume_nonnegative([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+assume_positive(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+assume_positive([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+assume_real(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+assume_real([1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+concat(1, 1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+cross(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+cross([1, 2, 3, 4], [1, 2, 3, 4]) [a four-element vector]: an argument refusal must name the builtin, the 1-based position, the expectation and the kind that arrived (code=InvalidArgument, category=TypeMismatch, recoverable=True, message='cross() operands must be vectors of length 3.')
+cross(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+det(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+det([1, 2, 3, 4]) [a four-element vector]: an argument refusal must name the builtin, the 1-based position, the expectation and the kind that arrived (code=InvalidArgument, category=TypeMismatch, recoverable=True, message='det() requires a square matrix.')
+det(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+dot(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+dot(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+flatten(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+flatten(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+inv_full(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+inv_full(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+linsolve(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+linsolve(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+linsolve_full(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+linsolve_full(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+matmul(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+matmul(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+matrix_rank(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+matrix_rank(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+ndims(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+ndims(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+numel(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+numel(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+rank(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+rank(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+reshape(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+reshape(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+shape(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+shape(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+squeeze(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+squeeze(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+symbol(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'System.String'.')
+symbol([1, 2, 3, 4], [1, 2, 3, 4]) [a four-element vector]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Abstractions.PayloadArray' to type 'System.String'.')
+symbol(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'System.String'.')
+trace(1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+trace([1, 2, 3, 4]) [a four-element vector]: an argument refusal must name the builtin, the 1-based position, the expectation and the kind that arrived (code=InvalidArgument, category=TypeMismatch, recoverable=True, message='trace() requires a square matrix.')
+trace(x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+transpose(1, 1) [a bare scalar]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Natural.Natural' to type 'Lovelace.Abstractions.ArrayValue'.')
+transpose([1, 2, 3, 4], [1, 2, 3, 4]) [a four-element vector]: an argument refusal must name the builtin, the 1-based position, the expectation and the kind that arrived (code=InvalidArgument, category=TypeMismatch, recoverable=True, message='transpose() expects a permutation of 1 axes. (Parameter 'permutation')')
+transpose(x, x) [a symbolic value]: a caller-side mistake crossed as an INTERNAL failure (code=InternalError, category=InternalInvariantFailure, recoverable=False, message='Unable to cast object of type 'Lovelace.Symbolics.SymbolExpr' to type 'Lovelace.Abstractions.ArrayValue'.')
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.EveryWrongShapedArgument_IsNeverAnInternalFailure_AndEveryArgumentRefusalNamesTheBuiltinAndThePosition() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 205
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: "assume(1)", builtin: "assume", position: 1) [5 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+             ↓ (pos 2)
+Expected: "InvalidArgument"
+Actual:   "InternalError"
+             ↑ (pos 2)
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(String call, String builtin, Int32 position) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 229
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: "matmul(1, 1)", builtin: "matmul", position: 1) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+             ↓ (pos 2)
+Expected: "InvalidArgument"
+Actual:   "InternalError"
+             ↑ (pos 2)
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(String call, String builtin, Int32 position) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 229
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: "transpose(1, 1)", builtin: "transpose", position: 1) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+             ↓ (pos 2)
+Expected: "InvalidArgument"
+Actual:   "InternalError"
+             ↑ (pos 2)
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(String call, String builtin, Int32 position) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 229
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: "det(1)", builtin: "det", position: 1) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+             ↓ (pos 2)
+Expected: "InvalidArgument"
+Actual:   "InternalError"
+             ↑ (pos 2)
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(String call, String builtin, Int32 position) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 229
+--- End of stack trace from previous location ---
+  Failed Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(call: "symbol(1)", builtin: "symbol", position: 1) [< 1 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+             ↓ (pos 2)
+Expected: "InvalidArgument"
+Actual:   "InternalError"
+             ↑ (pos 2)
+  Stack Trace:
+     at Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests.TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError(String call, String builtin, Int32 position) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f1-ctl\Lovelace.Run.Tests\BuiltinArgumentShapeSweepTests.cs:line 229
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     6, Passed:     9, Skipped:     0, Total:    15, Duration: 379 ms - Lovelace.Run.Tests.dll (net10.0)

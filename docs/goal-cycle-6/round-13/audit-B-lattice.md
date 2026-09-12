@@ -31,8 +31,8 @@ compared to mpmath):
 sin(pi(30)), 10^±1000·pi, exp(±1000), sqrt(10^-1000), log(10^-1000), 1/(3·10^1000)}, plus the bare
 constants, `pi(P)`/`e(P)` for P up to 2000, arithmetic mixing exact and inexact operands
 (`evalf(pi,40)+1/3`, `evalf(pi,40)*1/3`, `2*evalf(pi,40)`, `evalf(pi,40)+pi(30)`, `evalf(pi,40)-evalf(pi,30)`,
-`evalf(sqrt(2),40)^2`, `evalf(1/3,40)*3`), and the `print` channel of the same values. ≈1 450 envelope
-evaluations; every result digit-compared. A zero result was only ever charged as a defect when its flag
+`evalf(sqrt(2),40)^2`, `evalf(1/3,40)*3`), and the `print` channel of the same values. More than
+2 000 individual result values, from ≈120 runner invocations, were digit-compared against mpmath. A zero result was only ever charged as a defect when its flag
 was dishonest — every zero I found carries `exact:false` and is listed under "documented bounds" below.
 
 ---
@@ -69,7 +69,8 @@ mp.dps 2060); `print(e(2000))` → 2 000 decimals, all equal to mpmath; the payl
 decimals, `exact:false`. Same for P = 101, 200, 500, 1000, 1100, 1500 (payload 100 decimals; print = P
 decimals, all verified). And through `evalf`: at `setprecision(1100)` and `setprecision(2000)`,
 `evalf(pi, 1000)`, `evalf(e, 1000)`, `evalf(sqrt(2), 1000)` each answer **100** decimals; at
-`setprecision(101)`, `pi(101)` answers 100 decimals while `print(pi(101))` answers 101. At
+`setprecision(101)`, `pi(101)` answers 100 decimals while `print(evalf(pi, 1000))` in the same envelope
+answers 101. At
 `setprecision(2000)`, `evalf(10^1000 * pi, 2000)` answers 1 001 integer digits and **100** decimals.
 
 **What the correct behaviour is, and how I know.**
@@ -127,7 +128,8 @@ I did not re-run the cycle-5 probe list; this came from the lattice.
 ```
 
 The wire's 31st decimal digit is **4**. At `setprecision(32)` the same call answers
-`0.00000000000000000000000000000050`→ the wire gives `…000049` (digit 31 = 4, digit 32 = 9).
+`0.00000000000000000000000000000049` — the true 32-place truncation is
+`0.00000000000000000000000000000050`, so digit 31 is 4 (true 5) and digit 32 is 9 (true 0).
 
 **Ground truth (mpmath 1.3.0, independent):**
 
@@ -307,7 +309,7 @@ these zeros are the documented decimal-place semantics with its documented 1000-
 | `evalf(10^-1000, 30)` / `evalf(10^-1000 * pi, 50)` / `evalf(sqrt(10^-1000), 40)` | `0`, `exact:false` | first digit at place 1000 / 1000 / 500 | honest |
 | `setprecision(30); evalf(sin(pi(30)), 40)` | `{"value":"0","exact":false}` | 5.03e-31, first digit at place 31 > the 30-digit budget | honest (EVD-276) |
 | `evalf(pi, 1100)` (and `pi(1101)`) | 100 decimals, not 1 100 | — | **L1**, not the cap: the 1000-place cap would give 1 000, and `print` shows the digits exist |
-| `evalf(1/9, 1000)`-style trailing-zero drops (`evalf(pi,100)`@P=50 → 49 decimals, `evalf(sin(1),100)`@P=30 → 29) | value numerically equal to the N-place truncation | — | trailing-digit rendering, numerically harmless; recorded here so it is not counted |
+| trailing-zero drops: `setprecision(50); evalf(pi, 100)` → 49 decimals and `setprecision(50); evalf(sin(1), 30)` → 29 decimals | each value numerically equal to the full N-place truncation (the dropped digit is a trailing 0) | — | rendering, numerically harmless; recorded here so it is not counted |
 
 ## Final table
 

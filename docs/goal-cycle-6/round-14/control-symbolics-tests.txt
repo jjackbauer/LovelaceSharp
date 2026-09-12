@@ -1,0 +1,57 @@
+﻿  Determining projects to restore...
+  Restored C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.csproj (in 476 ms).
+  12 of 13 projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet.exe : [xUnit.net 00:00:01.13]     
+Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests.SubstitutionShapedLimits_StillAnswerImmediately [FAIL]
+At line:10 char:1
++ & dotnet test (Join-Path $ctl 'Lovelace.Symbolics.Tests\Lovelace.Symb ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...ediately [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:01.15]     Lovelace.Symbolics.Tests.LimitExistenceTriStateTests.UndeterminedOneSidedLimits_ReportNoValue 
+[FAIL]
+[xUnit.net 00:00:01.15]     Lovelace.Symbolics.Tests.DxStructuredResultsTests.LimitFull_ExposesExistenceAndOneSidedValues 
+[FAIL]
+  Failed Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests.SubstitutionShapedLimits_StillAnswerImmediately [1 ms]
+  Error Message:
+   System.InvalidCastException : Unable to cast object of type 'Lovelace.Symbolics.RationalConstantExpr' to type 'Lovelace.Abstractions.RecordValue'.
+  Stack Trace:
+     at Lovelace.Suite.Value.AsRecord() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\Value.cs:line 218
+   at Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests.AssertShortFormValue(SuiteEngine engine, String call, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\IndeterminateExponentialLimitTests.cs:line 267
+   at Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests.SubstitutionShapedLimits_StillAnswerImmediately() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\IndeterminateExponentialLimitTests.cs:line 251
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.DxStructuredResultsTests.LimitFull_ExposesExistenceAndOneSidedValues [3 ms]
+  Error Message:
+   System.InvalidCastException : Unable to cast object of type 'System.String' to type 'Lovelace.Abstractions.RecordValue'.
+  Stack Trace:
+     at Lovelace.Suite.Value.AsRecord() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\Value.cs:line 218
+   at Lovelace.Symbolics.Tests.DxStructuredResultsTests.LimitFull_ExposesExistenceAndOneSidedValues() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\DxStructuredResultsTests.cs:line 172
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.LimitExistenceTriStateTests.UndeterminedOneSidedLimits_ReportNoValue [459 ms]
+  Error Message:
+   System.InvalidCastException : Unable to cast object of type 'System.String' to type 'Lovelace.Abstractions.RecordValue'.
+  Stack Trace:
+     at Lovelace.Suite.Value.AsRecord() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Suite\Value.cs:line 218
+   at Lovelace.Symbolics.Tests.LimitExistenceTriStateTests.UndeterminedOneSidedLimits_ReportNoValue() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-f2-ctl\Lovelace.Symbolics.Tests\LimitExistenceTriStateTests.cs:line 114
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     3, Passed:    50, Skipped:     0, Total:    53, Duration: 875 ms - Lovelace.Symbolics.Tests.dll (net10.0)

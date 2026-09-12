@@ -1,0 +1,56 @@
+Pre-fix probes — published binary C:\Users\ricar\dev\LovelaceSharp\out\aot\Lovelace.Run.exe
+(script: %TEMP%\p0probe2.ps1, .NET Process API so the exit code and the raw stdout/stderr BYTE counts are observable;
+ PowerShell 5.1 drops an empty argument to a native command, hence the process API for the '""' row)
+
+===== control_no_plotdir
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables
+exitCode=0  stdoutBytes=451  stderrBytes=0
+STDOUT[0..200]: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Natural","display":"1","typed":"1 (Natural)","structured":{"kind":"Natural",
+STDERR: <0 bytes>
+===== existing_file
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir C:\Windows\notepad.exe
+exitCode=-1073740791  stdoutBytes=0  stderrBytes=527
+STDOUT: <0 bytes>
+STDERR[0..600]: Unhandled exception. System.IO.IOException: Cannot create 'C:\Windows\notepad.exe' because a file or directory with the same name already exists.
+   at System.IO.FileSystem.CreateDirectory(String, Byte[]) + 0x448
+   at System.IO.Directory.CreateDirectory(String) + 0x2a
+   at Lovelace.Run.Runner.<RunAsync>d__2.MoveNext() + 0x70d
+--- End of stack trace from previous location ---
+   at Program.<<Main>$>d__0.MoveNext() + 0x4f
+--- End of stack trace from previous location ---
+   at Program.<Main>(String[] args) + 0x28
+
+===== empty_string
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir ""
+exitCode=-1073740791  stdoutBytes=0  stderrBytes=497
+STDOUT: <0 bytes>
+STDERR[0..600]: Unhandled exception. System.ArgumentException: The value cannot be an empty string. (Parameter 'path')
+   at System.ArgumentException.ThrowNullOrEmptyException(String, String) + 0x3a
+   at System.IO.Directory.CreateDirectory(String) + 0x73
+   at Lovelace.Run.Runner.<RunAsync>d__2.MoveNext() + 0x70d
+--- End of stack trace from previous location ---
+   at Program.<<Main>$>d__0.MoveNext() + 0x4f
+--- End of stack trace from previous location ---
+   at Program.<Main>(String[] args) + 0x28
+
+===== invalid_chars
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir C:\Users\ricar\AppData\Local\Temp\p0probe2-4e06f7ef86cd4d2c8379ca231ddf56b1\bad<dir
+exitCode=-1073740791  stdoutBytes=0  stderrBytes=581
+STDOUT: <0 bytes>
+STDERR[0..600]: Unhandled exception. System.IO.IOException: The filename, directory name, or volume label syntax is incorrect. : 'C:\Users\ricar\AppData\Local\Temp\p0probe2-4e06f7ef86cd4d2c8379ca231ddf56b1\bad<dir'.
+   at System.IO.FileSystem.CreateDirectory(String, Byte[]) + 0x448
+   at System.IO.Directory.CreateDirectory(String) + 0x2a
+   at Lovelace.Run.Runner.<RunAsync>d__2.MoveNext() + 0x70d
+--- End of stack trace from previous location ---
+   at Program.<<Main>$>d__0.MoveNext() + 0x4f
+--- End of stack trace from previous location ---
+   at Program.<Main>(String[] args) + 0x28
+
+===== valid_dir_plot
+CMD: Lovelace.Run.exe --eval plot([1,2,3]) --json --omit-functions --omit-variables --plot-dir C:\Users\ricar\AppData\Local\Temp\p0probe2-4e06f7ef86cd4d2c8379ca231ddf56b1\valid-plotdir
+exitCode=0  stdoutBytes=17186  stderrBytes=0
+STDOUT[0..200]: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Text","display":"C:\\Users\\ricar\\AppData\\Local\\Temp\\p0probe2-4e06f7ef86
+STDERR: <0 bytes>
+===== valid dir listing
+plot.svg:14636
+TMPDIR=C:\Users\ricar\AppData\Local\Temp\p0probe2-4e06f7ef86cd4d2c8379ca231ddf56b1

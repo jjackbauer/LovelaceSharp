@@ -1,0 +1,31 @@
+===== control_no_plotdir
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables
+exitCode=0  stdoutBytes=454  stderrBytes=0
+STDOUT: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Natural","display":"1","typed":"1 (Natural)","structured":{"kind":"Natural","value":"1","exact":true}},"output":[],"variables":[],"functions":[],"elapsed":"119.9 \u00B5s","elapsedTime":{"value":119.9,"unit":"\u00B5s"},"timings":[{"position":0,"elapsed":{"value":10.4,"unit":"\u00B5s"},"resultKind":"Natural","hasOutput":false}]}
+STDERR: <0 bytes>
+===== existing_file
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir C:\Windows\notepad.exe
+exitCode=1  stdoutBytes=443  stderrBytes=0
+STDOUT: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"PlotDirectoryError","category":"TypeMismatch","message":"Cannot use plot directory \u0027C:\\Windows\\notepad.exe\u0027: Cannot create \u0027C:\\Windows\\notepad.exe\u0027 because a file or directory with the same name already exists.","recoverable":true,"diagnostics":[],"elapsed":"0 ns","elapsedTime":{"value":0,"unit":"ns"},"timings":[]}
+STDERR: <0 bytes>
+===== empty_string
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir ""
+exitCode=1  stdoutBytes=371  stderrBytes=0
+STDOUT: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"PlotDirectoryError","category":"TypeMismatch","message":"Cannot use plot directory \u0027\u0027: The value cannot be an empty string. (Parameter \u0027path\u0027)","recoverable":true,"diagnostics":[],"elapsed":"0 ns","elapsedTime":{"value":0,"unit":"ns"},"timings":[]}
+STDERR: <0 bytes>
+===== invalid_chars
+CMD: Lovelace.Run.exe --eval 1 --json --omit-functions --omit-variables --plot-dir C:\Users\ricar\AppData\Local\Temp\p0after-4357b554fec1465d96d69632ebe1df21\bad<dir
+exitCode=1  stdoutBytes=576  stderrBytes=0
+STDOUT: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":false,"code":"PlotDirectoryError","category":"TypeMismatch","message":"Cannot use plot directory \u0027C:\\Users\\ricar\\AppData\\Local\\Temp\\p0after-4357b554fec1465d96d69632ebe1df21\\bad\u003Cdir\u0027: The filename, directory name, or volume label syntax is incorrect. : \u0027C:\\Users\\ricar\\AppData\\Local\\Temp\\p0after-4357b554fec1465d96d69632ebe1df21\\bad\u003Cdir\u0027.","recoverable":true,"diagnostics":[],"elapsed":"0 ns","elapsedTime":{"value":0,"unit":"ns"},"timings":[]}
+STDERR: <0 bytes>
+===== valid_dir_plot
+CMD: Lovelace.Run.exe --eval plot([1,2,3]) --json --omit-functions --omit-variables --plot-dir C:\Users\ricar\AppData\Local\Temp\p0after-4357b554fec1465d96d69632ebe1df21\valid-plotdir
+exitCode=0  stdoutBytes=17182  stderrBytes=0
+STDOUT[0..200]: {"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Text","display":"C:\\Users\\ricar\\AppData\\Local\\Temp\\p0after-4357b554fec
+STDERR: <0 bytes>
+===== valid dir listing
+plot.svg:14636
+TMPDIR=C:\Users\ricar\AppData\Local\Temp\p0after-4357b554fec1465d96d69632ebe1df21
+
+[stderr]
+
