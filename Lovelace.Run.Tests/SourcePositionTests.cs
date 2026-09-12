@@ -254,11 +254,15 @@ public class SourcePositionTests
         Assert.Equal(
             new[] { "column", "line", "message", "position" },
             diagnostic.Select(p => p.Key).OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        // The envelope's key set on the ERROR path, re-pinned once by the sibling round that closed
+        // audit-E F5: a failing run now carries "output" (the lines the script printed before it
+        // failed used to be dropped), which is the contract change that finding asked for. Nothing
+        // else moved; the diagnostics entry above is still exactly four fields.
         Assert.Equal(
             new[]
             {
                 "category", "code", "diagnostics", "elapsed", "elapsedTime", "mathIrVersion", "message",
-                "ok", "protocolVersion", "recoverable", "symbolicFormatVersion", "timings",
+                "ok", "output", "protocolVersion", "recoverable", "symbolicFormatVersion", "timings",
             },
             envelope.AsObject().Select(p => p.Key).OrderBy(k => k, StringComparer.Ordinal).ToArray());
     }

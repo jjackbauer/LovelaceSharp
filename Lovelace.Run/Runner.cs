@@ -144,8 +144,16 @@ public static class Runner
             }
             catch (Exception ex)
             {
-                // no engine ran and no statement executed, so the durations are zero and empty
-                return WriteError(stdout, stderr, json, "FileReadError", "ParseError", $"Cannot read script file '{file}': {ex.Message}", recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>());
+                // no engine ran and no statement executed, so the durations are zero and empty.
+                // A path the process could not read is a property of the caller's ARGUMENT, not a
+                // lexer/parser refusal — nothing was parsed at all, so the ParseError category sent an
+                // agent to fix syntax that does not exist (audit E, F6). The code stays specific
+                // (FileReadError) and the category follows the sibling caller-level paths, which
+                // already cross as TypeMismatch (PlotDirectoryError, PlotFileError).
+                return WriteError(stdout, stderr, json, "FileReadError", "TypeMismatch",
+                    $"Cannot read script file '{file}': {ex.Message}", recoverable: true,
+                    Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>(),
+                    Array.Empty<string>());
             }
         }
         else if (stdinMode)
@@ -196,7 +204,8 @@ public static class Runner
                 // same shape the unreadable-script-file path publishes
                 return WriteError(stdout, stderr, json, "PlotDirectoryError", "TypeMismatch",
                     $"Cannot use plot directory '{engine.PlotOutputDirectory}': {ex.Message}",
-                    recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>());
+                    recoverable: true, Array.Empty<DiagnosticDto>(), TimeSpan.Zero, Array.Empty<TimingDto>(),
+                    Array.Empty<string>());
             }
 
             var result = await engine.EvaluateAsync(
@@ -266,7 +275,14 @@ public static class Runner
             var diagnostics = engine.Diagnostics
                 .Select(d => PublishDiagnostic(script, d, engine.OperationTimings))
                 .ToArray();
-            var (code, category, recoverable) = Classify(ex);
+            // Which LAYER the failure belongs to (audit E, F6). The engine tokenizes and parses the
+            // WHOLE source before it executes the first statement, so when the text it was handed does
+            // not parse, the failure that ended the run IS the parser's refusal. The phase is not
+            // readable from the exception TYPE — the tokenizer and the parser refuse with the same
+            // InvalidOperationException a domain failure uses (Lovelace.Suite/Tokenizer.cs:123,
+            // Parser.cs:64-71) — so the phase is measured, on the failure path, by asking the engine
+            // to parse that same text again.
+            var (code, category, recoverable) = Classify(ex, parsePhase: !SourceParses(engine, script.EngineSource));
             // a run that blew its budget before failing must not look like one that respected it:
             // the verdict travels with the failure, and an overrun adds its own diagnostic
             var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: code == "Cancelled");
@@ -274,9 +290,15 @@ public static class Runner
                 diagnostics = diagnostics
                     .Append(OverrunDiagnostic(failedDeadline, script, engine.OperationTimings, completed: false))
                     .ToArray();
+            // Everything the script printed before the run ended crosses in the documented "output"
+            // array: invariant 1 (docs/symbolics/dsh-protocol.md:9-10) is not scoped to a successful
+            // run, and the captured text is already in hand (audit E, F5). The cancelled envelope
+            // ADDITIONALLY keeps the partial* pair it has always published, so no recorded shape
+            // regresses.
+            string[] committedOutput = SplitLines(output.ToString());
             // a cancelled run is not a failed run: the host reports the structured status together
             // with everything the engine had already committed
-            string[]? partialOutput = code == "Cancelled" ? SplitLines(output.ToString()) : null;
+            string[]? partialOutput = code == "Cancelled" ? committedOutput : null;
             VariableDto[]? partialVariables = code == "Cancelled"
                 ? engine.CaptureState().Variables.Values
                     .OrderBy(v => v.Name, StringComparer.Ordinal)
@@ -287,7 +309,8 @@ public static class Runner
             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
             // from one unit selector and one timing entry per statement that ran before the failure
             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
-                engine.LastElapsed, Timings(engine.OperationTimings, script), partialOutput, partialVariables, failedDeadline);
+                engine.LastElapsed, Timings(engine.OperationTimings, script), committedOutput,
+                partialOutput, partialVariables, failedDeadline);
         }
     }
 
@@ -309,9 +332,39 @@ public static class Runner
     private static bool IsUnusablePlotDirectory(Exception ex) =>
         ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException;
 
+    /// <summary>
+    /// Whether the text the engine was handed parses. <see cref="Classify"/> reads the phase off this
+    /// probe, and the probe is one call of the SAME public parse entry the engine itself runs before
+    /// it executes anything (<see cref="SuiteEngine.Parse"/>): a text that does not parse ends the
+    /// evaluation before the first statement, so the failure that ended the run IS that refusal.
+    /// Nothing else is inferred from it: the probe's own exception is discarded, and the envelope's
+    /// message, diagnostics and durations all come from the exception the evaluation really threw.
+    /// </summary>
+    private static bool SourceParses(SuiteEngine engine, string source)
+    {
+        try
+        {
+            engine.Parse(source);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
     /// <summary>Maps a failure onto the stable error taxonomy. Message matching is never required
-    /// by a consumer: the code and category are structural.</summary>
-    private static (string Code, string Category, bool Recoverable) Classify(Exception ex) => ex switch
+    /// by a consumer: the code and category are structural.
+    /// <para>
+    /// <paramref name="parsePhase"/> says the failure came from the tokenizer/parser. Those refuse a
+    /// source with an <see cref="InvalidOperationException"/> — the SAME type a domain failure uses —
+    /// so the type alone cannot place the failure on a layer (audit E, F6;
+    /// docs/symbolics/dsh-protocol.md:207-209 spells the categories from the one <c>ErrorCategory</c>
+    /// taxonomy, in which a lexer/parser refusal is <c>ParseError</c>). The flag therefore changes the
+    /// meaning of that ONE type: every other arm names a condition the phase cannot change, and a
+    /// parse-phase DEPTH refusal keeps its own <c>DepthExceeded</c>/<c>BudgetExceeded</c> arm above.
+    /// </para></summary>
+    private static (string Code, string Category, bool Recoverable) Classify(Exception ex, bool parsePhase) => ex switch
     {
         Lovelace.Suite.EvaluationCancelledException => ("Cancelled", "BudgetExceeded", true),
         Lovelace.Suite.ReentrancyNotSupportedException => ("ReentrancyNotSupported", "UnsupportedOperation", true),
@@ -339,7 +392,12 @@ public static class Runner
         Lovelace.Symbolics.AssumptionContradictionException => ("UnsatisfiableAssumptions", "DomainError", true),
         FormatException => ("InvalidInput", "ParseError", true),
         NotSupportedException => ("UnsupportedOperation", "UnsupportedOperation", true),
-        InvalidOperationException => ("InvalidOperation", "DomainError", true),
+        // The parser's own refusal: a syntax error is a ParseError, not a domain problem an agent
+        // would try to fix by changing the mathematics. The tokenizer's string refusal reaches the
+        // FormatException arm above and already carried the ParseError CATEGORY.
+        InvalidOperationException => parsePhase
+            ? ("ParseError", "ParseError", true)
+            : ("InvalidOperation", "DomainError", true),
         ArgumentException => ("InvalidArgument", "TypeMismatch", true),
         // framework types that still escape the kernel are classified honestly rather than being
         // reported as internal invariant failures: they are user-level errors and recoverable
@@ -352,7 +410,7 @@ public static class Runner
     private static int WriteError(TextWriter stdout, TextWriter stderr,
         bool json, string code, string category, string message, bool recoverable,
         DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
-        string[]? output = null, VariableDto[]? variables = null,
+        string[] output, string[]? partialOutput = null, VariableDto[]? partialVariables = null,
         CancellationDto? cancellation = null)
     {
         if (json)
@@ -362,7 +420,8 @@ public static class Runner
             // forms can never disagree — exactly like the success envelope
             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
                 false, code, category, message, recoverable, diagnostics,
-                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables, cancellation),
+                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output,
+                partialOutput, partialVariables, cancellation),
                 RunJsonContext.Default.RunErrorDto);
         }
         else

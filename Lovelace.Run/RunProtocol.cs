@@ -107,7 +107,17 @@ internal sealed record RunErrorDto(
     DurationDto ElapsedTime,
     // one entry per top-level statement that ran (empty when none did), exactly as on success
     TimingDto[] Timings,
-    // present only for a cancelled evaluation: everything the engine had already committed
+    // The SAME top-level output array the success envelope carries, holding everything the script
+    // printed before the run ended: all of it on success, the lines committed before the failure
+    // here — and never a line whose print did not run. Invariant 1
+    // (docs/symbolics/dsh-protocol.md:9-10) is not scoped to a successful run, so a consumer reads
+    // ONE key on both paths; a failure that printed nothing carries the array empty rather than
+    // absent, and a failure raised before any engine exists (an unreadable script file, an unusable
+    // plot directory) carries it empty too. Nothing on this path can print.
+    string[] Output,
+    // present only for a cancelled evaluation: everything the engine had already committed. The
+    // cancelled envelope keeps this pair byte-for-byte as published (cycle 3/4/5 recorded it); the
+    // lines are the same ones Output carries, so the two cannot disagree.
     string[]? PartialOutput = null,
     VariableDto[]? PartialVariables = null,
     // present only when --cancel-after was given: the deadline verdict (see CancellationDto). The
