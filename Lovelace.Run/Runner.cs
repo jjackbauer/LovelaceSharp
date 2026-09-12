@@ -4,8 +4,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using Lovelace.Dsp;
 using Lovelace.Suite;
-// the precision scope the structured projection is rendered under (see StructuredValue)
-using Rl = global::Lovelace.Real.Real;
 
 namespace Lovelace.Run;
 
@@ -254,7 +252,7 @@ public static class Runner
             ResultDto? resultPayload = result.Kind == ValueKind.Void
                 ? null
                 : new ResultDto(result.Kind.ToString(), engine.FormatValue(result), engine.FormatValueTyped(result),
-                    StructuredValue(engine, result, structuredBudget));
+                    engine.ProjectValue(result, structuredBudget));
 
             // the deadline verdict is derived from the SAME elapsed time the envelope publishes, so
             // budget and elapsed are directly comparable (see CancellationDto)
@@ -546,46 +544,18 @@ public static class Runner
         maxNodes is { } nodes ? new Lovelace.Symbolics.Printing.PrintBudget(MaxNodes: nodes) : null;
 
     /// <summary>
-    /// The fractional-digit room a STRUCTURED rendering is given, as opposed to the display bound
-    /// <see cref="Rl.DisplayDecimalPlaces"/> imposes on <c>ToString</c>. The machine payload carries
-    /// the digits the value STORES, so the room must be larger than any value can be: a Real with a
-    /// billion fractional digits is roughly a gigabyte of decimal text, and every route into one is
-    /// bounded far below that (<c>pi</c>/<c>e</c> refuse counts past the 1000-place static cap, and
-    /// <c>evalf</c> clamps its count to the same 1000). It is a guard against an unreachable value,
-    /// not a policy bound: no digit a script asks for is ever cut at it.
-    /// </summary>
-    private const long StructuredDecimalDigits = 1_000_000_000L;
-
-    /// <summary>
-    /// The structured form of one value — the machine API's copy of it, and the SAME projection the
-    /// result and every variable carry (L1, audit B). It is rendered with room for the digits the
-    /// value stores rather than for the digits the display setting shows: <c>Real.ToString()</c>
-    /// truncates a non-periodic fraction at <see cref="Rl.DisplayDecimalPlaces"/>, so a payload
-    /// projected under the process default carried exactly 100 decimals for a
-    /// <c>setprecision(1100); pi(1100)</c> that owns 1 100 — silently, with none of the DTO's
-    /// truncation fields set, although the protocol requires a bounded structured rendering to say
-    /// so. The display bound stays a DISPLAY bound: <c>display</c>/<c>typed</c> are rendered at the
-    /// engine's precision by the caller, the structure is rendered in full.
-    /// </summary>
-    private static StructuredValueDto StructuredValue(SuiteEngine engine, Value value,
-        Lovelace.Symbolics.Printing.PrintBudget? budget)
-    {
-        using var _ = Rl.WithPrecision(engine.ComputationDecimalPlaces, StructuredDecimalDigits);
-        return StructuredProjection.ToStructured(value, budget);
-    }
-
-    /// <summary>
     /// The structured form of one captured variable — the SAME projection the result carries, read
-    /// off the LIVE value under the engine's display precision so a variable's <c>display</c> string
-    /// and its <c>structured</c> form come from one set of settings (A2-F24). The snapshot and the
-    /// live dictionary are the same capture: no evaluation runs between them, so the value is always
-    /// there; a lookup that somehow misses still crosses as <c>{"kind":"Null"}</c> rather than
-    /// dropping the entry.
+    /// off the LIVE value through the engine's own façade (<see cref="SuiteEngine.ProjectValue"/>),
+    /// which is the one projection an embedding host is pointed at too: the DSH runner is a host
+    /// like any other, so a value it publishes and a value Studio publishes cannot disagree
+    /// (round-21 audit K, K-2). The snapshot and the live dictionary are the same capture: no
+    /// evaluation runs between them, so the value is always there; a lookup that somehow misses
+    /// still crosses as <c>{"kind":"Null"}</c> rather than dropping the entry.
     /// </summary>
     private static StructuredValueDto ProjectVariable(SuiteEngine engine, string name,
         Lovelace.Symbolics.Printing.PrintBudget? budget) =>
         engine.TryGetVariable(name, out var value)
-            ? StructuredValue(engine, value, budget)
+            ? engine.ProjectValue(value, budget)
             : new StructuredValueDto("Null");
 
     /// <summary>

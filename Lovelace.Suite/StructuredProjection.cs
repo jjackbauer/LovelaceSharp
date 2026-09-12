@@ -47,15 +47,40 @@ public sealed record StructuredValueDto(
 public static class StructuredProjection
 {
     /// <summary>
+    /// The fractional-digit room a structured rendering is given where the digits it will carry are
+    /// not the projection's own business to count — the symbolic printer rendering a Real literal
+    /// inside an expression, for instance (see <see cref="Real"/> for the Real itself, which asks
+    /// for exactly its own digits). It is a guard against an unreachable value, not a policy bound:
+    /// a Real with a billion fractional digits is roughly a gigabyte of decimal text, and every
+    /// route into one is bounded far below that (<c>pi</c>/<c>e</c> refuse counts past the
+    /// 1000-place static cap, and <c>evalf</c> clamps its count to the same 1000). It lives here,
+    /// next to the projection it governs, because it is the SAME room for every host: the DSH runner
+    /// carried it privately from b3b74b8 until round-21 audit K found that the library façade did
+    /// not, and two hosts of one product must not publish different digits for one value.
+    /// </summary>
+    public const long StructuredDecimalDigits = 1_000_000_000L;
+
+    /// <summary>
     /// Projects one value. The nesting is measured against <see cref="InputDepth.MaxValueDepth"/>
     /// BEFORE the projection recurses (see <see cref="ValueDepth"/>): the walk below is a native
     /// recursion over the value's structure, and a value built by repetition at run time is deep in
     /// neither the source nor the parsed tree, so no input budget has seen it. The recursion itself
     /// goes through the private <see cref="Project"/>, so one projection measures once.
+    /// <para>
+    /// The projection establishes the STRUCTURED rendering room itself rather than inheriting the
+    /// caller's display bound: <c>Real.ToString()</c> cuts a non-periodic value at
+    /// <see cref="Rl.DisplayDecimalPlaces"/> — documented as a display control — so a host that
+    /// projected under its display setting silently lost the digits the value stores (round-21 audit
+    /// K, K-2: 1 100-digit π crossed as 100 digits with none of the DTO's truncation fields set,
+    /// while the same computation through the CLI published all 1 100). The display bound stays a
+    /// display bound (<c>FormatValue</c>/<c>display</c>/<c>typed</c>), the structure is rendered in
+    /// full. The computation precision in force is preserved: only the room changes.
+    /// </para>
     /// </summary>
     public static StructuredValueDto ToStructured(Value value, Printing.PrintBudget? budget = null)
     {
         ValueDepth.EnsureWithin("value", value);
+        using var _ = Rl.WithPrecision(Rl.MaxComputationDecimalPlaces, StructuredDecimalDigits);
         return Project(value, budget);
     }
 
@@ -198,7 +223,7 @@ public static class StructuredProjection
     private static StructuredValueDto Real(Rl value)
     {
         bool exact = RealExact(value);
-        var dto = new StructuredValueDto("Real", Value: value.ToString(), Exact: exact,
+        var dto = new StructuredValueDto("Real", Value: StoredDigits(value), Exact: exact,
             Truncated: value.ClampNotice is null ? null : true,
             TruncationReason: value.ClampNotice?.Reason,
             Budget: (int?)value.ClampNotice?.Budget);
@@ -213,6 +238,30 @@ public static class StructuredProjection
             Denominator = rat.Denominator.ToString(),
         };
     }
+
+    /// <summary>
+    /// One Real's digits, as the payload publishes them. The rendering room is the fractional-digit
+    /// count the VALUE stores, so the display bound can never cut a digit out of the structure: a
+    /// non-periodic <c>Real.ToString()</c> emits exactly <c>-Exponent</c> fractional digits, and a
+    /// room of exactly that length is a room nothing can exceed. That is the difference the machine
+    /// API promises — the digits the value HAS, never the digits the display setting shows — and it
+    /// is a room rather than a cap, so no digit is dropped and none of the truncation fields is
+    /// claimed (the one clamp a value can really carry is its own <see cref="Rl.ClampNotice"/>,
+    /// published by the caller). A periodic value carries its repeating block instead and
+    /// <c>ToString</c> never bounds it, so the ambient room stands for it.
+    /// </summary>
+    private static string StoredDigits(Rl value)
+    {
+        using var _ = Rl.WithPrecision(Rl.MaxComputationDecimalPlaces, StoredFractionalDigits(value));
+        return value.ToString();
+    }
+
+    /// <summary>The fractional digits a non-periodic value stores — the count <c>ToString</c> emits
+    /// when its display bound does not cut it, and therefore the room its full rendering needs. A
+    /// positive exponent shifts the magnitude left (no decimal point at all) and a periodic value is
+    /// unbounded by the display setting, so both take the ambient room.</summary>
+    private static long StoredFractionalDigits(Rl value) =>
+        value.IsPeriodic ? Rl.DisplayDecimalPlaces : Math.Max(0L, -value.Exponent);
 
     /// <summary>A Real is exact when the digits it carries ARE the value it came from — the
     /// provenance its own operations recorded, not a guess read off its exponent.

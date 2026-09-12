@@ -106,15 +106,27 @@ public sealed class SuiteEngine
 
     /// <summary>
     /// The structured sibling of <see cref="FormatValue"/>: projects a value with the SHARED
-    /// <see cref="StructuredProjection"/> under this engine's display precision, so a value's
-    /// human rendering and its machine-readable form come from one set of settings. Used for the
-    /// envelope's <c>variables[]</c> entries, whose Display string is captured under the same
-    /// precision. Total over the value kinds: every value projects to a structured form (an absent
-    /// value to <c>Null</c>).
+    /// <see cref="StructuredProjection"/>, so a value's human rendering and its machine-readable
+    /// form come from one set of settings. This is the façade an embedding host calls (Studio and
+    /// the DSH runner are both hosts of it), so the projection it returns is the one the CLI
+    /// publishes for the same value.
+    /// <para>
+    /// The engine's DISPLAY precision governs the HUMAN renderings (<see cref="FormatValue"/>,
+    /// <see cref="FormatValueTyped"/>, the envelope's <c>display</c>/<c>typed</c>), not the
+    /// structured digits: the structure carries the digits the value STORES, whatever the display
+    /// bound in force would have shown, and the three truncation fields are set only when something
+    /// really dropped digits. Round-21 audit K (K-2) found the other behaviour here — a
+    /// <c>ComputationDecimalPlaces = 1100, DisplayDecimalPlaces = 100</c> engine's
+    /// <c>ProjectValue(pi(1100))</c> crossed 100 of the 1 100 digits with <c>Truncated: null</c>,
+    /// while the CLI published all 1 100 for the same computation. Total over the value kinds:
+    /// every value projects to a structured form (an absent value to <c>Null</c>).
+    /// </para>
     /// </summary>
     public StructuredValueDto ProjectValue(Value value,
         Lovelace.Symbolics.Printing.PrintBudget? budget = null)
     {
+        // the engine's COMPUTATION precision is the projection's ambient (the structured rendering
+        // room, including the display bound it overrides, belongs to StructuredProjection itself)
         using var _ = Rl.WithPrecision(ComputationDecimalPlaces, DisplayDecimalPlaces);
         return StructuredProjection.ToStructured(value, budget);
     }
