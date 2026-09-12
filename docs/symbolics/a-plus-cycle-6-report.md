@@ -20,7 +20,7 @@ inherited.
 | ID | Dimension | Status | The command and what it printed |
 |---|---|---|---|
 | **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` (the fix), **#36** on `be89e55`, **#40** on `d945133` and **#41** on the final HEAD `185d2e6` (all three jobs `success`, 567 s) — each with `Fast accuracy test suites` **success**, `Differential oracle (SymPy installed)` **success** and `Native AOT publish + runner smoke` **success**. Between them the record shows the whole arc: #27 failure (the stale pin), #28 green, #30/#33 cancelled by the 30-minute job timeout, #32 failed at 189 s on a coverage-inflated cancellation assertion, #36 green with the costly corpus running uninstrumented. EVD-237, EVD-238, EVD-248, EVD-265 |
-| **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **IN FLIGHT (round 13)** | every defect the cycle found is closed with control-failing tests (P-B1's flag half and P-B3 in rounds 10–11, the O-B11 process kill in round 7, the evalf flag leaks in round 11), and the last candidate (P-B4) was **falsified as a defect** by measurement (EVD-276). Four fresh personas — metamorphic relations, the precision/exactness lattice, hostile input shapes, and agent workflow/protocol conformance — are auditing the published binary built from this tree. Historical note: the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
+| **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the audit ran — four fresh personas, new strategies, against the published binary from this tree — and it found **two P0s and seven P1s**. Four are closed with control-failing tests (the plot-directory process abort, the wrong-shaped-argument cluster, the short `limit` family, and the evalf working precision); **one P0 and five P1s remain open** and are named in §4. The audit earned its keep: it found nine defects that four bounded rounds had not. Historical note: every defect the cycle found is closed with control-failing tests (P-B1's flag half and P-B3 in rounds 10–11, the O-B11 process kill in round 7, the evalf flag leaks in round 11), and the last candidate (P-B4) was **falsified as a defect** by measurement (EVD-276). Four fresh personas — metamorphic relations, the precision/exactness lattice, hostile input shapes, and agent workflow/protocol conformance — are auditing the published binary built from this tree. Historical note: the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
 | **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows + 3 defects the cycle found** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
 | **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P written: nine rows CLOSED with evidence; three rows OPEN as defects; seven rows are scope decisions put to the maintainer **twice in writing** with no answer recorded, so none is marked ACCEPTED |
 | **D4** | The final tree re-measures green | **MET except one flaky case** (and see §5) | forced `--no-incremental` rebuild **0 warnings / 0 errors**; full sweep with `LOVELACE_REQUIRE_SYMPY=1` **passed=5298 failed=1 skipped=0** (the one failure is a load-sensitive `Lovelace.Run.Tests` case that passes 3/3 standalone — §5); AOT publish exit 0, 0 warnings, binary **357.5 s newer** than the newest source file; the five CI smoke scenarios **SMOKE FAILURES: 0**; capability honesty **MATCH=19 MISMATCH=0**; printer round-trip through the **published AOT binary** `ok=30 bad=0 other=0`; `Lovelace.Real.Tests` unfiltered **2489/0** |
@@ -73,7 +73,15 @@ inherited.
     longer published as `exact:true` with a rational form — same digits, honest claim — and
     `ComplexMath.Exp`/`Sqrt` follow the argument's provenance. Teeth: 22/0 vs 15-failed/7-passed and
     7/0 vs 4-failed/3-passed.
-11. **The CI knife edges** (`7bb34d0`): the Timing step's two red runs were test-side — a promptness
+12. **Four defects the fresh audit found** (rounds 14–16): the `--plot-dir` process abort
+    (`d9f2a7c`: `0xC0000409` with 0 bytes on stdout → a 443-byte `PlotDirectoryError/TypeMismatch`
+    envelope, 3 of 4 new cases failing on a pristine control); the wrong-shaped-argument cluster
+    (`9a671c0`: 52 internal failures of a 345-probe sweep → **0**, 26 builtins, one central guard);
+    the short `limit` family returning prose (`9a671c0`: now the same `LimitResult` record
+    `limit_full` returns); and the evalf working precision (`c373583`: `evalf(sinh(34/3), 30)` was
+    wrong from the 26th decimal, now exact against mpmath at 20/30/50/100 decimals and for a 145-digit
+    integer part).
+13. **The CI knife edges** (`7bb34d0`): the Timing step's two red runs were test-side — a promptness
     fence that included the runner's process start, and a demand that a stop INSIDE its budget report an
     excess. The verdict now comes from the kernel's own ledger (cross-checked against the envelope) and
     the excess assertion matches the contract. Verified on Linux, the platform that failed: 5/5 three
@@ -83,7 +91,13 @@ inherited.
 
 | # | Defect | The measurement | Class |
 |---|---|---|---|
-| — | **No defect is outstanding.** The last candidate — "a magnitude whose leading zeros exceed the requested digit count is published as `0`" — was **falsified as a defect by measurement**: `setprecision(60); evalf(sin(pi(30)), 60)` returns mpmath's 5.0288419716939937…e-31, and the quotient case is `evalf`'s documented **decimal-place** semantics with its documented 1000-place cap. My framing was the error, and it is recorded as such (VAL-004); the semantics question alone remains for the maintainer (OQ-004) | EVD-276 | **CLOSED — bound, documented** |
+| **A-P0** | **The leading significant digit can be wrong at the ambient-precision boundary.** `setprecision(31); evalf(sin(pi(30)), 40)` → `0.0000000000000000000000000000004` where the true value is `5.0288419716939937…e-31` — a 20 % error in the first meaningful digit, inside the requested 40 places (`setprecision(30)` honestly answers 0; at 32 the last digit is `9` where `0` is correct). Truncation where rounding is required | EVD-280 (audit B) | **OPEN — P0** |
+| **A-P1a** | **The machine-readable payload silently truncates every Real at 100 decimals.** `setprecision(1100); pi(1100)` renders 1100 digits in the display but `result.structured.value` carries exactly 100 and no truncation marker — an agent reading the structured value loses the digits it asked for | EVD-281 (audit B) | **OPEN — P1** |
+| **A-P1b** | **The last delivered decimal is truncated, not rounded** (`…974943` where mpmath gives `…974944`) — which also corrects my own EVD-276, whose "matching to the digits printed" was wrong | EVD-280 (audit B) | **OPEN — P1** |
+| **A-P1c** | `zeros(1000000000)` raises `InternalError/InternalInvariantFailure` ("Insufficient memory…", `recoverable:false`) — an OutOfMemoryException reaching the generic handler where a typed budget refusal belongs (39 GB was free) | EVD-282 (audit C) | **OPEN — P1** |
+| **A-P1d** | A failed plot WRITE (`--plot-file ""`, a missing subdirectory) is an internal invariant failure, while a failed file READ stays a typed, recoverable `FileReadError` | EVD-282 (audit C) | **OPEN — P1** |
+| **A-P1e** | `len([[],[]])` / `len(zeros(2,0))` are refused with "Array dimensions must be positive, but got 0" although `shape([[],[]]) == [2,0]` and the value prints | EVD-282 (audit C) | **OPEN — P1** |
+| — | Also recorded, P2: `--print-budget` is non-monotone (budget 12 → 73 chars, 16 → 31); the protocol document's own `solve` example shows one `timings` entry where the live run has two; `evalf` over-delivers 2000 decimals for a 40-place request; `pi(30)` at `setprecision(20)` leaks a raw .NET message; `subs` at a pole returns `0^-1` symbolically where a direct `0^-1` is typed | audits A and B | **OPEN — P2** |
 
 Seven further bounds (O-B1…O-B6, O-B9, O-B12) are scope decisions. The maintainer was asked twice, in
 writing, with the measured behaviour quoted; **no answer was recorded**, so section P marks them OPEN
@@ -93,11 +107,14 @@ each is a round of work with a located home.
 ## 5. The one blemish in D4
 
 Two full sweeps report `Lovelace.Run.Tests passed=190 failed=1` while the same project run standalone
-reports exit 0 three times out of three (with and without `LOVELACE_REQUIRE_SYMPY=1`). The failing case
-is not yet identified; the sweep script only writes a raw log when its summary regex fails, which is a
-defect in my own harness that I am recording rather than papering over. The class is the one the cycle
-already carries twice (RISK-002, RISK-003: wall-clock assertions inside instrumented runs). CI is the
-arbiter: run #31 on `b009dfe` decides whether it is load-sensitive or real.
+reports exit 0 three times out of three (with and without `LOVELACE_REQUIRE_SYMPY=1`). The case was
+never captured because the sweep script writes a raw log only when its summary regex fails — a defect
+in my own harness, recorded rather than papered over, and part of why the CI workflow now prints failing
+test names as `::error` annotations. That diagnostic has since paid for itself twice: it named run #45's
+failure (a stop INSIDE its budget reported as an overrun — a test-side knife edge, `7bb34d0`) and run
+#54's (a Windows-only "invalid characters" case that is legal on Linux — `c9bcf0b`). The class is the one
+the cycle carries three times now (RISK-002, RISK-003, RISK-006): wall-clock or platform assumptions
+inside instrumented runs.
 
 ## 6. Method, and where it was adapted
 
