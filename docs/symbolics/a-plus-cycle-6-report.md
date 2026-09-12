@@ -20,8 +20,8 @@ inherited.
 | ID | Dimension | Status | The command and what it printed |
 |---|---|---|---|
 | **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` (the fix), **#36** on `be89e55`, **#40** on `d945133` and **#41** on the final HEAD `185d2e6` (all three jobs `success`, 567 s) — each with `Fast accuracy test suites` **success**, `Differential oracle (SymPy installed)` **success** and `Native AOT publish + runner smoke` **success**. Between them the record shows the whole arc: #27 failure (the stale pin), #28 green, #30/#33 cancelled by the 30-minute job timeout, #32 failed at 189 s on a coverage-inflated cancellation assertion, #36 green with the costly corpus running uninstrumented. EVD-237, EVD-238, EVD-248, EVD-265 |
-| **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
-| **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
+| **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the defects the cycle found are closed with control-failing tests (P-B1's flag half and P-B3 in rounds 10–11, the O-B11 process kill in round 7, the evalf flag leaks in round 11), but **P-B4 remains open** and the four-persona fresh audit was **not run**. Historical note for the record: the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
+| **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows + 3 defects the cycle found** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
 | **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P written: nine rows CLOSED with evidence; three rows OPEN as defects; seven rows are scope decisions put to the maintainer **twice in writing** with no answer recorded, so none is marked ACCEPTED |
 | **D4** | The final tree re-measures green | **MET except one flaky case** (and see §5) | forced `--no-incremental` rebuild **0 warnings / 0 errors**; full sweep with `LOVELACE_REQUIRE_SYMPY=1` **passed=5298 failed=1 skipped=0** (the one failure is a load-sensitive `Lovelace.Run.Tests` case that passes 3/3 standalone — §5); AOT publish exit 0, 0 warnings, binary **357.5 s newer** than the newest source file; the five CI smoke scenarios **SMOKE FAILURES: 0**; capability honesty **MATCH=19 MISMATCH=0**; printer round-trip through the **published AOT binary** `ok=30 bad=0 other=0`; `Lovelace.Real.Tests` unfiltered **2489/0** |
 | **D5** | Every claim traces to an EVD row I reproduced | **MET** | `docs/goal-cycle-6/evidence.md` EVD-237…EVD-259; every number in this report is from a transcript cited there |
@@ -65,13 +65,25 @@ inherited.
    own count).
 8. **Section-O bounds that are no longer true**: O-B7, O-B8a…i, O-B10 (second half), and the
    under-claim inside O-B14 — each re-measured on this tree, each CLOSED in section P with its probe.
+9. **P-B1 and P-B3** (`78c19d8`): the special-angle path no longer hands an exact value to an inexact
+   argument, so `evalf(cos(pi(30)), 40|100)` crosses as `{"value":"-1","exact":false}` with no rational
+   form while the pinned VALUES stay; and `1/(3*10^1000)` is the exact periodic `0.000…0(3)` instead of
+   `0`. Teeth on both trees: 12/0 vs 8-failed/4-passed, and 6/0 vs 3-failed/3-passed.
+10. **The last two flag leaks** (`762aa8c`): a truncated constant (`pi(30)`, `pi(1)`, `e(30)`) is no
+    longer published as `exact:true` with a rational form — same digits, honest claim — and
+    `ComplexMath.Exp`/`Sqrt` follow the argument's provenance. Teeth: 22/0 vs 15-failed/7-passed and
+    7/0 vs 4-failed/3-passed.
+11. **The CI knife edges** (`7bb34d0`): the Timing step's two red runs were test-side — a promptness
+    fence that included the runner's process start, and a demand that a stop INSIDE its budget report an
+    excess. The verdict now comes from the kernel's own ledger (cross-checked against the envelope) and
+    the excess assertion matches the contract. Verified on Linux, the platform that failed: 5/5 three
+    times.
 
 ## 4. What is open — and why A+ is not claimed
 
 | # | Defect | The measurement | Class |
 |---|---|---|---|
-| P-B1 | The **special-angle table** hands an exact value to an inexact argument: `evalf(cos(pi(30)), 100)` crosses as `-1`, `exact:true`, `-1/1`, while the same expression's symbolic node is `exact:false` and mpmath gives −0.999…87355374… (a difference at the **61st decimal**). The route is `ComplexMath.SinCosAtPrecision`, and two of the project's own tests pin the current behaviour, so closing it is a contract change | EVD-251, EVD-259 | **P1** |
-| P-B3 | `1/(3*10^1000)` is returned as `0`, and `evalf(1/(3*10^1000), 30)` as Integer `0` **declared exact**; mpmath gives 3.33e-1001 (O-B10, first half) | EVD-255 | **P1** |
+| P-B4 | A magnitude whose leading zeros exceed the requested digit count is still published as `0`: `evalf(sin(pi(30)), 40)` → `{"value":"0"}` where mpmath gives 5.03…e-31, and `evalf(1/(3*10^1000), 30)` → `{"value":"0"}` although the Real itself is now the exact periodic 3.33e-1001. The FLAG is honest in both (`exact:false`); `evalf`'s digit count is a count of decimal places, not of significant digits, and changing that is a contract decision | EVD-270, EVD-272 | **P1 (value precision)** |
 
 Seven further bounds (O-B1…O-B6, O-B9, O-B12) are scope decisions. The maintainer was asked twice, in
 writing, with the measured behaviour quoted; **no answer was recorded**, so section P marks them OPEN
