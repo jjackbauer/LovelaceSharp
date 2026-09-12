@@ -212,3 +212,25 @@ answer, so none is marked ACCEPTED and §P.3 stands as written. What the cycle c
 **D0 met, D2 met, D5 met so far, D4 partially re-measured, D1 and D3 open**, with every open item named in
 §P.2 and every closed one carrying a control-failing test and a command.
 
+### 7.5 Wave 4 is complete, and its third persona falsifies the closure claim
+
+| persona | strategy | result |
+|---|---|---|
+| **K** | library/embedding — the first wave to drive the product assemblies instead of the CLI | 3 P1 + 1 P2: all closed or dispositioned (K-2 `523240b`, K-3 `34ee4b3`, K-1 re-graded to P2 and closed `2572c59`, K-4 recorded as a monotone flag) |
+| **J** | document conformance — every normative sentence of `dsh-protocol.md` and `--help` as a probe | **0 P0, 0 P1**, four P2s, all corrected from measurement (EVD-328) |
+| **M** | composed programs — the seams rather than the calls | **3 P1 + 1 P2, all NEW and all still OPEN** (EVD-329) |
+
+**So D1 is not met, and this time the reason is not caution.** M's three P1s are real and I reproduced each
+of them on the published binary: a cancelled statement's printed output is lost while `timings[].hasOutput`
+says it produced none (the machine-readable flag is false); the documented `f(85)` answers or is refused
+depending on whether a sibling statement precedes it inside the same block; and `solve` ignores a session
+`assume` that `simplify` honours. None of them is a documentation defect, and none is a variant of
+anything the earlier waves found — the composed-program strategy is the fifth in a row to find something
+new, which is the strongest argument this cycle has produced for never treating a closure wave as an
+audit.
+
+What that leaves: **D0 met** (#83 on `61de73a` green in all three jobs), **D2 met**, **D4 met**, **D5 met
+so far** (EVD-237…EVD-329), **D1 open on M-1/M-2/M-3**, **D3 open on the maintainer's silence** — six
+written requests, and a seventh one-click form that also went unanswered. **A+ is not claimed.**
+
+
