@@ -749,6 +749,19 @@
 - **Agent**: Auditor E (fresh persona, new strategy) + my own reproduction
 - **Related**: EVD-290, EVD-291, DEC-008
 
+### OQ-005: A digit is lost at exactly `setprecision(1001)`
+
+- **Question**: `setprecision(1001); sqrt(2)` renders **1000** decimals while 1000, 1002 and 1100 each
+  render exactly the count asked for. Is the missing digit a rendering clamp at the 1000-place cap
+  boundary, or is the stored value one digit short?
+- **Needed evidence**: the same probe against `evalf(sqrt(2), 1001)` (which clamps its count to 1000 by
+  design) and against a value whose digits come from a different route; plus the intent of
+  `MaxComputationDecimalPlaces` at exactly cap+1.
+- **Priority**: P2 (the digits that are present are correct; one is missing at one boundary)
+- **Raised by**: the attack-the-fixes auditor's dying observation (its report was never written; its
+  partial findings are recorded here rather than lost), reproduced by me
+- **Related**: EVD-292
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,

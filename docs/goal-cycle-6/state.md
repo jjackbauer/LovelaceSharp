@@ -13,7 +13,7 @@
 > internal invariant failure instead of a typed refusal, a failed plot WRITE is internal while a failed
 > READ is typed, and `len` refuses the zero-dimension arrays that `shape` reports.
 
-- **Round**: 17 in flight — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
+- **Round**: 18 — the second audit wave (CLI-surface differential fuzzing, against the binary published from the FINAL tree) falsified the "no P0/P1 outstanding" claim: **D1 is NOT MET** with three new P1s and two live cycle-5 P1s recorded; an attack-the-fixes persona is still running. **CI run #59 on `9fa52c5` is green in all three jobs**; D4 re-measured clean on the final tree. A+ not claimed. Historical: round 17 — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their
   residual bounds, and claim A+ only if a fresh adversarial audit cannot falsify it.
 - **Definition of done**: **D0 met** (run #36, all three jobs, on `be89e55`); **D2** rows 2/3/4 closed
