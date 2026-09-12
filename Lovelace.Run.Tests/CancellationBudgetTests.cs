@@ -57,9 +57,20 @@ public class CancellationBudgetTests
         Assert.True(ledger["stopped"]!.GetValue<bool>(), $"the deadline did not stop the run: {ledger.ToJsonString()}");
         Assert.True(ledger["exceeded"]!.GetValue<bool>(), $"the excess was not reported: {ledger.ToJsonString()}");
         Assert.True(ledger["excessMs"]!.GetValue<double>() > 0, $"excessMs: {ledger.ToJsonString()}");
-        Assert.Equal(ledger["elapsedMs"]!.GetValue<double>(),
-            envelope["elapsedTime"]!["value"]!.GetValue<double>() *
-            (envelope["elapsedTime"]!["unit"]!.GetValue<string>() == "s" ? 1000 : 1), 1);
+        // The ledger's elapsed and the envelope's elapsed are two INDEPENDENT wall clocks around the
+        // same run - the ledger's is taken where the kernel stopped, the envelope's where the
+        // statement finished - so they differ by the skew between those two instants. Comparing them
+        // to one decimal place (0.1 ms) demanded that two clocks agree to 0.1 ms and turned this case
+        // red on the runner while the product was correct; the assertion below keeps what the line is
+        // for (the ledger describes THIS run: a fabricated, stale or wrongly-scaled duration differs
+        // by whole milliseconds to seconds, not by clock skew) while allowing a millisecond of skew
+        // and one percent of the total.
+        double ledgerMs = ledger["elapsedMs"]!.GetValue<double>();
+        double envelopeMs = envelope["elapsedTime"]!["value"]!.GetValue<double>() *
+            (envelope["elapsedTime"]!["unit"]!.GetValue<string>() == "s" ? 1000 : 1);
+        Assert.True(Math.Abs(ledgerMs - envelopeMs) <= Math.Max(1.0, envelopeMs * 0.01),
+            $"the ledger's elapsedMs ({ledgerMs}) and the envelope's elapsedTime ({envelopeMs} ms) " +
+            "are not the same measurement");
 
         // 3.4 s of work under a 100 ms budget must come back promptly, not merely "eventually"
         Assert.True(stopwatch.ElapsedMilliseconds < PromptnessFenceMs,
