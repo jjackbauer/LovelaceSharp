@@ -1,0 +1,160 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Array -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Array\bin\Release\net10.0\Lovelace.Array.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Dsp -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Dsp\bin\Release\net10.0\Lovelace.Dsp.dll
+  Lovelace.MathIR -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.MathIR\bin\Release\net10.0\Lovelace.MathIR.dll
+  Lovelace.Suite -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Suite\bin\Release\net10.0\Lovelace.Suite.dll
+  Lovelace.Run -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Run\bin\Release\net10.0\Lovelace.Run.dll
+  Lovelace.Symbolics.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\bin\Release\net10.0\Lovelace.Symbolics.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.39]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeve
+rPublishedAsAnExactRational(constant: "pi(30)", digits: 40, expected: "3.141592653589793238462643383279") [FAIL]
+At line:4 char:1
++ dotnet test .\Lovelace.Symbolics.Tests\Lovelace.Symbolics.Tests.cspro ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...383279") [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.40]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "pi(1)", digits: 5, expected: "3.1") [FAIL]
+[xUnit.net 00:00:00.40]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "e(1)", digits: 5, expected: "2.7") [FAIL]
+[xUnit.net 00:00:00.40]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "e(1)", digits: 40, expected: "2.7") [FAIL]
+[xUnit.net 00:00:00.40]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "pi(1)", digits: 40, expected: "3.1") [FAIL]
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "pi(30)", digits: 40, expected: "3.141592653589793238462643383279") [46 ms]
+  Error Message:
+   evalf(pi(30), 40) is a truncation of an inexact constant and must not claim exactness; published 3.141592653589793238462643383279 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "pi(1)", digits: 5, expected: "3.1") [1 ms]
+  Error Message:
+   evalf(pi(1), 5) is a truncation of an inexact constant and must not claim exactness; published 3.1 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "e(1)", digits: 5, expected: "2.7") [2 ms]
+  Error Message:
+   evalf(e(1), 5) is a truncation of an inexact constant and must not claim exactness; published 2.7 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "e(1)", digits: 40, expected: "2.7") [1 ms]
+  Error Message:
+   evalf(e(1), 40) is a truncation of an inexact constant and must not claim exactness; published 2.7 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "pi(1)", digits: 40, expected: "3.1") [1 ms]
+  Error Message:
+   evalf(pi(1), 40) is a truncation of an inexact constant and must not claim exactness; published 3.1 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "pi(30)", digits: 100, expected: "3.141592653589793238462643383279") [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "e(30)", digits: 40, expected: "2.718281828459045235360287471352") [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishe
+dAsAnExactRational(constant: "e(30)", digits: 100, expected: "2.718281828459045235360287471352") [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 30, requested: 40) [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 1, requested: 5) [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 30, requested: 100) [FAIL]
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 30, requested: 40) [FAIL]
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "pi(30)", digits: 100, expected: "3.141592653589793238462643383279") [1 ms]
+  Error Message:
+   evalf(pi(30), 100) is a truncation of an inexact constant and must not claim exactness; published 3.141592653589793238462643383279 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "e(30)", digits: 40, expected: "2.718281828459045235360287471352") [1 ms]
+  Error Message:
+   evalf(e(30), 40) is a truncation of an inexact constant and must not claim exactness; published 2.718281828459045235360287471352 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(constant: "e(30)", digits: 100, expected: "2.718281828459045235360287471352") [1 ms]
+  Error Message:
+   evalf(e(30), 100) is a truncation of an inexact constant and must not claim exactness; published 2.718281828459045235360287471352 with exact=True
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(String constant, Int32 digits, String expected) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 76
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.TruncatedConstant_IsNeverPublishedAsAnExactRational(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 30, requested: 40) [4 ms]
+  Error Message:
+   evalf(pi(30), 40) = 3.141592653589793238462643383279 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeDirectByRefWithFewArgs(Object obj, Span`1 copyOfArgs, BindingFlags invokeAttr)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 1, requested: 5) [2 ms]
+  Error Message:
+   evalf(pi(1), 5) = 3.1 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 30, requested: 100) [1 ms]
+  Error Message:
+   evalf(e(30), 100) = 2.718281828459045235360287471352 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 30, requested: 40) [1 ms]
+  Error Message:
+   evalf(e(30), 40) = 2.718281828459045235360287471352 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:00.42]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 30, requested: 100) [FAIL]
+[xUnit.net 00:00:00.43]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 1, requested: 40) [FAIL]
+[xUnit.net 00:00:00.43]     Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCo
+unt_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 1, requested: 40) [FAIL]
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 30, requested: 100) [2 ms]
+  Error Message:
+   evalf(pi(30), 100) = 3.141592653589793238462643383279 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "pi", ownDigits: 1, requested: 40) [2 ms]
+  Error Message:
+   evalf(pi(1), 40) = 3.1 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(name: "e", ownDigits: 1, requested: 40) [1 ms]
+  Error Message:
+   evalf(e(1), 40) = 2.7 claims exactness
+  Stack Trace:
+     at Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(String name, Int32 ownDigits, Int32 requested) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics.Tests\EvalfTruncatedConstantExactnessTests.cs:line 111
+   at InvokeStub_EvalfTruncatedConstantExactnessTests.RequestWiderThanTheConstantsOwnCount_CarriesExactlyTheConstantsDigits(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+
+Failed!  - Failed:    15, Passed:     7, Skipped:     0, Total:    22, Duration: 122 ms - Lovelace.Symbolics.Tests.dll (net10.0)

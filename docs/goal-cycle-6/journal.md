@@ -561,6 +561,43 @@
 - **Agent**: orchestrator
 - **Related**: EVD-265, EVD-266, OQ-003, EVD-255
 
+### OBS-016: Round 10 — P-B1 and P-B3 are closed, and the same class reappears one layer in
+
+- **Source**: commits `78c19d8`; the two implementation reports in `docs/goal-cycle-6/round-10/`; my own
+  probes and suite runs
+- **Fact**: **P-B1** (the special-angle path handing an exact value to an inexact argument) is closed by
+  propagating the argument's flag through `ComplexMath.SinCosAtPrecision` and its siblings, with the
+  pinned VALUES untouched; the wire now answers `evalf(cos(pi(30)), 40|100)` = `{"value":"-1","exact":false}`.
+  **P-B3** (`1/(3*10^1000)` returned as 0) is closed in `Real.Divide` by walking a leading-zero run that
+  alone fills the digit budget; the value is now the exact periodic `0.000…0(3)` matching mpmath. Teeth
+  measured on both trees: 12/0 vs 8-failed/4-passed, and 6/0 vs 3-failed/3-passed.
+  **But the same class is one layer in**: `evalf(pi(30), 40)` still labels a **truncated constant**
+  `exact:true` with a rational form; `evalf(sin(pi(30)), 40)` still publishes `0` for 5.03e-31; and
+  `evalf(1/(3*10^1000), 30)` still publishes `0` although the Real is now correct.
+- **Implications**: two named defects are gone; a third route of the exactness leak is confirmed and is
+  round 11's objective. D1 (no P0/P1 from a fresh audit) is still not met, and the audit has not run.
+- **Confidence**: High
+- **Agent**: two Implementers (round 10) + my own reproduction
+- **Related**: EVD-269, EVD-270, OQ-003
+
+### OBS-017: Round 11 landed — the exactness class is closed on the routes cycle 6 found
+
+- **Source**: commits `762aa8c` and `99586b6`; the round-11 report and my own runs
+- **Fact**: the two remaining FLAG leaks are closed with control-failing tests (22/0 vs 15-failed and
+  7/0 vs 4-failed), and the CI Timing step's two red runs (#43, #44) are answered twice over: the
+  promptness verdict now comes from the kernel's own ledger instead of a wall clock that also contains
+  the process start, and every subset step prints failing test names as `::error` annotations.
+  **Still open, and named**: `evalf(sin(pi(30)), 40)` and `evalf(1/(3*10^1000), 30)` still publish
+  `0` for a tiny nonzero value (the flag is honest there — `exact:false` — but the digits are not), and
+  `Real.Sqrt(inexact zero)` is still exact, so `sqrt(pi(30)-pi(30))` crosses as `exact:true`.
+- **Implications**: the exactness-claim class that cycle 5's audit opened and cycle 6 has been closing
+  now has no known *flag* leak on the routes that were probed; the remaining items are value-precision
+  and one `Real` entry point, both recorded for the audit rather than claimed closed.
+- **Confidence**: High for the closures (measured on two trees); Medium for "no other flag leak" (it is
+  the absence of a counterexample from a bounded sweep, not a proof).
+- **Agent**: Implementer (round 11) + my own reproduction
+- **Related**: EVD-272, EVD-273, EVD-270
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,

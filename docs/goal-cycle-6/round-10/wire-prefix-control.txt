@@ -1,0 +1,40 @@
+﻿EXPR: evalf(cos(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"-1","typed":"-1 (Real)","structured":{"kind":"Real","value":"-1","exact":true,"numerator":"-1","denominator":"1"}},"output":[],"variables":[],"functions":[],"elapsed":"47.26 ms","elapsedTime":{"value":47.26,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":37.67,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(cos(pi(30)), 100)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"-1","typed":"-1 (Real)","structured":{"kind":"Real","value":"-1","exact":true,"numerator":"-1","denominator":"1"}},"output":[],"variables":[],"functions":[],"elapsed":"37.65 ms","elapsedTime":{"value":37.65,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":28.13,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(cos(pi(30)*2), 100)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"1","typed":"1 (Real)","structured":{"kind":"Real","value":"1","exact":true,"numerator":"1","denominator":"1"}},"output":[],"variables":[],"functions":[],"elapsed":"39.03 ms","elapsedTime":{"value":39.03,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":29.65,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: inspect(cos(pi(30))).exact
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Boolean","display":"False","typed":"False (Boolean)","structured":{"kind":"Boolean","value":"false"}},"output":[],"variables":[],"functions":[],"elapsed":"39.05 ms","elapsedTime":{"value":39.05,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":29.83,"unit":"ms"},"resultKind":"Boolean","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: cos(pi(30))
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Symbolic","display":"-1","typed":"-1 (Symbolic)","structured":{"kind":"Symbolic","pretty":"-1","canonical":"(real -1)","domain":"real","exact":false,"nodeCount":1,"freeSymbols":[]}},"output":[],"variables":[],"functions":[],"elapsed":"35.78 ms","elapsedTime":{"value":35.78,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":24.68,"unit":"ms"},"resultKind":"Symbolic","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(sin(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0","typed":"0 (Real)","structured":{"kind":"Real","value":"0","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"42.18 ms","elapsedTime":{"value":42.18,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":32.88,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(tan(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0","typed":"0 (Real)","structured":{"kind":"Real","value":"0","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"38.77 ms","elapsedTime":{"value":38.77,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":29.57,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(1/2, 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0.5","typed":"0.5 (Real)","structured":{"kind":"Real","value":"0.5","exact":true,"numerator":"1","denominator":"2"}},"output":[],"variables":[],"functions":[],"elapsed":"26.28 ms","elapsedTime":{"value":26.28,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":17.07,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: 2+3
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Natural","display":"5","typed":"5 (Natural)","structured":{"kind":"Natural","value":"5","exact":true}},"output":[],"variables":[],"functions":[],"elapsed":"11.34 ms","elapsedTime":{"value":11.34,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":2.52,"unit":"ms"},"resultKind":"Natural","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: sin(0)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Symbolic","display":"0","typed":"0 (Symbolic)","structured":{"kind":"Symbolic","pretty":"0","canonical":"(rat 0 1)","domain":"rational","exact":true,"nodeCount":1,"freeSymbols":[]}},"output":[],"variables":[],"functions":[],"elapsed":"16.66 ms","elapsedTime":{"value":16.66,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":7.68,"unit":"ms"},"resultKind":"Symbolic","hasOutput":false}]}
+EXIT: 0
+----

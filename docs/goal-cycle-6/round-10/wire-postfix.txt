@@ -1,0 +1,40 @@
+﻿EXPR: evalf(cos(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"-1","typed":"-1 (Real)","structured":{"kind":"Real","value":"-1","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"49.43 ms","elapsedTime":{"value":49.43,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":38.42,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(cos(pi(30)), 100)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"-1","typed":"-1 (Real)","structured":{"kind":"Real","value":"-1","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"52.82 ms","elapsedTime":{"value":52.82,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":39.07,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(cos(pi(30)*2), 100)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"1","typed":"1 (Real)","structured":{"kind":"Real","value":"1","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"50.6 ms","elapsedTime":{"value":50.6,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":39.47,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: inspect(cos(pi(30))).exact
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Boolean","display":"False","typed":"False (Boolean)","structured":{"kind":"Boolean","value":"false"}},"output":[],"variables":[],"functions":[],"elapsed":"49.74 ms","elapsedTime":{"value":49.74,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":36.19,"unit":"ms"},"resultKind":"Boolean","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: cos(pi(30))
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Symbolic","display":"-1","typed":"-1 (Symbolic)","structured":{"kind":"Symbolic","pretty":"-1","canonical":"(real -1)","domain":"real","exact":false,"nodeCount":1,"freeSymbols":[]}},"output":[],"variables":[],"functions":[],"elapsed":"41.63 ms","elapsedTime":{"value":41.63,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":28.23,"unit":"ms"},"resultKind":"Symbolic","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(sin(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0","typed":"0 (Real)","structured":{"kind":"Real","value":"0","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"51.74 ms","elapsedTime":{"value":51.74,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":38.41,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(tan(pi(30)), 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0","typed":"0 (Real)","structured":{"kind":"Real","value":"0","exact":false}},"output":[],"variables":[],"functions":[],"elapsed":"46.75 ms","elapsedTime":{"value":46.75,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":33.38,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: evalf(1/2, 40)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Real","display":"0.5","typed":"0.5 (Real)","structured":{"kind":"Real","value":"0.5","exact":true,"numerator":"1","denominator":"2"}},"output":[],"variables":[],"functions":[],"elapsed":"33.57 ms","elapsedTime":{"value":33.57,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":21.14,"unit":"ms"},"resultKind":"Real","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: 2+3
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Natural","display":"5","typed":"5 (Natural)","structured":{"kind":"Natural","value":"5","exact":true}},"output":[],"variables":[],"functions":[],"elapsed":"15.91 ms","elapsedTime":{"value":15.91,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":3.33,"unit":"ms"},"resultKind":"Natural","hasOutput":false}]}
+EXIT: 0
+----
+EXPR: sin(0)
+{"protocolVersion":1,"symbolicFormatVersion":"#!lovelace-sym 1","mathIrVersion":2,"ok":true,"revision":81,"result":{"kind":"Symbolic","display":"0","typed":"0 (Symbolic)","structured":{"kind":"Symbolic","pretty":"0","canonical":"(rat 0 1)","domain":"rational","exact":true,"nodeCount":1,"freeSymbols":[]}},"output":[],"variables":[],"functions":[],"elapsed":"21.72 ms","elapsedTime":{"value":21.72,"unit":"ms"},"timings":[{"position":0,"elapsed":{"value":9.9,"unit":"ms"},"resultKind":"Symbolic","hasOutput":false}]}
+EXIT: 0
+----

@@ -1,0 +1,60 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Complex.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+dotnet : [xUnit.net 00:00:00.20]     
+Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ComplexExpOfAnInexactPart_IsNotExact(realInexact: True, 
+imaginaryInexact: False) [FAIL]
+At line:5 char:1
++ dotnet test .\Lovelace.Complex.Tests\Lovelace.Complex.Tests.csproj -- ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([xUnit.net 00:0...: False) [FAIL]:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[xUnit.net 00:00:00.21]     
+Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactImaginaryPart_IsNotExact [FAIL]
+[xUnit.net 00:00:00.21]     Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ExpOfAnInexactZero_IsNotExact 
+[FAIL]
+[xUnit.net 00:00:00.21]     
+Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactArgument_IsNotExact [FAIL]
+  Failed Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ComplexExpOfAnInexactPart_IsNotExact(realInexact: True, imaginaryInexact: False) [< 1 ms]
+  Error Message:
+   exp(0, 0) = (1, 0): the real part claims exactness
+  Stack Trace:
+     at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.AssertComplexInexact(String label, Complex value) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 39
+   at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ComplexExpOfAnInexactPart_IsNotExact(Boolean realInexact, Boolean imaginaryInexact) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 87
+   at InvokeStub_ComplexMathExpSqrtInexactArgumentTests.ComplexExpOfAnInexactPart_IsNotExact(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithFewArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+  Failed Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactImaginaryPart_IsNotExact [< 1 ms]
+  Error Message:
+   sqrt(9 + inexact 0i) = (3, 0): the imaginary part claims exactness
+  Stack Trace:
+     at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.AssertComplexInexact(String label, Complex value) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 40
+   at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactImaginaryPart_IsNotExact() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 165
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ExpOfAnInexactZero_IsNotExact [< 1 ms]
+  Error Message:
+   exp(inexact zero) = 1 claims exactness
+  Stack Trace:
+     at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.ExpOfAnInexactZero_IsNotExact() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 59
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+  Failed Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactArgument_IsNotExact [< 1 ms]
+  Error Message:
+   sqrt(inexact 0 + 0i) = (0, 0): the real part claims exactness
+  Stack Trace:
+     at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.AssertComplexInexact(String label, Complex value) in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 39
+   at Lovelace.Complex.Tests.ComplexMathExpSqrtInexactArgumentTests.SqrtOfAnInexactArgument_IsNotExact() in C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag-ctl\Lovelace.Complex.Tests\ComplexMathExpSqrtInexactArgumentTests.cs:line 127
+   at System.Reflection.MethodBaseInvoker.InterpretedInvoke_Method(Object obj, IntPtr* args)
+   at System.Reflection.MethodBaseInvoker.InvokeWithNoArgs(Object obj, BindingFlags invokeAttr)
+
+Failed!  - Failed:     4, Passed:     3, Skipped:     0, Total:     7, Duration: 45 ms - Lovelace.Complex.Tests.dll (net10.0)

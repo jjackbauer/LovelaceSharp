@@ -1,0 +1,160 @@
+﻿diff --git a/Lovelace.Complex/ComplexMath.cs b/Lovelace.Complex/ComplexMath.cs
+index acd2264..a950155 100644
+--- a/Lovelace.Complex/ComplexMath.cs
++++ b/Lovelace.Complex/ComplexMath.cs
+@@ -24,12 +24,18 @@ public static class ComplexMath
+ 
+     /// <summary>Computes <c>e^x</c> as <c>e^n · e^f</c> with <c>n = trunc(x)</c> and
+     /// <c>|f| &lt; 1</c>; <c>e^f</c> comes from a Taylor series and <c>e^n</c> from binary
+-    /// exponentiation of <see cref="Rl.E"/>.</summary>
++    /// exponentiation of <see cref="Rl.E"/>.
++    /// <para>
++    /// The <c>IsZero</c> shortcut answers an exact 1, and it may not launder its argument's route to
++    /// get there: <c>exp</c> of an argument that only APPROXIMATES zero — the exactly-zero reduction
++    /// of a truncated π, <c>pi(30) − pi(30)</c> — is an approximation's 1, not an exact one (cycle 6,
++    /// row 11). The value is untouched; only the claim goes.
++    /// </para></summary>
+     public static Rl Exp(Rl x)
+     {
+         ArgumentNullException.ThrowIfNull(x);
+         long digits = AmbientDigits();
+-        if (Rl.IsZero(x)) return Rl.One;
++        if (Rl.IsZero(x)) return WithArgumentProvenance(Rl.One, x);
+ 
+         long work = digits + GuardDigits;
+         using var scope = Rl.WithPrecision(work, work);
+@@ -214,13 +220,20 @@ public static class ComplexMath
+     // Complex — exponential / trigonometry
+     // ------------------------------------------------------------------
+ 
+-    /// <summary>Computes <c>e^(a+bi) = e^a·(cos b + i·sin b)</c>.</summary>
++    /// <summary>Computes <c>e^(a+bi) = e^a·(cos b + i·sin b)</c>.
++    /// <para>
++    /// BOTH components depend on BOTH parts of the argument, so an inexact part leaves neither
++    /// component entitled to the exact flag — the same rule the trigonometric overloads below
++    /// follow. The leaking shape is an inexact zero real part, whose <c>Exp(z.Re)</c> was the exact
++    /// shortcut's 1 beside the exact <c>cos(0)/sin(0)</c> (cycle 6, row 11).
++    /// </para></summary>
+     public static Complex Exp(Complex z)
+     {
+         ArgumentNullException.ThrowIfNull(z);
+         long digits = AmbientDigits();
+         Rl e = Exp(z.Re);
+-        return TruncateComplex(new Complex(e * Cos(z.Im), e * Sin(z.Im)), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(new Complex(e * Cos(z.Im), e * Sin(z.Im)), digits), z);
+     }
+ 
+     /// <summary>Computes <c>sin(a+bi) = sin a·cosh b + i·cos a·sinh b</c>.</summary>
+@@ -275,7 +288,16 @@ public static class ComplexMath
+     // ------------------------------------------------------------------
+ 
+     /// <summary>Principal square root: <c>s + t·i</c> with <c>s = √((|z|+a)/2)</c> and
+-    /// <c>t = √((|z|−a)/2)</c>, choosing <c>t ≥ 0</c> when <c>Im ≥ 0</c>.</summary>
++    /// <c>t = √((|z|−a)/2)</c>, choosing <c>t ≥ 0</c> when <c>Im ≥ 0</c>.
++    /// <para>
++    /// The provenance of the result is the provenance of the ARGUMENT, as it is for every other
++    /// entry point here. Both components are built by <c>Rl.Sqrt</c> of an argument that is an EXACT
++    /// zero whenever the magnitude cancels a part — <c>sqrt(0) = 0</c> is exact by construction — so
++    /// a truncated argument used to answer an exact zero for a part that is a truncation's zero:
++    /// <c>Sqrt(inexact 0 + 0i)</c> was <c>(0, 0)</c> with both parts exact and
++    /// <c>Sqrt(inexact 4 + 0i)</c> was <c>(2, 0)</c> with the imaginary part exact (cycle 6,
++    /// row 11). The VALUES are untouched; only the claim goes.
++    /// </para></summary>
+     public static Complex Sqrt(Complex z)
+     {
+         ArgumentNullException.ThrowIfNull(z);
+@@ -287,7 +309,8 @@ public static class ComplexMath
+         Rl diff = mag - a;
+         if (Rl.IsNegative(diff)) diff = Rl.Zero;
+         Rl t = Rl.Sqrt(diff / new Rl("2"));
+-        return TruncateComplex(Rl.IsNegative(b) ? new Complex(s, -t) : new Complex(s, t), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(Rl.IsNegative(b) ? new Complex(s, -t) : new Complex(s, t), digits), z);
+     }
+ 
+     /// <summary>Principal logarithm <c>ln|z| + i·atan2(Im, Re)</c>. Throws
+diff --git a/Lovelace.Symbolics/SymbolicsPlugin.cs b/Lovelace.Symbolics/SymbolicsPlugin.cs
+index f90b53b..c3097f1 100644
+--- a/Lovelace.Symbolics/SymbolicsPlugin.cs
++++ b/Lovelace.Symbolics/SymbolicsPlugin.cs
+@@ -473,10 +473,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+             // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
+             // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
+             // cannot honour the request — the value has to be re-materialised at the requested
+-            // count. It is projected back onto the exact value it carries and put through the SAME
++            // count. It is projected back onto the value it carries and put through the SAME
+             // precision scope as a symbolic argument, which bounds it the way RationalReal.ToReal
+-            // bounds an exact rational. An exact expression (1/3) keeps taking the path below.
+-            var f = AsExpr(NumericAtRequestedPrecision(args[0]) ?? args[0]);
++            // bounds an exact rational. An exact expression (1/3) keeps taking the path below. The
++            // projection carries the payload's PROVENANCE with it (cycle 6, row 11): pi(30)/e(30)
++            // arrive inexact and must not come back as exact rationals.
++            var f = AsExpr(NumericAtRequestedPrecision(args[0], digits) ?? args[0]);
+             using (Rl.WithPrecision(digits, Math.Min(digits, 50)))
+             {
+                 var num = Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
+@@ -1514,22 +1516,52 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
+         return Exprs.Symbol(s);
+     }
+ 
+-    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the exact expression its
+-    /// digits denote, so the evalf precision scope re-materialises it at the requested count.
+-    /// Returns null for an argument the evaluation path already handles (a symbolic expression,
+-    /// and the integer payloads that have no fractional digits to bound).</summary>
+-    private static Expr? NumericAtRequestedPrecision(object? payload) => payload switch
++    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the expression its digits
++    /// denote, at the REQUESTED digit count, so the evalf precision scope re-materialises it at
++    /// that count. Returns null for an argument the evaluation path already handles (a symbolic
++    /// expression, and the integer payloads that have no fractional digits to bound).
++    /// <para>
++    /// AN EXACT VALUE IS THE RATIONAL IT DENOTES. <see cref="RationalReal.FromReal"/> reads the FULL
++    /// magnitude and exponent (never the display-truncated <c>ToString</c>), so no digit is invented
++    /// or lost, and the exact rational tier is what the precision scope bounds.
++    /// </para>
++    /// <para>
++    /// AN INEXACT VALUE KEEPS ITS ROUTE. The rational tier has no provenance to carry — a
++    /// <c>NumRat</c> is exact by construction — so a truncation projected onto it came back out of
++    /// <see cref="NumToPayload"/> as a FRESH Real whose exactness was read off the width of its
++    /// rendering: <c>evalf(pi(30), 40)</c> published a 30-place truncation of π as <c>exact:true</c>
++    /// with numerator 3141592653589793238462643383279 over 10^30, <c>evalf(pi(1), 40)</c> published
++    /// <c>3.1</c> exact as 31/10, and <c>e(30)</c> answered the same shape — while <c>pi(30)</c>
++    /// itself answers <c>exact:false</c>. A truncation of an inexact constant cannot be exact (cycle
++    /// 6, row 11), so such a value is truncated to the requested count HERE — through the same
++    /// <see cref="RationalReal.ToReal"/> the payload path applied to it before, so the DIGITS do not
++    /// move — and crosses as an inexact <see cref="RealLiteral"/>, which restores the flag the
++    /// rational tier dropped.
++    /// </para>
++    /// </summary>
++    private static Expr? NumericAtRequestedPrecision(object? payload, int digits) => payload switch
+     {
+-        // Real inherits Integer: check before Int/Nat. RationalReal.FromReal reads the FULL
+-        // magnitude (never the display-truncated ToString), so no digit is invented or lost here;
+-        // the precision scope is what bounds the result.
+-        Rl r => Exprs.Rational(RationalReal.FromReal(r)),
++        // Real inherits Integer: check before Int/Nat.
++        Rl r => RealAtRequestedPrecision(r, digits),
+         Cplx c => Exprs.Add(
+-            Exprs.Rational(RationalReal.FromReal(c.Re)),
+-            Exprs.Multiply(Exprs.Rational(RationalReal.FromReal(c.Im)), Exprs.I)),
++            RealAtRequestedPrecision(c.Re, digits),
++            Exprs.Multiply(RealAtRequestedPrecision(c.Im, digits), Exprs.I)),
+         _ => null,
+     };
+ 
++    /// <summary>One already-numeric component at the requested digit count: the exact rational it
++    /// denotes when it is exact, and an inexact literal carrying the digits the request keeps when it
++    /// is not. <paramref name="digits"/> is bounded by the same 1000-place computation cap
++    /// <see cref="NumToPayload"/> applies to a rational payload, so the two routes truncate
++    /// identically. A truncated value is re-materialised from its own digits and re-marked inexact —
++    /// <see cref="RationalReal.ToReal"/> parses a decimal string back, and a parse owns a FRESH
++    /// instance whose flag says "exact by construction" (see <see cref="Rl.AsInexact"/>).</summary>
++    private static Expr RealAtRequestedPrecision(Rl value, int digits) =>
++        value.IsExact
++            ? Exprs.Rational(RationalReal.FromReal(value))
++            : Exprs.Real(RealLiteral.FromRealExact(Rl.AsInexact(
++                RationalReal.ToReal(RationalReal.FromReal(value), Math.Min(digits, 1000)))));
++
+     private static object NumToPayload(Num n) => n switch
+     {
+         NumInt i => i.V,

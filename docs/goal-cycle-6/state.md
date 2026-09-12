@@ -44,10 +44,23 @@
 | 2 | ~~Deep user-function recursion kills the process~~ | EVD-254, EVD-262 | **CLOSED** in `c5c1437`: the evaluation walk is bounded at 512 units, `f(85)` answers, `f(86)` and deeper are typed `DepthExceeded` refusals (the trade is recorded as RISK-005) |
 | 3 | `1/(3*10^1000)` returns `0`, and `evalf(1/(3*10^1000),30)` returns Integer `0` **exact:true**; mpmath gives 3.33e-1001 | EVD-255 | **open P1** (O-B10a) |
 
+## Round 10 objective, recorded as dispatched
+
+> **Close the two defects cycle 6 still names, each with a test that fails on the pre-fix tree.**
+> (a) **P-B1** — the special-angle path hands an exact value to an inexact argument: the fix is the
+> FLAG, not the digits (an inexact argument must produce an inexact result on every path out of
+> `ComplexMath.SinCosAtPrecision`), keeping the pinned VALUES `Sin(Rl.Pi) == 0` and
+> `Cos(Rl.Pi) == -1` intact and proving the wire now answers `exact:false` for
+> `evalf(cos(pi(30)), 40)`. (b) **P-B3** — `1/(3*10^1000)` is returned as `0` and
+> `evalf(1/(3*10^1000), 30)` as an Integer `0` declared exact: `Real.Divide` must place the quotient's
+> decimal point correctly (the representation can hold the value), with the boundary table checked
+> against mpmath and the in-budget neighbours unchanged.
+
 ## Next objectives, in order
 
-1. Finish D4 (sweep, AOT + smoke, capabilities, round-trip) and land the memory.
-2. Put section P in writing: the three rows that are now CLOSED (O-B7, O-B8a…i, O-B10b) plus rows 3/4's
-   own bound (O-B14) with evidence, and the still-true bounds for the maintainer's acceptance.
-3. Ask the maintainer once more for the acceptance words (asked twice so far; no answer recorded).
-4. Close defects 2 and 3 if the round budget allows, then run the fresh audit (D1) and write the report.
+1. Verify and land round 10 (P-B1, P-B3), then re-run the D4 sequence on the new final tree.
+2. Run the fresh adversarial audit (D1): four personas with new strategies against the published binary —
+   metamorphic/generative, precision-and-exactness lattice, hostile input shapes, agent workflow and the published AOT binary's protocol conformance.
+3. Ask the maintainer once more for the seven acceptance words (asked twice; no answer recorded).
+4. Reconcile the report and section P with whatever round 10 and the audit produce; claim A+ only if the
+   audit cannot falsify it.

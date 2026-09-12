@@ -1,0 +1,14 @@
+﻿  Determining projects to restore...
+  All projects are up-to-date for restore.
+  Lovelace.Abstractions -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Abstractions\bin\Release\net10.0\Lovelace.Abstractions.dll
+  Lovelace.Natural -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Natural\bin\Release\net10.0\Lovelace.Natural.dll
+  Lovelace.Integer -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Integer\bin\Release\net10.0\Lovelace.Integer.dll
+  Lovelace.Rational -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Rational\bin\Release\net10.0\Lovelace.Rational.dll
+  Lovelace.Real -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Real\bin\Release\net10.0\Lovelace.Real.dll
+  Lovelace.Complex -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Complex\bin\Release\net10.0\Lovelace.Complex.dll
+  Lovelace.Symbolics -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Symbolics\bin\Release\net10.0\Lovelace.Symbolics.dll
+  Lovelace.Complex.Tests -> C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll
+Test run for C:\Users\ricar\dev\LovelaceSharp\.worktrees\c6-flag\Lovelace.Complex.Tests\bin\Release\net10.0\Lovelace.Complex.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     7, Skipped:     0, Total:     7, Duration: 37 ms - Lovelace.Complex.Tests.dll (net10.0)

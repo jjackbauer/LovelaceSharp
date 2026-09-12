@@ -1,0 +1,498 @@
+diff --git a/Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj b/Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
+index 6a18ccc..a8d316f 100644
+--- a/Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
++++ b/Lovelace.Complex.Tests/Lovelace.Complex.Tests.csproj
+@@ -21,6 +21,11 @@
+   <ItemGroup>
+     <ProjectReference Include="..\Lovelace.Abstractions\Lovelace.Abstractions.csproj" />
+     <ProjectReference Include="..\Lovelace.Complex\Lovelace.Complex.csproj" />
++    <!-- The symbolic tier reaches the numeric one through ComplexMath (Evaluation.cs:335-337), so
++         the agreement between a symbolic node's exactness flag and the numeric value it evaluates
++         to is only observable with both assemblies in reach. Test-only edge; the product projects
++         keep their own dependency direction (Symbolics -> Complex, never the reverse). -->
++    <ProjectReference Include="..\Lovelace.Symbolics\Lovelace.Symbolics.csproj" />
+   </ItemGroup>
+ 
+ </Project>
+diff --git a/Lovelace.Complex/ComplexMath.cs b/Lovelace.Complex/ComplexMath.cs
+index 74dff10..acd2264 100644
+--- a/Lovelace.Complex/ComplexMath.cs
++++ b/Lovelace.Complex/ComplexMath.cs
+@@ -89,7 +89,9 @@ public static class ComplexMath
+         long work = digits + GuardDigits;
+         (Rl sin, Rl cos) = SinCosAtPrecision(x, digits);
+         using var scope = Rl.WithPrecision(work, work);
+-        return TruncateFrac(DivideTruncate(sin, cos, work), digits);
++        // The quotient of two inexact halves can still be an exact zero: DivideTruncate answers
++        // 0/anything with an exact Zero.  The argument's provenance is re-attached here (P-B1).
++        return WithArgumentProvenance(TruncateFrac(DivideTruncate(sin, cos, work), digits), x);
+     }
+ 
+     /// <summary>Computes <c>atan(x)</c> via half-angle reduction and an alternating series.</summary>
+@@ -113,7 +115,10 @@ public static class ComplexMath
+         Rl atanArg = AtanSeries(y, work) * new Rl("8");
+         Rl result = big ? Rl.Pi / new Rl("2") - atanArg : atanArg;
+         if (negate) result = -result;
+-        return TruncateFrac(result, digits);
++        // atan of an argument that only approximates zero is 0, and that 0 is the series'
++        // approximation of it, not an exact zero (the zero shortcut in DivideTruncate hides the
++        // route of the argument before it ever reaches the series) — P-B1.
++        return WithArgumentProvenance(TruncateFrac(result, digits), x);
+     }
+ 
+     /// <summary>Two-argument arctangent, returning the angle of <c>(x, y)</c> in <c>(-π, π]</c>.</summary>
+@@ -129,13 +134,15 @@ public static class ComplexMath
+         bool yZero = Rl.IsZero(y);
+         if (xZero)
+         {
+-            if (yZero) return Rl.Zero;
+-            return Rl.IsPositive(y) ? halfPi : -halfPi;
++            if (yZero) return WithArgumentProvenance(Rl.Zero, y, x);
++            Rl branch = Rl.IsPositive(y) ? halfPi : -halfPi;
++            return WithArgumentProvenance(branch, y, x);
+         }
+ 
+         Rl at = Atan(DivideTruncate(y, x, AmbientDigits() + GuardDigits));
+-        if (Rl.IsPositive(x)) return at;
+-        return Rl.IsNegative(y) ? at - pi : at + pi;
++        Rl result = Rl.IsPositive(x) ? at : (Rl.IsNegative(y) ? at - pi : at + pi);
++        // Either argument being a truncation makes the angle one, whatever branch selected it (P-B1).
++        return WithArgumentProvenance(result, y, x);
+     }
+ 
+     // ------------------------------------------------------------------
+@@ -165,7 +172,10 @@ public static class ComplexMath
+             throw new ArgumentException("AsinReal(x) requires |x| <= 1.", nameof(x));
+         if (x == Rl.One) return Rl.Pi / new Rl("2");
+         if (x == Rl.NegativeOne) return -(Rl.Pi / new Rl("2"));
+-        return Atan(DivideTruncate(x, Rl.Sqrt(Rl.One - x * x), AmbientDigits() + GuardDigits));
++        // asin of an argument that only approximates zero is 0, and DivideTruncate hands that
++        // quotient to atan as an EXACT zero, hiding the argument's route (P-B1).
++        return WithArgumentProvenance(
++            Atan(DivideTruncate(x, Rl.Sqrt(Rl.One - x * x), AmbientDigits() + GuardDigits)), x);
+     }
+ 
+     /// <summary>Computes <c>acos(x)</c> for <c>|x| ≤ 1</c>.</summary>
+@@ -218,8 +228,9 @@ public static class ComplexMath
+     {
+         ArgumentNullException.ThrowIfNull(z);
+         long digits = AmbientDigits();
+-        return TruncateComplex(
+-            new Complex(Sin(z.Re) * RealCosh(z.Im), Cos(z.Re) * RealSinh(z.Im)), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(
++                new Complex(Sin(z.Re) * RealCosh(z.Im), Cos(z.Re) * RealSinh(z.Im)), digits), z);
+     }
+ 
+     /// <summary>Computes <c>cos(a+bi) = cos a·cosh b − i·sin a·sinh b</c>.</summary>
+@@ -227,15 +238,16 @@ public static class ComplexMath
+     {
+         ArgumentNullException.ThrowIfNull(z);
+         long digits = AmbientDigits();
+-        return TruncateComplex(
+-            new Complex(Cos(z.Re) * RealCosh(z.Im), -Sin(z.Re) * RealSinh(z.Im)), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(
++                new Complex(Cos(z.Re) * RealCosh(z.Im), -Sin(z.Re) * RealSinh(z.Im)), digits), z);
+     }
+ 
+     /// <summary>Computes <c>tan(z) = sin(z) / cos(z)</c>.</summary>
+     public static Complex Tan(Complex z)
+     {
+         ArgumentNullException.ThrowIfNull(z);
+-        return Sin(z) / Cos(z);
++        return WithArgumentProvenance(Sin(z) / Cos(z), z);
+     }
+ 
+     /// <summary>Computes <c>sinh(a+bi) = sinh a·cos b + i·cosh a·sin b</c>.</summary>
+@@ -243,8 +255,9 @@ public static class ComplexMath
+     {
+         ArgumentNullException.ThrowIfNull(z);
+         long digits = AmbientDigits();
+-        return TruncateComplex(
+-            new Complex(RealSinh(z.Re) * Cos(z.Im), RealCosh(z.Re) * Sin(z.Im)), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(
++                new Complex(RealSinh(z.Re) * Cos(z.Im), RealCosh(z.Re) * Sin(z.Im)), digits), z);
+     }
+ 
+     /// <summary>Computes <c>cosh(a+bi) = cosh a·cos b + i·sinh a·sin b</c>.</summary>
+@@ -252,8 +265,9 @@ public static class ComplexMath
+     {
+         ArgumentNullException.ThrowIfNull(z);
+         long digits = AmbientDigits();
+-        return TruncateComplex(
+-            new Complex(RealCosh(z.Re) * Cos(z.Im), RealSinh(z.Re) * Sin(z.Im)), digits);
++        return WithArgumentProvenance(
++            TruncateComplex(
++                new Complex(RealCosh(z.Re) * Cos(z.Im), RealSinh(z.Re) * Sin(z.Im)), digits), z);
+     }
+ 
+     // ------------------------------------------------------------------
+@@ -307,6 +321,43 @@ public static class ComplexMath
+ 
+     private static Rl FromLong(long n) => Rl.Parse(n.ToString(CultureInfo.InvariantCulture));
+ 
++    /// <summary>
++    /// The provenance of a trigonometric result is the provenance of its ARGUMENT: a value computed
++    /// from an approximation is an approximation of that value, however exact its digits look.
++    /// <para>
++    /// A special angle can land EXACTLY on an exact number from an argument that is itself a
++    /// truncation — the exactly-zero reduction of <c>cos</c> against a π the argument's own scale
++    /// produced, the <c>sin(0) = 0</c> / <c>cos(0) = 1</c> shortcut, and the zero the inverse
++    /// functions return for an argument that only approximates zero.  Handing those back without
++    /// the argument's provenance is how <c>evalf(cos(pi(30)), 40)</c> published <c>-1</c> as
++    /// <c>exact:true</c> with numerator <c>-1</c> and denominator <c>1</c>, while the same
++    /// expression's symbolic node — routed here through
++    /// <c>Lovelace.Symbolics/Evaluation.cs:335-337</c> — reported <c>exact:false</c> and mpmath at
++    /// 110 dps resolves the expression to −0.999…87355374… (cycle 6, P-B1).  The VALUE is untouched;
++    /// only the claim that the digits are the whole number goes.
++    /// </para>
++    /// </summary>
++    private static Rl WithArgumentProvenance(Rl result, Rl argument) =>
++        argument.IsExact ? result : Rl.AsInexact(result);
++
++    /// <summary>The two-argument form of <see cref="WithArgumentProvenance(Rl, Rl)"/>: a result
++    /// computed from two arguments is exact only when BOTH are.</summary>
++    private static Rl WithArgumentProvenance(Rl result, Rl first, Rl second) =>
++        first.IsExact && second.IsExact ? result : Rl.AsInexact(result);
++
++    /// <summary>
++    /// The complex form: both components of <c>sin(a+bi)</c>, <c>cos(a+bi)</c>, <c>sinh(a+bi)</c> and
++    /// <c>cosh(a+bi)</c> depend on BOTH parts of the argument, so an inexact part leaves neither
++    /// component entitled to the exact flag.  The case that leaks is the hyperbolic factor of an
++    /// exact zero — <c>RealSinh(0) = 0</c> and <c>RealCosh(0) = 1</c> are exact because
++    /// <c>exp(0)</c> is — which is how <c>sin(0 + 0i)</c> with an INEXACT zero imaginary part came
++    /// back with both components exact (cycle 6, P-B1).
++    /// </summary>
++    private static Complex WithArgumentProvenance(Complex result, Complex argument) =>
++        argument.Re.IsExact && argument.Im.IsExact
++            ? result
++            : new Complex(Rl.AsInexact(result.Re), Rl.AsInexact(result.Im));
++
+     private static Rl Pow10(long e)
+     {
+         if (e == 0) return Rl.One;
+@@ -479,13 +530,25 @@ public static class ComplexMath
+     /// returning the pair before either half is rounded to the ambient precision (see
+     /// <see cref="Tan"/>).  Every series division is a truncating one, so the pair is an
+     /// approximation and its provenance says so.
++    /// <para>
++    /// THE PAIR CARRIES THE ARGUMENT'S PROVENANCE.  The reduction can land EXACTLY on a table value
++    /// from an argument that is itself a truncation — at the argument's own scale the residual IS
++    /// zero <c>(PiDigitsFor)</c>, so <c>cos(pi(30))</c> is the table's <c>−1</c> — and neither half
++    /// may certify that as exact.  Both exits say so: the shortcut below, which may stay exact only
++    /// for an EXACT zero, and the return, through
++    /// <see cref="WithArgumentProvenance(Rl, Rl)"/> (cycle 6, P-B1).
++    /// </para>
+     /// </summary>
+     private static (Rl sin, Rl cos) SinCosAtPrecision(Rl x, long digits)
+     {
+         // sin(0) = 0 and cos(0) = 1 exactly: the reduction below multiplies by an inexact π, which
+-        // would otherwise leave the exact zeros carrying an approximation's provenance.
++        // would otherwise leave the exact zeros carrying an approximation's provenance.  The
++        // shortcut belongs to the ARGUMENT, though — an inexact zero is an approximation of zero,
++        // and the pair it produces may not claim the exactness of the value it approximates.
+         if (Rl.IsZero(x))
+-            return (Rl.Zero, Rl.One);
++            return x.IsExact
++                ? (Rl.Zero, Rl.One)
++                : (Rl.AsInexact(Rl.Zero), Rl.AsInexact(Rl.One));
+ 
+         long work = digits + GuardDigits;
+         long piDigits = PiDigitsFor(x, digits);
+@@ -520,7 +583,9 @@ public static class ComplexMath
+             default: sin = s; cos = c; break;
+         }
+ 
+-        return (sin, cos);
++        // An inexact argument cannot produce an exact result on ANY path out of here: the exactly
++        // zero reduction above is the one that used to hand the table value back as exact (P-B1).
++        return x.IsExact ? (sin, cos) : (Rl.AsInexact(sin), Rl.AsInexact(cos));
+     }
+ 
+     /// <summary>Reduces <paramref name="value"/> into <c>[0, 2π)</c>.</summary>
+diff --git a/Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs b/Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs
+new file mode 100644
+index 0000000..7464a5e
+--- /dev/null
++++ b/Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs
+@@ -0,0 +1,278 @@
++using Lovelace.Complex;
++using Lovelace.Real;
++using Lovelace.Symbolics;
++using Xunit;
++
++using Cplx = Lovelace.Complex.Complex;
++using Rl = Lovelace.Real.Real;
++
++namespace Lovelace.Complex.Tests;
++
++/// <summary>
++/// THE ROUTE OF THE ARGUMENT IS THE ROUTE OF THE RESULT: an argument whose
++/// <see cref="Rl.IsExact"/> is false must not come back out of <see cref="ComplexMath"/> carrying
++/// <c>IsExact = true</c>.
++///
++/// <para>THE DEFECT THIS FILE PINS (cycle 6, P-B1). The symbolic evaluator routes the real tier
++/// through <see cref="ComplexMath.Sin"/>/<see cref="ComplexMath.Cos"/>
++/// (<c>Lovelace.Symbolics/Evaluation.cs:335-337</c>), whose <c>SinCosAtPrecision</c> reduces the
++/// argument modulo a π of the ARGUMENT'S OWN SCALE. <c>pi(30)</c> therefore reduces to exactly
++/// zero, the series runs on the exact zero, and the reduction's table value is returned as an exact
++/// <see cref="Rl"/> — while the same expression's symbolic node reports <c>exact:false</c>. On the
++/// wire that publishes a false claim of exactness:
++/// <c>evalf(cos(pi(30)), 40)</c> answered
++/// <c>{"kind":"Real","value":"-1","exact":true,"numerator":"-1","denominator":"1"}</c> while
++/// <c>cos(pi(30))</c> answered <c>{"pretty":"-1","exact":false}</c> and mpmath at 110 dps gives
++/// <c>-0.999…87355374…</c> — the truncation is real, the exactness claim was not.</para>
++///
++/// <para>WHAT CHANGES IS THE FLAG, NOT THE VALUE. The exactly-zero reduction still lands on the same
++/// numbers — <c>Sin(pi) == 0</c> and <c>Cos(pi) == -1</c> are pinned by
++/// <c>ComplexMathProvenanceTests.cs:83-84</c> and stay pinned here — but a π that is itself a
++/// truncation cannot make them exact. The <c>IsZero</c> shortcut is the same rule: <c>Sin(0) == 0</c>
++/// and <c>Cos(0) == 1</c> stay EXACT for an exact zero and only for an exact zero.</para>
++///
++/// <para>Every negative assertion here is paired with its exact control: <c>Sin(0)</c>/<c>Cos(0)</c>/
++/// <c>Tan(0)</c> at an exact zero, and <c>Sin(0 + 0i)</c>, must still report exact, so clearing the
++/// flag unconditionally does not satisfy this file.</para>
++/// </summary>
++public class ComplexMathInexactArgumentProvenanceTests
++{
++    private static readonly Dictionary<Symbol, Num> NoBindings = new();
++
++    /// <summary>The three scales the defect was measured at (30 is the scale the wire folds at).</summary>
++    public static TheoryData<long> Scales => new() { 30L, 60L, 100L };
++
++    /// <summary>
++    /// The exactly-zero reduction: at ambient precision <c>n</c> the reduction subtracts the
++    /// argument's own π, so the residual IS zero and the result is the table value. The argument is
++    /// a truncation (<c>Rl.PiTo(n)</c>, premise asserted) and the result must say so — at every
++    /// scale, for all three functions. The VALUES are asserted too, unchanged: this round moves the
++    /// flag only.
++    /// </summary>
++    [Theory]
++    [MemberData(nameof(Scales))]
++    public void InexactPiAtItsOwnScale_ProducesInexactResults(long scale)
++    {
++        using var scope = Rl.WithPrecision(scale, scale);
++        Rl pi = Rl.PiTo(scale);
++        Assert.False(pi.IsExact, "Rl.PiTo(" + scale + ") is a truncation and must be inexact");
++
++        Rl cos = ComplexMath.Cos(pi);
++        Rl sin = ComplexMath.Sin(pi);
++        Rl tan = ComplexMath.Tan(pi);
++
++        // the values the exactly-zero reduction lands on: unchanged by this round
++        Assert.Equal(-Rl.One, cos);
++        Assert.Equal(Rl.Zero, sin);
++        Assert.Equal(Rl.Zero, tan);
++
++        Assert.False(cos.IsExact, "cos(pi(" + scale + ")) = " + cos + " claims exactness");
++        Assert.False(sin.IsExact, "sin(pi(" + scale + ")) = " + sin + " claims exactness");
++        Assert.False(tan.IsExact, "tan(pi(" + scale + ")) = " + tan + " claims exactness");
++    }
++
++    /// <summary>
++    /// The same reduction reached through the ambient constant — <c>Rl.Pi</c> is a truncation at
++    /// every precision, and <c>Cos(Rl.Pi) == -1</c> / <c>Sin(Rl.Pi) == 0</c> stay the pinned values
++    /// while the flag stops claiming they are exact.
++    /// </summary>
++    [Fact]
++    public void ExactlyZeroReduction_OfAnInexactAmbientPi_IsNotExact()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++        Assert.False(Rl.Pi.IsExact, "Rl.Pi is a truncation and must be inexact");
++
++        Rl cos = ComplexMath.Cos(Rl.Pi);
++        Rl sin = ComplexMath.Sin(Rl.Pi);
++        Rl tan = ComplexMath.Tan(Rl.Pi);
++
++        Assert.Equal(-Rl.One, cos);
++        Assert.Equal(Rl.Zero, sin);
++        Assert.Equal(Rl.Zero, tan);
++
++        Assert.False(cos.IsExact, "cos(pi) = " + cos + " claims exactness");
++        Assert.False(sin.IsExact, "sin(pi) = " + sin + " claims exactness");
++        Assert.False(tan.IsExact, "tan(pi) = " + tan + " claims exactness");
++    }
++
++    /// <summary>
++    /// An inexact argument that is NOT the ambient π still has to carry its route out: the residual
++    /// here is a real one (the argument measures against a longer π), so the results were already
++    /// inexact — this is the guard that the repair does not reintroduce exactness anywhere.
++    /// </summary>
++    [Fact]
++    public void InexactPiAtAnotherScale_ProducesInexactResults()
++    {
++        using var scope = Rl.WithPrecision(100, 40);
++        Rl pi30 = Rl.PiTo(30);
++        Assert.False(pi30.IsExact, "Rl.PiTo(30) is a truncation and must be inexact");
++
++        Assert.False(ComplexMath.Cos(pi30).IsExact, "cos(pi(30)) at ambient 100 claims exactness");
++        Assert.False(ComplexMath.Sin(pi30).IsExact, "sin(pi(30)) at ambient 100 claims exactness");
++        Assert.False(ComplexMath.Tan(pi30).IsExact, "tan(pi(30)) at ambient 100 claims exactness");
++    }
++
++    /// <summary>The control direction of the IsZero shortcut: an EXACT zero stays exact.</summary>
++    [Fact]
++    public void ExactZeroArgument_KeepsItsExactResults()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++
++        Assert.Equal(Rl.Zero, ComplexMath.Sin(Rl.Zero));
++        Assert.Equal(Rl.One, ComplexMath.Cos(Rl.Zero));
++        Assert.Equal(Rl.Zero, ComplexMath.Tan(Rl.Zero));
++
++        Assert.True(ComplexMath.Sin(Rl.Zero).IsExact, "sin(0) lost its exactness");
++        Assert.True(ComplexMath.Cos(Rl.Zero).IsExact, "cos(0) lost its exactness");
++        Assert.True(ComplexMath.Tan(Rl.Zero).IsExact, "tan(0) lost its exactness");
++    }
++
++    /// <summary>
++    /// An INEXACT zero is still an inexact argument: the shortcut may not launder its route. The
++    /// values stay 0/1/0 — only the claim goes.
++    /// </summary>
++    [Fact]
++    public void InexactZeroArgument_DoesNotClaimExactness()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++        Rl inexactZero = Rl.AsInexact(Rl.Zero);
++        Assert.False(inexactZero.IsExact, "the premise: an inexact zero is inexact");
++
++        Rl sin = ComplexMath.Sin(inexactZero);
++        Rl cos = ComplexMath.Cos(inexactZero);
++        Rl tan = ComplexMath.Tan(inexactZero);
++
++        Assert.Equal(Rl.Zero, sin);
++        Assert.Equal(Rl.One, cos);
++        Assert.Equal(Rl.Zero, tan);
++
++        Assert.False(sin.IsExact, "sin(inexact zero) = " + sin + " claims exactness");
++        Assert.False(cos.IsExact, "cos(inexact zero) = " + cos + " claims exactness");
++        Assert.False(tan.IsExact, "tan(inexact zero) = " + tan + " claims exactness");
++    }
++
++    /// <summary>
++    /// THE WIRE'S OWN PAIRING: the symbolic node and the numeric value of the SAME expression must
++    /// agree. <c>cos(pi(30))</c>'s symbolic node is inexact (it is a function of a truncated
++    /// constant), and the numeric value <see cref="Evaluation.EvaluateToNum"/> reads back for that
++    /// node — the very value <c>evalf</c> publishes — used to claim exactness instead.
++    /// </summary>
++    [Fact]
++    public void SymbolicNodeAndNumericResult_AgreeForTheSameExpression()
++    {
++        var ctx = new ExprContext();
++        Exprs.Current = ctx;
++
++        using var scope = Rl.WithPrecision(30, 30);
++        Rl pi30 = Rl.PiTo(30);
++
++        var literal = Exprs.Real(RealLiteral.FromRealExact(pi30));
++        Assert.False(literal.IsExact, "the symbolic literal for pi(30) must be inexact");
++
++        var node = Exprs.Function(ctx.Function("cos"), literal);
++        Assert.False(node.IsExact, "the symbolic node cos(pi(30)) must be inexact");
++
++        Rl numeric = Assert.IsType<NumReal>(Evaluation.EvaluateToNum(node, ctx, NoBindings)).V;
++
++        Assert.Equal(ComplexMath.Cos(pi30), numeric);
++        Assert.Equal(node.IsExact, numeric.IsExact);
++        Assert.False(numeric.IsExact,
++            "the numeric value of cos(pi(30)) = " + numeric + " claims exactness the symbolic node denies");
++    }
++
++    /// <summary>
++    /// The same pairing for sine, whose value here is 0: the flag may not be read off the value's
++    /// shape (an exact-looking 0 out of an inexact argument is still an approximation's zero).
++    /// </summary>
++    [Fact]
++    public void SymbolicNodeAndNumericResult_AgreeForSine()
++    {
++        var ctx = new ExprContext();
++        Exprs.Current = ctx;
++
++        using var scope = Rl.WithPrecision(30, 30);
++        Rl pi30 = Rl.PiTo(30);
++
++        var node = Exprs.Function(ctx.Function("sin"), Exprs.Real(RealLiteral.FromRealExact(pi30)));
++        Assert.False(node.IsExact, "the symbolic node sin(pi(30)) must be inexact");
++
++        Rl numeric = Assert.IsType<NumReal>(Evaluation.EvaluateToNum(node, ctx, NoBindings)).V;
++        Assert.Equal(ComplexMath.Sin(pi30), numeric);
++        Assert.Equal(node.IsExact, numeric.IsExact);
++        Assert.False(numeric.IsExact, "the numeric value of sin(pi(30)) = " + numeric + " claims exactness");
++    }
++
++    /// <summary>
++    /// The COMPLEX overloads: both components of sin(a+bi)/cos(a+bi) depend on both parts of the
++    /// argument, so an inexact part must leave neither component claiming exactness. The leak is
++    /// reachable where the hyperbolic factor is an exact zero (the <c>exp(0)</c> shortcut inside
++    /// <c>RealSinh</c>/<c>RealCosh</c>), which is exactly the <c>0 + 0i</c> shape below.
++    /// </summary>
++    [Fact]
++    public void ComplexTrigOfAnInexactZeroPart_IsNotExact()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++        var z = new Cplx(Rl.Zero, Rl.AsInexact(Rl.Zero));
++        Assert.False(z.Im.IsExact, "the premise: the imaginary part is an inexact zero");
++
++        AssertComplexInexact("sin(0 + 0i)", ComplexMath.Sin(z));
++        AssertComplexInexact("cos(0 + 0i)", ComplexMath.Cos(z));
++        AssertComplexInexact("tan(0 + 0i)", ComplexMath.Tan(z));
++        AssertComplexInexact("sinh(0 + 0i)", ComplexMath.Sinh(z));
++        AssertComplexInexact("cosh(0 + 0i)", ComplexMath.Cosh(z));
++    }
++
++    /// <summary>The control direction: an EXACT complex zero keeps its exact results.</summary>
++    [Fact]
++    public void ComplexTrigOfAnExactZero_KeepsItsExactness()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++        var z = new Cplx(Rl.Zero, Rl.Zero);
++
++        var sin = ComplexMath.Sin(z);
++        Assert.Equal(Rl.Zero, sin.Re);
++        Assert.Equal(Rl.Zero, sin.Im);
++        Assert.True(sin.Re.IsExact && sin.Im.IsExact, "sin(0 + 0i) must stay exact");
++
++        var cos = ComplexMath.Cos(z);
++        Assert.Equal(Rl.One, cos.Re);
++        Assert.Equal(Rl.Zero, cos.Im);
++        Assert.True(cos.Re.IsExact && cos.Im.IsExact, "cos(0 + 0i) must stay exact");
++    }
++
++    /// <summary>
++    /// THE SAME LEAK, MEASURED IN THE INVERSE ENTRY POINTS. <c>DivideTruncate</c> answers
++    /// <c>0 / anything</c> with an EXACT zero, so an argument that only approximates zero reaches
++    /// the series as an exact zero and atan/asin hand back an exact 0. The pre-fix measurements were
++    /// <c>Atan(inexact zero) = 0 exact</c>, <c>Atan2(inexact zero, 1) = 0 exact</c> and
++    /// <c>AsinReal(inexact zero) = 0 exact</c>; the exact controls beside them are untouched.
++    /// </summary>
++    [Fact]
++    public void InverseTrigOfAnInexactZeroArgument_IsNotExact()
++    {
++        using var scope = Rl.WithPrecision(40, 40);
++        Rl inexactZero = Rl.AsInexact(Rl.Zero);
++
++        Assert.Equal(Rl.Zero, ComplexMath.Atan(inexactZero));
++        Assert.Equal(Rl.Zero, ComplexMath.Atan2(inexactZero, Rl.One));
++        Assert.Equal(Rl.Zero, ComplexMath.AsinReal(inexactZero));
++
++        Assert.False(ComplexMath.Atan(inexactZero).IsExact, "atan(inexact zero) claims exactness");
++        Assert.False(ComplexMath.Atan2(inexactZero, Rl.One).IsExact, "atan2(inexact zero, 1) claims exactness");
++        Assert.False(ComplexMath.AsinReal(inexactZero).IsExact, "asin(inexact zero) claims exactness");
++
++        // the exact controls: atan(0) = 0 and asin(0) = 0 ARE exact, and stay so
++        Assert.Equal(Rl.Zero, ComplexMath.Atan(Rl.Zero));
++        Assert.Equal(Rl.Zero, ComplexMath.Atan2(Rl.Zero, Rl.One));
++        Assert.Equal(Rl.Zero, ComplexMath.AsinReal(Rl.Zero));
++        Assert.True(ComplexMath.Atan(Rl.Zero).IsExact, "atan(0) lost its exactness");
++        Assert.True(ComplexMath.Atan2(Rl.Zero, Rl.One).IsExact, "atan2(0, 1) lost its exactness");
++        Assert.True(ComplexMath.AsinReal(Rl.Zero).IsExact, "asin(0) lost its exactness");
++    }
++
++    private static void AssertComplexInexact(string label, Cplx value)
++    {
++        Assert.False(value.Re.IsExact, label + " = (" + value.Re + ", " + value.Im + "): the real part claims exactness");
++        Assert.False(value.Im.IsExact, label + " = (" + value.Re + ", " + value.Im + "): the imaginary part claims exactness");
++    }
++}
