@@ -541,3 +541,38 @@
   implicit; the refusal is typed and recoverable, so a consumer can detect it without parsing prose.
 - **Gate**: —
 
+### OBS-015: Cycle 6's end state — what is on `main`, what is green, and what is still open
+
+- **Source**: `git log --oneline`; CI runs #36 and #38; `docs/symbolics/a-plus-cycle-6-report.md`;
+  `docs/symbolics/a-plus-cycle-6-amendment.md`
+- **Fact**: Twelve commits are on `origin/main` and **run #38 (`1ba8e16`) is green in all three jobs in
+  777 s**, with the fast-tests step back at 652 s (against the 1821 s timeouts of runs #30/#33). Closed
+  and verified by me: the CI breakage, row 1's first route, row 2, row 3, row 4, **O-B11**, and the CI
+  budget itself. Written down in section P: nine rows CLOSED with evidence, two defects OPEN (P-B1, the
+  special-angle exactness leak, and P-B3, `1/(3*10^1000)` → `0`), and seven scope decisions awaiting
+  the maintainer's words after two written requests went unanswered. **D1 is not met and A+ is not
+  claimed** — the four-persona fresh audit was not run, and both open defects are the kind it would
+  find.
+- **Implications**: the goal stays active. The next objectives are, in order: (1) close P-B1 with the
+  `ComplexMath` reduction fix and mpmath-backed updates to the two tests that pin the current
+  behaviour; (2) close P-B3 in `Real.Divide`; (3) run the fresh audit against the published binary;
+  (4) obtain the maintainer's acceptance for the seven bounds, or open a round for each rejection.
+- **Confidence**: High
+- **Agent**: orchestrator
+- **Related**: EVD-265, EVD-266, OQ-003, EVD-255
+
+### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
+
+- **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,
+  with no code difference between them (documentation only). A red run on an otherwise-green commit
+  wastes a diagnosis round and, if it lands on a final commit, breaks D0.
+- **Likelihood**: Medium (1 of 3 observed on this code)
+- **Impact**: Medium
+- **Evidence**: EVD-267 — #39 failed at step 5 after 692 s; #38 (652 s) and #40 (548 s) are green; the
+  four late-loop projects are clean under the collector locally; the failing test's name is unknown
+  because the job log needs a token.
+- **Mitigation**: the next commit makes the loop print the failing test names as `::error` annotations,
+  which the unauthenticated checks API can read, so the next occurrence names itself. Until then, treat
+  a single red run on unchanged code as this risk and re-run before investigating the product.
+- **Gate**: —
+
