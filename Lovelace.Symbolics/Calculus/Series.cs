@@ -4,6 +4,30 @@ using Int = global::Lovelace.Integer.Integer;
 namespace Lovelace.Symbolics;
 
 /// <summary>
+/// How <see cref="Series.Of"/> treats a KINK at the expansion point: a subexpression whose sign
+/// changes there, i.e. an <c>abs(g)</c> whose argument vanishes at the point.
+/// </summary>
+public enum SeriesKinkPolicy
+{
+    /// <summary>
+    /// Resolve the kink by the sign of the argument's leading coefficient — the RIGHT-HAND
+    /// expansion. That is SymPy's rule (<c>Abs._eval_nseries</c> multiplies the argument's series by
+    /// <c>sign(arg.leadterm(x)[0])</c>) and SymPy's default direction (<c>dir='+'</c>), which is why
+    /// <c>series(Abs(x), x, 0, 3)</c> is <c>x</c> rather than a refusal. This is the published
+    /// <c>series()</c> contract.
+    /// </summary>
+    ResolveByLeadingSign,
+
+    /// <summary>
+    /// Leave the derivative node unevaluated. A caller that reasons about TWO-SIDED behaviour must
+    /// not adopt a one-sided convention: <c>|x|/x</c> has no two-sided limit at 0 and the right-hand
+    /// series would answer 1, so the limit engine keeps the unresolved nodes its leading-order
+    /// analysis is written against (see <c>Limits.SeriesLimit</c>).
+    /// </summary>
+    LeaveUnevaluated,
+}
+
+/// <summary>
 /// Truncated power series: c0 + c1·(x-x0) + … + c_{n-1}·(x-x0)^{n-1} + O((x-x0)^n).
 /// Coefficients are expressions (constants after evaluation at numeric points).
 /// </summary>
@@ -32,11 +56,17 @@ public sealed class Series
     /// <summary>True leading order of the expansion: LeadingPower + first nonzero coefficient index.</summary>
     public int LeadingOrder() => LeadingPower + LeadingIndex();
 
-    public static Series Of(Expr f, Symbol x, Expr x0, int order, ExprContext? ctx = null)
+    public static Series Of(Expr f, Symbol x, Expr x0, int order, ExprContext? ctx = null,
+        SeriesKinkPolicy kinks = SeriesKinkPolicy.ResolveByLeadingSign)
     {
         ctx ??= Exprs.Current;
         if (order < 1)
             throw new ArgumentOutOfRangeException(nameof(order));
+
+        // a kink the expansion crosses is resolved BEFORE anything is differentiated: the machinery
+        // can only see a derivative at a point where the function has one (Round 20, H-1)
+        if (kinks == SeriesKinkPolicy.ResolveByLeadingSign)
+            f = ResolveKinks(f, x, x0, order, ctx);
 
         // fractions: series of numerator and denominator separately, then divide
         // (canonical 0/0 folding would otherwise destroy the information at the point)
@@ -50,10 +80,107 @@ public sealed class Series
         return OfNoSplit(fn, x, x0, order, ctx);
     }
 
+    /// <summary>
+    /// Rewrites every kink the expansion crosses: an <c>abs(g)</c> is replaced by the branch the
+    /// expansion follows, so no derivative is ever taken OF the kink. That is SymPy's rule exactly —
+    /// <c>Abs._eval_nseries</c> multiplies the argument's own series by
+    /// <c>sign(arg.leadterm(x)[0])</c>, the sign of the argument's leading COEFFICIENT — and it is
+    /// why <c>series(abs(x), x, 0, 3)</c> is <c>x + O(x^3)</c>: the expansion is the RIGHT-HAND one,
+    /// the side SymPy's default <c>dir='+'</c> names.
+    /// <para>
+    /// Without the rewrite the kernel differentiates the kink itself, and what it can produce is
+    /// <c>piecewise(0 if 0 != 0, diff(0, t))</c> — an expression whose second branch is the
+    /// unevaluated derivative of a constant WITH RESPECT TO THE EXPANSION'S OWN SUBSTITUTION
+    /// VARIABLE, and whose value at the point denotes 0 while <c>|x|</c> is <c>x</c> there. The
+    /// variable was also <c>Guid</c>-named in that path, so the published text changed on every run
+    /// (H-1).
+    /// </para>
+    /// </summary>
+    private static Expr ResolveKinks(Expr e, Symbol x, Expr x0, int order, ExprContext ctx)
+    {
+        switch (e)
+        {
+            case FunctionExpr f when f.Function.Name == "abs":
+            {
+                Expr g = ResolveKinks(f.Arguments[0], x, x0, order, ctx);
+                Expr? c = LeadingCoefficient(g, x, x0, order, ctx);
+                if (c is null)
+                    return Exprs.Zero;   // g vanishes to the requested order, so |g| does too
+                if (SignOf(c) is { } s)
+                    return s > 0 ? g : s < 0 ? Exprs.Negate(g) : Exprs.Zero;
+                // The leading coefficient is symbolic (|a·x| at 0: which side the expansion follows
+                // depends on the sign of a). The branch is then sign(a)·a·x = |a|·x — the branch
+                // SymPy takes — so the coefficient is COMPUTED, never guessed and never refused.
+                return Exprs.Multiply(Exprs.Function(ctx.Function("sign"), c), g);
+            }
+            case AddExpr a:
+                return Exprs.Add(a.Terms.Select(t => ResolveKinks(t, x, x0, order, ctx)));
+            case MultiplyExpr m:
+                return Exprs.Multiply(m.Factors.Select(t => ResolveKinks(t, x, x0, order, ctx)));
+            case PowerExpr pw:
+                return Exprs.Power(ResolveKinks(pw.Base, x, x0, order, ctx), ResolveKinks(pw.Exponent, x, x0, order, ctx));
+            case FunctionExpr fn:
+                return Exprs.Function(fn.Function, fn.Arguments.Select(t => ResolveKinks(t, x, x0, order, ctx)).ToArray());
+            case RelationExpr r:
+                return Exprs.Relation(r.Op, ResolveKinks(r.Left, x, x0, order, ctx), ResolveKinks(r.Right, x, x0, order, ctx));
+            case PiecewiseExpr pwx:
+                return Exprs.Piecewise(
+                    pwx.Branches.Select(b => new PiecewiseBranch(
+                        ResolveKinks(b.Guard, x, x0, order, ctx), ResolveKinks(b.Value, x, x0, order, ctx))),
+                    ResolveKinks(pwx.Otherwise, x, x0, order, ctx));
+            case DerivativeExpr d:
+                return Exprs.Derivative(ResolveKinks(d.Operand, x, x0, order, ctx), d.Variables.ToArray());
+            case IntegralExpr i:
+                return Exprs.Integral(ResolveKinks(i.Operand, x, x0, order, ctx), i.Variables.ToArray());
+            case NotExpr n:
+                return Exprs.Not(ResolveKinks(n.Operand, x, x0, order, ctx));
+            case AndExpr an:
+                return Exprs.And(an.Operands.Select(t => ResolveKinks(t, x, x0, order, ctx)));
+            case OrExpr or:
+                return Exprs.Or(or.Operands.Select(t => ResolveKinks(t, x, x0, order, ctx)));
+            default:
+                return e;
+        }
+    }
+
+    /// <summary>The leading (first nonzero) coefficient of g's own series at the point, or null when
+    /// that series is zero to the requested order.</summary>
+    private static Expr? LeadingCoefficient(Expr g, Symbol x, Expr x0, int order, ExprContext ctx)
+    {
+        Series s = Of(g, x, x0, Math.Max(order, 2), ctx);
+        int i = s.LeadingIndex();
+        return i < 0 ? null : s.Coefficients[i];
+    }
+
+    /// <summary>The sign of a numeric constant, or null when the expression is not one.</summary>
+    private static int? SignOf(Expr e) => e switch
+    {
+        IntegerConstantExpr i => Int.IsZero(i.Value) ? 0 : (Int.IsNegative(i.Value) ? -1 : 1),
+        RationalConstantExpr r => r.Value.Sign,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The expansion's own substitution variable, the fresh <c>t</c> of <c>x = t + x0</c>. It is
+    /// INTERNAL — every coefficient is computed by substituting it back out — and it is chosen
+    /// deterministically and away from every symbol the input already carries, so that (a) the same
+    /// script always meets the same name (Round 20, H-1: this used to be
+    /// <c>"__t" + Guid.NewGuid().ToString("N")[..6]</c>, so any coefficient that survived the
+    /// substitution printed differently on every run) and (b) the substitution can never capture a
+    /// caller's own symbol.
+    /// </summary>
+    private static Symbol InternalVariable(Expr f, Symbol x, Expr x0, ExprContext ctx)
+    {
+        string name = "__t";
+        for (int i = 1; !Calculus.FreeOf(f, ctx.Symbol(name)) || !Calculus.FreeOf(x0, ctx.Symbol(name)); i++)
+            name = "__t" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return ctx.Symbol(name);
+    }
+
     private static Series OfNoSplit(Expr f, Symbol x, Expr x0, int order, ExprContext ctx)
     {
         // substitute x = t + x0 (fresh t), then compute Maclaurin coefficients in t
-        var t = ctx.Symbol("__t" + Guid.NewGuid().ToString("N")[..6]);
+        var t = InternalVariable(f, x, x0, ctx);
         var shifted = Evaluation.Substitute(f, ctx, new Dictionary<Symbol, Expr> { [x] = Exprs.Add(Exprs.Symbol(t), x0) });
 
         var coeffs = new Expr[order];

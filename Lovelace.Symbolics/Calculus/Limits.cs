@@ -413,8 +413,13 @@ public static class Limits
     private static LimitResult SeriesLimit(Expr f, Expr n, Expr d, Symbol x, Expr point, LimitDirection direction, ExprContext ctx)
     {
         bool denIsOne = d is RationalConstantExpr { Value.IsOne: true };
-        var sn = Series.Of(denIsOne ? f : n, x, point, 10, ctx);
-        var sd = denIsOne ? null : Series.Of(d, x, point, 10, ctx);
+        // LeaveUnevaluated: the analysis below is written for BOTH sides. A kink (|x| at 0) has no
+        // two-sided expansion — |x|/x has no two-sided limit there — so this path must not adopt the
+        // one-sided convention the published series() uses; its leading-order and coefficient checks
+        // are unchanged by that choice. Nothing here is ever published: only a ratio that
+        // ConstantToNum accepts reaches a LimitResult (Round 20, H-1).
+        var sn = Series.Of(denIsOne ? f : n, x, point, 10, ctx, SeriesKinkPolicy.LeaveUnevaluated);
+        var sd = denIsOne ? null : Series.Of(d, x, point, 10, ctx, SeriesKinkPolicy.LeaveUnevaluated);
         int on = sn.LeadingOrder();
         int od = denIsOne ? 0 : sd!.LeadingOrder();
 
