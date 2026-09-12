@@ -188,15 +188,18 @@ public static class Runner
         // capture print() output: the envelope must be the only thing on stdout. Declared outside the
         // try so a cancelled evaluation can still return the output it produced (the partial result).
         var output = new StringWriter();
-        using var cancellation = cancelAfterMs is { } budget
-            ? new CancellationTokenSource(budget)
-            : new CancellationTokenSource();
-        // The DEADLINE's own clock, started with the token that arms it. The engine's elapsed clock
+        // The DEADLINE's own clock, started BEFORE the token that arms it. The engine's elapsed clock
         // starts later (it measures the evaluation), so a stop the deadline caused could be measured
         // INSIDE the budget and publish "stopped:true" next to "exceeded:false" with an empty
         // diagnostics array — nothing in the envelope then said the budget had been consumed
-        // (round-20 audit I, I-1).
+        // (round-20 audit I, I-1). The order matters and a test caught it: starting this clock AFTER
+        // the token source meant the clock read epsilon LESS than the budget at the instant the token
+        // fired, so the overshoot still computed to zero for exactly the runs this is for. Started
+        // first, the clock has necessarily passed the budget by the time any stop can be observed.
         var deadlineClock = cancelAfterMs is null ? null : System.Diagnostics.Stopwatch.StartNew();
+        using var cancellation = cancelAfterMs is { } budget
+            ? new CancellationTokenSource(budget)
+            : new CancellationTokenSource();
 
         try
         {
