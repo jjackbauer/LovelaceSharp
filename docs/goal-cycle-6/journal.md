@@ -856,6 +856,38 @@
 - **Gate**: —
 ---
 
+### OBS-025: The third wave's complete tally — 1 P0, 2 P1, 4 P2 — and what each one cost to find
+
+- **Source**: audits G (cross-surface consistency), H (determinism/idempotence) and I (budget honesty),
+  three fresh agents with three strategies nothing earlier in the cycle had used, all against the AOT
+  binary published from HEAD.
+- **Tally**:
+  | id | sev | what it was | disposition |
+  |---|---|---|---|
+  | **H-1** | **P0** | `series(abs(x), x, 0, 3)` differed on every run (`Guid`-named substitution variable) **and** denoted `0 + O(x^3)` where `|x|` is `x` | **CLOSED** `9852a2f`, 33 control-failing cases, instrument 1/7 → 7/7 (EVD-297/303/306) |
+  | **G-2** | P1 | byte-identical text reported `position 12` via `--file` and `13` via `--eval`/`--stdin` (the BOM was stripped on one surface only) | **CLOSED** `effd054`, probe AGREE x4, control 3/5 failing (EVD-298/301/302/305) |
+  | **I-1** | P1 | `--cancel-after` could publish `stopped:true` with `exceeded:false` and an empty diagnostics array — two clocks with different origins | fixer running (EVD-308) |
+  | **G-1** | P2 | capability prose described four typed refusals as internal failures | **CLOSED** `5e85c28` |
+  | **H-2** | P2 | `--help` said the payload flags "omit" an array the envelope carries empty | **CLOSED** `8d61b4b` as a documentation defect — the behaviour is pinned by an existing test (DEC-009, EVD-304) |
+  | **I-2** | P2 | `evalf`'s 1000-place clamp is silent and its descriptor claims the opposite | fixer running |
+  | **I-3** | P2 | `--print-budget` splits an identifier mid-token, against the printer's own promise | fixer running |
+- **What this wave teaches that the first two did not**: the two P1/P0s live in the same blind spot —
+  a value that is *self-consistent per route and per run* until you compare two runs (H-1) or two routes
+  (G-2). Wave 1 tested metamorphic invariants, wave 2 attacked the previous fixes and fuzzed the CLI;
+  neither asked "is this the same answer twice?" or "is this the same answer on every surface?".
+  **A new strategy is not a luxury; it is the only thing that found these.** (OBS-022, OBS-024.)
+- **Also found while verifying H-1, outside every wave's scope**: `series` across a **pole or branch
+  point** publishes wrong values — `series(1/x, x, 0, 2)` = `1 + O(x^2)` where SymPy says `1/x`,
+  `series(1/x^2, x, 0, 2)` errors, `series(sin(x)/x, x, 0, 3)` = `1 + O(x^3)` where SymPy says
+  `1 - x^2/6 + O(x^3)`, `series(sqrt(x), x, 0, 2)` publishes `1/sqrt(0)` where SymPy returns `sqrt(x)`.
+  Pre-existing (byte-identical on the pre-fix binary), root-caused by the orchestrator (EVD-306) and
+  dispatched. This is the fourth consecutive round in which verifying one thing exposed another.
+- **Evidence**: EVD-297, EVD-298, EVD-301, EVD-302, EVD-303, EVD-304, EVD-305, EVD-306, EVD-307, EVD-308;
+  `round-20/audit-{G,H,I}*.md`.
+- **Gate**: —
+
+---
+
 ### VAL-005: Round-20's P1 and the two P2s are closed on `main` and pushed (`8d61b4b`)
 
 - **G-2 (P1)** closed by `effd054` (cherry-picked from the fixer's `81d2908`): one

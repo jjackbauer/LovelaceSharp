@@ -1,9 +1,17 @@
 # Harness State — cycle-6
 
+- **Round**: 21 — **every wave-3 finding is closed and CI is verifying them**: H-1 (`9852a2f`), G-2 (`effd054`), G-1 (`5e85c28`), H-2 (`8d61b4b`), records `d9095d5`; the 15-project sweep on the fixed tree is **5535/0/0 in 180.5 s** (5497 + the 38 new tests); run **#69** has the AOT-publish and SymPy-oracle jobs `success` with the fast suite still running. **New, found while verifying H-1, and NOT closed: a pre-existing `series` cluster across a POLE or BRANCH POINT** — `series(1/x, x, 0, 2)` = `1 + O(x^2)` where SymPy says `1/x`; `series(1/x^2, x, 0, 2)` errors; `series(sin(x)/x, x, 0, 3)` = `1 + O(x^3)` where SymPy says `1 - x^2/6 + O(x^3)`; `series(sqrt(x), x, 0, 2)` publishes `1/sqrt(0)`. Root cause derived by the orchestrator (`Series.Divide` drops the `(la - lb)` leading-power shift, and the fraction path never asks for enough terms to survive the shift) and dispatched to a fresh fixer worktree with a control-tree requirement. **D0 pending run #69; D1 NOT met (this cluster is open and no clean wave 4 has run); D3 PARTIAL** — the seven §P.3 acceptances are still unanswered after five written requests. A+ not claimed.
 - **Round**: 20 — **the third audit wave (new strategies: cross-surface consistency, determinism/idempotence, budget honesty) falsified the closure claim again**: **H-1 (P0)** `series(abs(x), x, 0, 3)` returns a different value every run (`__t<guid>` from `Series.cs:56` survives into the published `piecewise`) **and denotes 0 where SymPy says x**; **G-2 (P1)** byte-identical BOM text reports `position 12` via `--file` but `13` via `--eval`/`--stdin`; two P2s (`SymbolicsPlugin.cs` stale capability prose — **fixed by me**; `--omit-*` emitting `[]` instead of omitting the key). Fixers dispatched for H-1 and G-2 with control trees; **D1 is NOT MET at `d87e910`**. A+ not claimed.
 - **Round**: 19 — the second wave's P1s are closed too (published positions `63774da`; print output and `ParseError` `6424e27`), so **all fourteen P0/P1s from both audit waves are closed with control-failing tests**. **CI run #66 on `3d27d61` is green in all three jobs.** **D1 remains NOT MET** because no CLEAN fresh wave has been run against the closure tree, and **D3 remains PARTIAL** (seven bound acceptances unanswered). A+ not claimed.
 
-> **Round 20 objective: run the third fresh audit wave against the binary published from HEAD, then
+> **Round 21 objective: close the pole/branch-point `series` cluster (dispatched with the derived root
+> cause and a control-tree requirement), then re-measure D4 on the final tree — forced rebuild, 15-project
+> sweep, AOT re-publish plus freshness and the five smoke scenarios, capability honesty, printer round-trip
+> — and run wave 4 against THAT binary (`round-20/wave-4-plan.md`: protocol conformance, library/embedding
+> API, composed programs). D1 needs a wave that comes back clean; D3 needs the maintainer's words for the
+> seven §P.3 bounds. A+ stays unclaimed until both resolve.**
+>
+> Background, round 20: **run the third fresh audit wave against the binary published from HEAD, then
 > close whatever it finds before the tree is called clean.** Wave 3 (three new strategies: cross-surface
 > consistency, determinism/idempotence, budget/limit honesty) found **one P0 and one P1**, both NEW:
 > (a) **H-1 (P0, two defects in one)** — `series(abs(x), x, 0, 3)` is **nondeterministic** (the
