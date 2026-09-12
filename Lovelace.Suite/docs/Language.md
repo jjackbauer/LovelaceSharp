@@ -1095,7 +1095,7 @@ x = symbol("x")
 limit(sin(x)/x, x, 0)
 ```
 ```result
-1 (Symbolic)
+LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace

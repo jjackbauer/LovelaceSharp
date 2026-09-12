@@ -184,23 +184,23 @@ public sealed class Value
     // -----------------------------------------------------------------
 
     /// <summary>Returns the stored value cast to <see cref="Nat"/>.</summary>
-    public Nat AsNatural() => (Nat)_inner;
+    public Nat AsNatural() => Require<Nat>("a Natural");
 
     /// <summary>Returns the stored value cast to <see cref="Int"/>.</summary>
-    public Int AsInteger() => (Int)_inner;
+    public Int AsInteger() => Require<Int>("an Integer");
 
     /// <summary>Returns the stored value cast to <see cref="Rl"/>.</summary>
-    public Rl AsReal() => (Rl)_inner;
+    public Rl AsReal() => Require<Rl>("a Real");
 
-    public Cplx AsComplex() => (Cplx)_inner;
+    public Cplx AsComplex() => Require<Cplx>("a Complex");
 
-    public Lovelace.Symbolics.Expr AsSymbolic() => (Lovelace.Symbolics.Expr)_inner;
+    public Lovelace.Symbolics.Expr AsSymbolic() => Require<Lovelace.Symbolics.Expr>("a symbolic expression");
 
     /// <summary>Returns the stored value cast to <see cref="bool"/>.</summary>
-    public bool AsBoolean() => (bool)_inner;
+    public bool AsBoolean() => _inner is bool value ? value : throw new ValueShapeException("a Boolean", this);
 
     /// <summary>Returns the stored value cast to <see cref="string"/>.</summary>
-    public string AsText() => (string)_inner;
+    public string AsText() => Require<string>("text");
 
     /// <summary>Returns the stored value cast to a read-only list of values.</summary>
     public IReadOnlyList<Value> AsVector() => TypedArrayAdapter.ToElements(AsArrayValue());
@@ -209,19 +209,29 @@ public sealed class Value
     public NdArray<Value> AsArray() => TypedArrayAdapter.ToNdArray(AsArrayValue());
 
     /// <summary>Returns the stored value cast to an <see cref="ArrayValue"/>.</summary>
-    public ArrayValue AsArrayValue() => (ArrayValue)_inner;
+    public ArrayValue AsArrayValue() => Require<ArrayValue>("an array or vector");
 
     /// <summary>Returns the stored value cast to a <see cref="FunctionDefinition"/>.</summary>
-    public FunctionDefinition AsFunction() => (FunctionDefinition)_inner;
+    public FunctionDefinition AsFunction() => Require<FunctionDefinition>("a function");
 
     /// <summary>Returns the stored value cast to a <see cref="RecordValue"/>.</summary>
-    public RecordValue AsRecord() => (RecordValue)_inner;
+    public RecordValue AsRecord() => Require<RecordValue>("a record");
 
     /// <summary>Returns the stored value cast to a <see cref="MathDomain"/>.</summary>
-    public MathDomain AsDomain() => (MathDomain)_inner;
+    public MathDomain AsDomain() =>
+        _inner is MathDomain domain ? domain : throw new ValueShapeException("a domain value such as real or complex", this);
 
     /// <summary>Returns the stored value cast to an <see cref="EnumValue"/>.</summary>
-    public EnumValue AsEnum() => (EnumValue)_inner;
+    public EnumValue AsEnum() => Require<EnumValue>("an enumerated value");
+
+    /// <summary>The ONE coercion guard behind every <c>As…</c> accessor: the value is not the KIND
+    /// the caller requires. It raises <see cref="ValueShapeException"/> — carrying the expectation
+    /// and this value — instead of letting a raw CLR cast escape as <c>InvalidCastException</c>,
+    /// which the runner can only report as an internal invariant failure (audit D, finding F1). The
+    /// call-site guard in <see cref="Interpreter"/> turns it into the documented recoverable
+    /// argument error naming the builtin, the argument position and the kind that arrived.</summary>
+    private T Require<T>(string expected) where T : class =>
+        _inner as T ?? throw new ValueShapeException(expected, this);
 
     // -----------------------------------------------------------------
     // Widening
@@ -309,4 +319,33 @@ public sealed class Value
         ValueKind.Void    => "Void",
         _                 => throw new InvalidOperationException($"Unknown kind: {Kind}"),
     };
+}
+
+/// <summary>
+/// A coercion failure inside the engine: the value is not the KIND the caller requires, so the
+/// <c>As…</c> accessors on <see cref="Value"/> raise this instead of a raw CLR cast — with the
+/// expectation in the message rather than the framework's "Specified cast is not valid.".
+/// <para>
+/// The call-site guard in <see cref="Interpreter"/> catches it for a builtin body and re-raises
+/// <see cref="BuiltinShapeException"/> (an <see cref="ArgumentException"/>, so the wire carries the
+/// documented <c>InvalidArgument</c>/<c>TypeMismatch</c>), naming the builtin, the 1-based argument
+/// position and the kind that arrived. <see cref="Offender"/> is the value that failed the
+/// coercion: when it is one of the call's arguments the attribution is exact. A failure on an
+/// ENGINE-INTERNAL value is not a caller mistake and keeps crossing as it did before — an internal
+/// invariant failure — so a genuine engine bug is never disguised as a user error. Deriving from
+/// <see cref="InvalidCastException"/> keeps that escape hatch (and every existing host that catches
+/// the framework type) behaving exactly as it did.
+/// </para>
+/// </summary>
+internal sealed class ValueShapeException(string expected, Value? offender = null) : InvalidCastException(
+    offender is null
+        ? $"a value is not {expected}."
+        : $"a value of kind {offender.Kind} is not {expected}.")
+{
+    /// <summary>The kind the caller required, as prose: <c>an array or vector</c>, <c>a Real</c>.</summary>
+    public string Expected { get; } = expected;
+
+    /// <summary>The value that failed the coercion, or <see langword="null"/> when the failing value
+    /// is not a single <see cref="Value"/> (a shape check inside the array kernel, for example).</summary>
+    public Value? Offender { get; } = offender;
 }

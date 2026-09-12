@@ -246,14 +246,29 @@ public class IndeterminateExponentialLimitTests
     {
         var engine = NewEngine();
         engine.Evaluate("x = symbol(\"x\")");
-        Assert.Equal("5", ValueFormatter.Format(engine.Evaluate("limit(x^2 + 1, x, 2)")));
-        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^2, x, 0)")));
-        Assert.Equal("8", ValueFormatter.Format(engine.Evaluate("limit(2^x, x, 3)")));
-        Assert.Equal("1", ValueFormatter.Format(engine.Evaluate("limit(x^x, x, 0)")));
+        // audit D F2 (cycle 6): the short form publishes the LimitResult record, so the value a
+        // caller wants is the record's own "value" field. Same seven values, read off structure.
+        AssertShortFormValue(engine, "limit(x^2 + 1, x, 2)", "5");
+        AssertShortFormValue(engine, "limit((1 + x)^2, x, 0)", "1");
+        AssertShortFormValue(engine, "limit(2^x, x, 3)", "8");
+        AssertShortFormValue(engine, "limit(x^x, x, 0)", "1");
         // and the probes answer SymPy's E and exp(2) through the same builtin
-        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + 1/x)^x, x, inf)")));
-        Assert.Equal("e", ValueFormatter.Format(engine.Evaluate("limit((1 + x)^(1/x), x, 0)")));
-        Assert.Equal("e^2", ValueFormatter.Format(engine.Evaluate("limit((1 + 2/x)^x, x, inf)")));
+        AssertShortFormValue(engine, "limit((1 + 1/x)^x, x, inf)", "e");
+        AssertShortFormValue(engine, "limit((1 + x)^(1/x), x, 0)", "e");
+        AssertShortFormValue(engine, "limit((1 + 2/x)^x, x, inf)", "e^2");
+    }
+
+    /// <summary>audit D F2 (cycle 6): a short-form limit is a LimitResult record, so the answer is
+    /// the record's <c>value</c> field and the record's own <c>status</c>/<c>exists</c> say that it
+    /// IS an answer. The value assertion is the one this file already made; the two beside it are
+    /// what the bare result could not carry.</summary>
+    private static void AssertShortFormValue(SuiteEngine engine, string call, string expected)
+    {
+        var record = engine.Evaluate(call).AsRecord();
+        Assert.Equal("LimitResult", record.TypeName);
+        AssertEnumField(F(record, "status"), "LimitStatus", "Value");
+        Assert.True(F(record, "exists").AsBoolean(), $"{call}: a determined limit reports exists: true");
+        Assert.Equal(expected, ValueFormatter.Format(F(record, "value")));
     }
 
     // ------------------------------------------------------------------

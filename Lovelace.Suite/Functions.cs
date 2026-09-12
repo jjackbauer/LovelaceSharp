@@ -159,3 +159,45 @@ public sealed class BuiltinArityException : ArgumentException
 
     private static string Argument(int count) => count == 1 ? "argument" : "arguments";
 }
+
+/// <summary>
+/// A call-site SHAPE failure: the argument the builtin's declared parameter names is not the KIND
+/// of thing the body requires — a bare scalar where a matrix is required, a symbolic value where a
+/// text name is required, a non-permutation where an axis order is required. Like
+/// <see cref="BuiltinArityException"/> it derives from <see cref="ArgumentException"/>, so the
+/// runner's taxonomy classifies the call as the documented RECOVERABLE argument error
+/// (<c>code: InvalidArgument</c>, <c>category: TypeMismatch</c>) — never as a domain refusal, and
+/// never, as the direct cast it replaced did, as an internal invariant failure carrying the raw CLR
+/// message (audit D, finding F1).
+/// <para>
+/// The message is the one grammar every argument-shape refusal shares, so a caller reads the
+/// builtin, the 1-based position, what was required and what actually arrived without parsing
+/// prose: <c>det(): argument 1 must be an array or vector; got Natural.</c>
+/// </para>
+/// </summary>
+public sealed class BuiltinShapeException : ArgumentException
+{
+    public BuiltinShapeException(string builtin, int position, string expected, ValueKind arrived)
+        : base(Describe(builtin, position, expected, arrived))
+    {
+        Builtin = builtin;
+        Position = position;
+        Expected = expected;
+        Arrived = arrived;
+    }
+
+    /// <summary>The builtin whose argument shape the call violated.</summary>
+    public string Builtin { get; }
+
+    /// <summary>The 1-based position of the offending argument.</summary>
+    public int Position { get; }
+
+    /// <summary>What that position requires, as prose.</summary>
+    public string Expected { get; }
+
+    /// <summary>The kind that actually arrived in that position.</summary>
+    public ValueKind Arrived { get; }
+
+    private static string Describe(string builtin, int position, string expected, ValueKind arrived) =>
+        $"{builtin}(): argument {position} must be {expected}; got {arrived}.";
+}

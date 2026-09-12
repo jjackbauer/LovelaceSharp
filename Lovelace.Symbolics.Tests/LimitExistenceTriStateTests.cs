@@ -107,10 +107,29 @@ public class LimitExistenceTriStateTests
         var engine = NewEngine();
         engine.Evaluate("x = symbol(\"x\")");
 
-        Assert.StartsWith("unevaluated", engine.Evaluate("limit_left(x*sin(1/x), x, 0)").AsText());
-        Assert.StartsWith("unevaluated", engine.Evaluate("limit_right(x*sin(1/x), x, 0)").AsText());
-        Assert.Equal("-inf", ValueFormatter.Format(engine.Evaluate("limit_left(1/x, x, 0)")));
-        Assert.Equal("inf", ValueFormatter.Format(engine.Evaluate("limit_right(1/x, x, 0)")));
+        // audit D F2 (cycle 6): the one-sided SHORT forms publish the SAME LimitResult record the
+        // full form does, so "no value" and "which value" are read off the fields instead of off a
+        // prose prefix. The two values asserted before are asserted here, with their status beside
+        // them — a strictly larger claim than the bare Symbolic/Text answer used to carry.
+        var leftUndetermined = engine.Evaluate("limit_left(x*sin(1/x), x, 0)").AsRecord();
+        AssertStatus(leftUndetermined, "Unevaluated");
+        Assert.Equal(ValueKind.Void, F(leftUndetermined, "value").Kind);
+        Assert.Equal("Null", StructuredProjection.ToStructured(F(leftUndetermined, "value")).Kind);
+
+        var rightUndetermined = engine.Evaluate("limit_right(x*sin(1/x), x, 0)").AsRecord();
+        AssertStatus(rightUndetermined, "Unevaluated");
+        Assert.Equal(ValueKind.Void, F(rightUndetermined, "value").Kind);
+        Assert.Equal("Null", StructuredProjection.ToStructured(F(rightUndetermined, "value")).Kind);
+
+        var leftPole = engine.Evaluate("limit_left(1/x, x, 0)").AsRecord();
+        AssertStatus(leftPole, "MinusInfinity");
+        Assert.True(F(leftPole, "exists").AsBoolean());
+        Assert.Equal("-inf", ValueFormatter.Format(F(leftPole, "value")));
+
+        var rightPole = engine.Evaluate("limit_right(1/x, x, 0)").AsRecord();
+        AssertStatus(rightPole, "PlusInfinity");
+        Assert.True(F(rightPole, "exists").AsBoolean());
+        Assert.Equal("inf", ValueFormatter.Format(F(rightPole, "value")));
     }
 
     /// <summary>Kernel level: an undetermined one-sided result is Unevaluated with NO value —

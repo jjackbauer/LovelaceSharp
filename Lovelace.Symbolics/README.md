@@ -381,12 +381,17 @@ The trailing `O(x^n)` marks the truncation order explicitly.
 
 ## 9. Limits
 
+`limit`, `limit_left` and `limit_right` all return the SAME `LimitResult` record `limit_full`
+returns — `status`, `exists`, `value`, the one-sided `left`/`right` values each with the constraint
+it holds under, `exactness` and `diagnostics` — so a caller reads the answer off the structure
+instead of parsing prose out of the result:
+
 ```lovelace
 x = symbol("x")
 limit(sin(x)/x, x, 0)
 ```
 ```result
-1 (Symbolic)
+LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace
@@ -394,7 +399,7 @@ x = symbol("x")
 limit((1 - cos(x))/x^2, x, 0)
 ```
 ```result
-1/2 (Symbolic)
+LimitResult(status: Value, exists: True, value: 1/2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 Two-sided limits report disagreement between the one-sided limits instead of forcing a
@@ -405,7 +410,7 @@ x = symbol("x")
 limit(1/x, x, 0)
 ```
 ```result
-does not exist (left: -inf, right: +inf)
+LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 One-sided limits are first-class (`limit_left`, `limit_right`):
@@ -415,7 +420,7 @@ x = symbol("x")
 limit_left(1/x, x, 0)
 ```
 ```result
--inf (Symbolic)
+LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace
@@ -423,7 +428,7 @@ x = symbol("x")
 limit_right(1/x, x, 0)
 ```
 ```result
-inf (Symbolic)
+LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace
@@ -431,7 +436,7 @@ x = symbol("x")
 limit(1/x^2, x, 0)
 ```
 ```result
-inf (Symbolic)
+LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 Rational functions at infinity use exact degree comparison:
@@ -441,7 +446,7 @@ x = symbol("x")
 limit(1/(x+1), x, inf)
 ```
 ```result
-0 (Symbolic)
+LimitResult(status: Value, exists: True, value: 0, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace
@@ -449,7 +454,7 @@ x = symbol("x")
 limit(x^2 + 1, x, inf)
 ```
 ```result
-inf (Symbolic)
+LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 ```lovelace
@@ -457,7 +462,7 @@ x = symbol("x")
 limit((2*x^2 + 1)/(x^2 - 1), x, inf)
 ```
 ```result
-2 (Symbolic)
+LimitResult(status: Value, exists: True, value: 2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)
 ```
 
 When no safe closed form is found the limit is reported unevaluated — never guessed:
@@ -467,7 +472,7 @@ x = symbol("x")
 limit(exp(-(x^2)), x, inf)
 ```
 ```result
-unevaluated: coefficient does not evaluate at the point
+LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics: [Diagnostic(code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, recoverable: True, location: , details: [])]) (LimitResult)
 ```
 
 

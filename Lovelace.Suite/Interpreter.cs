@@ -798,10 +798,72 @@ public sealed class Interpreter
         {
             // ONE validator, computed from the builtin's own declared metadata, before the body runs
             ValidateArity(fn, args.Count);
-            return await fn.Builtin!(args);
+            // ... and ONE guard for the argument SHAPE. The body reads its arguments through this
+            // list, so a coercion failure is attributed to the argument that caused it and crosses
+            // as the documented recoverable argument error naming the builtin, the position and the
+            // kind that arrived — instead of escaping as a raw CLR cast and being reported as an
+            // internal invariant failure (audit D, finding F1).
+            var tracked = new BuiltinArguments(args);
+            try
+            {
+                return await fn.Builtin!(tracked);
+            }
+            catch (ValueShapeException ex)
+            {
+                // an exact attribution to one of the call's arguments is the documented argument
+                // error; a coercion that failed on an engine-internal value is NOT a caller mistake
+                // and keeps crossing as an internal invariant failure
+                if (tracked.PositionOf(ex.Offender) is not int position)
+                    throw;
+
+                throw new BuiltinShapeException(fn.Name, position + 1, ex.Expected, tracked[position].Kind);
+            }
+            catch (InvalidCastException) when (tracked.LastIndex >= 0)
+            {
+                // a body that casts its payload itself rather than through a Value accessor: the
+                // argument it read last is the one it was working on
+                throw new BuiltinShapeException(fn.Name, tracked.LastIndex + 1,
+                    "a value this builtin can use", tracked[tracked.LastIndex].Kind);
+            }
         }
 
         return await CallUserFunctionAsync(fn, args);
+    }
+
+    /// <summary>
+    /// The argument list a builtin body reads. It records the position read last, so the call-site
+    /// shape guard can name the argument a failed coercion came from even when the failure is
+    /// raised deep inside the array kernel and carries no <see cref="Value"/> of its own.
+    /// </summary>
+    private sealed class BuiltinArguments(IReadOnlyList<Value> inner) : IReadOnlyList<Value>
+    {
+        /// <summary>0-based index of the argument read last, or -1 when the body has read none.</summary>
+        public int LastIndex { get; private set; } = -1;
+
+        public Value this[int index]
+        {
+            get { LastIndex = index; return inner[index]; }
+        }
+
+        public int Count => inner.Count;
+        public IEnumerator<Value> GetEnumerator() => inner.GetEnumerator();
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+
+        /// <summary>The 0-based position of <paramref name="value"/> among these arguments; the
+        /// position read last when the failing value is not identifiable; <see langword="null"/> when
+        /// neither is known — an engine-internal value, which must stay an internal failure.</summary>
+        public int? PositionOf(Value? value)
+        {
+            if (value is not null)
+            {
+                for (int i = 0; i < inner.Count; i++)
+                    if (ReferenceEquals(inner[i], value))
+                        return i;
+                return null;
+            }
+
+            return LastIndex >= 0 ? LastIndex : null;
+        }
     }
 
     private async Task<Value> CallUserFunctionAsync(FunctionDefinition fn, IReadOnlyList<Value> args)
@@ -1953,6 +2015,49 @@ public sealed class Interpreter
         return v.AsVector().Select(ToLong).ToArray();
     }
 
+    /// <summary>A call-site SHAPE guard for a builtin body whose expectation the <see cref="Value"/>
+    /// accessors cannot name (a square matrix, a length-3 vector, an axis permutation). It reports
+    /// the builtin, the 1-based position, the expectation and the kind that arrived — the same
+    /// grammar as the coercion guard — so a shape mistake never surfaces as the CLR text of a
+    /// refusal raised deep inside the array kernel (audit D, finding F1).</summary>
+    private static ArrayValue RequireSquare(string builtin, IReadOnlyList<Value> args, int index)
+    {
+        var value = args[index];
+        if (value.Kind is ValueKind.Vector or ValueKind.Array
+            && value.AsArrayValue() is { Rank: 2 } matrix
+            && matrix.Shape.ToArray()[0] == matrix.Shape.ToArray()[1])
+            return matrix;
+
+        throw new BuiltinShapeException(builtin, index + 1, "a square matrix", value.Kind);
+    }
+
+    /// <summary>The length-3 operand of <c>cross</c>: the same call-site shape guard.</summary>
+    private static ArrayValue RequireLength3(string builtin, IReadOnlyList<Value> args, int index)
+    {
+        var value = args[index];
+        if (value.Kind is ValueKind.Vector or ValueKind.Array
+            && value.AsArrayValue() is { Rank: 1, Numel: 3 } vector)
+            return vector;
+
+        throw new BuiltinShapeException(builtin, index + 1, "a vector of length 3", value.Kind);
+    }
+
+    /// <summary>The axis order of <c>transpose</c>: the same call-site shape guard, applied before
+    /// the array kernel sees a permutation that is not one.</summary>
+    private static long[] RequirePermutation(string builtin, IReadOnlyList<Value> args, int index, int rank)
+    {
+        var value = args[index];
+        if (value.Kind is ValueKind.Vector or ValueKind.Array && value.AsArrayValue().Rank == 1)
+        {
+            long[] permutation = ToLongArray(value);
+            if (permutation.Length == rank && permutation.All(axis => axis >= 0 && axis < rank)
+                && permutation.Distinct().Count() == rank)
+                return permutation;
+        }
+
+        throw new BuiltinShapeException(builtin, index + 1, $"a permutation of the {rank} axes", value.Kind);
+    }
+
     /// <summary>Shared dispatcher for reduce-all (1 arg) vs reduce-along-axis (2 args) built-ins.
     /// The argument COUNT is already guaranteed by the call-site validator (the axis is the declared
     /// optional tail); the argument SHAPE is checked here, because a scalar handed to a reduction is
@@ -1967,8 +2072,7 @@ public sealed class Interpreter
     {
         var input = args[0];
         if (input.Kind is not (ValueKind.Vector or ValueKind.Array))
-            throw new ArgumentException(
-                $"{name}(): argument 1 must be an array or vector; got {input.Kind}.");
+            throw new BuiltinShapeException(name, 1, "an array or vector", input.Kind);
 
         return args.Count == 1
             ? Task.FromResult(ReduceAllOrEmpty(input, empty, all))
@@ -2067,7 +2171,7 @@ public sealed class Interpreter
             var av = args[0].AsArrayValue();
             return args.Count == 1
                 ? Task.FromResult(WrapArrayValue(av.Transpose(null)))
-                : Task.FromResult(WrapArrayValue(av.Transpose(ToLongArray(args[1]))));
+                : Task.FromResult(WrapArrayValue(av.Transpose(RequirePermutation("transpose", args, 1, av.Rank))));
         }, minArity: 1);
 
         // squeeze(a)
@@ -2094,7 +2198,8 @@ public sealed class Interpreter
         // cross(a, b)
         Register("cross", ["a", "b"], args =>
         {
-            return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(args[0].AsArrayValue(), args[1].AsArrayValue())));
+            return Task.FromResult(WrapArrayValue(TypedArrayOps.Cross(
+                RequireLength3("cross", args, 0), RequireLength3("cross", args, 1))));
         });
 
         // matmul(a, b)
@@ -2110,7 +2215,7 @@ public sealed class Interpreter
         // det(m)
         Register("det", ["m"], args =>
         {
-            var av = args[0].AsArrayValue();
+            var av = RequireSquare("det", args, 0);
             var (elements, shape) = PayloadElements(av);
             var bridge = SymbolicMatrixBridge;
             if (bridge is not null && bridge.IsSymbolicMatrix(elements, shape))
@@ -2125,7 +2230,7 @@ public sealed class Interpreter
         // trace(m)
         Register("trace", ["m"], args =>
         {
-            return Task.FromResult<Value>(TypedArrayOps.Trace(args[0].AsArrayValue()));
+            return Task.FromResult<Value>(TypedArrayOps.Trace(RequireSquare("trace", args, 0)));
         });
 
         // concat(a, b) / concat(a, b, axis) — the axis is optional

@@ -130,9 +130,11 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 "Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions.",
                 ["assumptions()"], "AssumptionSet", ["assume", "assume_clear"]),
             ["limit_left"] = new("limit_left", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
-                "One-sided limit from the left as x approaches x0.", ["limit_left(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+                "One-sided limit from the left as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
+                ["limit_left(1/x, x, 0)"], "LimitResult", ["limit", "limit_full"]),
             ["limit_right"] = new("limit_right", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
-                "One-sided limit from the right as x approaches x0.", ["limit_right(1/x, x, 0)"], "Symbolic | Text", ["limit", "limit_full"]),
+                "One-sided limit from the right as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
+                ["limit_right(1/x, x, 0)"], "LimitResult", ["limit", "limit_full"]),
             ["solve_system_full"] = new("solve_system_full", new[] { "eqs", "vars" }, BuiltinCategories.Solving,
                 "Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions.",
                 ["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"], "SystemSolveResult", ["solve_system", "solve_full"]),
@@ -189,9 +191,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         }
 
         Add("symbol", new[] { "name", "domain" }, args =>
-            args.Count >= 2 && args[1] is MathDomain md
-                ? SymbolWithDomain((string)args[0]!, md)
-                : Exprs.Symbol((string)args[0]!),
+        {
+            var name = AsTextName(args[0]);
+            return args.Count >= 2 && args[1] is MathDomain md
+                ? SymbolWithDomain(name, md)
+                : Exprs.Symbol(name);
+        },
             new BuiltinDescriptor("symbol", new[] { "name", "domain" }, BuiltinCategories.Symbolics,
                 "Creates a symbolic variable; an optional domain (integer/rational/real/complex) is assumed for it.",
                 ["symbol(\"x\")", "symbol(\"x\", real)"], "Symbolic", ["assume", "real", "complex"], MinArity: 1));
@@ -243,7 +248,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         }
         Add("assume", new[] { "relation" }, args =>
         {
-            var rel = (Expr)args[0]!;
+            var rel = AsRelation(args[0]);
             if (!AssumeRecursive(rel))
                 throw new InvalidOperationException("assume() accepts relations and their conjunctions/negations with constant bounds.");
             return rel;
@@ -383,49 +388,51 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         new BuiltinDescriptor("series", new[] { "f", "x", "x0", "order" }, BuiltinCategories.Calculus,
             "Power series of f around x = x0 to the given order (with an O-term).",
             ["series(sin(x)/x, x, 0, 8)"], "Symbolic", ["limit", "diff"]));
+        // audit D F2 (cycle 6): the short forms and the _full form publish the SAME LimitResult
+        // record, produced by the ONE projection below. Before this, limit() answered a bare Text
+        // for every shape the kernel did not determine — "does not exist (left: -inf, right: +inf)"
+        // for a proven disagreement, "unevaluated: <reason>" for a refusal — under ok:true, with no
+        // code, no category and nothing structured, while limit_full on the SAME input published a
+        // record whose left/right fields already held those two values: an agent had to parse
+        // English to learn the status. solve() and solve_system() took this decision in cycle 5 for
+        // the same reason (see the comment on the solve registration below). Nothing the prose said
+        // is lost — it is published as structure: status, exists, each side value with the
+        // constraint it holds under, exactness, and the refusal’s code/category in diagnostics.
         Add("limit", new[] { "f", "x", "x0" }, args =>
-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.TwoSided, Context)),
+        {
+            var x = AsSymbol(args[1]);
+            var point = AsExpr(args[2]);
+            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context), x, point);
+        },
         new BuiltinDescriptor("limit", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
-            "Two-sided limit of f as x → x0. Use limit_full for the structured result (existence, left/right values).",
-            ["limit(sin(x)/x, x, 0)", "limit(1/x, x, 0)"], "Symbolic | Text",
+            "Two-sided limit of f as x → x0, returned as the SAME LimitResult record limit_full returns: status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint it holds under, exactness and diagnostics. Nothing has to be parsed out of prose.",
+            ["limit(sin(x)/x, x, 0)", "limit(1/x, x, 0)"], "LimitResult",
             ["limit_left", "limit_right", "limit_full"]));
         Add("limit_full", new[] { "f", "x", "x0" }, args =>
         {
             var x = AsSymbol(args[1]);
             var point = AsExpr(args[2]);
-            var r = Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context);
-            // N19: "exists" is THREE-VALUED, not derived from "a value came back or not".
-            // true  — a limit was determined;
-            // false — non-existence was PROVEN (DoesNotExist: the two sides disagree);
-            // null  — the engine did not determine it (Unevaluated, Failed), emitted as the
-            //         protocol Null ({kind:Null}), which is neither false nor "". Asserting
-            //         "does not exist" here would be a false mathematical claim (e.g. the
-            //         squeezed limit x*sin(1/x) -> 0, which the engine cannot yet solve).
-            bool? exists = r.Status switch
-            {
-                LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => true,
-                LimitStatus.DoesNotExist => false,
-                _ => null,
-            };
-            return new RecordValue("LimitResult",
-                new RecordField("status", EnumField("LimitStatus", r.Status)),
-                new RecordField("exists", exists),
-                new RecordField("value", LimitSide(r)),
-                new RecordField("left", LimitSide(r.FromLeft)),
-                new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists is true)),
-                new RecordField("right", LimitSide(r.FromRight)),
-                new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists is true)),
-                new RecordField("conditions", ConditionExprs(r.Conditions)),
-                new RecordField("exactness", EnumField("SolutionExactness", r.Exactness)),
-                new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
+            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.TwoSided, Context), x, point);
         },
         new BuiltinDescriptor("limit_full", new[] { "f", "x", "x0" }, BuiltinCategories.Calculus,
             "Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics.",
             ["limit_full(1/x, x, 0)"], "LimitResult", ["limit", "limit_left", "limit_right"]));
+        // The one-sided forms run the one-sided kernel query and publish that result through the
+        // SAME projection: a one-sided answer is a primary result, so it rides in the record’s
+        // "value" field with its own status/exists/exactness (the kernel splits a result into
+        // FromLeft/FromRight only for a TWO-SIDED query whose sides disagree).
         Add("limit_left", new[] { "f", "x", "x0" }, args =>
-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromLeft, Context)));
+        {
+            var x = AsSymbol(args[1]);
+            var point = AsExpr(args[2]);
+            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.FromLeft, Context), x, point);
+        });
         Add("limit_right", new[] { "f", "x", "x0" }, args =>
-            LimitToExpr(Limits.Limit(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), LimitDirection.FromRight, Context)));
+        {
+            var x = AsSymbol(args[1]);
+            var point = AsExpr(args[2]);
+            return LimitRecord(Limits.Limit(AsExpr(args[0]), x, point, LimitDirection.FromRight, Context), x, point);
+        });
         Add("solve_system", new[] { "eqs", "vars" }, args =>
         {
             var eqs = ExprVector(args[0], EquationVectorExpectation);
@@ -1466,6 +1473,48 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         _ => null,
     };
 
+    /// <summary>
+    /// The ONE projection from a kernel <see cref="LimitResult"/> onto the published record.
+    /// <c>limit</c>, <c>limit_left</c>, <c>limit_right</c> and <c>limit_full</c> all call it, so the
+    /// four surfaces cannot describe the same kernel result differently and a short form has no
+    /// path that can fall back to prose.
+    /// <para>
+    /// N19: "exists" is THREE-VALUED, not derived from "a value came back or not".
+    /// true  — a limit was determined;
+    /// false — non-existence was PROVEN (DoesNotExist: the two sides disagree);
+    /// null  — the engine did not determine it (Unevaluated, Failed), emitted as the
+    ///         protocol Null ({kind:Null}), which is neither false nor "". Asserting
+    ///         "does not exist" here would be a false mathematical claim (e.g. the
+    ///         squeezed limit x*sin(1/x) -> 0, which the engine cannot yet solve).
+    /// </para>
+    /// <para>
+    /// A ONE-SIDED query runs through this same projection: its answer is the kernel’s primary
+    /// result, so it rides in <c>value</c> with its own status/exists/exactness, and <c>left</c>/
+    /// <c>right</c> stay Null because the kernel splits a result into the two sides only for a
+    /// two-sided query whose sides disagree.
+    /// </para>
+    /// </summary>
+    private static RecordValue LimitRecord(LimitResult r, Symbol x, Expr point)
+    {
+        bool? exists = r.Status switch
+        {
+            LimitStatus.Value or LimitStatus.PlusInfinity or LimitStatus.MinusInfinity => true,
+            LimitStatus.DoesNotExist => false,
+            _ => null,
+        };
+        return new RecordValue("LimitResult",
+            new RecordField("status", EnumField("LimitStatus", r.Status)),
+            new RecordField("exists", exists),
+            new RecordField("value", LimitSide(r)),
+            new RecordField("left", LimitSide(r.FromLeft)),
+            new RecordField("left_conditions", SideConditions(x, point, fromRight: false, r.FromLeft, exists is true)),
+            new RecordField("right", LimitSide(r.FromRight)),
+            new RecordField("right_conditions", SideConditions(x, point, fromRight: true, r.FromRight, exists is true)),
+            new RecordField("conditions", ConditionExprs(r.Conditions)),
+            new RecordField("exactness", EnumField("SolutionExactness", r.Exactness)),
+            new RecordField("diagnostics", Diagnostics(LimitDiagnostic(r))));
+    }
+
     private object Run(Func<object?> impl)
     {
         var previous = Exprs.Current;
@@ -1499,7 +1548,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             _assumptions = _assumptions.Add(new ExpressionPropertyAssumption(e, pred));
             return e;
         }
-        var s = Context.Symbol((string)args[0]!);
+        var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
         _assumptions = _assumptions.Add(new SymbolPropertyAssumption(s, pred));
         return Exprs.Symbol(s);
     }
@@ -1511,7 +1560,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             _assumptions = _assumptions.Add(new SymbolDomainAssumption(sx.Symbol, domain));
             return e;
         }
-        var s = Context.Symbol((string)args[0]!);
+        var s = Context.Symbol(AsSymbolName(args[0], AssumeExpectation));
         _assumptions = _assumptions.Add(new SymbolDomainAssumption(s, domain));
         return Exprs.Symbol(s);
     }
@@ -1570,24 +1619,6 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         NumReal rl => rl.V,
         NumComplex c => c.V,
         _ => throw new InvalidOperationException(),
-    };
-
-    private static object LimitToExpr(LimitResult r) => r.Status switch
-    {
-        LimitStatus.Value => r.Value!,
-        LimitStatus.PlusInfinity => Exprs.Infinity,
-        LimitStatus.MinusInfinity => Exprs.Negate(Exprs.Infinity),
-        LimitStatus.DoesNotExist =>
-            $"does not exist (left: {SideText(r.FromLeft)}, right: {SideText(r.FromRight)})",
-        _ => "unevaluated: " + (r.FailureReason ?? "no limit"),
-    };
-
-    private static string SideText(LimitResult? r) => r?.Status switch
-    {
-        LimitStatus.PlusInfinity => "+inf",
-        LimitStatus.MinusInfinity => "-inf",
-        LimitStatus.Value => Printing.PrettyPrint(r.Value!),
-        _ => "unknown",
     };
 
     /// <summary>True when the solution provably violates one of its excluded-domain conditions.</summary>
@@ -1680,6 +1711,32 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             return Exprs.Current.Symbol(s);
         throw new BuiltinArgumentError("a symbolic variable");
     }
+
+    /// <summary>What an assume* builtin requires when the payload is not already symbolic: a text
+    /// name (or a symbolic expression). Shared so the expectation text and the refusal variant
+    /// cannot drift between the six assume* surfaces.</summary>
+    private const string AssumeExpectation = "a symbolic expression or the text name of one";
+
+    /// <summary>The text NAME an argument must carry where the builtin declares one
+    /// (<c>symbol("x")</c>). A payload of another kind is a wrong-SHAPED argument, so it is refused
+    /// through <see cref="BuiltinShapeError"/> — the documented recoverable argument error naming
+    /// the builtin, the position and the kind that arrived — instead of the raw
+    /// <c>(string)args[0]!</c> cast that used to escape as an internal invariant failure carrying
+    /// "Specified cast is not valid." (audit D, finding F1).</summary>
+    private static string AsTextName(object? o) =>
+        o as string ?? throw new BuiltinShapeError("a text name such as \"x\"");
+
+    /// <summary>The same guard for the name form of the assume* builtins, which also accept an
+    /// already-symbolic argument (handled before this helper is reached).</summary>
+    private static string AsSymbolName(object? o, string expected) =>
+        o as string ?? throw new BuiltinShapeError(expected);
+
+    /// <summary>The relation an <c>assume</c> argument must carry. A non-expression payload is a
+    /// wrong SHAPE, not a domain refusal: it crosses as the documented recoverable argument error
+    /// naming the builtin, the position and the kind that arrived — never as the raw
+    /// <c>(Expr)args[0]!</c> cast failure it used to cross as (audit D, finding F1).</summary>
+    private static Expr AsRelation(object? o) =>
+        o as Expr ?? throw new BuiltinShapeError("a relation such as x > 5");
 
     private static Expr AsExpr(object? o) => o switch
     {

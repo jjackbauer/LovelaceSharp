@@ -166,8 +166,21 @@ public class DxStructuredResultsTests
         Assert.Equal("[x < 0] (Vector)", ValueFormatter.FormatTyped(F(r, "left_conditions")));
         Assert.Equal("[x > 0] (Vector)", ValueFormatter.FormatTyped(F(r, "right_conditions")));
         AssertEnumField(F(r, "exactness"), "SolutionExactness", "Exact");
-        // the projection stays a readable string (compatibility), the record is structural
-        Assert.Equal("does not exist (left: -inf, right: +inf)", engine.Evaluate("limit(1/x, x, 0)").AsText());
+        // audit D F2 (cycle 6): the SHORT form publishes the SAME LimitResult record, not a prose
+        // sentence — the two one-sided values the old text spelled out are the record's own fields,
+        // each with the side constraint it holds under. The sentence is gone; no claim it made is.
+        var shortForm = engine.Evaluate("limit(1/x, x, 0)").AsRecord();
+        Assert.Equal("LimitResult", shortForm.TypeName);
+        Assert.False(F(shortForm, "exists").AsBoolean());
+        Assert.Equal("-inf", ValueFormatter.Format(F(shortForm, "left")));
+        Assert.Equal("inf", ValueFormatter.Format(F(shortForm, "right")));
+        Assert.Equal("[x < 0] (Vector)", ValueFormatter.FormatTyped(F(shortForm, "left_conditions")));
+        Assert.Equal("[x > 0] (Vector)", ValueFormatter.FormatTyped(F(shortForm, "right_conditions")));
+        AssertEnumField(F(shortForm, "exactness"), "SolutionExactness", "Exact");
+        // and the two-sided short form is the full form's record, field for field
+        Assert.Equal(
+            ValueFormatter.FormatTyped(F(r, "left_conditions")),
+            ValueFormatter.FormatTyped(F(shortForm, "left_conditions")));
     }
 
     // ------------------------------------------------------------------
