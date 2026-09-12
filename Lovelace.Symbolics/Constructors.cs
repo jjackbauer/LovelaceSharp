@@ -57,6 +57,14 @@ public static class Exprs
 
     public static Expr Rational(long num, long den) => Rational(Rat.From(new Int(num), new Int(den)));
 
+    /// <summary>
+    /// The Real leaf. The NODE is inexact by its kind — a RealConstant is outside the exact basis
+    /// whatever digits it carries (the leaf rule stated on <see cref="Expr.IsExact"/>) — so
+    /// <see cref="RealLiteral.IsExact"/> is not consulted for <c>_isExact</c> here. It is consulted
+    /// for identity, through <see cref="RealLiteral.GetHashCode"/>: the literal's route is part of
+    /// the key, so reading a truncation back cannot be served the node an equally-shaped exact
+    /// literal interned first.
+    /// </summary>
     public static Expr Real(RealLiteral value)
     {
         var n = new RealConstantExpr(value);
@@ -161,6 +169,9 @@ public static class Exprs
         Rat exact = Rat.Zero;
         Rat real = Rat.Zero;
         bool hasReal = false;
+        // The route of every Real operand, because the term emitted below is a NEW literal over
+        // their sum: adding a truncated decimal to an exact one cannot make it untruncated.
+        bool realInexact = false;
         Rat cplxRe = Rat.Zero, cplxIm = Rat.Zero;
         var like = new Dictionary<Expr, Rat>();
 
@@ -176,6 +187,7 @@ public static class Exprs
                     break;
                 case RealConstantExpr rl:
                     real = real + rl.Value.ToRational();
+                    realInexact |= !rl.Value.IsExact;
                     hasReal = true;
                     break;
                 case ComplexConstantExpr cx:
@@ -196,7 +208,7 @@ public static class Exprs
         if (!exact.IsZero)
             terms.Add(Rational(exact));
         if (hasReal && !real.IsZero)
-            terms.Add(Real(RealLiteral.FromRationalExact(real)));
+            terms.Add(Real(RealLiteral.FromRationalExact(real).WithExactness(!realInexact)));
         if (!(cplxRe.IsZero && cplxIm.IsZero))
             terms.Add(Complex(cplxRe, cplxIm));
 
@@ -318,6 +330,9 @@ public static class Exprs
         Rat exact = Rat.One;
         Rat real = Rat.One;
         bool hasReal = false;
+        // as in Add: the product's literal is a new literal over the Real factors' digits, so the
+        // route of every one of them — including the ones that fold away — reaches the result
+        bool realInexact = false;
         Rat cplxRe = Rat.One, cplxIm = Rat.Zero;
         // Definedness-preserving merge: nonnegative and negative integer exponents accumulate
         // separately per base, so x·x⁻¹ can never collapse to 1 (that would define the
@@ -361,6 +376,7 @@ public static class Exprs
                 case RealConstantExpr rl:
                 {
                     var v = rl.Value.ToRational();
+                    realInexact |= !rl.Value.IsExact;
                     if (v.IsZero)
                     {
                         if (!anyUndefinedRisk) return Rational(Rat.Zero);
@@ -417,7 +433,7 @@ public static class Exprs
         if (!exact.IsOne)
             factors.Add(Rational(exact));
         if (hasReal && !real.IsOne)
-            factors.Add(Real(RealLiteral.FromRationalExact(real)));
+            factors.Add(Real(RealLiteral.FromRationalExact(real).WithExactness(!realInexact)));
         if (!(cplxRe.IsOne && cplxIm.IsZero))
             factors.Add(Complex(cplxRe, cplxIm));
 

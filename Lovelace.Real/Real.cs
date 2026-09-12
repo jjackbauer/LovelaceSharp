@@ -203,6 +203,21 @@ public class Real :
         return value;
     }
 
+    /// <summary>
+    /// Returns <paramref name="value"/> carrying the provenance of a truncation — the public,
+    /// COPYING half of <see cref="MarkInexact"/>, for a caller that has re-materialised a value and
+    /// is about to hand it back to whoever produced it.
+    /// <para>Provenance is per-instance and is deliberately not part of a Real's value (see
+    /// <see cref="IsExact"/>), so a boundary that reads a value back out of a rendering — the
+    /// symbolic literal's own <c>ToReal</c>, an ambient-precision projection, a parse of a stored
+    /// decimal — owns a FRESH instance whose flag says "exact by construction" whatever the value it
+    /// was derived from had been through. That is the right default for a literal and the wrong
+    /// answer for a value that already lost a digit, and this is the one call that corrects it.</para>
+    /// <para>An already-inexact value is returned unchanged; an exact one is COPIED first, so the
+    /// argument is never mutated under its owner's feet.</para>
+    /// </summary>
+    public static Real AsInexact(Real value) => value.IsExact ? MarkInexact(new Real(value)) : value;
+
     /// <summary>Returns <paramref name="value"/> carrying <paramref name="source"/>'s provenance.</summary>
     private static Real WithProvenanceOf(Real value, Real source) =>
         source._inexact ? MarkInexact(value) : value;

@@ -21,14 +21,34 @@ public sealed record PiecewiseBranch(Expr Guard, Expr Value);
 
 /// <summary>
 /// A canonical approximate real literal: <c>Digits × 10^Exponent10</c> with no trailing
-/// fractional zeros. Identity/ordering are defined on this pair — never on Real.ToString.
+/// fractional zeros. VALUE identity/ordering are defined on this pair — never on Real.ToString —
+/// and <see cref="IsExact"/> rides beside it as the route the value arrived by.
 /// </summary>
 public readonly struct RealLiteral : IEquatable<RealLiteral>
 {
     public Int Digits { get; }
     public long Exponent10 { get; }
 
-    public RealLiteral(Int digits, long exponent10)
+    /// <summary>
+    /// The ROUTE, not the value: false when the value this literal was projected from had already
+    /// lost a digit (see <see cref="Rl.IsExact"/> — a truncation of Pi/E, the square root of a
+    /// non-square, a series). Digits, exponent, ordering and rendering are unaffected by it: two
+    /// literals with the same digits denote the same number however they were produced.
+    /// <para>It is part of <see cref="Equals"/> and <see cref="GetHashCode"/> all the same, because
+    /// the expression factories HASH-CONS on this struct: a cache key that ignored the route would
+    /// hand back whichever provenance happened to be interned first, and the flag would then depend
+    /// on evaluation order. Nothing downstream merges two literal nodes on value alone.</para>
+    /// <para>This is NOT the same claim as the one <see cref="RealConstantExpr"/> carries. The NODE
+    /// is outside the exact basis by its kind, whatever this flag says (the leaf rule, pinned by
+    /// <c>ExactnessFlagTests</c>); this flag answers the narrower question the objective names —
+    /// did the crossing INTO the literal drop anything — so that reading it back cannot invent
+    /// exactness the numeric tier never claimed.</para>
+    /// </summary>
+    public bool IsExact { get; }
+
+    public RealLiteral(Int digits, long exponent10) : this(digits, exponent10, true) { }
+
+    public RealLiteral(Int digits, long exponent10, bool exact)
     {
         // normalize: strip trailing decimal zeros when exponent < 0
         if (!Int.IsZero(digits) && exponent10 < 0)
@@ -41,7 +61,14 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
         }
         Digits = digits;
         Exponent10 = exponent10;
+        IsExact = exact;
     }
+
+    /// <summary>Returns this literal carrying <paramref name="exact"/> as its route. Used by the
+    /// constructors that synthesize a NEW literal out of literal operands: the route of every
+    /// operand reaches the result, it is never reset to "exact" by the act of re-rendering.</summary>
+    public RealLiteral WithExactness(bool exact) =>
+        exact == IsExact ? this : new RealLiteral(Digits, Exponent10, exact);
 
     public static RealLiteral FromLong(long value) => new(new Int(value), 0);
 
@@ -78,6 +105,10 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
     /// Conversion from the Real's full-precision magnitude and exponent — never the
     /// display-truncated string (ToString respects the ambient display scope). Periodic
     /// values have no finite literal and must convert through Rational instead.
+    /// <para>"Exact" in the name is about the READING — every stored digit is copied, none is
+    /// rendered or rounded — and not a claim about the value's route, which crosses with the
+    /// digits: <see cref="Rl.IsExact"/> false produces <see cref="IsExact"/> false. Dropping that
+    /// flag here is what let a truncated π come back exact from <see cref="ToReal"/>.</para>
     /// </summary>
     public static RealLiteral FromRealExact(Rl value)
     {
@@ -86,7 +117,7 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
         var d = new Int(value.ToNatural());
         if (Rl.IsNegative(value))
             d = d.Negate();
-        return new RealLiteral(d, value.Exponent);
+        return new RealLiteral(d, value.Exponent, value.IsExact);
     }
 
     /// <summary>Exact value as a rational (finite decimal ⇒ exact). O(log |exp|) in the exponent.</summary>
@@ -157,16 +188,32 @@ public readonly struct RealLiteral : IEquatable<RealLiteral>
         return new RealLiteral(n, exp);
     }
 
-    public Rl ToReal() => Rl.Parse(ToString(), null);
+    /// <summary>
+    /// The numeric value this literal denotes, carrying this literal's route.
+    /// <para>The digits are read back through <see cref="Rl.Parse(string, IFormatProvider?)"/>,
+    /// which decides exactness from the WIDTH of the rendering (a literal at or past the ambient
+    /// digit budget is called inexact). That is a shape guess, and it is the wrong answer in both
+    /// directions: <c>sin(pi(30)/6)</c> at 40 places rendered 30 digits and was called exact
+    /// although it had lost a digit, while the same value rendered at full width was called
+    /// inexact. So an inexact literal RESTORES its provenance here instead of inheriting the
+    /// parser's guess; an exact one keeps the parser's verdict, which can still only add
+    /// inexactness (the conservative direction).</para>
+    /// </summary>
+    public Rl ToReal()
+    {
+        var value = Rl.Parse(ToString(), null);
+        return IsExact ? value : Rl.AsInexact(value);
+    }
 
-    public bool Equals(RealLiteral other) => Digits == other.Digits && Exponent10 == other.Exponent10;
+    public bool Equals(RealLiteral other) =>
+        Digits == other.Digits && Exponent10 == other.Exponent10 && IsExact == other.IsExact;
 
     public static bool operator ==(RealLiteral a, RealLiteral b) => a.Equals(b);
     public static bool operator !=(RealLiteral a, RealLiteral b) => !a.Equals(b);
 
     public override bool Equals(object? obj) => obj is RealLiteral r && Equals(r);
 
-    public override int GetHashCode() => HashCode.Combine(Digits, Exponent10);
+    public override int GetHashCode() => HashCode.Combine(Digits, Exponent10, IsExact);
 
     public int CompareTo(RealLiteral other) => ToRational().CompareTo(other.ToRational());
 

@@ -392,7 +392,16 @@ public static class Evaluation
         };
     }
 
-    /// <summary>Converts a Num back to an expression constant.</summary>
+    /// <summary>
+    /// Converts a Num back to an expression constant.
+    /// <para>The Real arm is a LOSSY boundary in one direction only, and the loss is the route:
+    /// <see cref="NumReal"/> carries a truncated <see cref="Rl"/> whose digits are re-emitted as a
+    /// <see cref="RealLiteral"/>. <see cref="RealLiteral.FromRealExact"/> copies the value's
+    /// <see cref="Rl.IsExact"/> into the literal, and the literal restores it in
+    /// <see cref="RealLiteral.ToReal"/>, so a truncation that leaves the numeric tier and comes
+    /// back through the symbolic tier is still a truncation. The reverse arm
+    /// (<c>EvaluateToNum</c>'s <see cref="RealConstantExpr"/> case) reads the same flag back.</para>
+    /// </summary>
     public static Expr NumToExpr(Num n)
     {
         var digits = Rl.MaxComputationDecimalPlaces;
