@@ -83,13 +83,30 @@ jobs:
           # its assertions are WALL-CLOCK verdicts and the coverage collector inflates them
           # (cycle 6: a 1.5 s cancellation budget measured 29 s under the collector on a
           # loaded runner and turned this job red; cycle 5 hit the same class in
-          # Lovelace.Real.Tests). Excluded from the instrumented loop, never skipped.
+          # Lovelace.Real.Tests). Category=Costly is the same idea for a different cause:
+          # the work is legitimate but the collector multiplies it many-fold. Both are
+          # excluded from the instrumented loop, never skipped.
+          #
+          # The failure path prints the failing TEST NAMES as ::error annotations, with the
+          # project in the title, because the job logs are not readable without a token and
+          # an unattributed red run costs a whole diagnosis round (cycle 6: #37 and #39).
           for project in "${suites[@]}"; do
             echo "::group::dotnet test $project"
+            log="/tmp/$(basename "$project" .csproj).log"
+            code=0
             dotnet test "$project" --configuration Release --nologo \
               --filter "Category!=Timing&Category!=Costly" \
-              --collect:"XPlat Code Coverage"
+              --collect:"XPlat Code Coverage" > "$log" 2>&1 || code=$?
+            cat "$log"
             echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              grep -aE "(Failed|\[FAIL\])" "$log" | head -5 | while IFS= read -r line; do
+                msg=$(printf '%s' "$line" | tr -d '\r' | tr '%' ' ')
+                echo "::error title=$project failed::$msg"
+              done
+              echo "::error title=fast test suites::$project exited $code"
+              exit "$code"
+            fi
           done
 
       - name: Run Lovelace.Real.Tests (correctness subset)
