@@ -729,6 +729,26 @@
 - **Agent**: three Implementers (rounds 14-15) + my own verification
 - **Related**: EVD-283, EVD-280, DEC-008
 
+### OBS-022: The second audit wave falsified my own "no P0/P1 outstanding" claim
+
+- **Source**: `docs/goal-cycle-6/round-18/audit-E-cli.md`; my own reproduction (EVD-290)
+- **Fact**: a CLI-surface differential fuzzer run against the binary published from the FINAL tree (130+
+  invocations) found **three new P1s and two live cycle-5 P1s** that section P did not carry: the
+  `diagnostics` position is 0/1/1 for every runtime failure while `timings[].position` knows the true
+  offset (and the repo's golden fixture pins the wrong value); `timings[].position` is not a source
+  offset for CRLF sources; line/column are computed on the semicolon-joined source; `print` output is
+  dropped on a failing run; and `ParseError` sits on the wrong layer. Two P2s are new as well.
+  I had written "No P0 and no P1 is outstanding" in section P one hour earlier, on the strength of the
+  FIRST wave's closures — a claim about the absence of findings, which a second wave is exactly what
+  tests.
+- **Implications**: **D1 is NOT MET** and **A+ is not claimed**. The lesson is the harness's own: absence
+  of evidence is not evidence, and a closure wave does not substitute for a fresh audit of the tree the
+  closures produced. The new findings are recorded with their evidence and are the next cycle's work
+  list; a second auditor (attack-the-fixes) is still running.
+- **Confidence**: High (F1 reproduced by me on the published binary).
+- **Agent**: Auditor E (fresh persona, new strategy) + my own reproduction
+- **Related**: EVD-290, EVD-291, DEC-008
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,
