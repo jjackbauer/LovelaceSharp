@@ -1,0 +1,44 @@
+﻿=== before : p1100 ===
+result.display          : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.typed            : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.structured.value : 3.1415926535897932384626433832...253421170679  [100 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+
+=== after : p1100 ===
+result.display          : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+result.typed            : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+result.structured.value : 3.1415926535897932384626433832...528347913151  [1100 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+
+=== before : print-p1100 ===
+result.display          : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.typed            : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.structured.value : 3.1415926535897932384626433832...253421170679  [100 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+output[0]               : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+
+=== after : print-p1100 ===
+result.display          : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+result.typed            : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+result.structured.value : 3.1415926535897932384626433832...528347913151  [1100 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+output[0]               : 3.1415926535897932384626433832...528347913151  [1100 decimals]
+
+=== before : e1000 ===
+result.display          : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.typed            : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.structured.value : 3.1415926535897932384626433832...253421170679  [100 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...253421170679  [100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...253421170679  [100 decimals]
+
+=== after : e1000 ===
+result.display          : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.typed            : 3.1415926535897932384626433832...253421170679  [100 decimals]
+result.structured.value : 3.1415926535897932384626433832...092164201989  [1000 decimals]   exact=False  truncated=absent
+variables[_].display    : 3.1415926535897932384626433832...253421170679  [100 decimals]
+variables[_].structured : 3.1415926535897932384626433832...092164201989  [1000 decimals]
+

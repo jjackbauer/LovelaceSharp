@@ -1,0 +1,144 @@
+diff --git a/Lovelace.Complex/ComplexMath.cs b/Lovelace.Complex/ComplexMath.cs
+index a950155..cc9ae05 100644
+--- a/Lovelace.Complex/ComplexMath.cs
++++ b/Lovelace.Complex/ComplexMath.cs
+@@ -530,22 +530,80 @@ public static class ComplexMath
+     /// <para>
+     /// The places π must carry for the reduction to measure the angle instead of measuring π: the
+     /// argument's own fractional places, plus the precision the result is asked for, plus the guard
+-    /// — or the ambient precision when the ambient π already reaches as far down as the argument
+-    /// does.  Reducing an argument that carries 100 places against a 30-place π measures
+-    /// <c>argument − k·π_30</c> (an artifact of order 1e-30) instead of the argument's own distance
+-    /// to a multiple of π (order 1e-100), which is how <c>sin(pi(100)·2)</c> came back as
+-    /// <c>+1e-30</c> instead of <c>−1.64e-100</c>.  A coarser argument is already resolved by the
+-    /// ambient π, and an exact multiple of the ambient π must keep reducing exactly to zero.
++    /// — never less than the ambient precision.  Reducing an argument that carries 100 places
++    /// against a 30-place π measures <c>argument − k·π_30</c> (an artifact of order 1e-30) instead
++    /// of the argument's own distance to a multiple of π (order 1e-100), which is how
++    /// <c>sin(pi(100)·2)</c> came back as <c>+1e-30</c> instead of <c>−1.64e-100</c>.
++    /// </para>
++    /// <para>
++    /// The SAME cancellation meets the ambient precision from above.  At 31 places
++    /// <c>sin(pi(30))</c> reduces <c>pi(30) − pi(31)</c> out of operands that carry 31 places; the
++    /// residual that leaves is the exactly-one-digit <c>5e-31</c>, the series' own correction
++    /// (<c>r³/6 ≈ 2.1e-92</c>) borrows that residual's last stored digit, and the truncation to 31
++    /// places prints <c>4e-31</c> where the value is <c>5.0288…e-31</c> — a 20% error in the FIRST
++    /// meaningful digit (cycle 6, audit B L2/P0).  The guard places are what those truncations
++    /// borrow from, so the window the caller asked for comes out of the sum untouched.
++    /// </para>
++    /// <para>
++    /// The one reduction that must NOT move is the exact one: only the ambient π reduces an exact
++    /// multiple of the ambient π (<c>Rl.Pi</c>, <c>π/2</c>, <c>2π</c>, …) to exactly zero, and the
++    /// zero and the ±1 that reduction lands on are the values the library promises
++    /// (<c>Sin(Rl.Pi) == 0</c>, <c>Cos(Rl.Pi) == −1</c>).  Which arguments those are is decided by
++    /// the reduction itself (<see cref="ReducesToZeroAgainstTheAmbientPi"/>), not by a digit count:
++    /// a multiple of the ambient π whose trailing zero the representation dropped carries FEWER
++    /// places than the ambient π does, and a count would misread it as a coarser argument.
+     /// </para>
+     /// </summary>
+     private static long PiDigitsFor(Rl x, long digits)
+     {
+-        long argumentPlaces = x.IsPeriodic ? 0L : -x.Exponent;
+-        if (argumentPlaces < 0L)
+-            argumentPlaces = 0L;
+-
++        long resolved = ArgumentPlaces(x) + digits + GuardDigits;
+         long ambient = AmbientDigits();
+-        return argumentPlaces <= ambient ? ambient : argumentPlaces + digits + GuardDigits;
++        return resolved < ambient ? ambient : resolved;
++    }
++
++    /// <summary>The places <paramref name="x"/> carries a digit in: its own fractional digits, or 0
++    /// for a periodic value (whose digits are not a finite truncation) and for an integer.</summary>
++    private static long ArgumentPlaces(Rl x)
++    {
++        long places = x.IsPeriodic ? 0L : -x.Exponent;
++        return places < 0L ? 0L : places;
++    }
++
++    /// <summary>
++    /// Whether <paramref name="x"/> is an exact multiple of π/2 at the AMBIENT precision — the
++    /// question a digit count cannot answer, because an exact multiple of the ambient π whose
++    /// trailing zero the representation dropped carries fewer places than the ambient π does, and
++    /// because the ambient π is the only constant that reduces such a multiple to exactly zero.
++    /// The test is that reduction itself: at the working precision the difference of two values
++    /// carrying at most the ambient places is exact, so a zero here is an exact zero.
++    /// </summary>
++    private static bool ReducesToZeroAgainstTheAmbientPi(Rl x, long work)
++    {
++        Rl pi;
++        using (Rl.WithPrecision(AmbientDigits(), work))
++            pi = Rl.Pi;
++
++        using var scope = Rl.WithPrecision(work, work);
++        (_, Rl r, _) = Fold(x, pi);
++        return Rl.IsZero(r);
++    }
++
++    /// <summary>Reduces <paramref name="x"/> modulo π/2 against <paramref name="pi"/> and folds it
++    /// into <c>[0, π/4]</c>, reporting the quadrant, the folded residual and whether the sine and
++    /// cosine are swapped.</summary>
++    private static (long k, Rl r, bool swap) Fold(Rl x, Rl pi)
++    {
++        Rl twoPi = pi * new Rl("2");
++        Rl halfPi = pi / new Rl("2");
++        Rl quarterPi = pi / new Rl("4");
++
++        Rl xr = ReduceToTwoPi(x, pi, twoPi);
++        long k = TruncToLong(xr / halfPi);
++        Rl r = xr - FromLong(k) * halfPi;      // r in [0, π/2)
++
++        bool swap = false;
++        if (r > quarterPi) { r = halfPi - r; swap = true; }   // fold to [0, π/4]
++        return (k, r, swap);
+     }
+ 
+     /// <summary>
+@@ -555,8 +613,9 @@ public static class ComplexMath
+     /// approximation and its provenance says so.
+     /// <para>
+     /// THE PAIR CARRIES THE ARGUMENT'S PROVENANCE.  The reduction can land EXACTLY on a table value
+-    /// from an argument that is itself a truncation — at the argument's own scale the residual IS
+-    /// zero <c>(PiDigitsFor)</c>, so <c>cos(pi(30))</c> is the table's <c>−1</c> — and neither half
++    /// from an argument that is itself a truncation — an exact multiple of the ambient π reduces to
++    /// exactly zero against it (<see cref="ReducesToZeroAgainstTheAmbientPi"/>), so
++    /// <c>cos(pi(30))</c> under a 30-place ambient is the table's <c>−1</c> — and neither half
+     /// may certify that as exact.  Both exits say so: the shortcut below, which may stay exact only
+     /// for an EXACT zero, and the return, through
+     /// <see cref="WithArgumentProvenance(Rl, Rl)"/> (cycle 6, P-B1).
+@@ -574,24 +633,24 @@ public static class ComplexMath
+                 : (Rl.AsInexact(Rl.Zero), Rl.AsInexact(Rl.One));
+ 
+         long work = digits + GuardDigits;
++        long ambient = AmbientDigits();
+         long piDigits = PiDigitsFor(x, digits);
+ 
++        // An argument that is an exact multiple of the AMBIENT π keeps reducing exactly to zero
++        // (Sin(Rl.Pi) == 0, Cos(Rl.Pi) == −1), and only the ambient π produces that zero — no finer
++        // constant may be substituted for it.  Every other argument, the coarser truncations of π
++        // the ambient π cannot resolve included, is measured against a π that reaches GuardDigits
++        // below the window the caller asked for.
++        if (ArgumentPlaces(x) <= ambient && ReducesToZeroAgainstTheAmbientPi(x, work))
++            piDigits = ambient;
++
+         Rl pi;
+         using (Rl.WithPrecision(piDigits, work))
+-            pi = Rl.Pi;                // the ambient π unless the argument reaches further down
++            pi = Rl.Pi;                // the ambient π for an exact multiple, a finer one otherwise
+ 
+         using var scope = Rl.WithPrecision(work, work);
+ 
+-        Rl twoPi = pi * new Rl("2");
+-        Rl halfPi = pi / new Rl("2");
+-        Rl quarterPi = pi / new Rl("4");
+-
+-        Rl xr = ReduceToTwoPi(x, pi, twoPi);
+-        long k = TruncToLong(xr / halfPi);
+-        Rl r = xr - FromLong(k) * halfPi;      // r in [0, π/2)
+-
+-        bool swap = false;
+-        if (r > quarterPi) { r = halfPi - r; swap = true; }   // fold to [0, π/4]
++        (long k, Rl r, bool swap) = Fold(x, pi);
+ 
+         Rl s = SinTaylor(r, work);
+         Rl c = CosTaylor(r, work);

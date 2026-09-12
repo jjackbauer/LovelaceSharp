@@ -1,0 +1,164 @@
+diff --git a/Lovelace.Run/Runner.cs b/Lovelace.Run/Runner.cs
+index 7c531a3..5c355e5 100644
+--- a/Lovelace.Run/Runner.cs
++++ b/Lovelace.Run/Runner.cs
+@@ -314,6 +314,19 @@ public static class Runner
+         // to tell "this input is nested too deeply" (a property of the input) from "the symbolic
+         // computation ran out of steps" (a property of the work), and neither is a DomainError.
+         Lovelace.Abstractions.InputDepthExceededException => ("DepthExceeded", "BudgetExceeded", true),
++        // A single request larger than the engine's allocation budget is refused BEFORE it is attempted
++        // (Lovelace.Suite.ArrayAllocationBudget), so it is the same kind of outcome as a depth refusal: a
++        // budget stop with its own code, recoverable, and never the internal-invariant class the
++        // OutOfMemoryException it used to be reached (F2-C).
++        Lovelace.Suite.ArrayAllocationRefusedException => ("AllocationRefused", "BudgetExceeded", true),
++        // the backstop for every allocating site the budget above does not cover (a range, a kernel, a
++        // string builder): an allocation the process could not serve is still a resource budget the caller
++        // can retry smaller — never "do not retry" about a merely-too-large request
++        OutOfMemoryException => ("AllocationRefused", "BudgetExceeded", true),
++        // An unwritable plot output path is a property of the caller's --plot-file (or of the engine's
++        // default name under the caller's --plot-dir), exactly like the plot DIRECTORY preflight above, so
++        // it crosses with its own code instead of the internal-invariant class (F3-C).
++        Lovelace.Suite.PlotFileWriteException => ("PlotFileError", "TypeMismatch", true),
+         Lovelace.Symbolics.EvaluationException => ("EvaluationError", "DomainError", true),
+         Lovelace.Symbolics.AssumptionContradictionException => ("UnsatisfiableAssumptions", "DomainError", true),
+         FormatException => ("InvalidInput", "ParseError", true),
+diff --git a/Lovelace.Suite/EngineExceptions.cs b/Lovelace.Suite/EngineExceptions.cs
+index 52b400a..5fc3581 100644
+--- a/Lovelace.Suite/EngineExceptions.cs
++++ b/Lovelace.Suite/EngineExceptions.cs
+@@ -17,6 +17,30 @@ public sealed class ReentrancyNotSupportedException : InvalidOperationException
+     }
+ }
+ 
++/// <summary>
++/// A plot output path the process cannot write: the file name comes from the caller
++/// (<c>--plot-file</c> / the engine's <c>PlotFileName</c>) and the directory from the caller
++/// (<c>--plot-dir</c> / <c>PlotOutputDirectory</c>), so an unwritable combination is a property of the
++/// ARGUMENT, like an unreadable script file — never an internal invariant failure (F3-C,
++/// <c>docs/goal-cycle-6/round-13/audit-C-hostile.md:136-172</c>). The runner classifies it as the
++/// recoverable <c>PlotFileError</c>/<c>TypeMismatch</c>, the twin of the <c>PlotDirectoryError</c> the
++/// plot-directory preflight already publishes.
++/// </summary>
++public sealed class PlotFileWriteException : Exception
++{
++    /// <summary>The path the caller asked for (the plot directory joined with the plot file name).</summary>
++    public string Path { get; }
++
++    /// <param name="path">The path the caller asked for.</param>
++    /// <param name="cause">The underlying path/IO failure; its message is kept in this one so the
++    /// diagnostic never loses the OS's own sentence.</param>
++    public PlotFileWriteException(string path, Exception cause)
++        : base($"Cannot write the plot file '{path}': {cause.Message}", cause)
++    {
++        Path = path;
++    }
++}
++
+ /// <summary>
+ /// An evaluation stopped by the caller's <see cref="CancellationToken"/>. Distinct from a generic
+ /// cancellation: the host can report it as a structured <c>Cancelled</c> result, and the engine
+diff --git a/Lovelace.Suite/Interpreter.cs b/Lovelace.Suite/Interpreter.cs
+index 62fd03f..989b688 100644
+--- a/Lovelace.Suite/Interpreter.cs
++++ b/Lovelace.Suite/Interpreter.cs
+@@ -1854,7 +1854,13 @@ public sealed class Interpreter
+             return arg.Kind switch
+             {
+                 ValueKind.Vector => Task.FromResult<Value>(new Value(new Nat(arg.AsVector().Count))),
+-                ValueKind.Array  => Task.FromResult<Value>(Natural(arg.AsArray().Shape[0])),
++                // The FIRST DIMENSION of the value's own shape, which is what the descriptor promises
++                // ("Length of a vector (first dimension of an array)", CoreBuiltinMetadata.cs:78). It used
++                // to read AsArray(), whose NdArray<Value> conversion refuses any zero dimension
++                // (Lovelace.Array/NdArray.cs:33-34), so len() refused values the engine itself builds,
++                // prints and shapes ([[], []] has shape [2, 0]) and contradicted the D5 decision that
++                // zero-length dimensions are supported (typed-array-migration-plan.md:35) — F4-C.
++                ValueKind.Array  => Task.FromResult<Value>(Natural(arg.AsArrayValue().Shape.Span[0])),
+                 _ => throw new InvalidOperationException($"len() expects a vector or array, but got '{arg.Kind}'."),
+             };
+         });
+@@ -1921,14 +1927,40 @@ public sealed class Interpreter
+         model.Series.Add(series);
+ 
+         string path = Path.Combine(PlotOutputDirectory, PlotFileName);
+-        string full = Path.GetFullPath(path);
+         string svg = new SvgPlotRenderer().Render(model);
+-        File.WriteAllText(full, svg);
++        string full;
++        try
++        {
++            full = Path.GetFullPath(path);
++            File.WriteAllText(full, svg);
++        }
++        catch (Exception ex) when (IsUnwritablePlotFile(ex))
++        {
++            // A caller-supplied output path the process cannot write is a caller-level failure, like a
++            // script file that cannot be read: it crosses as the typed PlotFileWriteException (runner code
++            // PlotFileError/TypeMismatch, recoverable) instead of the raw IOException /
++            // UnauthorizedAccessException reaching the runner's generic handler as an internal invariant
++            // failure (F3-C). The filter is deliberately narrow and never swallows the diagnostic: the
++            // exception object is what the refusal's message is built from, and anything outside this set
++            // still reaches the runner, which answers with an envelope rather than aborting.
++            throw new PlotFileWriteException(path, ex);
++        }
++
+         LastPlot = new PlotCapture(svg, title);
+ 
+         return new Value(full);
+     }
+ 
++    /// <summary>The failures a caller-supplied plot OUTPUT PATH can produce: an empty or malformed name
++    /// (<see cref="ArgumentException"/>), a directory that does not exist or a name that is already a
++    /// directory (<see cref="IOException"/>, which also covers <see cref="PathTooLongException"/>), a
++    /// permission the process does not have (<see cref="UnauthorizedAccessException"/>) and a path form the
++    /// platform rejects (<see cref="NotSupportedException"/>). The set mirrors the runner's plot-directory
++    /// preflight (<c>Runner.IsUnusablePlotDirectory</c>), so both halves of the same caller argument cross
++    /// the same way.</summary>
++    private static bool IsUnwritablePlotFile(Exception ex) =>
++        ex is ArgumentException or IOException or UnauthorizedAccessException or NotSupportedException;
++
+     /// <summary>A plot argument must be a vector. The refusal is TYPED (an
+     /// <see cref="InvalidOperationException"/>, which the runner classifies as
+     /// InvalidOperation/DomainError, recoverable) and says which argument and which kind — never an
+@@ -1971,9 +2003,14 @@ public sealed class Interpreter
+     private static Value WrapArrayValue(ArrayValue av) =>
+         new Value(av, av.Rank == 1 ? ValueKind.Vector : ValueKind.Array);
+ 
+-    /// <summary>Builds a Natural-seeded homogeneous dense array of the given shape (D7; supports zero dims per D5).</summary>
+-    private static ArrayValue FillArrayValue(long[] shape, Value value)
++    /// <summary>Builds a Natural-seeded homogeneous dense array of the given shape (D7; supports zero dims per
++    /// D5). The shape is measured against the engine's single-allocation budget BEFORE the buffer exists, so
++    /// a request the process cannot serve crosses as the typed, recoverable
++    /// <see cref="ArrayAllocationRefusedException"/> instead of an <c>OutOfMemoryException</c> (or an
++    /// <c>int</c> overflow) reaching the runner's generic handler as an internal invariant failure (F2-C).</summary>
++    private static ArrayValue FillArrayValue(long[] shape, Value value, string builtin)
+     {
++        ArrayAllocationBudget.EnsureServable(shape, builtin);
+         long total = 1;
+         foreach (var d in shape)
+             total = checked(total * d);
+@@ -2105,12 +2142,12 @@ public sealed class Interpreter
+     {
+         // zeros(d1, …, dn) — one or more dimensions; the tail repeats (variadic)
+         Register("zeros", ["dims"], args =>
+-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero))),
++            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "zeros"), NumericOps.Zero, "zeros"))),
+             variadic: true);
+ 
+         // ones(d1, …, dn)
+         Register("ones", ["dims"], args =>
+-            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One))),
++            Task.FromResult(WrapArrayValue(FillArrayValue(ParseShape(args, 0, "ones"), NumericOps.One, "ones"))),
+             variadic: true);
+ 
+         // eye(n) / eye(r, c) — the column count is optional
+@@ -2121,6 +2158,10 @@ public sealed class Interpreter
+             if (rows < 1 || cols < 1)
+                 throw new ArgumentException("eye() dimensions must be positive.");
+ 
++            // the same pre-allocation budget zeros()/ones() use: eye(10^9, 10^9) is a 10^18-element
++            // request whose product used to overflow an int and cross as an arithmetic error (F2-C)
++            ArrayAllocationBudget.EnsureServable(new[] { rows, cols }, "eye");
++
+             long total = rows * cols;
+             var buffer = new Value[checked((int)total)];
+             Array.Fill(buffer, NumericOps.Zero);

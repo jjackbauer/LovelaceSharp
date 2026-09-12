@@ -1,0 +1,25 @@
+﻿script: evalf(pi, 40)   [--omit-functions]
+  exit=0  stdout=724 chars
+  result.display=40 decimals   result.structured.value=40 decimals   structured.truncated=absent   structured.exact=False
+  variables[0] (_).display=40 decimals   variables[0].structured.value=40 decimals
+
+script: evalf(pi, 1000)   [--omit-functions]
+  exit=0  stdout=1024 chars
+  result.display=100 decimals   result.structured.value=100 decimals   structured.truncated=absent   structured.exact=False
+  variables[0] (_).display=100 decimals   variables[0].structured.value=100 decimals
+
+script: pi(30)   [--omit-functions]
+  exit=0  stdout=692 chars
+  result.display=30 decimals   result.structured.value=30 decimals   structured.truncated=absent   structured.exact=False
+  variables[0] (_).display=30 decimals   variables[0].structured.value=30 decimals
+
+script: setprecision(1100); pi(1100)   [--omit-functions]
+  exit=0  stdout=3120 chars
+  result.display=100 decimals   result.structured.value=100 decimals   structured.truncated=absent   structured.exact=False
+  variables[0] (_).display=1100 decimals   variables[0].structured.value=1100 decimals
+
+script: setprecision(1100); print(pi(1100)); pi(1100)   [--omit-functions --omit-variables]
+  exit=0  stdout=2017 chars
+  result.display=100 decimals   result.structured.value=100 decimals   structured.truncated=absent   structured.exact=False
+  output[0]=1100 decimals
+

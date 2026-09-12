@@ -1,6 +1,19 @@
 # Harness State — cycle-6
 
-- **Round**: 16 — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
+## Round 17 objectives, recorded as dispatched
+
+> **Close the audit's remaining P0 and P1s, one bounded round each, all three in parallel worktrees:**
+> (a) **A-P0** — at the ambient-precision boundary the leading significant digit of a reduced
+> trigonometric value is wrong (`setprecision(31); evalf(sin(pi(30)), 40)` → `…4` where mpmath says
+> `5.0288…e-31`); the diagnosis starts at `ComplexMath.PiDigitsFor`/`SinCosAtPrecision`, and the pinned
+> values `Sin(Rl.Pi) == 0`, `Cos(Rl.Pi) == -1` and `sin(pi(100)*2)`'s true residual must not change.
+> (b) **A-P1a** — the structured payload silently truncates every Real at 100 decimal places while the
+> display carries the full value; the contract is to be read from the protocol document and
+> `DisplayDecimalPlaces` before any code moves. (c) **C-P1c/d/e** — `zeros(1000000000)` raises an
+> internal invariant failure instead of a typed refusal, a failed plot WRITE is internal while a failed
+> READ is typed, and `len` refuses the zero-dimension arrays that `shape` reports.
+
+- **Round**: 17 in flight — the four-persona fresh audit ran and is triaged: **four of its findings are closed** (the `--plot-dir` P0 abort, the wrong-shaped-argument cluster, the short `limit` family, the evalf working precision) and **one P0 and five P1s remain open** (named in the report §4). **CI run #56 on `dd436c4` is green in all three jobs**; round cap 40; **A+ is not claimed**
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their
   residual bounds, and claim A+ only if a fresh adversarial audit cannot falsify it.
 - **Definition of done**: **D0 met** (run #36, all three jobs, on `be89e55`); **D2** rows 2/3/4 closed

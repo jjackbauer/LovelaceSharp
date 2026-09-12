@@ -1,0 +1,14 @@
+before | p1100 | structured=100 | display=100 | typedDigits=100 | var.structured=1100 | var.display=1100 | output=absent
+before | print-p1100 | structured=100 | display=100 | typedDigits=100 | var.structured=1100 | var.display=1100 | output=1100
+before | p30 | structured=30 | display=30 | typedDigits=30 | var.structured=30 | var.display=30 | output=absent
+before | e40 | structured=40 | display=40 | typedDigits=40 | var.structured=40 | var.display=40 | output=absent
+before | e1000 | structured=100 | display=100 | typedDigits=100 | var.structured=100 | var.display=100 | output=absent
+before | sqrt2-1100 | structured=100 | display=100 | typedDigits=100 | var.structured=1100 | var.display=1100 | output=absent
+before | sp1100-e1000 | structured=100 | display=100 | typedDigits=100 | var.structured=1000 | var.display=1000 | output=absent
+after | p1100 | structured=1100 | display=1100 | typedDigits=1100 | var.structured=1100 | var.display=1100 | output=absent
+after | print-p1100 | structured=1100 | display=1100 | typedDigits=1100 | var.structured=1100 | var.display=1100 | output=1100
+after | p30 | structured=30 | display=30 | typedDigits=30 | var.structured=30 | var.display=30 | output=absent
+after | e40 | structured=40 | display=40 | typedDigits=40 | var.structured=40 | var.display=40 | output=absent
+after | e1000 | structured=1000 | display=100 | typedDigits=100 | var.structured=1000 | var.display=100 | output=absent
+after | sqrt2-1100 | structured=1100 | display=1100 | typedDigits=1100 | var.structured=1100 | var.display=1100 | output=absent
+after | sp1100-e1000 | structured=1000 | display=1000 | typedDigits=1000 | var.structured=1000 | var.display=1000 | output=absent
