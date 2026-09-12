@@ -14,6 +14,13 @@ namespace Lovelace.Suite.Tests;
 /// 10M sum, 22.5 s for the 200000! product, 7.5 s for the 400x400 product and 42 s for the while
 /// loop, each against a budget of tens or hundreds of milliseconds.
 /// </summary>
+/// <para>
+/// <c>Category=Timing</c>: every case here fences on WALL TIME as well as on the exception (see
+/// <see cref="Fence"/>), so CI's instrumented loop excludes the category and runs it in its own
+/// uninstrumented step. Under the coverage collector the un-budgeted work these kernels fall back
+/// to is what runs, which is minutes rather than milliseconds — excluded, never skipped.
+/// </para>
+[Trait("Category", "Timing")]
 public class ArrayKernelCancellationTests
 {
     /// <summary>

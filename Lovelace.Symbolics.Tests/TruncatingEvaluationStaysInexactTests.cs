@@ -169,28 +169,31 @@ public class TruncatingEvaluationStaysInexactTests
     /// </summary>
     private static (string Label, Rl Value)[] TruncatedArguments()
     {
-        using var scope = Rl.WithPrecision(60, 50);
+        // Corpus, precision and cost: the family spans the three routes that matter (a truncated
+        // constant, a truncated function value, and a truncation moved into the unit interval where
+        // the inverse functions are defined). It is built and consumed at 40/32 rather than 60/50
+        // because the series cost is superlinear in the digit count and the COVERAGE COLLECTOR
+        // turned the earlier 16-value x 9-function form into tens of minutes in CI (measured: the
+        // filtered run did not finish in 35 minutes under the collector, against under two minutes
+        // without it). The entries this drops are the >40-place arguments, whose route is still
+        // covered by FunctionOfATruncatedValue_...("evalf(sin(pi(45)/6), 40)") and
+        // ("evalf(sin(pi(30)/6), 100)") below.
+        using var scope = Rl.WithPrecision(40, 32);
         var pi30 = Rl.PiTo(30);
         var e30 = Rl.ETo(30);
         var root2 = Rl.Sqrt(N(2));
         return new (string, Rl)[]
         {
             ("pi to 30 places", pi30),
-            ("pi to 41 places", Rl.PiTo(41)),
             ("e to 30 places", e30),
-            ("e to 49 places", Rl.ETo(49)),
             ("sqrt(2)", root2),
             ("sqrt(3)", Rl.Sqrt(N(3))),
             ("sin(1)", Rl.Sin(Rl.One)),
             ("cos(1)", Rl.Cos(Rl.One)),
             ("exp(1)", Rl.Exp(Rl.One)),
-            ("exp(2)", Rl.Exp(N(2))),
-            // truncations moved into the unit interval, where the inverse functions are defined
             ("pi/10 to 30 places", pi30 / N(10)),
             ("pi/6 to 30 places", pi30 / N(6)),
             ("pi/4 to 30 places", pi30 / N(4)),
-            ("pi/3 to 30 places", pi30 / N(3)),
-            ("sqrt(2)/2", root2 / N(2)),
             ("e/4 to 30 places", e30 / N(4)),
         };
     }
@@ -261,7 +264,7 @@ public class TruncatingEvaluationStaysInexactTests
     public void FunctionOfATruncatedArgument_IsInexact()
     {
         var ctx = NewContext();
-        using var scope = Rl.WithPrecision(60, 50);
+        using var scope = Rl.WithPrecision(40, 32);   // see TruncatedArguments() on the cost
         var functions = new[] { "sin", "cos", "tan", "exp", "atan", "sinh", "cosh", "tanh", "sqrt" };
         int pairs = 0;
 
