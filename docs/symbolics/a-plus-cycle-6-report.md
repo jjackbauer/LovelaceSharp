@@ -23,7 +23,7 @@ inherited.
 | **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
 | **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
 | **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P written: nine rows CLOSED with evidence; three rows OPEN as defects; seven rows are scope decisions put to the maintainer **twice in writing** with no answer recorded, so none is marked ACCEPTED |
-| **D4** | The final tree re-measures green | **MET except one flaky case** | forced `--no-incremental` rebuild **0 warnings / 0 errors**; full sweep with `LOVELACE_REQUIRE_SYMPY=1` **passed=5298 failed=1 skipped=0** (the one failure is a load-sensitive `Lovelace.Run.Tests` case that passes 3/3 standalone — §5); AOT publish exit 0, 0 warnings, binary **357.5 s newer** than the newest source file; the five CI smoke scenarios **SMOKE FAILURES: 0**; capability honesty **MATCH=19 MISMATCH=0**; printer round-trip through the **published AOT binary** `ok=30 bad=0 other=0`; `Lovelace.Real.Tests` unfiltered **2489/0** |
+| **D4** | The final tree re-measures green | **MET except one flaky case** (and see §5) | forced `--no-incremental` rebuild **0 warnings / 0 errors**; full sweep with `LOVELACE_REQUIRE_SYMPY=1` **passed=5298 failed=1 skipped=0** (the one failure is a load-sensitive `Lovelace.Run.Tests` case that passes 3/3 standalone — §5); AOT publish exit 0, 0 warnings, binary **357.5 s newer** than the newest source file; the five CI smoke scenarios **SMOKE FAILURES: 0**; capability honesty **MATCH=19 MISMATCH=0**; printer round-trip through the **published AOT binary** `ok=30 bad=0 other=0`; `Lovelace.Real.Tests` unfiltered **2489/0** |
 | **D5** | Every claim traces to an EVD row I reproduced | **MET** | `docs/goal-cycle-6/evidence.md` EVD-237…EVD-259; every number in this report is from a transcript cited there |
 
 ## 3. What closed
@@ -53,11 +53,16 @@ inherited.
    `DepthExceeded/BudgetExceeded`, and `f(85)` still answers. The trade is explicit — recursion deeper
    than ~85 call levels is refused with a typed error where it used to work up to ~432 and then crash —
    and it is the same trade cycle 5 made for nested input.
-7. **The CI budget** (`aa27753`, `55c8cab`): run #32 failed at 189 s on a wall-clock cancellation
-   assertion measured at 29 s under the coverage collector, and runs #30/#33 were cancelled by the
-   30-minute job timeout. Wall-clock verdicts now leave the instrumented loop and run uninstrumented in
-   their own step (`Category=Timing`); the round-3 truncation corpus is bounded (35+ minutes under the
-   collector, 404 s after); the totals are preserved (Suite 817 covered + 8 uninstrumented = 825).
+7. **The CI budget** (`aa27753`, `55c8cab`, `be89e55`, `1ba8e16`): run #32 failed at 189 s on a
+   wall-clock cancellation assertion measured at 29 s under the coverage collector, runs #30/#33 were
+   cancelled by the 30-minute job timeout, and run #37 reddened again on a 2.5 s promptness fence around
+   a spawned runner. The job now separates the two causes: **`Category=Timing`** (wall-clock verdicts -
+   `RealTrigFastPathTests`, `CancellationObservationTests`, `ArrayKernelCancellationTests`,
+   `CancellationBudgetTests`) and **`Category=Costly`** (legitimate work the collector multiplies
+   seventeen-fold - the truncation corpus, 23 s uninstrumented against 404 s instrumented) leave the
+   instrumented loop and run, uninstrumented, in their own step. Nothing is skipped: the totals are
+   preserved (Suite 817 + 8 = 825; Run 201 + 5 = 206; Symbolics 1064 + 8 skips + 32 = the project's
+   own count).
 8. **Section-O bounds that are no longer true**: O-B7, O-B8a…i, O-B10 (second half), and the
    under-claim inside O-B14 — each re-measured on this tree, each CLOSED in section P with its probe.
 
