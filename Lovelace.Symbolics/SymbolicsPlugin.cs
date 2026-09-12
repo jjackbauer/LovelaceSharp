@@ -473,10 +473,12 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
             // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
             // cannot honour the request — the value has to be re-materialised at the requested
-            // count. It is projected back onto the exact value it carries and put through the SAME
+            // count. It is projected back onto the value it carries and put through the SAME
             // precision scope as a symbolic argument, which bounds it the way RationalReal.ToReal
-            // bounds an exact rational. An exact expression (1/3) keeps taking the path below.
-            var f = AsExpr(NumericAtRequestedPrecision(args[0]) ?? args[0]);
+            // bounds an exact rational. An exact expression (1/3) keeps taking the path below. The
+            // projection carries the payload's PROVENANCE with it (cycle 6, row 11): pi(30)/e(30)
+            // arrive inexact and must not come back as exact rationals.
+            var f = AsExpr(NumericAtRequestedPrecision(args[0], digits) ?? args[0]);
             using (Rl.WithPrecision(digits, Math.Min(digits, 50)))
             {
                 var num = Evaluation.EvaluateToNum(f, Context, new Dictionary<Symbol, Num>());
@@ -1514,21 +1516,51 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         return Exprs.Symbol(s);
     }
 
-    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the exact expression its
-    /// digits denote, so the evalf precision scope re-materialises it at the requested count.
-    /// Returns null for an argument the evaluation path already handles (a symbolic expression,
-    /// and the integer payloads that have no fractional digits to bound).</summary>
-    private static Expr? NumericAtRequestedPrecision(object? payload) => payload switch
+    /// <summary>Projects an argument that arrived ALREADY NUMERIC onto the expression its digits
+    /// denote, at the REQUESTED digit count, so the evalf precision scope re-materialises it at
+    /// that count. Returns null for an argument the evaluation path already handles (a symbolic
+    /// expression, and the integer payloads that have no fractional digits to bound).
+    /// <para>
+    /// AN EXACT VALUE IS THE RATIONAL IT DENOTES. <see cref="RationalReal.FromReal"/> reads the FULL
+    /// magnitude and exponent (never the display-truncated <c>ToString</c>), so no digit is invented
+    /// or lost, and the exact rational tier is what the precision scope bounds.
+    /// </para>
+    /// <para>
+    /// AN INEXACT VALUE KEEPS ITS ROUTE. The rational tier has no provenance to carry — a
+    /// <c>NumRat</c> is exact by construction — so a truncation projected onto it came back out of
+    /// <see cref="NumToPayload"/> as a FRESH Real whose exactness was read off the width of its
+    /// rendering: <c>evalf(pi(30), 40)</c> published a 30-place truncation of π as <c>exact:true</c>
+    /// with numerator 3141592653589793238462643383279 over 10^30, <c>evalf(pi(1), 40)</c> published
+    /// <c>3.1</c> exact as 31/10, and <c>e(30)</c> answered the same shape — while <c>pi(30)</c>
+    /// itself answers <c>exact:false</c>. A truncation of an inexact constant cannot be exact (cycle
+    /// 6, row 11), so such a value is truncated to the requested count HERE — through the same
+    /// <see cref="RationalReal.ToReal"/> the payload path applied to it before, so the DIGITS do not
+    /// move — and crosses as an inexact <see cref="RealLiteral"/>, which restores the flag the
+    /// rational tier dropped.
+    /// </para>
+    /// </summary>
+    private static Expr? NumericAtRequestedPrecision(object? payload, int digits) => payload switch
     {
-        // Real inherits Integer: check before Int/Nat. RationalReal.FromReal reads the FULL
-        // magnitude (never the display-truncated ToString), so no digit is invented or lost here;
-        // the precision scope is what bounds the result.
-        Rl r => Exprs.Rational(RationalReal.FromReal(r)),
+        // Real inherits Integer: check before Int/Nat.
+        Rl r => RealAtRequestedPrecision(r, digits),
         Cplx c => Exprs.Add(
-            Exprs.Rational(RationalReal.FromReal(c.Re)),
-            Exprs.Multiply(Exprs.Rational(RationalReal.FromReal(c.Im)), Exprs.I)),
+            RealAtRequestedPrecision(c.Re, digits),
+            Exprs.Multiply(RealAtRequestedPrecision(c.Im, digits), Exprs.I)),
         _ => null,
     };
+
+    /// <summary>One already-numeric component at the requested digit count: the exact rational it
+    /// denotes when it is exact, and an inexact literal carrying the digits the request keeps when it
+    /// is not. <paramref name="digits"/> is bounded by the same 1000-place computation cap
+    /// <see cref="NumToPayload"/> applies to a rational payload, so the two routes truncate
+    /// identically. A truncated value is re-materialised from its own digits and re-marked inexact —
+    /// <see cref="RationalReal.ToReal"/> parses a decimal string back, and a parse owns a FRESH
+    /// instance whose flag says "exact by construction" (see <see cref="Rl.AsInexact"/>).</summary>
+    private static Expr RealAtRequestedPrecision(Rl value, int digits) =>
+        value.IsExact
+            ? Exprs.Rational(RationalReal.FromReal(value))
+            : Exprs.Real(RealLiteral.FromRealExact(Rl.AsInexact(
+                RationalReal.ToReal(RationalReal.FromReal(value), Math.Min(digits, 1000)))));
 
     private static object NumToPayload(Num n) => n switch
     {

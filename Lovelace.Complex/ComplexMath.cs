@@ -24,12 +24,18 @@ public static class ComplexMath
 
     /// <summary>Computes <c>e^x</c> as <c>e^n · e^f</c> with <c>n = trunc(x)</c> and
     /// <c>|f| &lt; 1</c>; <c>e^f</c> comes from a Taylor series and <c>e^n</c> from binary
-    /// exponentiation of <see cref="Rl.E"/>.</summary>
+    /// exponentiation of <see cref="Rl.E"/>.
+    /// <para>
+    /// The <c>IsZero</c> shortcut answers an exact 1, and it may not launder its argument's route to
+    /// get there: <c>exp</c> of an argument that only APPROXIMATES zero — the exactly-zero reduction
+    /// of a truncated π, <c>pi(30) − pi(30)</c> — is an approximation's 1, not an exact one (cycle 6,
+    /// row 11). The value is untouched; only the claim goes.
+    /// </para></summary>
     public static Rl Exp(Rl x)
     {
         ArgumentNullException.ThrowIfNull(x);
         long digits = AmbientDigits();
-        if (Rl.IsZero(x)) return Rl.One;
+        if (Rl.IsZero(x)) return WithArgumentProvenance(Rl.One, x);
 
         long work = digits + GuardDigits;
         using var scope = Rl.WithPrecision(work, work);
@@ -214,13 +220,20 @@ public static class ComplexMath
     // Complex — exponential / trigonometry
     // ------------------------------------------------------------------
 
-    /// <summary>Computes <c>e^(a+bi) = e^a·(cos b + i·sin b)</c>.</summary>
+    /// <summary>Computes <c>e^(a+bi) = e^a·(cos b + i·sin b)</c>.
+    /// <para>
+    /// BOTH components depend on BOTH parts of the argument, so an inexact part leaves neither
+    /// component entitled to the exact flag — the same rule the trigonometric overloads below
+    /// follow. The leaking shape is an inexact zero real part, whose <c>Exp(z.Re)</c> was the exact
+    /// shortcut's 1 beside the exact <c>cos(0)/sin(0)</c> (cycle 6, row 11).
+    /// </para></summary>
     public static Complex Exp(Complex z)
     {
         ArgumentNullException.ThrowIfNull(z);
         long digits = AmbientDigits();
         Rl e = Exp(z.Re);
-        return TruncateComplex(new Complex(e * Cos(z.Im), e * Sin(z.Im)), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(new Complex(e * Cos(z.Im), e * Sin(z.Im)), digits), z);
     }
 
     /// <summary>Computes <c>sin(a+bi) = sin a·cosh b + i·cos a·sinh b</c>.</summary>
@@ -275,7 +288,16 @@ public static class ComplexMath
     // ------------------------------------------------------------------
 
     /// <summary>Principal square root: <c>s + t·i</c> with <c>s = √((|z|+a)/2)</c> and
-    /// <c>t = √((|z|−a)/2)</c>, choosing <c>t ≥ 0</c> when <c>Im ≥ 0</c>.</summary>
+    /// <c>t = √((|z|−a)/2)</c>, choosing <c>t ≥ 0</c> when <c>Im ≥ 0</c>.
+    /// <para>
+    /// The provenance of the result is the provenance of the ARGUMENT, as it is for every other
+    /// entry point here. Both components are built by <c>Rl.Sqrt</c> of an argument that is an EXACT
+    /// zero whenever the magnitude cancels a part — <c>sqrt(0) = 0</c> is exact by construction — so
+    /// a truncated argument used to answer an exact zero for a part that is a truncation's zero:
+    /// <c>Sqrt(inexact 0 + 0i)</c> was <c>(0, 0)</c> with both parts exact and
+    /// <c>Sqrt(inexact 4 + 0i)</c> was <c>(2, 0)</c> with the imaginary part exact (cycle 6,
+    /// row 11). The VALUES are untouched; only the claim goes.
+    /// </para></summary>
     public static Complex Sqrt(Complex z)
     {
         ArgumentNullException.ThrowIfNull(z);
@@ -287,7 +309,8 @@ public static class ComplexMath
         Rl diff = mag - a;
         if (Rl.IsNegative(diff)) diff = Rl.Zero;
         Rl t = Rl.Sqrt(diff / new Rl("2"));
-        return TruncateComplex(Rl.IsNegative(b) ? new Complex(s, -t) : new Complex(s, t), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(Rl.IsNegative(b) ? new Complex(s, -t) : new Complex(s, t), digits), z);
     }
 
     /// <summary>Principal logarithm <c>ln|z| + i·atan2(Im, Re)</c>. Throws
