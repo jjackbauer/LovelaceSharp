@@ -1,6 +1,6 @@
 # Harness State — cycle-6
 
-- **Round**: 9 landed — rows 2/3/4, row 1's first route, O-B11 and the CI budget are all on `main`; **CI run #36 on `be89e55` is green in all three jobs**; round cap 40
+- **Round**: 13 in flight — rounds 10–12 landed P-B1's flag half, P-B3, the evalf flag leaks and the CI knife-edge repairs; **CI run #49 on `2f13efc` is green in all three jobs**; the four-persona fresh audit (D1) is running against the published AOT binary; round cap 40
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their
   residual bounds, and claim A+ only if a fresh adversarial audit cannot falsify it.
 - **Definition of done**: **D0 met** (run #36, all three jobs, on `be89e55`); **D2** rows 2/3/4 closed
@@ -55,6 +55,15 @@
 > `evalf(1/(3*10^1000), 30)` as an Integer `0` declared exact: `Real.Divide` must place the quotient's
 > decimal point correctly (the representation can hold the value), with the boundary table checked
 > against mpmath and the in-budget neighbours unchanged.
+
+## Round 12 objective, recorded as dispatched
+
+> **Re-measure the one remaining candidate defect (P-B4) properly, and then run the gate that decides the
+> cycle: a fresh four-persona adversarial audit against the published binary built from this tree.**
+> The audit personas are metamorphic relations (solver residuals, calculus round-trips, rewrite
+> soundness, printer round-trip), the precision-and-exactness lattice, hostile input shapes (the classes
+> the project forbids: internal invariant failures, crashes, empty stdout), and agent
+> workflow/protocol conformance. No persona may re-run cycle 5's probe lists.
 
 ## Next objectives, in order
 

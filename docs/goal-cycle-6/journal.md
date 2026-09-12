@@ -632,6 +632,40 @@
 - **Raised by**: Round 12, after falsifying my own P-B4 framing
 - **Related**: EVD-276, VAL-004
 
+### OBS-018: The fresh audit is doing its job — audit D found two new P1s on the first pass
+
+- **Source**: `docs/goal-cycle-6/round-13/audit-D-workflow.md`; my own reproduction (EVD-277, EVD-278)
+- **Fact**: **F1 (P1, new)**: a wrong-SHAPED argument crosses as `InternalError/InternalInvariantFailure`
+  ("Specified cast is not valid.") instead of `InvalidArgument/TypeMismatch` — 52 of 369 swept calls
+  across 26 builtins, including `det(1)`, `matmul(1,1)`, `symbol(1)`, `assume(1)`, `transpose(1,1)`.
+  Cycle 5 fixed the ARITY path; the SHAPE path had never been swept. **F2 (P1, new)**: the short
+  `limit`/`limit_left`/`limit_right` return a refusal as bare `Text` under `ok:true` with no
+  code/category, while `limit_full` returns a `LimitResult` record — the class cycle 5 fixed for
+  `solve`. Two P2s were also found (`--print-budget` non-monotone; a stale protocol-document example).
+- **Implications**: D1 is exactly the gate it was meant to be: the audit found defects that four
+  bounded rounds of work had not. Both P1s are dispatched as rounds 14a/14b with located root causes and
+  the requirement of a control-failing test; the P2s are recorded for the same round or the report.
+- **Confidence**: High (I reproduced both myself on the published binary).
+- **Agent**: Auditor D (fresh persona) + my own reproduction
+- **Related**: EVD-277, EVD-278
+
+### OBS-019: Audit A found a P1 in the opposite direction of my own falsification
+
+- **Source**: `docs/goal-cycle-6/round-13/audit-A-metamorphic.md`; my own probes (EVD-279)
+- **Fact**: `evalf(f, N)` computes at N **significant** digits and prints N **decimals**, so a result with
+  k integer digits has its last k decimals wrong: `evalf(sinh(34/3), 30)` is wrong from the 26th decimal
+  (five integer digits), the same at 100 decimals from the 95th, and `setprecision(60)` does not change
+  it — so it is the working precision of the evalf path, not the ambient budget. The terminating control
+  `sinh(11.5)` is correct. Audit A's 1 600+ generated checks otherwise held (rewrite soundness 864,
+  printer round-trip 540, solver roots 55, eval/diff vs mpmath 144).
+- **Implications**: This is a P1 and must close before D1 can hold. It also **bounds my VAL-004**: that
+  falsification established that the TINY-magnitude case is correct rounding at the requested resolution;
+  it did not establish anything about the large-magnitude direction, where the digits are simply wrong.
+  The distinction is recorded rather than smoothed over.
+- **Confidence**: High (reproduced by me, digit-compared against mpmath).
+- **Agent**: Auditor A (fresh persona) + my own reproduction
+- **Related**: EVD-279, VAL-004, OQ-004
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,
