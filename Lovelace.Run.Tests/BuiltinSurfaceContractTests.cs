@@ -78,6 +78,62 @@ public class BuiltinSurfaceContractTests
         Assert.Equal("1.4142135623730950488", Text(Structured(readmeEnvelope)));
     }
 
+    /// <summary>
+    /// Cycle 5, item 1 (audit-2 B1-F5): the digit count that CANNOT be honoured. The audit found
+    /// five different answers to one argument problem — <c>evalf(sin(1), 0)</c> and
+    /// <c>evalf(cos(1), 0)</c> crossed as <c>InternalError</c>/<c>InternalInvariantFailure</c>
+    /// ("Object reference not set to an instance of an object."), <c>evalf(exp(1), 0)</c> behaved
+    /// like <c>digits = 1</c>, <c>evalf(1/3, 0)</c> answered 0 declared exact, and
+    /// <c>evalf(sqrt(2), 0)</c> ignored the count. The protocol forbids an internal invariant
+    /// failure as an answer to an argument problem, so the contract pinned here is the recoverable
+    /// argument error the rest of the digit-count surface already produces (<c>pi(0)</c>/
+    /// <c>e(0)</c>): a stable code and category, a message that names the builtin, the argument and
+    /// the acceptable range, and no value at all.
+    /// </summary>
+    [Theory]
+    [InlineData("evalf(sin(1), 0)")]      // used to raise NullReferenceException
+    [InlineData("evalf(cos(1), 0)")]      // used to raise NullReferenceException
+    [InlineData("evalf(exp(1), 0)")]      // used to behave like digits = 1
+    [InlineData("evalf(1/3, 0)")]         // used to answer 0, declared exact: true
+    [InlineData("evalf(sqrt(2), 0)")]     // used to ignore the count entirely
+    [InlineData("evalf(pi, 0)")]          // the constant path, same request
+    [InlineData("evalf(sin(1), -1)")]
+    [InlineData("evalf(sin(1), -100)")]
+    [InlineData("evalf(1/3, 2147483648)")]        // the Int32 cast wrapped to a negative count
+    [InlineData("evalf(sin(1), 10^30)")]          // wider than Int64: a raw OverflowException
+    public async Task Evalf_RefusesADigitCountItCannotHonour_AsARecoverableArgumentError(string script)
+    {
+        var (exit, envelope) = await RunAsync(script);
+
+        Assert.Equal(1, exit);
+        Assert.False(envelope["ok"]!.GetValue<bool>(), $"'{script}' must not answer a value");
+        Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
+        Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
+        Assert.True(envelope["recoverable"]!.GetValue<bool>(), "the caller can fix the count and retry");
+        Assert.NotEqual("InternalInvariantFailure", envelope["category"]!.GetValue<string>());
+        Assert.NotEqual("InternalError", envelope["code"]!.GetValue<string>());
+
+        string message = envelope["message"]!.GetValue<string>();
+        Assert.StartsWith("evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got ", message);
+        Assert.NotEqual("Object reference not set to an instance of an object.", message);
+    }
+
+    /// <summary>
+    /// The boundary the refusal must not swallow: <c>digits = 1</c> is the smallest accepted
+    /// count and must keep answering, so the guard cannot be widened into "reject small counts".
+    /// </summary>
+    [Fact]
+    public async Task Evalf_DigitsOne_IsTheSmallestAcceptedCount()
+    {
+        var (exit, one) = await RunAsync("evalf(sin(1), 1)");
+        Assert.Equal(0, exit);
+        Assert.Equal("0.8", Text(Structured(one)));
+
+        var (zeroExit, zero) = await RunAsync("evalf(sin(1), 0)");
+        Assert.Equal(1, zeroExit);
+        Assert.False(zero["ok"]!.GetValue<bool>());
+    }
+
     // ------------------------------------------------------------------
     // 2. assumptions() is structured, and keeps the human rendering
     // ------------------------------------------------------------------

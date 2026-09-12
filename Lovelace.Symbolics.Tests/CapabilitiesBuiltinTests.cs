@@ -47,7 +47,12 @@ public class CapabilitiesBuiltinTests
     /// enumeration has to be a deliberate edit here.</summary>
     private static readonly string[] ExpectedOperationClasses =
     {
-        "pow.non-integer-exponent",
+        // round 11 (audit-2 F1) NARROWED this class. It used to be "pow.non-integer-exponent",
+        // which — read together with the kernel's own message — claimed every non-integer exponent
+        // while (-4)^(1/2) answers 2*i and 0^(1/2) answers 0. The message is a byte-for-byte
+        // transcription of the kernel's text and cannot be narrowed, so the CLASS ID now names the
+        // refused shape and the entry's `scope` field names the supported counterexamples.
+        "pow.non-integer-exponent-of-a-positive-base",
         "pow.negative-base-unrepresentable-exponent",
         "solve.unsupported-domain",
         "rootof.complex-algebraic",
@@ -72,6 +77,12 @@ public class CapabilitiesBuiltinTests
         "linsolve.non-symbolic-matrix",
         // audit P6b-8
         "fft.non-power-of-two-length",
+        // round 11 (audit-2 F7): the three reachable refusal classes the statement omitted —
+        // solve.unevaluated, system-solve.unevaluated and integration.no-closed-form. All three
+        // ride in a record's diagnostics while the call succeeds.
+        "solve.unevaluated-in-record-diagnostics",
+        "system-solve.unevaluated-in-record-diagnostics",
+        "integration.no-closed-form-in-record-diagnostics",
     };
 
     private static SuiteEngine NewEngine()
@@ -88,10 +99,21 @@ public class CapabilitiesBuiltinTests
 
     private static RecordValue Capabilities(SuiteEngine engine) => engine.Evaluate("capabilities()").AsRecord();
 
-    private static IReadOnlyDictionary<string, (string Code, string Category, string Message, string Trigger)>
+    /// <summary>The advertised <c>scope</c> text of one entry: "" when the field is the absent-field
+    /// Null, the text otherwise. A null payload maps onto <c>Value.Void</c> in the object model and
+    /// onto <c>{"kind":"Null"}</c> on the wire (PayloadMap.Wrap plus the Run projection), which is
+    /// why the Void kind is this helper's "no scope stated" case.</summary>
+    private static string ScopeOf(RecordValue record) => Field(record, "scope") switch
+    {
+        { Kind: ValueKind.Void } => "",
+        Value v when v.Kind == ValueKind.Text => v.AsText(),
+        Value other => throw new Xunit.Sdk.XunitException($"scope must be Text or the absent-field Null, got '{other.Kind}'"),
+    };
+
+    private static IReadOnlyDictionary<string, (string Code, string Category, string Message, string Trigger, string Scope)>
         AdvertisedByOperationClass(SuiteEngine engine)
     {
-        var map = new Dictionary<string, (string, string, string, string)>(StringComparer.Ordinal);
+        var map = new Dictionary<string, (string, string, string, string, string)>(StringComparer.Ordinal);
         foreach (Value entry in Field(Capabilities(engine), "unsupported_operations").AsVector())
         {
             var record = entry.AsRecord();
@@ -102,7 +124,8 @@ public class CapabilitiesBuiltinTests
                 Field(record, "code").AsText(),
                 Field(record, "category").AsEnum().Name,
                 Field(record, "message").AsText(),
-                Field(record, "trigger").AsText())))
+                Field(record, "trigger").AsText(),
+                ScopeOf(record))))
             {
                 throw new Xunit.Sdk.XunitException(
                     $"two advertised entries share the operation_class '{operationClass}': the honesty loop would silently drop one of them");
@@ -205,6 +228,13 @@ public class CapabilitiesBuiltinTests
             Assert.Equal(DiagnosticProjection.CategoryTypeName, category.AsEnum().TypeName);
             Assert.True(Enum.IsDefined(typeof(ErrorCategory), category.AsEnum().Name),
                 $"'{category.AsEnum().Name}' is not an ErrorCategory member");
+
+            // round 11: `scope` is part of the shape. It is TEXT when the kernel's own message is
+            // wider than the refusal, and the Null of the absent-field invariant when the id and
+            // the message already fix the scope — never a missing field, never "".
+            Value scope = Field(record, "scope");
+            Assert.True(scope.Kind is ValueKind.Text or ValueKind.Void,
+                $"scope must be Text or the absent-field Null, got '{scope.Kind}'");
         }
 
         // The enumeration itself is the claim: EVERY class the round-09 audit found unlisted, plus
@@ -388,11 +418,33 @@ public class CapabilitiesBuiltinTests
                     continue;
                 }
 
-                JsonNode diagnosticFields = StructuredFields(diagnostics[0]!);
+                // The advertised code is looked up among the record's TOP-LEVEL diagnostics —
+                // the array an agent matches on without walking nested `details` — and it must
+                // appear there EXACTLY once, so "the diagnostic this class advertises" is never
+                // ambiguous. (Round 11: the integration refusal publishes its class-level code
+                // AND its input-specific code at the top level, which is why this is a lookup and
+                // not a fixed index.)
+                var carriedCodes = diagnostics
+                    .Select(d => StructuredFields(d!)["code"]!["value"]!.GetValue<string>())
+                    .ToArray();
+                JsonNode? diagnostic = diagnostics
+                    .FirstOrDefault(d => StructuredFields(d!)["code"]!["value"]!.GetValue<string>() == entry.Code);
+                if (diagnostic is null)
+                {
+                    failures.Add($"'{operationClass}' trigger '{entry.Trigger}': the record carries {carriedCodes.Length} diagnostic(s) [{string.Join(", ", carriedCodes)}] and NONE of them has the advertised code '{entry.Code}'");
+                    continue;
+                }
+                if (carriedCodes.Count(c => c == entry.Code) != 1)
+                {
+                    failures.Add($"'{operationClass}' trigger '{entry.Trigger}': the advertised code '{entry.Code}' is carried {carriedCodes.Count(c => c == entry.Code)} times by [{string.Join(", ", carriedCodes)}], so the diagnostic the class names is ambiguous");
+                    continue;
+                }
+
+                JsonNode diagnosticFields = StructuredFields(diagnostic);
                 liveCode = diagnosticFields["code"]!["value"]!.GetValue<string>();
                 liveCategory = diagnosticFields["category"]!["value"]!.GetValue<string>();
                 liveMessage = diagnosticFields["message"]!["value"]!.GetValue<string>();
-                carrier = $"record {structured["type"]!.GetValue<string>()} status={status} diagnostics[0]";
+                carrier = $"record {structured["type"]!.GetValue<string>()} status={status} diagnostics[code={entry.Code}]";
             }
             else
             {
@@ -422,6 +474,67 @@ public class CapabilitiesBuiltinTests
         Assert.True(failures.Count == 0, string.Join("\n", failures));
         foreach (string row in verified)
             _output.WriteLine("live-verified " + row);
+    }
+
+    // ------------------------------------------------------------------
+    // Round 11: the power-exponent boundary, in BOTH directions
+    // ------------------------------------------------------------------
+
+    /// <summary>
+    /// Audit-2 F1. The statement advertised <c>pow.non-integer-exponent</c> with the kernel's own
+    /// message "Non-integer exponents are not yet supported." — a pair that reads as a claim about
+    /// EVERY non-integer exponent, while the live call answers an exact negative base under the
+    /// principal square root. The repair is a NARROWER class (the id names the refused shape), the
+    /// <c>scope</c> field that names what IS supported, and this test, which drives both directions
+    /// against the live runner: every shape the two power classes refuse produces the advertised
+    /// envelope, every counterexample the scope names is SUPPORTED (the advertisement no longer
+    /// denies it), and the over-broad id is GONE rather than kept alongside as an alias.
+    /// </summary>
+    [Fact]
+    public async Task PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported()
+    {
+        var advertised = AdvertisedByOperationClass(NewEngine());
+        var positiveBase = advertised["pow.non-integer-exponent-of-a-positive-base"];
+        var negativeBase = advertised["pow.negative-base-unrepresentable-exponent"];
+
+        // the id an agent enumerates on must not stay ambiguous: the old class is REMOVED
+        Assert.DoesNotContain("pow.non-integer-exponent", advertised.Keys);
+
+        // the refusal direction: a positive base with a non-integer exponent, and a negative base
+        // with any non-integer exponent other than the principal square root
+        foreach (string script in new[]
+                 {
+                     "2^(1/2)", "4^(1/2)", "9^(1/2)", "0.5^(1/2)", "2^(1/3)", "2^(2/3)", "2^(-1/2)",
+                     "(-8)^(1/3)", "(-4)^(1/4)", "(-4)^(2/3)", "(-4)^(3/2)", "(-4)^(-1/2)",
+                 })
+        {
+            JsonNode envelope = await RunEnvelopeAsync(script);
+            Assert.False(envelope["ok"]!.GetValue<bool>(), $"'{script}' is refused by the statement, so the live call must refuse it");
+            Assert.Equal("UnsupportedOperation", envelope["code"]!.GetValue<string>());
+            Assert.Equal("UnsupportedOperation", envelope["category"]!.GetValue<string>());
+            Assert.Equal(positiveBase.Message, envelope["message"]!.GetValue<string>());
+        }
+
+        // the supported direction the old advertisement DENIED — the exact negative base under
+        // the principal square root, and a zero base. These are the shapes the scope field names.
+        foreach (var (script, expected) in new[]
+                 {
+                     ("(-4)^(1/2)", "2*i"), ("(-1)^(1/2)", "i"), ("(-9)^(1/2)", "3*i"),
+                     ("(-2)^(1/2)", "i*sqrt(2)"), ("(-4)^0.5", "2*i"), ("(-4)^(2/4)", "2*i"),
+                     ("0^(1/2)", "0"),
+                 })
+        {
+            JsonNode envelope = await RunEnvelopeAsync(script);
+            Assert.True(envelope["ok"]!.GetValue<bool>(), $"the class's scope says '{script}' is supported, so it must answer");
+            Assert.Equal(expected, envelope["result"]!["display"]!.GetValue<string>());
+        }
+
+        // the correction rides on the wire, not only in this test: the two power classes must
+        // carry the scope, and each must name a counterexample this test actually ran
+        Assert.Contains("(-4)^(1/2)", positiveBase.Scope);
+        Assert.Contains("(-4)^(1/2)", negativeBase.Scope);
+        Assert.Contains("positive base", positiveBase.Scope, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("negative base", negativeBase.Scope, StringComparison.OrdinalIgnoreCase);
     }
 
     // ------------------------------------------------------------------
@@ -456,7 +569,15 @@ public class CapabilitiesBuiltinTests
             JsonNode fields = StructuredFields(structured);
             Assert.Equal("Unevaluated", fields["status"]!["value"]!.GetValue<string>());
 
-            JsonNode diagnostic = Assert.Single(fields["diagnostics"]!["elements"]!.AsArray())!;
+            // Round 11 (audit-2 F7): the record publishes the refusal under BOTH codes at the top
+            // level — the class-level integration.unevaluated FIRST (its message is the one the
+            // capability statement advertises byte for byte) and the input-specific
+            // integration.no-closed-form after it — so a consumer that only reads
+            // diagnostics[].code finds the class the statement advertises without walking details.
+            JsonArray topLevel = fields["diagnostics"]!["elements"]!.AsArray();
+            Assert.Equal(2, topLevel.Count);
+
+            JsonNode diagnostic = topLevel[0]!;
             JsonNode diagnosticFields = StructuredFields(diagnostic);
             Assert.Equal("integration.unevaluated", diagnosticFields["code"]!["value"]!.GetValue<string>());
             Assert.Equal("UnsupportedOperation", diagnosticFields["category"]!["value"]!.GetValue<string>());
@@ -471,6 +592,12 @@ public class CapabilitiesBuiltinTests
             string reason = detailFields["message"]!["value"]!.GetValue<string>();
             Assert.False(string.IsNullOrWhiteSpace(reason), "the refusal's details must carry a non-empty reason");
             Assert.Contains("integrate(", reason);
+
+            JsonNode specificFields = StructuredFields(topLevel[1]!);
+            Assert.Equal("integration.no-closed-form", specificFields["code"]!["value"]!.GetValue<string>());
+            Assert.Equal("UnsupportedOperation", specificFields["category"]!["value"]!.GetValue<string>());
+            Assert.Equal(reason, specificFields["message"]!["value"]!.GetValue<string>());
+            Assert.Empty(specificFields["details"]!["elements"]!.AsArray());
 
             messages.Add(diagnosticFields["message"]!["value"]!.GetValue<string>());
             reasons.Add(reason);

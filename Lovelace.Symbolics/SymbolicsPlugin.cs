@@ -296,7 +296,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
                 new RecordField("exactness", EnumField("SolutionExactness", r.Expression.IsExact
                     ? SolutionExactness.Exact
                     : SolutionExactness.Approximate)),
-                new RecordField("diagnostics", Diagnostics(IntegrationDiagnostic(r))));
+                new RecordField("diagnostics", Diagnostics(IntegrationDiagnostics(r))));
         },
         new BuiltinDescriptor("integrate_full", new[] { "f", "x" }, BuiltinCategories.Calculus,
             "Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag.",
@@ -465,7 +465,10 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             "Substitutes value for the symbol x in f.", ["subs(x^2 + 1, x, 3)"], "Symbolic", ["evalf"]));
         Add("evalf", new[] { "f", "digits" }, args =>
         {
-            var digits = (int)AsLong(args[1]);
+            // A digit count that cannot be honoured is an ARGUMENT problem, and it is answered as
+            // one (see DigitCount): never as a silently rounded/ignored count and never as an
+            // internal invariant failure.
+            var digits = DigitCount(args[1]);
             // The digit count must hold for BOTH shapes of argument. An argument that reaches this
             // body as a NUMBER was already evaluated at the AMBIENT precision (the call-by-value
             // boundary: sqrt(2) is a 100-digit Real before the builtin runs), so re-evaluating it
@@ -630,11 +633,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// reason in <c>details</c> (a nested Diagnostic). Before round 10 this path emitted
     /// <c>status = Unevaluated</c> with an EMPTY diagnostics array: "did anything go wrong?" was
     /// not answerable from structure, which is exactly the property the protocol promises.</summary>
-    private static Diagnostic? IntegrationDiagnostic(IntegrationResult result) => result.Note is { } note
-        ? WithDetails("integration.unevaluated", ErrorCategory.UnsupportedOperation,
-            IntegrationUnevaluatedMessage,
-            Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note))
-        : null;
+    private static Diagnostic?[] IntegrationDiagnostics(IntegrationResult result) =>
+        result.Note is not { } note
+            ? Array.Empty<Diagnostic?>()
+            : new Diagnostic?[]
+            {
+                WithDetails("integration.unevaluated", ErrorCategory.UnsupportedOperation,
+                    IntegrationUnevaluatedMessage,
+                    Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note)),
+                // round 11 (audit-2 F7): the INPUT-SPECIFIC refusal is published at the TOP level
+                // as well as in the class-level diagnostic's details, so EVERY refusal class this
+                // record can carry is enumerable the way every other record-carried class is —
+                // an agent (or the capability-honesty check) that matches on the codes in
+                // `diagnostics` never has to walk the nested `details` to find the second code.
+                // The class-level element stays FIRST: its message is the one the capability
+                // statement advertises byte for byte, and the per-integrand reason rides in the
+                // element that follows it.
+                Diagnostic.Of("integration.no-closed-form", ErrorCategory.UnsupportedOperation, note),
+            };
 
     /// <summary>A kernel-level diagnostic that carries NESTED details. <see cref="Diagnostic.Of"/>
     /// deliberately produces an empty details list; this is the one construction that does not,
@@ -712,6 +728,14 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// message is true for the whole class.
     /// </para>
     /// <para>
+    /// <c>scope</c> is the field that keeps a TRANSCRIPTION from over-claiming. The kernel's own
+    /// message for the two power classes ("Non-integer exponents are not yet supported.") is wider
+    /// than the refusal it accompanies, and a transcription narrowed by hand would no longer be a
+    /// transcription. Round 11 therefore states the scope in a field of its own, naming both the
+    /// refused shapes and the live counterexamples that ARE supported (audit-2 F1); it is
+    /// <c>{"kind":"Null"}</c> for a class whose id and message already fix the scope.
+    /// </para>
+    /// <para>
     /// The domain pair is scoped by its NAME rather than by prose: <c>solve_domains_accepted</c> and
     /// <c>solve_domains_refused</c> describe the domain ARGUMENT of <c>solve(f, x, domain)</c>.
     /// Audit A2-F12 measured the old <c>unsupported_domains</c> being read as a claim about the
@@ -726,10 +750,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// The four entries that predate round 10, unchanged:
     /// </para>
     /// <list type="bullet">
-    /// <item>a non-integer exponent of a positive base, e.g. <c>2^(1/2)</c>: a
+    /// <item>a non-integer exponent of a POSITIVE base, e.g. <c>2^(1/2)</c>: a
     /// <c>NotImplementedException</c> from <c>Lovelace.Real.Real.Pow</c>, classified as
     /// <c>UnsupportedOperation</c> / <c>UnsupportedOperation</c>. The result is a real irrational
-    /// the Real type will not approximate, so this stays a genuine unsupported class.</item>
+    /// the Real type will not approximate, so this stays a genuine unsupported class. Round 11
+    /// NARROWED this entry (audit-2 F1): it used to be published as
+    /// <c>pow.non-integer-exponent</c>, which — read together with the kernel's own message
+    /// "Non-integer exponents are not yet supported." — claimed every non-integer exponent, while
+    /// <c>(-4)^(1/2)</c> answers <c>2*i</c>, <c>(-9)^(1/2)</c> answers <c>3*i</c> and
+    /// <c>0^(1/2)</c> answers <c>0</c>. The message is a byte-for-byte transcription and stays
+    /// one, so the class id now names the refused shape
+    /// (<c>pow.non-integer-exponent-of-a-positive-base</c>) and the new <c>scope</c> field names
+    /// the live counterexamples that ARE supported.</item>
     /// <item>a negative base raised to an exponent whose denominator is &gt;= 3, e.g.
     /// <c>(-8)^(1/3)</c>: the SAME exception and therefore the same code, category and message.
     /// It is a distinct operation class because the principal value is a root of unity that is not
@@ -756,16 +788,18 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// (docs/goal-cycle-4/round-09/audit-P2P6-wire.md, part 6(b))</b> — the symbolic-limit refusal,
     /// the integration refusal, the symbolic plot path, the non-symbolic solve/diff/integrate/limit
     /// arguments, the DSP symbolic-element guard, the linsolve matrix guard and the FFT length
-    /// constraint — together with the classes earlier rounds advertised; 16 entries, each
-    /// live-verified by <c>CapabilitiesBuiltinTests</c>. What is still NOT enumerated, and why:
+    /// constraint — together with the classes earlier rounds advertised; 19 entries (round 11
+    /// added the three audit-2 F7 exhibited), each live-verified by
+    /// <c>CapabilitiesBuiltinTests</c>. What is still NOT enumerated, and why:
     /// </para>
     /// <list type="bullet">
     /// <item>the remaining kernel-note diagnostics whose message is the INPUT-SPECIFIC reason —
-    /// <c>solve.unevaluated</c>, <c>solve.partial</c>, <c>solve.budget-exceeded</c>,
-    /// <c>solve.no-solutions</c>, <c>system-solve.unevaluated</c>,
-    /// <c>system-solve.no-solutions</c>, <c>matrix.singular</c>. They are refusals, but one
-    /// advertised message could not state them truthfully; they need the same details-carrying
-    /// shape <c>integration.unevaluated</c> now has.</item>
+    /// <c>solve.partial</c>, <c>solve.budget-exceeded</c>, <c>solve.no-solutions</c>,
+    /// <c>system-solve.no-solutions</c>, <c>matrix.singular</c>. Round 11 added the three
+    /// audit-2 F7 found reachable (<c>solve.unevaluated</c>, <c>system-solve.unevaluated</c>,
+    /// <c>integration.no-closed-form</c>) by advertising the message each entry's OWN trigger
+    /// produces — the convention <c>limit.unevaluated</c> already used — so these five are not
+    /// enumerated YET rather than unstatable: the shape that states them truthfully now exists.</item>
     /// <item><c>transform.budget-exceeded</c> and <c>transform.unsatisfiable-conditions</c>: both
     /// have stable messages, but neither is an unsupported OPERATION — a retryable budget stop and a
     /// contradictory-branch domain error. They belong to the transform contract, not to this
@@ -803,13 +837,27 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         new RecordField("solve_domains_refused", new object?[] { MathDomain.Integer, MathDomain.Rational }),
         new RecordField("unsupported_operations", new object?[]
         {
-            // ---- the four entries that predate round 10 (byte-identical, still live-verified) ----
-            UnsupportedCapability("pow.non-integer-exponent", "UnsupportedOperation",
+            // ---- the four entries that predate round 10; round 11 NARROWED the first one ----
+            // Audit-2 F1: the class id used to be `pow.non-integer-exponent`, and the pair (id,
+            // message) read as a claim about EVERY non-integer exponent — while an exact negative
+            // base under the principal square root answers: (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i.
+            // `message` is a byte-for-byte transcription of the kernel's own text (Lovelace.Real's
+            // exception) and cannot be narrowed from here, so the CLASS ID and the new `scope`
+            // field carry the narrowing: the id names the refused shape and scope names the live
+            // counterexamples that are SUPPORTED (the honesty test runs them).
+            UnsupportedCapability("pow.non-integer-exponent-of-a-positive-base", "UnsupportedOperation",
                 ErrorCategory.UnsupportedOperation,
-                "Non-integer exponents are not yet supported.", "2^(1/2)"),
+                "Non-integer exponents are not yet supported.", "2^(1/2)",
+                scope: "Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. " +
+                       "The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the " +
+                       "principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and " +
+                       "a ZERO base is supported too (0^(1/2) = 0)."),
             UnsupportedCapability("pow.negative-base-unrepresentable-exponent", "UnsupportedOperation",
                 ErrorCategory.UnsupportedOperation,
-                "Non-integer exponents are not yet supported.", "(-8)^(1/3)"),
+                "Non-integer exponents are not yet supported.", "(-8)^(1/3)",
+                scope: "Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: " +
+                       "(-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is " +
+                       "supported (the entry above)."),
             UnsupportedCapability("solve.unsupported-domain", "InvalidOperation", ErrorCategory.DomainError,
                 "solve(): currently supports domains real and complex; got integer.",
                 "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer)"),
@@ -879,6 +927,29 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             UnsupportedCapability("fft.non-power-of-two-length", "InvalidArgument", ErrorCategory.TypeMismatch,
                 "FFT length must be a power of two, but got 3. (Parameter 'x')",
                 "x = symbol(\"x\"); fft([1,2,3])"),
+
+            // ---- round 11 (audit-2 F7): the three reachable refusal classes that were NOT listed ----
+            // Every one of them rides in a RESULT RECORD's diagnostics while the call SUCCEEDS, so
+            // each class carries the -in-record-diagnostics marker and the honesty test asserts the
+            // carrier as well as the strings. Each advertised message is the message THIS trigger
+            // produced, transcribed from the run (not paraphrased): all three are the input-specific
+            // kernel note, exactly like limit.unevaluated, so the CODE and CATEGORY are class-level
+            // and the MESSAGE is trigger-level.
+            UnsupportedCapability("solve.unevaluated-in-record-diagnostics", "solve.unevaluated",
+                ErrorCategory.UnsupportedOperation,
+                "0 = 0: every value is a solution.",
+                "x = symbol(\"x\"); solve_full(x == x, x)"),
+            UnsupportedCapability("system-solve.unevaluated-in-record-diagnostics", "system-solve.unevaluated",
+                ErrorCategory.UnsupportedOperation,
+                "system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here.",
+                "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y])"),
+            // the integration trigger is the SAME one the integration.unevaluated entry advertises:
+            // that call emits the class-level diagnostic AND this input-specific code, both at the
+            // top level of the record's diagnostics array
+            UnsupportedCapability("integration.no-closed-form-in-record-diagnostics", "integration.no-closed-form",
+                ErrorCategory.UnsupportedOperation,
+                "no integration tier produced a candidate closed form for integrate(exp(x^2), x)",
+                "x = symbol(\"x\"); integrate_full(exp(x^2), x)"),
         }),
         new RecordField("exactness", new EnumValue("CapabilitiesExactness", "BestEffort")));
 
@@ -890,15 +961,26 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     /// <summary>One unsupported operation class: the class identifier an agent enumerates on, the
     /// EXACT wire code and category its live call produces, the human message, and a runnable
-    /// snippet that trips it (statements separated by ';', per the language contract).</summary>
+    /// snippet that trips it (statements separated by ';', per the language contract).
+    /// <para>
+    /// <paramref name="scope"/> answers the one question the other four fields cannot when the
+    /// kernel's own message is WIDER than the refusal: exactly which inputs the class refuses and
+    /// which neighbouring inputs are supported instead. It is <c>null</c> — <c>{"kind":"Null"}</c>,
+    /// per the absent-field invariant — for a class whose id and message already state the scope
+    /// (e.g. <c>fft.non-power-of-two-length</c>). Round 11 added it for the two power classes,
+    /// where the kernel's message ("Non-integer exponents are not yet supported.") is a
+    /// transcription that would otherwise read as a claim about every non-integer exponent.
+    /// </para></summary>
     private static RecordValue UnsupportedCapability(
-        string operationClass, string code, ErrorCategory category, string message, string trigger) =>
+        string operationClass, string code, ErrorCategory category, string message, string trigger,
+        string? scope = null) =>
         new("UnsupportedCapability",
             new RecordField("operation_class", operationClass),
             new RecordField("code", code),
             new RecordField("category", EnumField("ErrorCategory", category)),
             new RecordField("message", message),
-            new RecordField("trigger", trigger));
+            new RecordField("trigger", trigger),
+            new RecordField("scope", scope));
 
     private static IEnumerable<string> NameList(object? o)
     {
@@ -1584,6 +1666,44 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             return Exprs.Rational(RationalReal.FromReal(r));
         return Exprs.Real(RealLiteral.FromRealExact(r));
     }
+
+    /// <summary>The <c>digits</c> argument of <c>evalf(f, digits)</c>: a Natural or Integer in
+    /// [1, <see cref="int.MaxValue"/>]. The general <see cref="AsLong"/> coercion is deliberately NOT
+    /// used here, because every way it can meet a bad digit count produces an answer that is not an
+    /// answer to the argument problem: it TRUNCATES a Real (1.5 becomes 1), it wraps the Int32 cast
+    /// (<c>evalf(1/3, 2147483648)</c> cast a negative count and answered 0, declared exact), and an
+    /// integer wider than Int64 escapes as the raw CLR message "Value was either too large or too
+    /// small for an Int64." (<c>ArithmeticError</c>/<c>DomainError</c>). A count the builtin cannot
+    /// honour is a CALLER-SIDE ARGUMENT error, so it crosses as the documented recoverable argument
+    /// error — <c>InvalidArgument</c>/<c>TypeMismatch</c>, the pair <c>pi(0)</c>/<c>e(0)</c> already
+    /// produce — naming the builtin, the argument, the acceptable range and what was supplied
+    /// (docs/symbolics/dsh-protocol.md §Error envelope). It is never a silent 0, never an ignored
+    /// count, and never an internal invariant failure.</summary>
+    private static int DigitCount(object? payload)
+    {
+        // Real inherits Integer (the numeric tower), so the Real case is tested FIRST; Int and Nat
+        // are siblings. An integer literal arrives as Nat/Int/long depending on its width.
+        string? text = payload switch
+        {
+            Rl => null,                  // a Real digit count is not an integer count
+            Int i => i.ToString(),
+            Nat n => n.ToString(),
+            long l => l.ToString(),
+            _ => null,
+        };
+        if (text is null)
+            throw DigitCountError(DescribePayload(payload));
+        if (!long.TryParse(text, out long value))
+            throw DigitCountError(text);        // an integer too wide for Int64: report the value
+        if (value < 1 || value > int.MaxValue)
+            throw DigitCountError(value.ToString());
+        return (int)value;
+    }
+
+    /// <summary>The one message of the evalf digit-count refusal: it names the builtin, the
+    /// argument (position and name), the acceptable range, and the value that was refused.</summary>
+    private static ArgumentException DigitCountError(string got) =>
+        new($"evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and {int.MaxValue}; got {got}.");
 
     private static int AsInt(object? o) => (int)AsLong(o);
 
