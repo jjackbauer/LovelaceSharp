@@ -119,6 +119,9 @@ jobs:
           dotnet test Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj \
             --configuration Release --nologo \
             --filter "Category=Timing"
+          dotnet test Lovelace.Run.Tests/Lovelace.Run.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "Category=Timing"
           dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
             --configuration Release --nologo \
             --filter "Category=Timing"

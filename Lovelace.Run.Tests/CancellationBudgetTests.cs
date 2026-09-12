@@ -14,6 +14,14 @@ namespace Lovelace.Run.Tests;
 /// the wall time as well as the envelope, because "stopped" without a promptness bound is not the
 /// contract: the budget must MEAN something inside the kernel.
 /// </summary>
+/// <para>
+/// <c>Category=Timing</c>: each case measures WALL TIME against a fence (see
+/// <c>PromptnessFenceMs</c>) around a spawned runner process, so CI's instrumented loop excludes the
+/// category and runs it uninstrumented in its own step. The fence is 2.5 s against work whose
+/// un-budgeted cost is seconds: on a loaded runner with a coverage collector attached the process
+/// start alone can cross it, which is what turned run #37 red. Excluded, never skipped.
+/// </para>
+[Trait("Category", "Timing")]
 public class CancellationBudgetTests
 {
     /// <summary>
