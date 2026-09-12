@@ -10,8 +10,8 @@ Lovelace.Representation.Tests    passed=91    failed=0   skipped=0
 Lovelace.Studio.Tests            passed=22    failed=0   skipped=0
 Lovelace.Suite.Tests             passed=848   failed=0   skipped=0
 Lovelace.Symbolics.Tests         passed=1193  failed=0   skipped=0
-Lovelace.Run.Tests               passed=300   failed=0   skipped=0
+Lovelace.Run.Tests               passed=315   failed=0   skipped=0
 precbench.Tests                  passed=13    failed=0   skipped=0
 Lovelace.Real.Tests(nonHeavy)    passed=2482  failed=0   skipped=0
-TOTAL passed=5556 failed=0 skipped=0
-elapsed=132.1s
+TOTAL passed=5571 failed=0 skipped=0
+elapsed=139.5s
