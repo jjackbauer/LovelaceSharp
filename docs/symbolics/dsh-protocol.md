@@ -210,6 +210,16 @@ condition removed every candidate. A provably empty set is a complete answer, so
 `complete: true` / `completeness: Complete`; nothing is missing from it. Only `Partial`,
 `Unevaluated` and `BudgetExceeded` report `complete: false`.
 
+The **session's assumption store** is part of that domain. `assume(x > 5)` holds "for the rest of
+the session", so the solver answers over it exactly as it answers over a denominator condition it
+raised itself: a candidate the store refutes is not a solution of this session's equation and is not
+published, a set every one of whose candidates the store refutes is `NoSolutions` / `complete:
+true`, and a candidate the store cannot decide carries the store's atom in its `conditions` (a
+parametric family carries it on the family, whose template cannot be tested one value at a time).
+The store is the one the simplification path reads — `assume(x > 0); simplify(sqrt(x^2))` answers
+`x` — so `simplify` and `solve` cannot disagree about the session they share. An assumption about
+another symbol is not a condition on this solve and changes nothing.
+
 ## Positions and locations
 
 Every position the protocol publishes — `timings[].position`, and the error envelope's

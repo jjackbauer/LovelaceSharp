@@ -713,19 +713,30 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     /// <c>SolveResult</c> uses (<see cref="SolveCompletenessMapping.Of"/>, with the kernel's own
     /// completeness claim as the budget-stop subset), so the two records cannot disagree either.</para>
     /// </summary>
-    private static RecordValue SystemSolveRecord(SystemSolveResult result, IReadOnlyList<Symbol> vars)
+    private RecordValue SystemSolveRecord(SystemSolveResult result, IReadOnlyList<Symbol> vars)
     {
-        var solutions = result.Solutions.Select(sol => (object)new RecordValue("SystemSolution",
+        // the session's assumptions constrain a system exactly as they constrain a single
+        // equation: an assignment the store refutes is not a solution of this session's system
+        var accepted = AcceptedSystemSolutions(result, vars);
+        var solutions = accepted.Select(sol => (object)new RecordValue("SystemSolution",
             new RecordField("bindings", vars.Select(v => (object)BindingRecord(new Binding(v.Name, sol.Assignment[v]))).ToArray()),
             new RecordField("conditions", ConditionExprs(sol.Conditions)),
             new RecordField("exactness", EnumField("SolutionExactness", sol.Exactness)))).ToArray();
 
+        // The kernel's own disposition, unless the assumptions emptied a SOLVED set: every
+        // assignment the elimination verified is refuted by the store, so the set over this
+        // session's domain is provably empty and therefore a COMPLETE answer — the same class of
+        // empty set a derived contradiction produces, and like it carrying no note.
+        var status = result.Status;
+        if (status == SolveStatus.Solved && solutions.Length == 0)
+            status = SolveStatus.NoSolutions;
+
         // the SAME projection SolveResult uses: an inconsistent system is a provably empty solution
         // set and therefore a COMPLETE answer (a truncated enumeration stays Partial)
-        var (complete, completeness) = SolveCompletenessMapping.Of(result.Status, result.Complete);
+        var (complete, completeness) = SolveCompletenessMapping.Of(status, result.Complete);
 
         return new RecordValue("SystemSolveResult",
-            new RecordField("status", EnumField("SolveStatus", result.Status)),
+            new RecordField("status", EnumField("SolveStatus", status)),
             new RecordField("domain", DomainOf(result.Domain)),
             new RecordField("complete", complete),
             new RecordField("completeness", EnumField("Completeness", completeness)),
@@ -1254,7 +1265,11 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         var sx = AsSymbol(args[1]);
         var domain = SolveDomainOf(args);
         var set = Solvers.Solve(fx, sx, Context, domain);
+        // The SESSION's store is consulted AFTER the kernel answers: the kernel is a function of
+        // (equation, variable, domain), the session is not — see AcceptedSolutions. The atoms are
+        // projected once and shared by the per-solution and per-family condition arrays.
         var accepted = AcceptedSolutions(set, sx);
+        var ambient = AmbientAtomsOn(sx);
 
         // rejections after solving are what make a "solved" set empty
         var status = set.Status;
@@ -1272,7 +1287,10 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             new RecordField("parameter", Exprs.Symbol(f.Parameter)),
             new RecordField("period", f.Period),
             new RecordField("parameter_domain", ParameterDomainOf(f.Domain)),
-            new RecordField("conditions", ConditionExprs(f.Conditions)),
+            // a family's template cannot be tested against the store one value at a time, so the
+            // active atoms that constrain x ride on the family instead — the same store the
+            // per-solution path reads, projected where this record can carry it
+            new RecordField("conditions", ConditionExprs(MergeConditions(f.Conditions, ambient))),
             new RecordField("exactness", EnumField("SolutionExactness", f.Exactness)))).ToArray();
 
         // ONE function derives BOTH published fields from the effective status, so
@@ -1343,19 +1361,180 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
             new RecordField("name", Exprs.Symbol(binding.Name)),
             new RecordField("value", binding.Value));
 
-    /// <summary>Solutions that survive their own conditions (a value violating a provable
-    /// excluded-domain condition, e.g. the pole of a cancelled denominator, is not a solution).</summary>
-    private static List<Solution> AcceptedSolutions(SolutionSet set, Symbol x)
+    /// <summary>Solutions that survive BOTH their own conditions (a value violating a provable
+    /// excluded-domain condition, e.g. the pole of a cancelled denominator, is not a solution) AND
+    /// the session's active assumptions — the same store the simplification path reads.
+    /// <para>
+    /// <see cref="Solvers.Solve"/> is a function of the equation, the variable and the requested
+    /// domain; the SESSION is not. <c>assume(...)</c> promises its atom "for the rest of the
+    /// session" (the descriptors above), <c>simplify</c> already discharges its side conditions from
+    /// that store, and <see cref="SolveStatus.Solved"/> is the solver's OWN claim that the
+    /// represented set is the complete set over the domain the caller is working in. A root the
+    /// store refutes is therefore not a solution of this session's equation (round-22 audit M-3).
+    /// </para>
+    /// <para>
+    /// The verdict is three-valued. Refuted: the root is dropped, and a set every one of whose
+    /// roots is refuted becomes the <see cref="SolveStatus.NoSolutions"/> record the builder already
+    /// derives from an empty accepted list. Undecided: the root is kept and the atoms that could
+    /// not be decided ride in its per-solution <c>conditions</c>, so the record never claims more
+    /// than the store proves. Satisfied: nothing changes at all — an assumption that admits every
+    /// root publishes exactly what an assumption-free session publishes.
+    /// </para></summary>
+    private List<Solution> AcceptedSolutions(SolutionSet set, Symbol x)
     {
         var kept = new List<Solution>();
         foreach (var sol in set.Solutions)
         {
             if (sol.Conditions.IsUnsatisfiable || ViolatesConditions(sol, x))
                 continue;
-            kept.Add(sol);
+            var (verdict, undecided) = JudgeAmbient(x, sol.Value);
+            if (verdict == Tristate.False)
+                continue;
+            kept.Add(undecided.Count == 0
+                ? sol
+                : sol with { Conditions = MergeConditions(sol.Conditions, AssumptionSet.FromAtoms(undecided)) });
         }
         return kept;
     }
+
+    /// <summary>The system assignments that survive the session's active assumptions. An assignment
+    /// is dropped as a WHOLE when one of its bindings is refuted — a partial assignment is not a
+    /// solution — and the atoms that could not be decided ride in its <c>conditions</c>, the same
+    /// three-valued rule <see cref="AcceptedSolutions"/> applies to a univariate solve.</summary>
+    private List<SystemSolution> AcceptedSystemSolutions(SystemSolveResult result, IReadOnlyList<Symbol> vars)
+    {
+        var kept = new List<SystemSolution>();
+        foreach (var sol in result.Solutions)
+        {
+            var conditions = sol.Conditions;
+            var refuted = false;
+            foreach (var v in vars)
+            {
+                if (!sol.Assignment.TryGetValue(v, out var value))
+                    continue;
+                var (verdict, undecided) = JudgeAmbient(v, value);
+                if (verdict == Tristate.False)
+                {
+                    refuted = true;
+                    break;
+                }
+                if (undecided.Count > 0)
+                    conditions = MergeConditions(conditions, AssumptionSet.FromAtoms(undecided));
+            }
+            if (refuted)
+                continue;
+            kept.Add(conditions == sol.Conditions ? sol : sol with { Conditions = conditions });
+        }
+        return kept;
+    }
+
+    /// <summary>The active atoms that constrain the solved variable. An assumption about another
+    /// symbol is not a condition on this solve, so it is neither a verdict nor a condition here.</summary>
+    private AssumptionSet AmbientAtomsOn(Symbol x)
+    {
+        var names = new HashSet<string>(StringComparer.Ordinal) { x.Name };
+        var relevant = Context.Assumptions.Atoms.Where(a => MentionsAny(a, names)).ToArray();
+        return relevant.Length == 0 ? AssumptionSet.Empty : AssumptionSet.FromAtoms(relevant);
+    }
+
+    /// <summary>Unions two already-consistent sets. Deliberately NOT <see cref="AssumptionSet.Add"/>:
+    /// the ambient atoms were checked when they entered the store, and a builtin that has already
+    /// solved must publish a record rather than throw on a set union (the pending atoms stay on the
+    /// solution as conditions either way).</summary>
+    private static AssumptionSet MergeConditions(AssumptionSet own, AssumptionSet ambient) =>
+        ambient.Atoms.Length == 0 ? own : AssumptionSet.FromAtoms(own.Atoms.Concat(ambient.Atoms));
+
+    /// <summary>Decides every active atom at <c>x = value</c>. False as soon as one atom is refuted
+    /// (the value is outside what the session assumes), Unknown when at least one atom cannot be
+    /// decided there, True when every atom holds.</summary>
+    private (Tristate Verdict, List<Assumption> Undecided) JudgeAmbient(Symbol x, Expr value)
+    {
+        var undecided = new List<Assumption>();
+        foreach (var atom in Context.Assumptions.Atoms)
+        {
+            var at = HoldsAt(atom, x, value);
+            if (at == Tristate.False)
+                return (Tristate.False, undecided);
+            if (at == Tristate.Unknown)
+                undecided.Add(atom);
+        }
+        return (undecided.Count == 0 ? Tristate.True : Tristate.Unknown, undecided);
+    }
+
+    /// <summary>One assumption atom at one candidate value.</summary>
+    private Tristate HoldsAt(Assumption atom, Symbol x, Expr value)
+    {
+        if (atom is SymbolDomainAssumption sd)
+            return DomainAdmits(sd, value);
+        if (ConditionOf(atom) is not { } condition)
+            return Tristate.Unknown;
+        // an ordering relation (> >= < <=) is satisfied by reals only, so a value that PROVABLY
+        // lies off the real line is refuted here: the numeric tier cannot compare a complex value
+        // with a real bound and would answer Unknown instead of False.
+        if (OrdersTheReals(condition) && ProvablyNonReal(value))
+            return Tristate.False;
+        // The substitution is by NAME and the evaluation consults the SAME store again
+        // (EvaluateCondition asks the assumption lattice before the numeric tier), so an atom that
+        // does not mention x keeps the verdict the store already gives it.
+        var at = Evaluation.Substitute(condition, Context, new Dictionary<Symbol, Expr> { [x] = value });
+        return Evaluation.EvaluateCondition(at, Context, NoBindings);
+    }
+
+    /// <summary>The relation an atom states, or null when it has no relation form (a predicate such
+    /// as <c>Even</c>): an atom this cannot write as a condition stays Undecided and is carried on
+    /// the solution rather than guessed.</summary>
+    private static Expr? ConditionOf(Assumption atom) => atom switch
+    {
+        SymbolRelationAssumption sr => Exprs.Relation(sr.Op, Exprs.Symbol(sr.S), sr.Bound),
+        SymbolPropertyAssumption sp => PropertyRelation(Exprs.Symbol(sp.S), sp.P),
+        ExpressionPropertyAssumption ep => PropertyRelation(ep.E, ep.P),
+        _ => null,
+    };
+
+    /// <summary>True for a relation that ORDERS the reals (>, >=, <, <=): equality and disequality
+    /// are satisfied by complex values too, so only these refute a non-real one.</summary>
+    private static bool OrdersTheReals(Expr condition) =>
+        condition is RelationExpr r && r.Op is (RelOp.Gt or RelOp.Ge or RelOp.Lt or RelOp.Le);
+
+    /// <summary>Whether a value is compatible with an assumed DOMAIN of the solved variable. The
+    /// lattice is Integer &lt; Rational &lt; Real &lt; Complex (Assumptions.cs:16), so a value whose
+    /// structural domain is at most the assumed one satisfies it, and the two remaining cases below
+    /// are the only ones that refute. A value whose domain is merely UNKNOWN is never rejected:
+    /// "not known to be real" is not "provably not real".</summary>
+    private Tristate DomainAdmits(SymbolDomainAssumption sd, Expr value)
+    {
+        if ((int)Domains.DomainOf(value, Context) <= (int)sd.D)
+            return Tristate.True;
+        if (sd.D != Domain.Complex && ProvablyNonReal(value))
+            return Tristate.False;
+        // an exact rational that is not a whole number is provably outside the integers; the same
+        // claim about a REAL literal is not made, because a real literal may hold a whole number.
+        if (sd.D == Domain.Integer && Evaluation.ConstantToNum(value) is NumRat r && !r.V.IsInteger)
+            return Tristate.False;
+        return Tristate.Unknown;
+    }
+
+    /// <summary>True when the value PROVABLY lies off the real line. Deliberately narrow: only the
+    /// shapes the kernel builds for a complex value are recognised — the imaginary unit, a complex
+    /// literal, and a product with exactly one such factor whose other factors are not complex
+    /// (which is how <c>-i</c> and <c>i*sqrt(2)</c> are spelled). A recursive "mentions i" walk is
+    /// NOT used, because <c>i*i = -1</c> and <c>exp(i*pi) = -1</c> are real; a value this predicate
+    /// does not recognise stays Undecided and is carried as a condition instead of being
+    /// rejected.</summary>
+    private bool ProvablyNonReal(Expr value) => value switch
+    {
+        NamedConstantExpr n => n.Constant == NamedConstant.I,
+        ComplexConstantExpr => true,
+        MultiplyExpr m => m.Factors.Count(IsExplicitlyComplex) == 1 &&
+            m.Factors.All(f => IsExplicitlyComplex(f) || Domains.DomainOf(f, Context) != Domain.Complex),
+        _ => false,
+    };
+
+    private static bool IsExplicitlyComplex(Expr e) =>
+        e is ComplexConstantExpr || e is NamedConstantExpr { Constant: NamedConstant.I };
+
+    /// <summary>The empty binding map for an evaluation that has no free symbols left.</summary>
+    private static readonly IReadOnlyDictionary<Symbol, Num> NoBindings = new Dictionary<Symbol, Num>();
 
     /// <summary>The conditions every solution shares (an intersection, never a union: a union of
     /// branch conditions is not a condition any single branch satisfies).</summary>
