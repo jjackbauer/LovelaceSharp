@@ -23,8 +23,12 @@ public static class Signal
             throw new ArgumentOutOfRangeException(nameof(end),
                 $"The sample range [{begin}, {end}] spans more than {int.MaxValue} samples.");
         var result = new Cplx[checked((int)(end - begin + 1))];
+        var poll = KernelCancellation.Capture();
         for (long n = begin; n <= end; n++)
+        {
+            poll.Poll(n);
             result[n - begin] = signal.Get(n);
+        }
         return result;
     }
 }

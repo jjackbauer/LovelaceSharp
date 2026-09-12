@@ -21,13 +21,18 @@ public static class DspMath
             return [];
 
         var result = new Cplx[x.Count + h.Count - 1];
+        var poll = KernelCancellation.Capture();
         for (int n = 0; n < result.Length; n++)
         {
+            poll.PollNow();
             Cplx sum = Cplx.Zero;
             int lo = Math.Max(0, n - h.Count + 1);
             int hi = Math.Min(x.Count - 1, n);
             for (int m = lo; m <= hi; m++)
+            {
+                poll.Poll(m);
                 sum += x[m] * h[n - m];
+            }
             result[n] = sum;
         }
         return result;
@@ -80,8 +85,10 @@ public static class DspMath
         for (int i = 0; i < xHist.Length; i++) xHist[i] = Cplx.Zero;
         for (int i = 0; i < yHist.Length; i++) yHist[i] = Cplx.Zero;
         var result = new Cplx[x.Count];
+        var poll = KernelCancellation.Capture();
         for (long n = 0; n < x.Count; n++)
         {
+            poll.PollNow();
             for (int j = b.Count - 1; j > 0; j--) xHist[j] = xHist[j - 1];
             if (b.Count > 0) xHist[0] = x[(int)n];
 
@@ -116,8 +123,10 @@ public static class DspMath
             x[0] = Cplx.One;         // impulse input
 
         var response = new Cplx[n];
+        var poll = KernelCancellation.Capture();
         for (long k = 0; k < n; k++)
         {
+            poll.PollNow();
             Cplx acc = Cplx.Zero;
             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
@@ -155,9 +164,13 @@ public static class DspMath
 
         public Cplx Get(long n)
         {
+            var poll = KernelCancellation.Capture();
             Cplx sum = Cplx.Zero;
             for (long k = n - Window + 1; k <= n; k++)
+            {
+                poll.Poll(k);
                 sum += X.Get(k);
+            }
             return sum / _invWindow;
         }
     }
@@ -182,15 +195,23 @@ public static class DspMath
 
         // Precompute the N distinct roots of unity e^(−j·2π·k/N), k = 0..N−1.
         var roots = new Cplx[N];
+        var poll = KernelCancellation.Capture();
         for (long k = 0; k < N; k++)
+        {
+            poll.Poll(k);
             roots[k] = RootOfUnity(k, N, digits);
+        }
 
         var result = new Cplx[N];
         for (long k = 0; k < N; k++)
         {
+            poll.PollNow();
             Cplx sum = Cplx.Zero;
             for (long n = 0; n < N; n++)
+            {
+                poll.Poll(n);
                 sum += x[(int)n] * roots[(int)((k * n) % N)];
+            }
             result[k] = sum;
         }
         return result;
@@ -222,26 +243,36 @@ public static class DspMath
 
         // Bit-reversal permutation into the working buffer.
         var a = new Cplx[n];
+        var poll = KernelCancellation.Capture();
         for (int i = 0; i < n; i++)
+        {
+            poll.Poll(i);
             a[ReverseBits(i, logN)] = x[i];
+        }
 
         // Twiddle factors W_n[k] = e^(−j·2π·k/n) for k = 0 .. n/2−1, angle-reduced to lowest
         // terms so power-of-2 roots hit exact special/sqrt values (same construction as Dft).
         int halfN = n >> 1;
         var w = new Cplx[halfN];
         for (int k = 0; k < halfN; k++)
+        {
+            poll.Poll(k);
             w[k] = RootOfUnity(k, n, digits);
+        }
 
         // Cooley–Tukey butterflies: t = W · x[k+j+h/2], u = x[k+j];
         // x[k+j] = u + t, x[k+j+h/2] = u − t.
         for (int len = 2; len <= n; len <<= 1)
         {
+            poll.PollNow();
             int half = len >> 1;
             int step = n / len;
             for (int i = 0; i < n; i += len)
             {
+                poll.Poll(i);
                 for (int j = 0; j < half; j++)
                 {
+                    poll.Poll(j);
                     Cplx t = w[j * step] * a[i + j + half];
                     Cplx u = a[i + j];
                     a[i + j] = u + t;

@@ -314,8 +314,10 @@ public sealed class DspPlugin : IModusPlugin
     private static bool TryConvert(Cplx[] values, out Cplx128[] result)
     {
         result = new Cplx128[values.Length];
+        var poll = KernelCancellation.Capture();
         for (int i = 0; i < values.Length; i++)
         {
+            poll.Poll(i);
             if (!Cplx128.TryFromComplex(values[i], out result[i]))
                 return false;
         }
@@ -325,8 +327,12 @@ public sealed class DspPlugin : IModusPlugin
     private static Cplx[] ConvertBack(Cplx128[] values)
     {
         var result = new Cplx[values.Length];
+        var poll = KernelCancellation.Capture();
         for (int i = 0; i < values.Length; i++)
+        {
+            poll.Poll(i);
             result[i] = values[i].ToComplex();
+        }
         return result;
     }
 
@@ -372,16 +378,24 @@ public sealed class DspPlugin : IModusPlugin
         var padded = new Cplx[n];
         int copy = Math.Min(x.Length, n);
         Array.Copy(x, padded, copy);
+        var poll = KernelCancellation.Capture();
         for (int i = copy; i < n; i++)
+        {
+            poll.Poll(i);
             padded[i] = Cplx.Zero;
+        }
         return padded;
     }
 
     private static object MapElements(IReadOnlyList<object?> elements, Func<Cplx, object> selector)
     {
         var result = new object?[elements.Count];
+        var poll = KernelCancellation.Capture();
         for (int i = 0; i < elements.Count; i++)
+        {
+            poll.Poll(i);
             result[i] = selector(ToComplex(elements[i]));
+        }
         return result;
     }
 
@@ -408,8 +422,12 @@ public sealed class DspPlugin : IModusPlugin
         if (value is not IReadOnlyList<object?> elements)
             throw new InvalidOperationException("DSP builtins expect an array argument, but got a scalar.");
         var result = new Cplx[elements.Count];
+        var poll = KernelCancellation.Capture();
         for (int i = 0; i < elements.Count; i++)
+        {
+            poll.Poll(i);
             result[i] = ToComplex(elements[i]);
+        }
         return result;
     }
 

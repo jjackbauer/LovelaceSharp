@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Lovelace.Abstractions;
 using Nat = global::Lovelace.Natural.Natural;
 using Rl = global::Lovelace.Real.Real;
@@ -58,10 +59,14 @@ internal static class TypedArrayOps
         if (n != b.Shape.ToArray()[0])
             throw new ArgumentException($"dot() operands must have the same length ({n} vs {b.Shape.ToArray()[0]}).");
 
+        var poll = KernelCancellation.Capture();
         Value acc = NumericOps.Zero;
         for (long i = 0; i < n; i++)
+        {
+            poll.Poll(i);
             acc = NumericOps.Apply(BinaryOp.Add, acc,
                 NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(i), (Value)b.GetElement(i)));
+        }
         return acc;
     }
 
@@ -88,9 +93,13 @@ internal static class TypedArrayOps
             throw new ArgumentException("trace() requires a square matrix.");
 
         long n = a.Shape.ToArray()[0];
+        var poll = KernelCancellation.Capture();
         Value acc = NumericOps.Zero;
         for (long i = 0; i < n; i++)
+        {
+            poll.Poll(i);
             acc = NumericOps.Apply(BinaryOp.Add, acc, (Value)a.GetElement(new long[] { i, i }));
+        }
         return acc;
     }
 
@@ -109,12 +118,17 @@ internal static class TypedArrayOps
                 throw new ArgumentException($"matmul() inner dimensions must match ({k} vs {bShape[0]}).");
             long n = bShape[1];
             var res = new List<Value>((int)n);
+            var poll = KernelCancellation.Capture();
             for (long j = 0; j < n; j++)
             {
+                poll.Poll(j);
                 Value acc = NumericOps.Zero;
                 for (long t = 0; t < k; t++)
+                {
+                    poll.Poll(t);
                     acc = NumericOps.Apply(BinaryOp.Add, acc,
                         NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(t), (Value)b.GetElement(new long[] { t, j })));
+                }
                 res.Add(acc);
             }
             return TypedArrayAdapter.FromValues(res, new[] { n });
@@ -128,12 +142,17 @@ internal static class TypedArrayOps
             if (k != bShape[0])
                 throw new ArgumentException($"matmul() inner dimensions must match ({k} vs {bShape[0]}).");
             var res = new List<Value>((int)m);
+            var poll = KernelCancellation.Capture();
             for (long i = 0; i < m; i++)
             {
+                poll.Poll(i);
                 Value acc = NumericOps.Zero;
                 for (long t = 0; t < k; t++)
+                {
+                    poll.Poll(t);
                     acc = NumericOps.Apply(BinaryOp.Add, acc,
                         NumericOps.Apply(BinaryOp.Multiply, (Value)a.GetElement(new long[] { i, t }), (Value)b.GetElement(t)));
+                }
                 res.Add(acc);
             }
             return TypedArrayAdapter.FromValues(res, new[] { m });
@@ -159,11 +178,15 @@ internal static class TypedArrayOps
         long outNumel = Product(outShape);
 
         var outData = new List<Value>(checked((int)outNumel));
+        var batchPoll = KernelCancellation.Capture();
         var c = new long[B + 2];
         var aCoords = new long[ra];
         var bCoords = new long[rb];
         for (long lin = 0; lin < outNumel; lin++)
         {
+            // one output element costs a full inner sweep, so the outer loop checks EVERY
+            // iteration: a stride here would delay the stop by stride x inner-dim work
+            batchPoll.PollNow();
             long rem = lin;
             for (int d = B + 1; d >= 0; d--)
             {
@@ -177,6 +200,7 @@ internal static class TypedArrayOps
             Value acc = NumericOps.Zero;
             for (long t = 0; t < inner; t++)
             {
+                batchPoll.Poll(t);
                 aCoords[ra - 1] = t;
                 bCoords[rb - 2] = t;
                 acc = NumericOps.Apply(BinaryOp.Add, acc,
@@ -198,9 +222,11 @@ internal static class TypedArrayOps
             for (int j = 0; j < n; j++)
                 m[i, j] = (Value)a.GetElement(new long[] { i, j });
 
+        var poll = KernelCancellation.Capture();
         Value det = NumericOps.One;
         for (int k = 0; k < n; k++)
         {
+            poll.PollNow();
             int pivot = k;
             while (pivot < n && NumericOps.IsZero(m[pivot, k]))
                 pivot++;
@@ -217,10 +243,14 @@ internal static class TypedArrayOps
             det = NumericOps.Apply(BinaryOp.Multiply, det, m[k, k]);
             for (int i = k + 1; i < n; i++)
             {
+                poll.Poll(i);
                 Value factor = NumericOps.Apply(BinaryOp.Divide, m[i, k], m[k, k]);
                 for (int j = k + 1; j < n; j++)
+                {
+                    poll.Poll(j);
                     m[i, j] = NumericOps.Apply(BinaryOp.Subtract, m[i, j],
                         NumericOps.Apply(BinaryOp.Multiply, factor, m[k, j]));
+                }
             }
         }
         return det;
@@ -241,8 +271,10 @@ internal static class TypedArrayOps
                 m[i, n + j] = i == j ? NumericOps.One : NumericOps.Zero;
         }
 
+        var poll = KernelCancellation.Capture();
         for (int k = 0; k < n; k++)
         {
+            poll.PollNow();
             int pivot = k;
             while (pivot < n && NumericOps.IsZero(m[pivot, k]))
                 pivot++;
@@ -261,12 +293,16 @@ internal static class TypedArrayOps
             {
                 if (i == k)
                     continue;
+                poll.Poll(i);
                 Value factor = m[i, k];
                 if (NumericOps.IsZero(factor))
                     continue;
                 for (int j = 0; j < 2 * n; j++)
+                {
+                    poll.Poll(j);
                     m[i, j] = NumericOps.Apply(BinaryOp.Subtract, m[i, j],
                         NumericOps.Apply(BinaryOp.Multiply, factor, m[k, j]));
+                }
             }
         }
 
@@ -295,10 +331,12 @@ internal static class TypedArrayOps
         long numel = Product(outShape);
 
         var result = new List<Value>(checked((int)numel));
+        var poll = KernelCancellation.Capture();
         var coords = new long[r];
         var bCoords = new long[r];
         for (long lin = 0; lin < numel; lin++)
         {
+            poll.Poll(lin);
             long rem = lin;
             for (int i = r - 1; i >= 0; i--)
             {
@@ -327,17 +365,25 @@ internal static class TypedArrayOps
 
     private static Value ReduceAll(ArrayValue a, Value seed, BinaryOp op)
     {
+        // the whole-array reduction is the kernel a script's sum()/prod() lands in, so it polls:
+        // a 200000-element product can run for a minute and must stop at the caller's deadline
+        var poll = KernelCancellation.Capture();
         Value acc = seed;
         for (long i = 0; i < a.Numel; i++)
+        {
+            poll.Poll(i);
             acc = NumericOps.Apply(op, acc, (Value)a.GetElement(i));
+        }
         return acc;
     }
 
     private static Value SumSquares(ArrayValue a)
     {
+        var poll = KernelCancellation.Capture();
         Value acc = NumericOps.Zero;
         for (long i = 0; i < a.Numel; i++)
         {
+            poll.Poll(i);
             var e = (Value)a.GetElement(i);
             acc = NumericOps.Apply(BinaryOp.Add, acc, NumericOps.Apply(BinaryOp.Multiply, e, e));
         }
@@ -349,9 +395,11 @@ internal static class TypedArrayOps
         if (a.Numel == 0)
             throw new InvalidOperationException("Cannot reduce an empty array.");
 
+        var poll = KernelCancellation.Capture();
         Value best = (Value)a.GetElement(0);
         for (long i = 1; i < a.Numel; i++)
         {
+            poll.Poll(i);
             var e = (Value)a.GetElement(i);
             int c = NumericOps.Compare(e, best);
             if (wantMin ? c < 0 : c > 0)
@@ -362,6 +410,7 @@ internal static class TypedArrayOps
 
     private static ArrayValue ReduceAxis(ArrayValue a, long axis, Value seed, BinaryOp op)
     {
+        var poll = KernelCancellation.Capture();
         int ax = CheckAxis(axis, a.Rank);
         var shape = a.Shape.ToArray();
         var outShape = shape.Where((_, i) => i != ax).ToArray();
@@ -382,6 +431,7 @@ internal static class TypedArrayOps
             Value acc = seed;
             for (long t = 0; t < shape[ax]; t++)
             {
+                poll.Poll(t);
                 srcCoords[ax] = t;
                 acc = NumericOps.Apply(op, acc, (Value)a.GetElement(srcCoords));
             }
@@ -394,6 +444,7 @@ internal static class TypedArrayOps
 
     private static ArrayValue MinMaxAxis(ArrayValue a, long axis, bool wantMin)
     {
+        var poll = KernelCancellation.Capture();
         int ax = CheckAxis(axis, a.Rank);
         var shape = a.Shape.ToArray();
         var outShape = shape.Where((_, i) => i != ax).ToArray();
@@ -415,6 +466,7 @@ internal static class TypedArrayOps
             Value best = (Value)a.GetElement(srcCoords);
             for (long t = 1; t < shape[ax]; t++)
             {
+                poll.Poll(t);
                 srcCoords[ax] = t;
                 var e = (Value)a.GetElement(srcCoords);
                 int c = NumericOps.Compare(e, best);
@@ -430,6 +482,7 @@ internal static class TypedArrayOps
 
     private static ArrayValue SumSquaresAxis(ArrayValue a, long axis)
     {
+        var poll = KernelCancellation.Capture();
         int ax = CheckAxis(axis, a.Rank);
         var shape = a.Shape.ToArray();
         var outShape = shape.Where((_, i) => i != ax).ToArray();
@@ -450,6 +503,7 @@ internal static class TypedArrayOps
             Value acc = NumericOps.Zero;
             for (long t = 0; t < shape[ax]; t++)
             {
+                poll.Poll(t);
                 srcCoords[ax] = t;
                 var e = (Value)a.GetElement(srcCoords);
                 acc = NumericOps.Apply(BinaryOp.Add, acc, NumericOps.Apply(BinaryOp.Multiply, e, e));
@@ -463,9 +517,13 @@ internal static class TypedArrayOps
 
     private static ArrayValue Map(ArrayValue a, Func<Value, Value> fn)
     {
+        var poll = KernelCancellation.Capture();
         var result = new List<Value>(checked((int)a.Numel));
         for (long i = 0; i < a.Numel; i++)
+        {
+            poll.Poll(i);
             result.Add(fn((Value)a.GetElement(i)));
+        }
         return TypedArrayAdapter.FromValues(result, a.Shape.ToArray());
     }
 
@@ -486,3 +544,55 @@ internal static class TypedArrayOps
         return (int)axis;
     }
 }
+
+/// <summary>
+/// Strided cancellation polling for the numeric kernels. A kernel used to enter a multi-second
+/// loop without ever observing the caller's deadline: <c>--cancel-after 1</c> on
+/// <c>sum(1..10000000)</c> returned <c>ok</c> after ~3.4 s and <c>prod(1..200000)</c> ran to
+/// completion after ~22 s, so the budget meant nothing inside a single statement.
+/// </summary>
+/// <remarks>
+/// The expensive part of a poll is the ambient-token lookup
+/// (<see cref="Lovelace.Abstractions.Cancellation.Token"/> is an <c>AsyncLocal</c> read), so a
+/// kernel captures the token ONCE before entering its loop and then reads the captured token's
+/// already-published cancellation state. A single kernel invocation is orders of magnitude
+/// shorter than the evaluation's cancellation scope, so the captured token cannot go stale.
+/// <see cref="Poll"/> strides (one check per <see cref="Interval"/> iterations) for per-element
+/// loops, where a check on every iteration would show up in the loop's own cost;
+/// <see cref="PollNow"/> checks on every call for outer loops whose body is itself a full sweep.
+/// </remarks>
+internal readonly struct KernelCancellation
+{
+    /// <summary>Iterations between checks. 64 keeps the check below 0.1 % of a loop whose body is
+    /// one boxed arithmetic operation, and bounds the stop latency by 64 loop bodies.</summary>
+    public const int Interval = 64;
+
+    private readonly CancellationToken _token;
+
+    private KernelCancellation(CancellationToken token) => _token = token;
+
+    /// <summary>Captures the ambient token: call ONCE per kernel invocation, outside the loop.</summary>
+    public static KernelCancellation Capture() => new(Lovelace.Abstractions.Cancellation.Token);
+
+    /// <summary>Checks the caller's token every <see cref="Interval"/> iterations, keyed on the
+    /// loop's own counter, so the stride never depends on a separate mutable state.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Poll(long iteration)
+    {
+        if ((iteration & (Interval - 1)) == 0)
+            Throw();
+    }
+
+    /// <summary>Checks the caller's token on every call, for a loop whose body is a full sweep.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void PollNow()
+    {
+        if (_token.IsCancellationRequested)
+            Throw();
+    }
+
+    /// <summary>The cold half: kept out of line so the poll's hot path is one predictable branch.</summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private void Throw() => _token.ThrowIfCancellationRequested();
+}
+

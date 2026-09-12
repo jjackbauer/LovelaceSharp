@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
@@ -208,6 +209,9 @@ public static class Runner
                 : new ResultDto(result.Kind.ToString(), ValueFormatter.Format(result), ValueFormatter.FormatTyped(result),
                     StructuredProjection.ToStructured(result, structuredBudget));
 
+            // the deadline verdict is derived from the SAME elapsed time the envelope publishes, so
+            // budget and elapsed are directly comparable (see CancellationDto)
+            var deadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: false);
             var envelope = new RunEnvelopeDto(
                 ProtocolVersion,
                 Lovelace.Symbolics.Printing.FormatHeader,
@@ -221,7 +225,11 @@ public static class Runner
                 plot,
                 engine.LastElapsedDisplay,
                 Duration(engine.LastElapsed),
-                Timings(engine.OperationTimings));
+                Timings(engine.OperationTimings),
+                deadline,
+                deadline is { Exceeded: true }
+                    ? new[] { OverrunDiagnostic(deadline, source, engine.OperationTimings, completed: true) }
+                    : null);
 
             if (json)
                 WriteJson(stdout, envelope, RunJsonContext.Default.RunEnvelopeDto);
@@ -236,6 +244,13 @@ public static class Runner
                 .Select(d => new DiagnosticDto(d.Message, d.Position, d.Line, d.Column))
                 .ToArray();
             var (code, category, recoverable) = Classify(ex);
+            // a run that blew its budget before failing must not look like one that respected it:
+            // the verdict travels with the failure, and an overrun adds its own diagnostic
+            var failedDeadline = CancellationLedger(cancelAfterMs, engine.LastElapsed, stopped: code == "Cancelled");
+            if (failedDeadline is { Exceeded: true })
+                diagnostics = diagnostics
+                    .Append(OverrunDiagnostic(failedDeadline, source, engine.OperationTimings, completed: false))
+                    .ToArray();
             // a cancelled run is not a failed run: the host reports the structured status together
             // with everything the engine had already committed
             string[]? partialOutput = code == "Cancelled" ? SplitLines(output.ToString()) : null;
@@ -249,7 +264,7 @@ public static class Runner
             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
             // from one unit selector and one timing entry per statement that ran before the failure
             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
-                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables);
+                engine.LastElapsed, Timings(engine.OperationTimings), partialOutput, partialVariables, failedDeadline);
         }
     }
 
@@ -283,7 +298,8 @@ public static class Runner
     private static int WriteError(TextWriter stdout, TextWriter stderr,
         bool json, string code, string category, string message, bool recoverable,
         DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
-        string[]? output = null, VariableDto[]? variables = null)
+        string[]? output = null, VariableDto[]? variables = null,
+        CancellationDto? cancellation = null)
     {
         if (json)
         {
@@ -292,7 +308,7 @@ public static class Runner
             // forms can never disagree — exactly like the success envelope
             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
                 false, code, category, message, recoverable, diagnostics,
-                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables),
+                Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output, variables, cancellation),
                 RunJsonContext.Default.RunErrorDto);
         }
         else
@@ -301,6 +317,79 @@ public static class Runner
         }
         return 1;
     }
+
+
+    // -----------------------------------------------------------------
+    // Cancellation budget
+    // -----------------------------------------------------------------
+
+    /// <summary>
+    /// The budget ledger for one run, or <see langword="null"/> when no <c>--cancel-after</c> budget
+    /// was given (the envelope then carries no cancellation block at all, exactly as before this
+    /// field existed). <paramref name="elapsed"/> is the engine's own measurement — the SAME value
+    /// published as <c>elapsedTime</c> — so a consumer never has to reconcile two clocks, and
+    /// <paramref name="stopped"/> says whether the deadline is what ended the run.
+    /// </summary>
+    private static CancellationDto? CancellationLedger(int? budgetMs, TimeSpan elapsed, bool stopped)
+    {
+        if (budgetMs is not { } budget)
+            return null;
+
+        double elapsedMs = elapsed.TotalMilliseconds;
+        double excessMs = Math.Max(0, elapsedMs - budget);
+        return new CancellationDto(budget, Math.Round(elapsedMs, 3), stopped, excessMs > 0,
+            Math.Round(excessMs, 3));
+    }
+
+    /// <summary>
+    /// The diagnostic that names an exceeded deadline — published on the success envelope's
+    /// <c>diagnostics</c> array and appended to the failure envelope's, so a consumer that reads only
+    /// diagnostics still cannot mistake an overrun for a normal run. The position is the last
+    /// top-level statement that ran (the statement the deadline passed inside); the line/column rule
+    /// is the one the engine uses (<c>SuiteEngine.ComputeLineColumn</c>), kept here because the
+    /// runner owns the source text it was handed.
+    /// </summary>
+    private static DiagnosticDto OverrunDiagnostic(CancellationDto ledger, string source,
+        IReadOnlyList<OperationTiming> timings, bool completed)
+    {
+        int position = timings.Count > 0 ? timings[timings.Count - 1].Position : 0;
+        var (line, column) = ComputeLineColumn(source, position);
+        string outcome = ledger.Stopped
+            ? "the deadline was observed, but only after the excess had already been spent"
+            : completed
+                ? "the evaluation completed anyway"
+                : "the evaluation then failed for another reason";
+        return new DiagnosticDto(
+            $"cancellation deadline exceeded: --cancel-after {ledger.BudgetMs} ms, " +
+            $"elapsed {FormatMs(ledger.ElapsedMs)} ms " +
+            $"({FormatMs(ledger.ExcessMs)} ms over budget); {outcome}.",
+            position, line, column);
+    }
+
+    /// <summary>1-based line and column of a source offset, matching the engine's own rule.</summary>
+    private static (int Line, int Column) ComputeLineColumn(string source, int position)
+    {
+        if (position < 0 || position > source.Length)
+            return (1, position + 1);
+
+        int line = 1;
+        int lastNewline = -1;
+        for (int i = 0; i < position && i < source.Length; i++)
+        {
+            if (source[i] == '\n')
+            {
+                line++;
+                lastNewline = i;
+            }
+        }
+
+        return (line, position - lastNewline);
+    }
+
+    /// <summary>A millisecond count as an invariant-culture string: the envelope must read the same
+    /// on a machine whose decimal separator is a comma.</summary>
+    private static string FormatMs(double milliseconds) =>
+        milliseconds.ToString("0.###", CultureInfo.InvariantCulture);
 
     private static Lovelace.Symbolics.Printing.PrintBudget? PrintBudgetOrNull(int? maxNodes) =>
         maxNodes is { } nodes ? new Lovelace.Symbolics.Printing.PrintBudget(MaxNodes: nodes) : null;
@@ -374,6 +463,10 @@ public static class Runner
             sb.AppendLine(line);
         foreach (var v in envelope.Variables)
             sb.AppendLine($"  {v.Name} = {v.Display}");
+        if (envelope.Cancellation is { Exceeded: true } ledger)
+            sb.AppendLine($"! cancellation deadline exceeded: --cancel-after {ledger.BudgetMs} ms, " +
+                          $"elapsed {FormatMs(ledger.ElapsedMs)} ms ({FormatMs(ledger.ExcessMs)} ms over budget)" +
+                          (ledger.Stopped ? "; the deadline was observed late." : "; the deadline did not stop it."));
         stdout.Write(sb.ToString());
     }
 
@@ -406,7 +499,8 @@ public static class Runner
             "  --omit-functions     omit the builtin registry from the envelope (agent loops)\n" +
             "  --omit-variables     omit the variables array from the envelope (agent loops)\n" +
             "  --print-budget <n>   abbreviate structured renderings beyond n nodes, reporting the truncation\n" +
-            "  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result\n" +
+            "  --cancel-after <ms>  cancel the evaluation after the given time, returning the partial result;\n" +
+            "                       the envelope's cancellation block reports the deadline verdict\n" +
             "  --json               emit JSON (default)\n" +
             "  --text               emit a human-readable summary\n" +
             "  --help, -h           show this help");

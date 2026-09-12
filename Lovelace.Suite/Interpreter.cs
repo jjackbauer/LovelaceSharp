@@ -394,8 +394,12 @@ public sealed class Interpreter
             if (a.Rank == b.Rank && a.Shape.Span.SequenceEqual(b.Shape.Span))
             {
                 var results = new List<Value>(checked((int)a.Numel));
+                var poll = KernelCancellation.Capture();
                 for (long i = 0; i < a.Numel; i++)
+                {
+                    poll.Poll(i);
                     results.Add(ApplyScalarBinary(op, (Value)a.GetElement(i), (Value)b.GetElement(i)));
+                }
                 return WrapPromotedArray(op, results, a.Shape.ToArray());
             }
 
@@ -406,15 +410,23 @@ public sealed class Interpreter
         {
             var a = left.AsArrayValue();
             var results = new List<Value>(checked((int)a.Numel));
+            var poll = KernelCancellation.Capture();
             for (long i = 0; i < a.Numel; i++)
+            {
+                poll.Poll(i);
                 results.Add(ApplyScalarBinary(op, (Value)a.GetElement(i), right));
+            }
             return WrapPromotedArray(op, results, a.Shape.ToArray());
         }
 
         var b2 = right.AsArrayValue();
         var results2 = new List<Value>(checked((int)b2.Numel));
+        var scalarPoll = KernelCancellation.Capture();
         for (long i = 0; i < b2.Numel; i++)
+        {
+            scalarPoll.Poll(i);
             results2.Add(ApplyScalarBinary(op, left, (Value)b2.GetElement(i)));
+        }
         return WrapPromotedArray(op, results2, b2.Shape.ToArray());
     }
 
@@ -449,11 +461,13 @@ public sealed class Interpreter
             numel = checked(numel * d);
 
         var results = new List<Value>(checked((int)numel));
+        var poll = KernelCancellation.Capture();
         var coords = new long[maxRank];
         var aCoords = new long[a.Rank];
         var bCoords = new long[b.Rank];
         for (long flat = 0; flat < numel; flat++)
         {
+            poll.Poll(flat);
             long rem = flat;
             for (int d = maxRank - 1; d >= 0; d--)
             {
@@ -910,10 +924,17 @@ public sealed class Interpreter
         var elements = new List<Value>();
         Int current = s;
 
+        // materializing a range is a kernel in its own right: sum(1..10000000) and
+        // prod(1..200000) spend most of their wall time here, building ten million boxed
+        // elements before the reduction even starts
+        var poll = KernelCancellation.Capture();
+        long iteration = 0;
+
         if (st.Sign > 0)
         {
             while (current.CompareTo(e) <= 0)
             {
+                poll.Poll(iteration++);
                 elements.Add(natural ? new Value(current.ToNatural()) : new Value(current));
                 current = current + st;
             }
@@ -922,6 +943,7 @@ public sealed class Interpreter
         {
             while (current.CompareTo(e) >= 0)
             {
+                poll.Poll(iteration++);
                 elements.Add(natural ? new Value(current.ToNatural()) : new Value(current));
                 current = current + st;
             }
@@ -1017,9 +1039,14 @@ public sealed class Interpreter
     private async Task<Value> ExecuteWhileAsync(WhileStatement stmt, Scope scope)
     {
         Value last = Value.Void;
+        // a while body is one statement per iteration, so check on every iteration: the check costs
+        // ~1 ns against the microseconds a statement costs, and a body that never allocates would
+        // otherwise loop for minutes without a single look at the deadline
+        var poll = KernelCancellation.Capture();
 
         while (true)
         {
+            poll.PollNow();
             var condition = await EvaluateAsync(stmt.Condition, scope);
             if (condition.Kind != ValueKind.Boolean)
                 throw new InvalidOperationException($"while condition must be Boolean, but got '{condition.Kind}'.");
@@ -1051,9 +1078,13 @@ public sealed class Interpreter
             throw new InvalidOperationException($"for loop range must be a vector, but got '{range.Kind}'.");
 
         Value last = Value.Void;
+        // a loop body is one statement, so checking on every iteration costs ~1 ns against the
+        // microseconds a statement costs; the range build above is polled separately
+        var poll = KernelCancellation.Capture();
 
         foreach (var element in range.AsVector())
         {
+            poll.PollNow();
             scope.Define(stmt.Variable, element);
 
             try

@@ -30,13 +30,18 @@ public static class FixedDsp
             return [];
 
         var result = new Cplx64[x.Count + h.Count - 1];
+        var poll = KernelCancellation.Capture();
         for (int n = 0; n < result.Length; n++)
         {
+            poll.PollNow();
             Cplx64 sum = Cplx64.Zero;
             int lo = Math.Max(0, n - h.Count + 1);
             int hi = Math.Min(x.Count - 1, n);
             for (int m = lo; m <= hi; m++)
+            {
+                poll.Poll(m);
                 sum += x[m] * h[n - m];
+            }
             result[n] = sum;
         }
         return result;
@@ -51,13 +56,18 @@ public static class FixedDsp
             return [];
 
         var result = new Cplx128[x.Count + h.Count - 1];
+        var poll = KernelCancellation.Capture();
         for (int n = 0; n < result.Length; n++)
         {
+            poll.PollNow();
             Cplx128 sum = Cplx128.Zero;
             int lo = Math.Max(0, n - h.Count + 1);
             int hi = Math.Min(x.Count - 1, n);
             for (int m = lo; m <= hi; m++)
+            {
+                poll.Poll(m);
                 sum += x[m] * h[n - m];
+            }
             result[n] = sum;
         }
         return result;
@@ -97,8 +107,10 @@ public static class FixedDsp
             x[0] = Cplx64.One;         // impulse input
 
         var response = new Cplx64[n];
+        var poll = KernelCancellation.Capture();
         for (long k = 0; k < n; k++)
         {
+            poll.PollNow();
             Cplx64 acc = Cplx64.Zero;
             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
@@ -130,8 +142,10 @@ public static class FixedDsp
             x[0] = Cplx128.One;         // impulse input
 
         var response = new Cplx128[n];
+        var poll = KernelCancellation.Capture();
         for (long k = 0; k < n; k++)
         {
+            poll.PollNow();
             Cplx128 acc = Cplx128.Zero;
             for (int j = 1; j < a.Count; j++) acc -= a[j] * y[j - 1];
             for (int j = 0; j < b.Count; j++) acc += b[j] * x[j];
@@ -162,8 +176,10 @@ public static class FixedDsp
 
         var divisor = LReal64.Parse(window.ToString());
         var result = new Cplx64[x.Count];
+        var poll = KernelCancellation.Capture();
         for (int n = 0; n < x.Count; n++)
         {
+            poll.PollNow();
             Cplx64 sum = Cplx64.Zero;
             for (long k = n - window + 1; k <= n; k++)
                 if (k >= 0)
@@ -182,8 +198,10 @@ public static class FixedDsp
 
         var divisor = LReal128.Parse(window.ToString());
         var result = new Cplx128[x.Count];
+        var poll = KernelCancellation.Capture();
         for (int n = 0; n < x.Count; n++)
         {
+            poll.PollNow();
             Cplx128 sum = Cplx128.Zero;
             for (long k = n - window + 1; k <= n; k++)
                 if (k >= 0)
