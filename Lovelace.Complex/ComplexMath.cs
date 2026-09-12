@@ -89,7 +89,9 @@ public static class ComplexMath
         long work = digits + GuardDigits;
         (Rl sin, Rl cos) = SinCosAtPrecision(x, digits);
         using var scope = Rl.WithPrecision(work, work);
-        return TruncateFrac(DivideTruncate(sin, cos, work), digits);
+        // The quotient of two inexact halves can still be an exact zero: DivideTruncate answers
+        // 0/anything with an exact Zero.  The argument's provenance is re-attached here (P-B1).
+        return WithArgumentProvenance(TruncateFrac(DivideTruncate(sin, cos, work), digits), x);
     }
 
     /// <summary>Computes <c>atan(x)</c> via half-angle reduction and an alternating series.</summary>
@@ -113,7 +115,10 @@ public static class ComplexMath
         Rl atanArg = AtanSeries(y, work) * new Rl("8");
         Rl result = big ? Rl.Pi / new Rl("2") - atanArg : atanArg;
         if (negate) result = -result;
-        return TruncateFrac(result, digits);
+        // atan of an argument that only approximates zero is 0, and that 0 is the series'
+        // approximation of it, not an exact zero (the zero shortcut in DivideTruncate hides the
+        // route of the argument before it ever reaches the series) — P-B1.
+        return WithArgumentProvenance(TruncateFrac(result, digits), x);
     }
 
     /// <summary>Two-argument arctangent, returning the angle of <c>(x, y)</c> in <c>(-π, π]</c>.</summary>
@@ -129,13 +134,15 @@ public static class ComplexMath
         bool yZero = Rl.IsZero(y);
         if (xZero)
         {
-            if (yZero) return Rl.Zero;
-            return Rl.IsPositive(y) ? halfPi : -halfPi;
+            if (yZero) return WithArgumentProvenance(Rl.Zero, y, x);
+            Rl branch = Rl.IsPositive(y) ? halfPi : -halfPi;
+            return WithArgumentProvenance(branch, y, x);
         }
 
         Rl at = Atan(DivideTruncate(y, x, AmbientDigits() + GuardDigits));
-        if (Rl.IsPositive(x)) return at;
-        return Rl.IsNegative(y) ? at - pi : at + pi;
+        Rl result = Rl.IsPositive(x) ? at : (Rl.IsNegative(y) ? at - pi : at + pi);
+        // Either argument being a truncation makes the angle one, whatever branch selected it (P-B1).
+        return WithArgumentProvenance(result, y, x);
     }
 
     // ------------------------------------------------------------------
@@ -165,7 +172,10 @@ public static class ComplexMath
             throw new ArgumentException("AsinReal(x) requires |x| <= 1.", nameof(x));
         if (x == Rl.One) return Rl.Pi / new Rl("2");
         if (x == Rl.NegativeOne) return -(Rl.Pi / new Rl("2"));
-        return Atan(DivideTruncate(x, Rl.Sqrt(Rl.One - x * x), AmbientDigits() + GuardDigits));
+        // asin of an argument that only approximates zero is 0, and DivideTruncate hands that
+        // quotient to atan as an EXACT zero, hiding the argument's route (P-B1).
+        return WithArgumentProvenance(
+            Atan(DivideTruncate(x, Rl.Sqrt(Rl.One - x * x), AmbientDigits() + GuardDigits)), x);
     }
 
     /// <summary>Computes <c>acos(x)</c> for <c>|x| ≤ 1</c>.</summary>
@@ -218,8 +228,9 @@ public static class ComplexMath
     {
         ArgumentNullException.ThrowIfNull(z);
         long digits = AmbientDigits();
-        return TruncateComplex(
-            new Complex(Sin(z.Re) * RealCosh(z.Im), Cos(z.Re) * RealSinh(z.Im)), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(
+                new Complex(Sin(z.Re) * RealCosh(z.Im), Cos(z.Re) * RealSinh(z.Im)), digits), z);
     }
 
     /// <summary>Computes <c>cos(a+bi) = cos a·cosh b − i·sin a·sinh b</c>.</summary>
@@ -227,15 +238,16 @@ public static class ComplexMath
     {
         ArgumentNullException.ThrowIfNull(z);
         long digits = AmbientDigits();
-        return TruncateComplex(
-            new Complex(Cos(z.Re) * RealCosh(z.Im), -Sin(z.Re) * RealSinh(z.Im)), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(
+                new Complex(Cos(z.Re) * RealCosh(z.Im), -Sin(z.Re) * RealSinh(z.Im)), digits), z);
     }
 
     /// <summary>Computes <c>tan(z) = sin(z) / cos(z)</c>.</summary>
     public static Complex Tan(Complex z)
     {
         ArgumentNullException.ThrowIfNull(z);
-        return Sin(z) / Cos(z);
+        return WithArgumentProvenance(Sin(z) / Cos(z), z);
     }
 
     /// <summary>Computes <c>sinh(a+bi) = sinh a·cos b + i·cosh a·sin b</c>.</summary>
@@ -243,8 +255,9 @@ public static class ComplexMath
     {
         ArgumentNullException.ThrowIfNull(z);
         long digits = AmbientDigits();
-        return TruncateComplex(
-            new Complex(RealSinh(z.Re) * Cos(z.Im), RealCosh(z.Re) * Sin(z.Im)), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(
+                new Complex(RealSinh(z.Re) * Cos(z.Im), RealCosh(z.Re) * Sin(z.Im)), digits), z);
     }
 
     /// <summary>Computes <c>cosh(a+bi) = cosh a·cos b + i·sinh a·sin b</c>.</summary>
@@ -252,8 +265,9 @@ public static class ComplexMath
     {
         ArgumentNullException.ThrowIfNull(z);
         long digits = AmbientDigits();
-        return TruncateComplex(
-            new Complex(RealCosh(z.Re) * Cos(z.Im), RealSinh(z.Re) * Sin(z.Im)), digits);
+        return WithArgumentProvenance(
+            TruncateComplex(
+                new Complex(RealCosh(z.Re) * Cos(z.Im), RealSinh(z.Re) * Sin(z.Im)), digits), z);
     }
 
     // ------------------------------------------------------------------
@@ -306,6 +320,43 @@ public static class ComplexMath
     }
 
     private static Rl FromLong(long n) => Rl.Parse(n.ToString(CultureInfo.InvariantCulture));
+
+    /// <summary>
+    /// The provenance of a trigonometric result is the provenance of its ARGUMENT: a value computed
+    /// from an approximation is an approximation of that value, however exact its digits look.
+    /// <para>
+    /// A special angle can land EXACTLY on an exact number from an argument that is itself a
+    /// truncation — the exactly-zero reduction of <c>cos</c> against a π the argument's own scale
+    /// produced, the <c>sin(0) = 0</c> / <c>cos(0) = 1</c> shortcut, and the zero the inverse
+    /// functions return for an argument that only approximates zero.  Handing those back without
+    /// the argument's provenance is how <c>evalf(cos(pi(30)), 40)</c> published <c>-1</c> as
+    /// <c>exact:true</c> with numerator <c>-1</c> and denominator <c>1</c>, while the same
+    /// expression's symbolic node — routed here through
+    /// <c>Lovelace.Symbolics/Evaluation.cs:335-337</c> — reported <c>exact:false</c> and mpmath at
+    /// 110 dps resolves the expression to −0.999…87355374… (cycle 6, P-B1).  The VALUE is untouched;
+    /// only the claim that the digits are the whole number goes.
+    /// </para>
+    /// </summary>
+    private static Rl WithArgumentProvenance(Rl result, Rl argument) =>
+        argument.IsExact ? result : Rl.AsInexact(result);
+
+    /// <summary>The two-argument form of <see cref="WithArgumentProvenance(Rl, Rl)"/>: a result
+    /// computed from two arguments is exact only when BOTH are.</summary>
+    private static Rl WithArgumentProvenance(Rl result, Rl first, Rl second) =>
+        first.IsExact && second.IsExact ? result : Rl.AsInexact(result);
+
+    /// <summary>
+    /// The complex form: both components of <c>sin(a+bi)</c>, <c>cos(a+bi)</c>, <c>sinh(a+bi)</c> and
+    /// <c>cosh(a+bi)</c> depend on BOTH parts of the argument, so an inexact part leaves neither
+    /// component entitled to the exact flag.  The case that leaks is the hyperbolic factor of an
+    /// exact zero — <c>RealSinh(0) = 0</c> and <c>RealCosh(0) = 1</c> are exact because
+    /// <c>exp(0)</c> is — which is how <c>sin(0 + 0i)</c> with an INEXACT zero imaginary part came
+    /// back with both components exact (cycle 6, P-B1).
+    /// </summary>
+    private static Complex WithArgumentProvenance(Complex result, Complex argument) =>
+        argument.Re.IsExact && argument.Im.IsExact
+            ? result
+            : new Complex(Rl.AsInexact(result.Re), Rl.AsInexact(result.Im));
 
     private static Rl Pow10(long e)
     {
@@ -479,13 +530,25 @@ public static class ComplexMath
     /// returning the pair before either half is rounded to the ambient precision (see
     /// <see cref="Tan"/>).  Every series division is a truncating one, so the pair is an
     /// approximation and its provenance says so.
+    /// <para>
+    /// THE PAIR CARRIES THE ARGUMENT'S PROVENANCE.  The reduction can land EXACTLY on a table value
+    /// from an argument that is itself a truncation — at the argument's own scale the residual IS
+    /// zero <c>(PiDigitsFor)</c>, so <c>cos(pi(30))</c> is the table's <c>−1</c> — and neither half
+    /// may certify that as exact.  Both exits say so: the shortcut below, which may stay exact only
+    /// for an EXACT zero, and the return, through
+    /// <see cref="WithArgumentProvenance(Rl, Rl)"/> (cycle 6, P-B1).
+    /// </para>
     /// </summary>
     private static (Rl sin, Rl cos) SinCosAtPrecision(Rl x, long digits)
     {
         // sin(0) = 0 and cos(0) = 1 exactly: the reduction below multiplies by an inexact π, which
-        // would otherwise leave the exact zeros carrying an approximation's provenance.
+        // would otherwise leave the exact zeros carrying an approximation's provenance.  The
+        // shortcut belongs to the ARGUMENT, though — an inexact zero is an approximation of zero,
+        // and the pair it produces may not claim the exactness of the value it approximates.
         if (Rl.IsZero(x))
-            return (Rl.Zero, Rl.One);
+            return x.IsExact
+                ? (Rl.Zero, Rl.One)
+                : (Rl.AsInexact(Rl.Zero), Rl.AsInexact(Rl.One));
 
         long work = digits + GuardDigits;
         long piDigits = PiDigitsFor(x, digits);
@@ -520,7 +583,9 @@ public static class ComplexMath
             default: sin = s; cos = c; break;
         }
 
-        return (sin, cos);
+        // An inexact argument cannot produce an exact result on ANY path out of here: the exactly
+        // zero reduction above is the one that used to hand the table value back as exact (P-B1).
+        return x.IsExact ? (sin, cos) : (Rl.AsInexact(sin), Rl.AsInexact(cos));
     }
 
     /// <summary>Reduces <paramref name="value"/> into <c>[0, 2π)</c>.</summary>

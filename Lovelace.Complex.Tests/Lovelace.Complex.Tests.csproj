@@ -21,6 +21,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Lovelace.Abstractions\Lovelace.Abstractions.csproj" />
     <ProjectReference Include="..\Lovelace.Complex\Lovelace.Complex.csproj" />
+    <!-- The symbolic tier reaches the numeric one through ComplexMath (Evaluation.cs:335-337), so
+         the agreement between a symbolic node's exactness flag and the numeric value it evaluates
+         to is only observable with both assemblies in reach. Test-only edge; the product projects
+         keep their own dependency direction (Symbolics -> Complex, never the reverse). -->
+    <ProjectReference Include="..\Lovelace.Symbolics\Lovelace.Symbolics.csproj" />
   </ItemGroup>
 
 </Project>

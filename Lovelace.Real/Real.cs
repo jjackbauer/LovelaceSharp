@@ -911,7 +911,31 @@ public class Real :
         bool foundPeriod  = false;
         long position     = 0L;
 
-        while (!Nat.IsZero(remainder) && position < MaxComputationDecimalPlaces)
+        // The expansion of a quotient below one opens with a run of zeros.  The budget counts decimal
+        // PLACES, and a zero occupies a place like any other digit — until the run ALONE fills the
+        // budget.  At that point the loop has generated a string of zeros with no significant digit
+        // in it, and the quotient comes back as zero with its scale gone: 1/(3·10^1000) spent the
+        // whole 1000-place budget on 1000 leading zeros and returned 0 where mpmath has 3.33…e-1001,
+        // while 1/(3·10^100), a run of 100, was already the exact periodic 0.(3) at scale 10^-100.
+        // That is the recorded defect, and it is the only state this changes.  A Real is
+        // digits × 10^Exponent, so a run that has outlived the budget is SCALE, not digit: from there
+        // the loop WALKS it at no cost — walking it keeps the remainder history on the true
+        // fractional positions, which is what lets a period that begins inside the run
+        // (1/99 = 0.(01)) still be found — stores only the digits that carry information, and the
+        // exponent below places the decimal point where the quotient's first significant digit
+        // really is.  A quotient whose run fits inside the budget never enters that state: it walks
+        // the identical positions, keeps the identical remainder history, and ends with the identical
+        // stored digits, period, exponent and rendering it had before.
+        long leadingZeros  = 0L;
+        long storedFrac    = 0L;
+        bool freed         = false;
+        bool skippingZeros = Nat.IsZero(quotient);
+
+        // Normal accounting: the budget bounds the decimal places generated.  Once the run has
+        // outlived it, the budget bounds the stored digits instead — the places it spends are all
+        // zeros, and a truncation to nothing is not a truncation of the quotient.
+        while (!Nat.IsZero(remainder) &&
+               (freed ? storedFrac < MaxComputationDecimalPlaces : position < MaxComputationDecimalPlaces))
         {
             string remKey = remainder.ToString();
 
@@ -932,8 +956,22 @@ public class Real :
 
             // digitNat is guaranteed to be in [0, 9].
             char digitChar = (char)('0' + (Nat.IsZero(digitNat) ? 0 : int.Parse(digitNat.ToString())));
-            fracDigits.Add(digitChar);
             position++;
+
+            // Leading zeros: scale, never a stored digit — in normal accounting they already spent
+            // the place that bounds the loop above, and under the freed accounting they spend
+            // nothing.  Either way the exponent below carries them.
+            if (skippingZeros && digitChar == '0')
+            {
+                leadingZeros++;
+                if (!freed && position >= MaxComputationDecimalPlaces)
+                    freed = true;   // the run alone has filled the budget: from here it is scale
+                continue;
+            }
+
+            skippingZeros = false;
+            fracDigits.Add(digitChar);
+            storedFrac++;
         }
 
         // Build combined digit string: integer part + fractional digits generated.
@@ -946,8 +984,11 @@ public class Real :
         // For periodic results the stored fraction is exactly periodStart + periodLength chars.
         // (The loop breaks without adding the repeated digit, so fracDigits already has the right count.)
         // The operands were aligned to a single exponent above, so the decimal point sits exactly
-        // fracLen digits from the end of the digit string: no leftover scale term.
-        long resultExponent = -fracLen;
+        // fracLen digits from the end of the digit string — and the leading zeros the loop walked but
+        // did not store sit to the left of it, carried by the exponent.  For a periodic result the
+        // break position is periodStart + periodLength, so this exponent is exactly the one the old
+        // loop produced: Exponent == -(PeriodStart + PeriodLength) still holds, digit for digit.
+        long resultExponent = -(leadingZeros + fracLen);
 
         if (!Nat.TryParse(allDigits, null, out Nat? mag))
             mag = Nat.Zero;
