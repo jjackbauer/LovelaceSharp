@@ -53,9 +53,11 @@
 
 ## P.3 Acceptance requested (no answer recorded)
 
-The maintainer was asked twice, in writing and with the measured behaviour quoted, to accept or reject
-each of these; **no answer was recorded in this session**, so none is marked ACCEPTED. They are open
-scope decisions, not silent reductions:
+The maintainer was asked **six times**, in writing and with the measured behaviour quoted (the last two
+requests were single-question, one-click forms offering Accept-all / Accept-the-advertised-refusals /
+Accept-the-measurement-bounds / Reject / Leave-open), to accept or reject each of these; **no answer was
+ever recorded in this session**, so none is marked ACCEPTED and none is silently reduced. They remain open
+scope decisions, and this section is the record of having asked:
 
 | # | Bound | Behaviour today (re-measured 2026-09-12) |
 |---|---|---|
@@ -69,13 +71,21 @@ scope decisions, not silent reductions:
 
 ## P.4 What Cycle 6 does not claim
 
-**Cycle 6 does not claim A+ yet.** D-1 ("a fresh adversarial audit produces no P0/P1") is the one
-dimension still outstanding: the four-persona audit (new agents, new strategies, against the published
-binary built from this tree) is running as this section is written, and its findings decide the claim.
-What can be said already: every defect the cycle found is closed with a test that fails on the pre-fix
-tree (P-1…P-13), and the last candidate — the "nonzero magnitude published as 0" framing — was falsified
-when measured properly (P.2). The four rows the cycle was handed are closed, and row 1's two routes are
-closed with it: the literal route in `e8638c0`, the special-angle flag route in `78c19d8`.
+**Cycle 6 does not claim A+.** This paragraph replaces the one written while the first audit wave was
+still running, and it is the final statement of the cycle. What the cycle can say on its own evidence:
+**D0 met** — CI run #69 on `9852a2f` is green in all three jobs (and the runs the fix cycle superseded
+read `cancelled` because `ci.yml:17-19` cancels in progress); **D2 met** — the four rows the cycle was
+handed are closed with tests that fail on the pre-fix tree (row 1's two routes: the literal route in
+`e8638c0`, the special-angle flag route in `78c19d8`), as is every defect the cycle found (P-1…P-23);
+**D5 met so far** — EVD-237…EVD-317, including three rows that correct the orchestrator's own claims.
+What blocks the claim is measured, not cautious: **D1 is open** because the third wave found a P0 and two
+P1s (all closed) and the fourth wave — the first to drive the product assemblies instead of the CLI —
+returned three more P1s and a P2 in the engine's own host surface, of which K-2 and K-1 have diagnosed,
+bounded fixes in flight at the time of writing; no wave has yet come back clean against a final binary.
+**D3 is open** because the seven scope decisions below have never been answered. **D4 is partial**: the
+fifteen-project sweep is 5556/0/0 on the fixed tree, and the forced rebuild, the AOT re-publish from the
+final commit, the five smoke scenarios, the capability-honesty harness and the `RT_USE_AOT=1` printer
+round-trip still have to be re-run after the last commits.
 
 Still outstanding, and it is the maintainer's to give: the written acceptance or rejection of the seven
 scope bounds in P.3. Nothing there is silently reduced; each is stated with its measured behaviour.
