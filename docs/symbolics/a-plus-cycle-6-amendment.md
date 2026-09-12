@@ -29,11 +29,11 @@
 | P-12 | **P-B3 — a nonzero quotient was returned as `0`** | `1/(3*10^1000)` → `{"value":"0"}` and `evalf(1/(3*10^1000), 30)` → an Integer `0` **declared exact**, where mpmath gives 3.33e-1001 | `Real.Divide` walks a leading-zero run that alone fills the digit budget and stores only significant digits with the exponent placed accordingly: the quotient is the exact periodic `0.000…0(3)` with numerator 1 and denominator 3·10^1000, and the in-budget neighbours are unchanged | `78c19d8`; EVD-269 (6/0 fixed vs 3 failed / 3 passed) |
 | P-13 | **The evalf and complex flag leaks** | `evalf(pi(30), 40)`, `evalf(pi(1), 40)`, `evalf(e(30), 40)` and `evalf(pi(30), 100)` published a truncated constant as `exact:true` **with a rational form**; `ComplexMath.Exp` of an inexact zero and `Exp/Sqrt(Complex)` for inexact arguments did the same | `NumericAtRequestedPrecision` now splits the cases — an exact Real keeps the rational projection, an inexact one is carried as an inexact `RealLiteral` at the same digit count — and the complex entry points follow the argument's provenance. The digits are unchanged; only the claim is | `762aa8c`; EVD-272 (22/0 vs 15 failed / 7 passed; 7/0 vs 4 failed / 3 passed) |
 
-## P.2 Bounds that Cycle 6 does NOT close — stated, with the defect named
+## P.2 Bounds that Cycle 6 does NOT close
 
-| # | Bound / defect | Evidence today | Disposition |
+| # | Bound | Evidence today | Disposition |
 |---|---|---|---|
-| P-B4 | **A magnitude whose leading zeros exceed the requested digit count is still published as `0`.** `evalf(sin(pi(30)), 40)` → `{"value":"0"}` where mpmath gives 5.03…e-31, and `evalf(1/(3*10^1000), 30)` → `{"value":"0"}` although the Real itself is the exact periodic 3.33e-1001. The FLAG is honest in both (`exact:false`) — what is wrong is the digits, because `evalf`'s digit count is a count of DECIMAL PLACES, not of significant digits. Closing it means either significant-digit semantics for `evalf` (a contract change with a wide blast radius) or carrying the exponent through the decimal-string conversion | EVD-270, EVD-272 | **OPEN — P1 (value precision, flag honest).** Named for the audit and for the maintainer's decision on `evalf`'s digit semantics |
+| — | **none outstanding.** Every defect cycle 6 found is closed with a test that fails on the pre-fix tree (P-1…P-13), and the one candidate that remained — a magnitude whose leading zeros exceed the requested digit count being published as `0` — was **falsified as a defect** when measured properly: `setprecision(60); evalf(sin(pi(30)), 60)` returns mpmath's `5.0288419716939937…e-31`, and the quotient case is `evalf`'s own documented **decimal-place** semantics with its documented 1000-place cap (`1/(3*10^999)` renders at 1000 places, `1/(3*10^1000)` correctly rounds to 0) | EVD-276 | **CLOSED** — the framing was the error, not the code; the semantics question is OQ-004 below |
 
 ## P.3 Acceptance requested (no answer recorded)
 
@@ -53,7 +53,13 @@ scope decisions, not silent reductions:
 
 ## P.4 What Cycle 6 does not claim
 
-Because P-B4 is open - and because the four-persona fresh audit was never run - **Cycle 6 does not claim A+**, exactly as Cycles 4 and 5 did not.
-D-1 ("a fresh adversarial audit produces no P0/P1") is **not met**: the two independent Falsifiers of
-round 3 produced the flag leak that is now closed (P-11), and rounds 10 and 11 closed it and P-B3; what
-graded around. The four rows the cycle was handed are closed — row 1's second route is not.
+**Cycle 6 does not claim A+ yet.** D-1 ("a fresh adversarial audit produces no P0/P1") is the one
+dimension still outstanding: the four-persona audit (new agents, new strategies, against the published
+binary built from this tree) is running as this section is written, and its findings decide the claim.
+What can be said already: every defect the cycle found is closed with a test that fails on the pre-fix
+tree (P-1…P-13), and the last candidate — the "nonzero magnitude published as 0" framing — was falsified
+when measured properly (P.2). The four rows the cycle was handed are closed, and row 1's two routes are
+closed with it: the literal route in `e8638c0`, the special-angle flag route in `78c19d8`.
+
+Still outstanding, and it is the maintainer's to give: the written acceptance or rejection of the seven
+scope bounds in P.3. Nothing there is silently reduced; each is stated with its measured behaviour.

@@ -1,4 +1,4 @@
-=== publish 2026-09-12T15:06:17.4569148-03:00 ===
+﻿=== publish 2026-09-12T15:06:17.4569148-03:00 ===
 publish exit=0
 publish warnings=0 errors=0
   [PASS] AOT publish succeeded - exit 0
@@ -41,3 +41,4 @@ newest source: C:\Users\ricar\dev\LovelaceSharp\Lovelace.Run.Tests\CancellationB
   [PASS] code and category are present - code=InvalidOperation category=DomainError
 
 SMOKE FAILURES: 0
+

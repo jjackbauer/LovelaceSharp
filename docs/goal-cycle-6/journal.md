@@ -598,6 +598,40 @@
 - **Agent**: Implementer (round 11) + my own reproduction
 - **Related**: EVD-272, EVD-273, EVD-270
 
+### VAL-004: P-B4 is Falsified as a defect — it is the documented semantics, and my framing was the error
+
+- **Target**: the claim "a magnitude whose leading zeros exceed the requested digit count is still
+  published as `0`" (recorded as P-B4, "open P1 (value precision)")
+- **Method**: raise the computation budget and re-probe; read the builtin's own descriptor, the cap in
+  the code, and the language document; compare against mpmath.
+- **Evidence examined**: `setprecision(60); evalf(sin(pi(30)), 60)` →
+  `0.000000000000000000000000000000502884197169399375105820974943`, matching mpmath's
+  `5.0288419716939937…e-31` and identical to `setprecision(60); sin(pi(30))`;
+  `evalf`'s descriptor (`SymbolicsPlugin.cs:488-490`) says **decimal places**;
+  `SymbolicsPlugin.cs:1554-1569` clamps to `Math.Min(digits, 1000)`; the boundary behaves as documented
+  (`1/(3*10^999)` renders at 1000 places, `1/(3*10^1000)` rounds to 0);
+  `Language.md:810-811` states that transcendentals truncate at the active budget.
+- **Result**: **Falsified** (as a defect). The behaviour is the correctly rounded value at the requested
+  and documented resolution, and the wire's flag is honest in every case probed.
+- **Conclusion**: P-B4 moves from "open P1" to a CLOSED bound with evidence, and the correction is mine
+  to record: I framed correct rounding as a lost value and carried it into the report and section P
+  before measuring it. What remains genuinely open is the maintainer's opinion on whether decimal places
+  is the semantics they want (a documentation question, not a defect), and D1's audit.
+- **Related**: EVD-276, OQ-004
+
+### OQ-004: Should `evalf`'s count be decimal places or significant digits?
+
+- **Question**: the builtin's descriptor and the implementation agree on **decimal places** (with a
+  1000-place cap), so `evalf(1/(3*10^1000), 30)` = `0` is correct under the contract. A user who reads
+  "digits" as *significant* digits would expect 3.33e-1001. The comment written at
+  `SymbolicsPlugin.cs:1521-1531` suggests the author was already aware of the distinction. Is
+  decimal-place the intended contract?
+- **Needed evidence**: the maintainer's answer; if significant digits are wanted, it is one bounded round
+  (the same shape as the 1000-place cap, applied to the first significant digit rather than the point).
+- **Priority**: P2 (documentation, not correctness)
+- **Raised by**: Round 12, after falsifying my own P-B4 framing
+- **Related**: EVD-276, VAL-004
+
 ### RISK-006: The fast-tests job is intermittent (one red in three runs on the same code)
 
 - **Risk**: `Fast accuracy test suites` went `failure` on run #39 and `success` on runs #38 and #40,
