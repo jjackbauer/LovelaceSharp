@@ -22,13 +22,13 @@
 | P-7 | **O-B8a…i** (the wire-contract cluster) | error envelopes carried no `elapsedTime`/`timings`; 39 of 123 builtins answered a wrong-arity call with `InvalidOperation/DomainError`; `print` kept a trailing CR; `variables[]` was display-only; `divrem` was prose; `--print-budget` did not bound an over-budget value; `evalf` ignored `digits` for a numeric argument; `assumptions()` was Text-only; `functions[]` omitted arity | each re-probed and now correct (246-call arity sweep: **0** wrong-arity calls returned `InvalidOperation/DomainError`; error envelopes carry `elapsedTime` and `timings`; no stray CR; `variables[]` carries `structured`; `divrem` is a `DivRemResult` record; `x^2` at `--print-budget 1` truncates with `truncationReason:node-budget`; `assumptions()` is a record; `functions[]` publishes `minArity`/`variadic`) | closed by Cycle 5's wire rounds; re-measured in Cycle 6 (`docs/goal-cycle-6/round-5/bounds-reprobe.md`) |
 | P-8 | **O-B10, second half** | `setprecision(18); 1/1009` was labelled exact for a truncation | `{"value":"0.000991080277502477","exact":false}` | closed by Cycle 5's `1aa7182`; re-measured in Cycle 6 (EVD-256) |
 | P-9 | **O-B13** | the CI jobs had never executed on a GitHub runner | they execute, and Cycle 6 keeps them green | closed by Cycle 5 (run #15); re-confirmed in Cycle 6 (runs #28, #29) |
+| P-10 | **O-B11 — user-function recursion was unbounded and killed the process** | `func f(n) { if (n == 0) { return 0 }; return f(n - 1) }` with `f(436)`/`f(448)` exited `0xC00000FD` with **0 bytes on stdout** and ~2 MB of `Stack overflow.` on stderr; `f(432)` answered | `InputDepth.MaxEvaluationDepth = 512` is one live counter over the interpreter's evaluation walk and exceeding it raises the cycle-5 `InputDepthExceededException`, which crosses the wire as `DepthExceeded/BudgetExceeded`: `f(85)` answers, `f(86)` is refused with a well-formed envelope, and `f(432)`/`f(448)` are refused instead of killing the process. The trade is explicit: recursion deeper than ~85 call levels is refused, where it used to work up to ~432 and then crash | `c5c1437`; EVD-254, EVD-262 |
 
 ## P.2 Bounds that Cycle 6 does NOT close — stated, with the defect named
 
 | # | Bound / defect | Evidence today | Disposition |
 |---|---|---|---|
 | P-B1 | **The special-angle table hands an exact value to an inexact argument on the wire.** `evalf(cos(pi(30)), 100)` crosses as `-1` with `exact:true`, `numerator -1`, `denominator 1`, while the same expression's symbolic node is `exact:false` and mpmath at 110 dps gives −0.999…87355374… (a difference at the 61st decimal). The route is `ComplexMath.SinCosAtPrecision`, which reduces the argument against a π of the argument's own scale; two tests (`ComplexMathProvenanceTests.cs:83-84`) **pin** `Sin(Real.Pi) == 0` and `Cos(Real.Pi) == -1`, so closing it is a contract change, not a bug fix | EVD-251, EVD-259; found by two independent Falsifiers in round 3 | **OPEN — P1.** Needs one round that reduces against a π reaching below the argument's own scale, updates the two pinned tests against mpmath, and proves the change on a control tree |
-| P-B2 | **O-B11 — deep user-function recursion still kills the process.** `func f(n) { if (n == 0) { return 0 }; return f(n - 1) }` with `f(436)` exits `0xC00000FD` with **0 bytes on stdout** and ~2 MB of `Stack overflow.` on stderr; `f(432)` is fine | EVD-254 (reproduced by me) | **OPEN — P0.** Failing tests were written in `.worktrees/c6-ob11` before the round was stopped; the fix is a typed `DepthExceeded` refusal like the one Cycle 5 added for nested input |
 | P-B3 | **O-B10, first half — a nonzero quotient is returned as `0`.** `1/(3*10^1000)` → `{"value":"0","exact":false}`, and `evalf(1/(3*10^1000), 30)` → `{"kind":"Integer","value":"0","exact":true}`; mpmath gives 3.333…e-1001. The sibling inside the digit budget (`1/(3*10^100)`) is correct | EVD-255 | **OPEN — P1.** `Real.Divide` loses the scale when the quotient's leading zeros exceed the digit budget |
 
 ## P.3 Acceptance requested (no answer recorded)
@@ -49,7 +49,7 @@ scope decisions, not silent reductions:
 
 ## P.4 What Cycle 6 does not claim
 
-Because P-B1, P-B2 and P-B3 are open, **Cycle 6 does not claim A+**, exactly as Cycles 4 and 5 did not.
+Because P-B1 and P-B3 are open, **Cycle 6 does not claim A+**, exactly as Cycles 4 and 5 did not.
 D-1 ("a fresh adversarial audit produces no P0/P1") is **not met**: the two independent Falsifiers of
-round 3 produced P-B1, and the bound re-probe produced P-B2 and P-B3. They are named here rather than
+round 3 produced P-B1, and the bound re-probe produced P-B3. They are named here rather than
 graded around. The four rows the cycle was handed are closed — row 1's second route is not.

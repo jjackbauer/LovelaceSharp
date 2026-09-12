@@ -508,3 +508,36 @@
   raw logs before believing either story. Do not close this by editing the test.
 - **Gate**: —
 
+### OBS-014: Round 7 completed — O-B11 is closed, and the CI budget is repaired
+
+- **Source**: commit `c5c1437` (recursion budget) and `aa27753`/`55c8cab` (CI classification and cost);
+  my own wire probes and suite runs
+- **Fact**: **O-B11 is closed.** `f(85)` answers (exit 0, `ok:true`), `f(86)` is refused with an 885-byte
+  envelope naming `DepthExceeded/BudgetExceeded`, and `f(432)`/`f(448)` — which used to answer and to
+  kill the process with 0 bytes on stdout respectively — are now both refused with a well-formed
+  envelope. Suite 825/0, Run 206/0, Console 15/0, Symbolics 1097/0, whole-solution build 0 warnings.
+  **The CI failure is diagnosed and answered**: run #32 died at 189 s on
+  `CancellationObservationTests.Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly`, which I
+  reproduced under the collector at 29 s against its own 20 s assertion; and runs #30/#33 hit the
+  30-minute job timeout because the round-3 truncation corpus is pathological under instrumentation. The
+  fix is the cycle-5 pattern: `Category=Timing` verdicts leave the instrumented loop and run
+  uninstrumented (totals preserved: 817 + 8 = 825), and the corpus is bounded (35+ min -> 404 s).
+- **Implications**: D1's P0 is gone; P-B1 and P-B3 remain open, so A+ is still not claimed. D0 depends on
+  the run for `55c8cab`.
+- **Confidence**: High
+- **Agent**: Implementer (round 7) + my own reproduction
+- **Related**: EVD-262, EVD-263, EVD-254
+
+### RISK-005: The recursion cap refuses depth that used to work
+
+- **Risk**: `f(86)` and deeper are now typed refusals where the pre-fix interpreter answered up to
+  `f(432)`. A consumer relying on deep recursion loses capability; the alternative was a process kill at
+  `f(436)`.
+- **Likelihood**: Certain (it is the change)
+- **Impact**: Medium
+- **Evidence**: EVD-262; the cap was measured (the pre-fix death was ~2 600 native frames on a 1 MB
+  stack, a factor of about 5 above the 512-unit budget)
+- **Mitigation**: the trade is recorded in section P (P-10) and in the report §3.6 rather than left
+  implicit; the refusal is typed and recoverable, so a consumer can detect it without parsing prose.
+- **Gate**: —
+

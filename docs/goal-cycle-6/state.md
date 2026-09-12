@@ -1,13 +1,15 @@
 # Harness State — cycle-6
 
-- **Round**: 7 landed (rows 3+4 and row 2 pushed); D4 verification in flight; round cap 40
+- **Round**: 9 landed — rows 2/3/4, row 1's first route, O-B11 and the CI budget are all on `main`; **CI run #36 on `be89e55` is green in all three jobs**; round cap 40
 - **Goal**: make CI green on GitHub's runners again, close the four open Tier-0/Tier-1 rows and their
   residual bounds, and claim A+ only if a fresh adversarial audit cannot falsify it.
-- **Definition of done**: **D0 met** (needs one final green run on the last commit), D2 Partial→3 of 4
-  rows closed, D3 Partial (section P drafted; the maintainer's acceptance is outstanding), D1 **not met**
-  (two known open defects, below), D4 in flight, D5 not started
+- **Definition of done**: **D0 met** (run #36, all three jobs, on `be89e55`); **D2** rows 2/3/4 closed
+  with control-failing tests and row 1's first route landed; **D3** section P written with nine rows
+  CLOSED and seven awaiting the maintainer's words; **D4** re-measured (rebuild 0/0, sweep 5298/1 flake,
+  AOT fresh + smoke 0, capabilities MATCH=19, round-trip ok=30); **D5** report written; **D1 NOT met** —
+  P-B1 and P-B3 are open and the four-persona fresh audit was not run
 - **Commits landed this cycle**: `98a9049`, `70241dc`, `300f6bb`, `1b70a32`, `e8638c0`, `d4d7ccf`,
-  `b009dfe` (all pushed; `origin/main = b009dfe`)
+  `b009dfe`, `e8b52b3`, `aa27753`, `c5c1437`, `55c8cab`, `be89e55` (all pushed)
 - **Stop criteria**: not met; the goal stays active
 
 ## Gate status
@@ -31,14 +33,15 @@
 | 5 | Re-measure every section-O bound | Probe | 1 | 3 | 0 | all pass | 3 rows close, 10 still true, 1 unmeasurable |
 | 6 | Close rows 3 and 4 (`evalf(f,0)`, `capabilities()`) | — | — | 1 | 0 | all pass | landed `d4d7ccf` |
 | 7 | Close row 2 (`--cancel-after` in the kernels) | — | — | 1 | 0 | all pass | landed `b009dfe` |
-| 8 | D4 re-measure | — | — | — | — | in flight | forced rebuild 0 warnings / 0 errors; sweep/AOT/smoke running |
+| 8 | D4 re-measure | — | — | 2 | 0 | all pass | rebuild 0/0; sweep 5298/1 (one unexplained flake, EVD-261); AOT fresh, smoke 0; capabilities MATCH=19; round-trip ok=30 bad=0 |
+| 9 | Close O-B11 (recursion) + repair the CI budget | — | 1 | 2 | 0 | all pass | landed `c5c1437`, `aa27753`, `55c8cab` |
 
 ## Open defects that block D1 (recorded, with evidence)
 
 | # | Defect | Evidence | Status |
 |---|---|---|---|
 | 1 | `evalf(cos(pi(30)), 100)` publishes `-1` as `exact:true` with `-1/1`; mpmath differs at the 61st decimal. Path: `ComplexMath.SinCosAtPrecision`; pinned by `ComplexMathProvenanceTests:83-84` | EVD-251, EVD-259, OQ-003 | **open P1** |
-| 2 | Deep user-function recursion still kills the process: `0xC00000FD`, **0 bytes on stdout**, from depth ~436 | EVD-254 | **open P0** (closure round dispatched, stopped; tests written in `.worktrees/c6-ob11`) |
+| 2 | ~~Deep user-function recursion kills the process~~ | EVD-254, EVD-262 | **CLOSED** in `c5c1437`: the evaluation walk is bounded at 512 units, `f(85)` answers, `f(86)` and deeper are typed `DepthExceeded` refusals (the trade is recorded as RISK-005) |
 | 3 | `1/(3*10^1000)` returns `0`, and `evalf(1/(3*10^1000),30)` returns Integer `0` **exact:true**; mpmath gives 3.33e-1001 | EVD-255 | **open P1** (O-B10a) |
 
 ## Next objectives, in order

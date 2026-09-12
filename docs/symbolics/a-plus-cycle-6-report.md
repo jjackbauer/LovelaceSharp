@@ -1,7 +1,7 @@
 # A+ Convergence — Cycle 6 report
 
-**Repository**: `jjackbauer/LovelaceSharp` · **HEAD at writing**: `b009dfe` (pushed; `origin/main` matches)
-**Commits this cycle**: `98a9049`, `70241dc`, `300f6bb`, `1b70a32`, `e8638c0`, `d4d7ccf`, `b009dfe`
+**Repository**: `jjackbauer/LovelaceSharp` · **HEAD at writing**: `be89e55` (pushed; `origin/main` matches)
+**Commits this cycle**: `98a9049`, `70241dc`, `300f6bb`, `1b70a32`, `e8638c0`, `d4d7ccf`, `b009dfe`, `e8b52b3`, `aa27753`, `c5c1437`, `55c8cab`, `be89e55`
 **Harness memory**: `docs/goal-cycle-6/{goal,journal,evidence,state,deliverables}.md`
 **Amendment**: section **P** at `docs/symbolics/a-plus-cycle-6-amendment.md` (summarised in the plan)
 **A+ is not claimed.** Three defects are open and are named in §4 rather than graded around.
@@ -19,7 +19,7 @@ inherited.
 
 | ID | Dimension | Status | The command and what it printed |
 |---|---|---|---|
-| **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` — `Differential oracle (SymPy installed)` **success**, `Native AOT publish + runner smoke` **success**, `Fast accuracy test suites` **success**, its step 5 running the whole 14-project loop plus both Real.Tests steps in **435 s**. Run **#27** on the intermediate commit (which still carried the stale pin) is `failure`, so the two bracket the fix. EVD-237, EVD-238, EVD-248 |
+| **D0** | CI green on a GitHub runner | **MET** | push then read the run: **#28** on `70241dc` (the fix), and **#36** on the final commit `be89e55` — `Fast accuracy test suites` **success**, `Differential oracle (SymPy installed)` **success**, `Native AOT publish + runner smoke` **success**. Between them the record shows the whole arc: #27 failure (the stale pin), #28 green, #30/#33 cancelled by the 30-minute job timeout, #32 failed at 189 s on a coverage-inflated cancellation assertion, #36 green with the costly corpus running uninstrumented. EVD-237, EVD-238, EVD-248, EVD-265 |
 | **D1** | Zero open P0/P1 from a **fresh** adversarial audit | **NOT MET** | the round-3 falsifiers (two agents, identical prompt, independent scratch trees) each broke the round's claim and produced **P-B1**; the bound re-probe produced **P-B2** and **P-B3**. All three are open. The full four-persona fresh audit was **not run** — see §6 |
 | **D2** | Every Tier-0/Tier-1 defect closed by a test that fails on the pre-fix tree | **3 of 4 rows** | row 2: 9 of 11 new cases fail on a pristine control tree, and the CLI probes go from 4104/27 658/4153 ms with `ok:true` to 284/362/268 ms with `Cancelled`; rows 3+4: 50 control-tree failures; row 1: 13 of 32 cases fail on the control tree, but its **second route is open** (P-B1) |
 | **D3** | Every residual bound closed with evidence or accepted in the maintainer's words | **PARTIAL** | section P written: nine rows CLOSED with evidence; three rows OPEN as defects; seven rows are scope decisions put to the maintainer **twice in writing** with no answer recorded, so none is marked ACCEPTED |
@@ -48,7 +48,17 @@ inherited.
 5. **Row 4** (`d4d7ccf`): `capabilities()` no longer advertises a class whose trigger succeeds, names
    the narrowed class, and lists the three reachable refusals that were missing. Nineteen advertised
    entries, **19/19** reproduce their advertised code and category.
-6. **Section-O bounds that are no longer true**: O-B7, O-B8a…i, O-B10 (second half), and the
+6. **O-B11** (`c5c1437`): user-function recursion is budgeted. `f(436)` and `f(448)` used to kill the
+   process with `0xC00000FD` and **0 bytes on stdout**; they now answer a well-formed envelope with
+   `DepthExceeded/BudgetExceeded`, and `f(85)` still answers. The trade is explicit — recursion deeper
+   than ~85 call levels is refused with a typed error where it used to work up to ~432 and then crash —
+   and it is the same trade cycle 5 made for nested input.
+7. **The CI budget** (`aa27753`, `55c8cab`): run #32 failed at 189 s on a wall-clock cancellation
+   assertion measured at 29 s under the coverage collector, and runs #30/#33 were cancelled by the
+   30-minute job timeout. Wall-clock verdicts now leave the instrumented loop and run uninstrumented in
+   their own step (`Category=Timing`); the round-3 truncation corpus is bounded (35+ minutes under the
+   collector, 404 s after); the totals are preserved (Suite 817 covered + 8 uninstrumented = 825).
+8. **Section-O bounds that are no longer true**: O-B7, O-B8a…i, O-B10 (second half), and the
    under-claim inside O-B14 — each re-measured on this tree, each CLOSED in section P with its probe.
 
 ## 4. What is open — and why A+ is not claimed
@@ -56,7 +66,6 @@ inherited.
 | # | Defect | The measurement | Class |
 |---|---|---|---|
 | P-B1 | The **special-angle table** hands an exact value to an inexact argument: `evalf(cos(pi(30)), 100)` crosses as `-1`, `exact:true`, `-1/1`, while the same expression's symbolic node is `exact:false` and mpmath gives −0.999…87355374… (a difference at the **61st decimal**). The route is `ComplexMath.SinCosAtPrecision`, and two of the project's own tests pin the current behaviour, so closing it is a contract change | EVD-251, EVD-259 | **P1** |
-| P-B2 | **Deep user-function recursion still kills the process**: `f(436)` exits `0xC00000FD` with **0 bytes on stdout** (O-B11). Cycle 5 closed exactly this class for nested *input* | EVD-254 | **P0** |
 | P-B3 | `1/(3*10^1000)` is returned as `0`, and `evalf(1/(3*10^1000), 30)` as Integer `0` **declared exact**; mpmath gives 3.33e-1001 (O-B10, first half) | EVD-255 | **P1** |
 
 Seven further bounds (O-B1…O-B6, O-B9, O-B12) are scope decisions. The maintainer was asked twice, in
