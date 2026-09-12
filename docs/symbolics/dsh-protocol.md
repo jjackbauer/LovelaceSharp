@@ -39,6 +39,12 @@ a consumer written against the full envelope never has to handle a missing field
 what the flag produced rather than a claim that the registry itself is empty. They change no value, no
 display and no `output[]` entry.
 
+**One plot per evaluation.** `plot(...)` may be called more than once, but only the LAST call is
+published: the `plot` block carries that capture, and the SVG written into the plot directory is
+overwritten by the same call, so an earlier plot is recoverable from neither place (round-22 audit M,
+M-4; measured). Plot once, or plot the expression that contains everything you want to see.
+
+
 ## Value forms
 
 ```json
