@@ -151,8 +151,9 @@ answer and a record for another. Abridged below only in the nested symbolic rend
 
 `elapsedTime` and `timings[].elapsed` are produced by the same unit selector as the human
 `elapsed` string, so the two forms can never disagree. `timings[].position` is the zero-based
-source offset of the statement; `resultKind` is the value kind it produced (`Void` for a
-statement with no value) and `hasOutput` says whether it wrote anything with `print`.
+offset of the statement in the text the caller supplied (see **Positions and locations**);
+`resultKind` is the value kind it produced (`Void` for a statement with no value) and
+`hasOutput` says whether it wrote anything with `print`.
 
 An agent can answer, from structure alone: **Was it solved?** (`status`, an `Enum` of type
 `SolveStatus`), **over what domain?** (`domain`), **is it complete?** (`completeness`, an `Enum`
@@ -184,6 +185,34 @@ condition removed every candidate. A provably empty set is a complete answer, so
 `complete: true` / `completeness: Complete`; nothing is missing from it. Only `Partial`,
 `Unevaluated` and `BudgetExceeded` report `complete: false`.
 
+## Positions and locations
+
+Every position the protocol publishes — `timings[].position`, and the error envelope's
+`diagnostics[].position` with its `line`/`column` — is a **zero-based offset into the characters
+of the text the caller supplied**, exactly as that surface received it:
+
+| surface | the text a position indexes |
+|---|---|
+| `--eval <script>` | the argument string, character for character |
+| `--file <path>` | the file's decoded characters; a leading byte-order mark is the character U+FEFF at offset 0 and is **not** removed |
+| `--stdin` | the characters read from standard input |
+
+Byte-identical input therefore reports identical positions on every surface. A position is something
+a consumer can **use**: the text it handed over (or, for `--file`, that file's own characters) sliced
+at the reported offset starts at the statement the envelope is talking about — `text.Substring(position)`
+names it, on every surface, for the same bytes.
+
+A leading byte-order mark is one character and a CRLF is two, because both are part of that text:
+`a = 1` / `b = 2` / `det(a)` on three lines reports its third statement at 12 with LF separators,
+at 14 with CRLF separators, and at 15 when that CRLF file is saved as "UTF-8 with BOM". The engine
+itself drops a leading U+FEFF (the tokenizer does not accept it as whitespace), which is why a
+"UTF-8 with BOM" file still evaluates: that drop is the engine's, and it never changes what a
+published position indexes.
+
+`line` and `column` are 1-based and read off that same text, with CRLF, CR and LF each ending a
+line once — so a Windows script, a Unix script and a classic-Mac script that hold the same statements
+report the same line and column.
+
 ## Error envelope
 
 ```json
@@ -191,7 +220,7 @@ condition removed every candidate. A provably empty set is a complete answer, so
   "ok": false, "code": "InvalidOperation", "category": "DomainError",
   "message": "solve(): currently supports domains real and complex; got integer.",
   "recoverable": true,
-  "diagnostics": [ { "message": "...", "position": 0, "line": 1, "column": 1 } ],
+  "diagnostics": [ { "message": "...", "position": 17, "line": 1, "column": 18 } ],
   "elapsed": "46.22 ms",
   "elapsedTime": { "value": 46.22, "unit": "ms" },
   "timings": [
@@ -224,8 +253,10 @@ builtin that legitimately accepts a shorter form declares it (`symbol(name [, do
 
 The error envelope's `diagnostics` array is the **parser's source-position form**
 (`message`/`position`/`line`/`column`) — a different record from the `Diagnostic` above, and also
-an array. The two are never mixed: a result record carries `Diagnostic` records, the error
-envelope carries parse-site diagnostics.
+an array. Its `position`/`line`/`column` index the caller's text by the same rule as
+`timings[].position` (see **Positions and locations**), so the two forms of one envelope can never
+disagree about where a failure is. The two are never mixed: a result record carries `Diagnostic`
+records, the error envelope carries parse-site diagnostics.
 
 ## CI
 

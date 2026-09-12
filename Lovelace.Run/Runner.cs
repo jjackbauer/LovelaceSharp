@@ -131,16 +131,22 @@ public static class Runner
             }
         }
 
+        // ONE reader for all three surfaces, and one definition of what their text is: the
+        // caller's own characters, a leading byte-order mark included, so byte-identical input
+        // reports identical positions whichever surface carried it (see ScriptText).
         string source;
         if (eval is not null)
         {
-            source = eval;
+            source = ScriptText.FromArgument(eval);
         }
         else if (file is not null)
         {
             try
             {
-                source = await File.ReadAllTextAsync(file);
+                // NOT File.ReadAllText: it detects the encoding from the byte-order mark and consumes
+                // it, which silently handed this surface a text one character shorter than the same
+                // bytes on --eval/--stdin and moved every published position by one (G-2).
+                source = await ScriptText.FromFileAsync(file);
             }
             catch (Exception ex)
             {
@@ -158,7 +164,7 @@ public static class Runner
         }
         else if (stdinMode)
         {
-            source = await stdin.ReadToEndAsync();
+            source = await ScriptText.FromStandardInputAsync(stdin);
         }
         else
         {
