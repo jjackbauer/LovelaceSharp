@@ -130,25 +130,37 @@ jobs:
           set -euo pipefail
           # Category=Timing must still run in CI, without a coverage collector, so its
           # wall-clock budget means what it says. Every project that carries one runs here.
-          dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
-            --configuration Release --nologo \
-            --filter "Category=Timing"
-          dotnet test Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj \
-            --configuration Release --nologo \
-            --filter "Category=Timing"
-          dotnet test Lovelace.Run.Tests/Lovelace.Run.Tests.csproj \
-            --configuration Release --nologo \
-            --filter "Category=Timing"
-          dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
-            --configuration Release --nologo \
-            --filter "Category=Timing"
+          #
+          # Each command prints the failing test names as ::error annotations, exactly like the
+          # instrumented loop above, because the job log is not readable without a token and this
+          # step failed twice in a row without naming itself (runs #43 and #44).
+          run_subset() {
+            local project="$1"
+            local filter="$2"
+            local tag="$3"
+            local log="/tmp/subset-$(basename "$project" .csproj)-$tag.log"
+            local code=0
+            dotnet test "$project" --configuration Release --nologo \
+              --filter "$filter" > "$log" 2>&1 || code=$?
+            cat "$log"
+            if [ "$code" -ne 0 ]; then
+              grep -aE "(Failed|\[FAIL\])" "$log" | head -5 | while IFS= read -r line; do
+                msg=$(printf '%s' "$line" | tr -d '\r' | tr '%' ' ')
+                echo "::error title=$project $tag failed::$msg"
+              done
+              echo "::error title=$tag step::$project exited $code"
+              exit "$code"
+            fi
+          }
+          run_subset Lovelace.Real.Tests/Lovelace.Real.Tests.csproj "Category=Timing" timing
+          run_subset Lovelace.Suite.Tests/Lovelace.Suite.Tests.csproj "Category=Timing" timing
+          run_subset Lovelace.Run.Tests/Lovelace.Run.Tests.csproj "Category=Timing" timing
+          run_subset Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj "Category=Timing" timing
 
           # Category=Costly is the same idea for a different cause: the work is legitimate but the
           # collector makes it minutes rather than seconds (cycle 6: an elementary-function sweep
           # over truncated constants). It runs here, uninstrumented, so it still gates every push.
-          dotnet test Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj \
-            --configuration Release --nologo \
-            --filter "Category=Costly"
+          run_subset Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.csproj "Category=Costly" costly
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

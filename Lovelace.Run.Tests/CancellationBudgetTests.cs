@@ -32,6 +32,14 @@ public class CancellationBudgetTests
     /// </summary>
     private const int PromptnessFenceMs = 2500;
 
+    /// <summary>
+    /// A HANG GUARD for the whole spawned run, far above both the fixed (~0.3 s) and the unfixed
+    /// (~3.4 s) cost of the work: it exists so a non-observing implementation fails rather than hangs,
+    /// and it deliberately does NOT carry the promptness verdict - that comes from the ledger, which
+    /// the kernel writes, and is cross-checked against the envelope's own elapsed time above.
+    /// </summary>
+    private const int HangGuardMs = 60_000;
+
     private static JsonNode Envelope(string stdout, string what) =>
         TestSupport.ParseExactlyOneJsonDocument(stdout, what);
 
@@ -72,10 +80,17 @@ public class CancellationBudgetTests
             $"the ledger's elapsedMs ({ledgerMs}) and the envelope's elapsedTime ({envelopeMs} ms) " +
             "are not the same measurement");
 
-        // 3.4 s of work under a 100 ms budget must come back promptly, not merely "eventually"
-        Assert.True(stopwatch.ElapsedMilliseconds < PromptnessFenceMs,
-            $"the 100 ms budget took {stopwatch.ElapsedMilliseconds} ms to take effect on a sum that " +
-            $"needs ~3400 ms unbudgeted (fence {PromptnessFenceMs} ms). Envelope: {stdout}");
+        // 3.4 s of work under a 100 ms budget must come back promptly, not merely "eventually" - and
+        // the promptness is read from the LEDGER, not from this test's wall clock, which also contains
+        // the .NET process start and its JIT: on a cold CI runner that startup alone crossed the fence
+        // while the kernel itself stopped in ~150 ms (runs #43 and #44). The ledger's number is tied
+        // to real time by the agreement assertion above (a lying ledger would disagree with the
+        // envelope's elapsed), and the wall-clock HangGuardMs below still fails a hung run.
+        Assert.True(ledgerMs < PromptnessFenceMs,
+            $"the ledger says the 100 ms budget took {ledgerMs} ms to take effect on a sum that needs " +
+            $"~3400 ms unbudgeted (fence {PromptnessFenceMs} ms). Envelope: {stdout}");
+        Assert.True(stopwatch.ElapsedMilliseconds < HangGuardMs,
+            $"the whole run took {stopwatch.ElapsedMilliseconds} ms (hang guard {HangGuardMs} ms)");
     }
 
     [Fact]
@@ -93,9 +108,14 @@ public class CancellationBudgetTests
         Assert.Equal("Cancelled", envelope["code"]!.GetValue<string>());
         Assert.True(envelope["cancellation"]!["stopped"]!.GetValue<bool>(), stdout);
 
-        Assert.True(stopwatch.ElapsedMilliseconds < PromptnessFenceMs,
-            $"the 100 ms budget took {stopwatch.ElapsedMilliseconds} ms to take effect on matmul(eye(400), " +
-            $"eye(400)) which needs ~7500 ms unbudgeted (fence {PromptnessFenceMs} ms). Envelope: {stdout}");
+        // same shape as the sum case: promptness from the ledger, the wall clock only guards a hang
+        double matmulLedgerMs = envelope["cancellation"]!["elapsedMs"]!.GetValue<double>();
+        Assert.True(matmulLedgerMs < PromptnessFenceMs,
+            $"the ledger says the 100 ms budget took {matmulLedgerMs} ms to take effect on " +
+            $"matmul(eye(400), eye(400)) which needs ~7500 ms unbudgeted (fence {PromptnessFenceMs} ms). " +
+            $"Envelope: {stdout}");
+        Assert.True(stopwatch.ElapsedMilliseconds < HangGuardMs,
+            $"the whole run took {stopwatch.ElapsedMilliseconds} ms (hang guard {HangGuardMs} ms)");
     }
 
     [Fact]
@@ -118,7 +138,8 @@ public class CancellationBudgetTests
         Assert.False(ledger["stopped"]!.GetValue<bool>(), ledger.ToJsonString());
         Assert.False(ledger["exceeded"]!.GetValue<bool>(), ledger.ToJsonString());
         Assert.Equal(0, ledger["excessMs"]!.GetValue<double>());
-        Assert.True(stopwatch.ElapsedMilliseconds < 10_000, $"a trivial sum took {stopwatch.ElapsedMilliseconds} ms");
+        Assert.True(stopwatch.ElapsedMilliseconds < HangGuardMs,
+            $"a trivial sum took {stopwatch.ElapsedMilliseconds} ms (hang guard {HangGuardMs} ms)");
     }
 
     [Fact]
