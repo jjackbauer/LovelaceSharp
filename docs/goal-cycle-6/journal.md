@@ -910,6 +910,31 @@
   the limit engine on its two-sided convention; not landed, not verified.
 - **Gate**: G2 — this landing is a fix, not a claim: the fresh-audit gate (D1) is still unmet and A+ is
   still not claimed.
+---
+
+### VAL-006: I-1 closed — the deadline's verdict now moves with the deadline's clock, not the engine's
+
+- **What I did**: rather than keep waiting on a fixer that had produced no file changes, I implemented
+  audit I's P1 myself. The ledger's overshoot is now taken from a `Stopwatch` started WITH the
+  cancellation token when the deadline is what ended the run, so `stopped:true` can no longer sit next
+  to `exceeded:false`/`excessMs:0` and the machine-readable overrun diagnostic is always published.
+- **The one thing I deliberately did NOT move**: `elapsedMs`. My first attempt reported the deadline's
+  elapsed there (the reading that makes `excessMs == elapsedMs - budgetMs` self-consistent), and the
+  existing pinned assertion in `CancellationBudgetTests` caught it — 132.836 vs 130.29 ms, outside the
+  1 ms/1% agreement that test exists to enforce, because the ledger's elapsed is documented as the SAME
+  value the envelope publishes as `elapsedTime`. So the verdict moves and the measurement does not.
+  That is the pinned contract doing its job on the person fixing the code, which is worth recording.
+- **Control-failing evidence on the wire** (10 runs each, same script and budget): the binary published
+  from `9852a2f` shows `stopped=10, stopped&&!exceeded=2, stopped&&no-diagnostic=2`; the fixed build
+  shows `0` and `0`. `CancellationBudgetTests` 6/6 including a new five-repetition invariant test;
+  solution 0 warnings / 0 errors.
+- **Landed**: `fd658d0`, pushed.
+- **Still open**: the pole/branch-point `series` cluster (fixer mid-flight with a substantive diff —
+  `IsPowerSeries`, operands expanded past their leading terms, and a branch point publishing the source
+  function, which is exactly SymPy's answer) and the two P2s (I-2/I-3, fixer working on `Printing.cs`).
+- **Evidence**: EVD-308, EVD-312.
+- **Gate**: —
+
 
 
 
