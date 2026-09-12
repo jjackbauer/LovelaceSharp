@@ -88,7 +88,7 @@ A `Diagnostic` is a Record named `Diagnostic` with exactly these six fields, in 
   { "name": "message",     "value": { "kind": "Text", "value": "complex algebraic roots not supported (RootOf is real-only in v1)." } },
   { "name": "recoverable", "value": { "kind": "Boolean", "value": "true" } },
   { "name": "location",    "value": { "kind": "Null" } },
-  { "name": "details",     "value": { "kind": "Array", "shape": [0], "elements": [] } } ] }
+  { "name": "details",     "value": { "kind": "Array", "type": "Vector", "shape": [0], "elements": [] } } ] }
 ```
 
 * `code` is **stable text a consumer matches** (`solve.unrepresented-roots`,
@@ -109,6 +109,11 @@ An agent can therefore answer **"did anything go wrong, and can I branch on it?"
 
 ## A real solve envelope (abridged)
 
+`revision` identifies the ENGINE STATE the envelope was produced from. It is monotone within one
+engine and opaque to a consumer — only a change matters — and it is **not** a statement count: this
+two-statement script reports `82` in a fresh process (deterministically), while `1 + 1` three times
+reports `81`. Compare revisions within one engine, never across processes or sessions.
+
 The script is `x = symbol("x"); solve(x^2 - 4 == 0, x)`. `solve` and `solve_full` publish this
 SAME record: the short form no longer answers a vector (or, worse, a prose sentence) for one shape of
 answer and a record for another. Abridged below only in the nested symbolic renderings, which keep
@@ -120,7 +125,7 @@ answer and a record for another. Abridged below only in the nested symbolic rend
   "symbolicFormatVersion": "#!lovelace-sym 1",
   "mathIrVersion": 2,
   "ok": true,
-  "revision": 83,
+  "revision": 82,
   "result": {
     "kind": "Record",
     "display": "SolveResult(status: Solved, ...)",
@@ -134,7 +139,7 @@ answer and a record for another. Abridged below only in the nested symbolic rend
         { "name": "domain", "value": { "kind": "Domain", "domain": "complex" } },
         { "name": "complete", "value": { "kind": "Boolean", "value": "true" } },
         { "name": "completeness", "value": { "kind": "Enum", "type": "Completeness", "value": "Complete" } },
-        { "name": "solutions", "value": { "kind": "Array", "shape": [2], "elements": [
+        { "name": "solutions", "value": { "kind": "Array", "type": "Vector", "shape": [2], "elements": [
           { "kind": "Record", "type": "Solution", "fields": [
             { "name": "value", "value": { "kind": "Symbolic", "pretty": "-2", "canonical": "(rat -2 1)" } },
             { "name": "conditions", "value": { "kind": "Array", "shape": [0], "elements": [] } },
@@ -202,14 +207,19 @@ condition removed every candidate. A provably empty set is a complete answer, so
 ## Positions and locations
 
 Every position the protocol publishes — `timings[].position`, and the error envelope's
-`diagnostics[].position` with its `line`/`column` — is a **zero-based offset into the characters
-of the text the caller supplied**, exactly as that surface received it:
+`diagnostics[].position` with its `line`/`column` — is a **zero-based offset into the text the
+caller supplied**, exactly as that surface received it, counted in **UTF-16 code units** (the units of
+the runtime string the script is held in, which is what `Substring` slices):
 
 | surface | the text a position indexes |
 |---|---|
 | `--eval <script>` | the argument string, character for character |
 | `--file <path>` | the file's decoded characters; a leading byte-order mark is the character U+FEFF at offset 0 and is **not** removed |
 | `--stdin` | the characters read from standard input |
+
+A non-BMP character (an emoji, say) occupies **two** code units, so a consumer that slices by Unicode
+code points rather than by UTF-16 units must map the offset before slicing; for text that is entirely
+BMP — every script in this document — the two are the same number.
 
 Byte-identical input therefore reports identical positions on every surface. A position is something
 a consumer can **use**: the text it handed over (or, for `--file`, that file's own characters) sliced
