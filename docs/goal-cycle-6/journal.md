@@ -854,6 +854,31 @@
   which I already corrected.
 - **Evidence**: EVD-304.
 - **Gate**: —
+---
+
+### VAL-005: Round-20's P1 and the two P2s are closed on `main` and pushed (`8d61b4b`)
+
+- **G-2 (P1)** closed by `effd054` (cherry-picked from the fixer's `81d2908`): one
+  `Lovelace.Run/ScriptText.cs` reader for all three surfaces, the BOM kept as U+FEFF, the missing
+  "Positions and locations" definition written into the protocol document. **I reproduced all three legs
+  myself**: my four-encoding x three-surface probe prints AGREE on every row on a fresh build
+  (BOM rows now 13/15, EVD-305); the fixer's new tests fail **3 of 5** on the HEAD control tree and pass
+  on the merged tree; `Lovelace.Run.Tests` is **291/0**. No golden changed.
+- **H-2 (P2)** closed by `8d61b4b` as a *documentation* defect, because the behaviour is pinned by
+  `VariableStructuredProjectionTests.OmitVariables_StillEmitsNoVariableEntries` (DEC-009): the help now
+  says "send an EMPTY builtin registry / variables array, not the populated one", and the protocol
+  document gains a "Payload control" paragraph, closing round-09 audit P2-31's gap. Verified by running
+  `--help`.
+- **G-1 (P2)** closed in `5e85c28`: the capability prose now describes the four typed refusals the binary
+  actually produces.
+- **CI**: run **#67** on the previous HEAD `d87e910` is `success` in all three jobs; **#68** on
+  `8d61b4b` was queued at the time of writing.
+- **Still open from wave 3**: **H-1 (P0)**, the series kink — a fixer is on it in
+  `.worktrees/r20-series` with a SymPy-matching leading-sign rule and a `SeriesKinkPolicy` that keeps
+  the limit engine on its two-sided convention; not landed, not verified.
+- **Gate**: G2 — this landing is a fix, not a claim: the fresh-audit gate (D1) is still unmet and A+ is
+  still not claimed.
+
 
 
 
