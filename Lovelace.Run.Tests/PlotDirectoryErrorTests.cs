@@ -64,14 +64,30 @@ public class PlotDirectoryErrorTests
         await AssertPlotDirectoryRefusedAsync(string.Empty);
     }
 
-    /// <summary>A path Windows refuses to turn into a directory (illegal characters), the fourth of
-    /// audit C's values after the file, the DLL and the README.</summary>
+    /// <summary>A path the OS refuses to turn into a directory because its parent is a FILE, the
+    /// fourth of audit C's values after the file, the DLL and the README.
+    /// <para>
+    /// This replaces the audit's illegal-character value deliberately: `&lt;`, `|`, `?` and `*` are
+    /// legal in a Linux file name, so that case passed on the developer's machine and FAILED ON THE CI
+    /// RUNNER (run #54 failed exactly here, named by the workflow's own ::error annotation). A parent
+    /// that is a file is refused on every platform — ENOTDIR on Linux, an IOException on Windows — and
+    /// the intent is unchanged: a path the OS cannot make a directory must be an envelope, never an
+    /// abort with an empty stdout.
+    /// </para></summary>
     [RequiresRunnerProcessFact]
-    public async Task PlotDirectoryWithInvalidCharacters_IsAnErrorEnvelopeWithExitOne()
+    public async Task PlotDirectoryUnderAnExistingFile_IsAnErrorEnvelopeWithExitOne()
     {
-        string invalid = Path.Combine(Path.GetTempPath(),
-            "lovelace-plotdir-invalid-" + Guid.NewGuid().ToString("N") + "<bad>|?*");
-        await AssertPlotDirectoryRefusedAsync(invalid);
+        string parent = Path.Combine(Path.GetTempPath(),
+            "lovelace-plotdir-parent-" + Guid.NewGuid().ToString("N") + ".txt");
+        await File.WriteAllTextAsync(parent, "not a directory");
+        try
+        {
+            await AssertPlotDirectoryRefusedAsync(Path.Combine(parent, "sub"));
+        }
+        finally
+        {
+            File.Delete(parent);
+        }
     }
 
     /// <summary>
