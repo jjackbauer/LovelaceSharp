@@ -1,0 +1,1 @@
+print("h\u00e9llo \u2603 \ud83d\ude42"); 1

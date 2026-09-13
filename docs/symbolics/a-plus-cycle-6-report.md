@@ -218,7 +218,7 @@ answer, so none is marked ACCEPTED and §P.3 stands as written. What the cycle c
 |---|---|---|
 | **K** | library/embedding — the first wave to drive the product assemblies instead of the CLI | 3 P1 + 1 P2: all closed or dispositioned (K-2 `523240b`, K-3 `34ee4b3`, K-1 re-graded to P2 and closed `2572c59`, K-4 recorded as a monotone flag) |
 | **J** | document conformance — every normative sentence of `dsh-protocol.md` and `--help` as a probe | **0 P0, 0 P1**, four P2s, all corrected from measurement (EVD-328) |
-| **M** | composed programs — the seams rather than the calls | **3 P1 + 1 P2, all NEW and all still OPEN** (EVD-329) |
+| **M** | composed programs — the seams rather than the calls | 3 P1 + 1 P2, all NEW: **M-2** (`28d4109`) and **M-3** (`f35e5a7`) closed with control-failing tests; **M-1 NOT established** as filed, replaced by the narrower open item *eager range materialisation*; **M-4** documented (EVD-329, EVD-331, EVD-332) |
 
 **So D1 is not met, and this time the reason is not caution.** M's three P1s are real and I reproduced each
 of them on the published binary: a cancelled statement's printed output is lost while `timings[].hasOutput`
@@ -232,5 +232,62 @@ audit.
 What that leaves: **D0 met** (#83 on `61de73a` green in all three jobs), **D2 met**, **D4 met**, **D5 met
 so far** (EVD-237…EVD-329), **D1 open on M-1/M-2/M-3**, **D3 open on the maintainer's silence** — six
 written requests, and a seventh one-click form that also went unanswered. **A+ is not claimed.**
+
+## 7.6 Round 23 — the fifth wave, run against a binary re-published from the final tree
+
+The M-2/M-3 landings changed product code after wave 4 had audited it, so wave 5 was dispatched with
+three strategies no earlier wave had used, against `out/aot/Lovelace.Run.exe` re-published from HEAD
+(**5 764 608 bytes**, 2026-09-12 21:05:23, **4 349 s newer** than the newest non-generated source file,
+`git diff --name-only HEAD -- '*.cs'` = **0 files** — EVD-334). D4's whole checklist was re-measured on
+that artefact first: sweep **5638/0/0 in 138.2 s** with `Lovelace.Suite.Tests` at the 885 that EVD-331
+names as the contention control; the five smoke scenarios **24/24**; capability honesty **MATCH=19
+MISMATCH=0**; the determinism sweep **38/38**; surface consistency **AGREE ×4**; the series check
+**7/7**; the printer round-trip through the AOT binary **ok=30 bad=0** (EVD-335, EVD-336). **D0 got
+stronger rather than inherited**: CI run **#92 on `dfae21b`** — the exact final HEAD — is `success` in
+all three jobs (EVD-337).
+
+| persona | strategy (new this wave) | result |
+|---|---|---|
+| **N** | the documented surface as a state machine — 778 audited runs of generated VALID programs crossed with the flag space, every envelope checked mechanically against the protocol's own invariants | **1 P1 + 4 P2**; all 111 `Language.md` doctests also pass |
+| **O** | fresh-eyes regression hunt — every fix landed this cycle re-attacked one step outside its pinned case | **3 P1 + 1 P2**, plus 13 fix rows where the fix survived |
+| **P** | second-implementation cross-check (Real vs Complex vs Dsp vs Symbolics vs CLI vs AOT/JIT) against mpmath/SymPy | **2 P1 + 2 P2**, plus the strongest agreement evidence of the cycle |
+
+**What was closed in the landing.** **N-1** (the trailing print line dropped while `hasOutput` said it
+was written) — control tree **4 of 7 fail**, fixed **7/7**. **O-1** (`setprecision(10^30)` as the raw
+CLR conversion message), **O-4** (`[1,2,3][10^30]` likewise; `zeros(-1)` as a raw overflow), and
+**O-2** (re-graded to P2 by the K-1 precedent, closed anyway) — control tree **6 of 10 fail**, fixed
+**10/10**, wire verified twice. All four are the "raw CLR message at the language surface" class this
+cycle keeps closing, and all four now answer the grammar `pi(digits)` already used. The tree
+re-measures at **5655 passed / 0 failed / 0 skipped in 128.1 s**.
+
+**What is open, and it is measured rather than cautious.**
+
+* **P-2 (P1, library boundary)** — `Real.Sin`/`Cos` returned hundreds of digits of false precision
+  (`Real.Sin(1)` at precision 30: **607 printed, 40 correct** — exactly the internal guard). The CLI and
+  `ComplexMath.Sin` were correct all along, so no language surface publishes those digits. **Two fixes
+  were attempted and both were falsified by the project's own tests** — an absolute cut at `digits`
+  broke 12 (`cos(π/2 − 10^-100)` is ~10^-100 and needs ~100 fractional places for its first significant
+  digit), a scale-aware cut still broke 6 — and both were reverted rather than landed over the pins. The
+  attempt's tests are preserved at `round-23/p2-preserved/` (EVD-347).
+* **P-1 (cost bound, no severity class)** — `solve(x^2 − 10^16, x)` takes ~17 s and `10^30` does not
+  answer inside 15 s. Every root it returns re-substitutes to residual 0, and the deadline ledger is
+  honest about not stopping it (`stopped:false, exceeded:true, excessMs 10251.82` for a 100 ms budget),
+  so this is recorded as a cost bound, like `evalf` above 1000 places.
+* **O-3 (P2)** — on a BOM-prefixed file the parser's *message* names the engine offset while the
+  structured `diagnostics[].position` names the caller's; the machine field is the correct one and the
+  prose is recorded open.
+* **P-3 / P-4 (P2)** — last-digit truncation (the product's own convention on every surface) and a raw
+  `NotImplementedException` from `Real.Pow(Real)`, which the CLI already maps to a typed refusal.
+
+**The A+ decision.** **A+ is not claimed, and it is now blocked on two independent things.** D1 is not
+met because wave 5 — the sixth consecutive wave to use a strategy nobody had used — found new P1s, four
+of which are closed and **one of which (P-2) is open at the library boundary after two fixes were
+falsified by the project's own tests**. D3 is not met because the seven §P.3 scope bounds have still
+never been answered: an eighth request went out in this round as a single four-option question with the
+measured behaviour of every bound quoted, and **no answer arrived** (EVD-338), so nothing is marked
+ACCEPTED and nothing is reduced. On its own evidence the cycle can say: **D0 met** (run #92 on the final
+HEAD, all three jobs), **D2 met**, **D4 met** (re-measured on the re-published artefact), **D5 met so
+far** (EVD-237…EVD-348, including the rows that correct my own probes and the two fixes my own tests
+falsified), **D1 open on P-2**, **D3 open on the maintainer's silence**.
 
 

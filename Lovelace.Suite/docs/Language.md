@@ -40,7 +40,7 @@ A value has exactly one of these kinds:
 | `Boolean` | `True` / `False` | `True (Boolean)` |
 | `Text` | Strings and interpolated strings | `hello` |
 | `Vector` | Numeric list (ranges, list literals) | `[1, 2, 3] (Vector)` |
-| `Function` | First-class function reference | `Function: square (Function)` |
+| `Function` | **Engine value kind; no language construct reaches it today** — a `func` name is not a value (`func square(x) = x ^ 2; square`, `print(square)`, `f = square`, `type(square)` all fail with `Undefined variable 'square'.`), so call a function, do not pass it. Measured, round-23 audit N, N-3 | — |
 | `Void` | Result of statements that produce no value | `(void)` |
 
 The three numeric kinds form a widening chain `Natural → Integer → Real`. Arithmetic widens

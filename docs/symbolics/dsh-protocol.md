@@ -36,13 +36,19 @@ string to recover mathematical meaning.
 **Payload control.** `--omit-functions` and `--omit-variables` are for agent loops that never read the
 registry or the variable table: each flag replaces its array with an EMPTY one — the key stays present, so
 a consumer written against the full envelope never has to handle a missing field, and an empty array is
-what the flag produced rather than a claim that the registry itself is empty. They change no value, no
-display and no `output[]` entry.
+what the flag produced rather than a claim that the registry itself is empty. In the JSON envelope they
+change no value, no `result` and no `output[]` entry, and nothing else moves. `--text` is the one display
+that DOES change: its `  name = value` lines are the variables array rendered, so `--omit-variables`
+leaves them out (measured: `x = 42; x` prints `  _ = 42` / `  x = 42` without the flag and neither line
+with it — round-23 audit N, N-2).
 
 **One plot per evaluation.** `plot(...)` may be called more than once, but only the LAST call is
 published: the `plot` block carries that capture, and the SVG written into the plot directory is
 overwritten by the same call, so an earlier plot is recoverable from neither place (round-22 audit M,
-M-4; measured). Plot once, or plot the expression that contains everything you want to see.
+M-4; measured). Plot once, or plot the expression that contains everything you want to see. A plot
+written before a LATER statement fails is a further case: the SVG is on disk, but the error envelope
+carries no `plot` block and no path (round-23 audit N, N-5; measured — `plot([1, 2, 3]); det(1)` exits 1
+with the file written), so read the plot directory if you need it after a failure.
 
 
 ## Value forms
@@ -65,7 +71,7 @@ M-4; measured). Plot once, or plot the expression that contains everything you w
 `status`, `completeness`, `exactness`, `classification` and a diagnostic's `category` are
 **enums**, never text. The declared enum type is part of the value: `type` names it (`SolveStatus`,
 `Completeness`, `SolutionExactness`, `LimitStatus`, `IntegrationStatus`, `TransformStatus`,
-`RuleClassification`, `ErrorCategory`) and `value` is the member name, so a consumer switches on
+`RuleClassification`, `ErrorCategory`, `CancelStatus`) and `value` is the member name, so a consumer switches on
 `(type, value)` instead of recognising a spelling. `SolveStatus.Partial` and
 `Completeness.Partial` are different answers with the same member name — that is exactly why the
 type travels with it. `type()` answers the same declared name: `type(r.status)` is
@@ -83,7 +89,10 @@ Every rich result record (`SolveResult`, `SystemSolveResult`, `TransformResult`,
 field that is an Array of `Diagnostic` records** — never a text value. When there is nothing to
 report the array is **empty** (`{"kind":"Array","shape":[0],"elements":[]}`): never `Null` and
 never `""`. The kernel's human-readable note is no longer a field of its own; it rides inside a
-diagnostic's `message`.
+diagnostic's `message`. One rich record is the exception and is named here so a consumer does not
+look for a field that is not there: `cancel_full` answers a **`CancelResult`** with exactly
+`status` (enum `CancelStatus`: `Exact`/`Conditional`), `original`, `expression`, `changed` and
+`conditions` — no `diagnostics` (round-23 audit N, N-4; measured).
 
 A `Diagnostic` is a Record named `Diagnostic` with exactly these six fields, in this order:
 

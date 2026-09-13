@@ -935,6 +935,83 @@
 - **Evidence**: EVD-308, EVD-312.
 - **Gate**: —
 
+---
+
+### VAL-007: D4 is re-measured on a FRESH publish of HEAD, and wave 5 runs against exactly that artefact
+
+- **What I did**: re-published the AOT binary from HEAD `dfae21b` and pinned the artefact to numbers
+  before any auditor touched it — **5 764 608 bytes**, written **2026-09-12 21:05:23**, **4 349 s newer**
+  than the newest non-generated source file, with `git diff --name-only HEAD -- '*.cs'` = **0 files**
+  (EVD-334). Then re-ran D4's whole checklist **against that binary**: sweep **5638/0/0 in 138.2 s** with
+  `Lovelace.Suite.Tests` at the **885** that EVD-331 names as the contention control (EVD-335); the five
+  smoke scenarios **24/24**; capability honesty **MATCH=19 MISMATCH=0**; the determinism sweep **38/38**;
+  surface consistency **AGREE x4**; the series check **7/7**; the printer round-trip through the AOT
+  binary **ok=30 bad=0** (EVD-336). **D0 got stronger rather than inherited**: CI run **#92 on `dfae21b`**
+  — the exact final HEAD, not only the code commit — is `success` in all three jobs (EVD-337).
+- **Also recorded**: the two publishes of the same product code differ by **6 144 bytes** (EVD-324 vs
+  EVD-334), so AOT output is not byte-reproducible here; a fact, not a defect, and every behavioural check
+  passes on the fresh artefact.
+- **The worktrees the handoff warned about are clean**: no `ZZDBG` anywhere in the main tree, no
+  `ZzDiagTests.cs`, no stray `harness/lovelace.host.js`; `r22-m1`'s HEAD is the M-1 test commit alone and
+  it is **not on main** (EVD-339). `sweep.ps1` rewrites the tracked cycle-5 baseline file, which I reverted
+  rather than falsify a previous cycle's record.
+- **Landed**: nothing yet — this entry is measurement.
+- **Evidence**: EVD-334, EVD-335, EVD-336, EVD-337, EVD-339.
+- **Gate**: G2 — D4 re-measured, D1 still to be decided by the wave.
+
+---
+
+### OBS-026: Wave 5's first persona falsifies the closure claim again — and this time the defect is in the envelope's own machinery
+
+- **Source**: audit N (state-machine/protocol fuzzing), the sixth consecutive wave to use a strategy no
+  earlier wave used: 778 audited runs of generated VALID programs crossed with the documented flag space,
+  every envelope checked mechanically against the protocol's own invariants. Deliverable
+  `round-23/audit-N-protocol-fuzz.md` (402 lines); all 111 `Language.md` doctests also pass.
+- **Finding — N-1 (P1)**: the **last line of captured print output was dropped** while the same
+  statement's `hasOutput` stayed `true`. `print("a"); print()` published `output:["a"]` with
+  `hasOutput:(true,true)`; an **interior** blank line was kept (`["a","","b"]`) and a single blank print
+  was kept (`[""]`), which is what makes the trailing loss a defect rather than a convention: the
+  envelope's machine-readable flag said the statement printed and the line was gone.
+- **I reproduced it twice with controls** and read the cause: `Runner.cs:604` did
+  `text.TrimEnd('\r','\n').Split('\n')` — **every** terminator, where the capture writer appends one per
+  printed line. Both Studio hosts already drop exactly one trailing empty element
+  (`EngineHost.cs:319-326`, `IncrementalRunner.cs:418-425`), so the CLI was the only copy that removed
+  more: the K-2 shape again, with the hosts holding the right answer.
+- **The fix is written and verified in worktrees, not landed**: control tree `.worktrees/r23-n1-ctl` at
+  `dfae21b` with only the new test file **fails 4 of 7**; fix tree `.worktrees/r23-n1` **passes 7/7**,
+  `Run.Tests` **352/0** (345 + 7), Console 15/0, Studio 22/0, and the JIT wire shows `output:["a",""]`
+  (EVD-341, `round-23/n1-implementation.md`). Landing and re-publish are held until the two auditors still
+  reading the published binary finish — the dispatch rule that exists because one audit report once had to
+  caveat itself when the binary moved mid-audit.
+- **Also from audit N, four P2s, each re-measured by me before I touched anything**: **N-2** `--text`
+  *does* honour `--omit-variables` while the payload-control paragraph said the flags change no display;
+  **N-3** the `Function` value kind documented in `Language.md` is unreachable from the language (four
+  shapes refused); **N-4** the document's enum list omitted `CancelStatus` and never named
+  `CancelResult`, the one rich record with no `diagnostics` field; **N-5** a plot written before a later
+  failure is on disk but absent from the error envelope. All four are documentation defects and are fixed
+  as documentation, the disposition DEC-009 established.
+- **Why it matters**: five personas in a row found something new after a closure; this is the sixth, and it
+  was found by mechanical invariant checking of the envelope's own claims — a strategy nobody had run.
+- **Evidence**: EVD-341, EVD-342; `round-23/audit-N-protocol-fuzz.md`, `round-23/n1-implementation.md`.
+- **Gate**: G2 — the claim that D1 is met is falsified again; A+ stays unclaimed.
+
+---
+
+### OBS-027: D3 was asked an eighth time, in one-click form, and the answer did not come — so D3 stays open
+
+- **What I did**: put the seven §P.3 scope bounds to the maintainer as ONE question with four options
+  (accept all seven / accept the advertised refusals only / reject them all / leave open), each option's
+  consequence stated in a sentence, with the measured behaviour of every bound in the question itself.
+- **Outcome**: no answer arrived; the request was terminated by the response window's ceiling (600 s), and
+  per the cycle's own rule the request is **not** repeated in this round. Nothing is marked ACCEPTED and
+  nothing is reduced.
+- **Consequence, stated plainly**: even a wave that comes back with no open P0/P1 cannot make A+ claimable,
+  because D3 is the maintainer's to close and not an agent's. That is the honest reading of the gate, and
+  it is recorded here so a later reader does not mistake the silence for consent.
+- **Evidence**: EVD-338.
+- **Gate**: G5 — the open item is recorded, not hidden.
+
+
 
 
 

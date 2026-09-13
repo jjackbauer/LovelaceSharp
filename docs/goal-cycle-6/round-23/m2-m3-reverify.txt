@@ -1,0 +1,16 @@
+===== PASS 1 =====
+probe-m2-block       exit=0 ok=True :: 0
+probe-m2-reverse     exit=0 ok=True :: 1
+probe-m2-deep        exit=1 ok=False :: DepthExceeded/BudgetExceeded: evaluation depth 513 exceeds the maximum supported evaluation depth of 512. Rewrite the input with less nesting (the engine refuses it before a recursive walk can exhaust the process stack).
+probe-m3-assume      exit=0 ok=True :: SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])
+probe-m3-assume2     exit=0 ok=True :: SystemSolveResult(status: NoSolutions, domain: complex, complete: True, completeness: Complete, solutions: [], diagnostics: [])
+probe-m3-nolimit     exit=0 ok=True :: SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])
+probe-m3-simplify    exit=0 ok=True :: x
+===== PASS 2 =====
+probe-m2-block       exit=0 ok=True :: 0
+probe-m2-reverse     exit=0 ok=True :: 1
+probe-m2-deep        exit=1 ok=False :: DepthExceeded/BudgetExceeded: evaluation depth 513 exceeds the maximum supported evaluation depth of 512. Rewrite the input with less nesting (the engine refuses it before a recursive walk can exhaust the process stack).
+probe-m3-assume      exit=0 ok=True :: SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])
+probe-m3-assume2     exit=0 ok=True :: SystemSolveResult(status: NoSolutions, domain: complex, complete: True, completeness: Complete, solutions: [], diagnostics: [])
+probe-m3-nolimit     exit=0 ok=True :: SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])
+probe-m3-simplify    exit=0 ok=True :: x

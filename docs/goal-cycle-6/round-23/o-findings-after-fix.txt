@@ -1,0 +1,10 @@
+===== PASS 1 =====
+o1-setprecision      exit=1 code=InvalidArgument/TypeMismatch :: setprecision(): argument 1 (digits) must be a digit count no wider than 9223372036854775807; got 123456789012345678901234567890.
+o2-series-order      exit=1 code=InvalidArgument/TypeMismatch :: a series expansion order must be at least 1 (the number of terms to carry, with the O-term); got -1.
+o4-index             exit=1 code=InvalidArgument/TypeMismatch :: An index or dimension must fit a signed 64-bit integer (at most 9223372036854775807 in absolute value); got 1000000000000000000000000000000.
+o4-zeros             exit=1 code=InvalidArgument/TypeMismatch :: zeros(): argument 1 (a dimension) must be a non-negative count; got -1.
+===== PASS 2 =====
+o1-setprecision      exit=1 code=InvalidArgument/TypeMismatch :: setprecision(): argument 1 (digits) must be a digit count no wider than 9223372036854775807; got 123456789012345678901234567890.
+o2-series-order      exit=1 code=InvalidArgument/TypeMismatch :: a series expansion order must be at least 1 (the number of terms to carry, with the O-term); got -1.
+o4-index             exit=1 code=InvalidArgument/TypeMismatch :: An index or dimension must fit a signed 64-bit integer (at most 9223372036854775807 in absolute value); got 1000000000000000000000000000000.
+o4-zeros             exit=1 code=InvalidArgument/TypeMismatch :: zeros(): argument 1 (a dimension) must be a non-negative count; got -1.

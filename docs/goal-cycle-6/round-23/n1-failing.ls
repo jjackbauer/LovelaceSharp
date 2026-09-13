@@ -1,0 +1,1 @@
+print("a"); print(); det(1)

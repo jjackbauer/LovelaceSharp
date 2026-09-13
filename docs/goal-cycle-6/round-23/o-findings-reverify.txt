@@ -1,0 +1,10 @@
+===== PASS 1 =====
+o1-setprecision      exit=1 code=ArithmeticError/DomainError :: Value was either too large or too small for an Int64.
+o2-series-order      exit=1 code=InvalidArgument/TypeMismatch :: Specified argument was out of the range of valid values. (Parameter 'order')
+o4-index             exit=1 code=ArithmeticError/DomainError :: Value was either too large or too small for an Int64.
+o4-zeros             exit=1 code=ArithmeticError/DomainError :: Arithmetic operation resulted in an overflow.
+===== PASS 2 =====
+o1-setprecision      exit=1 code=ArithmeticError/DomainError :: Value was either too large or too small for an Int64.
+o2-series-order      exit=1 code=InvalidArgument/TypeMismatch :: Specified argument was out of the range of valid values. (Parameter 'order')
+o4-index             exit=1 code=ArithmeticError/DomainError :: Value was either too large or too small for an Int64.
+o4-zeros             exit=1 code=ArithmeticError/DomainError :: Arithmetic operation resulted in an overflow.
