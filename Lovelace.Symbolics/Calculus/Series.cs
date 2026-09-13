@@ -90,7 +90,9 @@ public sealed class Series
     {
         ctx ??= Exprs.Current;
         if (order < 1)
-            throw new ArgumentOutOfRangeException(nameof(order));
+            throw new ArgumentException(
+                $"a series expansion order must be at least 1 (the number of terms to carry, with " +
+                $"the O-term); got {order}.");
 
         // a kink the expansion crosses is resolved BEFORE anything is differentiated: the machinery
         // can only see a derivative at a point where the function has one (Round 20, H-1)

@@ -591,17 +591,29 @@ public static class Runner
         .ToArray();
 
     /// <summary>
-    /// The script's captured print output as LINES. The capture path terminates every line with
-    /// <see cref="Environment.NewLine"/>, so on Windows each element but the last used to keep the
-    /// \r of the terminator — an artifact of the host's line separator, not something the script
-    /// printed. The envelope's output array carries the line, never its terminator.
+    /// The script's captured print output as LINES. The capture path terminates EVERY printed line
+    /// with <see cref="Environment.NewLine"/>, so the text ends with the terminator of the last line
+    /// printed — and exactly that ONE terminator is removed here, which also drops the \r the host's
+    /// line separator contributed (an artifact of the platform, not something the script printed).
+    /// Removing MORE than one used to delete a blank line the script really did print: audit N's N-1
+    /// (wave 5, P1) — <c>print("a"); print()</c> published <c>output: ["a"]</c> while BOTH timing
+    /// entries said <c>hasOutput: true</c>, so the envelope contradicted its own machine-readable
+    /// flag and the line was unrecoverable — while an interior blank line was kept all along. The
+    /// envelope's output array carries the lines, never their terminators. The two Studio hosts
+    /// (<c>EngineHost.SplitLines</c>, <c>IncrementalRunner.SplitLines</c>) already keep one trailing
+    /// blank line; this is the same answer on the CLI.
     /// </summary>
     private static string[] SplitLines(string text)
     {
         if (text.Length == 0)
             return Array.Empty<string>();
 
-        string[] lines = text.TrimEnd('\r', '\n').Split('\n');
+        if (text.EndsWith("\r\n", StringComparison.Ordinal))
+            text = text[..^2];
+        else if (text[^1] is '\n' or '\r')
+            text = text[..^1];
+
+        string[] lines = text.Split('\n');
         for (int i = 0; i < lines.Length; i++)
             lines[i] = lines[i].TrimEnd('\r');
         return lines;

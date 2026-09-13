@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Immutable;
+using System.Globalization;
 using Lovelace.Abstractions;
 using Rat = global::Lovelace.Rational.Rational;
 using Int = global::Lovelace.Integer.Integer;
@@ -2245,10 +2246,24 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
 
     private static long AsLong(object? o) => o switch
     {
-        Rl r => long.Parse(r.ToString().Split('.')[0]),   // Real inherits Integer: check first
-        Nat n => long.Parse(n.ToString()),
-        Int i => long.Parse(i.ToString()),
+        Rl r => ParseInt64Argument(r.ToString().Split('.')[0]),   // Real inherits Integer: check first
+        Nat n => ParseInt64Argument(n.ToString()),
+        Int i => ParseInt64Argument(i.ToString()),
         long l => l,
         _ => throw new BuiltinArgumentError("an integer"),
     };
+
+    /// <summary>An integer argument that does not FIT an Int64 is an argument problem, so it crosses
+    /// as <c>InvalidArgument</c>/<c>TypeMismatch</c> naming the value and the bound — the grammar the
+    /// digit-count refusals already use. It used to escape as the raw CLR conversion message "Value
+    /// was either too large or too small for an Int64." under <c>ArithmeticError</c>/<c>DomainError</c>
+    /// — audit O, wave 5: <c>series(sin(x), x, 0, 10^30)</c>.</summary>
+    private static long ParseInt64Argument(string text)
+    {
+        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+            throw new ArgumentException(
+                $"an integer argument must fit a signed 64-bit integer (at most {long.MaxValue} in " +
+                $"absolute value); got {text}.");
+        return value;
+    }
 }

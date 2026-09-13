@@ -1145,10 +1145,25 @@ public sealed class Interpreter
 
     private static long ToLong(Value value) => value.Kind switch
     {
-        ValueKind.Natural => long.Parse(value.AsNatural().ToString(), CultureInfo.InvariantCulture),
-        ValueKind.Integer => long.Parse(value.AsInteger().ToString(), CultureInfo.InvariantCulture),
+        ValueKind.Natural => ParseInt64(value.AsNatural().ToString(), "index or dimension"),
+        ValueKind.Integer => ParseInt64(value.AsInteger().ToString(), "index or dimension"),
         _ => throw new InvalidOperationException($"Index must be Natural or Integer, but got '{value.Kind}'."),
     };
+
+    /// <summary>An index or a dimension that does not FIT an Int64 is an ARGUMENT problem, so it
+    /// crosses as <c>InvalidArgument</c>/<c>TypeMismatch</c> (<see cref="ArgumentException"/>, the
+    /// same grammar <c>pi(digits)</c>/<c>e(digits)</c> use) naming the value and the bound. It used to
+    /// escape as the raw CLR conversion message "Value was either too large or too small for an
+    /// Int64." under <c>ArithmeticError</c>/<c>DomainError</c> — audit O, wave 5:
+    /// <c>[1, 2, 3][10^30]</c>.</summary>
+    private static long ParseInt64(string text, string what)
+    {
+        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+            throw new ArgumentException(
+                $"An {what} must fit a signed 64-bit integer (at most {long.MaxValue} in absolute " +
+                $"value); got {text}.");
+        return value;
+    }
 
     // -----------------------------------------------------------------
     // Statement execution
@@ -1841,12 +1856,19 @@ public sealed class Interpreter
         Register("setprecision", ["digits"], args =>
         {
             var arg = args[0];
-            long n = arg.Kind switch
+            string countText = arg.Kind switch
             {
-                ValueKind.Natural => long.Parse(arg.AsNatural().ToString(), CultureInfo.InvariantCulture),
-                ValueKind.Integer => long.Parse(arg.AsInteger().ToString(), CultureInfo.InvariantCulture),
+                ValueKind.Natural => arg.AsNatural().ToString(),
+                ValueKind.Integer => arg.AsInteger().ToString(),
                 _ => throw new InvalidOperationException($"setprecision() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
             };
+            // A count WIDER THAN INT64 crosses as the same argument refusal pi(digits)/e(digits) use;
+            // it used to escape as the raw CLR conversion message under ArithmeticError/DomainError
+            // (audit O, wave 5: setprecision(123456789012345678901234567890)).
+            if (!long.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out long n))
+                throw new ArgumentException(
+                    $"setprecision(): argument 1 (digits) must be a digit count no wider than " +
+                    $"{long.MaxValue}; got {countText}.");
             if (n <= 0)
                 throw new InvalidOperationException($"setprecision() expects a positive digit count, but got {n}.");
 
@@ -2108,7 +2130,14 @@ public sealed class Interpreter
             throw new InvalidOperationException($"{name}() requires at least one dimension.");
         var dims = new long[args.Count - start];
         for (int i = start; i < args.Count; i++)
-            dims[i - start] = ToLong(args[i]);
+        {
+            long dim = ToLong(args[i]);
+            if (dim < 0)
+                throw new ArgumentException(
+                    $"{name}(): argument {i - start + 1} (a dimension) must be a non-negative count; " +
+                    $"got {dim}.");
+            dims[i - start] = dim;
+        }
         return dims;
     }
 
