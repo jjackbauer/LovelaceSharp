@@ -188,3 +188,88 @@ Locale (no per-process culture override on Windows, so the `InvariantGlobalizati
 is untested), `chcp` 437/65001, `LANG`/`LC_ALL`, non-BMP text, path shapes, file shapes, `fft`
 lengths above 8, and the true cost of the `k >= 18` solve cases (killed at 15 s). **An untested area is
 not a clean area.**
+
+---
+
+# Wave 6 — the closure wave after the round-23 landings (personas Q and R)
+
+Dispatched against the RE-PUBLISHED binary (**5 767 680 bytes**, 2026-09-12 21:51:38) per the cycle's
+rule that a fix restarts the gate. Two strategies not used by wave 5: **Q** attacks this round's own
+repairs, **R** rebuilds the envelope as a consumer and never reads the source.
+
+## The positive half, which is the point of a closure wave
+
+**Q** drove every boundary the N-1 repair creates and found it clean: `print()` alone → `[""]` with one
+true flag (no phantom element), `print()` twice → `["",""]`, a whitespace-ended argument preserved,
+inside `if`/`for`, print-then-throw, prints interleaved with an error, the parse-error path claiming
+nothing, CRLF/LF/no-trailing-newline/BOM sources, and `--stdin` through both a PS pipe and a cmd
+redirect — all agree. **R** measured Invariant 1 in both directions over 37 JSON runs: stdout is exactly
+the JSON body plus CRLF (last bytes `7d 0d 0a`), **stderr 0 bytes in all 37**, every printed byte is in
+`output[]`; the error path keeps the committed stream; the document's own examples are **byte-exact 4/4**
+(including revisions 82/81/81 and positions 12/14/15); a `solutions[].value` re-substituted into the
+equation gives residual exactly 0; the truncation flags are honest. R also derived the print rule
+independently (each `print()` contributes text + one terminator, split, drop exactly one trailing
+terminator) and showed it consistent over five shapes.
+
+## Q-1 — P1 **re-graded: NOT A DEFECT** — `count(timings[].hasOutput == true)` vs `len(output[])`
+
+**Measured by me**: `for i in 1..2 { print(i) }` → `output:[1,2]` with **one** timing entry whose
+`hasOutput` is `true`. The two numbers differ because they count different things: `timings` has **one
+entry per top-level statement** (the protocol says so, and N-1's own fix relied on it) while `output[]`
+has one entry per **line**. A statement that prints twice is one statement that printed. The invariant
+the persona measured is therefore not a claim the document makes, and the field means exactly what it
+says. **Not a defect**; at most a P2 opportunity to say "hasOutput is per statement, output is per
+line" where a consumer reads it, which is recorded here and not filed.
+
+## Q-2 — P1 — `series(..., order)` silently TRUNCATES a non-integer order
+
+**CONFIRMED by me**: `series(sin(x), x, 0, 2.5)` → exit 0, published `x + O(x^2)` — the order 2.5 became
+2 with **no diagnostic and no refusal**, because the builtin routes the argument through
+`AsLong`'s `r.ToString().Split('.')[0]`. (`AsInt`/`AsLong` also do this for other integer arguments.)
+The class is the one this cycle keeps closing — the machine API silently altering what the caller asked
+for — and it is **OPEN**. The related shape `order = 100000000000` is accepted and then cannot finish
+(`Cancelled`/BudgetExceeded at 6.07 s against a 5 s budget), which is the cost-bound family, not a
+second severity.
+
+## Q-3 — cost bound (no severity class) — `setprecision` has no upper bound
+
+**CONFIRMED by me**: `setprecision(100000000000); print(1)` answers in **37 ms** — setting the precision
+is free; it is the *next* precision-consuming computation that becomes unbounded (`print(sqrt(2))` under
+it cancels at ~5.7 s of wall time). `pi`/`e` cap at 1000 and `evalf` at `int.MaxValue`, so the engine
+has caps everywhere except here. Recorded as an **open cost bound with a documented-cap decision owed**,
+in the same class as the `solve` cliff and `evalf` above 1000 places — not a wrong value and not a false
+claim.
+
+## Q-4 — P2 — refusals that still leak raw CLR text or name the wrong thing
+
+**Accepted as recorded** (the same family as O-1/O-4, in builtins this round did not touch):
+`reshape` (`(Parameter 'shape')`), `fft` (`(Parameter 'x')`), `zeros(2.5)`/`eye(2.5)`/`[1,2,3][1.5]`
+answering "Index must be Natural or Integer, but got Real." (naming an index for a dimension),
+`eye(-1)`/`eye(0)`/`eye(3,-2)` all answering the identical value-less "eye() dimensions must be
+positive." while `zeros()` names both position and value. **OPEN — P2 ×4**, carried into §P.2.
+
+## R-1 — P2 — `excessMs` is not `elapsedMs − budgetMs` (they are two clocks)
+
+**Accepted as recorded, and the difference is by design**: the overshoot is taken from a stopwatch
+started WITH the deadline (that is what closed I-1 in `d3a1f50`), while `elapsedMs` is the engine's own
+elapsed — the two differ by the scheduling gap the persona measured as +0.23…0.33 ms. **OPEN — P2**: the
+envelope should say which clock each field comes from, because a consumer who assumes the subtraction
+gets a value that is off in the third digit.
+
+## R-2, R-3, R-4 — P2
+
+**Accepted as recorded**: the same wrong-argument-**type** mistake crosses as `InvalidArgument`/
+`TypeMismatch` for `det(1)` but as `InvalidOperation`/`DomainError` for `dft("x")` and
+`setprecision("x")` (arity is uniform; the split is type-specific, so the argument grammar has one hole
+left); `--text` opens with the nameless `= <result>` line, keeps it under `--omit-variables` while the
+named lines go, and writes 0 bytes to stdout with its failure text on stderr; and on the cancelled path
+`output[]` and `partialOutput[]` duplicate the same entries with nothing saying whether one is additive
+or a superset, so a consumer that concatenates double-counts. **OPEN — P2 ×3.**
+
+## Wave 6's verdict
+
+**No P0.** Two positive results that matter: the N-1 repair is clean on every boundary the repair itself
+creates, and Invariant 1 holds in both directions at byte level. **One new P1 (Q-2)** — a silent
+truncation of a non-integer `series` order — plus a mis-framed P1 re-graded by measurement (Q-1), one
+cost bound (Q-3) and eight P2s. **D1 is NOT met**: P-2 (audit P, library boundary) is open and Q-2 is
+new and open. **A+ is not claimed.**

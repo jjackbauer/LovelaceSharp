@@ -290,4 +290,16 @@ HEAD, all three jobs), **D2 met**, **D4 met** (re-measured on the re-published a
 far** (EVD-237…EVD-348, including the rows that correct my own probes and the two fixes my own tests
 falsified), **D1 open on P-2**, **D3 open on the maintainer's silence**.
 
+**Addendum — wave 6 (personas Q and R) ran against the re-published binary and changed the picture in one
+respect only.** It found **no P0**, confirmed the N-1 repair clean on every boundary that repair creates,
+and measured Invariant 1 byte-for-byte in both directions (stdout = the JSON body plus CRLF, **stderr 0
+bytes in 37 of 37 runs**, every printed byte in `output[]`, the document's own examples byte-exact 4/4,
+solver roots re-substituting to residual exactly 0). It also found **one new P1 — Q-2**: `series(…, order)`
+silently truncates a non-integer order (`series(sin(x), x, 0, 2.5)` publishes `x + O(x^2)`, exit 0, no
+diagnostic) — re-graded one of the persona's own P1s to **not a defect** by measurement (`hasOutput` is
+per statement, `output[]` is per line, and the two are not supposed to agree), and filed eight P2s and one
+cost bound (`setprecision` accepts 10^11 and the next precision-consuming computation is then unbounded).
+**So D1 is not met on two open P1s — P-2 at the library boundary and Q-2 at the language surface — and
+A+ is not claimed.**
+
 
