@@ -1011,6 +1011,45 @@
 - **Evidence**: EVD-338.
 - **Gate**: G5 — the open item is recorded, not hidden.
 
+---
+
+### VAL-008: Round 23 landed two repaired classes, re-published, and left one P1 open with its two falsified fixes on disk
+
+- **What landed** (`0b3afc8`, pushed with the documents in `2a8ca7c`): **N-1** — `Runner.SplitLines`
+  removed every trailing terminator, so a script that printed a blank line last lost it while the
+  envelope's own `hasOutput` said it was written; it now removes exactly one, which is what both Studio
+  hosts already did. **O-1/O-2/O-4** — four argument mistakes that crossed as raw CLR text
+  (`setprecision(10^30)`, `[1,2,3][10^30]`, `zeros(-1)`, `series(…, order)`) now answer the grammar
+  `pi(digits)` established, naming the value and the bound.
+- **Control-failing evidence, as the cycle's standard requires**: the N-1 tests fail **4 of 7** on a
+  worktree at `dfae21b` carrying only the test file; the refusal tests fail **6 of 10** on the same
+  control. On the fixed tree: 7/7 and 10/10, `Run.Tests` **362/0**, and the whole sweep
+  **5655 passed / 0 failed / 0 skipped in 128.1 s**.
+- **Re-published and re-measured**: the AOT binary is **5 767 680 bytes**, 21:51:38, **170.1 s newer**
+  than the newest source; both repairs verified on that binary; smoke **24/24**, capabilities
+  **MATCH=19 MISMATCH=0**, determinism **38/38**, surface **AGREE ×4**, series **7/7**, round-trip
+  **ok=30 bad=0**; after the commits `git diff --name-only HEAD -- '*.cs'` = **0**.
+- **What I did NOT close, and why it is written down rather than smoothed over**: **P-2 (P1)** —
+  `Real.Sin`/`Cos` return hundreds of digits of false precision (607 printed, **40** correct at
+  precision 30, against mpmath). I wrote the fix twice. The first truncated to the caller's `digits`
+  fractional places and the project's own tests falsified it with **12 failures** — `cos(π/2 − 10^-100)`
+  is ~10^-100 and an absolute cut at 100 places deletes the value itself. The second was scale-aware
+  (keep the digits the computation determined) and still failed **6** of the same property tests. Both
+  were reverted, the tree re-measured green, and the attempt's tests are preserved outside the product
+  tree at `round-23/p2-preserved/`. **The honest statement is that P-2 needs a decision about what
+  "digits" means for a result below 10^-digits, not a mechanical truncation** — and D1 is not met while
+  it is open.
+- **Also recorded rather than argued away**: the `solve()` cost cliff is a **cost bound, not a severity
+  class** (the ledger is honest about not stopping it: `stopped:false, exceeded:true` with a 10.25 s
+  overrun against a 100 ms budget, and every root it returns re-substitutes to residual 0); **O-3** is a
+  P2 in the message prose, because my own three-shape measurement plus a Python character dump showed the
+  structured `diagnostics[].position` is the CORRECT one; and my seventh self-inflicted probe error —
+  PowerShell mangling a multi-line `git commit -m` into pathspecs — is EVD-350.
+- **Dispatched**: wave 6 (persona Q: attack this round's repairs; persona R: rebuild the envelope as a
+  consumer) against the re-published binary, per the rule that a fix restarts the gate.
+- **Evidence**: EVD-334…EVD-350; `round-23/{triage,n1-implementation,wave-6-plan}.md`.
+- **Gate**: G2 — the wave found new P1s, four are closed, one is open, so the A+ claim stays falsified.
+
 
 
 

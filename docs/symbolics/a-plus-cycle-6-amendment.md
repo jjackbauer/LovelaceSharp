@@ -98,3 +98,17 @@ round-trip still have to be re-run after the last commits.
 
 Still outstanding, and it is the maintainer's to give: the written acceptance or rejection of the seven
 scope bounds in P.3. Nothing there is silently reduced; each is stated with its measured behaviour.
+
+**Round 23 — the final statement of this section.** Wave 5 ran three strategies no earlier wave had used
+against the binary re-published from HEAD and found **N: 1 P1 + 4 P2, O: 3 P1 + 1 P2, P: 2 P1 + 2 P2**.
+The landing closed **N-1** (the trailing printed line) and **O-1/O-2/O-4** (four refusals that crossed as
+raw CLR text) with control-failing tests, and corrected the four documentation P2s. The tree re-measures
+**5655 passed / 0 failed / 0 skipped**, the AOT binary was re-published from it and every D4 sub-step
+re-run on **that** artefact, and `git diff --name-only HEAD -- '*.cs'` is **0** after the commits
+(`0b3afc8`, `2a8ca7c`, pushed). **One P1 remains open — P-2**, the library's false-precision
+`Real.Sin`/`Cos` — and it is open because **two attempted fixes were falsified by the project's own
+tests** (12 failures, then 6) and were reverted rather than landed over the pins; the attempt's tests are
+preserved at `docs/goal-cycle-6/round-23/p2-preserved/`. So: **D0 met** (CI #92 on the exact final HEAD,
+all three jobs), **D2 met**, **D4 met** on the re-published artefact, **D5 met so far**
+(EVD-237…EVD-350), **D1 NOT met on P-2**, **D3 NOT met** — and **A+ is not claimed**.
+
