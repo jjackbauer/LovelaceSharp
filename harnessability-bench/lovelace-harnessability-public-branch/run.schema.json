@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Lovelace harnessability trajectory",
+  "type": "object",
+  "required": ["run_id", "task_id", "mode", "model", "replicate", "events", "final_script", "agent_claimed_done"],
+  "properties": {
+    "run_id": {"type": "string"},
+    "task_id": {"type": "string"},
+    "mode": {"enum": ["L0", "L1", "L2", "L3"]},
+    "model": {"type": "string"},
+    "replicate": {"type": "integer", "minimum": 1},
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {"enum": ["candidate", "observation", "inspection"]},
+          "script": {"type": "string"},
+          "observation": {"type": "object"},
+          "inspection": {"type": "object"},
+          "input_tokens": {"type": "integer", "minimum": 0},
+          "output_tokens": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "final_script": {"type": "string"},
+    "agent_claimed_done": {"type": "boolean"}
+  }
+}

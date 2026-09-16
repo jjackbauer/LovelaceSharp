@@ -1,0 +1,19 @@
+# Derived or provisioned artifacts - recreate with ./setup.ps1
+tools/
+runner/
+work/
+agent-workspace/
+
+# Module links for the MCP server (junctions into the DSH profile)
+node_modules/
+
+# Raw run evidence: the per-run directories and the per-arm files are working
+# state. The two merged matrices and their scores ARE committed - they are the
+# evidence behind RESULTS.md.
+runs/*
+!runs/baseline/
+runs/baseline/*
+!runs/baseline/runs-matrix.jsonl
+!runs/baseline/score-matrix.json
+!runs/runs-gateA.jsonl
+!runs/score-gateA.json

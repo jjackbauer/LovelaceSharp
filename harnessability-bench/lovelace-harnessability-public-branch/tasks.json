@@ -1,0 +1,122 @@
+[
+  {
+    "id": "syntax-missing-brace",
+    "class": "syntax",
+    "prompt": "Repair `square(x)` so it returns x squared for arbitrary numeric x.",
+    "seed": "func square(x) { x * x\nsquare(12)"
+  },
+  {
+    "id": "undefined-name",
+    "class": "name-resolution",
+    "prompt": "Repair `matrix_det(m)` so it returns the determinant of a square matrix.",
+    "seed": "func matrix_det(m) { determinant(m) }\nmatrix_det([[1,2],[3,4]])"
+  },
+  {
+    "id": "arity-dot",
+    "class": "arity",
+    "prompt": "Repair `vector_dot(a,b)` so it returns the dot product of two vectors.",
+    "seed": "func vector_dot(a,b) { dot(a) }\nvector_dot([1,2,3],[4,5,6])"
+  },
+  {
+    "id": "shape-matmul",
+    "class": "shape",
+    "prompt": "Repair `matrix_product(a,b)` so it returns the matrix product a\u00d7b.",
+    "seed": "func matrix_product(a,b) { matmul(a, transpose(b)) }\nmatrix_product([[1,2,3],[4,5,6]], [[1,2],[3,4],[5,6]])"
+  },
+  {
+    "id": "index-rank",
+    "class": "indexing",
+    "prompt": "Repair `second_row_third(m)` so it returns the element at row 2, column 3 in human 1-based terms.",
+    "seed": "func second_row_third(m) { m[2,3] }\nsecond_row_third([[1,2,3],[4,5,6]])"
+  },
+  {
+    "id": "range-precedence",
+    "class": "semantics",
+    "prompt": "Repair `squares(n)` so it returns the squares of integers 1 through n.",
+    "seed": "func squares(n) { 1..(n ^ 2) }\nsquares(5)"
+  },
+  {
+    "id": "mean-wrong-op",
+    "class": "semantic",
+    "prompt": "Repair `avg(v)` so it returns the arithmetic mean of a numeric vector.",
+    "seed": "func avg(v) { sum(v) }\navg(1..10)"
+  },
+  {
+    "id": "matrix-inverse",
+    "class": "api",
+    "prompt": "Repair `matrix_inverse(m)` so it returns the inverse of an invertible square matrix.",
+    "seed": "func matrix_inverse(m) { inverse(m) }\nmatrix_inverse([[1,2],[3,4]])"
+  },
+  {
+    "id": "factorial-off-by-one",
+    "class": "semantic",
+    "prompt": "Repair recursive `factorial(n)` for non-negative integers.",
+    "seed": "func factorial(n) { if (n <= 1) { 1 } else { (n - 1) * factorial(n - 1) } }\nfactorial(6)"
+  },
+  {
+    "id": "fib-base-case",
+    "class": "semantic",
+    "prompt": "Repair `fib(n)` to implement Fibonacci with fib(0)=0 and fib(1)=1.",
+    "seed": "func fib(n) { if (n < 2) { 1 } else { fib(n-1) + fib(n-2) } }\nfib(10)"
+  },
+  {
+    "id": "symbolic-diff",
+    "class": "symbolic",
+    "prompt": "Repair `symdiff(expr,x)` so it symbolically differentiates expr with respect to x.",
+    "seed": "func symdiff(expr,x) { derive(expr,x) }\nx=symbol(\"x\")\nsymdiff(x^3 + 2*x, x)"
+  },
+  {
+    "id": "symbolic-expand",
+    "class": "symbolic",
+    "prompt": "Repair `expand_expr(expr)` so it algebraically expands a symbolic expression.",
+    "seed": "func expand_expr(expr) { factor(expr) }\nx=symbol(\"x\")\nexpand_expr((x+1)^3)"
+  },
+  {
+    "id": "symbolic-factor",
+    "class": "symbolic",
+    "prompt": "Repair `factor_expr(expr)` so it factors a symbolic polynomial.",
+    "seed": "func factor_expr(expr) { expand(expr) }\nx=symbol(\"x\")\nfactor_expr(x^2-1)"
+  },
+  {
+    "id": "solve-equation",
+    "class": "symbolic",
+    "prompt": "Repair `solve_zero(p,x)` so it solves p(x)=0 using the structured solver.",
+    "seed": "func solve_zero(p,x) { solve_full(p - 1 == 0, x) }\nx=symbol(\"x\")\nsolve_zero(x^2-4,x)"
+  },
+  {
+    "id": "limit-point",
+    "class": "symbolic",
+    "prompt": "Repair `limit_at(expr,x,a)` so it computes the structured limit as x approaches a.",
+    "seed": "func limit_at(expr,x,a) { limit_full(expr,a,x) }\nx=symbol(\"x\")\nlimit_at(x^2,x,2)"
+  },
+  {
+    "id": "reshape-numel",
+    "class": "shape",
+    "prompt": "Repair `as_matrix(v,rows,cols)` so it reshapes v into rows\u00d7cols.",
+    "seed": "func as_matrix(v,rows,cols) { reshape(v,cols,rows) }\nas_matrix(1..6,2,3)"
+  },
+  {
+    "id": "transpose-purpose",
+    "class": "semantic",
+    "prompt": "Repair `matrix_transpose(m)` so it returns the transpose of m.",
+    "seed": "func matrix_transpose(m) { flatten(m) }\nmatrix_transpose([[1,2,3],[4,5,6]])"
+  },
+  {
+    "id": "exact-third",
+    "class": "numeric",
+    "prompt": "Repair `third_of(n)` so it returns the exact value n/3 rather than a decimal approximation.",
+    "seed": "func third_of(n) { n * 0.3333333333333333 }\nthird_of(1)"
+  },
+  {
+    "id": "sum-squares",
+    "class": "semantic",
+    "prompt": "Repair `sum_squares(n)` so it returns 1\u00b2+2\u00b2+\u2026+n\u00b2.",
+    "seed": "func sum_squares(n) { sum(1..n) ^ 2 }\nsum_squares(10)"
+  },
+  {
+    "id": "matrix-trace",
+    "class": "api",
+    "prompt": "Repair `matrix_trace(m)` so it returns the trace of a square matrix.",
+    "seed": "func matrix_trace(m) { sum(m) }\nmatrix_trace([[2,1],[5,7]])"
+  }
+]

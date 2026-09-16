@@ -1,0 +1,99 @@
+# Benchmark overlay for the Lovelace harnessability matrix.
+#
+# It narrows a headless DSH session down to exactly one agent-visible surface:
+# the benchmark's candidate-evaluation MCP tool (plus, in L3, the on-demand
+# function registry lookup).  Every first-party tool plugin is disabled so the
+# ablation cannot be collapsed by a richer surface — DSH-INTEGRATION.md forbids
+# exposing the repository's normal tooling in the same session.
+#
+# All values come from the environment so one overlay serves every cell:
+#   BENCH_MODE, BENCH_TASK, BENCH_BUDGET, BENCH_RUN_ID, BENCH_RUNNER,
+#   BENCH_TASKS, BENCH_EVENTS, BENCH_NODE, BENCH_MCP_SERVER, BENCH_PERSONA_SUFFIX
+
+- id: system-prompt
+  config:
+    includeHarnessIdentity: false
+    includeRuntimeContext: false
+    personaPrefix: >-
+      You are repairing a Lovelace Script program inside a controlled benchmark session.
+    personaSuffix: !!js process.env.BENCH_PERSONA_SUFFIX
+
+# --- first-party surfaces removed from the session -------------------------
+- id: agent-instructions
+  disabled: true
+- id: skill
+  disabled: true
+- id: skill-filesystem
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: tool-bash
+  disabled: true
+- id: tool-fs
+  disabled: true
+- id: tool-fs-search
+  disabled: true
+- id: tool-jobs
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: tool-ralph
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: code-runtime
+  disabled: true
+- id: user-questions
+  disabled: true
+- id: plan-mode
+  disabled: true
+- id: goal
+  disabled: true
+- id: goal-round-driver
+  disabled: true
+- id: command-goal
+  disabled: true
+- id: commands
+  disabled: true
+- id: command-feedback
+  disabled: true
+- id: command-compact
+  disabled: true
+- id: repeat-tool-reminder
+  disabled: true
+
+# --- the one surface under test -------------------------------------------
+- insert:
+    - id: mcp-bench
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        transport: stdio
+        serverName: bench
+        command: !!js process.env.BENCH_NODE
+        args:
+          - !!js process.env.BENCH_MCP_SERVER
+        env:
+          BENCH_RUNNER: !!js process.env.BENCH_RUNNER
+          BENCH_TASKS: !!js process.env.BENCH_TASKS
+          BENCH_TASK: !!js process.env.BENCH_TASK
+          BENCH_MODE: !!js process.env.BENCH_MODE
+          BENCH_BUDGET: !!js process.env.BENCH_BUDGET
+          BENCH_EVENTS: !!js process.env.BENCH_EVENTS
+          BENCH_RUN_ID: !!js process.env.BENCH_RUN_ID
+        cwd: !!js process.env.BENCH_MCP_CWD
+        toolCallTimeoutMs: 120000
+        failOnStartupError: true

@@ -1,0 +1,222 @@
+[
+  {
+    "task": "syntax-missing-brace",
+    "class": "syntax",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "Expected ';' or '}' but found 'square' at position 23.",
+    "L0_bytes": 29,
+    "L1_bytes": 150,
+    "L2_bytes": 261,
+    "L3_bytes": 274
+  },
+  {
+    "task": "undefined-name",
+    "class": "name-resolution",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "Unknown function 'determinant'.",
+    "L0_bytes": 29,
+    "L1_bytes": 104,
+    "L2_bytes": 222,
+    "L3_bytes": 426
+  },
+  {
+    "task": "arity-dot",
+    "class": "arity",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "dot(): expected 2 arguments; got 1.",
+    "L0_bytes": 29,
+    "L1_bytes": 112,
+    "L2_bytes": 229,
+    "L3_bytes": 336
+  },
+  {
+    "task": "shape-matmul",
+    "class": "shape",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "matmul() inner dimensions must match (3 vs 2).",
+    "L0_bytes": 29,
+    "L1_bytes": 134,
+    "L2_bytes": 252,
+    "L3_bytes": 552
+  },
+  {
+    "task": "index-rank",
+    "class": "indexing",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "Index 2 is out of range for dimension 0 of size 2.",
+    "L0_bytes": 29,
+    "L1_bytes": 142,
+    "L2_bytes": 260,
+    "L3_bytes": 463
+  },
+  {
+    "task": "range-precedence",
+    "class": "semantics",
+    "seed_exec_ok": true,
+    "seed_result": "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]",
+    "error": null,
+    "L0_bytes": 415,
+    "L1_bytes": 415,
+    "L2_bytes": 9299,
+    "L3_bytes": 25343
+  },
+  {
+    "task": "mean-wrong-op",
+    "class": "semantic",
+    "seed_exec_ok": true,
+    "seed_result": "55",
+    "error": null,
+    "L0_bytes": 25,
+    "L1_bytes": 25,
+    "L2_bytes": 741,
+    "L3_bytes": 16787
+  },
+  {
+    "task": "matrix-inverse",
+    "class": "api",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "Unknown function 'inverse'.",
+    "L0_bytes": 29,
+    "L1_bytes": 96,
+    "L2_bytes": 214,
+    "L3_bytes": 415
+  },
+  {
+    "task": "factorial-off-by-one",
+    "class": "semantic",
+    "seed_exec_ok": true,
+    "seed_result": "120",
+    "error": null,
+    "L0_bytes": 26,
+    "L1_bytes": 26,
+    "L2_bytes": 201,
+    "L3_bytes": 16360
+  },
+  {
+    "task": "fib-base-case",
+    "class": "semantic",
+    "seed_exec_ok": true,
+    "seed_result": "89",
+    "error": null,
+    "L0_bytes": 25,
+    "L1_bytes": 25,
+    "L2_bytes": 199,
+    "L3_bytes": 16353
+  },
+  {
+    "task": "symbolic-diff",
+    "class": "symbolic",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "Unknown function 'derivative'.",
+    "L0_bytes": 29,
+    "L1_bytes": 102,
+    "L2_bytes": 220,
+    "L3_bytes": 428
+  },
+  {
+    "task": "symbolic-expand",
+    "class": "symbolic",
+    "seed_exec_ok": true,
+    "seed_result": "(x + 1)^3",
+    "error": null,
+    "L0_bytes": 32,
+    "L1_bytes": 32,
+    "L2_bytes": 598,
+    "L3_bytes": 16649
+  },
+  {
+    "task": "symbolic-factor",
+    "class": "symbolic",
+    "seed_exec_ok": true,
+    "seed_result": "x^2 - 1",
+    "error": null,
+    "L0_bytes": 30,
+    "L1_bytes": 30,
+    "L2_bytes": 596,
+    "L3_bytes": 16647
+  },
+  {
+    "task": "solve-equation",
+    "class": "symbolic",
+    "seed_exec_ok": true,
+    "seed_result": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])",
+    "error": null,
+    "L0_bytes": 400,
+    "L1_bytes": 400,
+    "L2_bytes": 4228,
+    "L3_bytes": 20278
+  },
+  {
+    "task": "limit-point",
+    "class": "symbolic",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "limit_full(): argument 2 must be a symbolic variable; got Natural.",
+    "L0_bytes": 29,
+    "L1_bytes": 174,
+    "L2_bytes": 292,
+    "L3_bytes": 499
+  },
+  {
+    "task": "reshape-numel",
+    "class": "shape",
+    "seed_exec_ok": false,
+    "seed_result": null,
+    "error": "reshape() to [3, 3] requires 9 element(s), but this array has 6. (Parameter 'shape')",
+    "L0_bytes": 29,
+    "L1_bytes": 210,
+    "L2_bytes": 327,
+    "L3_bytes": 531
+  },
+  {
+    "task": "transpose-purpose",
+    "class": "semantic",
+    "seed_exec_ok": true,
+    "seed_result": "[1, 2, 3, 4, 5, 6]",
+    "error": null,
+    "L0_bytes": 41,
+    "L1_bytes": 41,
+    "L2_bytes": 1115,
+    "L3_bytes": 17159
+  },
+  {
+    "task": "exact-third",
+    "class": "numeric",
+    "seed_exec_ok": true,
+    "seed_result": "0.3333333333333333",
+    "error": null,
+    "L0_bytes": 41,
+    "L1_bytes": 41,
+    "L2_bytes": 349,
+    "L3_bytes": 16295
+  },
+  {
+    "task": "sum-squares",
+    "class": "semantic",
+    "seed_exec_ok": true,
+    "seed_result": "3025",
+    "error": null,
+    "L0_bytes": 27,
+    "L1_bytes": 27,
+    "L2_bytes": 745,
+    "L3_bytes": 16792
+  },
+  {
+    "task": "matrix-trace",
+    "class": "api",
+    "seed_exec_ok": true,
+    "seed_result": "15",
+    "error": null,
+    "L0_bytes": 25,
+    "L1_bytes": 25,
+    "L2_bytes": 475,
+    "L3_bytes": 16521
+  }
+]

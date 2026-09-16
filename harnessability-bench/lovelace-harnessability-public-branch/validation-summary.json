@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "tasks": 20,
+  "goldens_verified": 20,
+  "hidden_probes": 48,
+  "accidental_seed_matches": [],
+  "seed_execution": {
+    "ok": 12,
+    "error": 8
+  },
+  "observation_projections": 80,
+  "l3_registry_smoke": true,
+  "mean_observation_bytes": {
+    "L0": 55.2,
+    "L1": 94.0,
+    "L2": 643.5,
+    "L3": 852.5
+  },
+  "max_observation_bytes": {
+    "L0": 440,
+    "L1": 440,
+    "L2": 4424,
+    "L3": 4716
+  }
+}
