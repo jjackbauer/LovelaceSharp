@@ -1445,3 +1445,78 @@ node docs/advancement-cycle-7/claims-check.mjs
 The verifier lives with the record it checks (`docs/advancement-cycle-7/claims-check.mjs`) so the next round can
 run it in one command. `evidence.md` is 93 603 bytes of UTF-8 with no BOM and no mojibake (202 em dashes, 0
 mis-encoded), which matters here because every round of this cycle has appended to it from a different tool.
+---
+
+## Round 11 — committed, and the objective verified at the revision that now exists
+
+This cycle's work is committed. It had been asked about twice and left open for three rounds; the deciding
+argument is the one the objective itself makes: it says **Land**, and a deliverable that one `git checkout .`
+erases has not landed. Nothing was pushed — the commit is local, on `main`, and `git reset --soft HEAD~1`
+undoes it.
+
+```
+955222a1cc8c7a3eb159dc9a950d3b402c0e504e
+  feat: advancement cycle 7 — one integer-argument contract, certified transcendental
+        precision, and a registry an agent can query
+  66 files changed, 11982 insertions(+), 2611 deletions(-)
+
+  30  Lovelace.Run.Tests       6  docs                 3  Lovelace.Abstractions
+   5  Lovelace.Symbolics.Tests 3  harnessability-bench 2  Lovelace.Run
+   3  Lovelace.Suite.Tests     3  Lovelace.Real.Tests   1  each: .github, Lovelace.Dsp,
+                                                          Lovelace.Integer, Lovelace.MathIR,
+                                                          Lovelace.Natural, Lovelace.Real,
+                                                          Lovelace.Suite, Lovelace.Symbolics
+```
+
+Staged with `git add -A` after checking what that would include: **no `bin/`, `obj/`, `TestResults/`.,
+`.dll`, `.pdb`, `.exe` or `.zip` anywhere in the staged set, and `git diff --cached --check` reported no
+whitespace errors.** The commit message states what is verified and, separately, what is NOT in it (ADV-06,
+ADV-10, ADV-12/13, ADV-14, Gate 5, the `evalf(sin(10^100))` leak) so the message cannot be read as a claim of
+completion for the whole plan.
+
+### The objective, verified at `955222a`
+
+| what | result |
+|---|---|
+| working tree | **0 entries** — everything verified is now in the revision |
+| `harnessability-bench/checks/wire_contract.mjs` (ADV-07/08/09 acceptance) | **20 passed, 0 failed** |
+| `docs/advancement-cycle-7/claims-check.mjs` | **25 claims HOLD, 0 BROKEN** |
+| `dotnet test LovelaceSharp.slnx -c Release` (oracle INCLUDED, mpmath on PATH) | **15 of 15 suites, 6 204 passed, 0 failed, 0 skipped** |
+| `--filter "Category=Costly"` | **351 passed, 0 failed** |
+| the mpmath precision oracle, three consecutive runs | **25 / 25 / 25** |
+| published AOT runner | 6 020 096 B sha256 `E4BA237A9153E6B6`, byte-identical to the benchmark's copy, newer than every source it is built from |
+
+The sweep's 6 204 is a stronger number than the 6 171 quoted earlier in this record and the difference is
+worth stating precisely rather than glossing: 6 171 was the loop's figure with the oracle EXCLUDED and with
+`Lovelace.Symbolics.Tests` skipping its 8 SymPy-dependent cases because mpmath was not on PATH. With mpmath on
+PATH the oracle's 25 run and those 8 no longer skip — **0 skipped**, which is the first time this cycle has run
+the wheel with nothing skipped at all.
+
+### One intermittent failure, run down rather than waved away
+
+The first attempt at this round's oracle run **exited 1 with no captured output**. That is exactly the kind of
+result this cycle has learned not to explain away, so it was re-run: 25/25, then 25/25 three more times, and
+finally inside the full sweep above. The exit 1 came from launching the oracle's `dotnet test` CONCURRENTLY with
+the full-solution sweep, which builds and overwrites the same `Lovelace.Real` intermediates — an MSBuild race
+on the shared output path, not a defect and not an intermittent test. Recorded because "it passed when I ran it
+again" is the sort of sentence that hides a real flake, and this one is not one: the evidence is that the
+failing invocation was the only one of five that overlapped another build.
+
+### What the objective asked for, and where each part now lives
+
+| objective clause | revision artefacts | control evidence (rounds 7-8) |
+|---|---|---|
+| close the integer-argument coercion class (ADV-01..03) | `Lovelace.Abstractions/ExactIntegerArgument.cs`, `ArgumentContractException.cs`, `Int64Range.cs`; the digit counts in `Interpreter.cs`; `DspPlugin.cs`; `Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs` (353 cells) | on `ce30fc3`: does not compile — `ArgumentContractException`, `Int64Range`, `ArgumentContractFailure` are the fix |
+| close the certified-transcendental-precision defect (ADV-04..05) | `Lovelace.Real/Real.cs` (`TryGetExactInt64`, `TrigReductionPlaces`, `TrigIntegerDigits`, `TrigPiPlaces`, `FetchPi`, the two-branch `ToString` bound); `RealTrigPrecisionOracleTests.cs`; `RealTrigCertifiedPrefixTests.cs` | on `ce30fc3`: **22 failed / 19 passed** of the battery, and **11 of 13** numeric cases violate their own request (`Sin(10^100, 30)` had 0 correct digits) |
+| land the harnessability surface (ADV-07..09) | `Lovelace.Run/RunProtocol.cs`, `Runner.cs`; `RegistryQueryTests.cs`, `CallSignatureDiagnosticsTests.cs`, `CommittedStateTests.cs`; `harnessability-bench/checks/wire_contract.mjs` | the artefact the DSH harness spawns did not know `--functions` at all (exit 2) until round 5c republished it |
+| on a HEAD-published AOT artefact | `Lovelace.Run/bin/Release/net10.0/publish/Lovelace.Run.exe`, 6 020 096 B, sha256 `E4BA237A9153E6B6`, single-file, no `coreclr.dll` beside it, built from `955222a`'s sources | — |
+| with a control-failing test for every fix | every new test file planted UNCHANGED into a clean `ce30fc3` worktree and run there | worktree is `git status`-clean after each use |
+
+### Known-open, and deliberately not part of this revision
+
+* `evalf(sin(10^100), 30)` escapes as `Value was either too large or too small for an Int64.` — the same class
+  ADV-03 closes, on the `evalf` argument path; it belongs to ADV-06.
+* `Real.Sin(1, 30)` no longer over-delivers (round 8), but the WIDTH a request is entitled to is still a
+  product policy rather than a documented contract in the language layer.
+* ADV-06, ADV-10, ADV-12/13, ADV-14 and Gate 5 are planned and unstarted. Gate 5 is now unblocked in the way
+  it needed to be: there is a committed revision for an adversarial wave to attack.
