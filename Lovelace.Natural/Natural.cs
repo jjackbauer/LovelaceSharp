@@ -149,6 +149,58 @@ public sealed class Natural :
     // -------------------------------------------------------------------------
 
     /// <summary>Returns the binary limbs, converting from the decimal string on first use.</summary>
+    // -------------------------------------------------------------------------
+    // Exact integer extraction — the ONE way an argument contract may read this value
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// <see langword="true"/> exactly when this value denotes an integer representable as a signed
+    /// 64-bit integer, in which case <paramref name="value"/> is that integer.
+    /// <para>
+    /// This is the predicate <see cref="Lovelace.Abstractions.ExactIntegerArgument"/> reads. It
+    /// answers from the value's own representation — an already-cached decimal string when there is
+    /// one, the limb count otherwise — and never renders a wide value to decide that it is wide. A
+    /// value larger than <see cref="long.MaxValue"/> answers <see langword="false"/> rather than
+    /// wrapping escaping as a raw conversion error, so the contract can REFUSE the argument and name
+    /// it.
+    /// </para>
+    /// </summary>
+    public bool TryGetExactInt64(out long value)
+    {
+        var dec = _decimal;
+        if (dec is not null)
+            return long.TryParse(dec, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out value);
+
+        // No cached text: the limbs already decide it. Two or more limbs is >= 2^64 > long.MaxValue.
+        var limbs = GetLimbs();
+        if (limbs.Length == 0L)
+        {
+            value = 0L;
+            return true;
+        }
+        if (limbs.Length == 1 && limbs[0] <= long.MaxValue)
+        {
+            value = (long)limbs[0];
+            return true;
+        }
+        value = 0L;
+        return false;
+    }
+
+    /// <summary>
+    /// The number of decimal digits in this value's canonical form (<c>0</c> has one).
+    /// <para>
+    /// It exists for the callers that need the MAGNITUDE's width rather than its value - the
+    /// trigonometric range reduction sizes pi and its own working precision from the argument's
+    /// integer-digit count, and reading that off a full rendering of a 10^100000 argument would cost
+    /// more than the computation it is sizing. The decimal form is already the cache the rest of this
+    /// type maintains, so this is a length read, and it never materialises binary limbs.
+    /// </para>
+    /// </summary>
+    public long DecimalDigitCount() => GetDecimal().Length;
+
+    /// <summary>Returns the binary limbs, converting from the decimal string on first use.</summary>
     private ulong[] GetLimbs()
     {
         var limbs = _limbs;

@@ -166,41 +166,77 @@ public class DspPluginTests
         Assert.Equal(first, explicitSeed);
     }
 
+    /// <summary>
+    /// ADV-02 (advancement cycle 7): the TYPE this pins moved from
+    /// <see cref="InvalidOperationException"/> to the shared argument contract
+    /// (<see cref="Lovelace.Abstractions.ArgumentContractException"/>, an <see cref="ArgumentException"/>),
+    /// because <c>InvalidOperation</c>/<c>DomainError</c> is the pair the runner reserves for a
+    /// genuine DOMAIN refusal and a negative sample count is a caller-side argument mistake.
+    /// <para>
+    /// The INTENT is unchanged and still asserted: the refusal must be actionable, naming the
+    /// builtin and what it requires. Only the pin on the CLR type moved, and it moved because the
+    /// wire classification is what a consumer branches on.
+    /// </para>
+    /// </summary>
     [Fact]
     public async Task Impulse_GivenNegativeN_ThrowsActionableError()
     {
         var engine = new SuiteEngine();
         engine.LoadPlugin(new DspPlugin());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<Lovelace.Abstractions.ArgumentContractException>(
             () => engine.EvaluateAsync("impulse(-1)"));
 
         Assert.Contains("non-negative", ex.Message);
         Assert.Contains("impulse", ex.Message);
+        Assert.Equal("impulse", ex.Builtin);
+        Assert.Equal("n", ex.Parameter);
+        Assert.Equal(-1L, ex.Received);
     }
 
+    /// <summary>
+    /// ADV-02 (advancement cycle 7): the type moved from <see cref="InvalidOperationException"/> to
+    /// the shared argument contract, for the reason recorded on
+    /// <see cref="Impulse_GivenNegativeN_ThrowsActionableError"/>. The INTENT is unchanged — the
+    /// refusal must say the count is out of range — and it now NAMES the caller's value, which the
+    /// previous sentence did too but with the value wrapped in its own quotes.
+    /// </summary>
     [Fact]
     public async Task Delay_GivenOutOfRangeK_ThrowsActionableError()
     {
         var engine = new SuiteEngine();
         engine.LoadPlugin(new DspPlugin());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<Lovelace.Abstractions.ArgumentContractException>(
             () => engine.EvaluateAsync("delay([1, 2, 3], 99999999999999999999)"));
 
-        Assert.Contains("Int64 range", ex.Message);
+        Assert.Contains("9223372036854775807", ex.Message);
+        Assert.Contains("99999999999999999999", ex.Message);
+        Assert.Equal("delay", ex.Builtin);
+        Assert.Equal("99999999999999999999", ex.ReceivedText);   // the caller's own digits, verbatim
     }
 
+    /// <summary>
+    /// ADV-02 (advancement cycle 7): the type moved from <see cref="InvalidOperationException"/> to the
+    /// shared argument contract, and the refusal now comes from the window's own declared bound
+    /// (`[1, Int64.MaxValue]`) instead of a separate guard after the read — so a zero or negative
+    /// window crosses as the same recoverable argument error as every other integer argument in this
+    /// plugin. The INTENT is unchanged: the refusal must name the builtin and say a positive window
+    /// is what it takes.
+    /// </summary>
     [Fact]
     public async Task MovingAverage_GivenNonPositiveWindow_ThrowsActionableError()
     {
         var engine = new SuiteEngine();
         engine.LoadPlugin(new DspPlugin());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        var ex = await Assert.ThrowsAsync<Lovelace.Abstractions.ArgumentContractException>(
             () => engine.EvaluateAsync("movingavg([1, 2, 3], 0)"));
 
-        Assert.Contains("positive window", ex.Message);
+        Assert.Contains("positive", ex.Message);
+        Assert.Contains("movingavg", ex.Message);
+        Assert.Equal("w", ex.Parameter);
+        Assert.Equal(0L, ex.Received);
     }
 
     [Fact]

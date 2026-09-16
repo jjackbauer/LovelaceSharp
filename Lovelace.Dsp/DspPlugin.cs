@@ -63,10 +63,10 @@ public sealed class DspPlugin : IModusPlugin
             }
             if (args.Count == 2)
             {
-                long n = ToNonNegative(args[1], "dft");
-                if (n > int.MaxValue)
-                    throw new InvalidOperationException($"dft() expects a transform length within the Int32 range, but got {n}.");
-                return FromComplexArray(DspMath.Dft(DftPadded(ToComplexArray(args[0]), (int)n)));
+                // the transform length is bounded where it is READ, so an out-of-range length is
+                // refused by the same contract every other integer argument uses
+                int n = (int)RequireInteger(args[1], "dft", "n", new Int64Range(0L, int.MaxValue), 2);
+                return FromComplexArray(DspMath.Dft(DftPadded(ToComplexArray(args[0]), n)));
             }
             throw new InvalidOperationException($"dft() expects 1 or 2 argument(s), but got {args.Count}.");
         });
@@ -86,7 +86,7 @@ public sealed class DspPlugin : IModusPlugin
             // filter(a, b, n): impulse response of length n (scalar third argument).
             if (args[2] is IReadOnlyList<object?> x)
                 return FromComplexArray(DspMath.Filter(a, b, ToComplexArray(x)));
-            long n = ToNonNegative(args[2], "filter");
+            long n = ToNonNegative(args[2], "filter", "x", 3);
             return FromComplexArray(FixedOrExact(a, b,
                 (fa, fb) => FixedDsp.ImpulseResponse(fa, fb, n),
                 () => DspMath.ImpulseResponse(a, b, n)));
@@ -95,9 +95,11 @@ public sealed class DspPlugin : IModusPlugin
         Register(context, "movingavg", new[] { "x", "w" }, args =>
         {
             Require(args, 2, "movingavg");
-            long w = ToLong(args[1], "movingavg");
-            if (w <= 0)
-                throw new InvalidOperationException($"movingavg() expects a positive window w, but got {w}.");
+            // The window is read through the contract with its OWN bound rather than a separate
+            // guard, so a zero or negative window crosses as the same recoverable argument error as
+            // every other integer argument here instead of the InvalidOperation/DomainError pair the
+            // runner reserves for a genuine domain refusal.
+            long w = RequireInteger(args[1], "movingavg", "w", Int64Range.Positive, 2);
             var x = ToComplexArray(args[0]);
             if (x.Length == 0)
                 return Array.Empty<Cplx>();
@@ -109,21 +111,21 @@ public sealed class DspPlugin : IModusPlugin
         Register(context, "impulse", new[] { "n" }, args =>
         {
             Require(args, 1, "impulse");
-            long n = ToNonNegative(args[0], "impulse");
+            long n = ToNonNegative(args[0], "impulse", "n", 1);
             return n == 0 ? Array.Empty<Cplx>() : FromComplexArray(Signal.Sample(new Impulse(), 0, n - 1));
         });
 
         Register(context, "step", new[] { "n" }, args =>
         {
             Require(args, 1, "step");
-            long n = ToNonNegative(args[0], "step");
+            long n = ToNonNegative(args[0], "step", "n", 1);
             return n == 0 ? Array.Empty<Cplx>() : FromComplexArray(Signal.Sample(new Step(), 0, n - 1));
         });
 
         Register(context, "cosine", new[] { "freq", "phase", "n" }, args =>
         {
             Require(args, 3, "cosine");
-            long n = ToNonNegative(args[2], "cosine");
+            long n = ToNonNegative(args[2], "cosine", "n", 3);
             var cosine = new Cosine(ToReal(args[0]), ToReal(args[1]));
             return n == 0 ? Array.Empty<Cplx>() : FromComplexArray(Signal.Sample(cosine, 0, n - 1));
         });
@@ -131,7 +133,7 @@ public sealed class DspPlugin : IModusPlugin
         Register(context, "exponential", new[] { "c", "n" }, args =>
         {
             Require(args, 2, "exponential");
-            long n = ToNonNegative(args[1], "exponential");
+            long n = ToNonNegative(args[1], "exponential", "n", 2);
             var exponential = new Exponential(ToComplex(args[0]));
             return n == 0 ? Array.Empty<Cplx>() : FromComplexArray(Signal.Sample(exponential, 0, n - 1));
         });
@@ -139,12 +141,26 @@ public sealed class DspPlugin : IModusPlugin
         Register(context, "powerseries", new[] { "k", "a", "n" }, args =>
         {
             Require(args, 3, "powerseries");
-            long n = ToNonNegative(args[2], "powerseries");
+            long n = ToNonNegative(args[2], "powerseries", "n", 3);
             var series = new PowerSeries(ToComplex(args[0]), ToComplex(args[1]));
             return n == 0 ? Array.Empty<Cplx>() : FromComplexArray(Signal.Sample(series, 0, n - 1));
         });
 
-        Register(context, "noise", new[] { "scale", "disp", "n" }, args =>
+        // The declared parameters are the FOUR-argument form's, so position 3 is named `seed` — which
+        // is what the code reads there. Before this the registration said ("scale", "disp", "n") while
+        // the four-argument branch read args[2] as the SEED and args[3] as the count, so the same
+        // position carried two names and the registry did not describe the call it was validating
+        // (the metadata table below already said ("scale", "disp", "n", "seed")).
+        //
+        // OPEN, and deliberately NOT decided here: `noise(1, 0, 2)` is the three-argument COUNT form and
+        // `noise(1, 0, 2, 2)` is the four-argument SEED form, so position 3 means "how many samples" in
+        // one call and "which seed" in the other. The comment above has always claimed the short form
+        // defaults the seed to 0, and measured: `noise(1, 0, 2)` ANSWERS DIFFERENTLY from
+        // `noise(1, 0, 0, 2)` (both are two samples with seed 0), so the source comment is wrong about
+        // its own code. Whether the short form should take a seed, and how that could be done without
+        // breaking every recorded `noise(scale, disp, n)` call, is a language-surface decision with an
+        // API-compatibility consequence — recorded in the cycle evidence rather than guessed at.
+        Register(context, "noise", new[] { "scale", "disp", "seed", "n" }, args =>
         {
             // noise(scale, disp, n) — seed defaults to 0 (reproducible); noise(scale, disp, seed, n)
             // takes an explicit seed. Digits are drawn at the active precision (no hard-coded budget).
@@ -153,12 +169,12 @@ public sealed class DspPlugin : IModusPlugin
             if (args.Count == 3)
             {
                 Require(args, 3, "noise");
-                n = ToNonNegative(args[2], "noise");
+                n = ToNonNegative(args[2], "noise", "n", 3);
             }
             else if (args.Count == 4)
             {
-                seed = ToSeed(args[2], "noise");
-                n = ToNonNegative(args[3], "noise");
+                seed = ToSeed(args[2], "noise", "seed", 3);
+                n = ToNonNegative(args[3], "noise", "n", 4);
             }
             else
             {
@@ -171,17 +187,22 @@ public sealed class DspPlugin : IModusPlugin
         Register(context, "delay", new[] { "x", "k" }, args =>
         {
             Require(args, 2, "delay");
-            long k = ToLong(args[1], "delay");
+            long k = ToLong(args[1], "delay", "k", 2);
             var x = ToComplexArray(args[0]);
             return FromComplexArray(Signal.Sample(new Delay(k, new Sequence(0, x.Length - 1, x)), 0, x.Length - 1));
         });
 
-        Register(context, "scale", new[] { "x", "k" }, args =>
+        // scale(x, c): the multiplier is a COMPLEX SCALAR, not an integer. The descriptor used to
+        // declare "k", which named an integer argument this builtin never reads — ToComplex takes any
+        // numeric payload — so the registry advertised a refusal that did not exist and
+        // scale([1, 2, 3], 2.5) was accepted while its own published signature said it could not be.
+        // The parameter is NAMED after what it is; the acceptance is unchanged.
+        Register(context, "scale", new[] { "x", "c" }, args =>
         {
             Require(args, 2, "scale");
             var x = ToComplexArray(args[0]);
-            var k = ToComplex(args[1]);
-            return FromComplexArray(Signal.Sample(new Scalar(k, new Sequence(0, x.Length - 1, x)), 0, x.Length - 1));
+            var c = ToComplex(args[1]);
+            return FromComplexArray(Signal.Sample(new Scalar(c, new Sequence(0, x.Length - 1, x)), 0, x.Length - 1));
         });
 
         Register(context, "re", new[] { "x" }, args =>
@@ -218,6 +239,10 @@ public sealed class DspPlugin : IModusPlugin
         ["dft"] = new("dft", new[] { "x", "n" }, BuiltinCategories.Dsp,
             "Discrete Fourier transform; an optional length n zero-pads or truncates the signal.",
             ["dft([0, 1, 0, 0])"], "Vector", ["fft"], MinArity: 1),
+        // `fft` takes ONE argument and the body enforces it (Require(args, 1, "fft")), so `fft(x, n)` is
+        // an ARITY refusal, not an integer-argument refusal. That distinction matters to the ADV-03
+        // census: a matrix row for an `n` here would never reach the argument, and the brief's reading
+        // that `fft` accepts an optional length beside `dft` is WRONG — only `dft` declares one.
         ["fft"] = new("fft", new[] { "x" }, BuiltinCategories.Dsp,
             "Fast Fourier transform of a signal.", ["fft([0, 1, 0, 0])"], "Vector", ["dft", "conv"]),
         ["filter"] = new("filter", new[] { "a", "b", "x" }, BuiltinCategories.Dsp,
@@ -240,8 +265,8 @@ public sealed class DspPlugin : IModusPlugin
             ["noise(1, 0, 4, 3)"], "Vector", ["cosine"], MinArity: 3),
         ["delay"] = new("delay", new[] { "x", "k" }, BuiltinCategories.Dsp,
             "Delays a signal by k samples.", ["delay([1, 2, 3], 1)"], "Vector", ["scale"]),
-        ["scale"] = new("scale", new[] { "x", "k" }, BuiltinCategories.Dsp,
-            "Scales every sample of a signal by k.", ["scale([1, 2, 3], 2)"], "Vector", ["delay"]),
+        ["scale"] = new("scale", new[] { "x", "c" }, BuiltinCategories.Dsp,
+            "Scales every sample of a signal by the scalar c.", ["scale([1, 2, 3], 2)", "scale([1, 2, 3], 0.5)"], "Vector", ["delay"]),
         ["re"] = new("re", new[] { "x" }, BuiltinCategories.Dsp,
             "Real part of a complex value or signal.", ["re(fft([0, 1, 0, 0])[1])"], "Real | Vector", ["im", "conj", "abs"]),
         ["im"] = new("im", new[] { "x" }, BuiltinCategories.Dsp,
@@ -342,33 +367,97 @@ public sealed class DspPlugin : IModusPlugin
             throw new InvalidOperationException($"{name}() expects {expected} argument(s), but got {args.Count}.");
     }
 
-    private static long ToLong(object? value, string name) => value switch
-    {
-        Nat natural => ParseLong(natural.ToString(), name),
-        Int integer => ParseLong(integer.ToString(), name),
-        _ => throw new InvalidOperationException($"{name}() expects a Natural or Integer argument, but got '{TypeName(value)}'."),
-    };
+    // -------------------------------------------------------------------------
+    // Integer arguments — the ONE contract (advancement cycle 7, ADV-02)
+    // -------------------------------------------------------------------------
+    //
+    // A window, a delay, a transform length, a sample count and a seed are all integers, and every
+    // one of them used to be refused through a bare InvalidOperationException — which the runner
+    // classifies as InvalidOperation/DomainError, the exact pair a genuine DOMAIN refusal uses
+    // (Lovelace.Run/Runner.cs Classify). A consumer could not branch on "you gave me an argument I
+    // cannot honour" versus "your mathematics is undefined", and a fractional window reported as an
+    // Int64-range problem named the wrong thing entirely.
+    //
+    // They now go through the shared contract, which derives from ArgumentException and so crosses as
+    // the documented recoverable InvalidArgument/TypeMismatch pair, and which NAMES the value that
+    // arrived instead of truncating it or wrapping it.
 
-    private static long ParseLong(string text, string name) =>
-        long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long result)
-            ? result
-            : throw new InvalidOperationException($"{name}() expects a value within the Int64 range, but got '{text}'.");
-
-    private static long ToNonNegative(object? value, string name)
+    /// <summary>The exact integer a payload denotes, from the payload's OWN representation.
+    /// <para>
+    /// <b>The Real arm is REPEATED, deliberately.</b> <c>Real</c> derives from <c>Integer</c>, so the
+    /// plain <c>Int</c> arm would accept a non-integral <c>Real</c> through the base predicate and
+    /// this helper would truncate — the very defect it exists to remove. <c>Real.TryGetExactInt64</c>
+    /// is the override that answers whether the value IS an integer, and it answers false for 3.7.
+    /// </para>
+    /// <para>
+    /// A count wider than Int64 answers <see langword="false"/> rather than throwing, so the contract
+    /// refuses it and names it.</para>
+    /// </summary>
+    private static bool ReadExactInteger(object? payload, out long value)
     {
-        long n = ToLong(value, name);
-        if (n < 0)
-            throw new InvalidOperationException($"{name}() expects a non-negative sample count, but got {n}.");
-        return n;
+        switch (payload)
+        {
+            case Rl real:
+                return real.TryGetExactInt64(out value);
+            case Int integer:
+                return integer.TryGetExactInt64(out value);
+            case Nat natural:
+                return natural.TryGetExactInt64(out value);
+            case long l:
+                value = l;
+                return true;
+            default:
+                value = 0L;
+                return false;
+        }
     }
 
-    private static int ToSeed(object? value, string name)
+    /// <summary>Reads an integer argument in [<paramref name="bounds"/>], or refuses it as the
+    /// documented argument error. The refusal distinguishes "that is not a kind of thing I take"
+    /// from "that is outside the range I take", because the repair differs.</summary>
+    private static long RequireInteger(
+        object? value, string name, string parameter, Int64Range bounds, int position) =>
+        ExactIntegerArgument.Require(
+            value, parameter, bounds, ReadExactInteger,
+            payload => DescribeIntegerRefusal(payload, name, parameter, bounds, position), name, position);
+
+    /// <summary>
+    /// The refusal for a payload the reader rejected. The <c>Real</c> arm excludes it from the
+    /// exact-integer-type arm explicitly, for the same subtype reason the reader repeats its arms:
+    /// a bare Natural-or-Integer case would match a fractional <c>Real</c> and report "3.7 is too
+    /// wide", which is not what is wrong with 3.7.
+    /// </summary>
+    private static ArgumentContractException DescribeIntegerRefusal(
+        object? payload, string name, string parameter, Int64Range bounds, int position)
     {
-        long seed = ToLong(value, name);
-        if (seed < int.MinValue || seed > int.MaxValue)
-            throw new InvalidOperationException($"{name}() expects a seed within the Int32 range, but got {seed}.");
-        return (int)seed;
+        switch (payload)
+        {
+            case Rl real when real.TryGetExactInt64(out long exact):
+                return ArgumentContractException.NotAnIntegerKind(
+                    name, parameter, bounds, exact.ToString(), position);
+            case Rl:
+                return ArgumentContractException.NotAnInteger(
+                    name, parameter, bounds, TypeName(payload) + " " + payload, position);
+            case Int or Nat:
+                return ArgumentContractException.TooWide(
+                    name, parameter, bounds, payload.ToString()!, position);
+            default:
+                return ArgumentContractException.NotAnInteger(
+                    name, parameter, bounds, payload is null ? "nothing" : TypeName(payload), position);
+        }
     }
+
+    /// <summary>An integer argument with no further constraint: the whole signed 64-bit range.</summary>
+    private static long ToLong(object? value, string name, string parameter, int position) =>
+        RequireInteger(value, name, parameter, Int64Range.Unbounded, position);
+
+    /// <summary>A sample count: <c>0</c> is meaningful (the empty signal), a negative count is not.</summary>
+    private static long ToNonNegative(object? value, string name, string parameter, int position) =>
+        RequireInteger(value, name, parameter, Int64Range.NonNegative, position);
+
+    /// <summary>A noise seed: the engine's generator takes an Int32.</summary>
+    private static int ToSeed(object? value, string name, string parameter, int position) =>
+        (int)RequireInteger(value, name, parameter, new Int64Range(int.MinValue, int.MaxValue), position);
 
     /// <summary>Zero-pads (or truncates) the input to exactly <paramref name="n"/> samples.</summary>
     private static Cplx[] DftPadded(Cplx[] x, int n)

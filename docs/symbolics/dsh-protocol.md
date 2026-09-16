@@ -341,6 +341,70 @@ an array. Its `position`/`line`/`column` index the caller's text by the same rul
 disagree about where a failure is. The two are never mixed: a result record carries `Diagnostic`
 records, the error envelope carries parse-site diagnostics.
 
+
+## Querying the capability surface (ADV-08)
+
+The registry is a **discovery surface**: it can be asked what the runtime has without evaluating
+anything. Two flags are answered before a script is read or parsed, so neither costs an evaluation, a
+revision bump nor a statement timing — the envelope they produce carries no `result`, no `timings` and
+no `revision`.
+
+```text
+--functions [pattern]    a bounded listing of the names matching the optional case-insensitive pattern
+--function <name>        one full entry: signature, arity, category, summary, return kind, related, examples
+--function-limit <n>     page size for --functions (default 50)
+```
+
+A **listing** carries the name, the declared parameters, the arity metadata and the category, and nothing
+else: a page that ships documentation is a page an agent cannot afford. It reports its own bound as
+`total`, `returned` and `truncated`, so a page is never mistaken for the whole list, and its order is
+ordinal by name, so two queries over one registry cannot disagree.
+
+```json
+{ "protocolVersion": 1, "symbolicFormatVersion": "#!lovelace-sym 1", "mathIrVersion": 2, "ok": true,
+  "pattern": "det", "total": 1, "returned": 1, "truncated": false,
+  "functions": [ { "name": "det", "parameters": ["m"], "minArity": 1, "parameterCount": 1,
+                   "variadic": false, "category": "Linear Algebra" } ] }
+```
+
+`--function <name>` answers the same `functions[]` entry a script envelope carries, in a `function` key
+instead of the array — one entry, with the descriptor metadata. An unknown **name** is not an empty
+success: it is the documented `UnknownFunction` refusal, with the registry's `suggestions` and its
+`registrySize`, exactly as a call to that name would produce. An unknown **pattern** is an empty listing
+with `total: 0`: a search that found nothing is a result, not a refusal.
+
+The `functions[]` array of a script envelope carries the same descriptor metadata as `--function`:
+`category`, `summary`, `returnKind`, `related` and `examples`, resolved through the one two-step lookup
+the help surface uses (`InterpreterBuiltinDescriptors`, then `CoreBuiltinMetadata`). Each is **omitted**
+when the registry has nothing to say — never sent as an empty array or a placeholder sentence — so "no
+summary is registered" and "the summary is empty" cannot look alike. The six fields recorded in earlier
+releases (`name`, `parameters`, `minArity`, `parameterCount`, `variadic`, `builtin`) are unchanged and stay
+first; `plugin` keeps its place after them.
+
+## The call-site signature on a refusal (ADV-07)
+
+A refusal that is a **call-site** argument error carries a `signature`: the declared parameters, both arity
+counts and the variadic flag, plus — for a wrong-shaped argument — the 1-based position, the parameter at
+that position, what it required and the kind that arrived. The exception types the runner already
+classified held every one of these; the envelope used to drop them by forwarding the message alone.
+
+```json
+{ "ok": false, "code": "InvalidArgument", "category": "TypeMismatch",
+  "message": "det(): argument 1 must be a square matrix; got Natural.",
+  "signature": { "function": "det", "parameters": ["m"], "expectedMin": 1, "expectedMax": 1,
+                 "variadic": false, "position": 1, "parameter": "m",
+                 "expectedShape": "a square matrix", "arrivedKind": "Natural" } }
+```
+
+* The parameter **names** come from the live registry, not from the exception: the exception names the
+  position, the registry names what sits there, so the signature a failure publishes and the signature
+  `functions[]` publishes for the same builtin cannot drift.
+* `expectedMax` is omitted for a variadic builtin rather than published as `int.MaxValue`, so a consumer
+  that adds one to an upper bound never overflows.
+* A failure that is **not** a call-site refusal carries no `signature` key at all — omitted, never empty —
+  so a consumer branches on the field's presence rather than on a code it must have memorised. The
+  integer-argument contract's refusals (`InvalidArgument` from an integer-semantic argument) are the same
+  family and currently publish no signature; that is a known gap, not a claim.
 ## CI
 
 `.github/workflows/ci.yml` publishes the runner as a Native AOT binary and then **executes it**

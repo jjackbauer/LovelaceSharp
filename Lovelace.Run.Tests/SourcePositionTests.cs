@@ -258,11 +258,29 @@ public class SourcePositionTests
         // audit-E F5: a failing run now carries "output" (the lines the script printed before it
         // failed used to be dropped), which is the contract change that finding asked for. Nothing
         // else moved; the diagnostics entry above is still exactly four fields.
+        //
+        // Re-pinned a SECOND time, for ADV-07 and ADV-09: a call-site refusal now also carries
+        // "signature" (the declared parameters, both arity counts and, for a shape failure, the offending
+        // position, the parameter, what it required and the kind that arrived) and every envelope —
+        // success or failure — carries "artifacts" (the files the evaluation committed, which a later
+        // failure cannot un-write). Both are ADDITIVE: "signature" is omitted when the failure is not a
+        // call-site refusal (pinned by CallSignatureDiagnosticsTests), and "artifacts" is present and
+        // empty on a run that wrote nothing (pinned by CommittedStateTests). The diagnostics entry above
+        // is STILL exactly four fields.
+        //
+        // Re-pinned a THIRD time, for ADV-07: a call-site refusal now also carries "signature" — the
+        // declared parameters, both arity counts and, for a shape failure, the offending position, the
+        // parameter, what it required and the kind that arrived. The fields the exception objects already
+        // held were being dropped by forwarding ex.Message alone. It is ADDITIVE and OMITTED when the
+        // failure is not a call-site refusal, which is exactly what the sibling test
+        // (CallSignatureDiagnosticsTests.AFailureThatIsNotACallSiteRefusal_CarriesNoSignature) pins, and
+        // the diagnostics entry above is STILL exactly four fields.
         Assert.Equal(
             new[]
             {
-                "category", "code", "diagnostics", "elapsed", "elapsedTime", "mathIrVersion", "message",
-                "ok", "output", "protocolVersion", "recoverable", "symbolicFormatVersion", "timings",
+                "artifacts", "category", "code", "diagnostics", "elapsed", "elapsedTime", "mathIrVersion",
+                "message", "ok", "output", "partialVariables", "protocolVersion", "recoverable",
+                "signature", "symbolicFormatVersion", "timings",
             },
             envelope.AsObject().Select(p => p.Key).OrderBy(k => k, StringComparer.Ordinal).ToArray());
     }

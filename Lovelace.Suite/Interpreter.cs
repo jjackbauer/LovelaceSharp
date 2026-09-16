@@ -942,15 +942,15 @@ public sealed class Interpreter
         {
             if (ie is SliceExpr se)
             {
-                long? start = se.Start is null ? null : ToLong(await EvaluateAsync(se.Start, scope));
-                long? stop = se.Stop is null ? null : ToLong(await EvaluateAsync(se.Stop, scope));
-                long? step = se.Step is null ? null : ToLong(await EvaluateAsync(se.Step, scope));
+                long? start = se.Start is null ? null : ToLong(await EvaluateAsync(se.Start, scope), "range", "bound", 0, Int64Range.Unbounded);
+                long? stop = se.Stop is null ? null : ToLong(await EvaluateAsync(se.Stop, scope), "range", "bound", 0, Int64Range.Unbounded);
+                long? step = se.Step is null ? null : ToLong(await EvaluateAsync(se.Step, scope), "range", "step", 0, Int64Range.Positive);
                 specs.Add(IndexSpec.Range(start, stop, step));
             }
             else
             {
                 var iv = await EvaluateAsync(ie, scope);
-                specs.Add(IndexSpec.Scalar(ToLong(iv)));
+                specs.Add(IndexSpec.Scalar(ToLong(iv, "index", "index", 0, Int64Range.Unbounded)));
             }
         }
 
@@ -1138,34 +1138,121 @@ public sealed class Interpreter
         return new Value(elements);
     }
 
-    private static Int ToInteger(Value value) => value.Kind switch
-    {
-        ValueKind.Natural => new Int(value.AsNatural()),
-        ValueKind.Integer => value.AsInteger(),
-        _ => throw new InvalidOperationException($"Range bounds must be Natural or Integer, but got '{value.Kind}'."),
-    };
+    // ---------------------------------------------------------------------
+    // Exact-integer arguments — the ONE contract (ADV-01/02)
+    // ---------------------------------------------------------------------
 
-    private static long ToLong(Value value) => value.Kind switch
+    /// <summary>
+    /// Reads a <see cref="Value"/> as the exact integer it denotes, applying the language's KIND
+    /// rule: a <c>Natural</c> or an <c>Integer</c> is read through its own exact predicate (never
+    /// from its decimal text), and a <c>Real</c> is not an integer ARGUMENT however exactly integral
+    /// it is — the rule <c>zeros(2.0)</c>, <c>[1,2,3][1.0]</c> and <c>setprecision(30.0)</c> already
+    /// enforce.
+    /// </summary>
+    private static bool ReadExactInteger(object? payload, out long result)
     {
-        ValueKind.Natural => ParseInt64(value.AsNatural().ToString(), "index or dimension"),
-        ValueKind.Integer => ParseInt64(value.AsInteger().ToString(), "index or dimension"),
-        _ => throw new InvalidOperationException($"Index must be Natural or Integer, but got '{value.Kind}'."),
-    };
+        if (payload is Value value)
+        {
+            switch (value.Kind)
+            {
+                case ValueKind.Natural: return value.AsNatural().TryGetExactInt64(out result);
+                case ValueKind.Integer: return value.AsInteger().TryGetExactInt64(out result);
+            }
+        }
 
-    /// <summary>An index or a dimension that does not FIT an Int64 is an ARGUMENT problem, so it
-    /// crosses as <c>InvalidArgument</c>/<c>TypeMismatch</c> (<see cref="ArgumentException"/>, the
-    /// same grammar <c>pi(digits)</c>/<c>e(digits)</c> use) naming the value and the bound. It used to
-    /// escape as the raw CLR conversion message "Value was either too large or too small for an
-    /// Int64." under <c>ArithmeticError</c>/<c>DomainError</c> — audit O, wave 5:
-    /// <c>[1, 2, 3][10^30]</c>.</summary>
-    private static long ParseInt64(string text, string what)
-    {
-        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
-            throw new ArgumentException(
-                $"An {what} must fit a signed 64-bit integer (at most {long.MaxValue} in absolute " +
-                $"value); got {text}.");
-        return value;
+        result = 0L;
+        return false;
     }
+
+    /// <summary>
+    /// The refusal an integer argument produces, in the message grammar the protocol document fixes
+    /// (<c>det(): argument 1 must be an array or vector; got Natural.</c>) and with the two <c>Real</c>
+    /// cases kept apart, because they are different repairs: <c>2.5</c> is not a count at all, while
+    /// <c>2.0</c> IS the count 2 written in a kind the language does not accept there — and its
+    /// message says so, so the repair is in the refusal itself.
+    /// <para>
+    /// <paramref name="asTypeRefusal"/> keeps a call site whose KIND refusal is already documented
+    /// as an <see cref="InvalidOperationException"/> on that type — today only the digit counts
+    /// (<c>pi(3.0)</c>), because the reason a Real is refused there was never the range and the
+    /// documented contract is about the kind. It applies to the KIND case alone: a count that IS a
+    /// Natural or an Integer and falls outside the declared bounds crosses as the argument error it
+    /// is, which is why <c>pi(0)</c>, <c>pi(10^30)</c> and <c>setprecision(0)</c> are
+    /// <c>InvalidArgument</c> on this path and were before it. Everything else crosses as
+    /// <see cref="ArgumentContractException"/>, the documented
+    /// <c>InvalidArgument</c>/<c>TypeMismatch</c> pair for a caller-side argument error.
+    /// </para>
+    /// </summary>
+    private static Exception RefuseIntegerArgument(
+        string builtin, string parameter, int position, Int64Range bounds, Value arrived, bool asTypeRefusal)
+    {
+        ArgumentContractException refusal;
+        if (arrived.Kind == ValueKind.Real && arrived.AsReal().TryGetExactInt64(out long exact))
+            refusal = ArgumentContractException.NotAnIntegerKind(
+                builtin, parameter, bounds, exact.ToString(), position);
+        else if (arrived.Kind == ValueKind.Real)
+            refusal = ArgumentContractException.NotAnInteger(
+                builtin, parameter, bounds, "the Real " + arrived.AsReal(), position);
+        else if (arrived.Kind is ValueKind.Natural or ValueKind.Integer)
+            // An integer the architecture cannot carry: NAMED, because "got the Natural" tells the
+            // caller neither which value nor how far out of range it was. This is the case that used
+            // to escape as the raw CLR conversion message. It is a RANGE problem, not a KIND problem,
+            // so it crosses as the recoverable argument error even at a call site that pins the kind
+            // refusal — <paramref name="asTypeRefusal"/> is about the KIND alone, and
+            // pi(10^30) is InvalidArgument/TypeMismatch both before and after this change.
+            return ArgumentContractException.TooWide(
+                builtin, parameter, bounds,
+                arrived.Kind == ValueKind.Natural ? arrived.AsNatural().ToString() : arrived.AsInteger().ToString(),
+                position);
+        else
+            refusal = ArgumentContractException.NotAnInteger(
+                builtin, parameter, bounds, "the " + arrived.Kind, position);
+
+        return asTypeRefusal ? new InvalidOperationException(refusal.Message) : refusal;
+    }
+
+    /// <summary>
+    /// The one call an integer-semantic builtin argument goes through: the exact integer, a declared
+    /// bound, or a refusal that names the builtin, the 1-based position, the parameter and the value.
+    /// </summary>
+    private static long RequireExactInteger(
+        string builtin, string parameter, int position, Value value, Int64Range bounds, bool typeRefusalForKind = false)
+        => ExactIntegerArgument.Require(
+            value, parameter, bounds, ReadExactInteger,
+            _ => RefuseIntegerArgument(builtin, parameter, position, bounds, value, typeRefusalForKind),
+            builtin,
+            position);
+
+    /// <summary>
+    /// A range BOUND (<c>for i in a..b</c>, <c>1..n</c>): an exact <c>Natural</c> or <c>Integer</c>,
+    /// with no bound of its own — a range deliberately spans the whole signed 64-bit index space, and
+    /// the range's own size is bounded by the allocation budget, not here.
+    /// <para>
+    /// The KIND refusal keeps its long-standing <see cref="InvalidOperationException"/>: it is
+    /// <c>Range bounds must be Natural or Integer, but got 'Real'.</c> and the kind-only sentence is
+    /// the shape <c>Lovelace.Suite.Tests</c> pins. What changed is that the VALUE now comes from the
+    /// shared contract rather than a second, private reader — so a bound wider than Int64 is refused
+    /// by name through the same path as every other integer argument, and none of them can floor.
+    /// </para>
+    /// </summary>
+    private static Int ToInteger(Value value)
+    {
+        long bound = RequireExactInteger("range", "bound", position: 0, value, Int64Range.Unbounded);
+
+        return new Int(bound);
+    }
+
+    /// <summary>
+    /// An index, a dimension, an axis or a count taken from a <see cref="Value"/>: the exact integer
+    /// it denotes, through the ONE contract, or a refusal naming the builtin, the 1-based position,
+    /// the parameter and the value.
+    /// <para>
+    /// <paramref name="position"/> is the 1-based argument position; <c>0</c> when the call site
+    /// cannot supply one (an index inside a subscript, a range bound), in which case the refusal
+    /// still names the parameter and the value.
+    /// </para>
+    /// </summary>
+    private static long ToLong(Value value, string builtin, string parameter, int position, Int64Range bounds, bool typeRefusalForKind = false)
+        => RequireExactInteger(builtin, parameter, position, value, bounds, typeRefusalForKind);
 
     // -----------------------------------------------------------------
     // Statement execution
@@ -1839,9 +1926,9 @@ public sealed class Interpreter
                 return new Value(Rl.Pi);
 
             // The count is bounded by the ENGINE before the kernel's own guard can see it (see
-            // DigitCount): an untyped ArgumentOutOfRangeException naming only the parameter is not
-            // an answer a language caller can act on.
-            return new Value(await Rl.PiToAsync(DigitCount("pi", args[0]), SubProgress("pi")));
+            // DigitCountBounds): an untyped ArgumentOutOfRangeException naming only the parameter is
+            // not an answer a language caller can act on.
+            return new Value(await Rl.PiToAsync(DigitCount("pi", args[0], position: 1), SubProgress("pi")));
         }, minArity: 0);
 
         // e() / e(digits) — the digit count is an OPTIONAL trailing parameter, declared as such
@@ -1851,28 +1938,19 @@ public sealed class Interpreter
                 return new Value(Rl.E);
 
             // same boundary as pi(digits): the engine's precision decides, and it decides TYPED
-            return new Value(await Rl.EToAsync(DigitCount("e", args[0]), SubProgress("e")));
+            return new Value(await Rl.EToAsync(DigitCount("e", args[0], position: 1), SubProgress("e")));
         }, minArity: 0);
 
         // setprecision(n) — raise both the computation cap and the display precision.
         Register("setprecision", ["digits"], args =>
         {
-            var arg = args[0];
-            string countText = arg.Kind switch
-            {
-                ValueKind.Natural => arg.AsNatural().ToString(),
-                ValueKind.Integer => arg.AsInteger().ToString(),
-                _ => throw new InvalidOperationException($"setprecision() expects a Natural or Integer digit count, but got '{arg.Kind}'."),
-            };
-            // A count WIDER THAN INT64 crosses as the same argument refusal pi(digits)/e(digits) use;
-            // it used to escape as the raw CLR conversion message under ArithmeticError/DomainError
-            // (audit O, wave 5: setprecision(123456789012345678901234567890)).
-            if (!long.TryParse(countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out long n))
-                throw new ArgumentException(
-                    $"setprecision(): argument 1 (digits) must be a digit count no wider than " +
-                    $"{long.MaxValue}; got {countText}.");
-            if (n <= 0)
-                throw new InvalidOperationException($"setprecision() expects a positive digit count, but got {n}.");
+            // ONE path with pi(digits)/e(digits), and it is the shared contract rather than a third
+            // private switch: a count WIDER THAN INT64 used to escape as the raw CLR conversion
+            // message under ArithmeticError/DomainError (audit O, wave 5:
+            // setprecision(123456789012345678901234567890)), a count of ZERO or less crossing the
+            // same way, and every one of them now names the builtin, the position, the parameter, the
+            // accepted range and the count that arrived.
+            long n = DigitCount("setprecision", args[0], position: 1);
 
             SetPrecision(n);
             return Task.FromResult(Value.Void);
@@ -1909,9 +1987,9 @@ public sealed class Interpreter
         RegisterArrayBuiltins();
     }
 
-    /// <summary>The <c>digits</c> argument of a constant builtin (<c>pi(n)</c>, <c>e(n)</c>): a
-    /// Natural or Integer in <c>[1, the engine's computation precision]</c>. A count outside that
-    /// range is a CALLER-SIDE ARGUMENT problem, so it is answered as one.
+    /// <summary>The <c>digits</c> argument of a digit-count builtin (<c>pi(n)</c>, <c>e(n)</c>,
+    /// <c>setprecision(n)</c>): a Natural or Integer in <c>[1, the engine's computation precision]</c>.
+    /// A count outside that range is a CALLER-SIDE ARGUMENT problem, so it is answered as one.</summary>
     /// <para>
     /// THE KERNEL'S OWN GUARD IS NOT THE ANSWER. <c>Real.PiTo</c> / <c>Real.ETo</c> bound the count
     /// by <c>Rl.MaxComputationDecimalPlaces</c> and refuse an out-of-range one with an
@@ -1939,28 +2017,27 @@ public sealed class Interpreter
     /// <exception cref="ArgumentException">The count is outside <c>[1, the engine's computation
     /// precision]</c>, or wider than Int64.</exception>
     /// <exception cref="InvalidOperationException">The count is not a Natural or an Integer.</exception>
-    private static long DigitCount(string builtin, Value arg)
+    /// <remarks>
+    /// THE RANGE IS READ FROM THE ENGINE, NOT WRITTEN DOWN. <see cref="Rl.MaxComputationDecimalPlaces"/>
+    /// is what bounds a count, and it is the same value the kernel's own guard compares against, so the
+    /// refusal cannot drift from the bound it reports. <c>setprecision(n)</c> is NOT an exception to
+    /// that: it is clamped BY THE ENGINE (<c>SetPrecision</c> caps the computation precision at the
+    /// product maximum) while the DISPLAY precision is the caller's number, so
+    /// <c>setprecision(5000)</c> is a display request the product honours, not an argument it must
+    /// refuse — the reason the cap here is <c>long.MaxValue</c> and not the kernel bound.
+    /// </remarks>
+    private static long DigitCount(string builtin, Value arg, int position)
     {
-        string? text = arg.Kind switch
-        {
-            ValueKind.Natural => arg.AsNatural().ToString(),
-            ValueKind.Integer => arg.AsInteger().ToString(),
-            _ => null,
-        };
-        if (text is null)
-            throw new InvalidOperationException(
-                $"{builtin}() expects a Natural or Integer digit count, but got '{arg.Kind}'.");
+        bool isSetter = string.Equals(builtin, "setprecision", StringComparison.Ordinal);
+        Int64Range bounds = isSetter
+            ? new Int64Range(1L, long.MaxValue)
+            : new Int64Range(1L, Rl.MaxComputationDecimalPlaces);
 
-        long cap = Rl.MaxComputationDecimalPlaces;
-        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long digits)
-            || digits < 1L || digits > cap)
-        {
-            throw new ArgumentException(
-                $"{builtin}(): argument 1 (digits) must be a digit count between 1 and {cap} " +
-                $"(the engine's computation precision); got {text}.");
-        }
-
-        return digits;
+        // typeRefusalForKind: an exactly integral Real stays the InvalidOperationException the
+        // documented pi(3.0) contract pins, with the contract's message rather than the old
+        // sentence (see <see cref="RefuseIntegerArgument"/> for the full rationale). The
+        // count's own KIND is the pinned question; its RANGE never was.
+        return RequireExactInteger(builtin, "digits", position, arg, bounds, typeRefusalForKind: true);
     }
 
     private Value BuiltinPlot(IReadOnlyList<Value> args)
@@ -2133,22 +2210,26 @@ public sealed class Interpreter
         var dims = new long[args.Count - start];
         for (int i = start; i < args.Count; i++)
         {
-            long dim = ToLong(args[i]);
-            if (dim < 0)
-                throw new ArgumentException(
-                    $"{name}(): argument {i - start + 1} (a dimension) must be a non-negative count; " +
-                    $"got {dim}.");
-            dims[i - start] = dim;
+            // One call decides both halves of a dimension's contract: the exact integer, and the
+            // non-negative bound. Before this, a negative dimension was accepted here and blew up
+            // LATER in `checked` arithmetic as the raw CLR "Arithmetic operation resulted in an
+            // overflow." (round-23 audit O, O-4: `zeros(-1)`).
+            dims[i - start] = ToLong(args[i], name, "a dimension", i - start + 1, Int64Range.NonNegative);
         }
         return dims;
     }
 
-    /// <summary>Converts a vector of indices to a long array.</summary>
-    private static long[] ToLongArray(Value v)
+    /// <summary>Converts a vector of indices to a long array, each element through the integer
+    /// contract so the refusal names the element's own 1-based position inside the vector.</summary>
+    private static long[] ToLongArray(Value v, string builtin, string parameter)
     {
         if (v.Kind != ValueKind.Vector)
             throw new InvalidOperationException("Expected a vector of axis indices.");
-        return v.AsVector().Select(ToLong).ToArray();
+        var vector = v.AsVector();
+        var result = new long[vector.Count];
+        for (int i = 0; i < vector.Count; i++)
+            result[i] = ToLong(vector[i], builtin, parameter, i + 1, Int64Range.Unbounded);
+        return result;
     }
 
     /// <summary>A call-site SHAPE guard for a builtin body whose expectation the <see cref="Value"/>
@@ -2185,7 +2266,7 @@ public sealed class Interpreter
         var value = args[index];
         if (value.Kind is ValueKind.Vector or ValueKind.Array && value.AsArrayValue().Rank == 1)
         {
-            long[] permutation = ToLongArray(value);
+            long[] permutation = ToLongArray(value, builtin, "axes");
             if (permutation.Length == rank && permutation.All(axis => axis >= 0 && axis < rank)
                 && permutation.Distinct().Count() == rank)
                 return permutation;
@@ -2210,9 +2291,40 @@ public sealed class Interpreter
         if (input.Kind is not (ValueKind.Vector or ValueKind.Array))
             throw new BuiltinShapeException(name, 1, "an array or vector", input.Kind);
 
-        return args.Count == 1
-            ? Task.FromResult(ReduceAllOrEmpty(input, empty, all))
-            : Task.FromResult(ReduceAxisResult(input, ToLong(args[1]), axis));
+        if (args.Count == 1)
+            return Task.FromResult(ReduceAllOrEmpty(input, empty, all));
+
+        long requested = ToLong(args[1], name, "axis", 2, Int64Range.Unbounded);
+        return Task.FromResult(ReduceAxisResult(input, RequireAxisInRange(name, requested, input), axis));
+    }
+
+    /// <summary>
+    /// An axis must name one of the value's own axes. The bound is the RANK, so it can only be checked
+    /// where the input is known — and it has to be checked HERE, because the array kernel's own guard
+    /// refuses with <c>ArgumentOutOfRangeException</c>, whose message is
+    /// <c>Axis -1 is out of range for rank 1. (Parameter 'axis')</c>: raw framework text with no builtin
+    /// name, crossed as <c>InvalidArgument</c> (round-23 audit Q, Q-4 recorded the same shape for
+    /// <c>reshape</c>; the reductions kept it until the ADV-03 boundary matrix drove
+    /// <c>prod([1, 2, 3], -1)</c>).
+    /// <para>
+    /// The refusal is the documented argument-error pair and names the builtin, the position, the
+    /// parameter, the rank and the number that arrived — the same grammar every other argument refusal
+    /// speaks.
+    /// </para>
+    /// </summary>
+    private static long RequireAxisInRange(string builtin, long axis, Value input) =>
+        RequireAxisInRangeFor(builtin, axis, input.AsArrayValue().Rank, position: 2);
+
+    /// <summary>The one axis guard: <paramref name="rank"/> axes are numbered <c>0</c> to
+    /// <c>rank - 1</c>, and a number outside that is a caller-side argument error that names the
+    /// builtin, the position, the parameter, the rank and the number that arrived. A rank-1 value has
+    /// ONE axis and the refusal says so by name rather than by a range of one.</summary>
+    private static long RequireAxisInRangeFor(string builtin, long axis, int rank, int position)
+    {
+        if (axis >= 0L && axis < rank)
+            return axis;
+
+        throw ArgumentContractException.AxisOutOfRange(builtin, position, axis, rank);
     }
 
     /// <summary>Reduce-all with the D6 empty rule: an empty array yields the builtin's identity or error.</summary>
@@ -2252,10 +2364,12 @@ public sealed class Interpreter
         // eye(n) / eye(r, c) — the column count is optional
         Register("eye", ["rows", "cols"], args =>
         {
-            long rows = ToLong(args[0]);
-            long cols = args.Count == 2 ? ToLong(args[1]) : rows;
-            if (rows < 1 || cols < 1)
-                throw new ArgumentException("eye() dimensions must be positive.");
+            // The bound lives in the contract now. It used to be a post-hoc check whose refusal named
+            // NEITHER number — "eye() dimensions must be positive." for eye(-1), eye(0), eye(2,-1) and
+            // eye(3,-2) alike (round-23 audit Q, Q-4) — so a caller could not tell which dimension was
+            // wrong or what it had written.
+            long rows = ToLong(args[0], "eye", "rows", 1, Int64Range.Positive);
+            long cols = args.Count == 2 ? ToLong(args[1], "eye", "cols", 2, Int64Range.Positive) : rows;
 
             // the same pre-allocation budget zeros()/ones() use: eye(10^9, 10^9) is a 10^18-element
             // request whose product used to overflow an int and cross as an arithmetic error (F2-C)
@@ -2273,7 +2387,22 @@ public sealed class Interpreter
         Register("reshape", ["a", "dims"], args =>
         {
             var av = args[0].AsArrayValue();
-            return Task.FromResult(WrapArrayValue(av.Reshape(ParseShape(args, 1, "reshape"))));
+            long[] shape = ParseShape(args, 1, "reshape");
+
+            // The element-count refusal is OURS, not the array kernel's. Reshape is a language
+            // builtin, so the caller must be told which builtin refused and with which numbers — the
+            // kernel's own ArgumentException arrives with a "(Parameter 'shape')" tail and no builtin
+            // name at all (round-23 audit Q, Q-4: reshape([1,2,3,4], 0) and
+            // reshape([1,2,3,4], 100000000000) were the two rows still carrying raw framework text).
+            long wanted = 1L;
+            foreach (long dim in shape)
+                wanted = dim == 0L ? 0L : checked(wanted * dim);
+
+            if (wanted != av.Numel)
+                throw ArgumentContractException.ShapeElementCount(
+                    "reshape", "dims", 2, "[" + string.Join(", ", shape) + "]", wanted, av.Numel);
+
+            return Task.FromResult(WrapArrayValue(av.Reshape(shape)));
         }, variadic: true);
 
         // shape(a)
@@ -2376,7 +2505,12 @@ public sealed class Interpreter
         // concat(a, b) / concat(a, b, axis) — the axis is optional
         Register("concat", ["a", "b", "axis"], args =>
         {
-            long axis = args.Count == 3 ? ToLong(args[2]) : 0;
+            // "concat", not the shared reduction's name: a refusal must name the builtin the CALLER
+            // wrote, which is what the frozen shape sweep checks.
+            var left = args[0].AsArrayValue();
+            long axis = args.Count == 3
+                ? RequireAxisInRangeFor("concat", ToLong(args[2], "concat", "axis", 3, Int64Range.Unbounded), left.Rank, 3)
+                : 0;
             return Task.FromResult(WrapArrayValue(TypedArrayOps.Concat(args[0].AsArrayValue(), args[1].AsArrayValue(), axis)));
         }, minArity: 2);
 

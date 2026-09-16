@@ -20,6 +20,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Lovelace.Abstractions\Lovelace.Abstractions.csproj" />
+    <!-- ADV-01: the argument contract is asserted at all three numeric types, and Real is where the
+         integrality rule actually lives (Real derives from Integer, so it needs its own override).
+         Test-only: test projects are not part of any published or AOT graph. -->
+    <ProjectReference Include="..\Lovelace.Real\Lovelace.Real.csproj" />
   </ItemGroup>
 
 </Project>

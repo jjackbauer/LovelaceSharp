@@ -150,6 +150,47 @@ public class Integer :
     /// Maps from C++ <c>toLovelace(Lovelace&amp;)</c>.
     /// </summary>
     public Nat ToNatural() => _magnitude;
+    // -------------------------------------------------------------------------
+    // Exact integer extraction — the ONE way an argument contract may read this value
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// <see langword="true"/> exactly when this value denotes an integer representable as a signed
+    /// 64-bit integer, in which case <paramref name="value"/> is that integer.
+    /// <para>
+    /// The signed counterpart of <see cref="Nat.TryGetExactInt64"/>, and the same rule: the answer
+    /// comes from the value's own magnitude and sign, and an integer wider than the type answers
+    /// <see langword="false"/> so the argument contract refuses it by name instead of wrapping.
+    /// <c>-9223372036854775808</c> is representable and is accepted; the sign is applied AFTER the
+    /// range check so that magnitude never has to be negated into range.
+    /// </para>
+    /// </summary>
+    /// <remarks>
+    /// VIRTUAL on purpose: <c>Real</c> derives from this type, so a payload that is statically an
+    /// <see cref="Integer"/> may be a <c>Real</c> whose digits are NOT integral. Without the
+    /// override the base rule would answer <c>true</c> for <c>2.5</c>, and the argument contract
+    /// would publish exactly the floor it exists to refuse.
+    /// </remarks>
+    public virtual bool TryGetExactInt64(out long value)
+    {
+        bool negative = IsNegative(this);
+        if (_magnitude.TryGetExactInt64(out long magnitude))
+        {
+            value = negative ? -magnitude : magnitude;
+            return true;
+        }
+
+        if (negative && _magnitude.ToString() == "9223372036854775808")
+        {
+            value = long.MinValue;
+            return true;
+        }
+
+        value = 0L;
+        return false;
+    }
+
+
 
     // -------------------------------------------------------------------------
     // Static predicates (INumber<T> / INumberBase<T> requirements)

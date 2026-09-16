@@ -223,6 +223,27 @@ jobs:
             --filter "FullyQualifiedName~DifferentialOracle" \
             --logger "console;verbosity=detailed"
 
+      # ADV-05: the PRECISION oracle. The setup-python step above makes python3 available, and mpmath
+      # arrives with sympy (it is a dependency of it), so this job already carries what the battery needs.
+      #
+      # It is separate from the step above because the two measure different things: the SymPy oracle
+      # compares symbolic RESULTS, and this one counts how many of a transcendental value's published
+      # DECIMAL PLACES are actually correct. That count is the property the round-23 audit found false —
+      # Real.Sin(10, 30) had 29 correct digits for a 30-place request and Real.Sin(10^100, 30) had none —
+      # and a battery that only pins recorded goldens cannot prove it, because a golden is only as good as
+      # the day it was recorded.
+      #
+      # LOVELACE_REQUIRE_SYMPY=1 (set for the whole job) turns "the oracle is unavailable" from a skip
+      # into a FAILURE, so this step cannot pass by comparing nothing.
+      - name: Run the precision oracle (correct decimal places vs mpmath)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet test Lovelace.Real.Tests/Lovelace.Real.Tests.csproj \
+            --configuration Release --nologo \
+            --filter "FullyQualifiedName~RealTrigPrecisionOracleTests" \
+            --logger "console;verbosity=detailed"
+
   # ---------------------------------------------------------------------------
   # Native AOT publish + published-runner execution smoke.
   #

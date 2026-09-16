@@ -1,3 +1,4 @@
+using Lovelace.Abstractions;
 using Lovelace.Suite;
 using Rl = global::Lovelace.Real.Real;
 
@@ -10,8 +11,8 @@ namespace Lovelace.Suite.Tests;
 ///   - BuiltinSetprecision — 1 Natural or Integer argument sets both
 ///     Real.MaxComputationDecimalPlaces and Real.DisplayDecimalPlaces
 ///   - BuiltinSetprecision — lifting the cap lets pi(n) exceed the 1000 default
-///   - BuiltinSetprecision — reject Real argument with InvalidOperationException
-///   - BuiltinSetprecision — reject n ≤ 0 with InvalidOperationException
+///   - BuiltinSetprecision — reject Real argument with InvalidOperationException (the KIND refusal)
+///   - BuiltinSetprecision — reject n ≤ 0 with ArgumentContractException (the RANGE refusal)
 ///   - BuiltinSetprecision — reject argument count ≠ 1 with BuiltinArityException (the
 ///     documented InvalidArgument/TypeMismatch arity refusal)
 /// </summary>
@@ -91,22 +92,61 @@ public class InterpreterBuiltinSetprecisionTests
     }
 
     // -----------------------------------------------------------------------
-    // Reject non-positive digit counts.
+    // Reject non-positive digit counts — through the shared argument contract,
+    // the same one every other integer argument already crosses.
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Evaluate_GivenZero_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenZero_RefusesThroughTheIntegerArgumentContract()
     {
         var expr = new CallExpr("setprecision", [new LiteralExpr("0")]);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
+        var refusal = await Assert.ThrowsAsync<ArgumentContractException>(
+            async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal(ArgumentContractFailure.OutOfBounds, refusal.Failure);
+        Assert.Equal("setprecision", refusal.Builtin);
+        Assert.Equal("digits", refusal.Parameter);
+        Assert.Equal(1, refusal.Position);
+        Assert.Contains("setprecision(): argument 1 (digits)", refusal.Message);
+        Assert.Contains("got 0", refusal.Message);
     }
 
     [Fact]
-    public async Task Evaluate_GivenNegative_ThrowsInvalidOperationException()
+    public async Task Evaluate_GivenNegative_RefusesThroughTheIntegerArgumentContract()
     {
         var neg = new UnaryExpr(UnaryOp.Negate, new LiteralExpr("10"));
         var expr = new CallExpr("setprecision", [neg]);
+
+        var refusal = await Assert.ThrowsAsync<ArgumentContractException>(
+            async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal(ArgumentContractFailure.OutOfBounds, refusal.Failure);
+        Assert.Contains("got -10", refusal.Message);
+    }
+
+    /// <summary>A count WIDER THAN INT64 is an argument problem too, and it names the count rather
+    /// than escaping as the raw CLR conversion message it used to.</summary>
+    [Fact]
+    public async Task Evaluate_GivenACountWiderThanInt64_NamesTheCount()
+    {
+        var expr = new CallExpr("setprecision", [new LiteralExpr("123456789012345678901234567890")]);
+
+        var refusal = await Assert.ThrowsAsync<ArgumentContractException>(
+            async () => await _evaluator.EvaluateAsync(expr));
+
+        Assert.Equal(ArgumentContractFailure.TooWide, refusal.Failure);
+        Assert.Contains("123456789012345678901234567890", refusal.Message);
+    }
+
+    /// <summary>THE KIND CONTRACT IS UNCHANGED, and this is the control for it: an exactly integral
+    /// Real is still the InvalidOperationException the documented <c>setprecision(30.0)</c> /
+    /// <c>pi(3.0)</c> contract pins — the count's KIND is that question, its range never was. What
+    /// moved is the count that IS an exact integer and falls outside the bounds.</summary>
+    [Fact]
+    public async Task Evaluate_GivenAnIntegralReal_KeepsTheDocumentedTypeRefusal()
+    {
+        var expr = new CallExpr("setprecision", [new LiteralExpr("30.0")]);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await _evaluator.EvaluateAsync(expr));
     }

@@ -486,7 +486,7 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
         new BuiltinDescriptor("apart", new[] { "f", "x" }, BuiltinCategories.Symbolics,
             "Partial fraction decomposition of a rational function in x.", ["apart(1/(x^2 - 1), x)"], "Symbolic", ["cancel"]));
         Add("series", new[] { "f", "x", "x0", "order" }, args =>
-            Series.Of(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), AsInt(args[3]), Context).ToExpression(),
+            Series.Of(AsExpr(args[0]), AsSymbol(args[1]), AsExpr(args[2]), SeriesOrder(args[3]), Context).ToExpression(),
         new BuiltinDescriptor("series", new[] { "f", "x", "x0", "order" }, BuiltinCategories.Calculus,
             "Power series of f around x = x0 to the given order (with an O-term).",
             ["series(sin(x)/x, x, 0, 8)"], "Symbolic", ["limit", "diff"]));
@@ -2242,28 +2242,87 @@ public sealed class SymbolicsPlugin : IModusPlugin, ISymbolicMatrixBridge, ISymb
     private static ArgumentException DigitCountError(string got) =>
         new($"evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and {int.MaxValue}; got {got}.");
 
-    private static int AsInt(object? o) => (int)AsLong(o);
-
-    private static long AsLong(object? o) => o switch
+    /// <summary>
+    /// The kernel's payload types read as exact integers, for
+    /// <see cref="ExactIntegerArgument"/>, applying the language's KIND rule: a <c>Natural</c> or an
+    /// <c>Integer</c> is read through its own exact predicate (never from its decimal text), and a
+    /// <c>Real</c> is NOT an integer argument however exactly integral it is — the same rule
+    /// <c>zeros(2.0)</c>, <c>[1,2,3][1.0]</c> and <c>setprecision(30.0)</c> already enforce, and the
+    /// one <c>Lovelace.Suite.Tests.InterpreterBuiltinPiTests</c> pins. The <c>Real</c> case is still
+    /// matched FIRST, and only to classify the refusal precisely: <c>Real</c> derives from
+    /// <c>Integer</c>, so without that arm the base type's rule would answer for <c>2.5</c> as well.
+    /// </summary>
+    private static bool ReadExactInteger(object? payload, out long value)
     {
-        Rl r => ParseInt64Argument(r.ToString().Split('.')[0]),   // Real inherits Integer: check first
-        Nat n => ParseInt64Argument(n.ToString()),
-        Int i => ParseInt64Argument(i.ToString()),
-        long l => l,
-        _ => throw new BuiltinArgumentError("an integer"),
+        switch (payload)
+        {
+            // A Real is NOT an integer argument, however exactly integral it is — and the arm has to
+            // come first, because Real DERIVES from Integer and would otherwise be read by the base
+            // type's rule.
+            case Rl: value = 0L; return false;
+            case Nat natural: return natural.TryGetExactInt64(out value);
+            case Int integer: return integer.TryGetExactInt64(out value);
+            case long l: value = l; return true;
+            case int i: value = i; return true;
+            default: value = 0L; return false;
+        }
+    }
+
+    /// <summary>
+    /// The refusal an integer argument produces, with the two <c>Real</c> cases kept apart: a Real
+    /// whose digits are NOT integral is refused as "not an integer", and one that IS integral is
+    /// refused as the wrong KIND, naming the integer to write instead. Both carry the builtin, the
+    /// parameter and the bound as properties, so a consumer never parses the sentence.
+    /// </summary>
+    private static ArgumentContractException RefuseIntegerArgument(
+        string builtin, string parameter, int position, Int64Range bounds, object? payload)
+    {
+        if (payload is Rl real && real.TryGetExactInt64(out long exact))
+            return ArgumentContractException.NotAnIntegerKind(
+                builtin, parameter, bounds, exact.ToString(), position);
+
+        return ArgumentContractException.NotAnInteger(
+            builtin, parameter, bounds, DescribeIntegerPayload(payload), position);
+    }
+
+    /// <summary>What arrived, in the caller's vocabulary — a one-word kind for the numeric tower's
+    /// members and the value itself where its text is short and unambiguous.</summary>
+    private static string DescribeIntegerPayload(object? payload) => payload switch
+    {
+        Rl real => "the Real " + real,
+        Nat natural => "the Natural " + natural,
+        Int integer => "the Integer " + integer,
+        _ => ArgumentContractException.DescribePayload(payload),
     };
 
-    /// <summary>An integer argument that does not FIT an Int64 is an argument problem, so it crosses
-    /// as <c>InvalidArgument</c>/<c>TypeMismatch</c> naming the value and the bound — the grammar the
-    /// digit-count refusals already use. It used to escape as the raw CLR conversion message "Value
-    /// was either too large or too small for an Int64." under <c>ArithmeticError</c>/<c>DomainError</c>
-    /// — audit O, wave 5: <c>series(sin(x), x, 0, 10^30)</c>.</summary>
-    private static long ParseInt64Argument(string text)
+    /// <summary>
+    /// The <c>order</c> argument of <c>series(f, x, x0, order)</c>: an exact integer in
+    /// <c>[1, int.MaxValue]</c>, through the ONE argument contract.
+    /// <para>
+    /// This call site is where the integer-coercion class was found (round-23 audit Q, Q-2):
+    /// <c>series(sin(x), x, 0, 2.5)</c> published <c>x + O(x^2)</c> — the order 2.5 silently became 2
+    /// and nothing in the envelope said so — because the argument went through a helper that took the
+    /// value's decimal text and cut it at the point. A precision argument is a claim about the answer,
+    /// so flooring it is a wrong answer that looks like a right one.
+    /// </para>
+    /// <para>
+    /// The bound is the second half of Q-2: <c>order = 100000000000</c> was accepted and then could
+    /// not finish (the only guard left was the caller's own cancellation budget). A count the kernel
+    /// cannot serve is a CALLER-SIDE argument error, so it is refused before any work starts.
+    /// </para>
+    /// </summary>
+    /// <summary>The declared position of `series`'s `order` parameter (`f, x, x0, order`).</summary>
+    private const int SeriesOrderPosition = 4;
+
+    private static int SeriesOrder(object? payload)
     {
-        if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
-            throw new ArgumentException(
-                $"an integer argument must fit a signed 64-bit integer (at most {long.MaxValue} in " +
-                $"absolute value); got {text}.");
-        return value;
+        var bounds = new Int64Range(1L, int.MaxValue);
+        long order = ExactIntegerArgument.Require(
+            payload, "order", bounds,
+            ReadExactInteger,
+            p => RefuseIntegerArgument("series", "order", SeriesOrderPosition, bounds, p),
+            "series",
+            position: SeriesOrderPosition);
+        return (int)order;
     }
 }

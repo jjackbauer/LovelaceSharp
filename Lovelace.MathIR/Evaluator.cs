@@ -437,7 +437,7 @@ public sealed class MathIRPlugin : IModusPlugin
             try
             {
                 var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
-                var digits = (int)AsLong(args[2]!);
+                var digits = DigitCount(args[2], "evalir_batch");
                 int width = prog.Parameters.Count;
                 var (values, rows) = BatchRows(args[1], width);
                 var columns = new Dictionary<string, Num[]>(width);
@@ -473,7 +473,7 @@ public sealed class MathIRPlugin : IModusPlugin
             {
                 var prog = IrProgram.Deserialize(IrTextOf(args[0]!));
                 var values = (IReadOnlyList<object?>)args[1]!;
-                var digits = (int)AsLong(args[2]!);
+                var digits = DigitCount(args[2], "evalir");
                 if (values.Count != prog.Parameters.Count)
                     throw new InvalidOperationException(
                         $"evalir(): kernel expects {prog.Parameters.Count} parameters; got {values.Count} values.");
@@ -589,12 +589,128 @@ public sealed class MathIRPlugin : IModusPlugin
         _ => throw new InvalidOperationException("Expected a symbolic expression."),
     };
 
-    private static long AsLong(object? o) => o switch
+    // -------------------------------------------------------------------------
+    // The digits argument of evalir/evalir_batch — the ONE integer-argument contract
+    // -------------------------------------------------------------------------
+
+    /// <summary>The <c>digits</c> argument every MathIR evaluation builtin carries: a precision, so a
+    /// silent alteration of it is a WRONG ANSWER that looks like a right one.
+    /// <para>
+    /// This used to be <c>AsLong</c>, which read a Real by taking its decimal text and cutting at the
+    /// point — <c>long.Parse(r.ToString().Split('.')[0])</c> — so <c>evalir(k, v, 2.9)</c> evaluated at
+    /// 2 places, <c>digits = 0</c> and <c>digits = -5</c> both answered a plausible <c>0</c>, and every
+    /// one of them crossed with <c>ok: true</c> and no diagnostic. A count too wide for Int64 escaped
+    /// as the raw CLR sentence "Value was either too large or too small for an Int64." under
+    /// <c>ArithmeticError</c>/<c>DomainError</c>, naming no number (advancement cycle 7, finding F-1).
+    /// </para>
+    /// <para>
+    /// The bound is the one the sibling <c>evalf</c> declares — [1, <see cref="int.MaxValue"/>] — and
+    /// the refusal is the shared <see cref="ArgumentContractException"/>, which derives from
+    /// <see cref="ArgumentException"/> so the runner's own taxonomy answers the documented recoverable
+    /// <c>InvalidArgument</c>/<c>TypeMismatch</c> pair instead of the domain pair a wrong count used to
+    /// borrow.
+    /// </para>
+    /// </summary>
+    private static readonly Int64Range DigitCountBounds = new(1L, int.MaxValue);
+
+    /// <summary>One parameter: it names the argument for the refusal, so the caller reads which
+    /// builtin refused which argument without parsing prose.</summary>
+    private static int DigitCount(object? payload, string builtin) =>
+        (int)ExactIntegerArgument.Require(
+            payload, "digits", DigitCountBounds, ReadExactInteger,
+            p => DescribeDigitRefusal(p, builtin), builtin, DigitPosition);
+
+    /// <summary><c>digits</c> is the THIRD declared argument of both <c>evalir(ir, values, digits)</c>
+    /// and <c>evalir_batch(ir, values, digits)</c>, which is what the refusal message publishes.</summary>
+    private const int DigitPosition = 3;
+
+    /// <summary>
+    /// The exact integer a payload denotes, from the payload's OWN representation — never from its
+    /// rendered text, which is what made the old helper floor.
+    /// <para>
+    /// <b>The Real arm comes first and that ordering is load-bearing:</b> <c>Real</c> derives from
+    /// <c>Integer</c>, so an arm that tested <c>Integer</c> first would answer <c>true</c> for
+    /// <c>2.5</c> through the base predicate and the contract would publish exactly the floor it
+    /// exists to refuse. <c>Real.TryGetExactInt64</c> is the override that says whether the value IS
+    /// an integer.
+    /// </para>
+    /// <para>
+    /// A value wider than Int64 answers <see langword="false"/> rather than wrapping or throwing, so
+    /// the contract refuses it and NAMES it. The <c>long</c> arm is the fourth payload the plugin
+    /// boundary can deliver: the core chooses Nat/Int/long by literal width, and a call site cannot
+    /// know which it will be handed.
+    /// </para>
+    /// </summary>
+    private static bool ReadExactInteger(object? payload, out long value)
     {
-        global::Lovelace.Real.Real r => long.Parse(r.ToString().Split('.')[0]),
-        global::Lovelace.Integer.Integer i => long.Parse(i.ToString()),
-        global::Lovelace.Natural.Natural n => long.Parse(n.ToString()),
-        long l => l,
-        _ => throw new InvalidOperationException("Expected an integer."),
+        switch (payload)
+        {
+            case global::Lovelace.Real.Real r:
+                return r.TryGetExactInt64(out value);
+            case global::Lovelace.Integer.Integer i:
+                return i.TryGetExactInt64(out value);
+            case global::Lovelace.Natural.Natural n:
+                return n.TryGetExactInt64(out value);
+            case long l:
+                value = l;
+                return true;
+            default:
+                value = 0L;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// The refusal for a payload the reader rejected, with the cases a consumer branches on kept
+    /// distinguishable — "your number is of a kind I do not take" is a different repair from "your
+    /// number is out of range", and neither is "your number is not an integer".
+    /// <para>
+    /// The order matters. An EXACT integer type that does not fit is
+    /// <see cref="ArgumentContractFailure.TooWide"/> and its value is the payload (there is no
+    /// <see cref="long"/> to carry it). A <c>Real</c> that IS an integer is
+    /// <see cref="ArgumentContractFailure.NotAnIntegerKind"/> and the refusal names the integer to
+    /// write instead. Everything else did not denote an integer at all.
+    /// </para>
+    /// <para>
+    /// The <c>Real</c>-that-is-integral case is a property of the CONTRACT, but it is not reachable
+    /// from the language surface at this boundary: the host normalizes an exactly integral
+    /// <c>Real</c> before the plugin sees it, so <c>evalir(k, v, 2.0)</c> arrives as the integer 2 and
+    /// answers 2 places (measured). The arm stays because the contract must be correct for the
+    /// callers the boundary does not normalize for.
+    /// </para>
+    /// </summary>
+    private static ArgumentContractException DescribeDigitRefusal(object? payload, string builtin)
+    {
+        switch (payload)
+        {
+            // Real inherits Integer, so BOTH arms below must exclude it explicitly. A bare
+            // Natural-or-Integer case would match a Real too (it is a subtype), and the refusal would
+            // then report a fractional count as "too wide" — a wrong failure CLASS, which is the same
+            // hazard the reader carries one level down in the opposite direction.
+            case global::Lovelace.Real.Real integral when integral.TryGetExactInt64(out long exact):
+                return ArgumentContractException.NotAnIntegerKind(
+                    builtin, "digits", DigitCountBounds, exact.ToString(), DigitPosition);
+            case global::Lovelace.Real.Real:
+                return ArgumentContractException.NotAnInteger(
+                    builtin, "digits", DigitCountBounds, DescribeDigit(payload), DigitPosition);
+            case global::Lovelace.Natural.Natural or global::Lovelace.Integer.Integer:
+                return ArgumentContractException.TooWide(
+                    builtin, "digits", DigitCountBounds, DescribeDigit(payload), DigitPosition);
+            default:
+                return ArgumentContractException.NotAnInteger(
+                    builtin, "digits", DigitCountBounds, DescribeDigit(payload), DigitPosition);
+        }
+    }
+
+    /// <summary>What arrived, in the caller's own vocabulary: the VALUE for a numeric payload (the
+    /// caller wrote <c>2.9</c>, and that is what it must read back), the value kind otherwise.</summary>
+    private static string DescribeDigit(object? payload) => payload switch
+    {
+        null => "nothing",
+        global::Lovelace.Real.Real r => r.ToString(),
+        global::Lovelace.Integer.Integer i => i.ToString(),
+        global::Lovelace.Natural.Natural n => n.ToString(),
+        long l => l.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        _ => Describe(payload),
     };
 }

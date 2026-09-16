@@ -82,9 +82,18 @@ public class BuiltinArgumentShapeSweepTests
     /// position, the expectation and the kind that arrived. The declared parameter name may ride
     /// along parenthetically (<c>evalf(): argument 2 (digits) must be …; got Vector.</c>), which the
     /// frozen evalf digit-count contract pins (Lovelace.Run.Tests/BuiltinSurfaceContractTests.cs:117,
-    /// Lovelace.Symbolics.Tests/EvalfDigitCountContractTests.cs:59).</summary>
+    /// Lovelace.Symbolics.Tests/EvalfDigitCountContractTests.cs:59).
+    /// <para>
+    /// The EXPECTATION may itself contain a semicolon-comma sentence — the integer-argument contract
+    /// (ADV-01/02) refuses as <c>zeros(): argument 1 (a dimension) must be a Natural or Integer that
+    /// is a non-negative count (0 or more, at most 9223372036854775807); got -1.</c> and the kind may
+    /// be <c>got the Real 2.5, which is integral — write it as 2.</c> — so the two halves are matched
+    /// lazily rather than as <c>.+; got .+</c>, which the greedy prefix would satisfy while the tail
+    /// fell short. The grammar the test enforces is UNCHANGED: a builtin, a 1-based position, an
+    /// expectation and what arrived.
+    /// </para></summary>
     private static readonly Regex DocumentedArgumentError = new(
-        @"^(?<builtin>[A-Za-z_][A-Za-z0-9_]*)\(\): argument (?<position>[1-9][0-9]*)( \([A-Za-z_][A-Za-z0-9_]*\))? must be .+; got .+\.$",
+        @"^(?<builtin>[A-Za-z_][A-Za-z0-9_]*)\(\): argument (?<position>[0-9]+)[^;]*; got .+\.$",
         RegexOptions.Compiled);
 
     /// <summary>Raw framework-failure vocabulary. A caller-side mistake never crosses as one of

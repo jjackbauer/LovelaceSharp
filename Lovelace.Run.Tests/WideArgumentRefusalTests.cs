@@ -142,15 +142,27 @@ public class WideArgumentRefusalTests
         Assert.Contains("Index -1 is out of range for vector of length 3.", message);
     }
 
-    /// <summary>A non-positive count that FITS is still the existing refusal, naming the number.</summary>
+    /// <summary>A non-positive count that FITS keeps its refusal and its number. What changed in
+    /// ADV-03 is the CODE it crosses with: a count that IS an exact integer and falls below the
+    /// declared bound is a caller-side argument error (<c>InvalidArgument</c>/<c>TypeMismatch</c>),
+    /// which is the pair <c>pi(0)</c> and <c>e(0)</c> already used — <c>setprecision</c> was the one
+    /// call site answering the same question with <c>InvalidOperation</c>/<c>DomainError</c>.</summary>
     [Fact]
-    public async Task Setprecision_WithANonPositiveCount_KeepsItsDocumentedRefusal()
+    public async Task Setprecision_WithANonPositiveCount_IsTheSameArgumentRefusalAsPi()
     {
-        var (code, _, message) = await RefusalAsync("setprecision(-5)");
+        var (code, category, message) = await RefusalAsync("setprecision(-5)");
 
-        Assert.Equal("InvalidOperation", code);
-        Assert.Contains("positive digit count", message);
+        Assert.Equal("InvalidArgument", code);
+        Assert.Equal("TypeMismatch", category);
+        Assert.Contains("setprecision(): argument 1 (digits)", message);
         Assert.Contains("-5", message);
+
+        // the control: pi's below-one count is the identical shape, so the two surfaces agree
+        var (piCode, piCategory, piMessage) = await RefusalAsync("pi(-5)");
+        Assert.Equal(code, piCode);
+        Assert.Equal(category, piCategory);
+        Assert.Contains("pi(): argument 1 (digits)", piMessage);
+        Assert.Contains("-5", piMessage);
     }
 
     /// <summary>The typed digit refusal K-1 landed is unchanged by this one.</summary>

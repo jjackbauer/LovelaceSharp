@@ -266,5 +266,6 @@
   "functions": [],
   "elapsed": "<volatile>",
   "elapsedTime": "<volatile>",
-  "timings": "<volatile>"
+  "timings": "<volatile>",
+  "artifacts": []
 }

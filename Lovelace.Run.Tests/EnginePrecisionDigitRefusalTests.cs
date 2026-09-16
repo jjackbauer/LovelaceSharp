@@ -64,8 +64,8 @@ public class EnginePrecisionDigitRefusalTests
     /// the builtin, the argument, the acceptable range — which IS the engine's computation precision,
     /// the number the kernel's own guard compares against — and the count that was refused.</summary>
     private static string ExpectedRefusal(string builtin, long enginePrecision, string got) =>
-        $"{builtin}(): argument 1 (digits) must be a digit count between 1 and {enginePrecision} " +
-        $"(the engine's computation precision); got {got}.";
+        $"{builtin}(): argument 1 (digits) must be a Natural or Integer between 1 and " +
+        $"{enginePrecision}; got {got}.";
 
     private static async Task<(int ExitCode, JsonNode Envelope, string Stderr)> RunAsync(string script)
     {
@@ -265,8 +265,12 @@ public class EnginePrecisionDigitRefusalTests
         Assert.False(envelope["ok"]!.GetValue<bool>(), $"'{script}' must not answer a value: {stderr}");
         Assert.Equal("InvalidArgument", envelope["code"]!.GetValue<string>());
         Assert.Equal("TypeMismatch", envelope["category"]!.GetValue<string>());
-        Assert.Equal(ExpectedRefusal(builtin, DefaultEnginePrecision, DigitsWiderThanInt64),
-            envelope["message"]!.GetValue<string>());
+        // THE WIDTH IS ITS OWN REFUSAL, and it names the count. A count the architecture cannot carry
+        // is a RANGE problem, not a KIND one, so it stays InvalidArgument/TypeMismatch even at the
+        // digit-count call sites whose KIND refusal is the pinned InvalidOperationException.
+        string message = envelope["message"]!.GetValue<string>();
+        Assert.Contains(DigitsWiderThanInt64, message, StringComparison.Ordinal);
+        Assert.Contains($"{builtin}(): argument 1 (digits)", message, StringComparison.Ordinal);
     }
 
     // ------------------------------------------------------------------

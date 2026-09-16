@@ -37,9 +37,125 @@ internal sealed record TimingDto(int Position, DurationDto Elapsed, string Resul
 /// a definition that declares no shorter form publishes its parameter count, never the internal
 /// "exactly the declared count" sentinel), and <c>variadic</c> says the last parameter may repeat,
 /// which removes the upper bound. An accepted call therefore satisfies
-/// <c>minArity &lt;= n &amp;&amp; (variadic || n &lt;= parameterCount)</c> with no error message parsed.</summary>
+/// <c>minArity &lt;= n &amp;&amp; (variadic || n &lt;= parameterCount)</c> with no error message parsed.
+/// <para>
+/// The registry is also the product's DISCOVERY surface, so each entry carries the descriptor metadata an
+/// agent needs to choose a function without guessing a name and without reading prose: the category, the
+/// one-line summary, the declared return kind, the see-also names, and the executable examples. Every one
+/// of them comes from the SAME <c>BuiltinDescriptor</c> the help surface and the Studio autocomplete read,
+/// so the wire cannot drift from the documentation (ADV-08). The fields are additive: the six names and
+/// meanings recorded in earlier cycles (name, parameters, minArity, parameterCount, variadic, builtin) are
+/// unchanged and stay first in this order, and <c>plugin</c> keeps its place after them.
+/// </para>
+/// <para>
+/// <c>plugin</c>, <c>summary</c>, <c>returnKind</c>, <c>related</c> and <c>examples</c> are OMITTED when the
+/// registry has nothing to say — never sent as an empty array or a placeholder string — so "no summary is
+/// registered" and "the summary is empty" cannot look alike to a consumer.
+/// </para></summary>
 internal sealed record FunctionDto(string Name, string[] Parameters, int MinArity, int ParameterCount,
-    bool Variadic, bool Builtin, string? Plugin);
+    bool Variadic, bool Builtin, string? Plugin, string Category, string? Summary, string? ReturnKind,
+    string[]? Related, string[]? Examples);
+
+/// <summary>
+/// A FILE an evaluation committed, published on BOTH the success and the failure path (ADV-09).
+/// <para>
+/// The invariant this exists for: a statement that RETURNED wrote its file, so the file is committed state
+/// — and a failure in a LATER statement cannot un-write it. Before this, `plot([1, 2, 3]); det(1)` exited 1
+/// with an envelope carrying no plot block and no path while <c>plot.svg</c> sat on disk (round-23 audit N,
+/// N-5), so the artifact existed and nothing machine-readable said so; a consumer had to know the plot
+/// directory convention and go looking.
+/// </para>
+/// <para>
+/// <c>kind</c> names what produced the file rather than what it contains, because that is what a consumer
+/// branches on when more than one builtin can write: today only <c>plot</c>. <c>title</c> is the label the
+/// script gave it, when it gave one, and <c>bytes</c> is the committed file's size — read from the file
+/// itself, and <see langword="null"/> when it could not be read, so a size is never invented. The array is
+/// present and EMPTY on a run that wrote nothing, never absent: "nothing was written" is an answer.
+/// </para>
+/// </summary>
+internal sealed record ArtifactDto(string Kind, string Path, string? Title, long? Bytes);
+/// <summary>
+/// The CALL-SITE signature an argument failure was measured against, so a consumer repairs the call from
+/// structure instead of from the sentence (ADV-07). The types the runner already classified carry every one
+/// of these fields — BuiltinArityException publishes the builtin, both counts and the variadic flag, and
+/// BuiltinShapeException publishes the position, what that position required and the kind that arrived —
+/// and the runner used to throw all of it away by forwarding ex.Message alone.
+/// <para>
+/// function, parameters, expectedMin, expectedMax, variadic, actual and position describe the SIGNATURE;
+/// parameter, expectedShape and arrivedKind describe the ONE argument that was wrong. Fields are omitted
+/// when the failure does not have them, and a failure that is not a call-site refusal carries no signature
+/// at all — which is how a consumer tells a malformed CALL from a mathematical refusal.
+/// </para>
+/// <para>
+/// The counts agree with the registry's own functions[] entry for the same name by construction: both come
+/// from FunctionDefinition.DeclaredArity, and the signature sweep asserts that over every builtin.
+/// </para>
+/// </summary>
+internal sealed record CallSignatureDto(
+    string Function,
+    string[]? Parameters = null,
+    int? ExpectedMin = null,
+    int? ExpectedMax = null,
+    bool? Variadic = null,
+    int? Actual = null,
+    // the 1-based position of the argument the failure is about; 0 when the call site could not name one
+    int? Position = null,
+    string? Parameter = null,
+    string? ExpectedShape = null,
+    string? ArrivedKind = null);
+
+/// <summary>
+/// The answer to a REGISTRY QUERY — <c>--functions [pattern]</c> and <c>--function &lt;name&gt;</c> — which
+/// is a read of the live registry and NOT an evaluation: no script is parsed, no statement runs, no
+/// statement timing exists, and the revision is unchanged.
+/// <para>
+/// It is bounded and it says so. <c>total</c> is how many entries matched the pattern, <c>returned</c> how
+/// many the page carries, and <c>truncated</c> is true exactly when the page is short — so an agent can
+/// tell a complete answer from a page without comparing array lengths against a limit it guessed. The
+/// order is the registry's own (ordinal by name), so two queries over one registry never disagree.
+/// </para>
+/// </summary>
+/// <summary>
+/// One entry of a <c>--functions [pattern]</c> LISTING: the name and the arity metadata, and nothing else.
+/// <para>
+/// The listing is the cheap surface — the question it answers is "does this runtime have something like
+/// what I am reaching for, and how is it called" — so it deliberately omits summaries, examples and
+/// see-also lists. Those are what <c>--function &lt;name&gt;</c> is for, and keeping them out is what makes a
+/// listing a few hundred bytes instead of a few kilobytes (measured: the full registry is ~15 KB for 123
+/// builtins, of which the names and arity are a small fraction).
+/// </para>
+/// </summary>
+internal sealed record RegistryFunctionDto(string Name, string[] Parameters, int MinArity,
+    int ParameterCount, bool Variadic, string Category);
+
+/// <summary>
+/// The answer to a REGISTRY QUERY — <c>--functions [pattern]</c> and <c>--function &lt;name&gt;</c> — which
+/// is a read of the live registry and NOT an evaluation: no script is parsed, no statement runs, no
+/// statement timing exists, and the revision is unchanged.
+/// <para>
+/// It is bounded and it says so. <c>total</c> is how many entries matched, <c>returned</c> how many the page
+/// carries, and <c>truncated</c> is true exactly when the page is short — so an agent can tell a complete
+/// answer from a page without comparing array lengths against a limit it guessed. The order is the
+/// registry's own (ordinal by name), so two queries over one registry never disagree.
+/// </para>
+/// <para>
+/// Exactly ONE of the two payloads is present: <c>functions</c> (the listing) or <c>function</c> (the single
+/// full entry). An unknown NAME is not an empty success — it is the documented <c>UnknownFunction</c>
+/// refusal, with the registry's suggestions, exactly as a call to that name would produce.
+/// </para>
+/// </summary>
+internal sealed record RegistryQueryDto(
+    int ProtocolVersion,
+    string SymbolicFormatVersion,
+    int MathIrVersion,
+    bool Ok,
+    // the pattern as it was understood; absent for --function, which names one entry instead
+    string? Pattern,
+    RegistryFunctionDto[]? Functions,
+    FunctionDto? Function,
+    int Total,
+    int Returned,
+    bool Truncated);
 internal sealed record PlotDto(string Path, string Title, string Svg);
 internal sealed record ResultDto(string Kind, string Display, string Typed, StructuredValueDto Structured);
 /// <summary>One entry of the error envelope's <c>diagnostics</c> array: the parser's source-position
@@ -90,7 +206,10 @@ internal sealed record RunEnvelopeDto(
     CancellationDto? Cancellation = null,
     // present only when the deadline was overrun: one diagnostic naming the overrun, so a consumer
     // that reads only the diagnostics array still learns that the budget was dropped
-    DiagnosticDto[]? Diagnostics = null);
+    DiagnosticDto[]? Diagnostics = null,
+    // every file this evaluation committed (ADV-09). Present and EMPTY when the run wrote nothing, so a
+    // consumer reads one array instead of inferring artifacts from the plot block.
+    ArtifactDto[]? Artifacts = null);
 internal sealed record RunErrorDto(
     int ProtocolVersion,
     string SymbolicFormatVersion,
@@ -131,7 +250,16 @@ internal sealed record RunErrorDto(
     // a caller that only reads text. Omitted for every other failure.
     string[]? Suggestions = null,
     string[]? Hints = null,
-    int? RegistrySize = null);
+    int? RegistrySize = null,
+    // Present only when the failure IS a call-site refusal (ADV-07): the declared signature the call was
+    // measured against, so an agent reads the parameter names and the arity instead of guessing them from
+    // the sentence. Omitted for every other failure, which is how a consumer distinguishes a malformed
+    // CALL from a mathematical refusal without parsing English.
+    CallSignatureDto? Signature = null,
+    // the same array the success envelope carries, and the reason it exists: a statement that returned
+    // before the failure had already committed its file, so a failure cannot make it un-happen. Present
+    // and EMPTY when nothing was written.
+    ArtifactDto[]? Artifacts = null);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
@@ -142,6 +270,10 @@ internal sealed record RunErrorDto(
 [JsonSerializable(typeof(StructuredFieldDto))]
 [JsonSerializable(typeof(VariableDto))]
 [JsonSerializable(typeof(FunctionDto))]
+[JsonSerializable(typeof(RegistryQueryDto))]
+[JsonSerializable(typeof(CallSignatureDto))]
+[JsonSerializable(typeof(ArtifactDto))]
+[JsonSerializable(typeof(RegistryFunctionDto))]
 [JsonSerializable(typeof(PlotDto))]
 [JsonSerializable(typeof(DiagnosticDto))]
 [JsonSerializable(typeof(CancellationDto))]

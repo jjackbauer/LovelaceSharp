@@ -95,7 +95,15 @@ public class RealDivideLeadingZeroRunTests
         Assert.Equal(-(1003L + 20L), quotient.Exponent);                   // 1003 zeros carried by the scale
         Assert.Equal(0L, quotient.PeriodStart);
         Assert.Equal(0L, quotient.PeriodLength);
-        Assert.Equal("0." + new string('0', 1003) + "99108027750247770069", quotient.ToString());
+        // The DISPLAY limit is 40 places and the value's leading significant digit sits 1003 places
+        // right of the point, so the rendered form is the display limit's worth of zeros: the 20
+        // stored digits are real and are asserted above through ToNatural/Exponent, and they are
+        // simply outside the window this rendering publishes. The assertion used to spell all 1023
+        // fractional places, which only passed while ToString ignored the display limit for a
+        // magnitude shorter than its fractional length (see
+        // RealTrigCertifiedPrefixTests.PublishedWidth_IsTheDisplayLimit_ForEveryNonPeriodicValue).
+        Assert.Equal(new string('0', 40), quotient.ToString()[2..]);
+        Assert.Equal(0, quotient.ToString().Length - 2 - 40);
     }
 
     // -------------------------------------------------------------------------

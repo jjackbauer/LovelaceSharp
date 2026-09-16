@@ -405,6 +405,63 @@ public class Real :
 
     // Required INumberBase<T> classification stubs
     /// <inheritdoc/>
+    // -------------------------------------------------------------------------
+    // Exact integer extraction — the ONE way an argument contract may read this value
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// <see langword="true"/> exactly when this value denotes an integer representable as a signed
+    /// 64-bit integer, in which case <paramref name="value"/> is that integer.
+    /// <para>
+    /// <see cref="IsInteger"/> is the whole integrality test — a <c>Real</c> denotes an integer
+    /// exactly when it is not periodic and its stored digits carry no fractional part
+    /// (<c>Exponent &gt;= 0</c>) — and the magnitude's own predicate then decides the width. Nothing
+    /// here renders the value or cuts its decimal text: <c>2.5</c> is not an integer, <c>2.0</c> is
+    /// the integer 2, and a value wider than the type answers <see langword="false"/> so the
+    /// argument contract refuses it by name.
+    /// </para>
+    /// </summary>
+    public override bool TryGetExactInt64(out long value)
+    {
+        // ZERO IS AN INTEGER AT EVERY SCALE, and that is NOT what IsInteger(Real) answers. IsInteger
+        // is the INumberBase classification and requires Exponent >= 0L, which is false for a zero
+        // WRITTEN WITH FRACTIONAL PLACES: new Real("0.0") and new Real("0.00") store magnitude 0 at
+        // exponent -1 and -2, so delegating to it answered "0.0 is not an integer" and the argument
+        // contract refused a count of 0 the caller had written as 0.0. That is the same class of false
+        // refusal this predicate exists to prevent, so the integrality test here is the value's own:
+        // nothing after the point at any scale, and zero has nothing after the point at any scale.
+        // (Found by the ADV-02 plugin worktree against this file's first version; pinned by
+        // DspIntegerArgumentContractTests.TheReader_AcceptsEveryPayloadTheCoreCanSend.)
+        bool integral = IsZero(this) || (!IsPeriodic && Exponent >= 0L);
+        if (!integral)
+        {
+            value = 0L;
+            return false;
+        }
+
+        if (IsZero(this))
+        {
+            value = 0L;
+            return true;
+        }
+
+        bool negative = Int.IsNegative(this);
+        if (ToNatural().TryGetExactInt64(out long magnitude))
+        {
+            value = negative ? -magnitude : magnitude;
+            return true;
+        }
+
+        if (negative && ToNatural().ToString() == "9223372036854775808")
+        {
+            value = long.MinValue;
+            return true;
+        }
+
+        value = 0L;
+        return false;
+    }
+
     public static bool IsCanonical(Real value) => true;
     /// <inheritdoc/>
     public static bool IsComplexNumber(Real value) => false;
@@ -1753,6 +1810,94 @@ public class Real :
     /// <summary>Computes cos(x) to <paramref name="digits"/> decimal places.</summary>
     public static Real Cos(Real value, long digits) => Cos(value, digits, null);
 
+    /// <summary>
+    /// The decimal place count a trigonometric kernel must compute at so that the
+    /// <paramref name="digits"/> it publishes are actually correct, for THIS argument.
+    /// <para>
+    /// A constant guard is not enough, and the measurement is what says so.  The reduction measures
+    /// <c>x − k·π</c>, so an argument carrying <c>i</c> integer digits loses up to <c>i</c> of the
+    /// places the series then spends: with a flat <c>digits + 10</c>, <c>Sin(10)</c> at 30 came back
+    /// with <b>29</b> correct fractional digits — wrong INSIDE the request — <c>Sin(1)</c> at 50 with
+    /// 59, and <c>Sin(10^100)</c> at 30 with <b>zero</b>.  Paying <c>i</c> extra places, and running
+    /// the whole kernel at that scope so <c>Pi</c>, <c>ReduceToTwoPi</c> and the series all cooperate
+    /// at the same width, is what the contract "computes sin(x) to <c>digits</c> decimal places"
+    /// actually requires.
+    /// </para>
+    /// <para>
+    /// The exponent is the cheap upper bound on <c>i</c>: a <c>Real</c>'s magnitude is at least
+    /// <c>10^(Exponent−1)</c>, so <c>max(0, Exponent)</c> extra places cover every argument, and for
+    /// an argument below 1 it adds nothing.  Periodic arguments reduce exactly by the special-angle
+    /// table and are clamped at 0.  The addition is capped, because the call itself is bounded: an
+    /// exponent beyond <c>int.MaxValue</c> could not be materialised as a digit count at all.
+    /// </para>
+    /// <para>
+    /// The scope never SHRINKS: a caller who set a wider precision than the request needs keeps it,
+    /// so no existing result gets narrower than it was.
+    /// </para>
+    /// </summary>
+    private static long TrigReductionPlaces(Real value, long digits)
+    {
+        long required = digits + 10L + TrigIntegerDigits(value);
+        long ambient = MaxComputationDecimalPlaces;
+        return ambient > required ? ambient : required;
+    }
+
+    /// <summary>
+    /// The number of INTEGER digits of <paramref name="value"/> (0 for anything below 1).
+    /// <para>
+    /// This is the term the original flat guard was missing, and reading it off
+    /// <see cref="Real.Exponent"/> alone is wrong in exactly the case that matters: a decimal literal
+    /// carries no fractional digits, so its exponent is <c>0</c> however long it is —
+    /// <c>10^100</c> reports <c>Exponent = 0</c>, and a guard sized from that believes the argument is
+    /// 1. The width comes from the magnitude's own decimal digit count plus the exponent, which is a
+    /// length read on a cache the type already keeps.
+    /// </para>
+    /// </summary>
+    private static long TrigIntegerDigits(Real value)
+    {
+        const long MaxExtra = int.MaxValue - 16L;
+        if (value.IsPeriodic)
+            return 0L;
+
+        long digits = value.ToNatural().DecimalDigitCount() + value.Exponent;
+        if (digits <= 0L)
+            return 0L;
+        return digits > MaxExtra ? MaxExtra : digits;
+    }
+
+    /// <summary>
+    /// The number of places π must carry for the reduction of <paramref name="value"/> to leave the
+    /// requested digits intact — the argument's own integer digits, plus its fractional places, plus
+    /// the guard. Derived, not guessed: <c>k = trunc(value / 2π)</c> is multiplied back by π during
+    /// the reduction, so every place π is short by is amplified by <c>k</c> (up to <c>10^i</c> for an
+    /// argument with <c>i</c> integer digits) and lands as absolute error on a residual of order 1.
+    /// With π at the ambient 1000 places, <c>Sin(10^100, 30)</c> had <b>zero</b> correct fractional
+    /// digits.
+    /// </summary>
+    /// <summary>
+    /// π at <paramref name="places"/> places, through the ordinary constant cache under a local
+    /// precision scope: a finer π is computed once for the process and every later caller — at any
+    /// ambient precision — is served from it.  A caller whose ambient scope is wider than
+    /// <paramref name="places"/> keeps its own π, so no existing result narrows.
+    /// </summary>
+    private static Real FetchPi(long places)
+    {
+        long ambient = MaxComputationDecimalPlaces;
+        if (places <= ambient)
+            return Pi;
+
+        using (WithLocalPrecision(places))
+            return Pi;
+    }
+
+    private static long TrigPiPlaces(Real value, long digits, long workingPlaces)
+    {
+        long argumentPlaces = value.IsPeriodic || value.Exponent >= 0L ? 0L : -value.Exponent;
+        long required = TrigIntegerDigits(value) + argumentPlaces + digits + 12L;
+        return required > workingPlaces ? required : workingPlaces;
+    }
+
+
     private static Real Sin(Real value, long digits, IProgress<double>? progress)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -1768,23 +1913,35 @@ public class Real :
         if (value < Zero)
             return -Sin(-value, digits, progress);
 
+        // (1) THE SPECIAL-ANGLE TABLE IS ASKED FIRST, AGAINST THE CALLER'S OWN π, AND IN THE CALLER'S
+        // OWN SCOPE.  This ordering is load-bearing and was falsified the hard way: an exact angle is
+        // the argument expressed in the ambient π (pi/6, pi, 11pi/6, …), so a table lookup made after
+        // the working scope is widened compares it against a FINER π and misses —
+        // Sin(Pi/6) then came back as 0.4999…, which is exactly the round-02 regression this ordering
+        // exists to prevent.
+        Real ambientPi = Pi;
+        Real ambientTwoPi = ambientPi * new Real("2");
+        Real ambientHalfPi = HalfOf(ambientPi);
+
+        Real x = ReduceToTwoPi(value, ambientPi, ambientTwoPi);
+        if (TrySpecialAngle(x, ambientPi, out Real sinValue, out _))
+            return sinValue;
+
+        // (2) Only a general angle runs at the width THIS argument needs (see
+        // TrigReductionPlaces): the reduction, π and every series division then cooperate at one
+        // precision instead of each inheriting whatever the caller's scope happened to be.  π is
+        // re-fetched at that width because the reduction multiplies it back by the turn count, which
+        // amplifies every place π is short by (see TrigPiPlaces).
+        long workingPlaces = TrigReductionPlaces(value, digits);
+        using var working = WithPrecision(workingPlaces, MaxComputationDecimalPlaces);
         long guard = digits + 10;
-        Real pi = Pi;
+        Real pi = FetchPi(TrigPiPlaces(value, digits, workingPlaces));
         Real twoPi = pi * new Real("2");
         Real halfPi = HalfOf(pi);
 
-        Real x = ReduceToTwoPi(value, pi, twoPi);
-
-        if (TrySpecialAngle(x, pi, out Real sinValue, out _))
+        x = ReduceToTwoPi(value, pi, twoPi);
+        if (TrySpecialAngle(x, pi, out sinValue, out _))
             return sinValue;
-
-        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
-        {
-            (pi, twoPi, halfPi) = ReducingPi(value, digits);
-            x = ReduceToTwoPi(value, pi, twoPi);
-            if (TrySpecialAngle(x, pi, out sinValue, out _))
-                return sinValue;
-        }
 
         bool negative = false;
         if (x <= pi) { if (x > halfPi) x = pi - x; }
@@ -1808,23 +1965,27 @@ public class Real :
         if (value < Zero)
             return Cos(-value, digits, progress);
 
+        // (1) The special-angle table first, against the CALLER's π and in the caller's scope — see
+        // the same ordering note in Sin, where getting it wrong produced 0.4999… for Sin(Pi/6).
+        Real ambientPi = Pi;
+        Real ambientTwoPi = ambientPi * new Real("2");
+        Real ambientHalfPi = HalfOf(ambientPi);
+
+        Real x = ReduceToTwoPi(value, ambientPi, ambientTwoPi);
+        if (TrySpecialAngle(x, ambientPi, out _, out Real cosValue))
+            return cosValue;
+
+        // (2) Only a general angle pays for the argument-aware width.
+        long workingPlaces = TrigReductionPlaces(value, digits);
+        using var working = WithPrecision(workingPlaces, MaxComputationDecimalPlaces);
         long guard = digits + 10;
-        Real pi = Pi;
+        Real pi = FetchPi(TrigPiPlaces(value, digits, workingPlaces));
         Real twoPi = pi * new Real("2");
         Real halfPi = HalfOf(pi);
 
-        Real x = ReduceToTwoPi(value, pi, twoPi);
-
-        if (TrySpecialAngle(x, pi, out _, out Real cosValue))
+        x = ReduceToTwoPi(value, pi, twoPi);
+        if (TrySpecialAngle(x, pi, out _, out cosValue))
             return cosValue;
-
-        if (ResolvedPiDigits(value, digits) > MaxComputationDecimalPlaces)
-        {
-            (pi, twoPi, halfPi) = ReducingPi(value, digits);
-            x = ReduceToTwoPi(value, pi, twoPi);
-            if (TrySpecialAngle(x, pi, out _, out cosValue))
-                return cosValue;
-        }
 
         bool negate = false;
         if (x <= pi) { if (x > halfPi) { x = pi - x; negate = true; } }
@@ -2496,7 +2657,19 @@ public class Real :
             {
                 // All digits are fractional, need leading "0."
                 string padded = digits.PadLeft((int)fracLen, '0');
-                string fracPart = padded[..Math.Min((int)fracLen, (int)(fracLen + DisplayDecimalPlaces))];
+                // TRUNCATION IS THE DISPLAY LIMIT, and this branch used to name it and not apply it:
+                // the bound was Math.Min(fracLen, fracLen + DisplayDecimalPlaces), and since the
+                // display precision is never negative the second term is never the smaller one, so the
+                // Math.Min was a no-op and the bound was always fracLen — every digit the magnitude
+                // happened to carry was published. This is the branch a value whose magnitude is
+                // SHORTER than its fractional length reaches, which is exactly the shape a
+                // high-precision transcendental has: measured, Sin(1, 30) carries a 606-digit
+                // magnitude at Exponent -606 and printed all 606 of them at display precision 30 AND
+                // at display precision 5, while Sqrt(2) — magnitude longer than the fraction — was
+                // truncated to exactly the display limit by the branch below. The two branches now
+                // agree, and the documented contract ("truncated at DisplayDecimalPlaces fractional
+                // digits") holds for every non-periodic value regardless of which branch renders it.
+                string fracPart = padded[..(int)Math.Min(fracLen, DisplayDecimalPlaces)];
                 // Trim trailing zeros for the non-periodic case
                 string intPart = "0";
                 return sign + intPart + "." + fracPart;
