@@ -21,7 +21,7 @@ public class PlotFileErrorTests
     private static readonly TimeSpan ProcessTimeout = TimeSpan.FromMinutes(2);
 
     /// <summary>The one taxonomy, mirrored from <c>Lovelace.Abstractions.ErrorCategory</c>.</summary>
-    private static readonly string[] ErrorCategories =
+    internal static readonly string[] ErrorCategories =
     {
         "ParseError", "DomainError", "UnsupportedOperation", "BudgetExceeded", "NoSolution",
         "TypeMismatch", "InternalInvariantFailure",

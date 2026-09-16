@@ -31,7 +31,9 @@ string to recover mathematical meaning.
    unit suffix.
 5. **camelCase JSON keys; snake_case record field names** (record field names come from the
    kernel records and are part of the contract).
-6. **Errors are structural**: `code`, `category`, `message`, `recoverable`, `diagnostics`.
+6. **Errors are structural**: `code`, `category`, `message`, `recoverable`, `diagnostics`, plus
+   the optional resolution help an unresolved NAME carries (`suggestions`, `hints`,
+   `registrySize` — see "An unknown function").
 
 **Payload control.** `--omit-functions` and `--omit-variables` are for agent loops that never read the
 registry or the variable table: each flag replaces its array with an EMPTY one — the key stays present, so
@@ -284,7 +286,9 @@ The statement that FAILED is still a timed statement: it is reported with `resul
 
 Categories are spelled from the one taxonomy, `ErrorCategory`: `ParseError`, `DomainError`,
 `UnsupportedOperation`, `BudgetExceeded`, `NoSolution`, `TypeMismatch`,
-`InternalInvariantFailure`. Exit codes: 0 success, 1 script/diagnostic error, 2 usage error.
+`InternalInvariantFailure`. The seven members are **frozen**: a new failure class takes a new
+`code` — the fine-grained field a consumer matches — and the coarse category it belongs to,
+never an eighth member. Exit codes: 0 success, 1 script/diagnostic error, 2 usage error.
 
 A call with the wrong number of arguments is rejected at the call site, before the builtin body can
 index an argument that was never supplied. It crosses as a recoverable argument error
@@ -299,6 +303,36 @@ internal invariant failure:
 The counts come from the builtin's declared metadata (`Parameters`, `MinArity`, `Variadic`), so a
 builtin that legitimately accepts a shorter form declares it (`symbol(name [, domain])`,
 `solve(f, x [, domain])`, `dft(x [, n])`) instead of the validator being widened.
+
+An **unknown function** is a vocabulary failure, not a domain one: nothing about the caller's
+mathematics is wrong, and no amount of changing it will help. It therefore answers with its own code
+and the registry's answer travels with it — a caller that wrote `determinant` where the engine
+has `det` is told so in the envelope it already receives:
+
+```json
+{ "ok": false, "code": "UnknownFunction", "category": "UnsupportedOperation", "recoverable": true,
+  "message": "Unknown function 'determinant'. Did you mean 'det'?",
+  "suggestions": ["det"], "registrySize": 123,
+  "diagnostics": [ { "message": "Unknown function 'determinant'. Did you mean 'det'?",
+                     "position": 38, "line": 2, "column": 1 } ] }
+```
+
+* `suggestions` — at most three registered names close to the one that failed, best first (a
+  case-only difference, then a prefix of the other, then a near-miss, then a long shared opening),
+  ordered by rank and then ordinally, so two runs over one registry never disagree. Nothing close
+  means the field is omitted rather than sent as `[]`, and short names are held to a stricter
+  distance because they are dense: `fft` is two edits from both `det` and `dot` and
+  suggests neither.
+* `hints` — syntax notes for a name that is not a missing builtin at all: `range` is the
+  operator `1..n`, and `map` does not exist because arithmetic broadcasts over arrays.
+* `registrySize` — how many names the engine registers, present whenever the failure is this one.
+* The message repeats the first suggestion in prose and is **byte-identical to the sentence every
+  earlier release printed** when there is nothing to offer (`Unknown function 'x'.`), so no
+  recorded message contract changes; `--text` prints that same sentence on stderr.
+
+The three fields are optional and additive — `protocolVersion` stays 1, and every other failure
+omits them. The `diagnostics` entry repeats the top-level message, so a consumer that reads only
+that array still gets the answer.
 
 The error envelope's `diagnostics` array is the **parser's source-position form**
 (`message`/`position`/`line`/`column`) — a different record from the `Diagnostic` above, and also

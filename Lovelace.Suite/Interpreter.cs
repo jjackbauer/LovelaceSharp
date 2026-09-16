@@ -811,7 +811,9 @@ public sealed class Interpreter
         }
 
         if (fn is null)
-            throw new InvalidOperationException($"Unknown function '{call.FunctionName}'.");
+            throw new UnknownFunctionException(call.FunctionName,
+                NameSuggestions.Suggest(_functions.Keys, call.FunctionName),
+                NameSuggestions.HintsFor(call.FunctionName), _functions.Count);
 
         if (fn.IsBuiltin)
         {

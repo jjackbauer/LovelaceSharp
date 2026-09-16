@@ -123,7 +123,15 @@ internal sealed record RunErrorDto(
     // present only when --cancel-after was given: the deadline verdict (see CancellationDto). The
     // diagnosis travels with the FAILED envelope too, because a run that errored after blowing its
     // budget must not look like a run that respected it.
-    CancellationDto? Cancellation = null);
+    CancellationDto? Cancellation = null,
+    // Present only when the failure is a name the engine does not register
+    // (UnknownFunctionException): the registered names closest to the one that failed, any syntax
+    // note that applies, and how many names the engine registers. A consumer resolves the repair
+    // from these without parsing the message, and the message carries the same answer in prose for
+    // a caller that only reads text. Omitted for every other failure.
+    string[]? Suggestions = null,
+    string[]? Hints = null,
+    int? RegistrySize = null);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

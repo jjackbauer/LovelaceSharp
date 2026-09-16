@@ -18,10 +18,15 @@ public class DspPluginTests
     {
         var engine = new SuiteEngine();
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+        // The exact type: Assert.Throws is an exact-type match, and an unresolved name now crosses
+        // as its own exception so a host can classify it structurally. It still derives from
+        // InvalidOperationException, so every catch-based consumer keeps working.
+        var ex = await Assert.ThrowsAsync<UnknownFunctionException>(
             () => engine.EvaluateAsync("fft([1, 0, 0, 0])"));
 
         Assert.Equal("Unknown function 'fft'.", ex.Message);
+        // "fft" is not close to anything a bare engine registers: a suggestion here would be noise.
+        Assert.Empty(ex.Suggestions);
     }
 
     [Fact]

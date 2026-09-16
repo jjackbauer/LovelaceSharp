@@ -132,16 +132,21 @@ public class ParseErrorClassificationTests
     // ------------------------------------------------------------------
 
     /// <summary>
-    /// A domain failure on a script that parses perfectly must not be relabelled: this is the
-    /// control that stops the fix from turning every failure into a ParseError.
+    /// A failure on a script that parses perfectly must not be relabelled as a ParseError: this is
+    /// the control that stops the fix from turning every failure into one. An unresolved NAME answers
+    /// with its own CODE (UnknownFunction) rather than the InvalidOperation it used to share with a
+    /// genuine domain refusal, so a consumer can tell "use a name that exists" from "your mathematics
+    /// is undefined" without reading prose. Its CATEGORY is the frozen vocabulary's
+    /// UnsupportedOperation - the one member that means "this runtime does not offer that operation",
+    /// which is exactly true of a name it does not register.
     /// </summary>
     [Fact]
-    public async Task ADomainFailure_OnAParsingScript_KeepsItsDomainCategory()
+    public async Task AFailureOnAParsingScript_KeepsItsOwnCategory()
     {
         var (unknownExit, unknownRaw, unknown) = await RunScriptAsync("nosuchfn(1)");
         Assert.Equal(1, unknownExit);
-        Assert.Equal("InvalidOperation", Code(unknown));
-        Assert.Equal("DomainError", Category(unknown));
+        Assert.Equal("UnknownFunction", Code(unknown));
+        Assert.Equal("UnsupportedOperation", Category(unknown));
 
         var (shapeExit, shapeRaw, shape) = await RunScriptAsync("det(1)");
         Assert.Equal(1, shapeExit);

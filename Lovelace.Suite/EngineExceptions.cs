@@ -53,3 +53,67 @@ public sealed class EvaluationCancelledException : OperationCanceledException
     {
     }
 }
+
+/// <summary>
+/// A call to a name the engine does not register. Distinct from a domain failure: nothing about the
+/// caller's mathematics is wrong, the vocabulary is. It derives from
+/// <see cref="InvalidOperationException"/> so every host that already handles an unresolved call
+/// keeps working, and it carries the registry's answer with it - the closest registered names, any
+/// syntax note that applies, and how many names the engine does have.
+/// <para>
+/// The message is unchanged when the engine has nothing to offer (<c>Unknown function 'x'.</c>), so
+/// no recorded message contract regresses; the structured fields travel either way.
+/// </para>
+/// </summary>
+public sealed class UnknownFunctionException : InvalidOperationException
+{
+    /// <summary>The name as written in the source.</summary>
+    public string FunctionName { get; }
+
+    /// <summary>Registered names closest to <see cref="FunctionName"/>, best first (may be empty).</summary>
+    public IReadOnlyList<string> Suggestions { get; }
+
+    /// <summary>Syntax notes for a name that is not a missing builtin (may be empty).</summary>
+    public IReadOnlyList<string> Hints { get; }
+
+    /// <summary>How many names the engine registers, so a caller can size its ignorance.</summary>
+    public int RegistrySize { get; }
+
+    /// <summary>
+    /// The suggestions as the wire carries them: null when there are none, because the optional field
+    /// is OMITTED rather than sent as an empty array — "nothing is close" and "nobody looked" must not
+    /// look alike to a consumer.
+    /// </summary>
+    public string[]? WireSuggestions => Suggestions.Count == 0 ? null : Suggestions.ToArray();
+
+    /// <summary>The hints as the wire carries them: null when there are none (see <see cref="WireSuggestions"/>).</summary>
+    public string[]? WireHints => Hints.Count == 0 ? null : Hints.ToArray();
+
+    /// <param name="functionName">The unresolved name, as written.</param>
+    /// <param name="suggestions">Registered names close to it; empty when none are.</param>
+    /// <param name="hints">Syntax notes that apply; empty when none do.</param>
+    /// <param name="registrySize">The number of registered names.</param>
+    public UnknownFunctionException(string functionName, IReadOnlyList<string> suggestions,
+        IReadOnlyList<string> hints, int registrySize)
+        : base(Describe(functionName, suggestions, hints))
+    {
+        FunctionName = functionName;
+        Suggestions = suggestions;
+        Hints = hints;
+        RegistrySize = registrySize;
+    }
+
+    private static string Describe(string functionName, IReadOnlyList<string> suggestions,
+        IReadOnlyList<string> hints)
+    {
+        var message = $"Unknown function '{functionName}'.";
+        if (suggestions.Count == 1)
+            message += $" Did you mean '{suggestions[0]}'?";
+        else if (suggestions.Count > 1)
+            message += " Did you mean one of: " +
+                string.Join(", ", suggestions.Select(name => $"'{name}'")) + "?";
+        if (hints.Count > 0)
+            message += " " + hints[0];
+        return message;
+    }
+}

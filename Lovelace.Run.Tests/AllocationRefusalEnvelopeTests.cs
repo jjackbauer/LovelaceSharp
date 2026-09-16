@@ -24,7 +24,7 @@ public class AllocationRefusalEnvelopeTests
 
     /// <summary>The one taxonomy, mirrored from <c>Lovelace.Abstractions.ErrorCategory</c>, so a category is
     /// proven to be a member of the documented set and not merely a non-empty string.</summary>
-    private static readonly string[] ErrorCategories =
+    internal static readonly string[] ErrorCategories =
     {
         "ParseError", "DomainError", "UnsupportedOperation", "BudgetExceeded", "NoSolution",
         "TypeMismatch", "InternalInvariantFailure",

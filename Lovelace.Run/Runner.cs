@@ -323,9 +323,11 @@ public static class Runner
                 : null;
             // a failed evaluation reports the SAME durations a successful one does: the elapsed pair
             // from one unit selector and one timing entry per statement that ran before the failure
+            var unresolved = ex as Lovelace.Suite.UnknownFunctionException;
             return WriteError(stdout, stderr, json, code, category, ex.Message, recoverable, diagnostics,
                 engine.LastElapsed, Timings(engine.OperationTimings, script), committedOutput,
-                partialOutput, partialVariables, failedDeadline);
+                partialOutput, partialVariables, failedDeadline,
+                unresolved?.WireSuggestions, unresolved?.WireHints, unresolved?.RegistrySize);
         }
     }
 
@@ -410,6 +412,13 @@ public static class Runner
         // The parser's own refusal: a syntax error is a ParseError, not a domain problem an agent
         // would try to fix by changing the mathematics. The tokenizer's string refusal reaches the
         // FormatException arm above and already carried the ParseError CATEGORY.
+        // A name the engine does not register is a VOCABULARY failure, not a domain one: the caller
+        // cannot fix it by changing the mathematics, only by using a name that exists. The taxonomy
+        // is FROZEN at its seven members (Lovelace.Symbolics.Tests/DiagnosticContractTests), so a new
+        // failure class gets a new CODE - the fine-grained field a consumer matches - and the coarse
+        // category is the one that already means "this runtime does not offer that operation". The
+        // registry's answer (suggestions/hints/registrySize) travels with it either way.
+        Lovelace.Suite.UnknownFunctionException => ("UnknownFunction", "UnsupportedOperation", true),
         InvalidOperationException => parsePhase
             ? ("ParseError", "ParseError", true)
             : ("InvalidOperation", "DomainError", true),
@@ -426,7 +435,8 @@ public static class Runner
         bool json, string code, string category, string message, bool recoverable,
         DiagnosticDto[] diagnostics, TimeSpan elapsed, TimingDto[] timings,
         string[] output, string[]? partialOutput = null, VariableDto[]? partialVariables = null,
-        CancellationDto? cancellation = null)
+        CancellationDto? cancellation = null, string[]? suggestions = null, string[]? hints = null,
+        int? registrySize = null)
     {
         if (json)
         {
@@ -436,7 +446,7 @@ public static class Runner
             WriteJson(stdout, new RunErrorDto(ProtocolVersion, Lovelace.Symbolics.Printing.FormatHeader, MathIrVersion,
                 false, code, category, message, recoverable, diagnostics,
                 Lovelace.Suite.Timing.Format(elapsed), Duration(elapsed), timings, output,
-                partialOutput, partialVariables, cancellation),
+                partialOutput, partialVariables, cancellation, suggestions, hints, registrySize),
                 RunJsonContext.Default.RunErrorDto);
         }
         else
