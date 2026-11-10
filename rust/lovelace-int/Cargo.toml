@@ -1,0 +1,12 @@
+[package]
+name = "lovelace-int"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+lovelace-nat = { path = "../lovelace-nat" }

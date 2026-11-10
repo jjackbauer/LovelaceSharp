@@ -1,0 +1,22 @@
+[package]
+name = "lovelace-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Native Windows desktop IDE for the Lovelace scripting language."
+
+[dependencies]
+lovelace-json = { path = "../lovelace-json" }
+# The engine is a workspace crate (never a registry dependency). It is optional so that
+# --no-default-features still builds and every document falls back to the deterministic
+# engine::FakeEngine; the default feature set wires the real engine behind engine::Evaluator.
+lovelace-lang = { path = "../lovelace-lang", optional = true }
+
+[features]
+default = ["real-engine"]
+# Enables engine::real::RealEngine, the adapter over lovelace_lang::Engine (CONTRACT.md).
+real-engine = ["dep:lovelace-lang"]
+
+[lints]
+workspace = true

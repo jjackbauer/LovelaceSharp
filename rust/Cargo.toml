@@ -1,0 +1,30 @@
+[workspace]
+resolver = "3"
+members = [
+  "lovelace-json",
+  "lovelace-nat",
+  "lovelace-int",
+  "lovelace-real",
+  "lovelace-array",
+  "lovelace-symbolics",
+  "lovelace-lang",
+  "lovelace-run",
+  "lovelace-corpus",
+  "lovelace-bench",
+  "lovelace-desktop",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

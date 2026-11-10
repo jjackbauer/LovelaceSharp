@@ -72,3 +72,8 @@ Thumbs.db
 # symbench: BenchmarkDotNet writes per-class reports next to the project
 benchmarks/bdn-reports/
 SymBench.*-report.*
+
+# Rust workspace
+rust/target/
+.toolchain/
+*.pdb

@@ -1,0 +1,18 @@
+[package]
+name = "lovelace-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "lovelace-bench"
+path = "src/main.rs"
+
+[dependencies]
+lovelace-nat = { path = "../lovelace-nat" }
+lovelace-int = { path = "../lovelace-int" }
+lovelace-real = { path = "../lovelace-real" }
+
+[lints]
+workspace = true

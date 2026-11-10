@@ -1,0 +1,17 @@
+[package]
+name = "lovelace-run"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "lovelace-run"
+path = "src/main.rs"
+
+[dependencies]
+lovelace-json = { path = "../lovelace-json" }
+lovelace-lang = { path = "../lovelace-lang" }
+
+[lints]
+workspace = true

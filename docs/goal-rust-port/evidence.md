@@ -1,0 +1,35 @@
+# Evidence — verified by the orchestrator
+
+| ID | Fact | Source | Method | Verified |
+|---|---|---|---|---|
+| EVD-001 | rustc 1.99.1 / cargo 1.99.1 installed workspace-locally at `.toolchain/` | rustup-init output | ran the installer myself, exit 0 | 2026-11-09 |
+| EVD-002 | cargo cannot fetch crates.io: schannel SEC_E_NO_CREDENTIALS, exit 101 | `cargo build` on scratch crate with serde_json | ran it, read the error | 2026-11-09 |
+| EVD-003 | Node TLS reaches static.rust-lang.org (200; 12 839 424 bytes) | node:https HEAD + full download | downloaded file, stat'd size | 2026-11-09 |
+| EVD-004 | built binaries execute and their stdout is capturable from pwsh | scratch.exe direct + pipeline capture | ran both, exit 0, output "Hello, world!" | 2026-11-09 |
+| EVD-005 | .NET SDK 10.0.103 available (C# oracle buildable) | `dotnet --list-sdks` | ran it | 2026-11-09 |
+| EVD-006 | git baseline is 2fac238 with 3 untracked requirement docs + modified README | `git status --short` | ran it | 2026-11-09 |
+| EVD-007 | Language.md contains 111 lovelace fences and 111 result fences | regex count over the file | ran the count | 2026-11-09 |
+| EVD-008 | Symbolics README contains 103 lovelace/result pairs | regex count | ran the count | 2026-11-09 |
+| EVD-009 | The doctest harness loads DSP + Symbolics + MathIR plugins before evaluating | LanguageDocumentationTests.cs:44-50 | read the file | 2026-11-09 || EVD-010 | `lovelace-nat` (44 tests), `lovelace-int` (52), `lovelace-array` (50) build and pass: 146 tests, 0 failures | `cargo test -p lovelace-nat -p lovelace-int -p lovelace-array --offline` | ran it myself, exit 0 | 2026-11-09 |
+| EVD-011 | nat factorial tests assert real values (20! = 2432902008176640000; 100! has 158 digits) | rust/lovelace-nat/src/lib.rs:652-658 | read the file | 2026-11-09 |
+| EVD-012 | corpus extracted: 111 Language.md + 103 Symbolics README = 214 examples; kinds 199 value / 13 error / 1 prints / 1 plot | parity/corpus/*.json | generated and counted | 2026-11-09 |
+| EVD-013 | `lovelace-json` passes 7 tests including unicode escaping and surrogate pairs | `cargo test -p lovelace-json` | ran it, exit 0 | 2026-11-09 |
+| EVD-014 | lovelace-real passes 20 tests including pi(50) and sqrt(2) at 20 digits | cargo test -p lovelace-real --offline | ran it, exit 0 | 2026-11-09 |
+| EVD-015 | Full workspace: 245 tests passed, 0 failing suites | cargo test --workspace --offline | ran it, exit 0 | 2026-11-09 |
+| EVD-016 | Corpus gate: 104/214 overall; lang 100/111; sym 4/103 | lovelace-corpus.exe | ran it myself, read the summary | 2026-11-09 |
+| EVD-017 | CLI: --eval 1/3 --text prints = 0.(3) (Real) | binary run | ran it | 2026-11-09 |
+| EVD-018 | Wire envelope: --stdin --json one JSON doc, exit 0; script error 1; usage 2 | binary runs | ran all three | 2026-11-09 |
+| EVD-019 | Desktop --smoke creates and destroys a real Win32 window, exit 0 | binary run | ran it | 2026-11-09 |
+| EVD-020 | Desktop --selftest: 14 checks, 0 failed | binary run | ran it | 2026-11-09 |
+| EVD-021 | No C# source modified | git status filter | ran it, count 0 | 2026-11-09 |
+| EVD-022 | Reconciled tree: release build exit 0; 248 tests pass; corpus 104/214 (lang 100/111); desktop selftest 15/15 | cargo build/test + binaries | re-ran everything after the desktop agent replaced the shell | 2026-11-09 |
+| EVD-023 | The desktop window is real: launched, MainWindowHandle != 0, title 'Lovelace Desktop - Untitled 1', CloseMainWindow -> exit 0 | Start-Process + Refresh + CloseMainWindow | ran it | 2026-11-09 || EVD-027 | Corpus 154/214 (lang 109/111, sym 45/103); 257 tests, 0 failing; release exit 0; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 |
+| EVD-028 | solve returns the documented SolveResult through the CLI: solutions [Solution(value: -2 ...), Solution(value: 2 ...)] | lovelace-run --file | ran it, exit 0 | 2026-11-09 || EVD-029 | Language document complete: 111/111 | lovelace-corpus filter lang/ | ran it | 2026-11-09 |
+| EVD-030 | Corpus 167/214; 259 tests, 0 failing; release exit 0; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 |
+| EVD-031 | limit(sin(x)/x,x,0) reproduces the documented LimitResult byte for byte through the CLI | lovelace-run --file | ran it, exit 0 | 2026-11-09 || EVD-032 | Corpus 183/214 (lang 111/111, sym 72/103); 259 tests, 0 failing; release exit 0; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-033 | Corpus 188/214 (lang 111/111, sym 77/103); 259 tests, 0 failing; release exit 0; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-034 | Corpus 195/214 (lang 111/111, sym 84/103) in release; 259 tests, 0 failing; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-035 | Corpus 197/214 (lang 111/111, sym 86/103) in release; 259 tests; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-036 | Corpus 198/214 (lang 111/111, sym 87/103) in release; 259 tests; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-037 | Corpus 201/214 (lang 111/111, sym 90/103) in release; 259 tests; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-038 | Corpus 204/214 (lang 111/111, sym 93/103) in release; 259 tests; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 || EVD-039 | Final: 274 tests, 0 failing; release exit 0; corpus 204/214; lang 111/111; desktop 15/15; 19 819 Rust lines across 10 crates | cargo + binaries + line count | ran everything | 2026-11-09 || EVD-040 | Clean rebuild: cargo clean then release build 23.7 s exit 0; tests 11.5 s, 274 passed; artefacts reproduce 204/214, 111/111, desktop window open/close, 1.1-1.3 MB binaries | cargo clean + build + test + binaries | ran it | 2026-11-09 || EVD-041 | Parity push: corpus 204 -> 211/214; 275 tests; release build 1m36s exit 0; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 |
+| EVD-042 | Div node verified: inv([[x,1],[0,y]]) prints y/(x*y), -1/(x*y), 0/(x*y), x/(x*y) | corpus sym/066 | corpus gate | 2026-11-09 |
+| EVD-043 | Parametric families verified: solve(exp(x)==5,x) -> log(5) + 2*k*pi*i; solve(sin(x)==0,x) -> k*pi | corpus sym/059, sym/060 | corpus gate | 2026-11-09 |
+| EVD-044 | Biquadratic verified: x^4-x^2-1 -> 2 nested-radical roots, status Partial, unrepresented_count 2 | corpus sym/086/089 + unit test | corpus gate | 2026-11-09 |
+| EVD-045 | IR round trip verified: lower emits #!mathir 2 text, evalir parses and evaluates it to 92 | corpus sym/072 | corpus gate | 2026-11-09 || EVD-046 | Final: corpus 212/214 (99.1%), lang 111/111, sym 101/103; 275 tests, 0 failing; release build 2m11s; desktop 15/15 | cargo + binaries | ran everything | 2026-11-09 |
+| EVD-047 | solve_system verified: x^2+y^2=1 & xy=0 -> four SystemSolutions in the reference sweep order | corpus sym/062 | corpus gate | 2026-11-09 |
+| EVD-048 | MathIR emitter ported from Lovelace.MathIR/Ir.cs and round-trips (sym/072); two ordering details differ from sym/071 | corpus + source read | corpus gate | 2026-11-09 |

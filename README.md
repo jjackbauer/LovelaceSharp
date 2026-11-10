@@ -184,6 +184,8 @@ The repo documents are deliberately split — this README is the map, the links 
 
 **Symbolics (implemented)** — [usage guide](Lovelace.Symbolics/README.md) (every example machine-verified) · `Lovelace.Symbolics` · `Lovelace.MathIR` · `Lovelace.Rational`.
 
+**Rust port (requirements)** — [whole-stack port](.github/requirements/Lovelace.Rust.Port.md) · [parity assurance](.github/requirements/Lovelace.Rust.Parity.md) · [native desktop app](.github/requirements/Lovelace.Rust.Desktop.md).
+
 ---
 
 ## Build & test

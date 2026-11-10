@@ -1,0 +1,896 @@
+{
+ "version": 1,
+ "sources": [
+  "Lovelace.Suite/docs/Language.md"
+ ],
+ "examples": [
+  {
+   "id": "lang/001",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Numbers",
+   "script": "42",
+   "kind": "value",
+   "text": "42 (Natural)"
+  },
+  {
+   "id": "lang/002",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Numbers",
+   "script": "3.14",
+   "kind": "value",
+   "text": "3.14 (Real)"
+  },
+  {
+   "id": "lang/003",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Numbers",
+   "script": "-5",
+   "kind": "value",
+   "text": "-5 (Integer)"
+  },
+  {
+   "id": "lang/004",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Numbers",
+   "script": "0.(3)",
+   "kind": "value",
+   "text": "0.(3) (Real)"
+  },
+  {
+   "id": "lang/005",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Strings",
+   "script": "\"hello\"",
+   "kind": "value",
+   "text": "hello"
+  },
+  {
+   "id": "lang/006",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Interpolated strings",
+   "script": "$\"x = {3 + 4}\"",
+   "kind": "value",
+   "text": "x = 7"
+  },
+  {
+   "id": "lang/007",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "List literals",
+   "script": "[1, 2, 3]",
+   "kind": "value",
+   "text": "[1, 2, 3] (Vector)"
+  },
+  {
+   "id": "lang/008",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "1..5",
+   "kind": "value",
+   "text": "[1, 2, 3, 4, 5] (Vector)"
+  },
+  {
+   "id": "lang/009",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "3. Operators and precedence",
+   "script": "2 ^ 3 ^ 2",
+   "kind": "value",
+   "text": "512 (Natural)"
+  },
+  {
+   "id": "lang/010",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "3. Operators and precedence",
+   "script": "1..10 ^ 2",
+   "kind": "value",
+   "text": "[1, 4, 9, 16, 25, 36, 49, 64, 81, 100] (Vector)"
+  },
+  {
+   "id": "lang/011",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "3. Operators and precedence",
+   "script": "2 * 1..5",
+   "kind": "value",
+   "text": "[2, 4, 6, 8, 10] (Vector)"
+  },
+  {
+   "id": "lang/012",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Addition and multiplication",
+   "script": "1 + 2",
+   "kind": "value",
+   "text": "3 (Natural)"
+  },
+  {
+   "id": "lang/013",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Addition and multiplication",
+   "script": "2 * 3",
+   "kind": "value",
+   "text": "6 (Natural)"
+  },
+  {
+   "id": "lang/014",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Subtraction widens on underflow",
+   "script": "7 - 3",
+   "kind": "value",
+   "text": "4 (Natural)"
+  },
+  {
+   "id": "lang/015",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Subtraction widens on underflow",
+   "script": "3 - 5",
+   "kind": "value",
+   "text": "-2 (Integer)"
+  },
+  {
+   "id": "lang/016",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Division is exact (never truncates)",
+   "script": "1 / 3",
+   "kind": "value",
+   "text": "0.(3) (Real)"
+  },
+  {
+   "id": "lang/017",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Division is exact (never truncates)",
+   "script": "1 / 4",
+   "kind": "value",
+   "text": "0.25 (Real)"
+  },
+  {
+   "id": "lang/018",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Division is exact (never truncates)",
+   "script": "1 / 2",
+   "kind": "value",
+   "text": "0.5 (Real)"
+  },
+  {
+   "id": "lang/019",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Division is exact (never truncates)",
+   "script": "1 / 0",
+   "kind": "error",
+   "text": "Cannot divide by zero."
+  },
+  {
+   "id": "lang/020",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Widening to Real",
+   "script": "2 + 0.5",
+   "kind": "value",
+   "text": "2.5 (Real)"
+  },
+  {
+   "id": "lang/021",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Widening to Real",
+   "script": "-7 / 2",
+   "kind": "value",
+   "text": "-3.5 (Real)"
+  },
+  {
+   "id": "lang/022",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Power",
+   "script": "2 ^ 10",
+   "kind": "value",
+   "text": "1024 (Natural)"
+  },
+  {
+   "id": "lang/023",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Factorial",
+   "script": "5!",
+   "kind": "value",
+   "text": "120 (Natural)"
+  },
+  {
+   "id": "lang/024",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Modulo",
+   "script": "10 % 3",
+   "kind": "value",
+   "text": "1 (Natural)"
+  },
+  {
+   "id": "lang/025",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Modulo",
+   "script": "-7 % 3",
+   "kind": "value",
+   "text": "-1 (Integer)"
+  },
+  {
+   "id": "lang/026",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "5. Comparison and Booleans",
+   "script": "2 > 1",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "lang/027",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "5. Comparison and Booleans",
+   "script": "1 == 1",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "lang/028",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "5. Comparison and Booleans",
+   "script": "3 <= 3",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "lang/029",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "5. Comparison and Booleans",
+   "script": "2 != 2",
+   "kind": "value",
+   "text": "False (Boolean)"
+  },
+  {
+   "id": "lang/030",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "6. Variables and assignment",
+   "script": "x = 42",
+   "kind": "value",
+   "text": "42 (Natural)"
+  },
+  {
+   "id": "lang/031",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "6. Variables and assignment",
+   "script": "x = 42; x + 1",
+   "kind": "value",
+   "text": "43 (Natural)"
+  },
+  {
+   "id": "lang/032",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "1..5",
+   "kind": "value",
+   "text": "[1, 2, 3, 4, 5] (Vector)"
+  },
+  {
+   "id": "lang/033",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "1..2..7",
+   "kind": "value",
+   "text": "[1, 3, 5, 7] (Vector)"
+  },
+  {
+   "id": "lang/034",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "-2..2",
+   "kind": "value",
+   "text": "[-2, -1, 0, 1, 2] (Vector)"
+  },
+  {
+   "id": "lang/035",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "5..-1..1",
+   "kind": "value",
+   "text": "[5, 4, 3, 2, 1] (Vector)"
+  },
+  {
+   "id": "lang/036",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Ranges",
+   "script": "1..0..5",
+   "kind": "error",
+   "text": "Range step must not be zero."
+  },
+  {
+   "id": "lang/037",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "List literals",
+   "script": "[1, 2, 3]",
+   "kind": "value",
+   "text": "[1, 2, 3] (Vector)"
+  },
+  {
+   "id": "lang/038",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Indexing",
+   "script": "[10, 20, 30][0]",
+   "kind": "value",
+   "text": "10 (Natural)"
+  },
+  {
+   "id": "lang/039",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Indexing",
+   "script": "[10, 20, 30][3]",
+   "kind": "error",
+   "text": "Index 3 is out of range for vector of length 3."
+  },
+  {
+   "id": "lang/040",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Indexing",
+   "script": "[1, 2, 3][-1]",
+   "kind": "error",
+   "text": "Index -1 is out of range for vector of length 3."
+  },
+  {
+   "id": "lang/041",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Length",
+   "script": "len([5, 6, 7, 8])",
+   "kind": "value",
+   "text": "4 (Natural)"
+  },
+  {
+   "id": "lang/042",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Element-wise arithmetic and broadcast",
+   "script": "[1, 2] + [10, 20]",
+   "kind": "value",
+   "text": "[11, 22] (Vector)"
+  },
+  {
+   "id": "lang/043",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Element-wise arithmetic and broadcast",
+   "script": "[1, 2, 3] * 10",
+   "kind": "value",
+   "text": "[10, 20, 30] (Vector)"
+  },
+  {
+   "id": "lang/044",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Element-wise arithmetic and broadcast",
+   "script": "[1, 2] + [[1, 2], [3, 4]]",
+   "kind": "value",
+   "text": "[[2, 4], [4, 6]] (Array)"
+  },
+  {
+   "id": "lang/045",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Element-wise arithmetic and broadcast",
+   "script": "[1, 2] + [1, 2, 3]",
+   "kind": "error",
+   "text": "Operands could not be broadcast together with shapes [2] and [3]."
+  },
+  {
+   "id": "lang/046",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Slicing",
+   "script": "[0, 1, 2, 3, 4][1:4]",
+   "kind": "value",
+   "text": "[1, 2, 3] (Vector)"
+  },
+  {
+   "id": "lang/047",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Slicing",
+   "script": "[[1, 2, 3], [4, 5, 6]][:, 1]",
+   "kind": "value",
+   "text": "[2, 5] (Vector)"
+  },
+  {
+   "id": "lang/048",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "8. Strings and interpolation",
+   "script": "\"hello\"",
+   "kind": "value",
+   "text": "hello"
+  },
+  {
+   "id": "lang/049",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "8. Strings and interpolation",
+   "script": "$\"x = {3 + 4}\"",
+   "kind": "value",
+   "text": "x = 7"
+  },
+  {
+   "id": "lang/050",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "8. Strings and interpolation",
+   "script": "$\"v = {1..3}\"",
+   "kind": "value",
+   "text": "v = [1, 2, 3]"
+  },
+  {
+   "id": "lang/051",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "8. Strings and interpolation",
+   "script": "$\"a {{ b }}\"",
+   "kind": "value",
+   "text": "a { b }"
+  },
+  {
+   "id": "lang/052",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Blocks",
+   "script": "{ 1; 2; 3 }",
+   "kind": "value",
+   "text": "3 (Natural)"
+  },
+  {
+   "id": "lang/053",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Conditionals",
+   "script": "if (2 > 1) { 10 } else { 20 }",
+   "kind": "value",
+   "text": "10 (Natural)"
+  },
+  {
+   "id": "lang/054",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Conditionals",
+   "script": "if (1) { 2 }",
+   "kind": "error",
+   "text": "if condition must be Boolean, but got 'Natural'."
+  },
+  {
+   "id": "lang/055",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Loops",
+   "script": "sum = 0; for i in 1..4 { sum = sum + i }; sum",
+   "kind": "value",
+   "text": "10 (Natural)"
+  },
+  {
+   "id": "lang/056",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Loops",
+   "script": "n = 0; while (n < 3) { n = n + 1 }; n",
+   "kind": "value",
+   "text": "3 (Natural)"
+  },
+  {
+   "id": "lang/057",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Loops",
+   "script": "break",
+   "kind": "error",
+   "text": "'break' is only valid inside a loop."
+  },
+  {
+   "id": "lang/058",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "10. Functions",
+   "script": "func add(a, b) { a + b }; add(2, 3)",
+   "kind": "value",
+   "text": "5 (Natural)"
+  },
+  {
+   "id": "lang/059",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "10. Functions",
+   "script": "func square(x) = x ^ 2; square(5)",
+   "kind": "value",
+   "text": "25 (Natural)"
+  },
+  {
+   "id": "lang/060",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "10. Functions",
+   "script": "func inc(x) { return x + 1 }; inc(5)",
+   "kind": "value",
+   "text": "6 (Natural)"
+  },
+  {
+   "id": "lang/061",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "10. Functions",
+   "script": "func fact(n) { if (n == 0) { 1 } else { n * fact(n - 1) } }; fact(5)",
+   "kind": "value",
+   "text": "120 (Natural)"
+  },
+  {
+   "id": "lang/062",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`abs(x)`",
+   "script": "abs(-5)",
+   "kind": "value",
+   "text": "5 (Integer)"
+  },
+  {
+   "id": "lang/063",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`inv(x)`",
+   "script": "inv(4)",
+   "kind": "value",
+   "text": "0.25 (Real)"
+  },
+  {
+   "id": "lang/064",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`divrem(a, b)`",
+   "script": "divrem(17, 5)",
+   "kind": "value",
+   "text": "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)"
+  },
+  {
+   "id": "lang/065",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`is_even(x)` / `is_odd(x)`",
+   "script": "is_even(4)",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "lang/066",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`is_even(x)` / `is_odd(x)`",
+   "script": "is_odd(4)",
+   "kind": "value",
+   "text": "False (Boolean)"
+  },
+  {
+   "id": "lang/067",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`sign(x)`",
+   "script": "sign(-7)",
+   "kind": "value",
+   "text": "-1 (Integer)"
+  },
+  {
+   "id": "lang/068",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`sqrt(x)`",
+   "script": "sqrt(4)",
+   "kind": "value",
+   "text": "2 (Real)"
+  },
+  {
+   "id": "lang/069",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`pi()` / `pi(digits)`",
+   "script": "pi(5)",
+   "kind": "value",
+   "text": "3.14159 (Real)"
+  },
+  {
+   "id": "lang/070",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`setprecision(n)`",
+   "script": "setprecision(50)\npi(50)",
+   "kind": "value",
+   "text": "3.14159265358979323846264338327950288419716939937510 (Real)"
+  },
+  {
+   "id": "lang/071",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`len(v)`",
+   "script": "len([5, 6, 7, 8])",
+   "kind": "value",
+   "text": "4 (Natural)"
+  },
+  {
+   "id": "lang/072",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "`print(values…)`",
+   "script": "print(\"hi\", 1..3)",
+   "kind": "prints",
+   "text": "hi [1, 2, 3]"
+  },
+  {
+   "id": "lang/073",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "DSP functions (loaded by the CLI hosts)",
+   "script": "fft([1, 0, 0, 0])",
+   "kind": "value",
+   "text": "[1, 1, 1, 1] (Vector)"
+  },
+  {
+   "id": "lang/074",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "DSP functions (loaded by the CLI hosts)",
+   "script": "conv([1, 1], [1, 1])",
+   "kind": "value",
+   "text": "[1, 2, 1] (Vector)"
+  },
+  {
+   "id": "lang/075",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "DSP functions (loaded by the CLI hosts)",
+   "script": "z = fft([0, 1, 0, 0])[1]; [re(z), im(z), abs(z)]",
+   "kind": "value",
+   "text": "[0, -1, 1] (Vector)"
+  },
+  {
+   "id": "lang/076",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "12. Plotting",
+   "script": "plot(1..10, 1 / (1..10 ^ 2), \"1/x^2\")",
+   "kind": "plot",
+   "text": "1/x^2"
+  },
+  {
+   "id": "lang/077",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "13. Errors and diagnostics",
+   "script": "nope + 1",
+   "kind": "error",
+   "text": "Undefined variable 'nope'."
+  },
+  {
+   "id": "lang/078",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "13. Errors and diagnostics",
+   "script": "2 + \"x\"",
+   "kind": "error",
+   "text": "Cannot widen from Natural to Text: only numeric kinds (Natural, Integer, Real) support widening."
+  },
+  {
+   "id": "lang/079",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Literals",
+   "script": "[[1, 2], [3, 4]]",
+   "kind": "value",
+   "text": "[[1, 2], [3, 4]] (Array)"
+  },
+  {
+   "id": "lang/080",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Literals",
+   "script": "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]",
+   "kind": "value",
+   "text": "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]] (Array)"
+  },
+  {
+   "id": "lang/081",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Literals",
+   "script": "[[1, 2], [3]]",
+   "kind": "error",
+   "text": "Ragged nested list literal: every row must have the same shape."
+  },
+  {
+   "id": "lang/082",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Indexing",
+   "script": "[[1, 2], [3, 4]][1, 0]",
+   "kind": "value",
+   "text": "3 (Natural)"
+  },
+  {
+   "id": "lang/083",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Indexing",
+   "script": "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][0]",
+   "kind": "value",
+   "text": "[[1, 2], [3, 4]] (Array)"
+  },
+  {
+   "id": "lang/084",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Construction and shape",
+   "script": "zeros(2, 3)",
+   "kind": "value",
+   "text": "[[0, 0, 0], [0, 0, 0]] (Array)"
+  },
+  {
+   "id": "lang/085",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Construction and shape",
+   "script": "reshape(1..6, 2, 3)",
+   "kind": "value",
+   "text": "[[1, 2, 3], [4, 5, 6]] (Array)"
+  },
+  {
+   "id": "lang/086",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Construction and shape",
+   "script": "shape(zeros(2, 3))",
+   "kind": "value",
+   "text": "[2, 3] (Vector)"
+  },
+  {
+   "id": "lang/087",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Reductions",
+   "script": "sum([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "10 (Natural)"
+  },
+  {
+   "id": "lang/088",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Reductions",
+   "script": "sum([[1, 2], [3, 4]], 0)",
+   "kind": "value",
+   "text": "[4, 6] (Vector)"
+  },
+  {
+   "id": "lang/089",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Reductions",
+   "script": "mean([1, 2])",
+   "kind": "value",
+   "text": "1.5 (Real)"
+  },
+  {
+   "id": "lang/090",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Reductions",
+   "script": "norm([3, 4])",
+   "kind": "value",
+   "text": "5 (Real)"
+  },
+  {
+   "id": "lang/091",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])",
+   "kind": "value",
+   "text": "[[19, 22], [43, 50]] (Array)"
+  },
+  {
+   "id": "lang/092",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "dot([1, 2], [3, 4])",
+   "kind": "value",
+   "text": "11 (Natural)"
+  },
+  {
+   "id": "lang/093",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "cross([1, 0, 0], [0, 1, 0])",
+   "kind": "value",
+   "text": "[0, 0, 1] (Vector)"
+  },
+  {
+   "id": "lang/094",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "det([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "-2 (Integer)"
+  },
+  {
+   "id": "lang/095",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "inv([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "[[-2, 1], [1.5, -0.5]] (Array)"
+  },
+  {
+   "id": "lang/096",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Linear algebra",
+   "script": "trace([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "5 (Natural)"
+  },
+  {
+   "id": "lang/097",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Shape manipulation and concatenation",
+   "script": "transpose([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "[[1, 3], [2, 4]] (Array)"
+  },
+  {
+   "id": "lang/098",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Shape manipulation and concatenation",
+   "script": "flatten([[1, 2], [3, 4]])",
+   "kind": "value",
+   "text": "[1, 2, 3, 4] (Vector)"
+  },
+  {
+   "id": "lang/099",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Shape manipulation and concatenation",
+   "script": "append([1, 2], [3, 4])",
+   "kind": "value",
+   "text": "[1, 2, 3, 4] (Vector)"
+  },
+  {
+   "id": "lang/100",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)",
+   "kind": "value",
+   "text": "3*x^2 + 4*x + 5 (Symbolic)"
+  },
+  {
+   "id": "lang/101",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)",
+   "kind": "value",
+   "text": "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)"
+  },
+  {
+   "id": "lang/102",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "lang/103",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 6)",
+   "kind": "value",
+   "text": "1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)"
+  },
+  {
+   "id": "lang/104",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "lang/105",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)",
+   "kind": "value",
+   "text": "sin(x^2) (Symbolic)"
+  },
+  {
+   "id": "lang/106",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])",
+   "kind": "value",
+   "text": "x^2 - y (Symbolic)"
+  },
+  {
+   "id": "lang/107",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))",
+   "kind": "value",
+   "text": "x (Symbolic)"
+  },
+  {
+   "id": "lang/108",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "evalf(1/3, 25)",
+   "kind": "value",
+   "text": "0.3333333333333333333333333 (Real)"
+  },
+  {
+   "id": "lang/109",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status",
+   "kind": "value",
+   "text": "Solved"
+  },
+  {
+   "id": "lang/110",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])",
+   "kind": "value",
+   "text": "[[y, x], [1, 1]] (Array)"
+  },
+  {
+   "id": "lang/111",
+   "doc": "Lovelace.Suite/docs/Language.md",
+   "heading": "Symbolic mathematics",
+   "script": "x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))",
+   "kind": "value",
+   "text": "SolveResult"
+  }
+ ]
+}

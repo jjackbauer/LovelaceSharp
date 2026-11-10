@@ -1,0 +1,17 @@
+[package]
+name = "lovelace-lang"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+lovelace-nat = { path = "../lovelace-nat" }
+lovelace-int = { path = "../lovelace-int" }
+lovelace-real = { path = "../lovelace-real" }
+lovelace-array = { path = "../lovelace-array" }
+lovelace-json = { path = "../lovelace-json" }
+lovelace-symbolics = { path = "../lovelace-symbolics" }
+
+[lints]
+workspace = true

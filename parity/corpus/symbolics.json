@@ -1,0 +1,832 @@
+{
+ "version": 1,
+ "sources": [
+  "Lovelace.Symbolics/README.md"
+ ],
+ "examples": [
+  {
+   "id": "sym/001",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "1. Quick start",
+   "script": "x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)",
+   "kind": "value",
+   "text": "3*x^2 + 4*x + 5 (Symbolic)"
+  },
+  {
+   "id": "sym/002",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx + 0",
+   "kind": "value",
+   "text": "x (Symbolic)"
+  },
+  {
+   "id": "sym/003",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx*0",
+   "kind": "value",
+   "text": "0 (Symbolic)"
+  },
+  {
+   "id": "sym/004",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx*2 + 3*x",
+   "kind": "value",
+   "text": "5*x (Symbolic)"
+  },
+  {
+   "id": "sym/005",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx^2*x^3",
+   "kind": "value",
+   "text": "x^5 (Symbolic)"
+  },
+  {
+   "id": "sym/006",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\n(x+y)+x",
+   "kind": "value",
+   "text": "y + 2*x (Symbolic)"
+  },
+  {
+   "id": "sym/007",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx - x",
+   "kind": "value",
+   "text": "0 (Symbolic)"
+  },
+  {
+   "id": "sym/008",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx/x",
+   "kind": "value",
+   "text": "x/x (Symbolic)"
+  },
+  {
+   "id": "sym/009",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nsimplify(x/x)",
+   "kind": "value",
+   "text": "x/x (Symbolic)"
+  },
+  {
+   "id": "sym/010",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nassume(x != 0)\nsimplify(x/x)",
+   "kind": "value",
+   "text": "1 (Symbolic)"
+  },
+  {
+   "id": "sym/011",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx^2 - 2*x + 1",
+   "kind": "value",
+   "text": "x^2 - 2*x + 1 (Symbolic)"
+  },
+  {
+   "id": "sym/012",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\n2^x",
+   "kind": "value",
+   "text": "2^x (Symbolic)"
+  },
+  {
+   "id": "sym/013",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "1/2 + 1/3",
+   "kind": "value",
+   "text": "0.8(3) (Real)"
+  },
+  {
+   "id": "sym/014",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "2. Symbols, expressions, and canonical algebra",
+   "script": "x = symbol(\"x\")\nx > 0",
+   "kind": "value",
+   "text": "x > 0 (Symbolic)"
+  },
+  {
+   "id": "sym/015",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "3. Assumptions",
+   "script": "x = symbol(\"x\")\nassume(x > 5)",
+   "kind": "value",
+   "text": "x > 5 (Symbolic)"
+  },
+  {
+   "id": "sym/016",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "3. Assumptions",
+   "script": "x = symbol(\"x\")\nassume(x > 5)\nassumptions()",
+   "kind": "value",
+   "text": "AssumptionSet(display: x > 5, assumptions: [x > 5]) (AssumptionSet)"
+  },
+  {
+   "id": "sym/017",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "3. Assumptions",
+   "script": "x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))",
+   "kind": "value",
+   "text": "x (Symbolic)"
+  },
+  {
+   "id": "sym/018",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "3. Assumptions",
+   "script": "y = symbol(\"y\")\nsimplify(sqrt(y^2))",
+   "kind": "value",
+   "text": "sqrt(y^2) (Symbolic)"
+  },
+  {
+   "id": "sym/019",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "3. Assumptions",
+   "script": "simplify(sqrt(4))",
+   "kind": "value",
+   "text": "2 (Symbolic)"
+  },
+  {
+   "id": "sym/020",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "4. Simplification",
+   "script": "x = symbol(\"x\")\nsimplify(sin(x)^2 + cos(x)^2)",
+   "kind": "value",
+   "text": "1 (Symbolic)"
+  },
+  {
+   "id": "sym/021",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "4. Simplification",
+   "script": "x = symbol(\"x\")\nsimplify(exp(log(x)))",
+   "kind": "value",
+   "text": "exp(log(x)) (Symbolic)"
+  },
+  {
+   "id": "sym/022",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "4. Simplification",
+   "script": "x = symbol(\"x\")\nassume(x > 0)\nsimplify(exp(log(x)))",
+   "kind": "value",
+   "text": "x (Symbolic)"
+  },
+  {
+   "id": "sym/023",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\nexpand((x+1)^3)",
+   "kind": "value",
+   "text": "x^3 + 3*x^2 + 3*x + 1 (Symbolic)"
+  },
+  {
+   "id": "sym/024",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ncollect(x*y + x + 2, x)",
+   "kind": "value",
+   "text": "2 + x*(y + 1) (Symbolic)"
+  },
+  {
+   "id": "sym/025",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)",
+   "kind": "value",
+   "text": "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)"
+  },
+  {
+   "id": "sym/026",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\ncancel((x^2 - 1)/(x - 1))",
+   "kind": "value",
+   "text": "x + 1 (Symbolic)"
+  },
+  {
+   "id": "sym/027",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\napart(1/(x^2 - 1), x)",
+   "kind": "value",
+   "text": "-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)"
+  },
+  {
+   "id": "sym/028",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "5. Algebra: expand, collect, factor, cancel, apart",
+   "script": "x = symbol(\"x\")\nfactor(sin(x))",
+   "kind": "value",
+   "text": "sin(x) (Symbolic)"
+  },
+  {
+   "id": "sym/029",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "6. Differentiation",
+   "script": "x = symbol(\"x\")\ndiff(x*exp(x), x)",
+   "kind": "value",
+   "text": "exp(x) + x*exp(x) (Symbolic)"
+  },
+  {
+   "id": "sym/030",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "6. Differentiation",
+   "script": "x = symbol(\"x\")\ndiff(diff(x^4, x), x)",
+   "kind": "value",
+   "text": "12*x^2 (Symbolic)"
+  },
+  {
+   "id": "sym/031",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "6. Differentiation",
+   "script": "x = symbol(\"x\")\ndiff(cos(x^2), x)",
+   "kind": "value",
+   "text": "-2*x*sin(x^2) (Symbolic)"
+  },
+  {
+   "id": "sym/032",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "6. Differentiation",
+   "script": "x = symbol(\"x\")\ndiff(x^2, 3)",
+   "kind": "error",
+   "text": "diff(): argument 2 must be a symbolic variable; got Natural."
+  },
+  {
+   "id": "sym/033",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "7. Vector calculus: jacobian, hessian",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])",
+   "kind": "value",
+   "text": "[[y, x], [1, 1]] (Array)"
+  },
+  {
+   "id": "sym/034",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "7. Vector calculus: jacobian, hessian",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nhessian(x*y, [x, y])",
+   "kind": "value",
+   "text": "[[0, 1], [1, 0]] (Array)"
+  },
+  {
+   "id": "sym/035",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "8. Series",
+   "script": "x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 8)",
+   "kind": "value",
+   "text": "1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)"
+  },
+  {
+   "id": "sym/036",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "8. Series",
+   "script": "x = symbol(\"x\")\nseries(exp(x), x, 0, 5)",
+   "kind": "value",
+   "text": "1 + x + 1/2*x^2 + 1/6*x^3 + 1/24*x^4 + O(x^5) (Symbolic)"
+  },
+  {
+   "id": "sym/037",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/038",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit((1 - cos(x))/x^2, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: Value, exists: True, value: 1/2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/039",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(1/x, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/040",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit_left(1/x, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/041",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit_right(1/x, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/042",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(1/x^2, x, 0)",
+   "kind": "value",
+   "text": "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/043",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(1/(x+1), x, inf)",
+   "kind": "value",
+   "text": "LimitResult(status: Value, exists: True, value: 0, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/044",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(x^2 + 1, x, inf)",
+   "kind": "value",
+   "text": "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/045",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit((2*x^2 + 1)/(x^2 - 1), x, inf)",
+   "kind": "value",
+   "text": "LimitResult(status: Value, exists: True, value: 2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)"
+  },
+  {
+   "id": "sym/046",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "9. Limits",
+   "script": "x = symbol(\"x\")\nlimit(exp(-(x^2)), x, inf)",
+   "kind": "value",
+   "text": "LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics: [Diagnostic(code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, recoverable: True, location: , details: [])]) (LimitResult)"
+  },
+  {
+   "id": "sym/047",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10. Integration",
+   "script": "x = symbol(\"x\")\nintegrate(x^5, x)",
+   "kind": "value",
+   "text": "1/6*x^6 (Symbolic)"
+  },
+  {
+   "id": "sym/048",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10. Integration",
+   "script": "x = symbol(\"x\")\nintegrate(1/x, x)",
+   "kind": "value",
+   "text": "log(x) (Symbolic)"
+  },
+  {
+   "id": "sym/049",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10. Integration",
+   "script": "x = symbol(\"x\")\nintegrate(1/(x^2 - 1), x)",
+   "kind": "value",
+   "text": "-1/2*log(x + 1) + 1/2*log(x - 1) (Symbolic)"
+  },
+  {
+   "id": "sym/050",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10. Integration",
+   "script": "x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)",
+   "kind": "value",
+   "text": "sin(x^2) (Symbolic)"
+  },
+  {
+   "id": "sym/051",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10. Integration",
+   "script": "x = symbol(\"x\")\nintegrate(exp(-(x^2)), x)",
+   "kind": "value",
+   "text": "integrate(exp(-x^2), x) (Symbolic)"
+  },
+  {
+   "id": "sym/052",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10b. Assumed bounds decide relations",
+   "script": "x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x < 5)",
+   "kind": "value",
+   "text": "False (Boolean)"
+  },
+  {
+   "id": "sym/053",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10b. Assumed bounds decide relations",
+   "script": "x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x > 4)",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "sym/054",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "10b. Assumed bounds decide relations",
+   "script": "x = symbol(\"x\")\nassume(x > 0)\nassume(x <= 0)",
+   "kind": "error",
+   "text": "Assumption x <= 0 contradicts the existing assumptions (its negation x > 0 is provable)."
+  },
+  {
+   "id": "sym/055",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(2*x - 4 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/056",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(x^2 - 4 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/057",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/058",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(x^3 - 1 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 1/2*(i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1/2*(-i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 3, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/059",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(exp(x) == 5, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: log(5) + 2*k*pi*i, parameter: k, period: 2*pi*i, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/060",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(sin(x) == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/061",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nsolve(x + y == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -y, conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)"
+  },
+  {
+   "id": "sym/062",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nsolve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])",
+   "kind": "value",
+   "text": "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)"
+  },
+  {
+   "id": "sym/063",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(x - x + 1 == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: the equation reduces to a nonzero constant., recoverable: True, location: , details: [])]) (SolveResult)"
+  },
+  {
+   "id": "sym/064",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "11. Solving equations",
+   "script": "x = symbol(\"x\")\nsolve(exp(x) + x == 0, x)",
+   "kind": "value",
+   "text": "SolveResult(status: Unevaluated, variable: x, domain: complex, complete: False, completeness: Unknown, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.unevaluated, category: UnsupportedOperation, message: No solver for this structure., recoverable: True, location: , details: [])]) (SolveResult)"
+  },
+  {
+   "id": "sym/065",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "12. Symbolic matrices",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])",
+   "kind": "value",
+   "text": "x^2 - y (Symbolic)"
+  },
+  {
+   "id": "sym/066",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "12. Symbolic matrices",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ninv([[x, 1], [0, y]])",
+   "kind": "value",
+   "text": "[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Array)"
+  },
+  {
+   "id": "sym/067",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "12. Symbolic matrices",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nmatmul([[x, 1], [0, x]], [[y], [1]])",
+   "kind": "value",
+   "text": "[[1 + x*y], [x]] (Array)"
+  },
+  {
+   "id": "sym/068",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "12. Symbolic matrices",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ntrace([[x, y], [y, x]])",
+   "kind": "value",
+   "text": "2*x (Symbolic)"
+  },
+  {
+   "id": "sym/069",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "12. Symbolic matrices",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\ndot([x, y], [1, 2])",
+   "kind": "value",
+   "text": "x + 2*y (Symbolic)"
+  },
+  {
+   "id": "sym/070",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "13. Optimization and MathIR",
+   "script": "x = symbol(\"x\")\noptimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])",
+   "kind": "value",
+   "text": "x^2*(1 + x*(3 + x*(x + 2))) (Symbolic)"
+  },
+  {
+   "id": "sym/071",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "13. Optimization and MathIR",
+   "script": "x = symbol(\"x\")\nk = optimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])\nlower(k, [x])",
+   "kind": "value",
+   "text": "#!mathir 2\nparam x\nconst (rat 2 1)\nconst (rat 1 1)\nconst (rat 3 1)\nParameter 0 0\nConstant 0 0\nPowInt 0 0,1\nConstant 0 1\nConstant 0 2\nConstant 0 0\nAdd 0 5,0\nMul 0 0,6\nAdd 0 4,7\nMul 0 0,8\nAdd 0 3,9\nMul 0 2,10"
+  },
+  {
+   "id": "sym/072",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "13. Optimization and MathIR",
+   "script": "x = symbol(\"x\")\nk = optimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])\nir = lower(k, [x])\nevalir(ir, [2], 40)",
+   "kind": "value",
+   "text": "92 (Integer)"
+  },
+  {
+   "id": "sym/073",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "14. Relations, conditions, and parametric solutions",
+   "script": "x = symbol(\"x\")\ncond = and(x > 0, x < 1)",
+   "kind": "value",
+   "text": "x < 1 and x > 0 (Symbolic)"
+  },
+  {
+   "id": "sym/074",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "14. Relations, conditions, and parametric solutions",
+   "script": "x = symbol(\"x\")\nassume(and(x > 0, x < 5))\nassume(not(x == 2))\nassumptions()",
+   "kind": "value",
+   "text": "AssumptionSet(display: x > 0; x < 5; x != 2, assumptions: [x > 0, x < 5, x != 2]) (AssumptionSet)"
+  },
+  {
+   "id": "sym/075",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "15. Symbolic matrices: rank and linear systems",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nmatrix_rank([[x, 1], [y, x]])",
+   "kind": "value",
+   "text": "2 (Integer)"
+  },
+  {
+   "id": "sym/076",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "15. Symbolic matrices: rank and linear systems",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nlinsolve([[x, 1], [0, y]], [0, 1])",
+   "kind": "value",
+   "text": "[-x/x/(x*y), x/(x*y)] (Vector)"
+  },
+  {
+   "id": "sym/077",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "16. Compilation and batch evaluation",
+   "script": "x = symbol(\"x\")\nk = compile(x^2 + 1, [x])\nevalir_batch(k, [1, 2, 3], 40)",
+   "kind": "value",
+   "text": "[2, 5, 10] (Vector)"
+  },
+  {
+   "id": "sym/078",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "17. Substitution and evaluation",
+   "script": "x = symbol(\"x\")\nsubs(x^2 + 1, x, 3)",
+   "kind": "value",
+   "text": "10 (Symbolic)"
+  },
+  {
+   "id": "sym/079",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "17. Substitution and evaluation",
+   "script": "evalf(1/3, 25)",
+   "kind": "value",
+   "text": "0.3333333333333333333333333 (Real)"
+  },
+  {
+   "id": "sym/080",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "17. Substitution and evaluation",
+   "script": "evalf(sqrt(2), 5)",
+   "kind": "value",
+   "text": "1.41421 (Real)"
+  },
+  {
+   "id": "sym/081",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "17. Substitution and evaluation",
+   "script": "setprecision(20)\nevalf(sqrt(2), 20)",
+   "kind": "value",
+   "text": "1.4142135623730950488 (Real)"
+  },
+  {
+   "id": "sym/082",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "17. Substitution and evaluation",
+   "script": "x = symbol(\"x\")\nevalf(x, 20)",
+   "kind": "error",
+   "text": "No value for symbol 'x'."
+  },
+  {
+   "id": "sym/083",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status",
+   "kind": "value",
+   "text": "Solved"
+  },
+  {
+   "id": "sym/084",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).solutions",
+   "kind": "value",
+   "text": "[Solution(value: -1, conditions: [x - 1 != 0], multiplicity: 1, exactness: Exact)] (Vector)"
+  },
+  {
+   "id": "sym/085",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions",
+   "kind": "value",
+   "text": "[x - 1 != 0] (Vector)"
+  },
+  {
+   "id": "sym/086",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).status",
+   "kind": "value",
+   "text": "Partial"
+  },
+  {
+   "id": "sym/087",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).complete",
+   "kind": "value",
+   "text": "False (Boolean)"
+  },
+  {
+   "id": "sym/088",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).domain",
+   "kind": "value",
+   "text": "complex (Domain)"
+  },
+  {
+   "id": "sym/089",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count",
+   "kind": "value",
+   "text": "2 (Integer)"
+  },
+  {
+   "id": "sym/090",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsimplify_full(x/x).expression",
+   "kind": "value",
+   "text": "1 (Symbolic)"
+  },
+  {
+   "id": "sym/091",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsimplify_full(x/x).conditions",
+   "kind": "value",
+   "text": "[x != 0] (Vector)"
+  },
+  {
+   "id": "sym/092",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsimplify_full(x/x).steps[0].rule_id",
+   "kind": "value",
+   "text": "rat.cancel-x-over-x"
+  },
+  {
+   "id": "sym/093",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nlimit_full(1/x, x, 0).exists",
+   "kind": "value",
+   "text": "False (Boolean)"
+  },
+  {
+   "id": "sym/094",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nlimit_full(1/x, x, 0).left",
+   "kind": "value",
+   "text": "-inf (Symbolic)"
+  },
+  {
+   "id": "sym/095",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nintegrate_full(x^2, x).status",
+   "kind": "value",
+   "text": "SolvedExact"
+  },
+  {
+   "id": "sym/096",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nintegrate_full(x^2, x).verified",
+   "kind": "value",
+   "text": "True (Boolean)"
+  },
+  {
+   "id": "sym/097",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).mathir_version",
+   "kind": "value",
+   "text": "2 (Integer)"
+  },
+  {
+   "id": "sym/098",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).parameters",
+   "kind": "value",
+   "text": "[ParameterInfo(name: x, domain: complex)] (Vector)"
+  },
+  {
+   "id": "sym/099",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).result_domain",
+   "kind": "value",
+   "text": "complex (Domain)"
+  },
+  {
+   "id": "sym/100",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ny = symbol(\"y\")\nlinsolve_full([[x, 1], [0, y]], [0, 1]).conditions",
+   "kind": "value",
+   "text": "[x*y != 0] (Vector)"
+  },
+  {
+   "id": "sym/101",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))",
+   "kind": "value",
+   "text": "SolveResult"
+  },
+  {
+   "id": "sym/102",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\ninspect(x^2 + 1).free_symbols",
+   "kind": "value",
+   "text": "[x] (Vector)"
+  },
+  {
+   "id": "sym/103",
+   "doc": "Lovelace.Symbolics/README.md",
+   "heading": "18b. Structured results (the `*_full` APIs)",
+   "script": "x = symbol(\"x\")\nsolve(x^2 + 1 == 0, x, real)",
+   "kind": "value",
+   "text": "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)"
+  }
+ ]
+}
