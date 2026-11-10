@@ -1,0 +1,119 @@
+name: Rust migration independent audit
+
+on:
+  push:
+    branches: [rust-audit]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Rust build, tests, parity and protocol (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Release build
+        working-directory: rust
+        run: cargo build --workspace --release --offline
+      - name: Unit tests
+        working-directory: rust
+        run: cargo test --workspace --offline
+      - name: Desktop headless acceptance
+        working-directory: rust
+        run: cargo run --offline --release -p lovelace-desktop -- --selftest
+      - name: Documentation corpus (expected two known mismatches)
+        continue-on-error: true
+        working-directory: rust
+        run: cargo run --offline --release -p lovelace-corpus -- --verbose
+      - name: Golden protocol fixtures and CLI option matrix
+        continue-on-error: true
+        run: python .github/audit/runner_goldens.py
+
+  windows:
+    name: Rust build, tests, parity and desktop (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Release build
+        working-directory: rust
+        run: cargo build --workspace --release --offline
+      - name: Unit tests
+        working-directory: rust
+        run: cargo test --workspace --offline
+      - name: Desktop headless acceptance
+        working-directory: rust
+        run: cargo run --offline --release -p lovelace-desktop -- --selftest
+      - name: Real Win32 window lifecycle
+        continue-on-error: true
+        shell: pwsh
+        working-directory: rust
+        run: |
+          $exe = (Resolve-Path 'target/release/lovelace-desktop.exe').Path
+          $process = Start-Process -FilePath $exe -PassThru
+          try {
+            for ($i = 0; $i -lt 24; $i++) {
+              Start-Sleep -Milliseconds 500
+              $process.Refresh()
+              if ($process.HasExited -or $process.MainWindowHandle -ne [IntPtr]::Zero) { break }
+            }
+            if ($process.HasExited) { throw "Desktop process exited early: $($process.ExitCode)" }
+            if ($process.MainWindowHandle -eq [IntPtr]::Zero) { throw 'No main window handle after 12 seconds' }
+            Write-Host "WINDOW HANDLE: $($process.MainWindowHandle)"
+            if (-not $process.CloseMainWindow()) { throw 'Could not request clean window close' }
+            if (-not $process.WaitForExit(10000)) { throw 'Desktop failed to close in 10 seconds' }
+            if ($process.ExitCode -ne 0) { throw "Desktop exit code $($process.ExitCode)" }
+            Write-Host 'WINDOW LIFECYCLE PASS'
+          }
+          finally {
+            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+          }
+      - name: Documentation corpus (expected two known mismatches)
+        continue-on-error: true
+        working-directory: rust
+        run: cargo run --offline --release -p lovelace-corpus -- --verbose
+      - name: Golden protocol fixtures and CLI option matrix
+        continue-on-error: true
+        run: python .github/audit/runner_goldens.py
+
+  benchmarks:
+    name: Fair numerical benchmark samples (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build both benchmark harnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build --manifest-path rust/Cargo.toml --offline --release -p lovelace-bench
+          dotnet build bench/fair/fair.csproj --configuration Release
+      - name: Paired, warmed factorial and cold-render samples
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'FACTORIAL 20000! — Rust / C# / Rust / C#'
+          rust/target/release/lovelace-bench factorial 20000 5
+          dotnet run --project bench/fair/fair.csproj --configuration Release --no-build -- factorial 20000 5
+          rust/target/release/lovelace-bench factorial 20000 5
+          dotnet run --project bench/fair/fair.csproj --configuration Release --no-build -- factorial 20000 5
+          echo 'COLD RENDER 100000 DIGITS — Rust / C# / Rust / C#'
+          rust/target/release/lovelace-bench tostring_cold 100000 5
+          dotnet run --project bench/fair/fair.csproj --configuration Release --no-build -- render 100000 5
+          rust/target/release/lovelace-bench tostring_cold 100000 5
+          dotnet run --project bench/fair/fair.csproj --configuration Release --no-build -- render 100000 5
