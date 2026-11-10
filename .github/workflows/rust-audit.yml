@@ -39,7 +39,6 @@ jobs:
         working-directory: rust
         run: cargo run --offline --release -p lovelace-corpus -- --verbose
       - name: Golden protocol fixtures and CLI option matrix
-        continue-on-error: true
         run: python .github/audit/runner_goldens.py
 
   windows:
@@ -90,7 +89,6 @@ jobs:
         working-directory: rust
         run: cargo run --offline --release -p lovelace-corpus -- --verbose
       - name: Golden protocol fixtures and CLI option matrix
-        continue-on-error: true
         run: python .github/audit/runner_goldens.py
 
   benchmarks:
