@@ -442,3 +442,11 @@
 - **Result**: Falsified (for those three rows). The round-31 report over-claimed; the rows are correctly refused rather than mapped, and the failure is a Real division period-detection difference, not a trig difference.
 - **Conclusion**: 37 of the 41 core ids were mapped, 3 trig rows refused with evidence, 1 needs a live SymPy bridge, 1 is Unevaluated in the kernel. The over-claim is recorded here and the ledger row for RealTrigPiResolution must not count as fixed.
 - **Related**: OBS-030 pattern (a prior agent's claim contradicted by a later measurement), REAL-002
+
+### OBS-031: The three ambient-pi rows are mappable again after the division fix
+
+- **Source**: parity/manifest.toml (5,365 ported), round-34/inexact-division.md, git 02a6046
+- **Fact**: VAL-003 correctly falsified the round-31 claim that those rows were exact; the divergence was real. The round-34 fix (no period peek at the budget boundary, trailing-zero normalisation, denominator-only termination, removal of the precision.max(64) floor) made the three rows match the oracle byte-for-byte, and they are now mapped to round34_inexact_division::exact_multiples_of_the_ambient_pi_match_the_reference_rows. Coverage 5,365/6,209 (86.41 %), 118 excluded, 726 deferred; gate failures [].
+- **Implications**: A falsified claim is not a permanent refusal; it is a measured gap that can later be fixed and mapped. The journal keeps both entries so the history is not rewritten.
+- **Confidence**: High
+- **Related**: VAL-003, REAL-002
