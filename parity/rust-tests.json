@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T22:46:29Z",
+    "generatedAtUtc":  "2026-11-11T23:10:24Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4961,
+                  "passed":  4967,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4961
+                   "tests":  4967
                },
-    "sourcesSha256":  "54d761fd6b03b307b197ff42b15bc32a24416d6ec30ac1565d68c94782a473d4",
+    "sourcesSha256":  "0652c733685a29b7cfa0770aec5b6d75bff2007c36c7260718b491db063acbe4",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -4875,6 +4875,12 @@
                                      "round45_final_sweep::solve_quartic_reports_the_unevaluated_diagnostic",
                                      "round45_final_sweep::truncated_quotient_at_the_budget_is_not_certified_exact",
                                      "round45_final_sweep::zero_to_the_minus_one_is_a_typed_recoverable_error_that_names_the_base",
+                                     "round50_resweep::a_completed_script_records_its_elapsed_time",
+                                     "round50_resweep::acosh_descriptor_is_complete_and_cross_references_cosh",
+                                     "round50_resweep::asinh_descriptor_is_complete_and_cross_references_sinh",
+                                     "round50_resweep::atanh_descriptor_is_complete_and_cross_references_tanh",
+                                     "round50_resweep::capabilities_is_one_registered_builtin_with_complete_metadata",
+                                     "round50_resweep::capture_state_publishes_variables_and_user_functions",
                                      "suite_batch::run_tokenizer_string_refusal_carries_the_parse_error_category",
                                      "suite_batch::suite_break_outside_a_loop_reports_an_error",
                                      "suite_batch::suite_divide_by_zero_reports_divide_by_zero",

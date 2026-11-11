@@ -18019,13 +18019,13 @@
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#107": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"scale([1, 2, 3], 2)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'scale'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#108": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"scale([1, 2, 3], 0.5)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'scale'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#109": {
     "disposition": "ported",
@@ -18244,13 +18244,13 @@
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#21": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"cancel_full(x/x)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'cancel_full'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#22": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"cancel_full((x^2 - 1)/(x - 1))\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'cancel_full'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#23": {
     "disposition": "ported",
@@ -18419,8 +18419,8 @@
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#53": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"filter([1], [1], [1, 2, 3])\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'filter'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#54": {
     "disposition": "ported",
@@ -18599,8 +18599,8 @@
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#86": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing BuiltinDescriptor example corpus + HelpService descriptor enumeration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"ndims([[1, 2], [3, 4]])\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'ndims'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#87": {
     "disposition": "ported",
@@ -31029,9 +31029,9 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/CaptureState_GivenVariablesAndFunctions_ReturnsMatchingSnapshot#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::capture_state_publishes_variables_and_user_functions",
+    "note": "Round 50: C# SuiteEngineTests.CaptureState_GivenVariablesAndFunctions_ReturnsMatchingSnapshot evaluates x = 3.14 and func f(y) = y * 2, then requires x captured as a Real and f present and NOT a builtin. rust/lovelace-run/src/round50_resweep.rs capture_state_publishes_variables_and_user_functions asserts the same snapshot on the runner envelope (variables[].kind, functions[].builtin), whose normalised form is identical to the oracle for the same script. See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/CaptureState_IsImmutable#0": {
     "disposition": "deferred",
@@ -31039,9 +31039,9 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/EvaluateAsync_GivenScript_RecordsElapsedTime#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::a_completed_script_records_its_elapsed_time",
+    "note": "Round 50: C# SuiteEngineTests.EvaluateAsync_GivenScript_RecordsElapsedTime requires a non-negative LastElapsed and a non-empty LastElapsedDisplay after \"1 + 1\". rust/lovelace-run/src/round50_resweep.rs a_completed_script_records_its_elapsed_time asserts the wire pair (elapsedTime.value >= 0, elapsedTime.unit non-empty) and the display string (elapsed). See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/FunctionDefined_GivenDefinition_RaisesEvent#0": {
     "disposition": "deferred",
@@ -31274,9 +31274,9 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/Capabilities_IsOneRegisteredBuiltin_WithCompleteMetadata#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing InterpreterBuiltinDescriptors/BuiltinDescriptor metadata API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::capabilities_is_one_registered_builtin_with_complete_metadata",
+    "note": "Round 50: C# CapabilitiesBuiltinTests.Capabilities_IsOneRegisteredBuiltin_WithCompleteMetadata requires exactly one capabilities() builtin, the Symbolics plugin, category Introspection, no parameters, a summary, examples, related entries, returnKind CapabilitiesResult and no placeholder help. rust/lovelace-run/src/round50_resweep.rs capabilities_is_one_registered_builtin_with_complete_metadata asserts the same through --function capabilities and the registry list. See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/ExactnessBestEffort_IsBackedByLiveRefusalsTheListDoesNotCarry#0": {
     "disposition": "deferred",
@@ -31715,23 +31715,23 @@
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/BuiltinCount_IncludesTheThreeHyperbolicFunctions#0": {
     "disposition": "deferred",
-    "reason": "Round 45 measured family 'registry-count': $.registrySize: 123 builtins in Rust vs 107 in the reference",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "reason": "Round 50 UNRUNNABLE: the C# assertion is SuiteEngine.CaptureState().Functions.Values.Count(f => f.IsBuiltin) == 107 for a Symbolics-only engine; no Rust API exposes that library count (the runner publishes descriptors, not a builtin count). The runner surface --functions publishes total 123 in BOTH runners, so the round-45 \"registry-count\" difference compared two different surfaces and is not a wire difference. See docs/goal-parity-contract/round-50/resweep.md.",
+    "note": "Round 50 re-adjudication: STILL-DIFFERENT -> UNRUNNABLE; the measured runner surface matches, the C# count does not exist in Rust."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/HyperbolicBuiltins_HaveCompleteDescriptors#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService.Function descriptor text; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::asinh_descriptor_is_complete_and_cross_references_sinh",
+    "note": "Round 50: C# HyperbolicBuiltins_HaveCompleteDescriptors(\"asinh\",\"sinh\",\"asinh(0)\") asserts summary, parameters, an example, a Symbolic return kind and the sinh cross-reference in both directions. rust/lovelace-run/src/round50_resweep.rs asinh_descriptor_is_complete_and_cross_references_sinh asserts the same fields through --function asinh/sinh, whose envelopes match the oracle exactly. See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/HyperbolicBuiltins_HaveCompleteDescriptors#1": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService.Function descriptor text; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::acosh_descriptor_is_complete_and_cross_references_cosh",
+    "note": "Round 50: C# HyperbolicBuiltins_HaveCompleteDescriptors(\"acosh\",\"cosh\",\"acosh(1)\") — same descriptor contract; asserted through --function acosh/cosh by rust/lovelace-run/src/round50_resweep.rs acosh_descriptor_is_complete_and_cross_references_cosh. See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/HyperbolicBuiltins_HaveCompleteDescriptors#2": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService.Function descriptor text; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round50_resweep::atanh_descriptor_is_complete_and_cross_references_tanh",
+    "note": "Round 50: C# HyperbolicBuiltins_HaveCompleteDescriptors(\"atanh\",\"tanh\",\"atanh(0)\") — same descriptor contract; asserted through --function atanh/tanh by rust/lovelace-run/src/round50_resweep.rs atanh_descriptor_is_complete_and_cross_references_tanh. See docs/goal-parity-contract/round-50/resweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/ZeroToTheMinusOne_IsATypedRecoverableErrorThatNamesTheBase#0": {
     "disposition": "ported",

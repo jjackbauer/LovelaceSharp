@@ -1141,6 +1141,9 @@ mod round35_run_batch;
 mod round45_final_sweep;
 
 #[cfg(test)]
+mod round50_resweep;
+
+#[cfg(test)]
 mod record_schema_batch;
 
 /// A millisecond count as the wire's invariant number text (up to three decimals).
