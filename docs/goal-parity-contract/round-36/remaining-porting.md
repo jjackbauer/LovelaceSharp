@@ -156,17 +156,35 @@ different elimination tests rather than to one.
 
 ## 6. Verification
 
+Run after the concurrent production lane's last source edit (13:28:05) and after the numeric
+regression fix; every line below is the observed output on that tree.
+
 | Gate | Command | Observed result |
 |---|---|---|
-| Suite | `cargo test --workspace` | PENDING |
-| Inventory | `parity/gen-rust-tests.ps1` | PENDING |
-| Manifest | `node parity/gen-manifest.mjs` | PENDING |
-| Manifest gate | `node parity/tools/gate-manifest.mjs` | PENDING |
-| Coverage | `node parity/tools/coverage-report.mjs` | PENDING |
-| Fixtures | `node parity/tools/gate-fixtures.mjs` | PENDING |
-| Corpus | `cargo run --release -p lovelace-corpus` | PENDING |
+| Suite | `cargo test --workspace` (through the inventory script) | `crates=11 tests=4693 suiteExit=0 passed=4693 failed=0` |
+| Inventory | `powershell -ExecutionPolicy Bypass -File parity/gen-rust-tests.ps1` | `crates=11 tests=4693 suiteExit=0 passed=4693 failed=0` |
+| Manifest | `node parity/gen-manifest.mjs` | `rows 6209: ported 5571, deferred 520, excluded 118; coverage 89.72 %` |
+| Manifest gate | `node parity/tools/gate-manifest.mjs` | `PASS (structural): 6209 test cases dispositioned; 5571 claim Rust coverage (89.72 %).` failures: `[]` |
+| Coverage | `node parity/tools/coverage-report.mjs` | `coverage.md written: 5571/6209 ported (89.72 %)` |
+| Fixtures | `node parity/tools/gate-fixtures.mjs` | `PASS: oracle 20/20, rust 20/20` |
+| Corpus | `rust/target/release/lovelace-corpus.exe` | `corpus: 214 passed, 0 failed, 214 total` |
+| CLI matrix | `node parity/tools/gate-cli.mjs` | `CLI matrix: 16/16`; `PASS: every RUN-001..RUN-014 row behaves like the oracle` |
 
-The concurrent corpus/system-solve lane was still writing when this round started
-(`rust/lovelace-lang/src/corpus_and_system_solve_round36.rs`, `rust/lovelace-symbolics/src/groebner.rs`);
-the pipeline above was run only after the Rust sources had been quiet for several minutes, and the
-sources hash in `parity/rust-tests.json` is the one the gates verify.
+Per-project movement (from `parity/coverage.md`):
+
+| Project | Before | After | Deferred now |
+|---|---|---:|---:|
+| Lovelace.Run.Tests | 724 / 27 deferred | 736 (98.00 %) | 15 |
+| Lovelace.Symbolics.Tests | 907 / 319 deferred | 961 (78.38 %) | 265 |
+| Lovelace.Real.Tests | 2489 / 48 deferred | 2490 (98.15 %) | 47 |
+| Lovelace.Integer.Tests | 138 / 10 deferred | 139 (93.92 %) | 9 |
+| Lovelace.Complex.Tests | 115 / 6 deferred | 116 (95.87 %) | 5 |
+| Lovelace.Suite.Tests | 810 / 119 deferred | 811 (87.30 %) | 118 |
+| precbench.Tests | 0 / 13 deferred | 12 (92.31 %) | 1 |
+| **TOTAL** | **5489 (88.40 %)** | **5571 (89.72 %)** | **520** |
+
+The 82 new mappings are the 61 rows of sections 1–4 plus the 21 system-solve/Groebner rows of
+section 4b; the deferred count moved 602 → 520 and the excluded count is unchanged at 118.
+The measurements above were taken on the settled tree: the layout was regenerated after the
+production lane's final edit and the two numeric regressions were fixed (workspace 4,693 passed,
+0 failed).
