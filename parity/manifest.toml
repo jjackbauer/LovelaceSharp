@@ -27914,26 +27914,29 @@ note = "C#: Lovelace.Real.Tests/RealTrigPiResolutionPropertyTests.cs:93 `Lovelac
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND33 REFUSAL: the C# row builds each angle with the public arithmetic (angle = pi * num / den under WithPrecision(places, places)) and asserts Real.Sin(angle)/Real.Cos(angle) equal the table value exactly at 20/50/100 places. The Rust Real::div detects the repeating period one place earlier than the reference Divide at the ambient cap, so pi*num/den is the exact periodic quotient where the reference stores the truncated decimal; e.g. at 20 places 5*pi/3 is 5.2359877559829887307(6) in Rust vs 5.23598775598298873076 in C#, and sin of it falls through the special-angle table to the Taylor series (non-exact). The table itself is correct for the reference candidate value (rust/lovelace-real/src/round31_trig.rs:132), but that is a different input from the one the C# row evaluates, so the row is not claimed."
+disposition = "ported"
+rust = "lovelace-real::round34_inexact_division::exact_multiples_of_the_ambient_pi_match_the_reference_rows"
+reason = "Round 34 mapping: Real::div now stops at the computation cap before the repeated-remainder test and decides termination from the denominator alone, so the public-arithmetic angle equals the reference candidate and Sin/Cos hit the exact table. Measured against the pinned C# assembly: 48/48 angles (16 x 20/50/100) and their Sin/Cos values and exactness agree."
 targetPhase = 0
-note = "Measured with the pinned C# assembly (rust/target/tmp/cstrigprobe) and the Rust Real kernel; the root cause is Real::div period detection at the budget boundary, outside this round's test-only scope."
+note = "C#: Lovelace.Real.Tests/RealTrigPiResolutionPropertyTests.cs:206 (WithPrecision(20,20)) builds angle = pi * num / den with the public arithmetic and asserts Real.Sin(angle)/Real.Cos(angle) equal the exact table value and exactness for the 16 special angles. Rust: rust/lovelace-real/src/round34_inexact_division.rs:231 asserts the same through the same public arithmetic at 20 places (the test also covers 50 and 100)."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND33 REFUSAL: same cause as #0; at 50 places Rust produces the exact periodic 1.0471975511965977461542144610931676280657231331250(3) for pi/3 (and analogous values for 2*pi/3 and 5*pi/3) where the C# Divide stores the 50-digit truncation, so Sin(pi*num/den) is not the exact table value through the public arithmetic. See #0 for the full measurement."
+disposition = "ported"
+rust = "lovelace-real::round34_inexact_division::exact_multiples_of_the_ambient_pi_match_the_reference_rows"
+reason = "Round 34 mapping: same production fix as #0; measured against the pinned C# assembly, the 50-place angles and their Sin/Cos values and exactness agree."
 targetPhase = 0
-note = "Same production gap (Real::div period detection at the ambient cap); candidate-based table coverage is at rust/lovelace-real/src/round31_trig.rs:132 and is not claimed for this row."
+note = "C#: Lovelace.Real.Tests/RealTrigPiResolutionPropertyTests.cs:206 (WithPrecision(50,50)) asserts the same 16-angle Sin/Cos table equality and exactness at 50 places. Rust: rust/lovelace-real/src/round34_inexact_division.rs:231 evaluates the public arithmetic at 50 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND33 REFUSAL: same cause as #0/#1 at 100 places; the public-arithmetic angle differs from the reference Divide value at the ambient cap, so the C# assertion (Sin(pi*num/den) equals the table value) does not hold in Rust and a candidate-based test would assert a different input."
+disposition = "ported"
+rust = "lovelace-real::round34_inexact_division::exact_multiples_of_the_ambient_pi_match_the_reference_rows"
+reason = "Round 34 mapping: same production fix as #0; measured against the pinned C# assembly, the 100-place angles and their Sin/Cos values and exactness agree."
 targetPhase = 0
-note = "Same production gap; recorded rather than mapped to a weaker assertion."
+note = "C#: Lovelace.Real.Tests/RealTrigPiResolutionPropertyTests.cs:206 (WithPrecision(100,100)) asserts the same 16-angle Sin/Cos table equality and exactness at 100 places. Rust: rust/lovelace-real/src/round34_inexact_division.rs:231 evaluates the public arithmetic at 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_RationalMultiplesOfPiTruncatedAtDPlaces_StayOnTheExactAngle#0"

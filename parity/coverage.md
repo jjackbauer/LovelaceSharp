@@ -13,14 +13,14 @@ census case resolves to a Rust test that exists in the measured inventory and wh
 | Lovelace.Integer.Tests | 148 | 114 | 34 | 0 | 77.03 % | port |
 | Lovelace.Knowledge.Tests | 28 | 0 | 0 | 28 | 0.00 % | absent |
 | Lovelace.Natural.Tests | 195 | 131 | 64 | 0 | 67.18 % | port |
-| Lovelace.Real.Tests | 2537 | 2473 | 64 | 0 | 97.48 % | port |
+| Lovelace.Real.Tests | 2537 | 2476 | 61 | 0 | 97.60 % | port |
 | Lovelace.Representation.Tests | 91 | 90 | 1 | 0 | 98.90 % | consolidated |
 | Lovelace.Run.Tests | 751 | 718 | 33 | 0 | 95.61 % | partial |
 | Lovelace.Studio.Tests | 22 | 0 | 0 | 22 | 0.00 % | partial |
 | Lovelace.Suite.Tests | 929 | 796 | 133 | 0 | 85.68 % | partial |
 | Lovelace.Symbolics.Tests | 1226 | 871 | 355 | 0 | 71.04 % | partial |
 | precbench.Tests | 13 | 0 | 13 | 0 | 0.00 % | — |
-| **TOTAL** | **6209** | **5362** | **729** | **118** | **86.36 %** | |
+| **TOTAL** | **6209** | **5365** | **726** | **118** | **86.41 %** | |
 
 Proposed exclusions awaiting approval: parity/proposed-exclusions.toml (118 cases in four
 projects with no Rust crate). They are NOT counted above: an exclusion the user has not
