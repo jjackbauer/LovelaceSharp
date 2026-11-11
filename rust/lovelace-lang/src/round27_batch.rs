@@ -88,7 +88,7 @@ fn json_text(json: &lovelace_json::Json, name: &str) -> String {
     match json_field(json, name) {
         Some(lovelace_json::Json::Str(text)) => text.clone(),
         Some(other) => other.to_string(),
-        None => panic!("json has no field '{name}': {}", json.to_string()),
+        None => panic!("json has no field '{name}': {}", json),
     }
 }
 

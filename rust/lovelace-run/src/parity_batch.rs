@@ -163,7 +163,7 @@ fn registry_query_envelope(opts: &Options) -> Json {
 
 pub fn get<'a>(j: &'a Json, key: &str) -> &'a Json {
     j.get(key)
-        .unwrap_or_else(|| panic!("missing key '{key}' in {}", j.to_string()))
+        .unwrap_or_else(|| panic!("missing key '{key}' in {}", j))
 }
 
 pub fn opt<'a>(j: &'a Json, key: &str) -> Option<&'a Json> {
@@ -171,27 +171,25 @@ pub fn opt<'a>(j: &'a Json, key: &str) -> Option<&'a Json> {
 }
 
 pub fn text(j: &Json) -> &str {
-    j.as_str()
-        .unwrap_or_else(|| panic!("not a string: {}", j.to_string()))
+    j.as_str().unwrap_or_else(|| panic!("not a string: {}", j))
 }
 
 pub fn boolean(j: &Json) -> bool {
     match j {
         Json::Bool(b) => *b,
-        other => panic!("not a bool: {}", other.to_string()),
+        other => panic!("not a bool: {}", other),
     }
 }
 
 pub fn number(j: &Json) -> i64 {
     match j {
         Json::Num(s) => s.parse().unwrap_or_else(|_| panic!("not an integer: {s}")),
-        other => panic!("not a number: {}", other.to_string()),
+        other => panic!("not a number: {}", other),
     }
 }
 
 pub fn array(j: &Json) -> &[Json] {
-    j.as_arr()
-        .unwrap_or_else(|| panic!("not an array: {}", j.to_string()))
+    j.as_arr().unwrap_or_else(|| panic!("not an array: {}", j))
 }
 
 pub fn record_field<'a>(record: &'a Json, name: &str) -> &'a Json {
@@ -200,7 +198,7 @@ pub fn record_field<'a>(record: &'a Json, name: &str) -> &'a Json {
             return get(field, "value");
         }
     }
-    panic!("record has no field '{name}': {}", record.to_string());
+    panic!("record has no field '{name}': {}", record);
 }
 
 pub fn decimals(rendering: &str) -> usize {
@@ -342,7 +340,10 @@ matrix_rows![
     (matrix_range_bound, "range", "bound"),
 ];
 
-const MATRIX: &[(&str, &str, &str, &[(&str, i8)])] = &[
+/// One matrix builtin row: name, parameter, expression and its case table.
+type MatrixCase<'a> = (&'a str, &'a str, &'a str, &'a [(&'a str, i8)]);
+
+const MATRIX: &[MatrixCase<'_>] = &[
     (
         "zeros",
         "dims",

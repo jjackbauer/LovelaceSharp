@@ -86,13 +86,6 @@ impl Json {
         }
     }
 
-    /// Serialises compactly. Objects render keys in map order.
-    pub fn to_string(&self) -> String {
-        let mut out = String::new();
-        self.write(&mut out);
-        out
-    }
-
     /// Serialises with two-space indentation (used by fixtures and human-facing output).
     pub fn to_pretty(&self) -> String {
         let mut out = String::new();
@@ -187,6 +180,15 @@ impl Json {
             });
         }
         Ok(v)
+    }
+}
+
+impl std::fmt::Display for Json {
+    /// Serialises compactly. Objects render keys in map order.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut out = String::new();
+        self.write(&mut out);
+        f.write_str(&out)
     }
 }
 
@@ -457,6 +459,9 @@ fn utf8_len(b: u8) -> usize {
 }
 
 #[cfg(test)]
+// The test names below mirror the C# census method names one-for-one; parity/manifest-map.json
+// keys on the exact lovelace-json::tests::Parse_... path, so renaming would break gate-manifest.
+#[allow(non_snake_case)]
 mod tests {
     use super::*;
 

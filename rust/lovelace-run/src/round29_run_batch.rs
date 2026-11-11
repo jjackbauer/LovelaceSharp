@@ -6,7 +6,6 @@
 //! concrete assertions: exit code, code/category, message grammar, and the record fields.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'static) -> T {
@@ -45,10 +44,7 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!(
-        "structured record has no field '{name}': {}",
-        st.to_string()
-    )
+    panic!("structured record has no field '{name}': {}", st)
 }
 
 fn assert_argument_refusal(script: &str, builtin: &str) {

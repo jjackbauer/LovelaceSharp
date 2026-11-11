@@ -304,19 +304,14 @@ impl std::fmt::Display for Complex {
             return f.write_str(&self.re.to_string());
         }
         if self.re.is_zero() {
-            return f.write_str(&format!("{}i", self.im.to_string()));
+            return f.write_str(&format!("{}i", self.im));
         }
         let sign = if self.im.cmp(&Real::zero()) == std::cmp::Ordering::Less {
             "-"
         } else {
             "+"
         };
-        f.write_str(&format!(
-            "{} {} {}i",
-            self.re.to_string(),
-            sign,
-            self.im.abs().to_string()
-        ))
+        f.write_str(&format!("{} {} {}i", self.re, sign, self.im.abs()))
     }
 }
 
@@ -441,7 +436,7 @@ impl Fixed {
         )
     }
 
-    fn to_real(&self) -> Real {
+    fn to_real(self) -> Real {
         Real::from_str(&self.value_text()).unwrap_or_else(Real::zero)
     }
 
@@ -642,7 +637,7 @@ impl FixedComplex {
         })
     }
 
-    fn to_complex(&self) -> Complex {
+    fn to_complex(self) -> Complex {
         Complex::new(self.re.to_real(), self.im.to_real())
     }
 

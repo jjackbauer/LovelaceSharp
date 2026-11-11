@@ -33,29 +33,29 @@ fn field<'a>(json: &'a Json, key: &str) -> &'a Json {
     match json {
         Json::Obj(map) => map
             .get(key)
-            .unwrap_or_else(|| panic!("missing {key} in {}", json.to_string())),
-        other => panic!("not an object: {}", other.to_string()),
+            .unwrap_or_else(|| panic!("missing {key} in {}", json)),
+        other => panic!("not an object: {}", other),
     }
 }
 
 fn has_field(json: &Json, key: &str) -> bool {
     match json {
         Json::Obj(map) => map.contains_key(key),
-        other => panic!("not an object: {}", other.to_string()),
+        other => panic!("not an object: {}", other),
     }
 }
 
 fn text(json: &Json) -> &str {
     match json {
         Json::Str(value) => value,
-        other => panic!("not a string: {}", other.to_string()),
+        other => panic!("not a string: {}", other),
     }
 }
 
 fn boolean(json: &Json) -> bool {
     match json {
         Json::Bool(value) => *value,
-        other => panic!("not a boolean: {}", other.to_string()),
+        other => panic!("not a boolean: {}", other),
     }
 }
 

@@ -2,7 +2,6 @@
 //! SystemSolveRecord, EnumValueEmission and ExactnessFlag language-surface rows.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 fn eval(script: &str) -> RunResult {

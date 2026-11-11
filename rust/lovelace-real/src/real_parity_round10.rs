@@ -12,10 +12,6 @@ fn parse(text: &str) -> Real {
     Real::from_str(text).unwrap_or_else(|| panic!("cannot parse {text}"))
 }
 
-fn nat(text: &str) -> Nat {
-    Nat::from_decimal(text).unwrap_or_else(|| panic!("cannot parse nat {text}"))
-}
-
 fn digits(r: &Real) -> String {
     r.int.to_decimal()
 }

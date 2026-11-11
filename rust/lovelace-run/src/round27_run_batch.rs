@@ -56,8 +56,8 @@ fn field<'a>(json: &'a Json, name: &str) -> &'a Json {
             .iter()
             .find(|(key, _)| key.as_str() == name)
             .map(|(_, value)| value)
-            .unwrap_or_else(|| panic!("json has no field '{name}': {}", json.to_string())),
-        other => panic!("not an object: {}", other.to_string()),
+            .unwrap_or_else(|| panic!("json has no field '{name}': {}", json)),
+        other => panic!("not an object: {}", other),
     }
 }
 
@@ -74,7 +74,7 @@ fn optional_field<'a>(json: &'a Json, name: &str) -> Option<&'a Json> {
 fn array(json: &Json) -> &[Json] {
     match json {
         Json::Arr(items) => items,
-        other => panic!("not an array: {}", other.to_string()),
+        other => panic!("not an array: {}", other),
     }
 }
 
@@ -89,7 +89,7 @@ fn record_field<'a>(json: &'a Json, name: &str) -> &'a Json {
             return field(entry, "value");
         }
     }
-    panic!("record has no field '{name}': {}", json.to_string())
+    panic!("record has no field '{name}': {}", json)
 }
 
 fn diagnostic_position(result: &RunResult) -> usize {
@@ -135,14 +135,13 @@ fn assert_same_scale(result: &RunResult, what: &str) {
         text(field(structured, "unit")),
         unit,
         "{what}: '{human}' vs {}",
-        structured.to_string()
+        structured
     );
     let structured_value: f64 = text(field(structured, "value")).parse().expect("a number");
     assert_eq!(
-        value,
-        structured_value,
+        value, structured_value,
         "{what}: '{human}' vs {}",
-        structured.to_string()
+        structured
     );
 }
 

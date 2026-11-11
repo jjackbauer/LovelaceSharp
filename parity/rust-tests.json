@@ -1,6 +1,6 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T18:49:37Z",
+    "generatedAtUtc":  "2026-11-11T19:12:06Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
@@ -11,7 +11,7 @@
                    "crates":  11,
                    "tests":  4808
                },
-    "sourcesSha256":  "bb8f10090654a90d7782b2169f2cd51cbdc63999ca3e4038aee4c92334765524",
+    "sourcesSha256":  "51b828e31092a46e8eb0519d82ace114b7c1a81949b1dad9095cf568de37e0f6",
     "crates":  [
                    {
                        "name":  "lovelace-json",

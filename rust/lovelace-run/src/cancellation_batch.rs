@@ -9,7 +9,6 @@
 //!   * `PrintOutputOnFailureTests.TheCancelledPath` — output/partialOutput/partialVariables.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 fn as_f64(j: &Json) -> f64 {

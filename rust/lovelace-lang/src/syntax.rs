@@ -714,17 +714,14 @@ impl Parser {
 
     fn comparison(&mut self) -> Result<Expr, LangError> {
         let mut left = self.additive()?;
-        loop {
-            let op = match self.peek() {
-                Tok::Punct(p) => match p.as_str() {
-                    "==" => BinOp::Eq,
-                    "!=" => BinOp::Ne,
-                    "<" => BinOp::Lt,
-                    "<=" => BinOp::Le,
-                    ">" => BinOp::Gt,
-                    ">=" => BinOp::Ge,
-                    _ => break,
-                },
+        while let Tok::Punct(p) = self.peek() {
+            let op = match p.as_str() {
+                "==" => BinOp::Eq,
+                "!=" => BinOp::Ne,
+                "<" => BinOp::Lt,
+                "<=" => BinOp::Le,
+                ">" => BinOp::Gt,
+                ">=" => BinOp::Ge,
                 _ => break,
             };
             self.bump();
@@ -736,13 +733,10 @@ impl Parser {
 
     fn additive(&mut self) -> Result<Expr, LangError> {
         let mut left = self.multiplicative()?;
-        loop {
-            let op = match self.peek() {
-                Tok::Punct(p) => match p.as_str() {
-                    "+" => BinOp::Add,
-                    "-" => BinOp::Sub,
-                    _ => break,
-                },
+        while let Tok::Punct(p) = self.peek() {
+            let op = match p.as_str() {
+                "+" => BinOp::Add,
+                "-" => BinOp::Sub,
                 _ => break,
             };
             self.bump();
@@ -754,14 +748,11 @@ impl Parser {
 
     fn multiplicative(&mut self) -> Result<Expr, LangError> {
         let mut left = self.power()?;
-        loop {
-            let op = match self.peek() {
-                Tok::Punct(p) => match p.as_str() {
-                    "*" => BinOp::Mul,
-                    "/" => BinOp::Div,
-                    "%" => BinOp::Rem,
-                    _ => break,
-                },
+        while let Tok::Punct(p) = self.peek() {
+            let op = match p.as_str() {
+                "*" => BinOp::Mul,
+                "/" => BinOp::Div,
+                "%" => BinOp::Rem,
                 _ => break,
             };
             self.bump();
@@ -853,7 +844,7 @@ impl Parser {
             self.enter("expression nesting")?;
             let inner = self.unary();
             self.leave();
-            return Ok(inner?);
+            return inner;
         }
         if let Tok::Ident(k) = self.peek().clone() {
             if k == "not" {

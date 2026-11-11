@@ -42,22 +42,22 @@ fn field<'a>(json: &'a Json, key: &str) -> &'a Json {
     match json {
         Json::Obj(map) => map
             .get(key)
-            .unwrap_or_else(|| panic!("missing field {key} in {}", json.to_string())),
-        other => panic!("not an object: {}", other.to_string()),
+            .unwrap_or_else(|| panic!("missing field {key} in {}", json)),
+        other => panic!("not an object: {}", other),
     }
 }
 
 fn text(json: &Json) -> &str {
     match json {
         Json::Str(value) => value,
-        other => panic!("not a string: {}", other.to_string()),
+        other => panic!("not a string: {}", other),
     }
 }
 
 fn elements(json: &Json) -> &[Json] {
     match field(json, "elements") {
         Json::Arr(items) => items,
-        other => panic!("not an array: {}", other.to_string()),
+        other => panic!("not an array: {}", other),
     }
 }
 

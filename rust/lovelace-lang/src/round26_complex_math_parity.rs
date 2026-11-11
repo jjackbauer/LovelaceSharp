@@ -70,38 +70,6 @@ fn assert_complex_inexact(label: &str, value: &Complex) {
     );
 }
 
-fn special_values(places: usize) -> Vec<(Real, Real)> {
-    let half = r("0.5");
-    let neg_half = r("-0.5");
-    let neg_one = r("-1");
-    let sqrt2_half = Real::from_i64(2)
-        .sqrt(places)
-        .div(&Real::from_i64(2), places)
-        .expect("sqrt2/2");
-    let sqrt3_half = Real::from_i64(3)
-        .sqrt(places)
-        .div(&Real::from_i64(2), places)
-        .expect("sqrt3/2");
-    vec![
-        (Real::zero(), Real::from_i64(1)),
-        (half.clone(), sqrt3_half.clone()),
-        (sqrt2_half.clone(), sqrt2_half.clone()),
-        (sqrt3_half.clone(), half.clone()),
-        (Real::from_i64(1), Real::zero()),
-        (sqrt3_half.clone(), neg_half.clone()),
-        (sqrt2_half.clone(), sqrt2_half.neg()),
-        (half.clone(), sqrt3_half.neg()),
-        (Real::zero(), neg_one.clone()),
-        (neg_half.clone(), sqrt3_half.neg()),
-        (sqrt2_half.neg(), sqrt2_half.neg()),
-        (sqrt3_half.neg(), neg_half.clone()),
-        (neg_one.clone(), Real::zero()),
-        (sqrt3_half.neg(), half.clone()),
-        (sqrt2_half.neg(), sqrt2_half.clone()),
-        (neg_half, sqrt3_half),
-    ]
-}
-
 // ---------------------------------------------------------------------------
 // ComplexMathTests (31 rows)
 // ---------------------------------------------------------------------------

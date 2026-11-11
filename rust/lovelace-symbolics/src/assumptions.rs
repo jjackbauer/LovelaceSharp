@@ -111,6 +111,10 @@ impl SymbolPredicate {
 }
 
 /// One assumed fact.
+// The variant payload mirrors the reference's assumption forms, and `Interval` carries its two
+// optional bounds inline. Boxing them would change the published enum shape (and allocate for
+// every interval) to save stack space; this is a representation choice, not a defect.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Assumption {
     /// A symbol ranges over a domain.
@@ -1302,8 +1306,8 @@ mod tests {
                         let got = set.ask(&relation(query_op, query_bound));
                         let in_set: Vec<Rat> = witnesses
                             .iter()
+                            .filter(|&w| satisfies(w, assumed_op, &Rat::from_i64(assumed_bound)))
                             .cloned()
-                            .filter(|w| satisfies(w, assumed_op, &Rat::from_i64(assumed_bound)))
                             .collect();
                         let all = !in_set.is_empty()
                             && in_set

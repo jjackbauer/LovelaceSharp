@@ -1,5 +1,6 @@
-// Verifies a large product against an independent oracle: dividing it back must return the
-// other operand with zero remainder.
+//! Verifies a large product against an independent oracle: dividing it back must return the
+//! other operand with zero remainder.
+
 use lovelace_nat::Nat;
 
 fn digits(n: usize, seed: u64) -> String {

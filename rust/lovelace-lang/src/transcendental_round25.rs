@@ -130,15 +130,15 @@ fn field<'a>(json: &'a Json, key: &str) -> &'a Json {
     match json {
         Json::Obj(map) => map
             .get(key)
-            .unwrap_or_else(|| panic!("missing {key} in {}", json.to_string())),
-        other => panic!("not an object: {}", other.to_string()),
+            .unwrap_or_else(|| panic!("missing {key} in {}", json)),
+        other => panic!("not an object: {}", other),
     }
 }
 
 fn exact_flag(json: &Json) -> bool {
     match field(json, "exact") {
         Json::Bool(value) => *value,
-        other => panic!("not a bool: {}", other.to_string()),
+        other => panic!("not a bool: {}", other),
     }
 }
 
@@ -161,7 +161,7 @@ fn evalf_transcendental_values_are_inexact_on_the_wire() {
             assert!(!exact_flag(&value), "{script} claims exactness");
             match field(&value, "kind") {
                 Json::Str(kind) => assert_eq!(kind, "Real", "{script}"),
-                other => panic!("not a string: {}", other.to_string()),
+                other => panic!("not a string: {}", other),
             }
         }
     }
@@ -181,7 +181,7 @@ fn evalf_exact_specials_stay_exact_integers() {
         assert!(exact_flag(&value), "{script} lost its exactness");
         match field(&value, "kind") {
             Json::Str(kind) => assert_eq!(kind, "Integer", "{script}"),
-            other => panic!("not a string: {}", other.to_string()),
+            other => panic!("not a string: {}", other),
         }
         assert_eq!(display(script), expected, "{script}");
     }
@@ -425,11 +425,11 @@ fn complex_exponential_inverts_the_principal_logarithm() {
     assert!(
         back.re().sub(z.re()).abs().cmp(&tolerance) == std::cmp::Ordering::Less,
         "exp(log z).re = {}",
-        back.re().to_string()
+        back.re()
     );
     assert!(
         back.im().sub(z.im()).abs().cmp(&tolerance) == std::cmp::Ordering::Less,
         "exp(log z).im = {}",
-        back.im().to_string()
+        back.im()
     );
 }

@@ -6,8 +6,6 @@
 //! analogue (a CLR exception type, a Modus plugin registration, a ValueKind enum)
 //! are deliberately absent rather than weakened.
 
-use std::time::{Duration, Instant};
-
 use crate::syntax::{Expr, Parser, Stmt};
 use crate::{Engine, Value, registry};
 
@@ -28,14 +26,6 @@ fn depth_error(err: &crate::LangError) -> bool {
     err.code == "DepthExceeded" && err.category == "BudgetExceeded"
 }
 
-fn parse_expression(source: &str) -> Result<Expr, crate::LangError> {
-    let source = source.to_string();
-    with_big(move || {
-        let tokens = crate::syntax::tokenize(&source)?;
-        Parser::new(tokens).single_expression()
-    })
-}
-
 fn parse_program(source: &str) -> Result<Vec<Stmt>, crate::LangError> {
     let source = source.to_string();
     with_big(move || {
@@ -46,10 +36,6 @@ fn parse_program(source: &str) -> Result<Vec<Stmt>, crate::LangError> {
 
 fn parens_at_depth(depth: usize) -> String {
     format!("{}1{};", "(".repeat(depth - 2), ")".repeat(depth - 2))
-}
-
-fn flat_chain_at_depth(depth: usize) -> String {
-    format!("1{};", "-1".repeat(depth - 3))
 }
 
 // ---------------------------------------------------------------------------
@@ -107,13 +93,6 @@ const RECURSION: &str = "func f(n) { if (n == 0) { return 0 }; return f(n - 1) }
 
 fn recursion_script(depth: i64) -> String {
     format!("{RECURSION}{depth})")
-}
-
-fn recursion_with_deep_body(depth: i64, terms: usize) -> String {
-    format!(
-        "func f(n) {{ if (n == 0) {{ return 0 }}; return f(n - 1){} }}; f({depth})",
-        " + 1".repeat(terms)
-    )
 }
 
 fn assert_evaluation_refusal(err: &crate::LangError) {
@@ -410,7 +389,7 @@ fn suite_value_depth_a_value_far_past_the_budget_is_refused() {
 #[test]
 fn suite_value_depth_a_wide_value_is_not_refused() {
     with_big(|| {
-        let mut engine = engine();
+        let engine = engine();
         let value = Value::Vector((0..20000).map(natural).collect());
         let text = engine.format(&value);
         assert!(
@@ -772,10 +751,7 @@ fn suite_typed_array_promotion_and_narrowing() {
         let value = engine.eval(script).unwrap();
         assert_eq!(value.kind_name(), *kind, "{script}");
         let projected = crate::structured::project_value(&engine, &value, None);
-        assert_eq!(
-            text(&projected, "kind"),
-            if *kind == "Vector" { "Array" } else { "Array" }
-        );
+        assert_eq!(text(&projected, "kind"), "Array");
         let elements = array_values(&projected);
         let kinds: Vec<String> = elements
             .iter()

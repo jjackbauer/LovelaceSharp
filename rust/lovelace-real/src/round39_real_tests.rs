@@ -40,6 +40,8 @@ fn config_guard() -> MutexGuard<'static, ()> {
 // ---------------------------------------------------------------------------
 
 #[test]
+// 3.14 is the double literal under test, not a stand-in for the PI constant.
+#[allow(clippy::approx_constant)]
 fn constructor_given_double_stores_correct_digits_and_exponent() {
     // C# RealConstructorTests.Constructor_GivenDouble_StoresCorrectDigitsAndExponent.
     let value = Real::from_f64(3.14).expect("3.14 is finite");
@@ -378,7 +380,6 @@ fn sqrt_given_batch_with_caller_local_precision_each_child_task_inherits_caller_
     let mut observed = [0i64; 2];
     std::thread::scope(|scope| {
         for (index, slot) in observed.iter_mut().enumerate() {
-            let snapshot = snapshot;
             scope.spawn(move || {
                 let _child = Real::with_precision_values(snapshot.0, snapshot.1);
                 *slot = Real::max_computation_decimal_places();

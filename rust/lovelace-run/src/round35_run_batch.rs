@@ -39,7 +39,7 @@ fn field<'a>(value: &'a Json, name: &str) -> &'a Json {
                 .find(|f| f.get("name").and_then(Json::as_str) == Some(name))
                 .and_then(|f| f.get("value"))
         })
-        .unwrap_or_else(|| panic!("record has no field '{name}': {}", value.to_string()))
+        .unwrap_or_else(|| panic!("record has no field '{name}': {}", value))
 }
 
 fn bool_of(value: &Json) -> Option<bool> {
@@ -54,7 +54,7 @@ fn text(value: &Json) -> &str {
         .get("value")
         .and_then(Json::as_str)
         .or_else(|| value.as_str())
-        .unwrap_or_else(|| panic!("not a text value: {}", value.to_string()))
+        .unwrap_or_else(|| panic!("not a text value: {}", value))
 }
 
 fn runner_binary() -> std::path::PathBuf {
@@ -156,7 +156,7 @@ fn limit_short_form_refusals_carry_the_diagnostic() {
     for call in ["limit", "limit_left", "limit_right"] {
         let script = format!("a = symbol(\"a\"); x = symbol(\"x\"); {call}(a/x, x, 0)");
         let (envelope, exit) = run_envelope(&script);
-        assert_eq!(exit, 0, "{script}: {}", envelope.to_string());
+        assert_eq!(exit, 0, "{script}: {}", envelope);
         assert_eq!(envelope.get("ok").and_then(bool_of), Some(true));
 
         let structured = envelope
@@ -195,7 +195,7 @@ fn limit_short_form_refusals_carry_the_diagnostic() {
             .get("elements")
             .and_then(Json::as_arr)
             .expect("elements");
-        assert_eq!(elements.len(), 1, "{script}: {}", diagnostics.to_string());
+        assert_eq!(elements.len(), 1, "{script}: {}", diagnostics);
         let diagnostic = &elements[0];
         assert_eq!(
             diagnostic.get("type").and_then(Json::as_str),

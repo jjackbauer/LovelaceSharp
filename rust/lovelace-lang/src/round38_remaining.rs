@@ -146,7 +146,7 @@ fn assumption_add_order_equals_historical_append_and_resort_for_every_insertion_
                 continue;
             }
             legacy.push(atom.clone());
-            legacy.sort_by(|left, right| left.order_key().cmp(&right.order_key()));
+            legacy.sort_by_key(|left| left.order_key());
         }
         let legacy_keys: Vec<String> = legacy.iter().map(|atom| atom.order_key()).collect();
         assert_eq!(

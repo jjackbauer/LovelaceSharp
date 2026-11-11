@@ -15,10 +15,6 @@ fn eval(script: &str) -> Value {
         .unwrap_or_else(|error| panic!("'{script}' failed: {}", error.message))
 }
 
-fn display(script: &str) -> String {
-    eval(script).display()
-}
-
 fn field<'a>(value: &'a Value, name: &str) -> &'a Value {
     match value {
         Value::Record(type_name, fields) => fields

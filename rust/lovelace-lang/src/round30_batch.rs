@@ -31,6 +31,6 @@ fn fixed_width_truncation_is_not_published_as_an_exact_real() {
     assert!(
         !matches!(projected.get("exact"), Some(Json::Bool(true))),
         "the fixed-width truncation was published as an exact Real: {}",
-        projected.to_string()
+        projected
     );
 }

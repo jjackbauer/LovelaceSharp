@@ -309,9 +309,21 @@ fn natural_concurrent_multiply_rows() {
 // overflow-alignment division. The expectation table was computed independently with BigInt.
 // ===========================================================================
 
+/// One row of the adversarial carry-pattern table: operand digits, expected sum/product and
+/// the division operands with their expected quotient.
+type CarryCase<'a> = (
+    &'a str,
+    &'a str,
+    &'a str,
+    &'a str,
+    Option<&'a str>,
+    &'a str,
+    &'a str,
+);
+
 #[test]
 fn natural_adversarial_carry_patterns() {
-    let cases: &[(&str, &str, &str, &str, Option<&str>, &str, &str)] = &[
+    let cases: &[CarryCase<'_>] = &[
         (
             "9999999999999999999999999999999999999999",
             "9999999999999999999999999999999999999999",
@@ -761,12 +773,7 @@ fn assert_real(script: &str, expected: &str) {
             value.kind_name()
         );
     };
-    assert_eq!(
-        actual,
-        &real(expected),
-        "'{script}' => {}",
-        actual.to_string()
-    );
+    assert_eq!(actual, &real(expected), "'{script}' => {}", actual);
 }
 
 #[test]

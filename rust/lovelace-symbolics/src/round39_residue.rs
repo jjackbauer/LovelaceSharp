@@ -50,12 +50,7 @@ fn cubic_roots_satisfy_polynomial_symbolically() {
         for root in &solutions {
             let at = substitute(&cubic, "x", root);
             let expanded = expand(&at);
-            assert_eq!(
-                expanded,
-                Expr::num(0),
-                "root {} leaves a residual",
-                root.to_string()
-            );
+            assert_eq!(expanded, Expr::num(0), "root {} leaves a residual", root);
         }
     }
 }
@@ -74,7 +69,7 @@ fn diff_abs_carries_nonzero_condition() {
     assert_eq!(branches.len(), 1);
     match &branches[0].0 {
         Expr::Rel(RelOp::Ne, _, zero) => assert_eq!(**zero, Expr::num(0)),
-        other => panic!("the guard is a != relation, got {}", other.to_string()),
+        other => panic!("the guard is a != relation, got {}", other),
     }
     assert_eq!(branches[0].1.to_string(), "sign(x)");
     assert!(
@@ -99,7 +94,7 @@ fn diff_floor_is_unevaluated_derivative_not_zero() {
     let floor = Expr::Fun("floor".to_string(), vec![x.clone()]);
     let d = diff(&floor, "x");
     assert_ne!(d, Expr::num(0));
-    assert!(d.as_derivative().is_some(), "got {}", d.to_string());
+    assert!(d.as_derivative().is_some(), "got {}", d);
     let stripped = Expr::div(d.clone(), Expr::num(1));
     assert_eq!(stripped, d, "dividing by one keeps the derivative node");
     assert_eq!(d.to_string(), "diff(floor(x), x)");
@@ -220,8 +215,8 @@ fn rootof_close_roots_all_found_and_indexed_stably() {
         assert!(
             difference.cmp(&tolerance) == std::cmp::Ordering::Less,
             "index {index} answered {} instead of {}",
-            value.to_string(),
-            expected.to_string()
+            value,
+            expected
         );
     }
     let defining = poly(&coeffs, "x");
@@ -230,10 +225,7 @@ fn rootof_close_roots_all_found_and_indexed_stably() {
             "rootof".to_string(),
             vec![defining.clone(), Expr::num(index)],
         );
-        assert_eq!(
-            node.to_string(),
-            format!("rootof({}, {index})", defining.to_string())
-        );
+        assert_eq!(node.to_string(), format!("rootof({}, {index})", defining));
         let value = evalf_rootof(&node, 30).expect("the numeric value of the RootOf node");
         let expected = nth_real_root(&coeffs, index as usize).expect("the same root");
         // the node evaluation is asked for 30 digits and the bare call for 40: both approximate
@@ -242,8 +234,8 @@ fn rootof_close_roots_all_found_and_indexed_stably() {
         assert!(
             difference.cmp(&tolerance) == std::cmp::Ordering::Less,
             "the node answered {} and the bare call {}",
-            value.to_string(),
-            expected.to_string()
+            value,
+            expected
         );
     }
     assert_eq!(
@@ -275,7 +267,7 @@ fn rootof_evaluates_the_quadratic_radicals() {
     assert!(
         delta.cmp(&rat(1, 1_000_000_000_000_000_000)) == std::cmp::Ordering::Less,
         "sqrt(5) is 2.2360679774997896..., got {}",
-        plus.to_string()
+        plus
     );
     assert_eq!(minus, plus.neg());
     let defining = poly(&coeffs, "x");

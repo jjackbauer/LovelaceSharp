@@ -429,7 +429,7 @@ impl Nat {
         }
         let top = self.limbs()[self.limbs().len() - 1];
         let top_digits = 20 - (top as f64).log10().ceil() as i32 as usize;
-        (self.limbs().len() - 1) * DEC_DIGITS + top_digits.min(DEC_DIGITS).max(1)
+        (self.limbs().len() - 1) * DEC_DIGITS + top_digits.clamp(1, DEC_DIGITS)
     }
 
     /// True when the value is zero.
@@ -491,7 +491,7 @@ impl Nat {
         let widest = self.limbs().len().max(other.limbs().len());
         let narrowest = self.limbs().len().min(other.limbs().len());
         if narrowest >= ntt_threshold() && widest <= ntt::MAX_NTT_LIMBS {
-            let product = ntt::mul_ntt(&self.limbs(), &other.limbs());
+            let product = ntt::mul_ntt(self.limbs(), other.limbs());
             return Nat::from_limbs(product);
         }
         if self.limbs().len().min(other.limbs().len()) >= KARATSUBA_THRESHOLD {
@@ -533,7 +533,7 @@ impl Nat {
             return Nat::zero();
         }
         let mut limbs = vec![0u64; count];
-        limbs.extend_from_slice(&self.limbs());
+        limbs.extend_from_slice(self.limbs());
         Nat::from_limbs(limbs)
     }
 
@@ -1000,7 +1000,7 @@ impl Ord for Nat {
 
 impl std::fmt::Display for Nat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.as_decimal_str())
+        f.write_str(self.as_decimal_str())
     }
 }
 
@@ -1074,7 +1074,7 @@ impl Number for Nat {
 // `a.add(&b)` (method resolution prefers a receiver that needs no autoref), silently moving
 // the operand. Reference implementations keep the operators additive and leave every existing
 // call site's resolution unchanged.
-impl<'a, 'b> Add<&'b Nat> for &'a Nat {
+impl<'b> Add<&'b Nat> for &Nat {
     type Output = Nat;
 
     fn add(self, rhs: &'b Nat) -> Nat {
@@ -1082,7 +1082,7 @@ impl<'a, 'b> Add<&'b Nat> for &'a Nat {
     }
 }
 
-impl<'a, 'b> Sub<&'b Nat> for &'a Nat {
+impl<'b> Sub<&'b Nat> for &Nat {
     type Output = Nat;
 
     fn sub(self, rhs: &'b Nat) -> Nat {
@@ -1090,7 +1090,7 @@ impl<'a, 'b> Sub<&'b Nat> for &'a Nat {
     }
 }
 
-impl<'a, 'b> Mul<&'b Nat> for &'a Nat {
+impl<'b> Mul<&'b Nat> for &Nat {
     type Output = Nat;
 
     fn mul(self, rhs: &'b Nat) -> Nat {
@@ -1098,7 +1098,7 @@ impl<'a, 'b> Mul<&'b Nat> for &'a Nat {
     }
 }
 
-impl<'a, 'b> Div<&'b Nat> for &'a Nat {
+impl<'b> Div<&'b Nat> for &Nat {
     type Output = Nat;
 
     fn div(self, rhs: &'b Nat) -> Nat {
@@ -1106,7 +1106,7 @@ impl<'a, 'b> Div<&'b Nat> for &'a Nat {
     }
 }
 
-impl<'a, 'b> Rem<&'b Nat> for &'a Nat {
+impl<'b> Rem<&'b Nat> for &Nat {
     type Output = Nat;
 
     fn rem(self, rhs: &'b Nat) -> Nat {

@@ -223,7 +223,9 @@ fn natural_implements_icomparisonoperators() {
     assert!(small <= large);
     assert!(large > small);
     assert!(large >= small);
-    assert!(small <= small && small >= small);
+    let same = Nat::from_u64(2);
+    assert!(small <= same);
+    assert!(small >= same);
 }
 
 // ---------------------------------------------------------------------------
@@ -528,7 +530,7 @@ fn concurrent_parse_to_string_given_many_values_matches_expected() {
         let length = 1 + (rng.next() as usize % 200);
         inputs.push(rng.digits(length));
     }
-    let expected: Vec<String> = inputs.iter().map(|text| text.clone()).collect();
+    let expected: Vec<String> = inputs.to_vec();
     let inputs = Arc::new(inputs);
     let mut actual = vec![String::new(); expected.len()];
     let workers = 8usize;

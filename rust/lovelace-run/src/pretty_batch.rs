@@ -6,62 +6,9 @@
 //! no doubled parenthesis pair.
 
 use super::parity_batch::*;
-use super::*;
-use lovelace_json::Json;
 
 const PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); \
 z = symbol(\"z\"); w = symbol(\"w\"); ";
-
-const CORPUS: &[&str] = &[
-    "(x + 1)^12",
-    "exp(-x^2)",
-    "integrate_full(exp(-x^2), x)",
-    "factor(-x^2 - 2*x - 1)",
-    "x - (y - a)",
-    "x - y - a",
-    "a - (x + y)",
-    "-x^2",
-    "(-x)^2",
-    "(-x)^3",
-    "-(x + y)",
-    "(-x - 1)^2",
-    "(-x)^(1/2)",
-    "(-1)^x",
-    "(-2)^x",
-    "(-1/2)^x",
-    "(-1.5)^x",
-    "(-3)^(-x)",
-    "(1/2)^x",
-    "(2/3)^x",
-    "(-3/2)^x",
-    "(x/y)/z",
-    "x/y/z",
-    "x/y/z/w",
-    "(x/y)/(z/w)",
-    "x/(y*z)",
-    "(x*y)/(z*w)",
-    "(x/y)*z",
-    "apart(1/(x^2 - 1), x)",
-    "(x^y)^2",
-    "x^(y^2)",
-    "(x + y)*(x - y)",
-    "x*(y + a)",
-    "-(x + y)*(x - y)",
-    "x/(y + 1)",
-    "(x + 1)/y",
-    "x^(-2)",
-    "(x + 1)^(-1)",
-    "1/(2*(x + 1))",
-    "-1/(2*(x + 1))",
-    "(1/2)*x + 1/3",
-    "x/2",
-    "exp(-(x + 1)^2)",
-    "sin(x + y) + cos(x^2)",
-    "sqrt(x + y)",
-    "log(x + 1)/(x - 1)",
-    "diff(exp(x)*x^2, x)",
-    "sin((x + y)/(x - y))",
-];
 
 /// The sources whose round-trip the reference accepts and Rust reproduces.
 const ROUND_TRIP: &[&str] = &[

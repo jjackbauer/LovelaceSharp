@@ -185,7 +185,7 @@ fn projected(expr: &Expr, budget: Option<usize>) -> Json {
 fn json_text(json: &Json, key: &str) -> String {
     json.get(key)
         .and_then(Json::as_str)
-        .unwrap_or_else(|| panic!("the projection has no string '{key}': {}", json.to_string()))
+        .unwrap_or_else(|| panic!("the projection has no string '{key}': {}", json))
         .to_string()
 }
 

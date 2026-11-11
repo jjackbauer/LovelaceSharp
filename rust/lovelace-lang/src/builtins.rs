@@ -37,6 +37,9 @@ fn checkpoint() -> Result<(), LangError> {
 }
 
 /// One index expression inside brackets.
+// The variant payload mirrors a parsed index form; a single index carries its Value inline, and
+// boxing it would allocate on every ordinary index use for a stack-size heuristic.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum IndexSpec {
     /// A single index.
@@ -1131,13 +1134,6 @@ pub fn index(target: &Value, specs: &[IndexSpec]) -> Result<Value, LangError> {
     }
 }
 
-fn slice_indices_or_single(spec: &IndexSpec, len: usize) -> Result<Vec<usize>, LangError> {
-    match spec {
-        IndexSpec::Single(v) => Ok(vec![index_int(v, len)?]),
-        other => slice_indices(other, len),
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Builtins
 // ---------------------------------------------------------------------------
@@ -1913,8 +1909,8 @@ pub fn call(
                         let (inn, ind) = im.to_rational();
                         format!(
                             "({} + {} i)",
-                            Sym::rational(&rn, &rd).to_string(),
-                            Sym::rational(&inn, &ind).to_string()
+                            Sym::rational(&rn, &rd),
+                            Sym::rational(&inn, &ind)
                         )
                     } else {
                         return Err(LangError::plain("latex needs an expression."));
@@ -2733,7 +2729,7 @@ pub fn call(
             let display = set
                 .atoms()
                 .iter()
-                .map(|atom| assumption_text(atom))
+                .map(assumption_text)
                 .collect::<Vec<String>>()
                 .join("; ");
             let items: Vec<Value> = set.atoms().iter().map(assumption_condition_leaf).collect();
@@ -2873,23 +2869,21 @@ pub fn call(
                             RelOp::Le => (None, Some((value.clone(), true))),
                             _ => (None, None),
                         };
-                        if lower.is_some() || upper.is_some() {
-                            if engine.add_bound(name_of_symbol, lower, upper).is_err() {
-                                let negation = match op {
-                                    RelOp::Le => ">",
-                                    RelOp::Lt => ">=",
-                                    RelOp::Ge => "<",
-                                    RelOp::Gt => "<=",
-                                    RelOp::Eq => "!=",
-                                    RelOp::Ne => "==",
-                                };
-                                return Err(LangError::plain(format!(
-                                    "Assumption {} contradicts the existing assumptions (its negation {} {} is provable).",
-                                    rel.to_string(),
-                                    name_of_symbol,
-                                    format!("{} {}", negation, value.to_string())
-                                )));
-                            }
+                        if (lower.is_some() || upper.is_some())
+                            && engine.add_bound(name_of_symbol, lower, upper).is_err()
+                        {
+                            let negation = match op {
+                                RelOp::Le => ">",
+                                RelOp::Lt => ">=",
+                                RelOp::Ge => "<",
+                                RelOp::Gt => "<=",
+                                RelOp::Eq => "!=",
+                                RelOp::Ne => "==",
+                            };
+                            return Err(LangError::plain(format!(
+                                "Assumption {} contradicts the existing assumptions (its negation {} {} {} is provable).",
+                                rel, name_of_symbol, negation, value
+                            )));
                         }
                     }
                     if let Sym::Sym(name_of_symbol) = lhs.as_ref() {
@@ -3389,13 +3383,13 @@ fn non_integer_digit_argument(name: &str, arg: &Value) -> LangError {
         if let Some(i) = r.to_int_exact().filter(|_| r.is_exact()) {
             return LangError::plain(format!(
                 "{name}(): argument 1 (digits) must be a Natural or Integer; got the Real {}, which is integral — write it as {}.",
-                r.to_string(),
+                r,
                 i.to_decimal()
             ));
         }
     }
     let arrived = match arg {
-        Value::Real(r) => format!("the Real {}", r.to_string()),
+        Value::Real(r) => format!("the Real {}", r),
         other => format!("the {}", other.kind_name()),
     };
     LangError::plain(format!(
@@ -3481,7 +3475,7 @@ fn evalf_value(engine: &Engine, arg: &Value, digits: usize) -> Result<Value, Lan
             let parsed = Real::from_str(&text).unwrap_or_else(|| r.clone());
             // A truncated decimal string of at least the plugin's computation budget is the
             // residue of an approximation, not an exact rational (Real.Parse rule).
-            let boundary = engine.dsp_precision().min(1000).max(1);
+            let boundary = engine.dsp_precision().clamp(1, 1000);
             let cut = stored_fraction_digits(&parsed) >= boundary;
             Ok(Value::Real(if !r.is_exact() || cut {
                 parsed.mark_inexact()
@@ -3540,7 +3534,7 @@ fn evalf_digit_count(arg: &Value) -> Result<usize, LangError> {
         other => return Err(message(&format!("got {}.", other.kind_name()))),
     };
     match value.magnitude().to_u64() {
-        Some(n) if !value.is_negative() && n >= 1 && n <= 2_147_483_647 => Ok(n as usize),
+        Some(n) if !value.is_negative() && (1..=2_147_483_647).contains(&n) => Ok(n as usize),
         _ => Err(message(&format!("got {}.", value.to_decimal()))),
     }
 }
@@ -3969,19 +3963,6 @@ fn concat_values(args: &[Value]) -> Result<Value, LangError> {
     Err(LangError::plain(
         "concat of higher-rank arrays is not supported yet.",
     ))
-}
-
-fn numeric_total(v: &Value) -> Result<(Value, u64), LangError> {
-    let flat = flatten_values(v)?;
-    if flat.is_empty() {
-        return Err(LangError::plain("mean() cannot reduce an empty array."));
-    }
-    let mut acc = Value::Natural(Nat::zero());
-    for (i, item) in flat.iter().enumerate() {
-        poll(i as u64)?;
-        acc = add(&acc, item)?;
-    }
-    Ok((acc, flat.len() as u64))
 }
 
 /// Which reduction a 1-or-2-argument builtin performs over its input.
@@ -4640,7 +4621,7 @@ fn dsp_integer(
         ));
     }
     let received = match value {
-        Value::Real(r) => format!("Real {}", r.to_string()),
+        Value::Real(r) => format!("Real {}", r),
         other => dsp_payload_type_name(other).to_string(),
     };
     Err(LangError::coded(
@@ -5915,10 +5896,7 @@ fn integrate_simple_fraction(term: &Sym, var: &str) -> Option<Sym> {
         return None;
     }
     if let Some((num, den)) = quotient_parts(term) {
-        let a = match num {
-            Sym::Num(n) => Sym::Num(n),
-            other => other,
-        };
+        let a = num;
         return Some(Sym::mul(a, Sym::Fun("log".to_string(), vec![den])));
     }
     integrate_basic(term, var)
@@ -6182,7 +6160,7 @@ fn is_negated_infinity(e: &Sym) -> bool {
     let infinity = Sym::Fun("inf".to_string(), Vec::new());
     match e {
         // -inf is the product -1*inf; a sum of the infinity node is not this point.
-        Sym::Mul(factors) => factors.iter().any(|f| *f == infinity),
+        Sym::Mul(factors) => factors.contains(&infinity),
         Sym::Fun(name, args) => name == "inf" && args.is_empty(),
         _ => *e == infinity,
     }
@@ -6296,10 +6274,7 @@ fn exponential_family_limit(
     // else has NO value at the point either, and the reference names that shape explicitly:
     // limit((2 + x)^(1/x), x, 0) is not e^(lim u*v).
     let offset = Sym::sub(base.clone(), Sym::num(1));
-    let offset_limit = match limit_at(&offset, var, at_infinity) {
-        Some(value) => value,
-        None => return None,
-    };
+    let offset_limit = limit_at(&offset, var, at_infinity)?;
     if offset_limit != Sym::num(0) {
         let diag = diagnostic(
             "limit.unevaluated",
@@ -6456,10 +6431,7 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
     } else {
         lovelace_symbolics::series(&shifted, var, 8)
     };
-    let ser: Series = match series {
-        Some(s) => s,
-        None => Vec::new(),
-    };
+    let ser: Series = series.unwrap_or_default();
     let empty = Value::Void;
     if ser.is_empty() {
         // The reference distinguishes the two reasons a series cannot decide the limit: a leading
@@ -6589,6 +6561,9 @@ fn limit_value_record(value: Value) -> Value {
     )
 }
 
+// The builder mirrors the reference LimitResult constructor's argument order; splitting it into a
+// struct would only move the same ten fields.
+#[allow(clippy::too_many_arguments)]
 fn limit_record(
     status: &str,
     exists: Value,
@@ -7031,7 +7006,7 @@ fn solve_inverse(h: &Sym, c: &Sym, var: &str, domain: &str, depth: usize) -> Opt
             "inverse nesting budget exceeded.".to_string(),
         ));
     }
-    let mut u: Option<Sym> = None;
+    let u: Option<Sym>;
     let mut inverses: Option<Vec<Sym>> = None;
     match h {
         Sym::Fun(name, args) if args.len() == 1 => {
@@ -7447,7 +7422,7 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
         fields.iter().find(|(key, _)| key == "families"),
         Some((_, Value::Vector(v))) if !v.is_empty()
     );
-    fn set_field(fields: &mut Vec<(String, Value)>, key: &str, value: Value) {
+    fn set_field(fields: &mut [(String, Value)], key: &str, value: Value) {
         if let Some(slot) = fields.iter_mut().find(|(k, _)| k == key) {
             slot.1 = value;
         }
@@ -7640,8 +7615,6 @@ fn horner_form(e: &Sym, var: &str) -> Option<Sym> {
     }
 }
 
-/// Solves a small system by splitting on a product equation and substituting each factor.
-
 /// Fraction-free (Bareiss) linear solve over exact symbolic expressions: forward elimination
 /// with the previous pivot as divisor, then back-substitution. This is the reference's
 /// `SymbolicMatrix.SolveCore`; its intermediate quotients are part of the published shape
@@ -7706,94 +7679,6 @@ fn exact_divide(a: &Sym, b: &Sym) -> Sym {
         }
     }
     Sym::div(a.clone(), b.clone())
-}
-
-/// Solves a square LINEAR system by exact Gaussian elimination over the rationals.
-///
-/// The coefficient extraction is structural, not a guess: substituting every variable with zero
-/// gives the constant term, substituting all but one with zero and that one with one gives the
-/// constant plus that coefficient, and the claimed linear form is checked against the equation
-/// before it is trusted — a nonlinear equation simply does not take this path.
-fn solve_linear_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(String, Sym)>>> {
-    let n = vars.len();
-    if n == 0 || equations.len() != n {
-        return None;
-    }
-    let evaluate = |e: &Sym, assign: &[(String, Sym)]| -> Sym {
-        let mut cur = e.clone();
-        for (name, value) in assign {
-            cur = lovelace_symbolics::substitute(&cur, name, value);
-        }
-        cur
-    };
-    let zero_assign: Vec<(String, Sym)> = vars.iter().map(|v| (v.clone(), Sym::num(0))).collect();
-    let mut rows: Vec<Vec<lovelace_symbolics::Rat>> = Vec::with_capacity(n);
-    for equation in equations {
-        let constant = match evaluate(equation, &zero_assign) {
-            Sym::Num(r) => r,
-            _ => return None,
-        };
-        let mut row = Vec::with_capacity(n + 1);
-        for i in 0..n {
-            let mut assign = zero_assign.clone();
-            assign[i] = (vars[i].clone(), Sym::num(1));
-            let at_one = evaluate(equation, &assign);
-            let coefficient = match at_one {
-                Sym::Num(r) => r,
-                _ => return None,
-            };
-            row.push(coefficient.add(&constant.neg()));
-        }
-        row.push(constant);
-        rows.push(row);
-    }
-    // A structurally linear system is checked by re-reading each equation under its own
-    // coefficients: f == c0 + sum c_i*x_i.
-    for (index, equation) in equations.iter().enumerate() {
-        let mut claimed = Sym::Num(rows[index][n].clone());
-        for (i, name) in vars.iter().enumerate() {
-            claimed = Sym::add(
-                claimed,
-                Sym::mul(Sym::Num(rows[index][i].clone()), Sym::sym(name)),
-            );
-        }
-        if claimed != *equation {
-            return None;
-        }
-    }
-    // f = c0 + sum(c_i*x_i) = 0, so the elimination's right-hand side is -c0.
-    for row in rows.iter_mut() {
-        row[n] = row[n].neg();
-    }
-    // Gaussian elimination on the augmented matrix.
-    let mut a = rows;
-    for col in 0..n {
-        let pivot = (col..n).find(|r| !a[*r][col].is_zero())?;
-        a.swap(col, pivot);
-        let p = a[col][col].clone();
-        for k in col..=n {
-            a[col][k] = a[col][k].div(&p)?;
-        }
-        for r in 0..n {
-            if r == col {
-                continue;
-            }
-            let factor = a[r][col].clone();
-            if factor.is_zero() {
-                continue;
-            }
-            for k in col..=n {
-                let subtracted = a[col][k].mul(&factor);
-                a[r][k] = a[r][k].add(&subtracted.neg());
-            }
-        }
-    }
-    Some(vec![
-        vars.iter()
-            .enumerate()
-            .map(|(i, name)| (name.clone(), Sym::Num(a[i][n].clone())))
-            .collect(),
-    ])
 }
 
 /// The outcome of a polynomial-system solve, before the wire record is built.
@@ -8020,7 +7905,7 @@ enum CandidateVerdict {
 fn solve_last_variable(
     equations: &[Sym],
     x: &str,
-    partial: &mut Vec<(String, Sym)>,
+    partial: &mut [(String, Sym)],
     state: &mut SystemSolveState,
 ) {
     let mut isolated: Option<(usize, Polynomial)> = None;
@@ -8064,7 +7949,7 @@ fn solve_last_variable(
         for root in roots {
             match judge_candidate(&root, &others, x) {
                 CandidateVerdict::Accepted => {
-                    let mut assignment = partial.clone();
+                    let mut assignment = partial.to_vec();
                     assignment.push((x.to_string(), root));
                     state.solutions.push(assignment);
                     accepted += 1;
@@ -8132,7 +8017,7 @@ fn solve_last_variable(
             .collect();
         match judge_candidate(&root, &others, x) {
             CandidateVerdict::Accepted => {
-                let mut assignment = partial.clone();
+                let mut assignment = partial.to_vec();
                 assignment.push((x.to_string(), root));
                 state.solutions.push(assignment);
             }
@@ -9884,17 +9769,6 @@ fn decide_relation(
         Tristate::True => Some(true),
         Tristate::False => Some(false),
         Tristate::Unknown | Tristate::Unsatisfiable => None,
-    }
-}
-
-fn node_count(e: &Sym) -> u64 {
-    match e {
-        Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => 1,
-        Sym::Add(v) | Sym::Mul(v) => 1 + v.iter().map(node_count).sum::<u64>(),
-        Sym::Pow(a, b) => 1 + node_count(a) + node_count(b),
-        Sym::Fun(_, args) => 1 + args.iter().map(node_count).sum::<u64>(),
-        Sym::Div(a, b) => 1 + node_count(a) + node_count(b),
-        Sym::Rel(_, a, b) => 1 + node_count(a) + node_count(b),
     }
 }
 

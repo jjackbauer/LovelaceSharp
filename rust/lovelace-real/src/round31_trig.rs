@@ -34,7 +34,7 @@ fn fractional(value: &Real) -> String {
 /// The C# assertion: the digits the kernel PUBLISHES for a digits-place request must include the
 /// first digits fractional digits of the true expansion.
 fn assert_published(value: &Real, digits: usize, expected: &str) {
-    let got = fractional(&value);
+    let got = fractional(value);
     assert!(
         got.len() >= digits,
         "published {} fractional digits, need at least {digits}: {got}",
@@ -62,10 +62,6 @@ const COS_1E100_100: &str = "928081905074655343456194643776955928183182076439050
 /// correct at 30, 50 and 100 places.
 #[test]
 fn requested_fractional_digits_are_correct_at_every_huge_magnitude() {
-    let huge20 = Real::from_str("1")
-        .map(|one| one)
-        .unwrap_or_else(Real::zero);
-    let _ = huge20;
     let twenty = Real::from_str(&format!("1{}", "0".repeat(20))).expect("10^20");
     let hundred = Real::from_str(&format!("1{}", "0".repeat(100))).expect("10^100");
 

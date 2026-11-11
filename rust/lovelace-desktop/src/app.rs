@@ -1191,7 +1191,7 @@ mod tests {
         let effects = app.apply(Command::Save);
         assert!(matches!(effects.first(), Some(Effect::Error(_))));
         assert!(app.logs_text().contains("no path"));
-        assert!(app.documents[0].dirty == false);
+        assert!(!app.documents[0].dirty);
     }
 
     #[test]

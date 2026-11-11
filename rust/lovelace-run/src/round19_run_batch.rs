@@ -69,10 +69,7 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!(
-        "structured record has no field '{name}': {}",
-        st.to_string()
-    )
+    panic!("structured record has no field '{name}': {}", st)
 }
 
 fn decimals(rendering: &str) -> usize {
@@ -85,27 +82,6 @@ fn decimals(rendering: &str) -> usize {
 
 fn real_value(r: &RunResult) -> &str {
     text(get(structured(r), "value"))
-}
-
-fn assert_timing_shape(t: &Json, what: &str) {
-    assert!(
-        opt(t, "position").is_some(),
-        "{what}: a timing carries its source position"
-    );
-    let elapsed = get(t, "elapsed");
-    let unit = text(get(elapsed, "unit"));
-    assert!(
-        ["ns", "us", "µs", "ms", "s", "min", "h"].contains(&unit),
-        "{what}: unknown timing unit {unit}"
-    );
-    assert!(
-        opt(t, "resultKind").is_some(),
-        "{what}: a timing carries the result kind"
-    );
-    assert!(
-        opt(t, "hasOutput").is_some(),
-        "{what}: a timing says whether the statement printed"
-    );
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +98,7 @@ fn run_engine_precision_request_above_the_engine_precision_is_the_documented_arg
             entries.len(),
             2,
             "{builtin}: one engine, two statements: {}",
-            r.env.to_string()
+            r.env
         );
         let expected_position = script.find(&format!("{builtin}(")).unwrap() as i64;
         assert_eq!(number(get(&entries[1], "position")), expected_position);
@@ -153,12 +129,7 @@ fn run_engine_precision_default_request_is_answered_in_full() {
     const E_TAIL: &str = "93163688923009879312";
     for (builtin, head, tail) in [("pi", PI_HEAD, PI_TAIL), ("e", E_HEAD, E_TAIL)] {
         let r = run_script(&format!("{builtin}(500)"));
-        assert_eq!(
-            r.exit,
-            0,
-            "{builtin}(500) must answer: {}",
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "{builtin}(500) must answer: {}", r.env);
         let st = structured(&r);
         assert_eq!(text(get(st, "kind")), "Real");
         let value = text(get(st, "value"));
@@ -189,13 +160,7 @@ fn run_engine_precision_request_inside_the_engine_precision_still_succeeds() {
     ];
     for (script, digits, expected) in cases {
         let r = run_script(script);
-        assert_eq!(
-            r.exit,
-            0,
-            "{script} exited {}: {}",
-            r.exit,
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "{script} exited {}: {}", r.exit, r.env);
         assert!(boolean(get(&r.env, "ok")));
         let value = real_value(&r);
         assert_eq!(decimals(value), digits, "{script}: {value}");
@@ -267,10 +232,9 @@ fn run_engine_precision_of_one_run_does_not_leak_into_the_next() {
     assert!(!boolean(get(&refused.env, "ok")));
     let answered = run_script("pi(500)");
     assert_eq!(
-        answered.exit,
-        0,
+        answered.exit, 0,
         "the next run must answer: {}",
-        answered.env.to_string()
+        answered.env
     );
     assert_eq!(decimals(real_value(&answered)), 500);
 }
@@ -296,13 +260,7 @@ fn run_evalf_honours_the_digit_count_for_an_already_numeric_argument() {
     ];
     for (script, expected) in cases {
         let r = run_script(script);
-        assert_eq!(
-            r.exit,
-            0,
-            "{script} exited {}: {}",
-            r.exit,
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "{script} exited {}: {}", r.exit, r.env);
         let st = structured(&r);
         assert_eq!(text(get(st, "kind")), "Real");
         assert_eq!(text(get(st, "value")), expected, "{script}");
@@ -325,7 +283,7 @@ fn run_evalf_refuses_a_digit_count_it_cannot_honour_as_a_recoverable_argument_er
         "evalf(sin(1), 10^30)",
     ] {
         let r = run_script(script);
-        assert_eq!(r.exit, 1, "{script} must refuse: {}", r.env.to_string());
+        assert_eq!(r.exit, 1, "{script} must refuse: {}", r.env);
         assert!(!boolean(get(&r.env, "ok")));
         assert_eq!(code(&r), "InvalidArgument", "{script}");
         assert_eq!(category(&r), "TypeMismatch", "{script}");
@@ -401,16 +359,6 @@ fn project(script: &str, precision: Option<usize>) -> Json {
     structured::project_value(&engine, &value, None)
 }
 
-fn project_value(script: &str, precision: Option<usize>) -> lovelace_lang::Value {
-    let mut engine = Engine::new();
-    if let Some(precision) = precision {
-        engine.set_precision(precision);
-    }
-    engine
-        .eval(script)
-        .unwrap_or_else(|e| panic!("'{script}' failed: {e}"))
-}
-
 fn opt_text<'a>(j: &'a Json, key: &str) -> Option<&'a str> {
     opt(j, key).and_then(|v| v.as_str())
 }
@@ -438,7 +386,7 @@ fn run_library_facade_and_cli_agree_on_one_structured_value() {
     ] {
         let facade = project(script, None);
         let cli = run_script(script);
-        assert_eq!(cli.exit, 0, "{script}: {}", cli.env.to_string());
+        assert_eq!(cli.exit, 0, "{script}: {}", cli.env);
         let cli = structured(&cli);
         assert_eq!(
             text(get(cli, "kind")),
@@ -528,13 +476,7 @@ fn run_inspection_answers_exactness_as_a_boolean() {
     for (source, expected) in [("1", true), ("1/3", true), ("1/(10^19)", true)] {
         let script = format!("v = {source}; i = inspect(v)");
         let r = run_script(&script);
-        assert_eq!(
-            r.exit,
-            0,
-            "inspect({source}) exited {}: {}",
-            r.exit,
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "inspect({source}) exited {}: {}", r.exit, r.env);
         let exact = field(structured(&r), "exact");
         assert_eq!(
             text(get(exact, "kind")),
@@ -761,13 +703,7 @@ fn run_arity_optional_trailing_parameters_stay_callable_in_the_shorter_form() {
         "dft([0, 1, 0, 0])",
     ] {
         let r = run_script(script);
-        assert_eq!(
-            r.exit,
-            0,
-            "'{script}' exited {}: {}",
-            r.exit,
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "'{script}' exited {}: {}", r.exit, r.env);
         assert!(boolean(get(&r.env, "ok")), "'{script}' must evaluate");
     }
 }
@@ -785,13 +721,7 @@ fn run_system_builtin_declared_list_form_still_succeeds() {
     ] {
         let script = format!("x = symbol(\"x\"); y = symbol(\"y\"); {call}");
         let r = run_script(&script);
-        assert_eq!(
-            r.exit,
-            0,
-            "'{call}' exited {}: {}",
-            r.exit,
-            r.env.to_string()
-        );
+        assert_eq!(r.exit, 0, "'{call}' exited {}: {}", r.exit, r.env);
         assert!(boolean(get(&r.env, "ok")), "'{call}' must evaluate");
     }
 }
@@ -867,13 +797,7 @@ fn run_wide_pi_with_a_count_wider_than_int64_still_names_the_count_and_the_cap()
 fn div_rem_structured(a: &str, b: &str) -> Json {
     let script = format!("A = {a}; B = {b}; divrem(A, B)");
     let r = run_args_of(&["--eval", &script, "--json", "--omit-functions"]);
-    assert_eq!(
-        r.exit,
-        0,
-        "divrem({a}, {b}) exited {}: {}",
-        r.exit,
-        r.env.to_string()
-    );
+    assert_eq!(r.exit, 0, "divrem({a}, {b}) exited {}: {}", r.exit, r.env);
     structured(&r).clone()
 }
 
@@ -1157,10 +1081,9 @@ fn run_valid_plot_directory_still_receives_the_plot_file() {
         &plot_directory,
     ]);
     assert_eq!(
-        r.exit,
-        0,
+        r.exit, 0,
         "a usable --plot-dir must still succeed: {}",
-        r.env.to_string()
+        r.env
     );
     assert!(boolean(get(&r.env, "ok")));
     let plot = get(&r.env, "plot");
@@ -1193,12 +1116,7 @@ fn run_writable_plot_file_is_still_written() {
         "--plot-file",
         "ok.svg",
     ]);
-    assert_eq!(
-        r.exit,
-        0,
-        "a writable --plot-file must succeed: {}",
-        r.env.to_string()
-    );
+    assert_eq!(r.exit, 0, "a writable --plot-file must succeed: {}", r.env);
     assert!(boolean(get(&r.env, "ok")));
     let expected = std::fs::canonicalize(std::path::Path::new(&plot_directory).join("ok.svg"))
         .expect("the plot file canonicalizes");
@@ -1250,7 +1168,7 @@ fn run_structured_real_counts_at_or_below_the_request_are_carried_exactly() {
         ("setprecision(1100); e(1100)", 1100),
     ] {
         let r = run_args_of(&["--eval", script, "--json", "--omit-functions"]);
-        assert_eq!(r.exit, 0, "{script}: {}", r.env.to_string());
+        assert_eq!(r.exit, 0, "{script}: {}", r.env);
         assert_eq!(decimals(real_value(&r)), expected);
         let variable = array(get(&r.env, "variables"))
             .iter()
@@ -1320,7 +1238,7 @@ fn run_matrix_e_digit_count_boundary_cells_are_accepted() {
         assert!(
             boolean(get(&r.env, "ok")),
             "e({literal}) must be accepted: {}",
-            r.env.to_string()
+            r.env
         );
         assert_eq!(r.exit, 0);
     }
@@ -1380,7 +1298,7 @@ fn run_print_budget_identifier_longer_than_the_kernel_allowance_is_never_split()
         "--print-budget",
         "1",
     ]);
-    assert_eq!(r.exit, 0, "{}", r.env.to_string());
+    assert_eq!(r.exit, 0, "{}", r.env);
     let st = structured(&r);
     let pretty = text(get(st, "pretty"));
     let body = pretty.strip_suffix(" …").unwrap_or(pretty);
@@ -1475,10 +1393,9 @@ fn run_print_budget_also_bounds_the_structured_variables() {
 fn run_function_arity_published_range_is_the_range_the_call_site_enforces() {
     let accepted = run_args_of(&["--eval", "concat([1], [2])", "--json", "--omit-functions"]);
     assert_eq!(
-        accepted.exit,
-        0,
+        accepted.exit, 0,
         "concat with minArity arguments was refused: {}",
-        accepted.env.to_string()
+        accepted.env
     );
     assert!(boolean(get(&accepted.env, "ok")));
     let refused = run_args_of(&["--eval", "concat([1])", "--json", "--omit-functions"]);
@@ -1491,7 +1408,7 @@ fn run_function_arity_published_range_is_the_range_the_call_site_enforces() {
 #[test]
 fn run_arity_documented_shorter_or_longer_form_stays_callable() {
     let r = run_script("e()");
-    assert_eq!(r.exit, 0, "e() must still evaluate: {}", r.env.to_string());
+    assert_eq!(r.exit, 0, "e() must still evaluate: {}", r.env);
     assert!(boolean(get(&r.env, "ok")));
 }
 

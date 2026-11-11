@@ -3,6 +3,11 @@
 //! Rendering is the contract: every value renders with its documented display form and reports a
 //! kind, and the engine reports errors as a message plus a UTF-16 position into the source.
 
+// LangError carries its ErrorSignature inline by design: it is the wire-protocol error payload
+// (message, code, category, position, signature). Boxing it would touch construction and matching
+// across the envelope path for a performance heuristic, so the restructure is deferred rather than
+// risk the frozen wire contract.
+#![allow(clippy::result_large_err)]
 #![allow(clippy::needless_range_loop)]
 
 pub mod builtins;
@@ -29,7 +34,7 @@ use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_symbolics::Expr as Sym;
 
-use syntax::{BinOp, Expr, IndexArg, InterpPart, Parser, Stmt, Tok};
+use syntax::{Expr, IndexArg, InterpPart, Parser, Stmt};
 
 /// The call-site signature an argument refusal was measured against.
 ///
@@ -260,14 +265,14 @@ impl Value {
                 if im.is_zero() {
                     re.to_string()
                 } else if re.is_zero() {
-                    format!("{}i", im.to_string())
+                    format!("{}i", im)
                 } else {
                     let sign = if im.cmp(&Real::zero()) == std::cmp::Ordering::Less {
                         "-"
                     } else {
                         "+"
                     };
-                    format!("{} {} {}i", re.to_string(), sign, im.abs().to_string())
+                    format!("{} {} {}i", re, sign, im.abs())
                 }
             }
             Value::Record(name, fields) => {
@@ -475,6 +480,11 @@ pub struct PlotCapture {
     pub svg: String,
 }
 
+/// One interval endpoint: the value and whether the endpoint is included.
+type IntervalEnd = (lovelace_symbolics::Rat, bool);
+/// One optional endpoint of an assumption interval.
+type Bound = Option<IntervalEnd>;
+
 /// The engine: variables, functions, precision and captured output.
 pub struct Engine {
     vars: HashMap<String, Value>,
@@ -514,11 +524,7 @@ pub struct Engine {
     /// the session's domain, which is what decides whether a complex or fractional root is a
     /// solution of THIS session's equation.
     domain_assumptions: Vec<(String, String)>,
-    bounds: Vec<(
-        String,
-        Option<(lovelace_symbolics::Rat, bool)>,
-        Option<(lovelace_symbolics::Rat, bool)>,
-    )>,
+    bounds: Vec<(String, Bound, Bound)>,
     /// The session's assumption set: the tri-state kernel the assume builtins feed and merge,
     /// solve, simplify, simplify_full and inspect read. One set per engine, so two engines that
     /// run concurrently never answer each other's queries.
@@ -1142,7 +1148,7 @@ impl Engine {
                 .iter()
                 .map(|p| (p.clone(), self.vars.get(p).cloned()))
                 .collect();
-            for (p, v) in params.iter().zip(args.into_iter()) {
+            for (p, v) in params.iter().zip(args) {
                 self.vars.insert(p.clone(), v);
             }
             // One call LEVEL of the evaluation budget. The reference charges four units for the
@@ -1342,23 +1348,6 @@ impl Engine {
         Ok(())
     }
 
-    pub(crate) fn bounds_of(
-        &self,
-        var: &str,
-    ) -> Option<(
-        Option<(lovelace_symbolics::Rat, bool)>,
-        Option<(lovelace_symbolics::Rat, bool)>,
-    )> {
-        self.bounds
-            .iter()
-            .find(|(name, _, _)| name == var)
-            .map(|(_, lo, hi)| (lo.clone(), hi.clone()))
-    }
-
-    pub(crate) fn assumption_texts(&self) -> Vec<String> {
-        self.assumption_texts.clone()
-    }
-
     /// Records one assumption ATOM (the expression form of the same fact the text carries).
     pub(crate) fn record_assumption_atom(&mut self, atom: &Sym) {
         let text = atom.to_string();
@@ -1402,14 +1391,6 @@ impl Engine {
             .collect()
     }
 
-    pub(crate) fn positive_symbols(&self) -> &[String] {
-        &self.positive_symbols
-    }
-
-    pub(crate) fn nonzero_symbols(&self) -> &[String] {
-        &self.nonzero_symbols
-    }
-
     pub(crate) fn is_positive(&self, name: &str) -> bool {
         self.positive_symbols.iter().any(|s| s == name)
     }
@@ -1430,6 +1411,7 @@ impl Engine {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn set_var(&mut self, name: &str, value: Value) {
         self.vars.insert(name.to_string(), value);
     }
@@ -1863,6 +1845,7 @@ mod relations_families_round33;
 #[cfg(test)]
 mod symbolics_tail_round34;
 
+#[cfg(test)]
 mod symbolics_round23;
 
 #[cfg(test)]

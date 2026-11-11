@@ -4,7 +4,6 @@
 //! the same golden after the same volatile-key normalisation the C# test applies.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 const FIXTURES: &str = concat!(

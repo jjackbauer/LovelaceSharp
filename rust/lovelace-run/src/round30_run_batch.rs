@@ -6,7 +6,6 @@
 //! so an assertion cannot pass on a flow the binary does not run.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'static) -> T {
@@ -37,10 +36,7 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!(
-        "structured record has no field '{name}': {}",
-        st.to_string()
-    )
+    panic!("structured record has no field '{name}': {}", st)
 }
 
 /// SolveEmptySetTests.Solve_OfAProvablyFalseEquation_AnswersTheEmptySet_NotADomainError.
@@ -48,10 +44,9 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
 fn solve_of_a_provably_false_equation_publishes_the_solve_result_record() {
     let r = run_script("x = symbol(\"x\"); solve(0 == 1, x)");
     assert_eq!(
-        r.exit,
-        0,
+        r.exit, 0,
         "solve(0 == 1, x) must answer, not fail: {}",
-        r.env.to_string()
+        r.env
     );
     assert!(boolean(get(&r.env, "ok")));
 
@@ -83,10 +78,9 @@ fn solve_of_a_provably_false_equation_publishes_the_solve_result_record() {
 fn solve_full_of_a_provably_false_equation_publishes_no_solutions_complete() {
     let r = run_script("x = symbol(\"x\"); solve_full(2 == 3, x)");
     assert_eq!(
-        r.exit,
-        0,
+        r.exit, 0,
         "solve_full(2 == 3, x) must answer, not fail: {}",
-        r.env.to_string()
+        r.env
     );
 
     let record = get(get(&r.env, "result"), "structured");
@@ -386,11 +380,7 @@ fn the_declared_system_list_forms_still_succeed() {
         "x = symbol(\"x\"); y = symbol(\"y\"); jacobian([x*y, x + y], [x, y])",
     ] {
         let r = run_script(script);
-        assert!(
-            boolean(get(&r.env, "ok")),
-            "{script}: {}",
-            r.env.to_string()
-        );
+        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env);
     }
 }
 
@@ -435,11 +425,7 @@ fn the_declared_audit_forms_stay_callable() {
         ("x = symbol(\"x\"); assume_real(\"y\")", "y"),
     ] {
         let r = run_script(script);
-        assert!(
-            boolean(get(&r.env, "ok")),
-            "{script}: {}",
-            r.env.to_string()
-        );
+        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env);
         assert_eq!(
             text(get(get(&r.env, "result"), "display")),
             expected,
@@ -463,11 +449,7 @@ fn limit_short_form_reports_the_symbolic_leading_coefficient() {
     ] {
         let script = format!("a = symbol(\"a\"); x = symbol(\"x\"); {call}");
         let r = run_script(&script);
-        assert!(
-            boolean(get(&r.env, "ok")),
-            "{script}: {}",
-            r.env.to_string()
-        );
+        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env);
         let st = structured_of(&r);
         assert_eq!(value_of(field(st, "status")), "Unevaluated", "{call}");
         assert_eq!(text(get(field(st, "exists"), "kind")), "Null", "{call}");

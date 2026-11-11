@@ -724,7 +724,7 @@ impl<W: LRealWidth> Eq for Fixed<W> {}
 
 impl<W: LRealWidth> PartialOrd for Fixed<W> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.compare(other))
+        Some(Ord::cmp(self, other))
     }
 }
 

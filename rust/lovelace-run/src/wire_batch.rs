@@ -14,10 +14,7 @@ fn eval_keep_vars(script: &str) -> RunResult {
 }
 
 fn output(r: &RunResult) -> Vec<&str> {
-    array(get(&r.env, "output"))
-        .iter()
-        .map(|v| text(v))
-        .collect()
+    array(get(&r.env, "output")).iter().map(text).collect()
 }
 
 fn has_output(r: &RunResult) -> Vec<bool> {
@@ -265,15 +262,9 @@ fn registry_describes_det_with_the_declared_metadata() {
     );
     assert_eq!(text(get(entry, "returnKind")), "Real | Symbolic");
     assert_eq!(text(get(entry, "category")), "Linear Algebra");
-    let params: Vec<&str> = array(get(entry, "parameters"))
-        .iter()
-        .map(|p| text(p))
-        .collect();
+    let params: Vec<&str> = array(get(entry, "parameters")).iter().map(text).collect();
     assert_eq!(params, vec!["m"]);
-    let related: Vec<&str> = array(get(entry, "related"))
-        .iter()
-        .map(|p| text(p))
-        .collect();
+    let related: Vec<&str> = array(get(entry, "related")).iter().map(text).collect();
     assert_eq!(related, vec!["inv", "matrix_rank"]);
 }
 
@@ -706,7 +697,7 @@ fn variable_structured_forms_carry_meaning() {
     assert_eq!(
         array(get(x, "freeSymbols"))
             .iter()
-            .map(|v| text(v))
+            .map(text)
             .collect::<Vec<_>>(),
         vec!["x"]
     );
@@ -906,10 +897,7 @@ fn functions_publish_their_declared_arity() {
         let name = text(get(entry, "name"));
         let info =
             registry::find(name).unwrap_or_else(|| panic!("published unknown builtin {name}"));
-        let params: Vec<&str> = array(get(entry, "parameters"))
-            .iter()
-            .map(|p| text(p))
-            .collect();
+        let params: Vec<&str> = array(get(entry, "parameters")).iter().map(text).collect();
         assert_eq!(params, info.parameters, "{name} parameters");
         assert_eq!(
             number(get(entry, "parameterCount")),

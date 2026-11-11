@@ -163,22 +163,6 @@ impl Rat {
         Rat::new(num, den)
     }
 
-    /// Numeric comparison via cross-multiplication. Two integral values compare their
-    /// numerators directly: the general path rebuilds both denominators as Ints through their
-    /// decimal rendering, which is the hot spot in the assumption engine's bound reasoning.
-    pub fn cmp(&self, other: &Rat) -> Ordering {
-        if self.is_integer() && other.is_integer() {
-            return self.num.cmp(&other.num);
-        }
-        let left = self
-            .num
-            .mul(&Int::from_decimal(&other.den.to_decimal()).unwrap_or_else(Int::zero));
-        let right = other
-            .num
-            .mul(&Int::from_decimal(&self.den.to_decimal()).unwrap_or_else(Int::zero));
-        left.cmp(&right)
-    }
-
     /// True when this is an integral value.
     pub fn is_integer(&self) -> bool {
         self.den.to_decimal() == "1"
@@ -191,14 +175,44 @@ impl Rat {
         }
         self.num.to_decimal().parse::<i64>().ok()
     }
+}
 
+/// Numeric comparison via cross-multiplication. Two integral values compare their
+/// numerators directly: the general path rebuilds both denominators as Ints through their
+/// decimal rendering, which is the hot spot in the assumption engine's bound reasoning.
+impl Ord for Rat {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.is_integer() && other.is_integer() {
+            return self.num.cmp(&other.num);
+        }
+        let left = self
+            .num
+            .mul(&Int::from_decimal(&other.den.to_decimal()).unwrap_or_else(Int::zero));
+        let right = other
+            .num
+            .mul(&Int::from_decimal(&self.den.to_decimal()).unwrap_or_else(Int::zero));
+        left.cmp(&right)
+    }
+}
+
+impl PartialOrd for Rat {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(Ord::cmp(self, other))
+    }
+}
+
+impl std::fmt::Display for Rat {
     /// Renders the coefficient as it appears in a product: `2`, `-1/2`, `3/4`.
-    pub fn to_string(&self) -> String {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let one = Nat::from_u64(1);
         if self.den.cmp(&one) == Ordering::Equal {
-            return self.num.to_decimal();
+            return f.write_str(&self.num.to_decimal());
         }
-        format!("{}/{}", self.num.to_decimal(), self.den.to_decimal())
+        f.write_str(&format!(
+            "{}/{}",
+            self.num.to_decimal(),
+            self.den.to_decimal()
+        ))
     }
 }
 
@@ -283,6 +297,11 @@ impl Expr {
     }
 
     /// Canonical sum.
+    // The expression constructors below are the reference's `Expr.Add`/`Multiply`/`Negate`
+    // operations: they canonicalise two owned operands and are called in associated form by the
+    // evaluator. They are not the `std::ops` sugar (an `Add` impl would take `self`/`rhs` and
+    // suggest a different contract), so the ported names stay.
+    #[allow(clippy::should_implement_trait)]
     pub fn add(a: Expr, b: Expr) -> Expr {
         let mut terms: Vec<Expr> = Vec::new();
         let mut coefficient = Rat::zero();
@@ -334,6 +353,7 @@ impl Expr {
     }
 
     /// Canonical product.
+    #[allow(clippy::should_implement_trait)]
     pub fn mul(a: Expr, b: Expr) -> Expr {
         let mut factors: Vec<Expr> = Vec::new();
         for f in [a, b] {
@@ -481,16 +501,19 @@ impl Expr {
     }
 
     /// Negation.
+    #[allow(clippy::should_implement_trait)]
     pub fn neg(e: Expr) -> Expr {
         Expr::mul(Expr::num(-1), e)
     }
 
     /// Subtraction.
+    #[allow(clippy::should_implement_trait)]
     pub fn sub(a: Expr, b: Expr) -> Expr {
         Expr::add(a, Expr::neg(b))
     }
 
     /// Division.
+    #[allow(clippy::should_implement_trait)]
     pub fn div(a: Expr, b: Expr) -> Expr {
         Expr::mul(a, Expr::pow(b, Expr::num(-1)))
     }
@@ -732,7 +755,7 @@ impl Expr {
     }
 
     /// Renders the expression in the documented form.
-    pub fn to_string(&self) -> String {
+    fn render(&self) -> String {
         match self {
             Expr::Num(n) => n.to_string(),
             Expr::Real(text) => text.clone(),
@@ -791,7 +814,7 @@ impl Expr {
                 if name == "not" {
                     // The empty-argument case returned above (a Function with no arguments prints
                     // as its name), so args[0] is in range here even for canonical_parse input.
-                    return format!("not {}", args[0].to_string());
+                    return format!("not {}", args[0]);
                 }
                 // The series tail: O(x^3) at zero, O((x - 1)^3) around a nonzero point, O(x) for a
                 // degree-one tail (the reference's OrderShape rule).
@@ -817,7 +840,7 @@ impl Expr {
                 // An algebraic number: the root index is part of the printed value, and the
                 // defining polynomial prints as a polynomial (rootof(x^4 - x^2 - 1, 0)).
                 if name == "rootof" && args.len() == 2 {
-                    return format!("rootof({}, {})", args[0].to_string(), args[1].to_string());
+                    return format!("rootof({}, {})", args[0], args[1]);
                 }
                 // A piecewise prints each branch as "value if guard" and the otherwise value
                 // last: piecewise(sign(x) if x != 0, diff(abs(x), x)).
@@ -825,9 +848,7 @@ impl Expr {
                     if let Some((branches, otherwise)) = self.as_piecewise() {
                         let mut parts: Vec<String> = branches
                             .iter()
-                            .map(|(guard, value)| {
-                                format!("{} if {}", value.to_string(), guard.to_string())
-                            })
+                            .map(|(guard, value)| format!("{} if {}", value, guard))
                             .collect();
                         parts.push(otherwise.to_string());
                         return format!("piecewise({})", parts.join(", "));
@@ -836,7 +857,7 @@ impl Expr {
                 // An unevaluated derivative prints as the diff call it denotes.
                 if name == "derivative" {
                     if let Some((body, vars)) = self.as_derivative() {
-                        return format!("diff({}, {})", body.to_string(), vars.join(", "));
+                        return format!("diff({}, {})", body, vars.join(", "));
                     }
                 }
                 let parts: Vec<String> = args.iter().map(|a| a.to_string()).collect();
@@ -844,16 +865,16 @@ impl Expr {
             }
             Expr::Div(a, b) => {
                 let top = match a.as_ref() {
-                    Expr::Add(_) | Expr::Mul(_) => format!("({})", a.to_string()),
+                    Expr::Add(_) | Expr::Mul(_) => format!("({a})"),
                     other => other.to_string(),
                 };
                 let bottom = match b.as_ref() {
-                    Expr::Add(_) | Expr::Mul(_) => format!("({})", b.to_string()),
+                    Expr::Add(_) | Expr::Mul(_) => format!("({b})"),
                     other => other.to_string(),
                 };
                 format!("{}/{}", top, bottom)
             }
-            Expr::Rel(op, a, b) => format!("{} {} {}", a.to_string(), op.text(), b.to_string()),
+            Expr::Rel(op, a, b) => format!("{} {} {}", a, op.text(), b),
         }
     }
 }
@@ -928,7 +949,7 @@ fn product_text(e: &Expr) -> String {
     let mut numerator_parts: Vec<String> = Vec::new();
     for f in &numerators {
         match f {
-            Expr::Add(_) => numerator_parts.push(format!("({})", f.to_string())),
+            Expr::Add(_) => numerator_parts.push(format!("({})", f)),
             other => numerator_parts.push(other.to_string()),
         }
     }
@@ -945,7 +966,7 @@ fn product_text(e: &Expr) -> String {
         } else if body.is_empty() {
             coefficient.to_string()
         } else {
-            format!("{}*{}", coefficient.to_string(), body)
+            format!("{}*{}", coefficient, body)
         };
         if negative {
             text = format!("-{text}");
@@ -1007,10 +1028,10 @@ fn power_text(e: &Expr) -> String {
             if let Expr::Num(n) = exp.as_ref() {
                 if n.denominator().to_decimal() == "2" {
                     if n.numerator().to_decimal() == "1" {
-                        return format!("sqrt({})", base.to_string());
+                        return format!("sqrt({})", base);
                     }
                     if n.numerator().to_decimal() == "-1" {
-                        return format!("1/sqrt({})", base.to_string());
+                        return format!("1/sqrt({})", base);
                     }
                 }
             }
@@ -1021,10 +1042,10 @@ fn power_text(e: &Expr) -> String {
             // base (x/y)^2 is a division at the power's level too.
             let base_text = match base.as_ref() {
                 Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) | Expr::Div(_, _) => {
-                    format!("({})", base.to_string())
+                    format!("({})", base)
                 }
                 Expr::Num(n) if n.is_negative() || !n.is_integer() => {
-                    format!("({})", n.to_string())
+                    format!("({})", n)
                 }
                 other => other.to_string(),
             };
@@ -1034,9 +1055,9 @@ fn power_text(e: &Expr) -> String {
             // a signed exponent, so x^-2 is exactly x^(-2).
             let exp_text = match exp.as_ref() {
                 Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) => {
-                    format!("({})", exp.to_string())
+                    format!("({})", exp)
                 }
-                Expr::Num(n) if !n.is_integer() => format!("({})", n.to_string()),
+                Expr::Num(n) if !n.is_integer() => format!("({})", n),
                 other => other.to_string(),
             };
             format!("{}^{}", base_text, exp_text)
@@ -1300,7 +1321,7 @@ impl From<Rat> for Expr {
 
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&Expr::to_string(self))
+        f.write_str(&self.render())
     }
 }
 
@@ -2128,6 +2149,10 @@ pub fn split_quotient(e: &Expr) -> Option<(Expr, Expr)> {
     Some((num, den))
 }
 
+/// Partial-fraction decomposition of a rational expression in `var` over simple roots.
+///
+/// Returns `None` when the expression is not a quotient of univariate polynomials, when the
+/// denominator has repeated poles, or when cancellation is disabled.
 pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
     if cancel::check() {
         return None;
@@ -2151,7 +2176,7 @@ pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
         .map(|i| dc[i].mul(&Rat::from_i64(i as i64)))
         .collect();
     let mut sorted: Vec<Rat> = roots.into_iter().map(|root| root.value).collect();
-    sorted.sort_by(|a, b| a.cmp(b));
+    sorted.sort();
     let mut terms: Vec<Expr> = Vec::new();
     for r in sorted {
         let num_at = eval_poly(&nc, &r)?;
@@ -2170,6 +2195,9 @@ pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
     }
 }
 
+/// Evaluates a univariate polynomial expression in `var` at the rational point `x`.
+///
+/// Returns `None` when the expression is not a polynomial in `var` or cancellation is disabled.
 pub fn eval_at(e: &Expr, var: &str, x: &Rat) -> Option<Rat> {
     if cancel::check() {
         return None;
@@ -2182,6 +2210,9 @@ pub fn eval_at(e: &Expr, var: &str, x: &Rat) -> Option<Rat> {
     Some(acc)
 }
 
+/// Exact polynomial division, ascending coefficients: the quotient when `den` divides `num`.
+///
+/// The divisor is trimmed of high zero coefficients; a zero or empty divisor answers `None`.
 pub fn poly_div(num: &[Rat], den: &[Rat]) -> Option<Vec<Rat>> {
     if cancel::check() {
         return None;
@@ -2221,14 +2252,12 @@ pub fn cancel(e: &Expr) -> Option<Expr> {
     if cancel::check() {
         return None;
     }
-    let mut var_name: Option<String> = None;
     let mut symbols: Vec<String> = Vec::new();
     collect_all(&e.clone(), &mut symbols);
     if symbols.len() != 1 {
         return None;
     }
-    var_name = symbols.first().cloned();
-    let var = var_name?;
+    let var = symbols.first().cloned()?;
     // Recognise num * den^-1.
     let factors = match e {
         Expr::Mul(f) => f.clone(),
@@ -2420,7 +2449,7 @@ pub fn collect(e: &Expr, var: &str) -> Expr {
         }
     }
     coefficients.retain(|(_, c)| *c != Expr::num(0));
-    coefficients.sort_by(|a, b| b.0.cmp(&a.0));
+    coefficients.sort_by_key(|a| std::cmp::Reverse(a.0));
     // Built directly rather than through the canonical adder: collect publishes the constant
     // first, followed by descending powers.
     let mut terms: Vec<Expr> = Vec::new();
@@ -2556,9 +2585,7 @@ pub fn poly_coeffs(e: &Expr, var: &str) -> Option<Vec<Rat>> {
         // will materialize, and asking for it must answer "not polynomial here" rather than
         // aborting on a capacity/allocator failure. None sends the solver to its structured
         // Unevaluated path.
-        let Some(index) = degree_index(degree) else {
-            return None;
-        };
+        let index = degree_index(degree)?;
         let coefficient = divide_out(&term, var, degree);
         // A coefficient of a polynomial in \`var\` is free of \`var\` by definition. A factor such as
         // exp(x) or sin(x) counts as one degree (its argument does), so divide_out can strip it as
@@ -2661,7 +2688,7 @@ fn poly_remainder(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
     // swaps two same-degree polynomials forever (x^3 - x^2 against x^2 is exactly that shape).
     // A CONSTANT divisor (db = 0) would keep the loop alive after the remainder reached zero,
     // since a trimmed vector is never empty, so the zero remainder ends it explicitly.
-    while r.len() >= db + 1 {
+    while r.len() > db {
         if r.len() == 1 && r[0].is_zero() {
             break;
         }
@@ -3492,15 +3519,7 @@ fn quadratic_complex_roots(coeffs: &[Rat]) -> Option<Vec<Expr>> {
         perfect_square(mag.numerator().magnitude()),
         perfect_square(mag.denominator()),
     ) {
-        (Some(n), Some(d)) if d == 1 => Expr::num(n as i64),
-        _ => Expr::sqrt(Expr::Num(mag.clone())),
-    };
-    let mag = disc.neg();
-    let root_expr = match (
-        perfect_square(mag.numerator().magnitude()),
-        perfect_square(mag.denominator()),
-    ) {
-        (Some(n), Some(d)) if d == 1 => Expr::num(n as i64),
+        (Some(n), Some(1)) => Expr::num(n as i64),
         _ => Expr::sqrt(Expr::Num(mag.clone())),
     };
     let i_root = Expr::mul(imaginary_unit(), root_expr);
@@ -3570,8 +3589,8 @@ fn quadratic_roots(coeffs: &[Rat]) -> Option<(Rat, Rat)> {
 /// `x = t - A/3` to reach `t^3 + P t + Q`, then
 /// - `disc = Q^2/4 + P^3/27 >= 0`: one real branch plus the two omega rotations,
 /// - `disc < 0`: three real roots through the cosine form.
-/// The returned expressions are exact; the CALLER applies the domain filter (a real request drops
-/// the branches carrying `i`).
+///   The returned expressions are exact; the CALLER applies the domain filter (a real request
+///   drops the branches carrying `i`).
 fn cubic_root_expressions(coeffs: &[Rat]) -> Option<Vec<Expr>> {
     if cancel::check() {
         return None;
@@ -3689,7 +3708,7 @@ fn solve_biquadratic(coeffs: &[Rat]) -> Option<SolveOutcome> {
         perfect_square(disc.numerator().magnitude()),
         perfect_square(disc.denominator()),
     ) {
-        (Some(n), Some(d)) if d == 1 => Expr::num(n as i64),
+        (Some(n), Some(1)) => Expr::num(n as i64),
         _ => Expr::sqrt(Expr::Num(disc.clone())),
     };
     let two_a = a.mul(&Rat::from_i64(2));
@@ -4323,7 +4342,7 @@ impl Expr {
     /// have.
     pub fn debug_print(&self) -> String {
         match self {
-            Expr::Num(n) => format!("rat({})", n.to_string()),
+            Expr::Num(n) => format!("rat({})", n),
             Expr::Real(text) => format!("real({text})"),
             Expr::Sym(s) => format!("sym({})", s),
             Expr::Add(terms) => {
@@ -4403,7 +4422,7 @@ impl Expr {
             Expr::Div(a, b) => {
                 // The same multiply-by-reciprocal shape and the same canonical operand order the
                 // canonical arm uses, so Debug and Canonical never describe different trees.
-                let mut parts = vec![
+                let mut parts = [
                     (**a).clone(),
                     Expr::Pow(
                         Box::new((**b).clone()),
@@ -4927,10 +4946,7 @@ mod tests {
         let x = Expr::sym("x");
         let f = Expr::div(Expr::Fun("sin".to_string(), vec![x.clone()]), x.clone());
         let ser = series(&f, "x", 8).expect("series");
-        let rendered: Vec<String> = ser
-            .iter()
-            .map(|(e, c)| format!("{}*x^{}", c.to_string(), e))
-            .collect();
+        let rendered: Vec<String> = ser.iter().map(|(e, c)| format!("{}*x^{}", c, e)).collect();
         assert_eq!(rendered.join(" "), "1*x^0 -1/6*x^2 1/120*x^4 -1/5040*x^6");
     }
 

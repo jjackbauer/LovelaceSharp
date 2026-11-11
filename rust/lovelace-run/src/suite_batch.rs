@@ -2,7 +2,6 @@
 //! behaviour is the same concrete outcome the C# test asserts.
 
 use super::parity_batch::*;
-use super::*;
 
 fn eval(script: &str) -> RunResult {
     envelope(script, &[])

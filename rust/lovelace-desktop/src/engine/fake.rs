@@ -13,6 +13,7 @@ use super::{DEFAULT_PRECISION, Evaluator, PlotCapture};
 use crate::svg;
 
 /// Creates a boxed FakeEngine.
+#[cfg(not(feature = "real-engine"))]
 pub fn boxed() -> Box<dyn Evaluator> {
     Box::new(FakeEngine::new())
 }

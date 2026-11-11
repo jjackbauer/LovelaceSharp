@@ -125,8 +125,7 @@ pub fn div_truncate(left: &Real, right: &Real, frac_digits: usize) -> Real {
     let n = frac_digits as i64 + adjust.max(0);
     let scaled = a.mul_pow10(n as usize);
     let (q, r) = scaled.div_rem(b).expect("nonzero divisor");
-    let value = raw(neg, q, -n + adjust, !r.is_zero());
-    value
+    raw(neg, q, -n + adjust, !r.is_zero())
 }
 
 /// The reference ambient \`Real.Divide\` for the operand shapes the kernel feeds it. Periodic
@@ -134,8 +133,7 @@ pub fn div_truncate(left: &Real, right: &Real, frac_digits: usize) -> Real {
 /// truncation), so this is the non-periodic path: exact when the quotient terminates, otherwise
 /// truncated to \`max_digits\` fractional places and marked inexact.
 pub fn div_at(left: &Real, right: &Real, max_digits: usize) -> Real {
-    let q = left.div(right, max_digits).unwrap_or_else(Real::zero);
-    q
+    left.div(right, max_digits).unwrap_or_else(Real::zero)
 }
 
 /// \`e\` truncated to \`digits\` fractional places, computed exactly then divided once (the
@@ -683,13 +681,7 @@ fn trig_integer_digits(value: &Real) -> i64 {
         return 0;
     }
     let digits = value.int.magnitude().to_decimal().len() as i64 + value.exp;
-    if digits <= 0 {
-        0
-    } else if digits > MAX_EXTRA {
-        MAX_EXTRA
-    } else {
-        digits
-    }
+    digits.clamp(0, MAX_EXTRA)
 }
 
 /// The decimal place count the kernel must compute at for THIS argument: the request plus the

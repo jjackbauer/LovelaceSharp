@@ -8,21 +8,6 @@
 use crate::Real;
 use crate::transcendental::truncate_frac;
 
-const NAMES: [&str; 12] = [
-    "exp(1)",
-    "log(2)",
-    "sin(1)",
-    "cos(1)",
-    "tan(1)",
-    "atan(1)",
-    "sinh(1)",
-    "cosh(1)",
-    "tanh(1)",
-    "exp(-2.5)",
-    "log(10)",
-    "sin(100)",
-];
-
 /// The oracle's published strings at 20, 50 and 100 decimal places.
 const EXPECTED: [(&str, [&str; 3]); 12] = [
     (
@@ -208,7 +193,7 @@ fn exp_and_log_invert_each_other_at_a_hundred_places() {
     assert!(
         back.sub(&Real::from_i64(2)).abs().cmp(&tolerance) == std::cmp::Ordering::Less,
         "exp(log(2)) = {}",
-        back.to_string()
+        back
     );
 }
 
@@ -229,7 +214,7 @@ fn the_hyperbolic_identities_hold_at_fifty_places() {
     assert!(
         identity.sub(&Real::from_i64(1)).abs().cmp(&tolerance) == std::cmp::Ordering::Less,
         "cosh^2 - sinh^2 = {}",
-        identity.to_string()
+        identity
     );
     let tanh = one.tanh(50);
     assert!(

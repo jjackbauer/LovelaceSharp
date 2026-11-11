@@ -404,7 +404,7 @@ fn envelope_for(
 
 fn print_json(env: &Json) {
     let mut out = std::io::stdout();
-    let _ = writeln!(out, "{}", env.to_string());
+    let _ = writeln!(out, "{}", env);
     let _ = out.flush();
 }
 

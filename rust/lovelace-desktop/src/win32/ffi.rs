@@ -17,6 +17,9 @@
 
 #![allow(unsafe_code)]
 #![allow(non_snake_case)]
+// Type names mirror the Windows SDK exactly (HWND, WNDCLASSW, ...); renaming them would make the
+// hand-written bindings harder to check against the headers they reproduce.
+#![allow(clippy::upper_case_acronyms)]
 #![allow(dead_code)]
 
 use std::ffi::c_void;
@@ -293,7 +296,7 @@ pub struct MSG {
 
 /// The paint state.
 #[repr(C)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct PAINTSTRUCT {
     /// Display DC to paint with.
     pub hdc: HDC,
@@ -307,19 +310,6 @@ pub struct PAINTSTRUCT {
     pub fIncPaint: i32,
     /// Reserved.
     pub reserved: [u8; 32],
-}
-
-impl Default for PAINTSTRUCT {
-    fn default() -> PAINTSTRUCT {
-        PAINTSTRUCT {
-            hdc: 0,
-            fErase: 0,
-            rcPaint: RECT::default(),
-            fRestore: 0,
-            fIncPaint: 0,
-            reserved: [0; 32],
-        }
-    }
 }
 
 /// Minimum/maximum tracking sizes for WM_GETMINMAXINFO.
@@ -831,6 +821,9 @@ pub fn register_class(name: &str, procedure: WNDPROC, background: HBRUSH) -> boo
 }
 
 /// Creates a window.
+// Mirrors CreateWindowExW's parameter list; grouping the geometry into a struct would obscure the
+// one-to-one mapping to the SDK call.
+#[allow(clippy::too_many_arguments)]
 pub fn create_window(
     ex_style: u32,
     class: &str,

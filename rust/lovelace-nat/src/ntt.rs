@@ -39,6 +39,9 @@ const MAX_TERMS: u128 = CRT_RANGE / (MAX_DIGIT * MAX_DIGIT);
 /// Two operands of this length need a 2^18-point transform, which all three primes support.
 pub(crate) const MAX_NTT_LIMBS: usize = 1 << 16;
 
+// The documented overlap bound must cover the widest operand a single transform accepts.
+const _: () = assert!(MAX_NTT_LIMBS as u128 <= MAX_TERMS);
+
 /// Multiplies two little-endian base-2^64 limb vectors, exactly.
 ///
 /// Both inputs must have no trailing zero limb; the empty slice is zero. The result is the
@@ -262,7 +265,6 @@ fn ntt(values: &mut [u64], prime: u64, inverse: bool) {
             std::thread::scope(|scope| {
                 for group in chunks.chunks_mut(per_worker) {
                     let root = root;
-                    let prime = prime;
                     scope.spawn(move || {
                         for block in group.iter_mut() {
                             let mut twist = 1u64;
@@ -725,6 +727,6 @@ mod tests {
         for prime in [P1, P2, P3] {
             assert_eq!((prime - 1) % len as u64, 0);
         }
-        assert!((2 * MAX_NTT_LIMBS) < (1usize << MAX_TRANSFORM_LOG2));
+        const { assert!((2 * MAX_NTT_LIMBS) < (1usize << MAX_TRANSFORM_LOG2)) };
     }
 }

@@ -7,7 +7,6 @@
 //! boundary; the in-kernel work and the depth guards now reproduce them.
 
 use super::parity_batch::*;
-use super::*;
 use lovelace_json::Json;
 
 fn run_script(script: &str) -> RunResult {
@@ -48,35 +47,12 @@ fn message(r: &RunResult) -> &str {
     text(get(&r.env, "message"))
 }
 
-fn diagnostics(r: &RunResult) -> &[Json] {
-    array(get(&r.env, "diagnostics"))
-}
-
-fn timings_positions(r: &RunResult) -> Vec<i64> {
-    array(get(&r.env, "timings"))
-        .iter()
-        .map(|t| number(get(t, "position")))
-        .collect()
-}
-
 fn structured(r: &RunResult) -> &Json {
     get(get(&r.env, "result"), "structured")
 }
 
-fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
-    for f in array(get(st, "fields")) {
-        if text(get(f, "name")) == name {
-            return get(f, "value");
-        }
-    }
-    panic!(
-        "structured record has no field '{name}': {}",
-        st.to_string()
-    )
-}
-
 fn assert_depth_refusal(r: &RunResult, message_fragment: &str) {
-    assert_eq!(r.exit, 1, "a refused depth exits 1: {}", r.env.to_string());
+    assert_eq!(r.exit, 1, "a refused depth exits 1: {}", r.env);
     assert!(!boolean(get(&r.env, "ok")));
     assert_eq!(code(r), "DepthExceeded");
     assert_eq!(category(r), "BudgetExceeded");
@@ -132,7 +108,7 @@ fn run_depth_guard_deep_inputs_are_typed_refusals_never_process_deaths() {
         let r = run_script(&script);
         assert_ne!(r.exit, 0, "{what}: a refused input must exit non-zero");
         assert!(!boolean(get(&r.env, "ok")), "{what}: ok must be false");
-        assert_eq!(code(&r), "DepthExceeded", "{what}: {}", r.env.to_string());
+        assert_eq!(code(&r), "DepthExceeded", "{what}: {}", r.env);
         assert_eq!(category(&r), "BudgetExceeded", "{what}");
         assert!(
             boolean(get(&r.env, "recoverable")),
@@ -162,7 +138,7 @@ fn run_depth_guard_input_at_the_limit_is_accepted() {
     assert!(
         boolean(get(&r.env, "ok")),
         "depth 256 is exactly the budget: {}",
-        r.env.to_string()
+        r.env
     );
     assert_eq!(r.exit, 0);
 }
@@ -187,7 +163,7 @@ fn run_depth_guard_flat_chain_at_the_limit_is_accepted() {
     assert!(
         boolean(get(&r.env, "ok")),
         "a flat chain of depth 512 must be accepted: {}",
-        r.env.to_string()
+        r.env
     );
     assert_eq!(r.exit, 0);
 }
@@ -214,7 +190,7 @@ fn run_depth_guard_flat_sum_of_hundreds_of_terms_is_still_accepted() {
     assert!(
         boolean(get(&r.env, "ok")),
         "a 420-term flat sum must still run: {}",
-        r.env.to_string()
+        r.env
     );
 }
 
@@ -223,10 +199,9 @@ fn run_depth_guard_wide_program_of_shallow_statements_is_still_accepted() {
     let script = format!("e = 0;{}", "e = e + 1;".repeat(5000));
     let r = run_script(&script);
     assert_eq!(
-        r.exit,
-        0,
+        r.exit, 0,
         "5000 shallow statements must still run: {}",
-        r.env.to_string()
+        r.env
     );
     assert!(boolean(get(&r.env, "ok")));
     assert_eq!(text(get(get(&r.env, "result"), "display")), "5000");
@@ -239,7 +214,7 @@ fn run_depth_guard_ordinary_nested_arithmetic_is_unchanged() {
     assert!(
         boolean(get(&r.env, "ok")),
         "ordinary arithmetic must still run: {}",
-        r.env.to_string()
+        r.env
     );
 }
 
@@ -302,7 +277,7 @@ fn run_value_depth_at_the_limit_is_accepted() {
     assert!(
         boolean(get(&r.env, "ok")),
         "value depth 1024 is the budget: {}",
-        r.env.to_string()
+        r.env
     );
     assert_eq!(r.exit, 0);
     assert!(opt(&r.env, "code").is_none());

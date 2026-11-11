@@ -4187,14 +4187,6 @@ fn r12_display(script: &str) -> String {
     }
 }
 
-fn r12_value(script: &str) -> crate::Value {
-    let mut e = engine();
-    match e.eval(script) {
-        Ok(v) => v,
-        Err(err) => panic!("script: {script} unexpectedly failed: {}", err.message),
-    }
-}
-
 fn r12_err(script: &str) -> crate::LangError {
     let mut e = engine();
     match e.eval(script) {
@@ -4290,13 +4282,6 @@ fn r12_json_str<'a>(j: &'a Json, key: &str) -> Option<&'a str> {
 
 fn r12_json_arr<'a>(j: &'a Json, key: &str) -> Option<&'a [Json]> {
     j.get(key).and_then(|v| v.as_arr())
-}
-
-fn r12_json_int(j: &Json, key: &str) -> i64 {
-    match j.get(key) {
-        Some(Json::Num(s)) => s.parse().unwrap_or_else(|_| panic!("not an integer: {s}")),
-        other => panic!("no numeric '{key}': {:?}", other.map(|v| v.to_string())),
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -4586,17 +4571,17 @@ fn r12_rich_result(type_name: &str, script: &str) {
         r12_json_str(&structured, "kind"),
         Some("Array"),
         "structured: {}",
-        structured.to_string()
+        structured
     );
     assert!(
         structured.get("value").is_none(),
         "an Array carries no scalar value: {}",
-        structured.to_string()
+        structured
     );
     let elements = r12_json_arr(&structured, "elements")
-        .unwrap_or_else(|| panic!("no elements: {}", structured.to_string()));
-    let shape = r12_json_arr(&structured, "shape")
-        .unwrap_or_else(|| panic!("no shape: {}", structured.to_string()));
+        .unwrap_or_else(|| panic!("no elements: {}", structured));
+    let shape =
+        r12_json_arr(&structured, "shape").unwrap_or_else(|| panic!("no shape: {}", structured));
     // the shape's first entry is the element count
     match shape.first() {
         Some(Json::Num(s)) => {
@@ -5240,13 +5225,6 @@ fn exactnessflagtests_rootofrootpublishedbythesolver_isexact() {
 // Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs (12 of 19)
 // ---------------------------------------------------------------------------
 
-fn r12_symbolic_mentions_x(v: &crate::Value) -> bool {
-    match v {
-        crate::Value::Symbolic(sym) => sym.contains_sym("x"),
-        _ => false,
-    }
-}
-
 /// C# InfiniteFamilyCompletenessTests.cs:320 — AcceptanceControls_NothingElseMoves.
 #[test]
 fn infinitefamilycompletenesstests_acceptancecontrols_nothingelsemoves() {
@@ -5468,18 +5446,18 @@ fn r15_record_field<'a>(j: &'a Json, name: &str) -> &'a Json {
     let fields = j
         .get("fields")
         .and_then(|v| v.as_arr())
-        .unwrap_or_else(|| panic!("not a record: {}", j.to_string()));
+        .unwrap_or_else(|| panic!("not a record: {}", j));
     fields
         .iter()
         .find(|f| f.get("name").and_then(|n| n.as_str()) == Some(name))
         .and_then(|f| f.get("value"))
-        .unwrap_or_else(|| panic!("record has no field '{name}': {}", j.to_string()))
+        .unwrap_or_else(|| panic!("record has no field '{name}': {}", j))
 }
 
 fn r15_element_kinds(j: &Json) -> Vec<String> {
     j.get("elements")
         .and_then(|v| v.as_arr())
-        .unwrap_or_else(|| panic!("no elements: {}", j.to_string()))
+        .unwrap_or_else(|| panic!("no elements: {}", j))
         .iter()
         .map(|el| field(el, "kind").unwrap_or("?").to_string())
         .collect()

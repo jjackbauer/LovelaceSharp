@@ -221,6 +221,9 @@ fn sub_one(value: &[u64]) -> Vec<u64> {
 }
 
 #[cfg(test)]
+// These test names mirror the C# census methods; parity/manifest-map.json keys on the exact
+// lovelace-nat::newton::tests::... path, so renaming would break gate-manifest.
+#[allow(non_snake_case)]
 mod tests {
     use super::*;
 
@@ -248,7 +251,7 @@ mod tests {
             let len = 1 + (rng.next() as usize % 40);
             let d = rng.normalized(len);
             let n = bit_length(&d);
-            let extra = (rng.next() as usize % 200) as usize;
+            let extra = rng.next() as usize % 200;
             let k = n + extra;
             let r = reciprocal(&d, k);
             let limit = power_of_two(k);
@@ -270,7 +273,7 @@ mod tests {
         let mut rng = Rng(0x243f_6a88_85a3_08d3);
         for case in 0..80usize {
             let den_len = 1 + (rng.next() as usize % 60);
-            let extra = (rng.next() as usize % 70) as usize;
+            let extra = rng.next() as usize % 70;
             let den = rng.normalized(den_len);
             let mut num = rng.normalized(den_len + extra);
             if cmp(&num, &den) != Ordering::Greater {

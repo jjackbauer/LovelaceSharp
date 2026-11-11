@@ -1,3 +1,5 @@
+//! Compares the Knuth, Burnikel-Ziegler, and Newton division paths on large operands.
+
 use lovelace_nat::Nat;
 use std::time::Instant;
 

@@ -286,6 +286,10 @@ impl Real {
     }
 
     /// Parses `3.14`, `-0.5`, `0.(3)`, `0.1(6)`, `2`.
+    // The reference's `Real.FromString` is permissive and optional (a failed parse is a normal
+    // answer, not an error value). `FromStr` would fix a different contract (Result + error type),
+    // and every ported call site uses this exact name, so the inherent method stays.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(text: &str) -> Option<Real> {
         let text = text.trim();
         if text.is_empty() {
@@ -352,7 +356,7 @@ impl Real {
     }
 
     /// Renders the canonical display form: `2`, `0.25`, `0.(3)`, `0.1(6)`, `3.14159`.
-    pub fn to_string(&self) -> String {
+    fn render(&self) -> String {
         let mut out = String::new();
         if self.int.is_negative() {
             out.push('-');
@@ -460,13 +464,6 @@ impl Real {
             return format!("{}{}", sign, int_part);
         }
         format!("{}{}.{}", sign, int_part, frac)
-    }
-
-    /// Multiplies by a power of ten.
-    fn shift_exp(&self, delta: i64) -> Real {
-        let mut c = self.clone();
-        c.exp += delta;
-        c
     }
 
     /// Exact rational form `(numerator, denominator)` with a positive denominator.
@@ -733,15 +730,6 @@ impl Real {
         Some(acc)
     }
 
-    /// Compares two reals exactly.
-    pub fn cmp(&self, other: &Real) -> Ordering {
-        let (an, ad) = self.to_fraction();
-        let (bn, bd) = other.to_fraction();
-        let left = an.mul(&int_from_nat(&bd));
-        let right = bn.mul(&int_from_nat(&ad));
-        left.cmp(&right)
-    }
-
     /// Square root truncated to `digits` fractional digits.
     ///
     /// Perfect squares come back exact and therefore render without a decimal point.
@@ -898,15 +886,11 @@ fn isqrt(n: &Nat) -> Nat {
     }
     let text = n.to_decimal();
     match text.len() {
-        0 | 1 => {
-            if text == "1" {
-                return Nat::from_u64(1);
-            }
-        }
+        0 | 1 if text == "1" => return Nat::from_u64(1),
         _ => {}
     }
     // initial guess: 10^ceil(len/2)
-    let guess_exp = ((text.len() + 1) / 2) as u64;
+    let guess_exp = text.len().div_ceil(2) as u64;
     let mut x = Nat::from_u64(10).pow(guess_exp);
     loop {
         let (q, _) = n.div_rem(&x).expect("nonzero divisor");
@@ -921,7 +905,7 @@ fn isqrt(n: &Nat) -> Nat {
 
 impl PartialEq for Real {
     fn eq(&self, other: &Self) -> bool {
-        self.cmp(other) == Ordering::Equal
+        Ord::cmp(self, other) == Ordering::Equal
     }
 }
 
@@ -929,19 +913,24 @@ impl Eq for Real {}
 
 impl PartialOrd for Real {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+        Some(Ord::cmp(self, other))
     }
 }
 
 impl Ord for Real {
+    /// Compares two reals exactly.
     fn cmp(&self, other: &Self) -> Ordering {
-        Real::cmp(self, other)
+        let (an, ad) = self.to_fraction();
+        let (bn, bd) = other.to_fraction();
+        let left = an.mul(&int_from_nat(&bd));
+        let right = bn.mul(&int_from_nat(&ad));
+        left.cmp(&right)
     }
 }
 
 impl std::fmt::Display for Real {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_string())
+        f.write_str(&self.render())
     }
 }
 

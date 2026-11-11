@@ -183,11 +183,11 @@ fn add_limbs(a: &[u64], b: &[u64]) -> Vec<u64> {
     let len = a.len().max(b.len());
     let mut out = vec![0u64; len + 1];
     let mut carry = 0u64;
-    for i in 0..len {
+    for (i, slot) in out.iter_mut().enumerate().take(len) {
         let x = a.get(i).copied().unwrap_or(0) as u128;
         let y = b.get(i).copied().unwrap_or(0) as u128;
         let total = x + y + carry as u128;
-        out[i] = total as u64;
+        *slot = total as u64;
         carry = (total >> 64) as u64;
     }
     out[len] = carry;

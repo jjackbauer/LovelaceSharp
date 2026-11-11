@@ -54,8 +54,8 @@ impl Monomial {
     fn multiply(&self, other: &Monomial) -> Monomial {
         let width = self.exps.len().max(other.exps.len());
         let mut exps = vec![0; width];
-        for i in 0..width {
-            exps[i] = self.exponent(i) + other.exponent(i);
+        for (i, slot) in exps.iter_mut().enumerate() {
+            *slot = self.exponent(i) + other.exponent(i);
         }
         Monomial { exps }
     }
@@ -63,13 +63,13 @@ impl Monomial {
     fn divide(&self, other: &Monomial) -> Option<Monomial> {
         let width = self.exps.len().max(other.exps.len());
         let mut exps = vec![0; width];
-        for i in 0..width {
+        for (i, slot) in exps.iter_mut().enumerate() {
             let a = self.exponent(i);
             let b = other.exponent(i);
             if a < b {
                 return None;
             }
-            exps[i] = a - b;
+            *slot = a - b;
         }
         Some(Monomial { exps })
     }
@@ -77,8 +77,8 @@ impl Monomial {
     fn lcm(&self, other: &Monomial) -> Monomial {
         let width = self.exps.len().max(other.exps.len());
         let mut exps = vec![0; width];
-        for i in 0..width {
-            exps[i] = self.exponent(i).max(other.exponent(i));
+        for (i, slot) in exps.iter_mut().enumerate() {
+            *slot = self.exponent(i).max(other.exponent(i));
         }
         Monomial { exps }
     }

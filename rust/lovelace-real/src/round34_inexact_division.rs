@@ -273,9 +273,8 @@ fn exact_multiples_of_the_ambient_pi_match_the_reference_rows() {
             );
             if *num != 0 {
                 // pi is inexact, and the reference propagates that provenance through Divide.
-                assert_eq!(
-                    angle.is_exact(),
-                    false,
+                assert!(
+                    !angle.is_exact(),
                     "pi*{num}/{den} at {places} places must carry pi's inexact provenance"
                 );
             }
