@@ -29,7 +29,10 @@ fn eval_in(engine: &mut Engine, script: &str) -> Value {
 
 fn refusal(script: &str) -> LangError {
     match Engine::new().eval(script) {
-        Ok(value) => panic!("script: {script} answered {} instead of refusing", value.typed()),
+        Ok(value) => panic!(
+            "script: {script} answered {} instead of refusing",
+            value.typed()
+        ),
         Err(error) => error,
     }
 }
@@ -134,7 +137,10 @@ fn dx_structured_domain_values_are_first_class() {
     let domain = engine.eval("inspect(complex).domain").unwrap();
     assert!(matches!(domain, Value::Domain(_)));
     assert_eq!(display(&domain), "complex");
-    assert_eq!(display(&engine.eval("inspect(real).domain").unwrap()), "real");
+    assert_eq!(
+        display(&engine.eval("inspect(real).domain").unwrap()),
+        "real"
+    );
 }
 
 /// DxStructuredResultsTests.cs:113 — limit_full exposes existence and both one-sided values;
@@ -224,14 +230,21 @@ fn dx_structured_solve_full_domain_field_and_real_option() {
     assert_eq!(display(&complex_domain), "complex");
 
     assert_eq!(
-        variant(&eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).status")),
+        variant(&eval_in(
+            &mut engine,
+            "solve_full(x^4 - x^2 - 1 == 0, x).status"
+        )),
         "Partial"
     );
-    assert!(!boolean(
-        &eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).complete")
-    ));
+    assert!(!boolean(&eval_in(
+        &mut engine,
+        "solve_full(x^4 - x^2 - 1 == 0, x).complete"
+    )));
     assert_eq!(
-        display(&eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count")),
+        display(&eval_in(
+            &mut engine,
+            "solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count"
+        )),
         "2"
     );
 }
@@ -256,11 +269,15 @@ fn dx_structured_solve_full_exposes_status_solutions_and_conditions() {
         variant(&eval_in(&mut engine, "solve_full(x^2 - 4 == 0, x).status")),
         "Solved"
     );
-    assert!(boolean(
-        &eval_in(&mut engine, "solve_full(x^2 - 4 == 0, x).complete")
-    ));
+    assert!(boolean(&eval_in(
+        &mut engine,
+        "solve_full(x^2 - 4 == 0, x).complete"
+    )));
     assert_eq!(
-        display(&eval_in(&mut engine, "solve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions")),
+        display(&eval_in(
+            &mut engine,
+            "solve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions"
+        )),
         "[x - 1 != 0]"
     );
 }
@@ -287,7 +304,10 @@ fn dx_semantic_solve_multiplicity_and_no_solutions_are_honest() {
     let solution = record_fields(&solutions[0], "Solution");
     assert_eq!(display(field(solution, "multiplicity")), "2");
     assert_eq!(
-        variant(&eval_in(&mut engine, "solve_full((x^2-1)/(x^2-1) == 0, x).status")),
+        variant(&eval_in(
+            &mut engine,
+            "solve_full((x^2-1)/(x^2-1) == 0, x).status"
+        )),
         "NoSolutions"
     );
 }
@@ -298,14 +318,21 @@ fn dx_semantic_solve_quartic_mixed_roots_is_partial_not_complete() {
     let mut engine = Engine::new();
     eval_in(&mut engine, "x = symbol(\"x\")");
     assert_eq!(
-        variant(&eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).status")),
+        variant(&eval_in(
+            &mut engine,
+            "solve_full(x^4 - x^2 - 1 == 0, x).status"
+        )),
         "Partial"
     );
-    assert!(!boolean(
-        &eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).complete")
-    ));
+    assert!(!boolean(&eval_in(
+        &mut engine,
+        "solve_full(x^4 - x^2 - 1 == 0, x).complete"
+    )));
     assert_eq!(
-        display(&eval_in(&mut engine, "solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count")),
+        display(&eval_in(
+            &mut engine,
+            "solve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count"
+        )),
         "2"
     );
     let short = eval_in(&mut engine, "solve(x^4 - x^2 - 1 == 0, x)");
@@ -342,7 +369,10 @@ fn dx_semantic_transform_exp_log_carries_finite_log_condition() {
 /// KernelHardeningTests.cs:166 — |x|^2 is not folded without a real assumption.
 #[test]
 fn kernel_hardening_abs_square_not_simplified_for_complex() {
-    assert_eq!(symbolic_text("x = symbol(\"x\"); simplify(abs(x)^2)"), "abs(x)^2");
+    assert_eq!(
+        symbolic_text("x = symbol(\"x\"); simplify(abs(x)^2)"),
+        "abs(x)^2"
+    );
 }
 
 /// KernelHardeningTests.cs:186 — dropping 0/x would define the expression at 0.
@@ -379,25 +409,40 @@ fn kernel_hardening_exp_log_safe_simplify_requires_definedness_conditions() {
 #[test]
 fn kernel_hardening_limit_one_over_x_left_minus_inf() {
     let record = eval("x = symbol(\"x\"); limit_left(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&record, "LimitResult"), "status")), "MinusInfinity");
+    assert_eq!(
+        variant(field(record_fields(&record, "LimitResult"), "status")),
+        "MinusInfinity"
+    );
 }
 
 /// KernelHardeningTests.cs:241 — one-sided pole statuses.
 #[test]
 fn kernel_hardening_limit_one_over_x_right_plus_inf() {
     let record = eval("x = symbol(\"x\"); limit_right(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&record, "LimitResult"), "status")), "PlusInfinity");
+    assert_eq!(
+        variant(field(record_fields(&record, "LimitResult"), "status")),
+        "PlusInfinity"
+    );
 }
 
 /// KernelHardeningTests.cs:251 — the two-sided limit does not exist, but both sides do.
 #[test]
 fn kernel_hardening_limit_one_over_x_two_sided_does_not_exist() {
     let record = eval("x = symbol(\"x\"); limit(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&record, "LimitResult"), "status")), "DoesNotExist");
+    assert_eq!(
+        variant(field(record_fields(&record, "LimitResult"), "status")),
+        "DoesNotExist"
+    );
     let left = eval("x = symbol(\"x\"); limit_left(1/x, x, 0)");
     let right = eval("x = symbol(\"x\"); limit_right(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&left, "LimitResult"), "status")), "MinusInfinity");
-    assert_eq!(variant(field(record_fields(&right, "LimitResult"), "status")), "PlusInfinity");
+    assert_eq!(
+        variant(field(record_fields(&left, "LimitResult"), "status")),
+        "MinusInfinity"
+    );
+    assert_eq!(
+        variant(field(record_fields(&right, "LimitResult"), "status")),
+        "PlusInfinity"
+    );
 }
 
 /// KernelHardeningTests.cs:267 — 1/x^2 is +infinity from both sides.
@@ -405,8 +450,14 @@ fn kernel_hardening_limit_one_over_x_two_sided_does_not_exist() {
 fn kernel_hardening_limit_one_over_x_squared_both_sides_plus_inf() {
     let left = eval("x = symbol(\"x\"); limit_left(1/x^2, x, 0)");
     let right = eval("x = symbol(\"x\"); limit_right(1/x^2, x, 0)");
-    assert_eq!(variant(field(record_fields(&left, "LimitResult"), "status")), "PlusInfinity");
-    assert_eq!(variant(field(record_fields(&right, "LimitResult"), "status")), "PlusInfinity");
+    assert_eq!(
+        variant(field(record_fields(&left, "LimitResult"), "status")),
+        "PlusInfinity"
+    );
+    assert_eq!(
+        variant(field(record_fields(&right, "LimitResult"), "status")),
+        "PlusInfinity"
+    );
 }
 
 /// KernelHardeningTests.cs:281 — the series offset (1 - cos x)/x tends to 0.
@@ -472,7 +523,10 @@ fn kernel_hardening_x_over_x_is_not_folded_by_construction() {
     eval_in(&mut engine, "x = symbol(\"x\")");
     eval_in(&mut engine, "print(x/x)");
     eval_in(&mut engine, "print(0/x)");
-    assert_eq!(engine.take_output(), vec!["x/x".to_string(), "0/x".to_string()]);
+    assert_eq!(
+        engine.take_output(),
+        vec!["x/x".to_string(), "0/x".to_string()]
+    );
 }
 
 /// KernelHardeningTests.cs:517 — 0^0 is 1 by the documented convention.
@@ -537,7 +591,11 @@ fn assert_too_wide(builtin: &str) {
     assert_eq!(error.category, "TypeMismatch");
     let received = "1000000000000000000000000000000";
     assert!(error.message.contains(received), "{}", error.message);
-    assert!(!error.message.contains("too large or too small"), "{}", error.message);
+    assert!(
+        !error.message.contains("too large or too small"),
+        "{}",
+        error.message
+    );
     assert_eq!(
         error.message,
         format!(
@@ -562,11 +620,17 @@ fn assert_not_an_integer(digits: &str) {
     let error = refusal(&evalir_script("evalir", digits));
     assert_eq!(error.code, "InvalidArgument");
     assert_eq!(error.category, "TypeMismatch");
-    assert!(error
-        .message
-        .contains("must be a Natural or Integer that denotes an exact integer"));
+    assert!(
+        error
+            .message
+            .contains("must be a Natural or Integer that denotes an exact integer")
+    );
     assert!(error.message.contains(digits), "{}", error.message);
-    assert!(!error.message.contains("between 1 and 2147483647"), "{}", error.message);
+    assert!(
+        !error.message.contains("between 1 and 2147483647"),
+        "{}",
+        error.message
+    );
 }
 
 /// EvalirDigitArgumentContractTests.cs:140 — a non-integral count is not the integral-kind case.
@@ -611,7 +675,11 @@ fn evalir_non_integral_digit_count_evalir_batch() {
     assert_eq!(error.code, "InvalidArgument");
     assert_eq!(error.category, "TypeMismatch");
     assert!(error.message.contains("2.9"), "{}", error.message);
-    assert!(error.message.starts_with("evalir_batch"), "{}", error.message);
+    assert!(
+        error.message.starts_with("evalir_batch"),
+        "{}",
+        error.message
+    );
     assert!(error.message.contains("(digits)"), "{}", error.message);
 }
 
@@ -646,7 +714,10 @@ fn indeterminate_undetermined_limit_claims_no_exactness() {
 
     let determined = eval_in(&mut engine, "limit_full(sin(x)/x, x, 0)");
     assert_eq!(
-        variant(field(record_fields(&determined, "LimitResult"), "exactness")),
+        variant(field(
+            record_fields(&determined, "LimitResult"),
+            "exactness"
+        )),
         "Exact"
     );
     let pole = eval_in(&mut engine, "limit_full(1/x, x, 0)");
@@ -732,7 +803,10 @@ fn acceptance_optimize_lower_evaluate_round_trip() {
 /// AcceptanceTests.cs:230 — sin^2 + cos^2 collapses to one.
 #[test]
 fn acceptance_simplify_pythagorean_collapses_to_one() {
-    assert_eq!(symbolic_text("x = symbol(\"x\"); simplify(sin(x)^2 + cos(x)^2)"), "1");
+    assert_eq!(
+        symbolic_text("x = symbol(\"x\"); simplify(sin(x)^2 + cos(x)^2)"),
+        "1"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -751,9 +825,18 @@ fn system_solve_linear_system_single_solution() {
     let fields = record_fields(&record, "SystemSolveResult");
     let solutions = vector(field(fields, "solutions"));
     assert_eq!(solutions.len(), 1);
-    let bindings = vector(field(record_fields(&solutions[0], "SystemSolution"), "bindings"));
-    assert_eq!(display(field(record_fields(&bindings[0], "Binding"), "value")), "1/2");
-    assert_eq!(display(field(record_fields(&bindings[1], "Binding"), "value")), "1/2");
+    let bindings = vector(field(
+        record_fields(&solutions[0], "SystemSolution"),
+        "bindings",
+    ));
+    assert_eq!(
+        display(field(record_fields(&bindings[0], "Binding"), "value")),
+        "1/2"
+    );
+    assert_eq!(
+        display(field(record_fields(&bindings[1], "Binding"), "value")),
+        "1/2"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -768,11 +851,17 @@ fn unsatisfiable_propagation_condition_payload_is_structured() {
     eval_in(&mut engine, "x = symbol(\"x\")");
     eval_in(&mut engine, "assume_positive(x)");
     let relation = eval_in(&mut engine, "simplify_full(x/x)");
-    let relation_conditions = vector(field(record_fields(&relation, "TransformResult"), "conditions"));
+    let relation_conditions = vector(field(
+        record_fields(&relation, "TransformResult"),
+        "conditions",
+    ));
     assert!(matches!(&relation_conditions[0], Value::Symbolic(_)));
 
     let finite = eval_in(&mut engine, "simplify_full(exp(log(x)))");
-    let finite_conditions = vector(field(record_fields(&finite, "TransformResult"), "conditions"));
+    let finite_conditions = vector(field(
+        record_fields(&finite, "TransformResult"),
+        "conditions",
+    ));
     let leaf = record_fields(&finite_conditions[0], "FiniteCondition");
     assert_eq!(display(field(leaf, "expression")), "log(x)");
     assert!(!typed(&finite_conditions[0]).contains("Assumption"));
@@ -803,8 +892,13 @@ fn capabilities_unsupported_operations_are_records() {
     let operations = vector(&operations_value);
     assert!(!operations.is_empty());
     let declared = [
-        "BudgetExceeded", "DomainError", "InternalInvariantFailure", "NoSolution",
-        "ParseError", "TypeMismatch", "UnsupportedOperation",
+        "BudgetExceeded",
+        "DomainError",
+        "InternalInvariantFailure",
+        "NoSolution",
+        "ParseError",
+        "TypeMismatch",
+        "UnsupportedOperation",
     ];
     for element in operations {
         let fields = record_fields(element, "UnsupportedCapability");
@@ -818,7 +912,10 @@ fn capabilities_unsupported_operations_are_records() {
             }
             other => panic!("category is not an Enum: {}", other.kind_name()),
         }
-        assert!(matches!(field(fields, "scope"), Value::Text(_) | Value::Void));
+        assert!(matches!(
+            field(fields, "scope"),
+            Value::Text(_) | Value::Void
+        ));
     }
 }
 
@@ -903,20 +1000,27 @@ fn assert_wire_absence(script: &str) {
     assert!(!diagnostics.is_empty());
     let diagnostic = record_fields(&diagnostics[0], "Diagnostic");
     assert_eq!(text(field(diagnostic, "code")), "system-solve.unevaluated");
-    assert_ne!(variant(field(diagnostic, "category")), "InternalInvariantFailure");
+    assert_ne!(
+        variant(field(diagnostic, "category")),
+        "InternalInvariantFailure"
+    );
     assert!(text(field(diagnostic, "message")).starts_with("system-solve."));
 }
 
 /// SystemSolveProofTests.cs:372 — an unproved empty set is Unevaluated with a diagnostic.
 #[test]
 fn system_solve_proof_wire_absence_case_zero() {
-    assert_wire_absence("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1], [x, y])");
+    assert_wire_absence(
+        "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1], [x, y])",
+    );
 }
 
 /// SystemSolveProofTests.cs:372 (case 1).
 #[test]
 fn system_solve_proof_wire_absence_case_one() {
-    assert_wire_absence("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 == 1], [x, y])");
+    assert_wire_absence(
+        "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 == 1], [x, y])",
+    );
 }
 
 /// SystemSolveProofTests.cs:372 (case 2).
@@ -935,11 +1039,20 @@ fn system_solve_proof_wire_absence_case_two() {
 #[test]
 fn expected_failure_limit_two_sided_pole_reports_opposing_sides() {
     let record = eval("x = symbol(\"x\"); limit(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&record, "LimitResult"), "status")), "DoesNotExist");
+    assert_eq!(
+        variant(field(record_fields(&record, "LimitResult"), "status")),
+        "DoesNotExist"
+    );
     let left = eval("x = symbol(\"x\"); limit_left(1/x, x, 0)");
     let right = eval("x = symbol(\"x\"); limit_right(1/x, x, 0)");
-    assert_eq!(variant(field(record_fields(&left, "LimitResult"), "status")), "MinusInfinity");
-    assert_eq!(variant(field(record_fields(&right, "LimitResult"), "status")), "PlusInfinity");
+    assert_eq!(
+        variant(field(record_fields(&left, "LimitResult"), "status")),
+        "MinusInfinity"
+    );
+    assert_eq!(
+        variant(field(record_fields(&right, "LimitResult"), "status")),
+        "PlusInfinity"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -996,7 +1109,10 @@ fn hyperbolic_negative_square_roots_and_half_powers_answer_exactly() {
     assert_eq!(symbolic_text("sqrt(-4)"), "2*i");
     for script in ["2^(1/2)", "(-8)^(1/3)", "(-1)^(1/3)"] {
         let error = refusal(script);
-        assert_eq!(error.message, "Non-integer exponents are not yet supported.", "{script}");
+        assert_eq!(
+            error.message, "Non-integer exponents are not yet supported.",
+            "{script}"
+        );
     }
 }
 

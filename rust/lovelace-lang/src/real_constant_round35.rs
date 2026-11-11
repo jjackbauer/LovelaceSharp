@@ -86,8 +86,14 @@ fn an_elementary_function_of_an_approximate_argument_is_inexact_and_evaluable() 
 /// produces is exact again.
 #[test]
 fn short_truncated_constants_read_back_as_exact_rationals() {
-    assert_eq!(display("x = symbol(\"x\"); subs(x + 1, x, pi(2))"), "207/50");
-    assert_eq!(display("x = symbol(\"x\"); subs(x^2, x, pi(2))"), "24649/2500");
+    assert_eq!(
+        display("x = symbol(\"x\"); subs(x + 1, x, pi(2))"),
+        "207/50"
+    );
+    assert_eq!(
+        display("x = symbol(\"x\"); subs(x^2, x, pi(2))"),
+        "24649/2500"
+    );
     // beyond the boundary the leaf stays a real power
     assert_eq!(
         display("x = symbol(\"x\"); subs(x^2, x, pi(30))"),

@@ -19,8 +19,6 @@ pub mod round39_api;
 pub mod transcendental;
 
 #[cfg(test)]
-mod round39_real_tests;
-#[cfg(test)]
 mod lreal_tests;
 #[cfg(test)]
 mod round26_trig_parity;
@@ -33,9 +31,11 @@ mod round31_trig;
 #[cfg(test)]
 mod round34_inexact_division;
 #[cfg(test)]
+mod round36_ambient;
+#[cfg(test)]
 mod round36_precbench;
 #[cfg(test)]
-mod round36_ambient;
+mod round39_real_tests;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///
@@ -65,7 +65,11 @@ fn fraction_real_exact(num: Int, den: &Nat) -> Real {
             scale += 1;
         }
     }
-    let mut value = fraction_real(numerator, denominator, Real::DEFAULT_COMPUTATION_DECIMAL_PLACES);
+    let mut value = fraction_real(
+        numerator,
+        denominator,
+        Real::DEFAULT_COMPUTATION_DECIMAL_PLACES,
+    );
     if scale > 0 {
         value.exp -= scale as i64;
         if value.period_len > 0 {
@@ -109,12 +113,24 @@ pub struct Real {
 impl Real {
     /// The value zero.
     pub fn zero() -> Real {
-        Real { int: Int::zero(), exp: 0, period_start: -1, period_len: 0, inexact: false }
+        Real {
+            int: Int::zero(),
+            exp: 0,
+            period_start: -1,
+            period_len: 0,
+            inexact: false,
+        }
     }
 
     /// Builds a real from a signed integer.
     pub fn from_int(value: &Int) -> Real {
-        Real { int: value.clone(), exp: 0, period_start: -1, period_len: 0, inexact: false }
+        Real {
+            int: value.clone(),
+            exp: 0,
+            period_start: -1,
+            period_len: 0,
+            inexact: false,
+        }
     }
 
     /// Builds a real from an `i64`.
@@ -243,7 +259,11 @@ impl Real {
 
     /// Number of stored fractional digits.
     fn frac_digits(&self) -> usize {
-        if self.exp < 0 { (-self.exp) as usize } else { 0 }
+        if self.exp < 0 {
+            (-self.exp) as usize
+        } else {
+            0
+        }
     }
 
     /// Removes trailing fractional zeros from a terminating value.
@@ -479,8 +499,16 @@ impl Real {
         let int_part = Nat::from_decimal(ip).unwrap_or_else(Nat::zero);
         let pre = &fp[..s.min(fp.len())];
         let per = &fp[s.min(fp.len())..(s + k).min(fp.len())];
-        let pre_n = if pre.is_empty() { Nat::zero() } else { Nat::from_decimal(pre).unwrap_or_else(Nat::zero) };
-        let per_n = if per.is_empty() { Nat::zero() } else { Nat::from_decimal(per).unwrap_or_else(Nat::zero) };
+        let pre_n = if pre.is_empty() {
+            Nat::zero()
+        } else {
+            Nat::from_decimal(pre).unwrap_or_else(Nat::zero)
+        };
+        let per_n = if per.is_empty() {
+            Nat::zero()
+        } else {
+            Nat::from_decimal(per).unwrap_or_else(Nat::zero)
+        };
         // value = int_part + pre/10^s + per/(10^s * (10^k - 1)), so over the common
         // denominator the repeating block contributes `per` itself, not `per * 10^s`.
         let ten_s = ten.pow(s as u64);
@@ -492,7 +520,11 @@ impl Real {
         let mut num = int_part.mul(&den.clone());
         num = num.add(&pre_n.mul(&nine));
         num = num.add(&per_n);
-        let num_int = if self.int.is_negative() { int_from_nat(&num).negate() } else { int_from_nat(&num) };
+        let num_int = if self.int.is_negative() {
+            int_from_nat(&num).negate()
+        } else {
+            int_from_nat(&num)
+        };
         (num_int, den)
     }
 
@@ -522,7 +554,13 @@ impl Real {
         let (q, r) = num.div_rem(den)?;
         let mut int = int_from_nat(&q);
         if r.is_zero() {
-            return Some(Real { int, exp: 0, period_start: -1, period_len: 0, inexact: false });
+            return Some(Real {
+                int,
+                exp: 0,
+                period_start: -1,
+                period_len: 0,
+                inexact: false,
+            });
         }
         let max_digits = max_digits.max(1);
         let terminating = terminates(&r, den);
@@ -585,7 +623,9 @@ impl Real {
         // `int * 10^exp` is q `leading_zeros` places along plus the stored digits after them:
         // q*10^len + digits, at scale 10^-(leading_zeros + len).
         let scale = Nat::from_u64(10).pow(digits.len() as u64);
-        int = int_from_nat(&q).mul(&int_from_nat(&scale)).add(&int_from_nat(&mag));
+        int = int_from_nat(&q)
+            .mul(&int_from_nat(&scale))
+            .add(&int_from_nat(&mag));
         let mut value = Real {
             int,
             exp: -((leading_zeros + digits.len()) as i64),
@@ -760,11 +800,17 @@ impl Real {
             let mut k: u64 = 0;
             loop {
                 let (term, _) = power.div_rem(&x_nat).expect("nonzero divisor");
-                let (t, _) = term.div_rem(&Nat::from_u64(2 * k + 1)).expect("nonzero divisor");
+                let (t, _) = term
+                    .div_rem(&Nat::from_u64(2 * k + 1))
+                    .expect("nonzero divisor");
                 if t.is_zero() {
                     break;
                 }
-                total = if k % 2 == 0 { total.add(&t) } else { total.sub(&t).unwrap_or_else(Nat::zero) };
+                total = if k % 2 == 0 {
+                    total.add(&t)
+                } else {
+                    total.sub(&t).unwrap_or_else(Nat::zero)
+                };
                 let (next, _) = power.div_rem(&x2).expect("nonzero divisor");
                 power = next;
                 k += 1;
@@ -790,7 +836,13 @@ impl Real {
     /// Builds a value with an explicit scale, without normalising (used by pi, whose
     /// published digits include a trailing zero at 50 places).
     fn from_scaled(int: Int, exp: i64) -> Real {
-        Real { int, exp, period_start: -1, period_len: 0, inexact: false }
+        Real {
+            int,
+            exp,
+            period_start: -1,
+            period_len: 0,
+            inexact: false,
+        }
     }
 }
 
@@ -827,7 +879,13 @@ fn fraction_real(num: Int, den: Nat, max_digits: usize) -> Real {
 /// Aligns two terminating values to a common exponent.
 fn align(a: &Real, b: &Real) -> (Int, Int, i64) {
     let e = a.exp.min(b.exp);
-    let ten = |n: i64| if n <= 0 { Nat::from_u64(1) } else { Nat::from_u64(10).pow(n as u64) };
+    let ten = |n: i64| {
+        if n <= 0 {
+            Nat::from_u64(1)
+        } else {
+            Nat::from_u64(10).pow(n as u64)
+        }
+    };
     let a_scaled = a.int.mul(&int_from_nat(&ten(a.exp - e)));
     let b_scaled = b.int.mul(&int_from_nat(&ten(b.exp - e)));
     (a_scaled, b_scaled, e)
@@ -841,7 +899,9 @@ fn isqrt(n: &Nat) -> Nat {
     let text = n.to_decimal();
     match text.len() {
         0 | 1 => {
-            if text == "1" { return Nat::from_u64(1); }
+            if text == "1" {
+                return Nat::from_u64(1);
+            }
         }
         _ => {}
     }
@@ -962,7 +1022,10 @@ mod tests {
 
     #[test]
     fn Sqrt_GivenTwo_MatchesDocumentedDigits() {
-        assert_eq!(Real::from_i64(2).sqrt(20).to_string(), "1.4142135623730950488");
+        assert_eq!(
+            Real::from_i64(2).sqrt(20).to_string(),
+            "1.4142135623730950488"
+        );
     }
 
     #[test]
@@ -1176,7 +1239,6 @@ mod real_parity_batch {
             d.to_decimal()
         );
     }
-
 
     #[test]
     fn add_p1_q3_r1_s3() {
@@ -6915,10 +6977,12 @@ mod real_parity_batch {
 
     #[test]
     fn sqrt_GivenTwo_StartsWithKnownDigits() {
-        assert!(Real::from_i64(2)
-            .sqrt(1000)
-            .to_string()
-            .starts_with("1.41421356237"));
+        assert!(
+            Real::from_i64(2)
+                .sqrt(1000)
+                .to_string()
+                .starts_with("1.41421356237")
+        );
     }
 
     #[test]
@@ -7252,7 +7316,10 @@ mod real_parity_batch {
             (1, 3, "0.(3)", "1", "3"),
         ] {
             let quotient = Real::from_i64(num).div(&Real::from_i64(den), 2).unwrap();
-            assert!(quotient.is_exact(), "{num}/{den} at 2 places was marked inexact");
+            assert!(
+                quotient.is_exact(),
+                "{num}/{den} at 2 places was marked inexact"
+            );
             assert_eq!(quotient.to_string(), text, "{num}/{den} display");
             let (n, d) = quotient.to_rational();
             assert_eq!(n.to_decimal(), numerator, "{num}/{den} numerator");
@@ -7266,9 +7333,15 @@ mod real_parity_batch {
         // code stored eleven digits (ten plus a guard) and reported inexact; the oracle's
         // value is the exact terminating quotient, so the budget must not touch it.
         let quotient = Real::from_i64(1).div(&Real::from_i64(2048), 10).unwrap();
-        assert!(quotient.is_exact(), "1/2048 at 10 places was marked inexact");
+        assert!(
+            quotient.is_exact(),
+            "1/2048 at 10 places was marked inexact"
+        );
         assert_eq!(quotient.to_string(), "0.00048828125");
-        assert_eq!(quotient.to_rational(), (Int::from_i64(1), Nat::from_u64(2048)));
+        assert_eq!(
+            quotient.to_rational(),
+            (Int::from_i64(1), Nat::from_u64(2048))
+        );
     }
 
     #[test]
@@ -7277,8 +7350,15 @@ mod real_parity_batch {
         // the ten-digit truncation (NOT eleven), and it is inexact — the one legitimate use of
         // the flag. This is the control that keeps the terminating rule from widening exactness.
         let quotient = Real::from_i64(1).div(&Real::from_i64(291), 10).unwrap();
-        assert!(!quotient.is_exact(), "1/291 at 10 places was reported exact");
-        assert_eq!(quotient.exp, -10, "stored {} digits, budget was 10", -quotient.exp);
+        assert!(
+            !quotient.is_exact(),
+            "1/291 at 10 places was reported exact"
+        );
+        assert_eq!(
+            quotient.exp, -10,
+            "stored {} digits, budget was 10",
+            -quotient.exp
+        );
         assert_eq!(quotient.to_string(), "0.0034364261");
     }
 
@@ -7325,8 +7405,14 @@ mod real_parity_batch {
         assert!(value >= expected);
         assert_eq!(value.cmp(&expected), Ordering::Equal);
         let difference = value.sub(&expected);
-        assert!(difference.is_zero(), "'{literal}' - {expected} = {difference}");
-        assert!(difference.is_exact(), "'{literal}' - {expected} lost exactness");
+        assert!(
+            difference.is_zero(),
+            "'{literal}' - {expected} = {difference}"
+        );
+        assert!(
+            difference.is_exact(),
+            "'{literal}' - {expected} lost exactness"
+        );
         assert!(value.add(&value) == expected.add(&expected));
         assert!(value.mul(&Real::from_i64(3)) == expected.mul(&Real::from_i64(3)));
     }
@@ -7390,7 +7476,12 @@ mod real_parity_batch {
     #[test]
     fn sqrt_GivenPeriodicAndExpandedEquivalent_ProduceSameResult() {
         assert!(r("0.(3)").sqrt(50).to_string().starts_with("0.57735026"));
-        assert!(r("0.3333333333").sqrt(50).to_string().starts_with("0.57735026"));
+        assert!(
+            r("0.3333333333")
+                .sqrt(50)
+                .to_string()
+                .starts_with("0.57735026")
+        );
     }
 
     #[test]
@@ -7512,7 +7603,10 @@ mod real_parity_batch {
         assert_eq!(product.to_rational(), (Int::from_i64(2), Nat::from_u64(9)));
         let one_over_twenty_one = third.mul(&r("1").div(&r("7"), 1000).unwrap());
         assert_eq!(one_over_twenty_one.to_string(), "0.(047619)");
-        assert_eq!(one_over_twenty_one.to_rational(), (Int::from_i64(1), Nat::from_u64(21)));
+        assert_eq!(
+            one_over_twenty_one.to_rational(),
+            (Int::from_i64(1), Nat::from_u64(21))
+        );
     }
 
     // RealAddPeriodicExactTests.cs:91,126 — the nine add and nine subtract corpus rows at

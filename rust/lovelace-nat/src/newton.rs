@@ -172,7 +172,10 @@ fn shift_right_bits(value: &[u64], shift: usize) -> Vec<u64> {
         let high = if bits == 0 {
             0
         } else {
-            value.get(i + word + 1).map(|x| x << (64 - bits)).unwrap_or(0)
+            value
+                .get(i + word + 1)
+                .map(|x| x << (64 - bits))
+                .unwrap_or(0)
         };
         out[i] = low | high;
     }
@@ -277,8 +280,16 @@ mod tests {
             let left = crate::Nat::from_limbs(num.clone());
             let right = crate::Nat::from_limbs(den.clone());
             let (kq, kr) = left.div_rem_knuth(&right).expect("nonzero divisor");
-            assert_eq!(crate::Nat::from_limbs(q), kq, "case {case}: quotient differs");
-            assert_eq!(crate::Nat::from_limbs(r), kr, "case {case}: remainder differs");
+            assert_eq!(
+                crate::Nat::from_limbs(q),
+                kq,
+                "case {case}: quotient differs"
+            );
+            assert_eq!(
+                crate::Nat::from_limbs(r),
+                kr,
+                "case {case}: remainder differs"
+            );
         }
     }
 }

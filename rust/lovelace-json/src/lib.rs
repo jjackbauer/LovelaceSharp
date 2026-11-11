@@ -54,7 +54,12 @@ impl Json {
     where
         I: IntoIterator<Item = i64>,
     {
-        Json::Arr(items.into_iter().map(|n| Json::Num(n.to_string())).collect())
+        Json::Arr(
+            items
+                .into_iter()
+                .map(|n| Json::Num(n.to_string()))
+                .collect(),
+        )
     }
 
     /// Returns the value for a key when this is an object.
@@ -168,12 +173,18 @@ impl Json {
 
     /// Parses a JSON document. Returns an error with a byte offset on malformed input.
     pub fn parse(input: &str) -> Result<Json, JsonError> {
-        let mut p = Parser { bytes: input.as_bytes(), pos: 0 };
+        let mut p = Parser {
+            bytes: input.as_bytes(),
+            pos: 0,
+        };
         p.skip_ws();
         let v = p.value()?;
         p.skip_ws();
         if p.pos != p.bytes.len() {
-            return Err(JsonError { offset: p.pos, message: "trailing characters".into() });
+            return Err(JsonError {
+                offset: p.pos,
+                message: "trailing characters".into(),
+            });
         }
         Ok(v)
     }
@@ -230,7 +241,10 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn err<T>(&self, msg: &str) -> Result<T, JsonError> {
-        Err(JsonError { offset: self.pos, message: msg.to_string() })
+        Err(JsonError {
+            offset: self.pos,
+            message: msg.to_string(),
+        })
     }
 
     fn peek(&self) -> Option<u8> {
@@ -282,8 +296,10 @@ impl<'a> Parser<'a> {
                 break;
             }
         }
-        let text = std::str::from_utf8(&self.bytes[start..self.pos])
-            .map_err(|_| JsonError { offset: start, message: "invalid utf-8 in number".into() })?;
+        let text = std::str::from_utf8(&self.bytes[start..self.pos]).map_err(|_| JsonError {
+            offset: start,
+            message: "invalid utf-8 in number".into(),
+        })?;
         Ok(Json::Num(text.to_string()))
     }
 

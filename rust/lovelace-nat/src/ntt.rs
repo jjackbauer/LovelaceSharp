@@ -448,7 +448,11 @@ mod tests {
 
     impl XorShift {
         fn new(seed: u64) -> XorShift {
-            XorShift(if seed == 0 { 0x9E37_79B9_7F4A_7C15 } else { seed })
+            XorShift(if seed == 0 {
+                0x9E37_79B9_7F4A_7C15
+            } else {
+                seed
+            })
         }
 
         fn next(&mut self) -> u64 {
@@ -676,7 +680,13 @@ mod tests {
             let b = rng.limbs(len_b);
             let got = mul_ntt(&a, &b);
             let want = to_nat(&a).mul(&to_nat(&b));
-            assert_eq!(to_nat(&got), want, "mismatch for {} x {} limbs", len_a, len_b);
+            assert_eq!(
+                to_nat(&got),
+                want,
+                "mismatch for {} x {} limbs",
+                len_a,
+                len_b
+            );
         }
     }
 

@@ -147,10 +147,7 @@ impl FakeEngine {
                     let value = match arg {
                         Value::Int(value) => value,
                         other => {
-                            return Err(format!(
-                                "Expected a number, but got {}.",
-                                other.kind()
-                            ));
+                            return Err(format!("Expected a number, but got {}.", other.kind()));
                         }
                     };
                     accumulator = Some(match accumulator {
@@ -402,7 +399,10 @@ struct ExprParser {
 
 impl ExprParser {
     fn new(src: &str) -> ExprParser {
-        ExprParser { chars: src.chars().collect(), pos: 0 }
+        ExprParser {
+            chars: src.chars().collect(),
+            pos: 0,
+        }
     }
 
     fn finish(&self) -> Result<(), String> {
@@ -645,7 +645,10 @@ mod tests {
     fn assignment_then_reference() {
         let mut engine = FakeEngine::new();
         assert_eq!(engine.eval("n = 41\nn + 1").unwrap(), "42");
-        assert_eq!(engine.variables(), vec![("n".to_string(), "41".to_string())]);
+        assert_eq!(
+            engine.variables(),
+            vec![("n".to_string(), "41".to_string())]
+        );
         assert_eq!(engine.revision(), 1);
     }
 
@@ -663,7 +666,10 @@ mod tests {
         let mut engine = FakeEngine::new();
         let value = engine.eval("print(\"hello\")\nprint(1 + 1)").unwrap();
         assert_eq!(value, "Void");
-        assert_eq!(engine.take_output(), vec!["hello".to_string(), "2".to_string()]);
+        assert_eq!(
+            engine.take_output(),
+            vec!["hello".to_string(), "2".to_string()]
+        );
         assert!(engine.take_output().is_empty());
     }
 
@@ -707,7 +713,10 @@ mod tests {
     fn earlier_statements_survive_a_later_error() {
         let mut engine = FakeEngine::new();
         assert!(engine.eval("kept = 7\nbroken = ").is_err());
-        assert_eq!(engine.variables(), vec![("kept".to_string(), "7".to_string())]);
+        assert_eq!(
+            engine.variables(),
+            vec![("kept".to_string(), "7".to_string())]
+        );
     }
 
     #[test]

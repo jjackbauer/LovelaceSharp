@@ -6,9 +6,9 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod builtins;
-pub mod help;
 pub mod complex;
 pub mod complex_math;
+pub mod help;
 pub mod numeric;
 pub mod registry;
 pub mod structured;
@@ -122,7 +122,9 @@ impl LangError {
     /// A depth-budget refusal: a valid input (or value) past one of the published budgets.
     pub fn depth(stage: &str, depth: usize, limit: usize, measure: &str) -> LangError {
         LangError::coded(
-            format!("{stage} depth {depth} exceeds the maximum supported {measure} depth of {limit}. Rewrite the input with less nesting (the engine refuses it before a recursive walk can exhaust the process stack)."),
+            format!(
+                "{stage} depth {depth} exceeds the maximum supported {measure} depth of {limit}. Rewrite the input with less nesting (the engine refuses it before a recursive walk can exhaust the process stack)."
+            ),
             0,
             "DepthExceeded",
             "BudgetExceeded",
@@ -260,7 +262,11 @@ impl Value {
                 } else if re.is_zero() {
                     format!("{}i", im.to_string())
                 } else {
-                    let sign = if im.cmp(&Real::zero()) == std::cmp::Ordering::Less { "-" } else { "+" };
+                    let sign = if im.cmp(&Real::zero()) == std::cmp::Ordering::Less {
+                        "-"
+                    } else {
+                        "+"
+                    };
                     format!("{} {} {}i", re.to_string(), sign, im.abs().to_string())
                 }
             }
@@ -298,7 +304,10 @@ impl Value {
 
     /// True when this is one of the numeric kinds.
     pub fn is_numeric(&self) -> bool {
-        matches!(self, Value::Natural(_) | Value::Integer(_) | Value::Real(_) | Value::RealClamped(_, _, _))
+        matches!(
+            self,
+            Value::Natural(_) | Value::Integer(_) | Value::Real(_) | Value::RealClamped(_, _, _)
+        )
     }
 }
 
@@ -317,7 +326,9 @@ struct DisplayBudget {
 
 impl DisplayBudget {
     fn new() -> DisplayBudget {
-        DisplayBudget { remaining: MAX_DISPLAY_NODES }
+        DisplayBudget {
+            remaining: MAX_DISPLAY_NODES,
+        }
     }
 
     /// Consumes one node; false when the rendering must stop.
@@ -368,7 +379,14 @@ fn render_array(a: &NdArray<Value>) -> String {
         return a.get(&[]).map(|v| v.display()).unwrap_or_default();
     }
     let mut out = String::new();
-    rec(a, &shape, 0, &mut Vec::new(), &mut DisplayBudget::new(), &mut out);
+    rec(
+        a,
+        &shape,
+        0,
+        &mut Vec::new(),
+        &mut DisplayBudget::new(),
+        &mut out,
+    );
     out
 }
 
@@ -496,7 +514,11 @@ pub struct Engine {
     /// the session's domain, which is what decides whether a complex or fractional root is a
     /// solution of THIS session's equation.
     domain_assumptions: Vec<(String, String)>,
-    bounds: Vec<(String, Option<(lovelace_symbolics::Rat, bool)>, Option<(lovelace_symbolics::Rat, bool)>)>,
+    bounds: Vec<(
+        String,
+        Option<(lovelace_symbolics::Rat, bool)>,
+        Option<(lovelace_symbolics::Rat, bool)>,
+    )>,
     /// The session's assumption set: the tri-state kernel the assume builtins feed and merge,
     /// solve, simplify, simplify_full and inspect read. One set per engine, so two engines that
     /// run concurrently never answer each other's queries.
@@ -722,7 +744,12 @@ impl Engine {
         // The parser's counter bounds the DESCENT; a left-associative chain never descends, so its
         // TREE is measured once, before any walk touches it (the reference's AstDepth rule).
         if let Some(depth) = ast_depth(&program) {
-            return Err(LangError::depth("expression tree", depth, MAX_PARSED_TREE_DEPTH, "nesting"));
+            return Err(LangError::depth(
+                "expression tree",
+                depth,
+                MAX_PARSED_TREE_DEPTH,
+                "nesting",
+            ));
         }
         self.call_units = 0;
         let mut last = Value::Void;
@@ -798,7 +825,12 @@ impl Engine {
         // refuse it structurally before any capture or projection recurses over it.
         let last_depth = value_depth(&last);
         if last_depth > MAX_VALUE_DEPTH {
-            return Err(LangError::depth("value", last_depth, MAX_VALUE_DEPTH, "nesting"));
+            return Err(LangError::depth(
+                "value",
+                last_depth,
+                MAX_VALUE_DEPTH,
+                "nesting",
+            ));
         }
         for value in self.vars.values() {
             let depth = value_depth(value);
@@ -861,7 +893,7 @@ impl Engine {
                             return Err(LangError::plain(format!(
                                 "while condition must be Boolean, but got '{}'.",
                                 other.kind_name()
-                            )))
+                            )));
                         }
                     }
                     match self.exec(body)? {
@@ -880,7 +912,7 @@ impl Engine {
                         return Err(LangError::plain(format!(
                             "for loop needs a range, but got '{}'.",
                             other.kind_name()
-                        )))
+                        )));
                     }
                 };
                 for (iteration, item) in items.into_iter().enumerate() {
@@ -907,7 +939,8 @@ impl Engine {
             Stmt::Break => Ok(Flow::Break),
             Stmt::Continue => Ok(Flow::Continue),
             Stmt::Func(name, params, body) => {
-                self.funcs.insert(name.clone(), (params.clone(), (**body).clone()));
+                self.funcs
+                    .insert(name.clone(), (params.clone(), (**body).clone()));
                 Ok(Flow::Value(Value::Void))
             }
         }
@@ -921,14 +954,16 @@ impl Engine {
                         LangError::plain(format!("Invalid number literal '{}'.", text))
                     })?))
                 } else {
-                    Ok(Value::Natural(Nat::from_decimal(text).ok_or_else(|| {
-                        LangError::plain(format!("Invalid number literal '{}'.", text))
-                    })?))
+                    Ok(Value::Natural(Nat::from_decimal(text).ok_or_else(
+                        || LangError::plain(format!("Invalid number literal '{}'.", text)),
+                    )?))
                 }
             }
-            Expr::Repeating(text) => Ok(Value::Real(Real::from_str(text).ok_or_else(|| {
-                LangError::plain(format!("Invalid number literal '{}'.", text))
-            })?)),
+            Expr::Repeating(text) => {
+                Ok(Value::Real(Real::from_str(text).ok_or_else(|| {
+                    LangError::plain(format!("Invalid number literal '{}'.", text))
+                })?))
+            }
             Expr::Str(s) => Ok(Value::Text(unescape(s))),
             Expr::Interp(parts) => {
                 let mut out = String::new();
@@ -945,8 +980,12 @@ impl Engine {
                 // Mathematical constants, resolved after the variable store so a user
                 // assignment shadows them; `pi` and `e` render at the display precision.
                 None if name == "pi" => Ok(Value::Real(Real::pi(self.display_precision()))),
-                None if name == "e" => Ok(Value::Real(builtins::e_constant(self.display_precision()))),
-                None if name == "inf" => Ok(Value::Symbolic(Sym::Fun("inf".to_string(), Vec::new()))),
+                None if name == "e" => {
+                    Ok(Value::Real(builtins::e_constant(self.display_precision())))
+                }
+                None if name == "inf" => {
+                    Ok(Value::Symbolic(Sym::Fun("inf".to_string(), Vec::new())))
+                }
                 None if matches!(name.as_str(), "real" | "complex" | "integer" | "rational") => {
                     Ok(Value::Domain(name.clone()))
                 }
@@ -1070,9 +1109,7 @@ impl Engine {
                         .iter()
                         .find(|(k, _)| k == field)
                         .map(|(_, v)| v.clone())
-                        .ok_or_else(|| {
-                            LangError::plain(format!("No field named '{}'.", field))
-                        }),
+                        .ok_or_else(|| LangError::plain(format!("No field named '{}'.", field))),
                     other => Err(LangError::plain(format!(
                         "Cannot read field '{}' from a value of kind '{}'.",
                         field,
@@ -1124,7 +1161,12 @@ impl Engine {
                 // past the budget, so that number is always limit + 1 even when the remaining
                 // call chain would measure deeper.
                 let reported = (MAX_EVALUATION_DEPTH + 1).min(depth);
-                let result = Err(LangError::depth("evaluation", reported, MAX_EVALUATION_DEPTH, "evaluation"));
+                let result = Err(LangError::depth(
+                    "evaluation",
+                    reported,
+                    MAX_EVALUATION_DEPTH,
+                    "evaluation",
+                ));
                 for (p, old) in saved {
                     match old {
                         Some(v) => self.vars.insert(p, v),
@@ -1160,9 +1202,7 @@ impl Engine {
         match builtins::call(self, name, args, pos) {
             // A cancellation is not a call-site argument refusal: its position is the statement
             // that was running, supplied by the statement loop, never the inner call site.
-            Err(e) if e.position == 0 && e.code != "Cancelled" => {
-                Err(e.with_position(pos))
-            }
+            Err(e) if e.position == 0 && e.code != "Cancelled" => Err(e.with_position(pos)),
             // The kernel returned a partial value after observing the deadline; the value is not
             // an answer.
             Ok(_) if lovelace_symbolics::cancel::observed() => Err(cancelled_error()),
@@ -1178,7 +1218,11 @@ impl Engine {
     /// builtins at a 30-place fast default and follows the engine knob once it is set
     /// explicitly (`ModusHost.PluginPrecisionScope` / `PluginStandardComputationPrecision`).
     pub(crate) fn dsp_precision(&self) -> usize {
-        if self.precision_explicit { self.precision } else { 30 }
+        if self.precision_explicit {
+            self.precision
+        } else {
+            30
+        }
     }
 
     pub(crate) fn capture_plot(&mut self, capture: PlotCapture) {
@@ -1298,7 +1342,13 @@ impl Engine {
         Ok(())
     }
 
-    pub(crate) fn bounds_of(&self, var: &str) -> Option<(Option<(lovelace_symbolics::Rat, bool)>, Option<(lovelace_symbolics::Rat, bool)>)> {
+    pub(crate) fn bounds_of(
+        &self,
+        var: &str,
+    ) -> Option<(
+        Option<(lovelace_symbolics::Rat, bool)>,
+        Option<(lovelace_symbolics::Rat, bool)>,
+    )> {
         self.bounds
             .iter()
             .find(|(name, _, _)| name == var)
@@ -1312,7 +1362,11 @@ impl Engine {
     /// Records one assumption ATOM (the expression form of the same fact the text carries).
     pub(crate) fn record_assumption_atom(&mut self, atom: &Sym) {
         let text = atom.to_string();
-        if !self.assumption_atoms.iter().any(|existing| existing.to_string() == text) {
+        if !self
+            .assumption_atoms
+            .iter()
+            .any(|existing| existing.to_string() == text)
+        {
             self.assumption_atoms.push(atom.clone());
         }
     }
@@ -1329,8 +1383,13 @@ impl Engine {
 
     /// Records a domain assumption for one symbol ("real" or "integer").
     pub(crate) fn record_domain_assumption(&mut self, var: &str, domain: &str) {
-        if !self.domain_assumptions.iter().any(|(name, existing)| name == var && existing == domain) {
-            self.domain_assumptions.push((var.to_string(), domain.to_string()));
+        if !self
+            .domain_assumptions
+            .iter()
+            .any(|(name, existing)| name == var && existing == domain)
+        {
+            self.domain_assumptions
+                .push((var.to_string(), domain.to_string()));
         }
     }
 
@@ -1420,7 +1479,12 @@ pub(crate) fn ensure_symbolic_budget(expr: &Sym) -> Result<(), LangError> {
     let depth = symbolic_depth(expr);
     if depth > MAX_SYMBOLIC_DEPTH {
         let reported = (MAX_SYMBOLIC_DEPTH + 1).min(depth);
-        return Err(LangError::depth("symbolic expression", reported, MAX_SYMBOLIC_DEPTH, "nesting"));
+        return Err(LangError::depth(
+            "symbolic expression",
+            reported,
+            MAX_SYMBOLIC_DEPTH,
+            "nesting",
+        ));
     }
     Ok(())
 }
@@ -1462,8 +1526,11 @@ enum AstNode<'a> {
 /// means the tree is within budget; Some(depth) is the FIRST level the walk found past it, which is
 /// the number the reference publishes (513 for a chain whose deepest leaf is far deeper).
 fn ast_depth(program: &[Stmt]) -> Option<usize> {
-    let mut stack: Vec<(AstNode<'_>, usize)> =
-        program.iter().rev().map(|s| (AstNode::Stmt(s), 2usize)).collect();
+    let mut stack: Vec<(AstNode<'_>, usize)> = program
+        .iter()
+        .rev()
+        .map(|s| (AstNode::Stmt(s), 2usize))
+        .collect();
     while let Some((node, depth)) = stack.pop() {
         if depth > MAX_PARSED_TREE_DEPTH {
             return Some(depth);

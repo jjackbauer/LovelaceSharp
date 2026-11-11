@@ -42,9 +42,19 @@ fn close(actual: &Real, expected: &str, tolerance: &str) -> bool {
 /// inherent to_decimal.
 #[test]
 fn integer_to_string_with_format_provider_returns_same_as_to_string() {
-    for text in ["7", "-7", "0", "18446744073709551616", "-340282366920938463463374607431768211455"] {
+    for text in [
+        "7",
+        "-7",
+        "0",
+        "18446744073709551616",
+        "-340282366920938463463374607431768211455",
+    ] {
         let value = Int::from_decimal(text).unwrap_or_else(|| panic!("bad integer {text}"));
-        assert_eq!(value.to_decimal(), format!("{value}"), "{text}: the two renderings differ");
+        assert_eq!(
+            value.to_decimal(),
+            format!("{value}"),
+            "{text}: the two renderings differ"
+        );
     }
 }
 
@@ -61,7 +71,12 @@ fn descriptor_example_for_assume_clear_executes() {
     let value = Engine::new()
         .eval(prelude)
         .and_then(|_| Engine::new().eval(&format!("{prelude}assume_clear()")))
-        .unwrap_or_else(|error| panic!("the assume_clear() descriptor example must execute: {}", error.message));
+        .unwrap_or_else(|error| {
+            panic!(
+                "the assume_clear() descriptor example must execute: {}",
+                error.message
+            )
+        });
     assert_eq!("assumptions cleared", value.display());
 }
 
@@ -120,9 +135,13 @@ fn solve_domain_statement_names_its_operation_and_every_domain_stays_usable_else
     // every REFUSED domain must refuse, with the advertised code/category
     for domain in ["integer", "rational"] {
         let refusal = Engine::new()
-            .eval(&format!("x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"))
+            .eval(&format!(
+                "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"
+            ))
             .err()
-            .unwrap_or_else(|| panic!("the statement refuses {domain}, so the live call must refuse it"));
+            .unwrap_or_else(|| {
+                panic!("the statement refuses {domain}, so the live call must refuse it")
+            });
         assert_eq!("InvalidOperation", refusal.code, "{domain}");
         assert_eq!("DomainError", refusal.category, "{domain}");
         assert!(
@@ -134,7 +153,9 @@ fn solve_domain_statement_names_its_operation_and_every_domain_stays_usable_else
 
     // every ACCEPTED domain must answer with the requested domain on the record
     for domain in ["real", "complex"] {
-        let value = eval(&format!("x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"));
+        let value = eval(&format!(
+            "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"
+        ));
         match &value {
             Value::Record(type_name, _) => assert_eq!("SolveResult", type_name, "{domain}"),
             other => panic!("{domain}: solve answered {}", other.kind_name()),
@@ -164,16 +185,28 @@ const TOLERANCE: &str = "0.00000000000000000001";
 #[test]
 fn negative_integer_power_of_a_real_is_the_reciprocal() {
     let positive = eval("x = symbol(\"x\"); evalf(subs(cos(x^3)^2, x, 1/3), 40)");
-    let Value::Real(positive) = positive else { panic!("cos(1/27)^2 is not a Real") };
+    let Value::Real(positive) = positive else {
+        panic!("cos(1/27)^2 is not a Real")
+    };
     assert!(
-        close(&positive, "0.998628884998283893103390698137479406248279", TOLERANCE),
+        close(
+            &positive,
+            "0.998628884998283893103390698137479406248279",
+            TOLERANCE
+        ),
         "cos(1/27)^2 = {positive}"
     );
 
     let negative = eval("x = symbol(\"x\"); evalf(subs(cos(x^3)^(-2), x, 1/3), 40)");
-    let Value::Real(negative) = negative else { panic!("cos(1/27)^-2 is not a Real") };
+    let Value::Real(negative) = negative else {
+        panic!("cos(1/27)^-2 is not a Real")
+    };
     assert!(
-        close(&negative, "1.00137299753923947744327004754154925203741", TOLERANCE),
+        close(
+            &negative,
+            "1.00137299753923947744327004754154925203741",
+            TOLERANCE
+        ),
         "cos(1/27)^-2 = {negative}"
     );
 }
@@ -182,9 +215,15 @@ fn negative_integer_power_of_a_real_is_the_reciprocal() {
 #[test]
 fn derivative_of_tan_of_x_cubed_evaluates_to_the_sympy_value() {
     let value = eval("x = symbol(\"x\"); evalf(subs(3*x^2*cos(x^3)^(-2), x, 1/3), 40)");
-    let Value::Real(value) = value else { panic!("3*x^2*cos(x^3)^-2 is not a Real") };
+    let Value::Real(value) = value else {
+        panic!("3*x^2*cos(x^3)^-2 is not a Real")
+    };
     assert!(
-        close(&value, "0.333790999179746492481090015847183084012471", TOLERANCE),
+        close(
+            &value,
+            "0.333790999179746492481090015847183084012471",
+            TOLERANCE
+        ),
         "3*x^2*cos(x^3)^-2 at 1/3 = {value}"
     );
 }
@@ -204,10 +243,19 @@ fn symbolic_tree_flag_and_numeric_read_back_agree() {
         "subs(x + x, x, pi(30))",
     ] {
         let tree = eval(&format!("x = symbol(\"x\"); inspect({expression}).exact"));
-        assert_eq!(Value::Boolean(false).display(), tree.display(), "{expression}: the tree claims exactness");
+        assert_eq!(
+            Value::Boolean(false).display(),
+            tree.display(),
+            "{expression}: the tree claims exactness"
+        );
         let numeric = eval(&format!("x = symbol(\"x\"); evalf({expression}, 40)"));
-        let Value::Real(numeric) = numeric else { panic!("{expression}: evalf is not a Real") };
-        assert!(!numeric.is_exact(), "{expression}: the numeric read-back claims exactness ({numeric})");
+        let Value::Real(numeric) = numeric else {
+            panic!("{expression}: evalf is not a Real")
+        };
+        assert!(
+            !numeric.is_exact(),
+            "{expression}: the numeric read-back claims exactness ({numeric})"
+        );
     }
 }
 
@@ -224,7 +272,10 @@ fn snippet_16_1_context_symbols_and_construction() {
 /// Snippet_16_3_AssumptionsDriveSimplification: unchanged unconstrained, x under x >= 0.
 #[test]
 fn snippet_16_3_assumptions_drive_simplification() {
-    assert_eq!("sqrt(x^2)", display("x = symbol(\"x\"); simplify(sqrt(x^2))"));
+    assert_eq!(
+        "sqrt(x^2)",
+        display("x = symbol(\"x\"); simplify(sqrt(x^2))")
+    );
     assert_eq!(
         "x",
         display("x = symbol(\"x\"); assume(x >= 0); simplify(sqrt(x^2))")
@@ -234,13 +285,19 @@ fn snippet_16_3_assumptions_drive_simplification() {
 /// Snippet_16_6_MathIrLowerAndEvaluate: lower x^2 + 1, evaluate at 4, answer 17.
 #[test]
 fn snippet_16_6_math_ir_lower_and_evaluate() {
-    assert_eq!("17", display("x = symbol(\"x\"); evalir(lower(x^2 + 1, [x]), [4], 40)"));
+    assert_eq!(
+        "17",
+        display("x = symbol(\"x\"); evalir(lower(x^2 + 1, [x]), [4], 40)")
+    );
 }
 
 /// Snippet_16_7_SymbolicMatrices: det([[x, 1], [y, x]]) is x^2 - y.
 #[test]
 fn snippet_16_7_symbolic_matrices() {
-    assert_eq!("x^2 - y", display("x = symbol(\"x\"); y = symbol(\"y\"); det([[x, 1], [y, x]])"));
+    assert_eq!(
+        "x^2 - y",
+        display("x = symbol(\"x\"); y = symbol(\"y\"); det([[x, 1], [y, x]])")
+    );
 }
 
 /// Snippet_16_5_NumericEvaluationAtPrecision: x^2 + 1 at x = 3 evaluates to 10.

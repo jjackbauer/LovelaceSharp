@@ -7,10 +7,10 @@
 
 use std::path::PathBuf;
 
-use crate::app::{AppState, Command, Effect, LogLevel, RunState, LOG_CAP};
+use crate::app::{AppState, Command, Effect, LOG_CAP, LogLevel, RunState};
 use crate::engine::RunOutput;
 use crate::netcheck;
-use crate::settings::{Settings, SCHEMA_VERSION};
+use crate::settings::{SCHEMA_VERSION, Settings};
 use crate::svg;
 
 type Check = fn() -> Result<(), String>;
@@ -84,7 +84,10 @@ fn run_output(app: &AppState) -> String {
 fn check_new_document() -> Result<(), String> {
     let mut app = app();
     if app.documents.len() != 1 {
-        return Err(format!("expected one document, found {}", app.documents.len()));
+        return Err(format!(
+            "expected one document, found {}",
+            app.documents.len()
+        ));
     }
     let effects = app.apply(Command::NewDocument);
     if app.documents.len() != 2 || app.active != 1 {
@@ -120,11 +123,17 @@ fn check_insert_text() -> Result<(), String> {
         ));
     }
     if document.line_col() != (2, 1) {
-        return Err(format!("cursor is at {:?}, expected (2, 1)", document.line_col()));
+        return Err(format!(
+            "cursor is at {:?}, expected (2, 1)",
+            document.line_col()
+        ));
     }
     app.apply(Command::InsertText("3".to_string()));
     if app.documents[0].buffer != "1 + 2\n3" {
-        return Err(format!("second insert produced {:?}", app.documents[0].buffer));
+        return Err(format!(
+            "second insert produced {:?}",
+            app.documents[0].buffer
+        ));
     }
     Ok(())
 }
@@ -163,21 +172,34 @@ fn check_run() -> Result<(), String> {
     let mut app = app();
     app.apply(Command::InsertText("a = 2 * 3\na + 1".to_string()));
     let effects = app.run_blocking();
-    if !effects.iter().any(|effect| matches!(effect, Effect::RunRequested(_))) {
+    if !effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::RunRequested(_)))
+    {
         return Err("run did not produce a RunRequested effect".to_string());
     }
     let logs = run_output(&app);
     if !logs.contains("= 7") {
         return Err(format!("logs do not contain the result: {logs:?}"));
     }
-    if !app.documents[0].vars.iter().any(|(name, value)| name == "a" && value.contains('6')) {
-        return Err(format!("variables do not contain a = 6: {:?}", app.documents[0].vars));
+    if !app.documents[0]
+        .vars
+        .iter()
+        .any(|(name, value)| name == "a" && value.contains('6'))
+    {
+        return Err(format!(
+            "variables do not contain a = 6: {:?}",
+            app.documents[0].vars
+        ));
     }
     if app.run_state != RunState::Idle {
         return Err("run left the run state at running".to_string());
     }
     if app.documents[0].revision != 2 {
-        return Err(format!("revision is {}, expected 2", app.documents[0].revision));
+        return Err(format!(
+            "revision is {}, expected 2",
+            app.documents[0].revision
+        ));
     }
     Ok(())
 }
@@ -186,7 +208,10 @@ fn check_cancel() -> Result<(), String> {
     let mut app = app();
     app.apply(Command::InsertText("1 + 1".to_string()));
     let effects = app.apply(Command::Run);
-    if !effects.iter().any(|effect| matches!(effect, Effect::RunRequested(_))) {
+    if !effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::RunRequested(_)))
+    {
         return Err("run did not produce a RunRequested effect".to_string());
     }
     if app.run_state != RunState::Running || app.pending_run().is_none() {
@@ -221,7 +246,10 @@ fn check_precision() -> Result<(), String> {
     app.apply(Command::NewDocument);
     app.apply(Command::SetPrecision(250));
     if app.documents[1].precision != 250 {
-        return Err(format!("document precision is {}", app.documents[1].precision));
+        return Err(format!(
+            "document precision is {}",
+            app.documents[1].precision
+        ));
     }
     if app.documents[1].engine().precision() != 250 {
         return Err(format!(
@@ -248,7 +276,10 @@ fn check_save_round_trip() -> Result<(), String> {
     let mut app = app();
     app.apply(Command::InsertText("b = 21\nb * 2\n".to_string()));
     let effects = app.apply(Command::SaveAs(path.clone()));
-    if !effects.iter().any(|effect| matches!(effect, Effect::Saved(saved) if saved == &path)) {
+    if !effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::Saved(saved) if saved == &path))
+    {
         return Err("save did not produce a Saved effect".to_string());
     }
     if app.documents[0].dirty {
@@ -286,7 +317,10 @@ fn check_tab_isolation() -> Result<(), String> {
     app.apply(Command::SelectTab(0));
     app.apply(Command::InsertText("a".to_string()));
     let effects = app.run_blocking();
-    if !effects.iter().any(|effect| matches!(effect, Effect::Error(_))) {
+    if !effects
+        .iter()
+        .any(|effect| matches!(effect, Effect::Error(_)))
+    {
         return Err("the other document's engine unexpectedly knew the variable".to_string());
     }
     if !app.logs_text().contains("Undefined variable 'a'.") {
@@ -334,7 +368,10 @@ fn check_settings_round_trip() -> Result<(), String> {
         return Err(format!("round trip changed the settings: {text}"));
     }
     if !again.warnings.is_empty() {
-        return Err(format!("round trip produced warnings: {:?}", again.warnings));
+        return Err(format!(
+            "round trip produced warnings: {:?}",
+            again.warnings
+        ));
     }
     if SCHEMA_VERSION != 1 {
         return Err(format!("unexpected schema version {SCHEMA_VERSION}"));
@@ -357,8 +394,15 @@ fn check_settings_corrupt() -> Result<(), String> {
     if newer.active_precision != 1000 {
         return Err("newer-schema settings were partially accepted".to_string());
     }
-    if !newer.warnings.iter().any(|warning| warning.contains("newer than supported")) {
-        return Err(format!("newer-schema warning missing: {:?}", newer.warnings));
+    if !newer
+        .warnings
+        .iter()
+        .any(|warning| warning.contains("newer than supported"))
+    {
+        return Err(format!(
+            "newer-schema warning missing: {:?}",
+            newer.warnings
+        ));
     }
     Ok(())
 }
@@ -369,10 +413,16 @@ fn check_log_cap() -> Result<(), String> {
         app.push_log(LogLevel::Info, format!("line {index}"));
     }
     if app.logs.len() != LOG_CAP {
-        return Err(format!("log holds {} entries, cap is {LOG_CAP}", app.logs.len()));
+        return Err(format!(
+            "log holds {} entries, cap is {LOG_CAP}",
+            app.logs.len()
+        ));
     }
     if app.logs[0].text != "line 10" {
-        return Err(format!("oldest entry is {:?}, expected line 10", app.logs[0].text));
+        return Err(format!(
+            "oldest entry is {:?}, expected line 10",
+            app.logs[0].text
+        ));
     }
     Ok(())
 }
@@ -387,7 +437,10 @@ fn check_svg_parse() -> Result<(), String> {
         return Err(format!(
             "polylines {}, points {}",
             plot.polylines.len(),
-            plot.polylines.first().map(|line| line.points.len()).unwrap_or(0)
+            plot.polylines
+                .first()
+                .map(|line| line.points.len())
+                .unwrap_or(0)
         ));
     }
     if plot.texts.is_empty() {
@@ -422,7 +475,10 @@ fn check_engine_plot() -> Result<(), String> {
     };
     let parsed = svg::parse(&plot.svg);
     if parsed.polylines.len() != 1 {
-        return Err(format!("parsed {} polylines from the engine SVG", parsed.polylines.len()));
+        return Err(format!(
+            "parsed {} polylines from the engine SVG",
+            parsed.polylines.len()
+        ));
     }
     if parsed.polylines[0].points.len() != 3 {
         return Err(format!(

@@ -60,7 +60,10 @@ fn unknown_function_is_unsupported_operation_with_the_registrys_answer() {
     assert_eq!(code(&r), "UnknownFunction");
     assert_eq!(category(&r), "UnsupportedOperation");
     assert!(boolean(get(&r.env, "recoverable")));
-    let suggestions: Vec<&str> = array(get(&r.env, "suggestions")).iter().map(|s| text(s)).collect();
+    let suggestions: Vec<&str> = array(get(&r.env, "suggestions"))
+        .iter()
+        .map(|s| text(s))
+        .collect();
     assert!(suggestions.contains(&"det"), "suggestions: {suggestions:?}");
     assert!(number(get(&r.env, "registrySize")) > 0);
     assert!(message(&r).contains("Did you mean"));
@@ -72,7 +75,10 @@ fn syntax_name_carries_a_hint_and_no_function_suggestion() {
     let r = envelope("range(5)", &[]);
     assert_eq!(code(&r), "UnknownFunction");
     assert_eq!(category(&r), "UnsupportedOperation");
-    let hints: Vec<&str> = array(get(&r.env, "hints")).iter().map(|h| text(h)).collect();
+    let hints: Vec<&str> = array(get(&r.env, "hints"))
+        .iter()
+        .map(|h| text(h))
+        .collect();
     assert!(hints.iter().any(|h| h.contains("1..n")), "hints: {hints:?}");
     assert!(message(&r).contains("1..n"));
     assert!(opt(&r.env, "suggestions").is_none());
@@ -109,7 +115,10 @@ fn a_domain_refusal_keeps_invalid_operation_and_domain_error() {
     let r = envelope("x = symbol(\"x\"); solve(x^2 + 1 == 0, x, integer)", &[]);
     assert_eq!(code(&r), "InvalidOperation");
     assert_eq!(category(&r), "DomainError");
-    assert_eq!(message(&r), "solve(): currently supports domains real and complex; got integer.");
+    assert_eq!(
+        message(&r),
+        "solve(): currently supports domains real and complex; got integer."
+    );
     assert!(diagnostics_messages(&r)[0].contains("solve()"));
 }
 
@@ -150,7 +159,10 @@ fn arity_refusal_publishes_the_declared_signature() {
     assert_eq!(message(&r), "dot(): expected 2 arguments; got 1.");
     let sig = get(&r.env, "signature");
     assert_eq!(text(get(sig, "function")), "dot");
-    let params: Vec<&str> = array(get(sig, "parameters")).iter().map(|p| text(p)).collect();
+    let params: Vec<&str> = array(get(sig, "parameters"))
+        .iter()
+        .map(|p| text(p))
+        .collect();
     assert_eq!(params, vec!["a", "b"]);
     assert_eq!(number(get(sig, "expectedMin")), 2);
     assert_eq!(number(get(sig, "expectedMax")), 2);
@@ -167,13 +179,21 @@ fn arity_counts_agree_with_the_registry_for_every_probed_builtin() {
         ("conv", "conv([1, 2])"),
         ("concat", "concat([1])"),
     ] {
-        let info = registry::find(builtin).unwrap_or_else(|| panic!("no registry entry for {builtin}"));
+        let info =
+            registry::find(builtin).unwrap_or_else(|| panic!("no registry entry for {builtin}"));
         let r = envelope(script, &[]);
         let sig = get(&r.env, "signature");
         assert_eq!(text(get(sig, "function")), builtin);
-        assert_eq!(number(get(sig, "expectedMin")), info.min_arity as i64, "{script}");
+        assert_eq!(
+            number(get(sig, "expectedMin")),
+            info.min_arity as i64,
+            "{script}"
+        );
         assert_eq!(boolean(get(sig, "variadic")), info.variadic, "{script}");
-        assert!(number(get(sig, "actual")) < info.min_arity as i64, "{script}");
+        assert!(
+            number(get(sig, "actual")) < info.min_arity as i64,
+            "{script}"
+        );
     }
 }
 
@@ -212,9 +232,15 @@ fn the_failing_statement_is_still_a_timed_statement() {
 
 #[test]
 fn print_before_a_failure_crosses_in_output_and_marks_the_statement() {
-    let r = envelope("print(\"before\"); print(\"also before\"); det(1); print(\"UNREACHED\")", &[]);
+    let r = envelope(
+        "print(\"before\"); print(\"also before\"); det(1); print(\"UNREACHED\")",
+        &[],
+    );
     assert_eq!(r.exit, 1);
-    let output: Vec<&str> = array(get(&r.env, "output")).iter().map(|s| text(s)).collect();
+    let output: Vec<&str> = array(get(&r.env, "output"))
+        .iter()
+        .map(|s| text(s))
+        .collect();
     assert_eq!(output, vec!["before", "also before"]);
     assert!(!r.stdout.contains("UNREACHED"));
     let timings = array(get(&r.env, "timings"));
@@ -360,7 +386,10 @@ fn cancelled_envelope_carries_the_committed_lines_in_both_arrays() {
     );
     assert_eq!(text(get(&env, "code")), "Cancelled");
     let output: Vec<&str> = array(get(&env, "output")).iter().map(|s| text(s)).collect();
-    let partial: Vec<&str> = array(get(&env, "partialOutput")).iter().map(|s| text(s)).collect();
+    let partial: Vec<&str> = array(get(&env, "partialOutput"))
+        .iter()
+        .map(|s| text(s))
+        .collect();
     assert_eq!(output, vec!["hello"]);
     assert_eq!(partial, vec!["hello"]);
 }

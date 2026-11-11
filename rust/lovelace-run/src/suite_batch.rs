@@ -53,7 +53,11 @@ fn suite_inverse_of_a_singular_matrix_reports_an_error() {
 
 #[test]
 fn suite_function_parameter_shadows_global_without_changing_it() {
-    let r = run_args(&["--eval", "x = 10; func f(x) { x = x + 1 }; f(1); x", "--omit-functions"]);
+    let r = run_args(&[
+        "--eval",
+        "x = 10; func f(x) { x = x + 1 }; f(1); x",
+        "--omit-functions",
+    ]);
     assert_eq!(r.exit, 0);
     assert_eq!(result_display(&r), "10");
     assert_eq!(variable_display(&r, "x"), "10");
@@ -127,14 +131,37 @@ fn suite_divide_by_zero_reports_divide_by_zero() {
 #[test]
 fn suite_fresh_engine_includes_the_array_builtins() {
     for name in [
-        "sum", "prod", "min", "max", "mean", "norm", "dot", "cross", "matmul", "det",
-        "inv", "trace", "zeros", "ones", "eye", "reshape", "shape", "rank", "numel",
-        "flatten", "transpose", "squeeze", "concat", "append",
+        "sum",
+        "prod",
+        "min",
+        "max",
+        "mean",
+        "norm",
+        "dot",
+        "cross",
+        "matmul",
+        "det",
+        "inv",
+        "trace",
+        "zeros",
+        "ones",
+        "eye",
+        "reshape",
+        "shape",
+        "rank",
+        "numel",
+        "flatten",
+        "transpose",
+        "squeeze",
+        "concat",
+        "append",
     ] {
         let r = run_args(&["--functions", name]);
         assert_eq!(r.exit, 0);
         assert!(
-            array(get(&r.env, "functions")).iter().any(|f| text(get(f, "name")) == name),
+            array(get(&r.env, "functions"))
+                .iter()
+                .any(|f| text(get(f, "name")) == name),
             "missing builtin: {name}"
         );
     }

@@ -7,8 +7,8 @@
 //! Every expected string below was produced by replaying the same source through the pinned
 //! `Lovelace.Run` oracle, so the assertion is the reference's behaviour, not this crate's.
 
-use crate::Value;
 use crate::Engine;
+use crate::Value;
 
 const PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); z = symbol(\"z\"); w = symbol(\"w\");\n";
 
@@ -37,7 +37,10 @@ fn canonical(source: &str) -> String {
     let mut e = engine();
     match e.eval(&format!("{PRELUDE}{source}")) {
         Ok(Value::Symbolic(s)) => s.canonical(),
-        Ok(v) => panic!("{source} produced {} instead of Symbolic", e.format_typed(&v)),
+        Ok(v) => panic!(
+            "{source} produced {} instead of Symbolic",
+            e.format_typed(&v)
+        ),
         Err(err) => panic!("{source} unexpectedly failed: {}", err.message),
     }
 }
@@ -45,7 +48,6 @@ fn canonical(source: &str) -> String {
 #[test]
 fn latex_precedence_corpus_matches_the_oracle_exactly() {
     let corpus: &[(&str, &str)] = &[
-
         ("x - (y - a)", "x - \\left(y - a\\right)"),
         ("x - y - a", "x - a - y"),
         ("a - (x + y)", "a - \\left(x + y\\right)"),
@@ -68,20 +70,35 @@ fn latex_precedence_corpus_matches_the_oracle_exactly() {
         ("x/(y*z)", "\\frac{x}{y \\cdot z}"),
         ("(x*y)/(z*w)", "\\frac{x \\cdot y}{w \\cdot z}"),
         ("(x/y)*z", "\\frac{x \\cdot z}{y}"),
-        ("apart(1/(x^2 - 1), x)", "-\\frac{\\frac{1}{2}}{x + 1} + \\frac{\\frac{1}{2}}{x - 1}"),
+        (
+            "apart(1/(x^2 - 1), x)",
+            "-\\frac{\\frac{1}{2}}{x + 1} + \\frac{\\frac{1}{2}}{x - 1}",
+        ),
         ("(x + 1)^12", "\\left(x + 1\\right)^{12}"),
         ("(x + y)^2", "\\left(x + y\\right)^{2}"),
         ("(x^y)^2", "\\left(x^{y}\\right)^{2}"),
         ("x^(y^2)", "x^{y^{2}}"),
-        ("(x + y)*(x - y)", "\\left(x + y\\right) \\cdot \\left(x - y\\right)"),
+        (
+            "(x + y)*(x - y)",
+            "\\left(x + y\\right) \\cdot \\left(x - y\\right)",
+        ),
         ("x*(y + a)", "x \\cdot \\left(a + y\\right)"),
-        ("-(x + y)*(x - y)", "-\\left(x + y\\right) \\cdot \\left(x - y\\right)"),
+        (
+            "-(x + y)*(x - y)",
+            "-\\left(x + y\\right) \\cdot \\left(x - y\\right)",
+        ),
         ("x/(y + 1)", "\\frac{x}{y + 1}"),
         ("(x + 1)/y", "\\frac{x + 1}{y}"),
         ("x^(-2)", "x^{-2}"),
         ("(x + 1)^(-1)", "\\left(x + 1\\right)^{-1}"),
-        ("1/(2*(x + 1))", "\\left(2 \\cdot \\left(x + 1\\right)\\right)^{-1}"),
-        ("-1/(2*(x + 1))", "-\\frac{1}{2 \\cdot \\left(x + 1\\right)}"),
+        (
+            "1/(2*(x + 1))",
+            "\\left(2 \\cdot \\left(x + 1\\right)\\right)^{-1}",
+        ),
+        (
+            "-1/(2*(x + 1))",
+            "-\\frac{1}{2 \\cdot \\left(x + 1\\right)}",
+        ),
         ("(1/2)*x + 1/3", "\\frac{1}{2} \\cdot x + \\frac{1}{3}"),
         ("x/2", "\\frac{1}{2} \\cdot x"),
         ("x/(2*y)", "\\frac{x}{2 \\cdot y}"),
@@ -93,7 +110,10 @@ fn latex_precedence_corpus_matches_the_oracle_exactly() {
         ("log(x + 1)/(x - 1)", "\\frac{\\log(x + 1)}{x - 1}"),
         ("sin((x + y)/(x - y))", "\\sin(\\frac{x + y}{x - y})"),
         ("abs(x)", "\\left|x\\right|"),
-        ("abs(x + y)*(x - 1)", "\\left|x + y\\right| \\cdot \\left(x - 1\\right)"),
+        (
+            "abs(x + y)*(x - 1)",
+            "\\left|x + y\\right| \\cdot \\left(x - 1\\right)",
+        ),
         ("abs(x - y)^2", "\\left|x - y\\right|^{2}"),
     ];
     for (source, expected) in corpus {
@@ -108,12 +128,14 @@ fn latex_precedence_corpus_matches_the_oracle_exactly() {
 #[test]
 fn latex_known_renderings_match_the_oracle_exactly() {
     let cases: &[(&str, &str)] = &[
-
         ("latex(x^2)", "x^{2}"),
         ("latex(sqrt(x))", "\\sqrt{x}"),
         ("latex((x + 1)^2)", "\\left(x + 1\\right)^{2}"),
         ("latex(x - (y - a))", "x - \\left(y - a\\right)"),
-        ("latex((x + y)*(x - y))", "\\left(x + y\\right) \\cdot \\left(x - y\\right)"),
+        (
+            "latex((x + y)*(x - y))",
+            "\\left(x + y\\right) \\cdot \\left(x - y\\right)",
+        ),
         ("latex(x^(-2))", "x^{-2}"),
         ("latex(1/(x + 1))", "\\left(x + 1\\right)^{-1}"),
         ("latex(-x^2)", "-x^{2}"),
@@ -136,7 +158,6 @@ fn latex_known_renderings_match_the_oracle_exactly() {
 #[test]
 fn latex_symbol_name_escaping_matches_the_oracle_exactly() {
     let cases: &[(&str, &str)] = &[
-
         ("latex(symbol(\"x_1\"))", "x\\_1"),
         ("latex(symbol(\"p%q\"))", "p\\%q"),
         ("latex(symbol(\"a&b\"))", "a\\&b"),
@@ -149,7 +170,10 @@ fn latex_symbol_name_escaping_matches_the_oracle_exactly() {
         ("latex(symbol(\"m$n\"))", "m\\$n"),
         ("latex(symbol(\"__\"))", "\\_\\_"),
         ("latex(symbol(\"x_1\")^2)", "x\\_1^{2}"),
-        ("latex(symbol(\"a%b\") * symbol(\"c&d\"))", "a\\%b \\cdot c\\&d"),
+        (
+            "latex(symbol(\"a%b\") * symbol(\"c&d\"))",
+            "a\\%b \\cdot c\\&d",
+        ),
         ("latex(symbol(\"x_1\") + symbol(\"x_1\"))", "2 \\cdot x\\_1"),
         ("latex(abs(symbol(\"x_1\")))", "\\left|x\\_1\\right|"),
         ("latex(1/symbol(\"x_1\"))", "x\\_1^{-1}"),
@@ -212,7 +236,10 @@ fn sqrt_of_non_negative_and_symbolic_values_is_unchanged() {
     assert_eq!(display("sqrt(x^2)"), "sqrt(x^2) (Symbolic)");
     // A user symbol literally named i is NOT the imaginary unit and must not fold.
     assert_eq!(display("i = symbol(\"i\"); i^2"), "i^2 (Symbolic)");
-    assert_eq!(display("i = symbol(\"i\"); sqrt(2*i)"), "sqrt(2*i) (Symbolic)");
+    assert_eq!(
+        display("i = symbol(\"i\"); sqrt(2*i)"),
+        "sqrt(2*i) (Symbolic)"
+    );
 }
 
 #[test]

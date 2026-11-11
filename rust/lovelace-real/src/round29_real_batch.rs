@@ -57,13 +57,20 @@ fn rational_of(value: &Real) -> (Int, Nat) {
     } else {
         let start = value.period_start;
         let length = value.period_len;
-        assert_eq!(value.exp, -(start + length), "periodic invariant: exponent == -(start+length)");
+        assert_eq!(
+            value.exp,
+            -(start + length),
+            "periodic invariant: exponent == -(start+length)"
+        );
         let ten_to_p = pow10(length);
         let block = magnitude.div_rem(&ten_to_p).expect("power of ten").1;
         let nine = ten_to_p.sub(&Nat::from_u64(1)).expect("ten^p - 1");
         let numerator = magnitude.mul(&nine).add(&block);
         let denominator = pow10(start + length).mul(&nine);
-        (Int::from_decimal(&numerator.to_decimal()).expect("numerator"), denominator)
+        (
+            Int::from_decimal(&numerator.to_decimal()).expect("numerator"),
+            denominator,
+        )
     };
     let num = if value.int.is_negative() && !num.is_zero() {
         num.negate()
@@ -133,12 +140,18 @@ fn real_period_start_and_exactness_flip_at_the_computation_cap() {
         let third = quotient(1, 3);
         let literal = Real::from_str(&format!("0.{}", "3".repeat(threes))).expect("literal");
         let difference = third.sub(&literal);
-        assert_eq!(difference.period_start, threes as i64, "{threes} threes: period start");
+        assert_eq!(
+            difference.period_start, threes as i64,
+            "{threes} threes: period start"
+        );
         assert_eq!(difference.period_len, 1, "{threes} threes: period length");
         assert_eq!(difference.is_exact(), exact, "{threes} threes: exactness");
         assert_eq!(
             rational_of(&difference),
-            (Int::from_i64(1), Nat::from_u64(3).mul(&pow10(threes as i64)))
+            (
+                Int::from_i64(1),
+                Nat::from_u64(3).mul(&pow10(threes as i64))
+            )
         );
     }
 }

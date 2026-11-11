@@ -41,7 +41,13 @@ pub struct LayoutSizes {
 
 impl Default for LayoutSizes {
     fn default() -> LayoutSizes {
-        LayoutSizes { editor_w: 800, editor_h: 420, right_w: 340, plot_h: 260, logs_h: 180 }
+        LayoutSizes {
+            editor_w: 800,
+            editor_h: 420,
+            right_w: 340,
+            plot_h: 260,
+            logs_h: 180,
+        }
     }
 }
 
@@ -52,10 +58,7 @@ pub fn compute_layout(client_w: i32, client_h: i32, fractions: &LayoutFractions)
     let height = client_h.max(1);
 
     let logs_raw = ((height as i64 * fractions.logs_height_permille as i64) / 1000) as i32;
-    let logs_h = logs_raw
-        .max(60)
-        .min((height / 2).max(60))
-        .min(height);
+    let logs_h = logs_raw.max(60).min((height / 2).max(60)).min(height);
     let top_h = (height - logs_h - PANE_GAP).max(0);
 
     let editor_raw = ((width as i64 * fractions.editor_width_permille as i64) / 1000) as i32;
@@ -74,7 +77,13 @@ pub fn compute_layout(client_w: i32, client_h: i32, fractions: &LayoutFractions)
     };
     let editor_h = (top_h - plot_h - PANE_GAP).max(0);
 
-    LayoutSizes { editor_w, editor_h, right_w, plot_h, logs_h }
+    LayoutSizes {
+        editor_w,
+        editor_h,
+        right_w,
+        plot_h,
+        logs_h,
+    }
 }
 
 /// Severity of a log entry.
@@ -341,7 +350,10 @@ impl Document {
     }
 
     fn record_undo(&mut self) {
-        self.undo.push(Snapshot { buffer: self.buffer.clone(), cursor: self.cursor });
+        self.undo.push(Snapshot {
+            buffer: self.buffer.clone(),
+            cursor: self.cursor,
+        });
         if self.undo.len() > UNDO_CAP {
             self.undo.remove(0);
         }
@@ -398,7 +410,9 @@ impl AppState {
 
     /// Creates an application with the given engine factory and settings.
     pub fn with_factory_and_settings(factory: EngineFactory, mut settings: Settings) -> AppState {
-        let precision = settings.active_precision.clamp(MIN_PRECISION, MAX_PRECISION);
+        let precision = settings
+            .active_precision
+            .clamp(MIN_PRECISION, MAX_PRECISION);
         settings.active_precision = precision;
         let document = Document::new(factory(), precision);
         AppState {
@@ -440,7 +454,10 @@ impl AppState {
 
     /// The window caption for the active document.
     pub fn window_title(&self) -> String {
-        let dirty = self.active_doc().map(|document| document.dirty).unwrap_or(false);
+        let dirty = self
+            .active_doc()
+            .map(|document| document.dirty)
+            .unwrap_or(false);
         format!(
             "Lovelace Desktop - {}{}",
             self.tab_title(self.active),
@@ -520,7 +537,10 @@ impl AppState {
         if self.logs.len() >= LOG_CAP {
             self.logs.remove(0);
         }
-        self.logs.push(LogEntry { level, text: text.into() });
+        self.logs.push(LogEntry {
+            level,
+            text: text.into(),
+        });
     }
 
     /// Copies the settings loader's warnings into the log.
@@ -593,7 +613,12 @@ impl AppState {
 
     /// Publishes the outcome of a run requested earlier. Results for a document that is no
     /// longer running, or for a run that was cancelled, are discarded.
-    pub fn finish_run(&mut self, document: usize, outcome: RunOutput, elapsed_ms: u64) -> Vec<Effect> {
+    pub fn finish_run(
+        &mut self,
+        document: usize,
+        outcome: RunOutput,
+        elapsed_ms: u64,
+    ) -> Vec<Effect> {
         let expected = matches!(
             (&self.pending, self.run_state),
             (Some(pending), RunState::Running) if pending.document == document
@@ -605,7 +630,13 @@ impl AppState {
         self.run_state = RunState::Idle;
         self.last_run_ms = elapsed_ms;
 
-        let RunOutput { result, output, variables, functions, plot } = outcome;
+        let RunOutput {
+            result,
+            output,
+            variables,
+            functions,
+            plot,
+        } = outcome;
         let mut effects = Vec::new();
         if let Some(active) = self.documents.get_mut(document) {
             active.vars = variables;
@@ -638,14 +669,20 @@ impl AppState {
         let document = Document::new((self.factory)(), precision);
         self.documents.push(document);
         self.active = self.documents.len() - 1;
-        self.push_log(LogLevel::Info, format!("New document (precision {precision})."));
+        self.push_log(
+            LogLevel::Info,
+            format!("New document (precision {precision})."),
+        );
         vec![Effect::Repaint]
     }
 
     fn open(&mut self, path: PathBuf) -> Vec<Effect> {
         match std::fs::read_to_string(&path) {
             Ok(text) => {
-                let precision = self.settings.active_precision.clamp(MIN_PRECISION, MAX_PRECISION);
+                let precision = self
+                    .settings
+                    .active_precision
+                    .clamp(MIN_PRECISION, MAX_PRECISION);
                 let mut document = Document::new((self.factory)(), precision);
                 document.buffer = text;
                 document.mark_saved();
@@ -723,8 +760,12 @@ impl AppState {
             self.run_state = RunState::Idle;
         }
         if self.documents.is_empty() {
-            let precision = self.settings.active_precision.clamp(MIN_PRECISION, MAX_PRECISION);
-            self.documents.push(Document::new((self.factory)(), precision));
+            let precision = self
+                .settings
+                .active_precision
+                .clamp(MIN_PRECISION, MAX_PRECISION);
+            self.documents
+                .push(Document::new((self.factory)(), precision));
             self.active = 0;
         } else if self.active >= self.documents.len() {
             self.active = self.documents.len() - 1;
@@ -765,7 +806,10 @@ impl AppState {
         let revision = document.revision;
         self.pending = Some(request.clone());
         self.run_state = RunState::Running;
-        self.push_log(LogLevel::Info, format!("Run started (revision {revision})."));
+        self.push_log(
+            LogLevel::Info,
+            format!("Run started (revision {revision})."),
+        );
         vec![Effect::RunRequested(request), Effect::Repaint]
     }
 
@@ -814,7 +858,13 @@ impl AppState {
             Some(document) => document.engine_mut().eval_full(source),
             None => return vec![Effect::Repaint],
         };
-        let RunOutput { result, output, variables, functions, plot } = outcome;
+        let RunOutput {
+            result,
+            output,
+            variables,
+            functions,
+            plot,
+        } = outcome;
         let mut effects = Vec::new();
         if let Some(document) = self.documents.get_mut(self.active) {
             document.vars = variables;
@@ -969,9 +1019,15 @@ mod tests {
     #[test]
     fn run_publishes_one_coherent_update_to_logs_and_variables() {
         let mut app = app();
-        app.apply(Command::InsertText("a = 6\nprint(\"hi\")\na * 7".to_string()));
+        app.apply(Command::InsertText(
+            "a = 6\nprint(\"hi\")\na * 7".to_string(),
+        ));
         let effects = app.run_blocking();
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::RunRequested(_))));
+        assert!(
+            effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::RunRequested(_)))
+        );
         assert!(effects.contains(&Effect::Repaint));
         assert_eq!(app.run_state, RunState::Idle);
         assert_eq!(
@@ -1059,7 +1115,11 @@ mod tests {
         app.apply(Command::SelectTab(0));
         app.apply(Command::InsertText("a".to_string()));
         let effects = app.run_blocking();
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::Error(_))));
+        assert!(
+            effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::Error(_)))
+        );
         assert!(app.logs_text().contains("Undefined variable 'a'."));
         assert!(app.documents[0].vars.is_empty());
         assert_eq!(
@@ -1100,11 +1160,20 @@ mod tests {
         let mut app = app();
         app.apply(Command::InsertText("1 + 2\n".to_string()));
         let effects = app.apply(Command::SaveAs(path.clone()));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::Saved(saved) if saved == &path)));
+        assert!(
+            effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::Saved(saved) if saved == &path))
+        );
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "1 + 2\n");
         assert!(!app.documents[0].dirty);
         assert_eq!(app.documents[0].path.as_deref(), Some(path.as_path()));
-        assert!(app.settings.recent_files.iter().any(|recent| recent == &path.to_string_lossy()));
+        assert!(
+            app.settings
+                .recent_files
+                .iter()
+                .any(|recent| recent == &path.to_string_lossy())
+        );
 
         let effects = app.apply(Command::Open(path.clone()));
         assert!(effects.contains(&Effect::Repaint));
@@ -1128,8 +1197,14 @@ mod tests {
     #[test]
     fn opening_a_missing_file_reports_an_error_and_keeps_the_document_count() {
         let mut app = app();
-        let effects = app.apply(Command::Open(PathBuf::from("Z:/lovelace/does-not-exist.ls")));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::Error(_))));
+        let effects = app.apply(Command::Open(PathBuf::from(
+            "Z:/lovelace/does-not-exist.ls",
+        )));
+        assert!(
+            effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::Error(_)))
+        );
         assert_eq!(app.documents.len(), 1);
         assert!(app.logs_text().contains("Cannot open"));
     }
@@ -1147,7 +1222,11 @@ mod tests {
         app.apply(Command::SaveAs(path));
         let effects = app.apply(Command::CloseDocument);
         assert!(effects.contains(&Effect::Repaint));
-        assert_eq!(app.documents.len(), 1, "closing the last tab leaves a fresh one");
+        assert_eq!(
+            app.documents.len(),
+            1,
+            "closing the last tab leaves a fresh one"
+        );
         assert!(app.documents[0].buffer.is_empty());
         assert_eq!(app.active, 0);
         let _ = std::fs::remove_dir_all(&dir);
@@ -1195,7 +1274,10 @@ mod tests {
         let effects = app.apply(Command::QuickEval("n = 3 * 4".to_string()));
         assert!(effects.contains(&Effect::Repaint));
         assert!(app.documents[0].buffer.is_empty());
-        assert_eq!(app.documents[0].vars, vec![("n".to_string(), "12".to_string())]);
+        assert_eq!(
+            app.documents[0].vars,
+            vec![("n".to_string(), "12".to_string())]
+        );
         assert!(app.logs_text().contains("> n = 3 * 4"));
         assert!(app.logs_text().contains("= 12"));
         assert_eq!(app.documents[0].revision, 0);
@@ -1205,7 +1287,11 @@ mod tests {
     fn quick_eval_reports_errors_as_effects() {
         let mut app = app();
         let effects = app.apply(Command::QuickEval("1 / 0".to_string()));
-        assert!(effects.iter().any(|effect| matches!(effect, Effect::Error(_))));
+        assert!(
+            effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::Error(_)))
+        );
         assert!(app.logs_text().contains("Cannot divide by zero."));
     }
 
@@ -1237,7 +1323,14 @@ mod tests {
 
     #[test]
     fn tiny_layouts_never_produce_negative_or_overlapping_sizes() {
-        for (width, height) in [(1, 1), (60, 40), (100, 80), (320, 240), (900, 600), (3840, 2160)] {
+        for (width, height) in [
+            (1, 1),
+            (60, 40),
+            (100, 80),
+            (320, 240),
+            (900, 600),
+            (3840, 2160),
+        ] {
             let sizes = compute_layout(width, height, &LayoutFractions::default());
             assert!(sizes.editor_w >= 0 && sizes.right_w >= 0);
             assert!(sizes.editor_h >= 0 && sizes.plot_h >= 0 && sizes.logs_h >= 0);
@@ -1289,7 +1382,11 @@ mod tests {
         let mut app = app();
         let effects = app.apply(Command::Run);
         assert!(effects.contains(&Effect::Repaint));
-        assert!(!effects.iter().any(|effect| matches!(effect, Effect::RunRequested(_))));
+        assert!(
+            !effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::RunRequested(_)))
+        );
         assert!(app.logs_text().contains("Nothing to run"));
     }
 
@@ -1299,7 +1396,11 @@ mod tests {
         app.apply(Command::InsertText("1".to_string()));
         app.apply(Command::Run);
         let effects = app.apply(Command::Run);
-        assert!(!effects.iter().any(|effect| matches!(effect, Effect::RunRequested(_))));
+        assert!(
+            !effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::RunRequested(_)))
+        );
         assert!(app.logs_text().contains("already in progress"));
         app.finish_run(0, empty_output(), 1);
         assert_eq!(app.run_state, RunState::Idle);
@@ -1310,7 +1411,10 @@ mod tests {
         let mut app = app();
         app.apply(Command::InsertText("plot(\"p\", 1, 2, 3)".to_string()));
         app.run_blocking();
-        let plot = app.documents[0].last_plot.as_ref().expect("a captured plot");
+        let plot = app.documents[0]
+            .last_plot
+            .as_ref()
+            .expect("a captured plot");
         assert_eq!(plot.title, "p");
         assert!(plot.svg.contains("<polyline"));
         assert!(plot.path.ends_with(".svg"));

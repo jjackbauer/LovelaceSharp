@@ -36,7 +36,10 @@ fn times(value: &Real, factor: i64) -> Real {
 fn sqrt_given_two_at_p8_and_p16_produce_different_digit_counts() {
     let p8 = sqrt_at("2", 7);
     let p16 = sqrt_at("2", 15);
-    assert_eq!(-7, p8.exp, "8 significant digits == 1 integer + 7 fractional");
+    assert_eq!(
+        -7, p8.exp,
+        "8 significant digits == 1 integer + 7 fractional"
+    );
     assert_eq!(-15, p16.exp, "16 significant digits == 1 + 15");
 }
 
@@ -128,7 +131,11 @@ fn divide_given_one_sixth_is_exact_mixed_period() {
 fn add_given_point_one_and_point_two_is_exactly_point_three() {
     let sum = real("0.1").add(&real("0.2"));
     assert_eq!(real("0.3"), sum);
-    assert_ne!(0.3f64, 0.1f64 + 0.2f64, "the same operation in double is inexact");
+    assert_ne!(
+        0.3f64,
+        0.1f64 + 0.2f64,
+        "the same operation in double is inexact"
+    );
 }
 
 /// AccuracyTests.Parse_GivenPointOne_LovelaceExactFloatInexact.
@@ -146,7 +153,11 @@ fn parse_given_point_one_lovelace_exact_float_inexact() {
 fn to_string_with_format_provider_delegates_to_paramless_to_string() {
     for text in ["-7", "3.14", "0.(3)", "1.5", "0.1(6)", "0"] {
         let value = real(text);
-        assert_eq!(value.to_string(), format!("{value}"), "{text}: Display differs");
+        assert_eq!(
+            value.to_string(),
+            format!("{value}"),
+            "{text}: Display differs"
+        );
     }
 }
 
@@ -166,8 +177,14 @@ fn reciprocal_of_a_real_just_below_one_keeps_its_quotient() {
     for (literal, expected) in [
         ("0.9", "1.111111111111111111111111111111111111111"),
         ("0.99", "1.010101010101010101010101010101010101010"),
-        ("0.9993142073433579945", "1.000686263290967473969590465527195755929"),
-        ("0.99862888499828389309965043538706203025", "1.001372997539239477447020588085923996879"),
+        (
+            "0.9993142073433579945",
+            "1.000686263290967473969590465527195755929",
+        ),
+        (
+            "0.99862888499828389309965043538706203025",
+            "1.001372997539239477447020588085923996879",
+        ),
         ("0.5", "2.0"),
     ] {
         let value = real(literal)

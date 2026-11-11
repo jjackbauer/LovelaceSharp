@@ -82,7 +82,8 @@ fn corpus_sym_076_linsolve_keeps_the_bareiss_division_shape() {
 // System-solve family — the five dispositions
 // ===========================================================================
 
-const CIRCLE_HYPERBOLA: &str = "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1, x*y == 0], [x, y])";
+const CIRCLE_HYPERBOLA: &str =
+    "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1, x*y == 0], [x, y])";
 const CIRCLE_HYPERBOLA_ORACLE: &str = "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: [])";
 
 /// `SystemSolveTests/CircleHyperbola_FourSolutions` and the two descriptor examples.
@@ -98,7 +99,9 @@ const PARABOLA_LINE_ORACLE: &str = "SystemSolveResult(status: Solved, domain: co
 #[test]
 fn system_solve_parabola_line_finds_both_exact_radical_solutions() {
     assert_eq!(
-        display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y == 1, x - y == 0], [x, y])"),
+        display(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y == 1, x - y == 0], [x, y])"
+        ),
         PARABOLA_LINE_ORACLE
     );
 }
@@ -109,7 +112,9 @@ const CIRCLE_LINE_ORACLE: &str = "SystemSolveResult(status: Solved, domain: comp
 #[test]
 fn system_solve_circle_line_finds_both_exact_radical_solutions() {
     assert_eq!(
-        display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1, y == x], [x, y])"),
+        display(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1, y == x], [x, y])"
+        ),
         CIRCLE_LINE_ORACLE
     );
 }
@@ -153,11 +158,15 @@ fn system_solve_empty_equation_list_is_a_typed_refusal() {
 #[test]
 fn system_solve_abandoned_branches_are_unevaluated_with_the_oracle_note() {
     assert_eq!(
-        display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1], [x, y])"),
+        display(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^2 + y^2 == 1], [x, y])"
+        ),
         "SystemSolveResult(status: Unevaluated, domain: complex, complete: False, completeness: Unknown, solutions: [], diagnostics: [Diagnostic(code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., recoverable: True, location: , details: [])])"
     );
     assert_eq!(
-        display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^4 + 1 == 0, y == x], [x, y])"),
+        display(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x^4 + 1 == 0, y == x], [x, y])"
+        ),
         "SystemSolveResult(status: Unevaluated, domain: complex, complete: False, completeness: Unknown, solutions: [], diagnostics: [Diagnostic(code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.univariate-incomplete: the elimination polynomial in y has no representable root, so this branch is not decided., recoverable: True, location: , details: [])])"
     );
 }
@@ -171,9 +180,12 @@ fn system_solve_plain_and_full_publish_the_same_record() {
         "[x^2 + y == 1, x - y == 0]",
         "[x + y == 1, x + y == 2]",
     ] {
-        let plain = display(&format!("x = symbol(\"x\"); y = symbol(\"y\"); solve_system({body}, [x, y])"));
-        let full = display(&format!("x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full({body}, [x, y])"));
+        let plain = display(&format!(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system({body}, [x, y])"
+        ));
+        let full = display(&format!(
+            "x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full({body}, [x, y])"
+        ));
         assert_eq!(plain, full, "{body}");
     }
 }
-

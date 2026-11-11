@@ -26,7 +26,9 @@ pub struct RealEngine {
 impl RealEngine {
     /// Creates an engine with the core builtins loaded.
     pub fn new() -> RealEngine {
-        RealEngine { engine: lovelace_lang::Engine::new() }
+        RealEngine {
+            engine: lovelace_lang::Engine::new(),
+        }
     }
 }
 

@@ -21,7 +21,13 @@ fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'stati
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
     with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"])
+        run_args(&[
+            "--eval",
+            &script,
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+        ])
     })
 }
 
@@ -68,9 +74,12 @@ fn boolean(json: &Json) -> bool {
 }
 
 fn diagnostic_position(result: &RunResult) -> usize {
-    text(field(&array(field(&result.env, "diagnostics"))[0], "position"))
-        .parse()
-        .expect("a position")
+    text(field(
+        &array(field(&result.env, "diagnostics"))[0],
+        "position",
+    ))
+    .parse()
+    .expect("a position")
 }
 
 fn timing_positions(result: &RunResult) -> Vec<usize> {
@@ -90,11 +99,28 @@ fn assert_same_scale(result: &RunResult, what: &str) {
     let mut parts = human.split(' ');
     let value: f64 = parts.next().expect("a value").parse().expect("a number");
     let unit = parts.next().expect("a unit");
-    assert_eq!(parts.next(), None, "{what}: '{human}' has more than two fields");
-    assert!(UNITS.contains(&unit), "{what}: '{human}' names an unknown unit");
-    assert_eq!(text(field(structured, "unit")), unit, "{what}: '{human}' vs {}", structured.to_string());
+    assert_eq!(
+        parts.next(),
+        None,
+        "{what}: '{human}' has more than two fields"
+    );
+    assert!(
+        UNITS.contains(&unit),
+        "{what}: '{human}' names an unknown unit"
+    );
+    assert_eq!(
+        text(field(structured, "unit")),
+        unit,
+        "{what}: '{human}' vs {}",
+        structured.to_string()
+    );
     let structured_value: f64 = text(field(structured, "value")).parse().expect("a number");
-    assert_eq!(value, structured_value, "{what}: '{human}' vs {}", structured.to_string());
+    assert_eq!(
+        value,
+        structured_value,
+        "{what}: '{human}' vs {}",
+        structured.to_string()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -108,8 +134,16 @@ fn deferred_boundary_cells_land_on_the_declared_outcome() {
     let mut cells: Vec<(String, &'static str, Option<bool>)> = Vec::new();
     cells.push(("norm([1,2,3], 0)".to_string(), "norm", Some(true)));
     for literal in ["2.5", "0.5", "2.9999", "(5/2)"] {
-        cells.push((format!("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {literal})"), "evalir", Some(false)));
-        cells.push((format!("x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1, 2], {literal})"), "evalir_batch", Some(false)));
+        cells.push((
+            format!("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {literal})"),
+            "evalir",
+            Some(false),
+        ));
+        cells.push((
+            format!("x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1, 2], {literal})"),
+            "evalir_batch",
+            Some(false),
+        ));
     }
     cells.push(("eye(9223372036854775808)".to_string(), "eye", None));
     cells.push(("1..9223372036854775808".to_string(), "range", None));
@@ -121,9 +155,13 @@ fn deferred_boundary_cells_land_on_the_declared_outcome() {
     for (script, builtin, must_accept) in cells {
         let result = run_script(&script);
         let ok = boolean(field(&result.env, "ok"));
-        let where_ = format!("{script} [{builtin}]", );
+        let where_ = format!("{script} [{builtin}]",);
         if ok {
-            assert_ne!(must_accept, Some(false), "{where_}: an argument that is not an exact integer was ACCEPTED");
+            assert_ne!(
+                must_accept,
+                Some(false),
+                "{where_}: an argument that is not an exact integer was ACCEPTED"
+            );
             assert_eq!(result.exit, 0, "{where_}");
             continue;
         }
@@ -133,12 +171,25 @@ fn deferred_boundary_cells_land_on_the_declared_outcome() {
         let message = text(field(&result.env, "message"));
         assert_ne!(code, "InternalError", "{where_}: {message}");
         assert_ne!(category, "InternalInvariantFailure", "{where_}: {message}");
-        assert!(boolean(field(&result.env, "recoverable")), "{where_}: not recoverable: {message}");
-        assert_ne!(must_accept, Some(true), "{where_}: an accepted integer was refused: {message}");
+        assert!(
+            boolean(field(&result.env, "recoverable")),
+            "{where_}: not recoverable: {message}"
+        );
+        assert_ne!(
+            must_accept,
+            Some(true),
+            "{where_}: an accepted integer was refused: {message}"
+        );
         if code == "InvalidArgument" {
             assert_eq!(category, "TypeMismatch", "{where_}: {message}");
-            assert!(message.starts_with(&format!("{builtin}()")), "{where_}: {message}");
-            assert!(!message.contains("(Parameter '"), "{where_}: raw framework text: {message}");
+            assert!(
+                message.starts_with(&format!("{builtin}()")),
+                "{where_}: {message}"
+            );
+            assert!(
+                !message.contains("(Parameter '"),
+                "{where_}: raw framework text: {message}"
+            );
         }
     }
 }
@@ -151,9 +202,21 @@ fn deferred_inventory_templates_reach_the_argument_they_name() {
         ("zeros", "zeros({0})", "a dimension"),
         ("ones", "ones({0})", "a dimension"),
         ("norm", "norm([1, 2, 3], {0})", "(axis)"),
-        ("series", "x = symbol(\"x\"); series(sin(x), x, 0, {0})", "(order)"),
-        ("evalir", "x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {0})", "(digits)"),
-        ("evalir_batch", "x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1, 2], {0})", "(digits)"),
+        (
+            "series",
+            "x = symbol(\"x\"); series(sin(x), x, 0, {0})",
+            "(order)",
+        ),
+        (
+            "evalir",
+            "x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {0})",
+            "(digits)",
+        ),
+        (
+            "evalir_batch",
+            "x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1, 2], {0})",
+            "(digits)",
+        ),
         ("eye", "eye({0})", "(rows)"),
         ("eye", "eye(2, {0})", "(cols)"),
         ("index", "[1, 2, 3][{0}]", "'index'"),
@@ -163,13 +226,25 @@ fn deferred_inventory_templates_reach_the_argument_they_name() {
     for (builtin, template, anchor) in rows {
         let script = template.replace("{0}", "\"sentinel\"");
         let result = run_script(&script);
-        assert!(!boolean(field(&result.env, "ok")), "{script}: the sentinel was accepted, so the row is dead");
+        assert!(
+            !boolean(field(&result.env, "ok")),
+            "{script}: the sentinel was accepted, so the row is dead"
+        );
         let code = text(field(&result.env, "code"));
         let category = text(field(&result.env, "category"));
         let message = text(field(&result.env, "message"));
-        assert!(code == "InvalidArgument" || code == "InvalidOperation", "{script}: {code}/{category}: {message}");
-        assert!(category == "TypeMismatch" || category == "DomainError", "{script}: {code}/{category}: {message}");
-        assert!(message.starts_with(&format!("{builtin}()")), "{script}: {message}");
+        assert!(
+            code == "InvalidArgument" || code == "InvalidOperation",
+            "{script}: {code}/{category}: {message}"
+        );
+        assert!(
+            category == "TypeMismatch" || category == "DomainError",
+            "{script}: {code}/{category}: {message}"
+        );
+        assert!(
+            message.starts_with(&format!("{builtin}()")),
+            "{script}: {message}"
+        );
         assert!(message.contains(anchor), "{script}: {message}");
     }
 }
@@ -182,12 +257,21 @@ fn accepted_evalir_digits_change_the_answer() {
         };
         let low_result = run_script(&script(low));
         let high_result = run_script(&script(high));
-        assert!(boolean(field(&low_result.env, "ok")), "evalir(..., {low}) was refused");
-        assert!(boolean(field(&high_result.env, "ok")), "evalir(..., {high}) was refused");
+        assert!(
+            boolean(field(&low_result.env, "ok")),
+            "evalir(..., {low}) was refused"
+        );
+        assert!(
+            boolean(field(&high_result.env, "ok")),
+            "evalir(..., {high}) was refused"
+        );
         let low_value = text(&array(field(&low_result.env, "output"))[0]);
         let high_value = text(&array(field(&high_result.env, "output"))[0]);
         assert_ne!(low_value, high_value, "{low} vs {high}");
-        assert!(high_value.len() > low_value.len(), "a larger count publishes a longer answer: {low}='{low_value}', {high}='{high_value}'");
+        assert!(
+            high_value.len() > low_value.len(),
+            "a larger count publishes a longer answer: {low}='{low_value}', {high}='{high_value}'"
+        );
     }
 }
 
@@ -207,17 +291,36 @@ fn wide_argument_refusals_are_typed_argument_errors() {
     const BOUND: &str = "9223372036854775807";
     let cases: Vec<(&str, String, &str)> = vec![
         ("index", format!("[1, 2, 3][{HUGE}]"), HUGE),
-        ("series", "x = symbol(\"x\"); series(sin(x), x, 0, -1)".to_string(), "-1"),
-        ("series", format!("x = symbol(\"x\"); series(sin(x), x, 0, {HUGE})"), HUGE),
+        (
+            "series",
+            "x = symbol(\"x\"); series(sin(x), x, 0, -1)".to_string(),
+            "-1",
+        ),
+        (
+            "series",
+            format!("x = symbol(\"x\"); series(sin(x), x, 0, {HUGE})"),
+            HUGE,
+        ),
         ("zeros", "zeros(-1)".to_string(), "-1"),
         ("zeros", "zeros(2, -1)".to_string(), "argument 2"),
     ];
     for (what, script, needle) in cases {
         let result = run_script(&script);
         assert_eq!(result.exit, 1, "{what}: {script}");
-        assert!(!boolean(field(&result.env, "ok")), "{what}: the script answered");
-        assert_eq!(text(field(&result.env, "code")), "InvalidArgument", "{what}: {script}");
-        assert_eq!(text(field(&result.env, "category")), "TypeMismatch", "{what}: {script}");
+        assert!(
+            !boolean(field(&result.env, "ok")),
+            "{what}: the script answered"
+        );
+        assert_eq!(
+            text(field(&result.env, "code")),
+            "InvalidArgument",
+            "{what}: {script}"
+        );
+        assert_eq!(
+            text(field(&result.env, "category")),
+            "TypeMismatch",
+            "{what}: {script}"
+        );
         let message = text(field(&result.env, "message"));
         assert!(message.contains(needle), "{what}: {message}");
         if what == "index" {
@@ -244,10 +347,16 @@ fn multi_statement_error_envelope_carries_both_structural_durations() {
     assert_eq!(text(field(&timings[1], "position")), "17");
     assert_eq!(text(field(&timings[1], "resultKind")), "Void");
     for timing in timings {
-        assert!(matches!(field(timing, "position"), Json::Num(_) | Json::Str(_)));
+        assert!(matches!(
+            field(timing, "position"),
+            Json::Num(_) | Json::Str(_)
+        ));
         let unit = text(field(field(timing, "elapsed"), "unit"));
         assert!(UNITS.contains(&unit.as_str()), "{unit}");
-        assert!(matches!(field(timing, "resultKind"), Json::Num(_) | Json::Str(_)));
+        assert!(matches!(
+            field(timing, "resultKind"),
+            Json::Num(_) | Json::Str(_)
+        ));
         assert!(matches!(field(timing, "hasOutput"), Json::Bool(_)));
     }
 }
@@ -275,7 +384,10 @@ fn error_envelope_without_any_statement_carries_an_empty_timings_array() {
 
 #[test]
 fn file_read_error_envelope_carries_the_same_structural_durations() {
-    let missing = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/tmp/round28-does-not-exist.ls");
+    let missing = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../target/tmp/round28-does-not-exist.ls"
+    );
     let result = run_args_of(&["--file", missing, "--omit-functions"]);
     assert_eq!(result.exit, 1);
     assert_eq!(text(field(&result.env, "code")), "FileReadError");
@@ -290,11 +402,17 @@ fn success_and_error_envelopes_carry_the_same_duration_keys() {
     assert_eq!(ok.exit, 0);
     assert_eq!(bad.exit, 1);
     for envelope in [&ok.env, &bad.env] {
-        assert!(matches!(field(envelope, "elapsed"), Json::Str(_) | Json::Num(_)));
+        assert!(matches!(
+            field(envelope, "elapsed"),
+            Json::Str(_) | Json::Num(_)
+        ));
         assert!(matches!(field(envelope, "elapsedTime"), Json::Obj(_)));
         assert!(matches!(field(envelope, "timings"), Json::Arr(_)));
     }
-    assert_eq!(array(field(&ok.env, "timings")).len(), array(field(&bad.env, "timings")).len());
+    assert_eq!(
+        array(field(&ok.env, "timings")).len(),
+        array(field(&bad.env, "timings")).len()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -313,7 +431,10 @@ fn find_utf16(source: &str, needle: &str) -> usize {
 }
 
 fn surface_file(name: &str, bytes: &[u8]) -> String {
-    let dir = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../target/tmp/round28"));
+    let dir = std::path::PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../target/tmp/round28"
+    ));
     let _ = std::fs::create_dir_all(&dir);
     let path = dir.join(name);
     std::fs::write(&path, bytes).expect("write the surface file");
@@ -336,14 +457,22 @@ fn every_surface_reports_the_same_positions_for_the_same_text() {
         let eval = run_script(source);
         assert_eq!(eval.exit, 1, "--eval {source:?}");
         assert_eq!(diagnostic_position(&eval), *failing, "--eval {source:?}");
-        assert_eq!(timing_positions(&eval), vec![*first, *second, *failing], "--eval {source:?}");
+        assert_eq!(
+            timing_positions(&eval),
+            vec![*first, *second, *failing],
+            "--eval {source:?}"
+        );
 
         let bytes = source.as_bytes();
         let path = surface_file(&format!("surface-{failing}.lv"), bytes);
         let file = run_args_of(&["--file", &path, "--omit-functions", "--omit-variables"]);
         assert_eq!(file.exit, 1, "--file {source:?}");
         assert_eq!(diagnostic_position(&file), *failing, "--file {source:?}");
-        assert_eq!(timing_positions(&file), vec![*first, *second, *failing], "--file {source:?}");
+        assert_eq!(
+            timing_positions(&file),
+            vec![*first, *second, *failing],
+            "--file {source:?}"
+        );
 
         // The C# --stdin surface hands the runner the characters a reader produced; the
         // production decoder is the same seam round 27 pinned.
@@ -352,16 +481,25 @@ fn every_surface_reports_the_same_positions_for_the_same_text() {
         let error = engine.eval(&decoded).expect_err("det(1) refuses");
         assert_eq!(error.position, *failing, "--stdin {source:?}");
         assert_eq!(
-            engine.operation_timings().iter().map(|timing| timing.position).collect::<Vec<_>>(),
+            engine
+                .operation_timings()
+                .iter()
+                .map(|timing| timing.position)
+                .collect::<Vec<_>>(),
             vec![*first, *second, *failing],
             "--stdin {source:?}"
         );
 
         let line = text(field(&array(field(&eval.env, "diagnostics"))[0], "line"));
         let column = text(field(&array(field(&eval.env, "diagnostics"))[0], "column"));
-        assert_eq!((line.as_str(), column.as_str()), ("3", "1"), "--eval {source:?}");
+        assert_eq!(
+            (line.as_str(), column.as_str()),
+            ("3", "1"),
+            "--eval {source:?}"
+        );
         let units: Vec<u16> = source.encode_utf16().collect();
-        let slice: String = String::from_utf16(&units[*failing..*failing + FAILING.len()]).expect("slice");
+        let slice: String =
+            String::from_utf16(&units[*failing..*failing + FAILING.len()]).expect("slice");
         assert_eq!(slice, FAILING);
     }
 }
@@ -390,7 +528,10 @@ fn an_integral_digit_count_still_answers_the_requested_width() {
     let result = run_script("x = symbol(\"x\"); print(evalir(compile(x*1/3, [x]), [1], 40))");
     assert_eq!(result.exit, 0);
     assert!(boolean(field(&result.env, "ok")));
-    assert_eq!(text(&array(field(&result.env, "output"))[0]), format!("0.{}", "3".repeat(40)));
+    assert_eq!(
+        text(&array(field(&result.env, "output"))[0]),
+        format!("0.{}", "3".repeat(40))
+    );
 }
 
 #[test]
@@ -411,9 +552,20 @@ fn a_digit_count_outside_the_bound_is_refused() {
             "x = symbol(\"x\"); print(evalir(compile(x*1/3, [x]), [1], {digits}))"
         ));
         assert_eq!(result.exit, 1, "{digits}");
-        assert_eq!(text(field(&result.env, "code")), "InvalidArgument", "{digits}");
-        assert_eq!(text(field(&result.env, "category")), "TypeMismatch", "{digits}");
-        assert!(text(field(&result.env, "message")).contains(digits), "{digits}");
+        assert_eq!(
+            text(field(&result.env, "code")),
+            "InvalidArgument",
+            "{digits}"
+        );
+        assert_eq!(
+            text(field(&result.env, "category")),
+            "TypeMismatch",
+            "{digits}"
+        );
+        assert!(
+            text(field(&result.env, "message")).contains(digits),
+            "{digits}"
+        );
     }
 }
 
@@ -431,7 +583,8 @@ fn a_digit_count_wider_than_int64_is_refused_and_named() {
 
 #[test]
 fn evalir_batch_carries_the_same_contract() {
-    let result = run_script("x = symbol(\"x\"); print(evalir_batch(compile(x*1/3, [x]), [1, 2], 2.5))");
+    let result =
+        run_script("x = symbol(\"x\"); print(evalir_batch(compile(x*1/3, [x]), [1, 2], 2.5))");
     assert_eq!(result.exit, 1);
     assert_eq!(text(field(&result.env, "code")), "InvalidArgument");
     assert_eq!(text(field(&result.env, "category")), "TypeMismatch");
@@ -490,8 +643,14 @@ fn timing_scale_and_format_always_agree() {
         let text = format!("{value} {unit}");
         assert_eq!(unit, *expected_unit, "{nanos} ns");
         assert!(text.ends_with(&format!(" {unit}")), "{text}");
-        let numeric = text[..text.len() - unit.len() - 1].parse::<f64>().expect("a number");
-        assert_eq!(numeric, value.parse::<f64>().expect("the scale value"), "{text}");
+        let numeric = text[..text.len() - unit.len() - 1]
+            .parse::<f64>()
+            .expect("a number");
+        assert_eq!(
+            numeric,
+            value.parse::<f64>().expect("the scale value"),
+            "{text}"
+        );
     }
 }
 
@@ -511,7 +670,12 @@ fn an_unknown_registry_name_is_the_same_refusal_a_call_produces() {
         .map(text)
         .collect();
     assert_eq!(suggestions, vec!["det"]);
-    assert!(text(field(&result.env, "registrySize")).parse::<usize>().expect("a count") >= 100);
+    assert!(
+        text(field(&result.env, "registrySize"))
+            .parse::<usize>()
+            .expect("a count")
+            >= 100
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -532,21 +696,27 @@ fn a_request_beyond_the_cap_is_marked_as_clamped() {
     let structured = field(field(&result.env, "result"), "structured");
     let value = text(field(structured, "value"));
     assert_eq!(decimal_places(&value), 1000);
-    assert!(value.starts_with("1.4142135623730950488016887242096980785696718753769"), "{value}");
+    assert!(
+        value.starts_with("1.4142135623730950488016887242096980785696718753769"),
+        "{value}"
+    );
     assert!(!boolean(field(structured, "exact")));
     assert!(boolean(field(structured, "truncated")));
     assert_eq!(text(field(structured, "truncationReason")), "digit-cap");
     assert_eq!(text(field(structured, "budget")), "1000");
     let variable = array(field(&result.env, "variables"))
         .iter()
-        .find(|variable| text(field(variable, "name")) == "_" )
+        .find(|variable| text(field(variable, "name")) == "_")
         .expect("the result binding");
     let projected = field(variable, "structured");
     assert_eq!(text(field(projected, "value")), value);
     assert!(boolean(field(projected, "truncated")));
     assert_eq!(text(field(projected, "truncationReason")), "digit-cap");
     assert_eq!(text(field(projected, "budget")), "1000");
-    assert_eq!(decimal_places(&text(field(field(&result.env, "result"), "display"))), 1000);
+    assert_eq!(
+        decimal_places(&text(field(field(&result.env, "result"), "display"))),
+        1000
+    );
 }
 
 #[test]
@@ -554,7 +724,10 @@ fn the_smallest_over_cap_request_is_marked_too() {
     let result = run_script("evalf(1/3, 1001)");
     assert_eq!(result.exit, 0);
     let structured = field(field(&result.env, "result"), "structured");
-    assert_eq!(text(field(structured, "value")), format!("0.{}", "3".repeat(1000)));
+    assert_eq!(
+        text(field(structured, "value")),
+        format!("0.{}", "3".repeat(1000))
+    );
     assert!(boolean(field(structured, "truncated")));
     assert_eq!(text(field(structured, "truncationReason")), "digit-cap");
     assert_eq!(text(field(structured, "budget")), "1000");
@@ -586,17 +759,34 @@ fn a_clamped_value_is_marked_through_the_facade_as_it_is_on_the_cli() {
 
 fn assert_budget_refusal(script: &str, count: &str) {
     let result = run_script(script);
-    assert!(!result.stdout.is_empty(), "{script}: stdout must never be empty");
+    assert!(
+        !result.stdout.is_empty(),
+        "{script}: stdout must never be empty"
+    );
     assert_eq!(result.exit, 1, "{script}");
     assert!(!boolean(field(&result.env, "ok")), "{script}");
-    assert_eq!(text(field(&result.env, "code")), "AllocationRefused", "{script}");
-    assert_eq!(text(field(&result.env, "category")), "BudgetExceeded", "{script}");
+    assert_eq!(
+        text(field(&result.env, "code")),
+        "AllocationRefused",
+        "{script}"
+    );
+    assert_eq!(
+        text(field(&result.env, "category")),
+        "BudgetExceeded",
+        "{script}"
+    );
     assert!(boolean(field(&result.env, "recoverable")), "{script}");
     let message = text(field(&result.env, "message"));
     assert!(message.contains(count), "{script}: {message}");
-    assert!(!message.contains("Insufficient memory"), "{script}: {message}");
+    assert!(
+        !message.contains("Insufficient memory"),
+        "{script}: {message}"
+    );
     assert!(matches!(field(&result.env, "diagnostics"), Json::Arr(_)));
-    assert!(matches!(field(&result.env, "elapsed"), Json::Str(_) | Json::Num(_)));
+    assert!(matches!(
+        field(&result.env, "elapsed"),
+        Json::Str(_) | Json::Num(_)
+    ));
     assert!(matches!(field(&result.env, "elapsedTime"), Json::Obj(_)));
     assert!(matches!(field(&result.env, "timings"), Json::Arr(_)));
 }
@@ -616,5 +806,8 @@ fn ordinary_zeros_still_succeeds() {
     let result = run_script("zeros(2, 3)");
     assert_eq!(result.exit, 0);
     assert!(boolean(field(&result.env, "ok")));
-    assert_eq!(text(field(field(&result.env, "result"), "typed")), "[[0, 0, 0], [0, 0, 0]] (Array)");
+    assert_eq!(
+        text(field(field(&result.env, "result"), "typed")),
+        "[[0, 0, 0], [0, 0, 0]] (Array)"
+    );
 }

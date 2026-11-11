@@ -20,15 +20,19 @@ fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'stati
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
     with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"])
+        run_args(&[
+            "--eval",
+            &script,
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+        ])
     })
 }
 
 fn run_script_with_variables(script: &str) -> RunResult {
     let script = script.to_string();
-    with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions"])
-    })
+    with_large_stack(move || run_args(&["--eval", &script, "--json", "--omit-functions"]))
 }
 
 fn run_args_of(args: &[&str]) -> RunResult {
@@ -89,9 +93,12 @@ fn record_field<'a>(json: &'a Json, name: &str) -> &'a Json {
 }
 
 fn diagnostic_position(result: &RunResult) -> usize {
-    text(field(&array(field(&result.env, "diagnostics"))[0], "position"))
-        .parse()
-        .expect("a position")
+    text(field(
+        &array(field(&result.env, "diagnostics"))[0],
+        "position",
+    ))
+    .parse()
+    .expect("a position")
 }
 
 fn timing_positions(result: &RunResult) -> Vec<usize> {
@@ -115,11 +122,28 @@ fn assert_same_scale(result: &RunResult, what: &str) {
     let mut parts = human.split(' ');
     let value: f64 = parts.next().expect("a value").parse().expect("a number");
     let unit = parts.next().expect("a unit");
-    assert_eq!(parts.next(), None, "{what}: '{human}' has more than two fields");
-    assert!(UNITS.contains(&unit), "{what}: '{human}' names an unknown unit");
-    assert_eq!(text(field(structured, "unit")), unit, "{what}: '{human}' vs {}", structured.to_string());
+    assert_eq!(
+        parts.next(),
+        None,
+        "{what}: '{human}' has more than two fields"
+    );
+    assert!(
+        UNITS.contains(&unit),
+        "{what}: '{human}' names an unknown unit"
+    );
+    assert_eq!(
+        text(field(structured, "unit")),
+        unit,
+        "{what}: '{human}' vs {}",
+        structured.to_string()
+    );
     let structured_value: f64 = text(field(structured, "value")).parse().expect("a number");
-    assert_eq!(value, structured_value, "{what}: '{human}' vs {}", structured.to_string());
+    assert_eq!(
+        value,
+        structured_value,
+        "{what}: '{human}' vs {}",
+        structured.to_string()
+    );
 }
 
 #[test]
@@ -150,7 +174,10 @@ fn a_sub_millisecond_run_uses_the_microsecond_scale_in_both_fields() {
 
 #[test]
 fn a_pre_engine_failure_publishes_the_zero_pair_from_the_same_selector() {
-    let missing = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/tmp/round27-does-not-exist.ls");
+    let missing = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../target/tmp/round27-does-not-exist.ls"
+    );
     let result = run_args_of(&["--file", missing, "--omit-functions"]);
     assert_eq!(result.exit, 1);
     assert_eq!(text(field(&result.env, "code")), "FileReadError");
@@ -167,7 +194,10 @@ fn a_pre_engine_failure_publishes_the_zero_pair_from_the_same_selector() {
 const SCRIPT: &str = "a = 1\nb = 2\ndet(1)";
 
 fn surface_dir() -> std::path::PathBuf {
-    let dir = std::path::PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../target/tmp/round27"));
+    let dir = std::path::PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../target/tmp/round27"
+    ));
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
@@ -205,7 +235,11 @@ fn eval_file_and_stdin_agree_on_a_bom_prefixed_script() {
     let error = engine.eval(&stdin_text).expect_err("det(1) refuses");
     assert_eq!(error.position, 13);
     assert_eq!(
-        engine.operation_timings().iter().map(|timing| timing.position).collect::<Vec<_>>(),
+        engine
+            .operation_timings()
+            .iter()
+            .map(|timing| timing.position)
+            .collect::<Vec<_>>(),
         vec![1, 7, 13]
     );
 }
@@ -260,7 +294,10 @@ fn a_surrogate_pair_counts_two_utf16_units_before_the_failing_statement() {
 fn evalir_digits_reach_the_wire_answer() {
     let two = run_script("x = symbol(\"x\"); print(evalir(compile(x*1/3, [x]), [1], 2))");
     assert_eq!(two.exit, 0, "{}", two.stdout);
-    assert_eq!(array(field(&two.env, "output"))[0], Json::Str("0.33".to_string()));
+    assert_eq!(
+        array(field(&two.env, "output"))[0],
+        Json::Str("0.33".to_string())
+    );
 
     let forty = run_script("x = symbol(\"x\"); print(evalir(compile(x*1/3, [x]), [1], 40))");
     assert_eq!(forty.exit, 0, "{}", forty.stdout);
@@ -310,7 +347,10 @@ fn an_over_cap_evalf_marks_the_result_and_the_variable() {
     let result = run_script_with_variables("setprecision(5000); evalf(sqrt(2), 5000)");
     assert_eq!(result.exit, 0, "{}", result.stdout);
     let structured = structured(&result);
-    assert!(matches!(optional_field(structured, "truncated"), Some(Json::Bool(true))));
+    assert!(matches!(
+        optional_field(structured, "truncated"),
+        Some(Json::Bool(true))
+    ));
     assert_eq!(text(field(structured, "truncationReason")), "digit-cap");
     assert_eq!(text(field(structured, "budget")), "1000");
 
@@ -320,7 +360,10 @@ fn an_over_cap_evalf_marks_the_result_and_the_variable() {
         .find(|variable| text(field(variable, "name")) == "_")
         .expect("the result binding");
     let projected = field(underscore, "structured");
-    assert!(matches!(optional_field(projected, "truncated"), Some(Json::Bool(true))));
+    assert!(matches!(
+        optional_field(projected, "truncated"),
+        Some(Json::Bool(true))
+    ));
     assert_eq!(text(field(projected, "budget")), "1000");
 }
 
@@ -340,7 +383,10 @@ fn solve_observes_the_session_assumption_on_the_wire() {
     let result = run_script("x = symbol(\"x\"); assume(x > 5); solve(x == 3, x)");
     assert_eq!(result.exit, 0, "{}", result.stdout);
     let structured = structured(&result);
-    assert_eq!(text(field(record_field(structured, "status"), "value")), "NoSolutions");
+    assert_eq!(
+        text(field(record_field(structured, "status"), "value")),
+        "NoSolutions"
+    );
     assert_eq!(
         array(field(record_field(structured, "solutions"), "elements")).len(),
         0
@@ -351,11 +397,17 @@ fn solve_observes_the_session_assumption_on_the_wire() {
 fn eye_and_the_reductions_cross_their_two_argument_forms() {
     let eye = run_script("eye(2,3)");
     assert_eq!(eye.exit, 0);
-    assert_eq!(text(field(field(&eye.env, "result"), "display")), "[[1, 0, 0], [0, 1, 0]]");
+    assert_eq!(
+        text(field(field(&eye.env, "result"), "display")),
+        "[[1, 0, 0], [0, 1, 0]]"
+    );
 
     let mean = run_script("mean([[1,2],[3,4]], 1)");
     assert_eq!(mean.exit, 0);
-    assert_eq!(text(field(field(&mean.env, "result"), "display")), "[1.5, 3.5]");
+    assert_eq!(
+        text(field(field(&mean.env, "result"), "display")),
+        "[1.5, 3.5]"
+    );
 
     let refusal = run_script("norm(1)");
     assert_eq!(refusal.exit, 1);

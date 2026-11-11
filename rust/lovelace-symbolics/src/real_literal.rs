@@ -73,7 +73,10 @@ impl RealLiteral {
                 Nat::from_u64(1),
             ))
         } else {
-            Some(Rat::new(self.significand.clone(), Nat::from_decimal(&digits)?))
+            Some(Rat::new(
+                self.significand.clone(),
+                Nat::from_decimal(&digits)?,
+            ))
         }
     }
 }

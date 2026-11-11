@@ -124,7 +124,10 @@ fn certified_sin_of_one_at_two_hundred_places_publishes_the_claimed_prefix() {
 #[test]
 fn certified_cos_of_one_publishes_the_digits_it_claims() {
     // Cos_OfOne_PublishesTheDigitsItClaims rows 30 and 50.
-    assert_eq!(published_cos(&Real::from_i64(1), 30), "540302305868139717400936607442");
+    assert_eq!(
+        published_cos(&Real::from_i64(1), 30),
+        "540302305868139717400936607442"
+    );
     assert_eq!(
         published_cos(&Real::from_i64(1), 50),
         "54030230586813971740093660744297660373231042061792"
@@ -264,7 +267,10 @@ fn precision_oracle_sin_of_one_million_is_correct_at_every_requested_count() {
     // TheRequestedFractionalDigitsAreCorrect("Sin_1e6_30"/"Sin_1e6_50"/"Sin_1e6_100"):
     // the magnitudes a constant guard cannot pay for (1e6 has seven integer digits).
     let million = Real::from_i64(1_000_000);
-    assert_eq!(published_sin(&million, 30), "349993502171292952117652486780");
+    assert_eq!(
+        published_sin(&million, 30),
+        "349993502171292952117652486780"
+    );
     assert_eq!(
         published_sin(&million, 50),
         "34999350217129295211765248678077146906140660532871"
@@ -289,8 +295,14 @@ fn precision_oracle_rejects_a_truncated_value() {
     // 40 places and invents the rest, while not under-counting a meaningful prefix.
     let truncated = "841470984807896506652502321630298999622599999999999999999999";
     let correct = count_correct_digits(truncated, SIN_1_100);
-    assert!(correct < 60, "the oracle accepted a deliberately wrong value ({correct} correct)");
-    assert!(correct >= 30, "the oracle under-counted a value right for at least 30 places ({correct})");
+    assert!(
+        correct < 60,
+        "the oracle accepted a deliberately wrong value ({correct} correct)"
+    );
+    assert!(
+        correct >= 30,
+        "the oracle under-counted a value right for at least 30 places ({correct})"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -326,7 +338,9 @@ fn pi_resolution_cos_of_half_pi_is_the_half_distance_to_pi() {
         let pi = Real::pi(places);
         let half_pi = pi.div(&Real::from_i64(2), places).expect("pi/2");
         let delta = Real::pi(places + 100).sub(&pi);
-        let half_delta = delta.div(&Real::from_i64(2), places + 100).expect("delta/2");
+        let half_delta = delta
+            .div(&Real::from_i64(2), places + 100)
+            .expect("delta/2");
         let tolerance = tiny(places + 5);
         let actual = half_pi.cos(30);
         assert!(

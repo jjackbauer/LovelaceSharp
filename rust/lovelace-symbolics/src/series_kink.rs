@@ -195,10 +195,7 @@ fn resolve_kinks(e: &Expr, var: &str, order: i64) -> Expr {
                     Some(_) => Expr::num(0),
                     // |a*x| at 0: which side the expansion follows depends on sign(a), so the
                     // branch is COMPUTED — sign(a)*a*x, the branch SymPy takes — never guessed.
-                    None => Expr::mul(
-                        Expr::Fun("sign".to_string(), vec![coefficient]),
-                        g,
-                    ),
+                    None => Expr::mul(Expr::Fun("sign".to_string(), vec![coefficient]), g),
                 },
             }
         }
@@ -224,10 +221,7 @@ fn resolve_kinks(e: &Expr, var: &str, order: i64) -> Expr {
             name.clone(),
             args.iter().map(|a| resolve_kinks(a, var, order)).collect(),
         ),
-        Expr::Div(a, b) => Expr::div(
-            resolve_kinks(a, var, order),
-            resolve_kinks(b, var, order),
-        ),
+        Expr::Div(a, b) => Expr::div(resolve_kinks(a, var, order), resolve_kinks(b, var, order)),
         Expr::Rel(op, a, b) => Expr::relation(
             *op,
             resolve_kinks(a, var, order),

@@ -171,7 +171,10 @@ fn fft_publishes_complex_elements_with_re_im_and_exactness() {
 fn re_im_and_conj_map_a_complex_signal_like_the_oracle() {
     assert_eq!(display("re(fft([1,2,3,4]))"), "[10, -2, -2, -2]");
     assert_eq!(display("im(fft([1,2,3,4]))"), "[0, 2, 0, -2]");
-    assert_eq!(display("conj(fft([1,2,3,4]))"), "[10, -2 - 2i, -2, -2 + 2i]");
+    assert_eq!(
+        display("conj(fft([1,2,3,4]))"),
+        "[10, -2 - 2i, -2, -2 + 2i]"
+    );
     let conj = structured("conj(fft([1,2,3,4]))");
     let items = elements(&conj);
     assert_eq!(text(field(&items[1], "im")), "-2");
@@ -227,7 +230,10 @@ fn abs_of_a_complex_array_is_the_magnitude_spectrum() {
     let expected = Complex::new(Real::from_i64(-2), Real::from_i64(2)).magnitude(1000);
     assert_eq!(text(field(&items[1], "value")), expected.to_string());
     assert_eq!(field(&items[1], "exact"), &Json::Bool(false));
-    assert_eq!(text(field(&items[1], "value")), text(field(&items[3], "value")));
+    assert_eq!(
+        text(field(&items[1], "value")),
+        text(field(&items[3], "value"))
+    );
 }
 
 #[test]
@@ -311,7 +317,10 @@ fn complex_parse_and_display_round_trip_the_reference_forms() {
 #[test]
 fn complex_exactness_is_both_parts() {
     assert!(c("1", "2").is_exact());
-    let inexact = Complex::new(Real::from_str("1").unwrap().mark_inexact(), Real::from_i64(2));
+    let inexact = Complex::new(
+        Real::from_str("1").unwrap().mark_inexact(),
+        Real::from_i64(2),
+    );
     assert!(!inexact.is_exact());
     assert!(!Complex::pi(30).is_exact());
     assert_eq!(Complex::pi(30).im(), &Real::zero());
@@ -335,7 +344,10 @@ fn limited_precision_takes_the_fixed_path_and_stays_exact() {
     let product = wide_c.mul_at(&wide_c, 37);
     assert_eq!(product.re().to_string().len(), 74);
     assert!(product.im().is_zero());
-    assert_eq!(product.re().to_string(), "99999999999999999999999999999999999980000000000000000000000000000000000001");
+    assert_eq!(
+        product.re().to_string(),
+        "99999999999999999999999999999999999980000000000000000000000000000000000001"
+    );
 }
 
 #[test]
@@ -355,7 +367,10 @@ fn complex_integer_powers_are_exact() {
 fn lcomplex64_parses_adds_and_conjugates_like_the_reference() {
     let a = LComplex64::parse("1+2i").unwrap();
     let b = LComplex64::parse("3+4i").unwrap();
-    assert_eq!(a.checked_add(&b).unwrap(), LComplex64::parse("4+6i").unwrap());
+    assert_eq!(
+        a.checked_add(&b).unwrap(),
+        LComplex64::parse("4+6i").unwrap()
+    );
     let i = LComplex64::parse("i").unwrap();
     assert_eq!(i.checked_mul(&i).unwrap(), LComplex64::parse("-1").unwrap());
     assert_eq!(
@@ -371,7 +386,10 @@ fn lcomplex64_parses_adds_and_conjugates_like_the_reference() {
 #[test]
 fn lcomplex64_reciprocal_multiplies_to_one() {
     let z = LComplex64::parse("1+2i").unwrap();
-    assert_eq!(z.checked_mul(&z.reciprocal().unwrap()).unwrap(), LComplex64::parse("1").unwrap());
+    assert_eq!(
+        z.checked_mul(&z.reciprocal().unwrap()).unwrap(),
+        LComplex64::parse("1").unwrap()
+    );
 }
 
 #[test]
@@ -386,7 +404,9 @@ fn lcomplex64_converts_to_and_from_the_arbitrary_precision_type() {
 #[test]
 fn lcomplex64_promotes_on_overflow_instead_of_rounding() {
     let z = LComplex64::parse("9999999999").unwrap();
-    let error = z.checked_mul(&z).expect_err("the 20-digit square does not fit 19 digits");
+    let error = z
+        .checked_mul(&z)
+        .expect_err("the 20-digit square does not fit 19 digits");
     assert!(error.message().contains("more than 19 significant digits"));
     assert_eq!(LComplex64::MAX_SIGNIFICANT_DIGITS, 19);
 }
@@ -395,17 +415,29 @@ fn lcomplex64_promotes_on_overflow_instead_of_rounding() {
 fn lcomplex128_covers_the_same_surface_at_38_digits() {
     let a = LComplex128::parse("1+2i").unwrap();
     let b = LComplex128::parse("3+4i").unwrap();
-    assert_eq!(a.checked_add(&b).unwrap(), LComplex128::parse("4+6i").unwrap());
+    assert_eq!(
+        a.checked_add(&b).unwrap(),
+        LComplex128::parse("4+6i").unwrap()
+    );
     let i = LComplex128::parse("i").unwrap();
-    assert_eq!(i.checked_mul(&i).unwrap(), LComplex128::parse("-1").unwrap());
+    assert_eq!(
+        i.checked_mul(&i).unwrap(),
+        LComplex128::parse("-1").unwrap()
+    );
     assert_eq!(
         LComplex128::parse("2+3i").unwrap().conjugate(),
         LComplex128::parse("2-3i").unwrap()
     );
     let z = LComplex128::parse("1+2i").unwrap();
-    assert_eq!(z.checked_mul(&z.reciprocal().unwrap()).unwrap(), LComplex128::parse("1").unwrap());
+    assert_eq!(
+        z.checked_mul(&z.reciprocal().unwrap()).unwrap(),
+        LComplex128::parse("1").unwrap()
+    );
     let source = c("1.5", "-2.5");
-    assert_eq!(LComplex128::try_from_complex(&source).unwrap().to_complex(), source);
+    assert_eq!(
+        LComplex128::try_from_complex(&source).unwrap().to_complex(),
+        source
+    );
     let too_wide = c("999999999999999999999999999999999999999", "0");
     assert!(LComplex128::try_from_complex(&too_wide).is_none());
     let overflow = LComplex128::parse("99999999999999999999").unwrap();

@@ -7,9 +7,8 @@
 
 use crate::real_literal::RealLiteral;
 use crate::{
-    diff, evalf_rootof, expand, expr_from_rat, nth_real_root, poly_coeffs, poly_to_expr,
-    solve_polynomial, square_free_univariate, substitute, Expr, Rat, RelOp, RootOfError,
-    SolveOutcome,
+    Expr, Rat, RelOp, RootOfError, SolveOutcome, diff, evalf_rootof, expand, expr_from_rat,
+    nth_real_root, poly_coeffs, poly_to_expr, solve_polynomial, square_free_univariate, substitute,
 };
 use lovelace_int::Int;
 use lovelace_nat::Nat;
@@ -43,7 +42,11 @@ fn cubic_roots_satisfy_polynomial_symbolically() {
     ] {
         let cubic = poly(&coeffs, "x");
         let solutions = solution_expressions(&coeffs);
-        assert_eq!(solutions.len(), 3, "a cubic has three exact roots: {solutions:?}");
+        assert_eq!(
+            solutions.len(),
+            3,
+            "a cubic has three exact roots: {solutions:?}"
+        );
         for root in &solutions {
             let at = substitute(&cubic, "x", root);
             let expanded = expand(&at);
@@ -65,15 +68,23 @@ fn cubic_roots_satisfy_polynomial_symbolically() {
 fn diff_abs_carries_nonzero_condition() {
     let x = Expr::sym("x");
     let d = diff(&Expr::Fun("abs".to_string(), vec![x.clone()]), "x");
-    let (branches, otherwise) = d.as_piecewise().expect("the derivative of abs is a piecewise");
+    let (branches, otherwise) = d
+        .as_piecewise()
+        .expect("the derivative of abs is a piecewise");
     assert_eq!(branches.len(), 1);
     match &branches[0].0 {
         Expr::Rel(RelOp::Ne, _, zero) => assert_eq!(**zero, Expr::num(0)),
         other => panic!("the guard is a != relation, got {}", other.to_string()),
     }
     assert_eq!(branches[0].1.to_string(), "sign(x)");
-    assert!(otherwise.as_derivative().is_some(), "the branch is an unevaluated derivative");
-    assert_eq!(d.to_string(), "piecewise(sign(x) if x != 0, diff(abs(x), x))");
+    assert!(
+        otherwise.as_derivative().is_some(),
+        "the branch is an unevaluated derivative"
+    );
+    assert_eq!(
+        d.to_string(),
+        "piecewise(sign(x) if x != 0, diff(abs(x), x))"
+    );
     assert_eq!(
         d.canonical(),
         "(pw ((ne (sym x) (rat 0 1)) (fn sign (sym x))) (der (x) (fn abs (sym x))))"
@@ -124,12 +135,18 @@ fn free_of_does_not_treat_piecewise_as_constant() {
     let x = Expr::sym("x");
     let y = Expr::sym("y");
     let pw = Expr::piecewise(
-        vec![(Expr::relation(RelOp::Gt, x.clone(), Expr::num(0)), x.clone())],
+        vec![(
+            Expr::relation(RelOp::Gt, x.clone(), Expr::num(0)),
+            x.clone(),
+        )],
         y.clone(),
     );
     assert!(!pw.free_of("x"), "x occurs in a branch value");
     let guarded = Expr::piecewise(
-        vec![(Expr::relation(RelOp::Gt, x.clone(), Expr::num(0)), y.clone())],
+        vec![(
+            Expr::relation(RelOp::Gt, x.clone(), Expr::num(0)),
+            y.clone(),
+        )],
         y.clone(),
     );
     assert!(!guarded.free_of("x"), "x occurs in a guard");
@@ -144,16 +161,30 @@ fn free_of_does_not_treat_piecewise_as_constant() {
 fn huge_exponent_compact_form_round_trips() {
     let literal = RealLiteral::new(Int::from_i64(15), 1_000_000_000);
     assert_eq!(literal.to_string(), "15e1000000000");
-    assert_eq!(RealLiteral::parse(&literal.to_string()), Some(literal.clone()));
-    assert_eq!(literal.to_rational(), None, "a billion-digit power of ten is refused");
+    assert_eq!(
+        RealLiteral::parse(&literal.to_string()),
+        Some(literal.clone())
+    );
+    assert_eq!(
+        literal.to_rational(),
+        None,
+        "a billion-digit power of ten is refused"
+    );
     let small = RealLiteral::new(Int::from_i64(15), 3);
     assert_eq!(small.to_rational(), Some(rat(15_000, 1)));
     assert_eq!(
         RealLiteral::parse("15e-3").and_then(|l| l.to_rational()),
         Some(rat(15, 1000))
     );
-    assert_eq!(RealLiteral::parse("7"), Some(RealLiteral::new(Int::from_i64(7), 0)));
-    assert_eq!(RealLiteral::parse("1.5e3"), None, "a decimal significand is not compact");
+    assert_eq!(
+        RealLiteral::parse("7"),
+        Some(RealLiteral::new(Int::from_i64(7), 0))
+    );
+    assert_eq!(
+        RealLiteral::parse("1.5e3"),
+        None,
+        "a decimal significand is not compact"
+    );
 }
 
 /// KernelHardeningTests.cs:257 `YunSquareFree_MultiplicitiesAreCorrect`: x^2*(x - 1) decomposes

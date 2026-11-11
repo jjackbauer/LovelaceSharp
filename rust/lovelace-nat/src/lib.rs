@@ -15,9 +15,7 @@ mod round39_natural_api;
 pub use digit_store::{DigitStore, DigitStoreError};
 
 use std::cmp::Ordering;
-use std::ops::{
-    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign,
-};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI64, Ordering as AtomicOrdering};
@@ -86,9 +84,14 @@ pub fn bz_probe(numerator: &Nat, divisor: &Nat) -> Option<(Nat, Nat)> {
 pub(crate) fn thread_budget() -> usize {
     static BUDGET: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
     *BUDGET.get_or_init(|| {
-        match std::env::var("LOVELACE_THREADS").ok().and_then(|v| v.parse::<usize>().ok()) {
+        match std::env::var("LOVELACE_THREADS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+        {
             Some(n) if n > 0 => n,
-            _ => std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1),
+            _ => std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
         }
     })
 }
@@ -515,7 +518,13 @@ impl Nat {
         let (b0, b1) = other.split_at(half);
         let z0 = a0.mul(&b0);
         let z2 = a1.mul(&b1);
-        let z1 = a0.add(&a1).mul(&b0.add(&b1)).sub(&z0).unwrap_or_else(Nat::zero).sub(&z2).unwrap_or_else(Nat::zero);
+        let z1 = a0
+            .add(&a1)
+            .mul(&b0.add(&b1))
+            .sub(&z0)
+            .unwrap_or_else(Nat::zero)
+            .sub(&z2)
+            .unwrap_or_else(Nat::zero);
         z0.add(&z1.shift_limbs(half)).add(&z2.shift_limbs(2 * half))
     }
 
@@ -763,9 +772,6 @@ impl Nat {
     }
 }
 
-
-
-
 /// The product of every integer in `[lo, hi]`, by recursive halving.
 ///
 /// Above a chunk threshold the two halves are multiplied on separate worker threads. The tree
@@ -840,8 +846,7 @@ fn render_decimal_depth(limbs: &[u64], depth: usize) -> String {
     let divisor = pow10(half);
     match value.div_rem(&divisor) {
         Some((q, r)) => {
-            let parallel =
-                depth < 3 && half >= PARALLEL_RENDER_THRESHOLD && thread_budget() > 1;
+            let parallel = depth < 3 && half >= PARALLEL_RENDER_THRESHOLD && thread_budget() > 1;
             let (left, right) = if parallel {
                 std::thread::scope(|scope| {
                     let handle = scope.spawn(|| render_decimal_depth(q.limbs(), depth + 1));
@@ -849,7 +854,10 @@ fn render_decimal_depth(limbs: &[u64], depth: usize) -> String {
                     (handle.join().expect("worker"), right)
                 })
             } else {
-                (render_decimal_depth(q.limbs(), depth + 1), render_decimal_depth(r.limbs(), depth + 1))
+                (
+                    render_decimal_depth(q.limbs(), depth + 1),
+                    render_decimal_depth(r.limbs(), depth + 1),
+                )
             };
             let mut padded = String::with_capacity(half.max(right.len()));
             if right.len() < half {
@@ -889,7 +897,10 @@ fn parse_digits_depth(bytes: &[u8], depth: usize) -> Nat {
             (handle.join().expect("worker"), low)
         })
     } else {
-        (parse_digits_depth(hi, depth + 1), parse_digits_depth(lo, depth + 1))
+        (
+            parse_digits_depth(hi, depth + 1),
+            parse_digits_depth(lo, depth + 1),
+        )
     };
     high.mul(&pow10(half)).add(&low)
 }
@@ -899,7 +910,8 @@ const PARALLEL_PARSE_THRESHOLD: usize = 20000;
 
 /// Powers of ten already computed, keyed by exponent. Decimal conversion asks for the same
 /// handful of exponents at every recursion level, and recomputing them was the dominant cost.
-static POW10_CACHE: std::sync::OnceLock<std::sync::Mutex<Vec<(usize, Nat)>>> = std::sync::OnceLock::new();
+static POW10_CACHE: std::sync::OnceLock<std::sync::Mutex<Vec<(usize, Nat)>>> =
+    std::sync::OnceLock::new();
 
 /// The power of ten as a natural number.
 fn pow10(exponent: usize) -> Nat {
@@ -1325,9 +1337,7 @@ mod tests {
 
     #[test]
     fn sub_GivenOneLessThanLimbBoundary_ReturnsLimbMinusOne() {
-        let value = Nat::from_u64(1_000_000_000)
-            .sub(&Nat::from_u64(1))
-            .unwrap();
+        let value = Nat::from_u64(1_000_000_000).sub(&Nat::from_u64(1)).unwrap();
         assert_eq!(value.to_decimal(), "999999999");
     }
 
@@ -1410,10 +1420,12 @@ mod tests {
 
     #[test]
     fn pow_GivenZeroExponent_ReturnsOne() {
-        assert!(Nat::from_decimal("12345678901234567890")
-            .unwrap()
-            .pow(0)
-            .is_one());
+        assert!(
+            Nat::from_decimal("12345678901234567890")
+                .unwrap()
+                .pow(0)
+                .is_one()
+        );
     }
 
     #[test]
@@ -1466,10 +1478,7 @@ mod tests {
         assert!(text.starts_with("402387260077093773543702433923"));
         let trailing_zeroes = text.bytes().rev().take_while(|byte| *byte == b'0').count();
         assert_eq!(trailing_zeroes, 249);
-        let digit_sum: u32 = text
-            .bytes()
-            .map(|byte| u32::from(byte - b'0'))
-            .sum();
+        let digit_sum: u32 = text.bytes().map(|byte| u32::from(byte - b'0')).sum();
         assert_eq!(digit_sum, 10539);
     }
 
@@ -1481,10 +1490,7 @@ mod tests {
 
     #[test]
     fn mul_pow10_GivenNine_AppendsZeroLimb() {
-        assert_eq!(
-            Nat::from_u64(123).mul_pow10(9).to_decimal(),
-            "123000000000"
-        );
+        assert_eq!(Nat::from_u64(123).mul_pow10(9).to_decimal(), "123000000000");
     }
 
     #[test]
@@ -1528,19 +1534,13 @@ mod tests {
     #[test]
     fn add_GivenZeroOnLeft_ReturnsOther() {
         // NaturalAddTests.Add_GivenZeroAndN_ReturnsN: 0 + 42 == "42".
-        assert_eq!(
-            Nat::zero().add(&Nat::from_u64(42)).to_decimal(),
-            "42"
-        );
+        assert_eq!(Nat::zero().add(&Nat::from_u64(42)).to_decimal(), "42");
     }
 
     #[test]
     fn add_GivenZeroOnRight_ReturnsOther() {
         // NaturalAddTests.Add_GivenNAndZero_ReturnsN: 42 + 0 == "42".
-        assert_eq!(
-            Nat::from_u64(42).add(&Nat::zero()).to_decimal(),
-            "42"
-        );
+        assert_eq!(Nat::from_u64(42).add(&Nat::zero()).to_decimal(), "42");
     }
 
     #[test]
@@ -1564,10 +1564,7 @@ mod tests {
     #[test]
     fn add_GivenSingleDigitCarry_ReturnsEighteen() {
         // NaturalAddTests.Add_GivenSingleDigitCarry: 9 + 9 == "18".
-        assert_eq!(
-            Nat::from_u64(9).add(&Nat::from_u64(9)).to_decimal(),
-            "18"
-        );
+        assert_eq!(Nat::from_u64(9).add(&Nat::from_u64(9)).to_decimal(), "18");
     }
 
     #[test]
@@ -1645,10 +1642,7 @@ mod tests {
     fn sub_GivenFortyTwoMinusZero_ReturnsFortyTwo() {
         // NaturalSubtractTests.Subtract_GivenSubtractZero_ReturnsSelf: 42 - 0 == "42".
         assert_eq!(
-            Nat::from_u64(42)
-                .sub(&Nat::zero())
-                .unwrap()
-                .to_decimal(),
+            Nat::from_u64(42).sub(&Nat::zero()).unwrap().to_decimal(),
             "42"
         );
     }
@@ -1739,11 +1733,15 @@ mod tests {
         // NaturalMultiplyTests.Multiply_GivenOneAndN (1 * 123456789) and
         // Multiply_GivenNAndOne (987654321 * 1).
         assert_eq!(
-            Nat::from_u64(1).mul(&Nat::from_u64(123_456_789)).to_decimal(),
+            Nat::from_u64(1)
+                .mul(&Nat::from_u64(123_456_789))
+                .to_decimal(),
             "123456789"
         );
         assert_eq!(
-            Nat::from_u64(987_654_321).mul(&Nat::from_u64(1)).to_decimal(),
+            Nat::from_u64(987_654_321)
+                .mul(&Nat::from_u64(1))
+                .to_decimal(),
             "987654321"
         );
     }
@@ -1751,10 +1749,7 @@ mod tests {
     #[test]
     fn mul_GivenNineTimesNine_ReturnsEightyOne() {
         // NaturalMultiplyTests.Multiply_GivenCarryAcrossAllDigits: 9 * 9 == "81".
-        assert_eq!(
-            Nat::from_u64(9).mul(&Nat::from_u64(9)).to_decimal(),
-            "81"
-        );
+        assert_eq!(Nat::from_u64(9).mul(&Nat::from_u64(9)).to_decimal(), "81");
     }
 
     #[test]
@@ -1818,10 +1813,7 @@ mod tests {
     #[test]
     fn mul_GivenTwentyFiveTimesFour_ReturnsOneHundred() {
         // NaturalMultiplyTests.Multiply_GivenMultiDigitCarryChain: 25 * 4 == "100".
-        assert_eq!(
-            Nat::from_u64(25).mul(&Nat::from_u64(4)).to_decimal(),
-            "100"
-        );
+        assert_eq!(Nat::from_u64(25).mul(&Nat::from_u64(4)).to_decimal(), "100");
     }
 
     #[test]
@@ -1829,10 +1821,7 @@ mod tests {
         // NaturalMultiplyTests.Multiply_GivenFifteenDigitOperand:
         // 100000000000000 * 2 == "200000000000000".
         let value = Nat::from_decimal("100000000000000").unwrap();
-        assert_eq!(
-            value.mul(&Nat::from_u64(2)).to_decimal(),
-            "200000000000000"
-        );
+        assert_eq!(value.mul(&Nat::from_u64(2)).to_decimal(), "200000000000000");
     }
 
     #[test]
@@ -2018,7 +2007,10 @@ mod tests {
     #[test]
     fn pow_GivenTwoToSixtyFour_ReturnsPowerOfTwoBeyondU64() {
         // NaturalPowTests.Pow_GivenLargeExponent: 2^64 == "18446744073709551616".
-        assert_eq!(Nat::from_u64(2).pow(64).to_decimal(), "18446744073709551616");
+        assert_eq!(
+            Nat::from_u64(2).pow(64).to_decimal(),
+            "18446744073709551616"
+        );
     }
 
     #[test]

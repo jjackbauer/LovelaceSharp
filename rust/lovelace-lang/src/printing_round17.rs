@@ -22,11 +22,11 @@
 
 use std::cmp::Ordering;
 
-use crate::{structured, Engine, Value};
+use crate::{Engine, Value, structured};
 use lovelace_int::Int;
 use lovelace_json::Json;
 use lovelace_nat::Nat;
-use lovelace_symbolics::{canonical_order, canonical_parse, expand, Expr, PrintMode};
+use lovelace_symbolics::{Expr, PrintMode, canonical_order, canonical_parse, expand};
 
 const PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); z = symbol(\"z\"); w = symbol(\"w\");\n";
 
@@ -157,7 +157,10 @@ fn symbolic(source: &str) -> Expr {
             Some((_, Value::Symbolic(expr))) => expr.clone(),
             other => panic!("{source} record expression is {other:?}"),
         },
-        other => panic!("{source} produced {} instead of Symbolic", other.kind_name()),
+        other => panic!(
+            "{source} produced {} instead of Symbolic",
+            other.kind_name()
+        ),
     }
 }
 
@@ -236,7 +239,11 @@ fn assert_ends_at_a_token_boundary(full: &str, abridged: &str, what: &str) {
         "{what}: '{abridged}' is not a prefix of '{full}'"
     );
     let retains = body.chars().last().map(is_token_char).unwrap_or(false);
-    let drops = full[body.len()..].chars().next().map(is_token_char).unwrap_or(false);
+    let drops = full[body.len()..]
+        .chars()
+        .next()
+        .map(is_token_char)
+        .unwrap_or(false);
     assert!(
         !(retains && drops),
         "{what}: the cut falls between two token characters, so '{abridged}' ends inside the token"
@@ -498,12 +505,19 @@ fn printbudgettests_node_budget_reports_reason_count_budget_and_partial_result()
     let big = big_expand(20);
     let full = big.to_string();
     let outcome = projected(&big, Some(20));
-    assert!(json_flag(&outcome, "truncated"), "the value was not abbreviated");
+    assert!(
+        json_flag(&outcome, "truncated"),
+        "the value was not abbreviated"
+    );
     assert_eq!(json_text(&outcome, "truncationReason"), "node-budget");
     assert_eq!(json_number(&outcome, "nodeCount"), big.node_count());
     assert_eq!(json_number(&outcome, "budget"), 20);
     assert!(big.node_count() > 20, "the corpus value is over the budget");
-    assert_abbreviation_of(&full, &json_text(&outcome, "pretty"), "the pretty form of (x + 1)^20");
+    assert_abbreviation_of(
+        &full,
+        &json_text(&outcome, "pretty"),
+        "the pretty form of (x + 1)^20",
+    );
 }
 
 /// `PrintBudgetTests.CanonicalMode_HonoursTheSameBudget`
@@ -512,7 +526,10 @@ fn printbudgettests_node_budget_reports_reason_count_budget_and_partial_result()
 fn printbudgettests_canonical_mode_honours_the_same_budget() {
     let big = big_expand(20);
     let outcome = projected(&big, Some(20));
-    assert!(json_flag(&outcome, "truncated"), "the canonical value was not abbreviated");
+    assert!(
+        json_flag(&outcome, "truncated"),
+        "the canonical value was not abbreviated"
+    );
     assert!(
         json_text(&outcome, "canonical").starts_with("(add "),
         "canonical: {}",
@@ -604,7 +621,10 @@ fn dxsemanticclosuretests_pretty_fraction_coefficient_folds_into_denominator() {
 fn usageexamples_snippet_16_1_context_symbols_and_construction() {
     let x = Expr::sym("x");
     let f = Expr::add(
-        Expr::add(Expr::pow(x.clone(), Expr::num(2)), Expr::mul(Expr::num(2), x)),
+        Expr::add(
+            Expr::pow(x.clone(), Expr::num(2)),
+            Expr::mul(Expr::num(2), x),
+        ),
         Expr::num(1),
     );
     assert_eq!(f.to_string(), "x^2 + 2*x + 1");
@@ -662,7 +682,11 @@ fn acceptancetests_term_order_is_antisymmetric_and_numbers_first() {
                 );
             }
             if matches!(items[i], Expr::Num(_)) && !matches!(items[j], Expr::Num(_)) {
-                assert_eq!(cmp, Ordering::Less, "a numeric constant did not sort first at {i},{j}");
+                assert_eq!(
+                    cmp,
+                    Ordering::Less,
+                    "a numeric constant did not sort first at {i},{j}"
+                );
             }
         }
     }

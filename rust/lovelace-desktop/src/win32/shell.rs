@@ -25,8 +25,8 @@
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 
-use crate::app::{compute_layout, AppState, Command, Effect, LogLevel, PANE_GAP};
-use crate::settings::{default_config_path, Settings, WindowGeometry};
+use crate::app::{AppState, Command, Effect, LogLevel, PANE_GAP, compute_layout};
+use crate::settings::{Settings, WindowGeometry, default_config_path};
 use crate::svg::{self, Plot, TextAnchor};
 use crate::win32::ffi::*;
 
@@ -242,7 +242,13 @@ impl Shell {
         self.app.layout = sizes;
 
         move_window(self.editor, 0, 0, sizes.editor_w, sizes.editor_h);
-        move_window(self.plot, 0, sizes.editor_h + PANE_GAP, sizes.editor_w, sizes.plot_h);
+        move_window(
+            self.plot,
+            0,
+            sizes.editor_h + PANE_GAP,
+            sizes.editor_w,
+            sizes.plot_h,
+        );
         move_window(
             self.variables,
             sizes.editor_w + PANE_GAP,
@@ -526,7 +532,12 @@ fn build_menu() -> HMENU {
     append_menu(file, MF_STRING, CMD_NEW as usize, "&New\tCtrl+N");
     append_menu(file, MF_STRING, CMD_OPEN as usize, "&Open...\tCtrl+O");
     append_menu(file, MF_STRING, CMD_SAVE as usize, "&Save\tCtrl+S");
-    append_menu(file, MF_STRING, CMD_SAVE_AS as usize, "Save &As...\tCtrl+Shift+S");
+    append_menu(
+        file,
+        MF_STRING,
+        CMD_SAVE_AS as usize,
+        "Save &As...\tCtrl+Shift+S",
+    );
     append_menu(file, MF_SEPARATOR, 0, "");
     append_menu(file, MF_STRING, CMD_CLOSE as usize, "&Close Tab\tCtrl+W");
     append_menu(file, MF_SEPARATOR, 0, "");
@@ -543,7 +554,12 @@ fn build_menu() -> HMENU {
     append_menu(run, MF_STRING, CMD_CANCEL as usize, "&Cancel\tEsc");
 
     let help = create_popup_menu();
-    append_menu(help, MF_STRING, CMD_ABOUT as usize, "&About Lovelace Desktop");
+    append_menu(
+        help,
+        MF_STRING,
+        CMD_ABOUT as usize,
+        "&About Lovelace Desktop",
+    );
 
     let menu = create_menu();
     append_menu(menu, MF_POPUP, file as usize, "&File");
@@ -574,7 +590,11 @@ fn message_loop(hwnd: HWND) -> i32 {
 /// Runs the action with the shell, or does nothing when the shell is absent or already borrowed.
 /// The try_borrow is what makes nested messages harmless.
 fn with_shell<R>(action: impl FnOnce(&mut Shell) -> R) -> Option<R> {
-    SHELL.with(|cell| cell.try_borrow_mut().ok().and_then(|mut slot| slot.as_mut().map(action)))
+    SHELL.with(|cell| {
+        cell.try_borrow_mut()
+            .ok()
+            .and_then(|mut slot| slot.as_mut().map(action))
+    })
 }
 
 /// The main window procedure.
@@ -674,7 +694,12 @@ unsafe extern "system" fn plot_window_proc(
             let brush = with_shell(|shell| shell.brush_white).unwrap_or(0);
             fill_rect(
                 wparam as HDC,
-                &RECT { left: 0, top: 0, right: width, bottom: height },
+                &RECT {
+                    left: 0,
+                    top: 0,
+                    right: width,
+                    bottom: height,
+                },
                 brush,
             );
             return 1;
@@ -701,7 +726,12 @@ fn paint_plot(hwnd: HWND) {
         )
     });
     let (plot, brush, font_ui, font_title, pens) = state.unwrap_or((None, 0, 0, 0, Vec::new()));
-    let area = RECT { left: 0, top: 0, right: width, bottom: height };
+    let area = RECT {
+        left: 0,
+        top: 0,
+        right: width,
+        bottom: height,
+    };
     fill_rect(hdc, &area, brush);
     match plot {
         Some(plot) if !plot.is_empty() => {
@@ -739,7 +769,10 @@ fn draw_plot(
         let points: Vec<POINT> = line
             .points
             .iter()
-            .map(|point| POINT { x: to_x(point.x), y: to_y(point.y) })
+            .map(|point| POINT {
+                x: to_x(point.x),
+                y: to_y(point.y),
+            })
             .collect();
         if pens.is_empty() {
             polyline(hdc, &points);

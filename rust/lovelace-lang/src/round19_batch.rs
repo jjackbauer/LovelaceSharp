@@ -9,7 +9,7 @@
 use std::time::{Duration, Instant};
 
 use crate::syntax::{Expr, Parser, Stmt};
-use crate::{registry, Engine, Value};
+use crate::{Engine, Value, registry};
 
 fn engine() -> Engine {
     Engine::new()
@@ -118,73 +118,89 @@ fn recursion_with_deep_body(depth: i64, terms: usize) -> String {
 
 fn assert_evaluation_refusal(err: &crate::LangError) {
     assert!(depth_error(err), "{} / {}", err.code, err.category);
-    assert!(err.message.contains("exceeds the maximum supported evaluation depth of 512"), "{}", err.message);
-    let at = err.message.find("evaluation depth ").expect("names the evaluation depth")
+    assert!(
+        err.message
+            .contains("exceeds the maximum supported evaluation depth of 512"),
+        "{}",
+        err.message
+    );
+    let at = err
+        .message
+        .find("evaluation depth ")
+        .expect("names the evaluation depth")
         + "evaluation depth ".len();
     let measured: usize = err.message[at..]
         .split(' ')
         .next()
         .and_then(|n| n.parse().ok())
         .expect("a measured depth number");
-    assert!(measured > 512, "the measured depth must be past the budget: {measured}");
+    assert!(
+        measured > 512,
+        "the measured depth must be past the budget: {measured}"
+    );
 }
 
 #[test]
 fn suite_recursion_far_past_the_budget_is_refused_and_does_not_return_a_value() {
     with_big(|| {
-    let mut engine = engine();
-    let err = engine.eval(&recursion_script(200)).expect_err("f(200) is refused");
-    assert_evaluation_refusal(&err);
+        let mut engine = engine();
+        let err = engine
+            .eval(&recursion_script(200))
+            .expect_err("f(200) is refused");
+        assert_evaluation_refusal(&err);
     });
 }
-
 
 #[test]
 fn suite_recursion_at_the_deepest_accepted_depth_answers() {
     with_big(|| {
-    let mut engine = engine();
-    let value = engine.eval(&recursion_script(85)).expect("f(85) answers");
-    assert_eq!(value.display(), "0");
+        let mut engine = engine();
+        let value = engine.eval(&recursion_script(85)).expect("f(85) answers");
+        assert_eq!(value.display(), "0");
     });
 }
-
 
 #[test]
 fn suite_recursion_one_level_past_the_deepest_accepted_depth_is_refused() {
     with_big(|| {
-    let mut engine = engine();
-    let err = engine.eval(&recursion_script(86)).expect_err("f(86) is refused");
-    assert_evaluation_refusal(&err);
+        let mut engine = engine();
+        let err = engine
+            .eval(&recursion_script(86))
+            .expect_err("f(86) is refused");
+        assert_evaluation_refusal(&err);
     });
 }
-
 
 #[test]
 fn suite_recursion_ordinary_recursion_keeps_working() {
     with_big(|| {
-    let mut engine = engine();
-    engine.eval("func fact(n) { if (n == 0) { return 1 }; n * fact(n - 1) }").unwrap();
-    assert_eq!(engine.eval("fact(10)").unwrap().display(), "3628800");
-    engine.eval("func even(n) { if (n == 0) { return 1 }; return odd(n - 1) }").unwrap();
-    engine.eval("func odd(n) { if (n == 0) { return 0 }; return even(n - 1) }").unwrap();
-    assert_eq!(engine.eval("even(40)").unwrap().display(), "1");
-    engine
-        .eval("func fib(n) { if (n < 2) { return n }; return fib(n - 1) + fib(n - 2) }")
-        .unwrap();
-    assert_eq!(engine.eval("fib(20)").unwrap().display(), "6765");
+        let mut engine = engine();
+        engine
+            .eval("func fact(n) { if (n == 0) { return 1 }; n * fact(n - 1) }")
+            .unwrap();
+        assert_eq!(engine.eval("fact(10)").unwrap().display(), "3628800");
+        engine
+            .eval("func even(n) { if (n == 0) { return 1 }; return odd(n - 1) }")
+            .unwrap();
+        engine
+            .eval("func odd(n) { if (n == 0) { return 0 }; return even(n - 1) }")
+            .unwrap();
+        assert_eq!(engine.eval("even(40)").unwrap().display(), "1");
+        engine
+            .eval("func fib(n) { if (n < 2) { return n }; return fib(n - 1) + fib(n - 2) }")
+            .unwrap();
+        assert_eq!(engine.eval("fib(20)").unwrap().display(), "6765");
     });
 }
-
 
 #[test]
 fn suite_recursion_a_deep_flat_chain_is_still_evaluated() {
     with_big(|| {
-    let mut engine = engine();
-    let source = format!("1{}", " + 1".repeat(500));
-    assert_eq!(engine.eval(&source).unwrap().display(), "501");
+        let mut engine = engine();
+        let source = format!("1{}", " + 1".repeat(500));
+        assert_eq!(engine.eval(&source).unwrap().display(), "501");
     });
 }
-
 
 // ---------------------------------------------------------------------------
 // RecursionBudgetCompositionTests
@@ -199,52 +215,76 @@ fn composition_shapes() -> Vec<(&'static str, &'static str, &'static str)> {
         ("a block holding only the call", "{ f({0}) }", "0"),
         ("a block with the call first", "{ f({0}); 1 }", "1"),
         ("a block with one preceding sibling", "{ 1; f({0}) }", "0"),
-        ("a block with two preceding siblings", "{ 1; 1; f({0}) }", "0"),
-        ("a block with four preceding siblings", "{ 1; 1; 1; 1; f({0}) }", "0"),
-        ("a block with five preceding siblings", "{ 1; 1; 1; 1; 1; f({0}) }", "0"),
-        ("a block with twenty preceding siblings", "{ 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; f({0}) }", "0"),
-        ("four top-level statements before the call", "1; 1; 1; 1; f({0})", "0"),
+        (
+            "a block with two preceding siblings",
+            "{ 1; 1; f({0}) }",
+            "0",
+        ),
+        (
+            "a block with four preceding siblings",
+            "{ 1; 1; 1; 1; f({0}) }",
+            "0",
+        ),
+        (
+            "a block with five preceding siblings",
+            "{ 1; 1; 1; 1; 1; f({0}) }",
+            "0",
+        ),
+        (
+            "a block with twenty preceding siblings",
+            "{ 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; 1; f({0}) }",
+            "0",
+        ),
+        (
+            "four top-level statements before the call",
+            "1; 1; 1; 1; f({0})",
+            "0",
+        ),
         ("three nested blocks", "{ { { f({0}) } } }", "0"),
         ("the argument of print", "print(f({0}))", ""),
         ("the left operand of +", "f({0}) + 0", "0"),
         ("the argument of a user function", "ident(f({0}))", "0"),
         ("the body of an if", "if (1 == 1) { f({0}) }", "0"),
         ("the body of a for", "for i in 1..5 { f({0}) }", "0"),
-        ("the body of a while", "i = 0; while (i < 5) { i = i + 1; f({0}) }", "0"),
+        (
+            "the body of a while",
+            "i = 0; while (i < 5) { i = i + 1; f({0}) }",
+            "0",
+        ),
     ]
 }
 
 #[test]
 fn suite_composition_deepest_accepted_call_answers_in_every_composition() {
     with_big(|| {
-    for (name, body, answer) in composition_shapes() {
-        let mut engine = engine();
-        engine.eval(F).unwrap();
-        engine.eval(IDENT).unwrap();
-        let script = body.replace("{0}", "85");
-        let value = engine.eval(&script).unwrap_or_else(|e| panic!("{name}: {e}"));
-        if !answer.is_empty() && name != "the body of a for" && name != "the body of a while" {
-            assert_eq!(value.display(), answer, "{name}");
+        for (name, body, answer) in composition_shapes() {
+            let mut engine = engine();
+            engine.eval(F).unwrap();
+            engine.eval(IDENT).unwrap();
+            let script = body.replace("{0}", "85");
+            let value = engine
+                .eval(&script)
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            if !answer.is_empty() && name != "the body of a for" && name != "the body of a while" {
+                assert_eq!(value.display(), answer, "{name}");
+            }
         }
-    }
     });
 }
-
 
 #[test]
 fn suite_composition_one_level_past_the_boundary_is_refused_in_every_composition() {
     with_big(|| {
-    for (name, body, _) in composition_shapes() {
-        let mut engine = engine();
-        engine.eval(F).unwrap();
-        engine.eval(IDENT).unwrap();
-        let script = body.replace("{0}", "86");
-        let err = engine.eval(&script).expect_err(name);
-        assert_evaluation_refusal(&err);
-    }
+        for (name, body, _) in composition_shapes() {
+            let mut engine = engine();
+            engine.eval(F).unwrap();
+            engine.eval(IDENT).unwrap();
+            let script = body.replace("{0}", "86");
+            let err = engine.eval(&script).expect_err(name);
+            assert_evaluation_refusal(&err);
+        }
     });
 }
-
 
 fn deepest_accepted(engine: &mut Engine, body: &str) -> i64 {
     for depth in (0..=90).rev() {
@@ -259,25 +299,31 @@ fn deepest_accepted(engine: &mut Engine, body: &str) -> i64 {
 #[test]
 fn suite_composition_the_boundary_moves_only_with_live_nesting() {
     with_big(|| {
-    let mut engine = engine();
-    engine.eval(F).unwrap();
-    engine.eval(IDENT).unwrap();
-    for (_name, body, _) in composition_shapes() {
-        assert_eq!(deepest_accepted(&mut engine, body), 85, "composition {body}");
-    }
-    assert_eq!(
-        deepest_accepted(&mut engine, "func g() { return f({0}) }; g()"),
-        84,
-        "one live frame"
-    );
-    assert_eq!(
-        deepest_accepted(&mut engine, "func g() { return f({0}) }; func h() { return g() }; h()"),
-        83,
-        "two live frames"
-    );
+        let mut engine = engine();
+        engine.eval(F).unwrap();
+        engine.eval(IDENT).unwrap();
+        for (_name, body, _) in composition_shapes() {
+            assert_eq!(
+                deepest_accepted(&mut engine, body),
+                85,
+                "composition {body}"
+            );
+        }
+        assert_eq!(
+            deepest_accepted(&mut engine, "func g() { return f({0}) }; g()"),
+            84,
+            "one live frame"
+        );
+        assert_eq!(
+            deepest_accepted(
+                &mut engine,
+                "func g() { return f({0}) }; func h() { return g() }; h()"
+            ),
+            83,
+            "two live frames"
+        );
     });
 }
-
 
 // ---------------------------------------------------------------------------
 // ValueDepthGuardTests
@@ -298,70 +344,83 @@ fn expected_display(wraps: usize) -> String {
 #[test]
 fn suite_value_depth_value_at_the_budget_is_still_rendered() {
     with_big(|| {
-    let mut engine = engine();
-    let value = engine.eval(&wrap_script(1023)).expect("depth 1024 is the budget");
-    assert_eq!(engine.format(&value), expected_display(1023));
-    let projected = crate::structured::project_value(&engine, &value, None);
-    assert_eq!(text(&projected, "kind"), "Array");
+        let mut engine = engine();
+        let value = engine
+            .eval(&wrap_script(1023))
+            .expect("depth 1024 is the budget");
+        assert_eq!(engine.format(&value), expected_display(1023));
+        let projected = crate::structured::project_value(&engine, &value, None);
+        assert_eq!(text(&projected, "kind"), "Array");
     });
 }
-
 
 #[test]
 fn suite_value_depth_rank_raised_by_repetition_is_refused() {
     with_big(|| {
-    let mut engine = engine();
-    assert!(engine.eval(&wrap_script(1023)).is_ok());
-    let err = engine.eval(&wrap_script(1024)).expect_err("value depth 1025 is refused");
-    assert!(depth_error(&err));
-    assert!(err.message.starts_with("value depth "), "{}", err.message);
-    assert!(err.message.contains("exceeds the maximum supported nesting depth of 1024"), "{}", err.message);
+        let mut engine = engine();
+        assert!(engine.eval(&wrap_script(1023)).is_ok());
+        let err = engine
+            .eval(&wrap_script(1024))
+            .expect_err("value depth 1025 is refused");
+        assert!(depth_error(&err));
+        assert!(err.message.starts_with("value depth "), "{}", err.message);
+        assert!(
+            err.message
+                .contains("exceeds the maximum supported nesting depth of 1024"),
+            "{}",
+            err.message
+        );
     });
 }
-
 
 #[test]
 fn suite_value_depth_rank_far_past_the_budget_is_refused() {
     with_big(|| {
-    let mut engine = engine();
-    let err = engine.eval(&wrap_script(20000)).expect_err("20000 wraps are refused");
-    assert!(depth_error(&err));
+        let mut engine = engine();
+        let err = engine
+            .eval(&wrap_script(20000))
+            .expect_err("20000 wraps are refused");
+        assert!(depth_error(&err));
     });
 }
-
 
 #[test]
 fn suite_value_depth_one_past_the_budget_is_refused_by_the_display_walk() {
     with_big(|| {
-    let mut engine = engine();
-    let err = engine.eval(&wrap_script(1024)).expect_err("1024 wraps are refused");
-    assert!(depth_error(&err));
-    assert!(err.message.contains("value depth 1025"), "{}", err.message);
+        let mut engine = engine();
+        let err = engine
+            .eval(&wrap_script(1024))
+            .expect_err("1024 wraps are refused");
+        assert!(depth_error(&err));
+        assert!(err.message.contains("value depth 1025"), "{}", err.message);
     });
 }
-
 
 #[test]
 fn suite_value_depth_a_value_far_past_the_budget_is_refused() {
     with_big(|| {
-    let mut engine = engine();
-    let err = engine.eval(&wrap_script(20000)).expect_err("20000 wraps are refused");
-    assert!(depth_error(&err));
+        let mut engine = engine();
+        let err = engine
+            .eval(&wrap_script(20000))
+            .expect_err("20000 wraps are refused");
+        assert!(depth_error(&err));
     });
 }
-
 
 #[test]
 fn suite_value_depth_a_wide_value_is_not_refused() {
     with_big(|| {
-    let mut engine = engine();
-    let value = Value::Vector((0..20000).map(natural).collect());
-    let text = engine.format(&value);
-    assert!(text.starts_with("[0, 1, 2"), "{}", &text[..text.len().min(40)]);
-    assert!(text.ends_with("19999]"));
+        let mut engine = engine();
+        let value = Value::Vector((0..20000).map(natural).collect());
+        let text = engine.format(&value);
+        assert!(
+            text.starts_with("[0, 1, 2"),
+            "{}",
+            &text[..text.len().min(40)]
+        );
+        assert!(text.ends_with("19999]"));
     });
 }
-
 
 // ---------------------------------------------------------------------------
 // ParserTests / FunctionTests / StatementTests
@@ -476,14 +535,18 @@ fn suite_plot_given_single_vector_writes_svg_file() {
 #[test]
 fn suite_plot_given_mismatched_vector_lengths_throws() {
     let mut engine = engine();
-    let err = engine.eval("plot(1..3, [1, 2])").expect_err("mismatched lengths are refused");
+    let err = engine
+        .eval("plot(1..3, [1, 2])")
+        .expect_err("mismatched lengths are refused");
     assert_eq!(err.code, "InvalidOperation");
 }
 
 #[test]
 fn suite_plot_given_empty_vector_throws() {
     let mut engine = engine();
-    let err = engine.eval("plot([])").expect_err("an empty plot is refused");
+    let err = engine
+        .eval("plot([])")
+        .expect_err("an empty plot is refused");
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -493,7 +556,9 @@ fn suite_plot_given_title_includes_title_in_svg() {
     let mut engine = engine();
     engine.set_plot_dir(&dir);
     engine.set_plot_file("titled.svg");
-    let value = engine.eval("plot(1..3, [1, 4, 9], \"My Plot\")").expect("titled plot answers");
+    let value = engine
+        .eval("plot(1..3, [1, 4, 9], \"My Plot\")")
+        .expect("titled plot answers");
     let svg = std::fs::read_to_string(value.display()).unwrap();
     assert!(svg.contains("My Plot"), "the title must reach the SVG");
 }
@@ -513,17 +578,35 @@ fn suite_structural_identical_records_are_equal() {
         Value::Record(
             "SolveResult".to_string(),
             vec![
-                ("status".to_string(), Value::Enum("SolveStatus".to_string(), "Solved".to_string())),
-                ("solutions".to_string(), Value::Vector(vec![
-                    Value::Record("Solution".to_string(), vec![
-                        ("value".to_string(), Value::Integer(lovelace_int::Int::from_i64(-2))),
-                        ("multiplicity".to_string(), natural(1)),
+                (
+                    "status".to_string(),
+                    Value::Enum("SolveStatus".to_string(), "Solved".to_string()),
+                ),
+                (
+                    "solutions".to_string(),
+                    Value::Vector(vec![
+                        Value::Record(
+                            "Solution".to_string(),
+                            vec![
+                                (
+                                    "value".to_string(),
+                                    Value::Integer(lovelace_int::Int::from_i64(-2)),
+                                ),
+                                ("multiplicity".to_string(), natural(1)),
+                            ],
+                        ),
+                        Value::Record(
+                            "Solution".to_string(),
+                            vec![
+                                (
+                                    "value".to_string(),
+                                    Value::Integer(lovelace_int::Int::from_i64(2)),
+                                ),
+                                ("multiplicity".to_string(), natural(count)),
+                            ],
+                        ),
                     ]),
-                    Value::Record("Solution".to_string(), vec![
-                        ("value".to_string(), Value::Integer(lovelace_int::Int::from_i64(2))),
-                        ("multiplicity".to_string(), natural(count)),
-                    ]),
-                ])),
+                ),
             ],
         )
     }
@@ -613,7 +696,10 @@ fn suite_plot_collinear_points_stay_collinear() {
             )
         })
         .collect();
-    assert!(coords.len() >= 4, "expected the polyline to carry every point");
+    assert!(
+        coords.len() >= 4,
+        "expected the polyline to carry every point"
+    );
     let (ax, ay) = coords[0];
     let (bx, by) = coords[coords.len() - 1];
     let line_length = ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt();
@@ -629,7 +715,9 @@ fn suite_plot_collinear_points_stay_collinear() {
 
 fn evaluated(script: &str) -> (Engine, Value) {
     let mut engine = engine();
-    let value = engine.eval(script).unwrap_or_else(|e| panic!("'{script}': {e}"));
+    let value = engine
+        .eval(script)
+        .unwrap_or_else(|e| panic!("'{script}': {e}"));
     (engine, value)
 }
 
@@ -645,9 +733,16 @@ fn suite_empty_reductions_answer_zero_and_one() {
 
 #[test]
 fn suite_slices_with_step_match_the_documented_values() {
-    assert_eq!(evaluated("[0, 1, 2, 3, 4][::2]").0.format_typed(&evaluated("[0, 1, 2, 3, 4][::2]").1), "[0, 2, 4] (Vector)");
     assert_eq!(
-        evaluated("[1, 2, 3, 4, 5][::2] * 2").0.format_typed(&evaluated("[1, 2, 3, 4, 5][::2] * 2").1),
+        evaluated("[0, 1, 2, 3, 4][::2]")
+            .0
+            .format_typed(&evaluated("[0, 1, 2, 3, 4][::2]").1),
+        "[0, 2, 4] (Vector)"
+    );
+    assert_eq!(
+        evaluated("[1, 2, 3, 4, 5][::2] * 2")
+            .0
+            .format_typed(&evaluated("[1, 2, 3, 4, 5][::2] * 2").1),
         "[2, 6, 10] (Vector)"
     );
 }
@@ -663,7 +758,11 @@ fn suite_len_of_an_empty_range_is_zero() {
 fn suite_typed_array_promotion_and_narrowing() {
     let cases: &[(&str, &str, &[&str])] = &[
         ("[1, 2.5, 3]", "Vector", &["Real", "Real", "Real"]),
-        ("[[1, 2.5], [3, 4]]", "Array", &["Real", "Real", "Real", "Real"]),
+        (
+            "[[1, 2.5], [3, 4]]",
+            "Array",
+            &["Real", "Real", "Real", "Real"],
+        ),
         ("[4, 6] / [2, 2]", "Vector", &["Natural", "Natural"]),
         ("[2.5] / [0.25]", "Vector", &["Natural"]),
         ("[-4, -6] / [-2, -2]", "Vector", &["Natural", "Natural"]),
@@ -673,9 +772,15 @@ fn suite_typed_array_promotion_and_narrowing() {
         let value = engine.eval(script).unwrap();
         assert_eq!(value.kind_name(), *kind, "{script}");
         let projected = crate::structured::project_value(&engine, &value, None);
-        assert_eq!(text(&projected, "kind"), if *kind == "Vector" { "Array" } else { "Array" });
+        assert_eq!(
+            text(&projected, "kind"),
+            if *kind == "Vector" { "Array" } else { "Array" }
+        );
         let elements = array_values(&projected);
-        let kinds: Vec<String> = elements.iter().map(|e| text(e, "kind").to_string()).collect();
+        let kinds: Vec<String> = elements
+            .iter()
+            .map(|e| text(e, "kind").to_string())
+            .collect();
         let expected: Vec<String> = expected.iter().map(|s| (*s).to_string()).collect();
         assert_eq!(kinds, expected, "{script}");
     }
@@ -696,7 +801,15 @@ fn suite_substitution_preserves_the_exact_rational() {
     let value = engine.eval("x = symbol(\"x\"); subs(1/3, x, 2)").unwrap();
     let projected = crate::structured::project_value(&engine, &value, None);
     assert_eq!(text(&projected, "kind"), "Symbolic");
-    assert!(projected.get("exact").and_then(|v| match v { lovelace_json::Json::Bool(b) => Some(*b), _ => None }).unwrap());
+    assert!(
+        projected
+            .get("exact")
+            .and_then(|v| match v {
+                lovelace_json::Json::Bool(b) => Some(*b),
+                _ => None,
+            })
+            .unwrap()
+    );
     assert_eq!(text(&projected, "canonical"), "(rat 1 3)");
 }
 
@@ -706,7 +819,15 @@ fn suite_approximation_carries_no_rational_form_and_is_not_exact() {
     let value = engine.eval("evalf(1/3, 50)").unwrap();
     let projected = crate::structured::project_value(&engine, &value, None);
     assert_eq!(text(&projected, "kind"), "Real");
-    assert!(!projected.get("exact").and_then(|v| match v { lovelace_json::Json::Bool(b) => Some(*b), _ => None }).unwrap());
+    assert!(
+        !projected
+            .get("exact")
+            .and_then(|v| match v {
+                lovelace_json::Json::Bool(b) => Some(*b),
+                _ => None,
+            })
+            .unwrap()
+    );
     assert!(projected.get("numerator").is_none());
     assert!(projected.get("denominator").is_none());
 }
@@ -716,7 +837,10 @@ fn suite_arity_refusals_name_the_builtin_and_both_counts() {
     for (script, message) in [
         ("sqrt()", "sqrt(): expected 1 argument; got 0."),
         ("sqrt(4, 9)", "sqrt(): expected 1 argument; got 2."),
-        ("setprecision(10, 20)", "setprecision(): expected 1 argument; got 2."),
+        (
+            "setprecision(10, 20)",
+            "setprecision(): expected 1 argument; got 2.",
+        ),
         ("pi(10, 20)", "pi(): expected 0 to 1 arguments; got 2."),
     ] {
         let mut engine = engine();
@@ -737,8 +861,13 @@ fn suite_integer_factorial_answers_an_integer() {
 #[test]
 fn suite_negative_integer_factorial_names_the_domain() {
     let mut engine = engine();
-    let err = engine.eval("(-1)!").expect_err("negative factorial is refused");
-    assert_eq!(err.message, "Factorial is not defined for negative integers.");
+    let err = engine
+        .eval("(-1)!")
+        .expect_err("negative factorial is refused");
+    assert_eq!(
+        err.message,
+        "Factorial is not defined for negative integers."
+    );
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -749,7 +878,13 @@ fn suite_divrem_of_integers_keeps_the_same_sign_quotient_positive() {
     match value {
         Value::Record(name, fields) => {
             assert_eq!(name, "DivRemResult");
-            let get = |field: &str| fields.iter().find(|(f, _)| f == field).map(|(_, v)| v).unwrap();
+            let get = |field: &str| {
+                fields
+                    .iter()
+                    .find(|(f, _)| f == field)
+                    .map(|(_, v)| v)
+                    .unwrap()
+            };
             assert_eq!(get("quotient").display(), "2");
             assert_eq!(get("remainder").display(), "1");
         }
@@ -767,19 +902,36 @@ fn suite_exact_natural_division_narrows_back() {
 #[test]
 fn suite_setprecision_wide_count_names_the_count() {
     let mut engine = engine();
-    let err = engine.eval("setprecision(123456789012345678901234567890)").expect_err("wide count");
-    assert!(err.message.contains("123456789012345678901234567890"), "{}", err.message);
+    let err = engine
+        .eval("setprecision(123456789012345678901234567890)")
+        .expect_err("wide count");
+    assert!(
+        err.message.contains("123456789012345678901234567890"),
+        "{}",
+        err.message
+    );
     assert_eq!(err.code, "InvalidArgument");
 }
 
 #[test]
 fn suite_truncated_irrational_is_not_certified_exact() {
-    for source in ["pi", "e", "sqrt(2)", "setprecision(18); pi", "setprecision(18); e", "setprecision(18); sqrt(2)", "evalf(1/3, 50)"] {
+    for source in [
+        "pi",
+        "e",
+        "sqrt(2)",
+        "setprecision(18); pi",
+        "setprecision(18); e",
+        "setprecision(18); sqrt(2)",
+        "evalf(1/3, 50)",
+    ] {
         let mut engine = engine();
         let value = engine.eval(source).unwrap();
         let projected = crate::structured::project_value(&engine, &value, None);
         assert!(
-            !matches!(projected.get("exact"), Some(lovelace_json::Json::Bool(true))),
+            !matches!(
+                projected.get("exact"),
+                Some(lovelace_json::Json::Bool(true))
+            ),
             "{source} was certified exact"
         );
         assert!(projected.get("numerator").is_none(), "{source}");

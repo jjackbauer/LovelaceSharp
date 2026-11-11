@@ -6,7 +6,7 @@
 //! observable vector and says so in the comment; a row whose assertion cannot be reproduced is
 //! refused in docs/goal-parity-contract/round-21/dsp-porting-batch.md rather than weakened here.
 
-use crate::{structured, Engine, LangError, Value};
+use crate::{Engine, LangError, Value, structured};
 
 fn engine() -> Engine {
     Engine::new()
@@ -379,10 +379,7 @@ fn sin_given_negative_angle_is_negated() {
 #[test]
 fn sin_given_general_angle_matches_known_value() {
     let value = real_cos_at_100("3/20");
-    assert!(
-        value.starts_with("0.58778525229247312916"),
-        "{value}"
-    );
+    assert!(value.starts_with("0.58778525229247312916"), "{value}");
 }
 
 // ---------------------------------------------------------------------------
@@ -435,7 +432,9 @@ fn scan_sources(
             if path.extension().and_then(|e| e.to_str()) != Some("cs") {
                 continue;
             }
-            let Ok(text) = std::fs::read_to_string(&path) else { continue };
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
             for (index, line) in text.lines().enumerate() {
                 if violation(&path.display().to_string(), index + 1, line) {
                     out.push(format!("{}:{}: {}", path.display(), index + 1, line.trim()));
@@ -529,7 +528,11 @@ fn non_integral_real_count_is_refused_and_named() {
             err.message
         );
         assert!(err.message.contains(literal), "{source}: {}", err.message);
-        assert!(err.message.contains("exact integer"), "{source}: {}", err.message);
+        assert!(
+            err.message.contains("exact integer"),
+            "{source}: {}",
+            err.message
+        );
     }
 }
 

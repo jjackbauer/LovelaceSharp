@@ -267,7 +267,10 @@ fn shift_right_bits(value: &[u64], shift: usize) -> Vec<u64> {
         let high = if bits == 0 {
             0
         } else {
-            value.get(i + word + 1).map(|x| x << (64 - bits)).unwrap_or(0)
+            value
+                .get(i + word + 1)
+                .map(|x| x << (64 - bits))
+                .unwrap_or(0)
         };
         out[i] = low | high;
     }
@@ -313,7 +316,10 @@ mod tests {
             kr,
             "{label}: remainder differs from long division"
         );
-        assert!(crate::Nat::from_limbs(r.clone()) < crate::Nat::from_limbs(den.to_vec()), "{label}: remainder not below the divisor");
+        assert!(
+            crate::Nat::from_limbs(r.clone()) < crate::Nat::from_limbs(den.to_vec()),
+            "{label}: remainder not below the divisor"
+        );
     }
 
     #[test]

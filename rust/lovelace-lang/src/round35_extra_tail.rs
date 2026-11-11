@@ -3,7 +3,7 @@
 //! report lists; where the kernel test asserts the same case it is used, and the supplements below
 //! close the remaining assertion-shaped gaps (never a weaker proxy for a C# API that is absent).
 
-use crate::{structured, Engine, Value};
+use crate::{Engine, Value, structured};
 use lovelace_symbolics::assumptions::{
     Assumption, AssumptionSet, Domain, SymbolPredicate, Tristate,
 };
@@ -50,8 +50,6 @@ fn relation(op: RelOp, bound: i64) -> Assumption {
     Assumption::SymbolRelation("x".to_string(), op, Sym::num(bound))
 }
 
-
-
 #[test]
 fn integer_intervals_that_hold_are_accepted() {
     let integer = AssumptionSet::empty()
@@ -77,10 +75,16 @@ fn integer_intervals_that_hold_are_accepted() {
 fn predicate_lattice_rows() {
     // EvenOdd_ImplyInteger_OddImpliesNonZero
     let even = AssumptionSet::empty()
-        .add(Assumption::SymbolProperty("x".to_string(), SymbolPredicate::Even))
+        .add(Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::Even,
+        ))
         .expect("consistent");
     let odd = AssumptionSet::empty()
-        .add(Assumption::SymbolProperty("x".to_string(), SymbolPredicate::Odd))
+        .add(Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::Odd,
+        ))
         .expect("consistent");
     assert_eq!(
         even.ask(&Assumption::SymbolDomain("x".to_string(), Domain::Integer)),
@@ -91,11 +95,17 @@ fn predicate_lattice_rows() {
         Tristate::True
     );
     assert_eq!(
-        odd.ask(&Assumption::SymbolProperty("x".to_string(), SymbolPredicate::NonZero)),
+        odd.ask(&Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::NonZero
+        )),
         Tristate::True
     );
     assert_eq!(
-        even.ask(&Assumption::SymbolProperty("x".to_string(), SymbolPredicate::NonZero)),
+        even.ask(&Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::NonZero
+        )),
         Tristate::Unknown
     );
 
@@ -103,7 +113,11 @@ fn predicate_lattice_rows() {
     let integer = AssumptionSet::empty()
         .add(Assumption::SymbolDomain("x".to_string(), Domain::Integer))
         .expect("consistent");
-    for property in [SymbolPredicate::Even, SymbolPredicate::Odd, SymbolPredicate::NonZero] {
+    for property in [
+        SymbolPredicate::Even,
+        SymbolPredicate::Odd,
+        SymbolPredicate::NonZero,
+    ] {
         assert_eq!(
             integer.ask(&Assumption::SymbolProperty("x".to_string(), property)),
             Tristate::Unknown,
@@ -131,12 +145,18 @@ fn predicate_lattice_rows() {
 #[test]
 fn or_returns_false_when_every_disjunct_is_false() {
     let set = AssumptionSet::empty()
-        .add(Assumption::SymbolProperty("x".to_string(), SymbolPredicate::NonPositive))
+        .add(Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::NonPositive,
+        ))
         .expect("consistent")
         .add(relation(RelOp::Lt, 0))
         .expect("consistent");
     assert_eq!(
-        set.ask(&Assumption::SymbolProperty("x".to_string(), SymbolPredicate::NonNegative)),
+        set.ask(&Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::NonNegative
+        )),
         Tristate::False
     );
 }
@@ -147,12 +167,13 @@ fn unsatisfiable_sentinel_is_sticky() {
     assert!(unsatisfiable.is_unsatisfiable());
     assert!(!AssumptionSet::empty().is_unsatisfiable());
     let added = unsatisfiable
-        .add(Assumption::SymbolProperty("x".to_string(), SymbolPredicate::Positive))
+        .add(Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::Positive,
+        ))
         .expect("sticky");
     assert!(added.is_unsatisfiable());
 }
-
-
 
 #[test]
 fn the_same_atom_from_two_contexts_is_stored_once() {
@@ -161,9 +182,9 @@ fn the_same_atom_from_two_contexts_is_stored_once() {
         Assumption::SymbolDomain("t".to_string(), Domain::Real),
         Assumption::SymbolProperty("a".to_string(), SymbolPredicate::Positive),
     ];
-    let set = atoms
-        .into_iter()
-        .fold(AssumptionSet::empty(), |set, atom| set.add(atom).expect("consistent"));
+    let set = atoms.into_iter().fold(AssumptionSet::empty(), |set, atom| {
+        set.add(atom).expect("consistent")
+    });
     assert_eq!(set.atoms().len(), 2);
     let rendered: Vec<String> = set.atoms().iter().map(Assumption::describe).collect();
     assert_eq!(rendered, vec!["t in Real", "a is Positive"]);
@@ -194,7 +215,11 @@ fn evalf_of_a_truncated_constant_is_never_an_exact_rational() {
     for (script, digits) in expected {
         let json = projected(script);
         assert_eq!(text(&json, "value"), Some(digits), "{script}");
-        assert_eq!(json.get("exact"), Some(&lovelace_json::Json::Bool(false)), "{script}");
+        assert_eq!(
+            json.get("exact"),
+            Some(&lovelace_json::Json::Bool(false)),
+            "{script}"
+        );
         assert!(json.get("numerator").is_none(), "{script}: numerator");
         assert!(json.get("denominator").is_none(), "{script}: denominator");
     }
@@ -219,8 +244,16 @@ fn functions_of_a_truncated_value_are_inexact_with_no_rational_form() {
     for script in expressions {
         let full = format!("x = symbol(\"x\"); {script}");
         let json = projected(&full);
-        assert_eq!(json.get("kind").and_then(lovelace_json::Json::as_str), Some("Real"), "{script}");
-        assert_eq!(json.get("exact"), Some(&lovelace_json::Json::Bool(false)), "{script}");
+        assert_eq!(
+            json.get("kind").and_then(lovelace_json::Json::as_str),
+            Some("Real"),
+            "{script}"
+        );
+        assert_eq!(
+            json.get("exact"),
+            Some(&lovelace_json::Json::Bool(false)),
+            "{script}"
+        );
         assert!(json.get("numerator").is_none(), "{script}: numerator");
         assert!(json.get("denominator").is_none(), "{script}: denominator");
     }
@@ -229,17 +262,28 @@ fn functions_of_a_truncated_value_are_inexact_with_no_rational_form() {
 #[test]
 fn truncating_exact_controls_stay_exact() {
     let sqrt4 = projected("evalf(sqrt(4), 40)");
-    assert_eq!(sqrt4.get("kind").and_then(lovelace_json::Json::as_str), Some("Integer"));
+    assert_eq!(
+        sqrt4.get("kind").and_then(lovelace_json::Json::as_str),
+        Some("Integer")
+    );
     assert_eq!(text(&sqrt4, "value"), Some("2"));
 
     let periodic = projected("1/17");
     assert_eq!(text(&periodic, "value"), Some("0.(0588235294117647)"));
-    assert_eq!(periodic.get("exact"), Some(&lovelace_json::Json::Bool(true)));
+    assert_eq!(
+        periodic.get("exact"),
+        Some(&lovelace_json::Json::Bool(true))
+    );
     assert_eq!(text(&periodic, "numerator"), Some("1"));
     assert_eq!(text(&periodic, "denominator"), Some("17"));
 
     let complex_root = projected("evalf((-4)^(1/2), 40)");
-    assert_eq!(complex_root.get("kind").and_then(lovelace_json::Json::as_str), Some("Complex"));
+    assert_eq!(
+        complex_root
+            .get("kind")
+            .and_then(lovelace_json::Json::as_str),
+        Some("Complex")
+    );
     assert_eq!(text(&complex_root, "re"), Some("0"));
     assert_eq!(text(&complex_root, "im"), Some("2"));
 
@@ -247,10 +291,6 @@ fn truncating_exact_controls_stay_exact() {
     assert_eq!(text(&dft0, "re"), Some("6"));
     assert_eq!(text(&dft0, "im"), Some("0"));
 }
-
-
-
-
 
 #[test]
 fn elementary_functions_of_an_approximate_argument_are_inexact() {

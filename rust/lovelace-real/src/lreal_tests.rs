@@ -6,8 +6,8 @@
 
 use std::cmp::Ordering;
 
-use crate::lreal::{LReal128, LReal64, LRealError};
 use crate::Real;
+use crate::lreal::{LReal64, LReal128, LRealError};
 
 fn real(text: &str) -> Real {
     Real::from_str(text).unwrap_or_else(|| panic!("literal {text}"))
@@ -58,14 +58,25 @@ fn lreal64_parse_round_trips_like_real() {
         "1.(3)",
         "0.(9)",
     ] {
-        assert_eq!(r64(literal).to_string(), real(literal).to_string(), "LReal64 parse {literal}");
+        assert_eq!(
+            r64(literal).to_string(),
+            real(literal).to_string(),
+            "LReal64 parse {literal}"
+        );
     }
 }
 
 /// LReal64Tests.Add_GivenPair_MatchesReal (6 rows).
 #[test]
 fn lreal64_add_matches_real() {
-    for (a, b) in [("1", "2"), ("0.5", "0.25"), ("0.1", "0.2"), ("1.5", "2.25"), ("10", "100"), ("3.14", "2.71")] {
+    for (a, b) in [
+        ("1", "2"),
+        ("0.5", "0.25"),
+        ("0.1", "0.2"),
+        ("1.5", "2.25"),
+        ("10", "100"),
+        ("3.14", "2.71"),
+    ] {
         let fixed = r64(a).add(&r64(b)).expect("add fits");
         let wide = real(a).add(&real(b));
         assert_eq!(fixed.to_string(), wide.to_string(), "LReal64 add {a}+{b}");
@@ -75,20 +86,39 @@ fn lreal64_add_matches_real() {
 /// LReal64Tests.Subtract_GivenPair_MatchesReal (5 rows).
 #[test]
 fn lreal64_subtract_matches_real() {
-    for (a, b) in [("1", "2"), ("3", "5"), ("0.5", "0.25"), ("0.3", "0.1"), ("10", "3")] {
+    for (a, b) in [
+        ("1", "2"),
+        ("3", "5"),
+        ("0.5", "0.25"),
+        ("0.3", "0.1"),
+        ("10", "3"),
+    ] {
         let fixed = r64(a).sub(&r64(b)).expect("subtract fits");
         let wide = real(a).sub(&real(b));
-        assert_eq!(fixed.to_string(), wide.to_string(), "LReal64 subtract {a}-{b}");
+        assert_eq!(
+            fixed.to_string(),
+            wide.to_string(),
+            "LReal64 subtract {a}-{b}"
+        );
     }
 }
 
 /// LReal64Tests.Multiply_GivenPair_MatchesReal (4 rows).
 #[test]
 fn lreal64_multiply_matches_real() {
-    for (a, b) in [("2", "3"), ("0.1", "0.2"), ("1.5", "2.0"), ("12345678", "87654321")] {
+    for (a, b) in [
+        ("2", "3"),
+        ("0.1", "0.2"),
+        ("1.5", "2.0"),
+        ("12345678", "87654321"),
+    ] {
         let fixed = r64(a).mul(&r64(b)).expect("product fits");
         let wide = real(a).mul(&real(b));
-        assert_eq!(fixed.to_string(), wide.to_string(), "LReal64 multiply {a}*{b}");
+        assert_eq!(
+            fixed.to_string(),
+            wide.to_string(),
+            "LReal64 multiply {a}*{b}"
+        );
     }
 }
 
@@ -109,7 +139,11 @@ fn lreal64_divide_matches_real() {
         ("100", "13"),
     ] {
         let fixed = r64(a).div(&r64(b)).expect("period fits the width");
-        assert_eq!(fixed.to_string(), divide_real(a, b), "LReal64 divide {a}/{b}");
+        assert_eq!(
+            fixed.to_string(),
+            divide_real(a, b),
+            "LReal64 divide {a}/{b}"
+        );
     }
 }
 
@@ -119,16 +153,26 @@ fn lreal64_add_periodic_matches_real() {
     for (a, b) in [("0.(3)", "0.(3)"), ("0.(3)", "0.1(6)"), ("0.(3)", "2")] {
         let fixed = r64(a).add(&r64(b)).expect("periodic sum fits");
         let wide = real(a).add(&real(b));
-        assert_eq!(fixed.to_string(), wide.to_string(), "LReal64 periodic add {a}+{b}");
+        assert_eq!(
+            fixed.to_string(),
+            wide.to_string(),
+            "LReal64 periodic add {a}+{b}"
+        );
     }
     let product = r64("0.(3)").mul(&r64("2")).expect("periodic product fits");
-    assert_eq!(product.to_string(), real("0.(3)").mul(&real("2")).to_string());
+    assert_eq!(
+        product.to_string(),
+        real("0.(3)").mul(&real("2")).to_string()
+    );
 }
 
 /// LReal64Tests.Add_Tenths_IsExact (1 row).
 #[test]
 fn lreal64_add_tenths_is_exact() {
-    assert_eq!(r64("0.1").add(&r64("0.2")).expect("fits").to_string(), "0.3");
+    assert_eq!(
+        r64("0.1").add(&r64("0.2")).expect("fits").to_string(),
+        "0.3"
+    );
 }
 
 /// LReal64Tests.Divide_LongPeriod_Promotes (1 row).
@@ -167,7 +211,13 @@ fn lreal64_parse_too_many_digits_fails() {
 /// LReal64Tests.Compare_MatchesReal (5 rows).
 #[test]
 fn lreal64_compare_matches_real() {
-    for (a, b) in [("0.1", "0.2"), ("0.(3)", "0.33333"), ("0.1(6)", "0.16666"), ("-1", "1"), ("3.14", "3.14159")] {
+    for (a, b) in [
+        ("0.1", "0.2"),
+        ("0.(3)", "0.33333"),
+        ("0.1(6)", "0.16666"),
+        ("-1", "1"),
+        ("3.14", "3.14159"),
+    ] {
         let fixed = r64(a).compare(&r64(b));
         let wide = real(a).cmp(&real(b));
         assert_eq!(fixed, wide, "LReal64 compare {a} vs {b}");
@@ -194,7 +244,11 @@ fn lreal128_parse_round_trips_like_real() {
         "0.1(6)",
         "0.(142857)",
     ] {
-        assert_eq!(r128(literal).to_string(), real(literal).to_string(), "LReal128 parse {literal}");
+        assert_eq!(
+            r128(literal).to_string(),
+            real(literal).to_string(),
+            "LReal128 parse {literal}"
+        );
     }
 }
 
@@ -223,16 +277,30 @@ fn lreal128_multiply_matches_real() {
     ] {
         let fixed = r128(a).mul(&r128(b)).expect("product fits 38 digits");
         let wide = real(a).mul(&real(b));
-        assert_eq!(fixed.to_string(), wide.to_string(), "LReal128 multiply {a}*{b}");
+        assert_eq!(
+            fixed.to_string(),
+            wide.to_string(),
+            "LReal128 multiply {a}*{b}"
+        );
     }
 }
 
 /// LReal128Tests.Divide_GivenPair_MatchesReal (5 rows).
 #[test]
 fn lreal128_divide_matches_real() {
-    for (a, b) in [("1", "3"), ("1", "7"), ("1", "29"), ("1", "17"), ("100", "13")] {
+    for (a, b) in [
+        ("1", "3"),
+        ("1", "7"),
+        ("1", "29"),
+        ("1", "17"),
+        ("100", "13"),
+    ] {
         let fixed = r128(a).div(&r128(b)).expect("period fits 38 digits");
-        assert_eq!(fixed.to_string(), divide_real(a, b), "LReal128 divide {a}/{b}");
+        assert_eq!(
+            fixed.to_string(),
+            divide_real(a, b),
+            "LReal128 divide {a}/{b}"
+        );
     }
 }
 
@@ -242,14 +310,21 @@ fn lreal128_add_periodic_matches_real() {
     for (a, b) in [("0.(3)", "0.(3)"), ("0.(3)", "0.1(6)")] {
         let fixed = r128(a).add(&r128(b)).expect("periodic sum fits");
         let wide = real(a).add(&real(b));
-        assert_eq!(fixed.to_string(), wide.to_string(), "LReal128 periodic add {a}+{b}");
+        assert_eq!(
+            fixed.to_string(),
+            wide.to_string(),
+            "LReal128 periodic add {a}+{b}"
+        );
     }
 }
 
 /// LReal128Tests.Add_Tenths_IsExact (1 row).
 #[test]
 fn lreal128_add_tenths_is_exact() {
-    assert_eq!(r128("0.1").add(&r128("0.2")).expect("fits").to_string(), "0.3");
+    assert_eq!(
+        r128("0.1").add(&r128("0.2")).expect("fits").to_string(),
+        "0.3"
+    );
 }
 
 /// LReal128Tests.Multiply_Overflow_Promotes (1 row).
@@ -264,5 +339,8 @@ fn lreal128_multiply_overflow_promotes() {
 /// LReal128Tests.Divide_LongPeriod_Promotes (1 row).
 #[test]
 fn lreal128_divide_long_period_promotes() {
-    assert!(matches!(r128("1").div(&r128("97")), Err(LRealError::Promote)));
+    assert!(matches!(
+        r128("1").div(&r128("97")),
+        Err(LRealError::Promote)
+    ));
 }

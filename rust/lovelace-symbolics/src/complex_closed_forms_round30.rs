@@ -44,9 +44,7 @@ fn numeric(e: &Expr) -> Option<(f64, f64)> {
         Expr::Fun(name, args) if name == "pi" && args.is_empty() => {
             Some((std::f64::consts::PI, 0.0))
         }
-        Expr::Fun(name, args) if name == "e" && args.is_empty() => {
-            Some((std::f64::consts::E, 0.0))
-        }
+        Expr::Fun(name, args) if name == "e" && args.is_empty() => Some((std::f64::consts::E, 0.0)),
         Expr::Fun(name, args) if name == "sqrt" && args.len() == 1 => {
             let (re, im) = numeric(&args[0])?;
             if im.abs() > 1e-30 {
@@ -82,7 +80,10 @@ fn numeric(e: &Expr) -> Option<(f64, f64)> {
             if denom == 0.0 {
                 return None;
             }
-            Some((round((ar * br + ai * bi) / denom), round((ai * br - ar * bi) / denom)))
+            Some((
+                round((ar * br + ai * bi) / denom),
+                round((ai * br - ar * bi) / denom),
+            ))
         }
         Expr::Pow(base, exp) => {
             let (br, bi) = numeric(base)?;
@@ -96,7 +97,10 @@ fn numeric(e: &Expr) -> Option<(f64, f64)> {
             }
             let theta = bi.atan2(br);
             let scale = modulus.powf(er);
-            Some((round(scale * (er * theta).cos()), round(scale * (er * theta).sin())))
+            Some((
+                round(scale * (er * theta).cos()),
+                round(scale * (er * theta).sin()),
+            ))
         }
         Expr::Fun(..) => None,
         Expr::Rel(..) => None,
@@ -105,7 +109,8 @@ fn numeric(e: &Expr) -> Option<(f64, f64)> {
 
 /// Asserts the expression's numeric value has the given real and imaginary parts, separately.
 fn assert_parts(e: &Expr, expected_re: f64, expected_im: f64, label: &str) {
-    let (re, im) = numeric(e).unwrap_or_else(|| panic!("{label}: the closed form is not numeric: {e}"));
+    let (re, im) =
+        numeric(e).unwrap_or_else(|| panic!("{label}: the closed form is not numeric: {e}"));
     assert!(
         (re - expected_re).abs() < TOLERANCE,
         "{label}: real part {re} != {expected_re} (canonical {})",
@@ -127,7 +132,11 @@ fn assert_round_trips(e: &Expr, expected_canonical: &str) {
     let canonical = e.canonical();
     assert_eq!(expected_canonical, canonical);
     let reparsed = canonical_parse(&canonical).expect("the canonical form parses back");
-    assert_eq!(canonical, reparsed.canonical(), "the canonical form round-trips");
+    assert_eq!(
+        canonical,
+        reparsed.canonical(),
+        "the canonical form round-trips"
+    );
 }
 
 // ------------------------------------------------------------------
@@ -137,7 +146,10 @@ fn assert_round_trips(e: &Expr, expected_canonical: &str) {
 #[test]
 fn sqrt_of_negative_one_is_the_exact_imaginary_unit() {
     let value = Expr::sqrt(Expr::num(-1));
-    assert!(value.is_exact(), "the imaginary unit must be EXACT, not an approximation");
+    assert!(
+        value.is_exact(),
+        "the imaginary unit must be EXACT, not an approximation"
+    );
     assert_eq!(i_unit(), value);
     assert_round_trips(&value, "(i)");
     assert_parts(&value, 0.0, 1.0, "sqrt(-1)");
@@ -237,7 +249,10 @@ fn negative_base_third_root_is_outside_the_bounded_set() {
     // The kernel's real-root shortcut still fires for an odd denominator and a UNIT fraction.
     assert_round_trips(&Expr::pow(Expr::num(-8), rational(1, 3)), "(rat -2 1)");
     // A non-unit denominator-3 exponent is still left alone entirely.
-    assert_round_trips(&Expr::pow(Expr::num(-8), rational(2, 3)), "(pow (rat -8 1) (rat 2 3))");
+    assert_round_trips(
+        &Expr::pow(Expr::num(-8), rational(2, 3)),
+        "(pow (rat -8 1) (rat 2 3))",
+    );
 }
 
 #[test]

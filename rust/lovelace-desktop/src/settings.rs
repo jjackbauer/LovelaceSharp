@@ -38,7 +38,10 @@ pub struct WindowGeometry {
 
 impl Default for WindowGeometry {
     fn default() -> WindowGeometry {
-        WindowGeometry { width: 1280, height: 800 }
+        WindowGeometry {
+            width: 1280,
+            height: 800,
+        }
     }
 }
 
@@ -156,9 +159,9 @@ impl Settings {
                 return settings;
             }
             Err(error) => {
-                settings
-                    .warnings
-                    .push(format!("settings are not valid JSON ({error}); defaults used."));
+                settings.warnings.push(format!(
+                    "settings are not valid JSON ({error}); defaults used."
+                ));
                 return settings;
             }
         };
@@ -258,9 +261,7 @@ impl Settings {
                     for item in items {
                         if let Some(path) = item.as_str() {
                             let path = path.trim();
-                            if !path.is_empty()
-                                && !loaded.iter().any(|existing| existing == path)
-                            {
+                            if !path.is_empty() && !loaded.iter().any(|existing| existing == path) {
                                 loaded.push(path.to_string());
                             }
                         }
@@ -366,7 +367,12 @@ pub fn default_config_path() -> Option<PathBuf> {
         return Some(PathBuf::from(xdg).join("lovelace").join("desktop.json"));
     }
     let home = std::env::var_os("HOME")?;
-    Some(PathBuf::from(home).join(".config").join("lovelace").join("desktop.json"))
+    Some(
+        PathBuf::from(home)
+            .join(".config")
+            .join("lovelace")
+            .join("desktop.json"),
+    )
 }
 
 #[cfg(test)]
@@ -376,7 +382,10 @@ mod tests {
     #[test]
     fn settings_round_trip_through_json() {
         let mut settings = Settings::new();
-        settings.window = WindowGeometry { width: 1440, height: 900 };
+        settings.window = WindowGeometry {
+            width: 1440,
+            height: 900,
+        };
         settings.layout.editor_width_permille = 640;
         settings.layout.logs_height_permille = 250;
         settings.layout.plot_height_permille = 400;
@@ -387,7 +396,11 @@ mod tests {
         let text = settings.to_json();
         let again = Settings::from_json(&text);
         assert_eq!(again, settings);
-        assert!(again.warnings.is_empty(), "round trip must be warning-free: {:?}", again.warnings);
+        assert!(
+            again.warnings.is_empty(),
+            "round trip must be warning-free: {:?}",
+            again.warnings
+        );
     }
 
     #[test]
@@ -436,8 +449,15 @@ mod tests {
         assert_eq!(settings.layout.editor_width_permille, 900);
         assert_eq!(settings.layout.logs_height_permille, 100);
         assert_eq!(settings.active_precision, MIN_PRECISION);
-        assert_eq!(settings.recent_files, vec!["a.ls".to_string(), "b.ls".to_string()]);
-        assert!(settings.warnings.len() >= 4, "warnings: {:?}", settings.warnings);
+        assert_eq!(
+            settings.recent_files,
+            vec!["a.ls".to_string(), "b.ls".to_string()]
+        );
+        assert!(
+            settings.warnings.len() >= 4,
+            "warnings: {:?}",
+            settings.warnings
+        );
     }
 
     #[test]
@@ -454,7 +474,10 @@ mod tests {
             settings.add_recent(&format!("file-{index}.ls"));
         }
         assert_eq!(settings.recent_files.len(), MAX_RECENT_FILES);
-        assert_eq!(settings.recent_files[0], format!("file-{}.ls", MAX_RECENT_FILES + 4));
+        assert_eq!(
+            settings.recent_files[0],
+            format!("file-{}.ls", MAX_RECENT_FILES + 4)
+        );
         settings.add_recent("file-29.ls");
         assert_eq!(settings.recent_files.len(), MAX_RECENT_FILES);
         assert_eq!(

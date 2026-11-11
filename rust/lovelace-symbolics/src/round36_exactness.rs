@@ -9,7 +9,9 @@ use crate::Expr;
 fn elementary_function_of_an_approximate_argument_is_inexact() {
     for name in ["abs", "ceil"] {
         let node = Expr::Fun(name.to_string(), vec![Expr::real("3.2")]);
-        assert!(!node.is_exact(), "{name}(approximate) must stay inexact: {node}");
+        assert!(
+            !node.is_exact(),
+            "{name}(approximate) must stay inexact: {node}"
+        );
     }
 }
-

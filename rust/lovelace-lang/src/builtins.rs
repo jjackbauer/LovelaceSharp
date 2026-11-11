@@ -4,13 +4,15 @@ use lovelace_array::{ArrayError, NdArray};
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
-use lovelace_symbolics::assumptions::{Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate};
-use lovelace_symbolics::groebner::{groebner_basis, MonomialOrder, Polynomial};
 use lovelace_symbolics::Expr as Sym;
+use lovelace_symbolics::assumptions::{
+    Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate,
+};
+use lovelace_symbolics::groebner::{MonomialOrder, Polynomial, groebner_basis};
 
 use crate::registry;
 use crate::syntax::BinOp;
-use crate::{cancelled_error, Engine, ErrorSignature, LangError, PlotCapture, Value};
+use crate::{Engine, ErrorSignature, LangError, PlotCapture, Value, cancelled_error};
 
 /// One strided deadline check for a kernel loop. `Ok(())` means "keep going"; a cancelled run
 /// returns the structured Cancelled refusal, which the evaluation positions at the statement that
@@ -206,8 +208,10 @@ pub fn sub(a: &Value, b: &Value) -> Result<Value, LangError> {
             (Value::Natural(p), Value::Natural(q)) => match p.sub(q) {
                 Some(d) => Ok(Value::Natural(d)),
                 None => {
-                    let pi = Int::from_decimal(&p.to_decimal()).ok_or_else(|| LangError::plain("Overflow."))?;
-                    let qi = Int::from_decimal(&q.to_decimal()).ok_or_else(|| LangError::plain("Overflow."))?;
+                    let pi = Int::from_decimal(&p.to_decimal())
+                        .ok_or_else(|| LangError::plain("Overflow."))?;
+                    let qi = Int::from_decimal(&q.to_decimal())
+                        .ok_or_else(|| LangError::plain("Overflow."))?;
                     Ok(Value::Integer(pi.sub(&qi)))
                 }
             },
@@ -267,8 +271,8 @@ pub fn div(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
                 // The round-13 language contract publishes that quotient as the truncation it
                 // is (1/(3*10^n) at n == places): keep its value and period metadata, and say
                 // the expansion did not fit. A period that ends before the cap stays exact.
-                let beyond = v.period_length() > 0
-                    && v.period_start() + v.period_length() > places as i64;
+                let beyond =
+                    v.period_length() > 0 && v.period_start() + v.period_length() > places as i64;
                 Ok(Value::Real(if beyond { v.mark_inexact() } else { v }))
             }
             None => Err(divide_by_zero()),
@@ -298,9 +302,9 @@ pub fn div(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
 /// element kind depend on the data).
 fn narrow_division_result(value: Value) -> Result<Value, LangError> {
     fn narrow(items: Vec<Value>) -> Vec<Value> {
-        let all_integer = items.iter().all(|v| {
-            matches!(v, Value::Real(r) if r.is_exact() && r.is_integer())
-        });
+        let all_integer = items
+            .iter()
+            .all(|v| matches!(v, Value::Real(r) if r.is_exact() && r.is_integer()));
         items
             .into_iter()
             .map(|v| {
@@ -312,9 +316,7 @@ fn narrow_division_result(value: Value) -> Result<Value, LangError> {
                 } else {
                     let converted = match &v {
                         Value::Integer(i) => Some(Value::Real(Real::from_int(i))),
-                        Value::Natural(n) => {
-                            as_real(&Value::Natural(n.clone())).map(Value::Real)
-                        }
+                        Value::Natural(n) => as_real(&Value::Natural(n.clone())).map(Value::Real),
                         _ => None,
                     };
                     converted.unwrap_or(v)
@@ -327,7 +329,9 @@ fn narrow_division_result(value: Value) -> Result<Value, LangError> {
         Value::Array(a) => {
             let shape = a.shape().to_vec();
             let items = narrow(a.iter().cloned().collect());
-            Ok(Value::Array(NdArray::from_vec(shape, items).map_err(array_error)?))
+            Ok(Value::Array(
+                NdArray::from_vec(shape, items).map_err(array_error)?,
+            ))
         }
         other => Ok(other),
     }
@@ -347,9 +351,7 @@ fn rem(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
             (Value::Integer(p), Value::Integer(q)) => integer_remainder(p, q)
                 .map(Value::Integer)
                 .ok_or_else(divide_by_zero),
-            (Value::Real(p), Value::Real(q)) => {
-                real_remainder(p, q, precision).map(Value::Real)
-            }
+            (Value::Real(p), Value::Real(q)) => real_remainder(p, q, precision).map(Value::Real),
             _ => Err(type_error("%", &x, &y)),
         }
     })
@@ -373,7 +375,9 @@ fn integer_remainder(a: &Int, b: &Int) -> Option<Int> {
 
 /// Truncated real remainder: left - trunc(left / right) * right.
 fn real_remainder(left: &Real, right: &Real, precision: usize) -> Result<Real, LangError> {
-    let quotient = left.div(right, precision.max(64)).ok_or_else(divide_by_zero)?;
+    let quotient = left
+        .div(right, precision.max(64))
+        .ok_or_else(divide_by_zero)?;
     let (numerator, denominator) = quotient.to_rational();
     let (whole, _) = numerator.div_rem(&denominator).ok_or_else(divide_by_zero)?;
     let truncated = Real::from_int(&whole);
@@ -384,7 +388,8 @@ fn real_remainder(left: &Real, right: &Real, precision: usize) -> Result<Real, L
 pub fn neg(v: &Value) -> Result<Value, LangError> {
     match v {
         Value::Natural(n) => {
-            let i = Int::from_decimal(&n.to_decimal()).ok_or_else(|| LangError::plain("Overflow."))?;
+            let i =
+                Int::from_decimal(&n.to_decimal()).ok_or_else(|| LangError::plain("Overflow."))?;
             Ok(Value::Integer(i.negate()))
         }
         Value::Integer(i) => Ok(Value::Integer(i.negate())),
@@ -462,9 +467,7 @@ fn compare(a: &Value, b: &Value) -> Result<std::cmp::Ordering, LangError> {
     if a == b {
         return Ok(std::cmp::Ordering::Equal);
     }
-    Err(LangError::plain(
-        "Comparison needs two numeric values.",
-    ))
+    Err(LangError::plain("Comparison needs two numeric values."))
 }
 
 fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
@@ -497,36 +500,39 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
     })?;
     let e_nat = Int::from_decimal(&e.magnitude().to_decimal())
         .ok_or_else(|| LangError::plain("Exponent is too large."))?;
-    let e_u64 = e_nat.magnitude().to_u64().ok_or_else(|| LangError::plain("Exponent is too large."))?;
+    let e_u64 = e_nat
+        .magnitude()
+        .to_u64()
+        .ok_or_else(|| LangError::plain("Exponent is too large."))?;
     let negative = e.is_negative();
     elementwise_scalar(base, |v| {
-        let value = match v {
-            Value::Natural(n) => Value::Natural(n.pow(e_u64)),
-            Value::Integer(i) => Value::Integer(i.pow(e_u64)),
-            Value::Real(r) => {
-                // A u64 exponent wider than i64 used to wrap negative here; refuse the count
-                // exactly as the reference's Int64 conversion does, instead of silently
-                // inverting the power.
-                let exponent = i64::try_from(e_u64).map_err(|_| {
-                    LangError::coded(
-                        "Value was either too large or too small for an Int64.",
-                        0,
-                        "ArithmeticError",
-                        "DomainError",
-                    )
-                })?;
-                Value::Real(
-                    r.pow_int(exponent)
-                        .ok_or_else(|| LangError::plain("Cannot raise this value to that power."))?,
-                )
-            }
-            other => {
-                return Err(LangError::plain(format!(
-                    "Cannot raise a value of kind '{}' to a power.",
-                    other.kind_name()
-                )))
-            }
-        };
+        let value =
+            match v {
+                Value::Natural(n) => Value::Natural(n.pow(e_u64)),
+                Value::Integer(i) => Value::Integer(i.pow(e_u64)),
+                Value::Real(r) => {
+                    // A u64 exponent wider than i64 used to wrap negative here; refuse the count
+                    // exactly as the reference's Int64 conversion does, instead of silently
+                    // inverting the power.
+                    let exponent = i64::try_from(e_u64).map_err(|_| {
+                        LangError::coded(
+                            "Value was either too large or too small for an Int64.",
+                            0,
+                            "ArithmeticError",
+                            "DomainError",
+                        )
+                    })?;
+                    Value::Real(r.pow_int(exponent).ok_or_else(|| {
+                        LangError::plain("Cannot raise this value to that power.")
+                    })?)
+                }
+                other => {
+                    return Err(LangError::plain(format!(
+                        "Cannot raise a value of kind '{}' to a power.",
+                        other.kind_name()
+                    )));
+                }
+            };
         if negative {
             match as_real(&value) {
                 Some(r) => match Real::from_i64(1).div(&r, 1000) {
@@ -564,8 +570,12 @@ fn type_error(op: &str, a: &Value, b: &Value) -> LangError {
 }
 
 fn broadcast_error(a: &Value, b: &Value) -> LangError {
-    let sa = shape_of(a).map(|s| shape_text(&s)).unwrap_or_else(|| "[]".to_string());
-    let sb = shape_of(b).map(|s| shape_text(&s)).unwrap_or_else(|| "[]".to_string());
+    let sa = shape_of(a)
+        .map(|s| shape_text(&s))
+        .unwrap_or_else(|| "[]".to_string());
+    let sb = shape_of(b)
+        .map(|s| shape_text(&s))
+        .unwrap_or_else(|| "[]".to_string());
     LangError::plain(format!(
         "Operands could not be broadcast together with shapes {} and {}.",
         sa, sb
@@ -760,7 +770,9 @@ pub fn make_list(mut items: Vec<Value>) -> Result<Value, LangError> {
             let shape = vec![rows.len(), width.unwrap_or(0)];
             let mut flat: Vec<Value> = rows.into_iter().flatten().collect();
             promote_numeric_kinds(&mut flat);
-            return Ok(Value::Array(NdArray::from_vec(shape, flat).map_err(array_error)?));
+            return Ok(Value::Array(
+                NdArray::from_vec(shape, flat).map_err(array_error)?,
+            ));
         }
     }
     if !items.is_empty() && items.iter().all(|v| matches!(v, Value::Array(_))) {
@@ -790,7 +802,9 @@ pub fn make_list(mut items: Vec<Value>) -> Result<Value, LangError> {
                 }
             }
             promote_numeric_kinds(&mut flat);
-            return Ok(Value::Array(NdArray::from_vec(new_shape, flat).map_err(array_error)?));
+            return Ok(Value::Array(
+                NdArray::from_vec(new_shape, flat).map_err(array_error)?,
+            ));
         }
     }
     Ok(Value::Vector(items))
@@ -864,7 +878,11 @@ pub fn make_range(start: &Value, step: Option<&Value>, end: &Value) -> Result<Va
     let mut cur = s.clone();
     let up = step_value.cmp(&Real::zero()) == std::cmp::Ordering::Greater;
     let mut guard = 0usize;
-    while if up { cur.cmp(&e) != std::cmp::Ordering::Greater } else { cur.cmp(&e) != std::cmp::Ordering::Less } {
+    while if up {
+        cur.cmp(&e) != std::cmp::Ordering::Greater
+    } else {
+        cur.cmp(&e) != std::cmp::Ordering::Less
+    } {
         // The range build is tens of millions of boxed values on the documented workloads, so it
         // polls like every other kernel instead of waiting for the statement boundary.
         poll(guard as u64)?;
@@ -943,7 +961,8 @@ fn index_int_for_dimension(v: &Value, axis: usize, dimension: usize) -> Result<u
 /// Integer that fits a signed 64-bit count. A wider value is refused by name before any index
 /// arithmetic, so it can neither wrap nor walk the signed range.
 fn slice_integer(value: &Value, parameter: &str) -> Result<i64, LangError> {
-    let integer = as_int(value).ok_or_else(|| LangError::plain("Slice bound must be an Integer."))?;
+    let integer =
+        as_int(value).ok_or_else(|| LangError::plain("Slice bound must be an Integer."))?;
     let text = integer.to_decimal();
     text.parse::<i64>()
         .map_err(|_| range_component_refusal(parameter, &text))
@@ -1023,7 +1042,9 @@ pub fn index(target: &Value, specs: &[IndexSpec]) -> Result<Value, LangError> {
                 }
                 other => {
                     let idx = slice_indices(other, items.len())?;
-                    Ok(Value::Vector(idx.into_iter().map(|i| items[i].clone()).collect()))
+                    Ok(Value::Vector(
+                        idx.into_iter().map(|i| items[i].clone()).collect(),
+                    ))
                 }
             }
         }
@@ -1099,7 +1120,9 @@ pub fn index(target: &Value, specs: &[IndexSpec]) -> Result<Value, LangError> {
             if new_shape.is_empty() {
                 return Ok(flat.into_iter().next().unwrap_or(Value::Void));
             }
-            Ok(Value::Array(NdArray::from_vec(new_shape, flat).map_err(array_error)?))
+            Ok(Value::Array(
+                NdArray::from_vec(new_shape, flat).map_err(array_error)?,
+            ))
         }
         other => Err(LangError::plain(format!(
             "Cannot index a value of kind '{}'.",
@@ -1120,7 +1143,12 @@ fn slice_indices_or_single(spec: &IndexSpec, len: usize) -> Result<Vec<usize>, L
 // ---------------------------------------------------------------------------
 
 /// Dispatches a builtin call.
-pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Result<Value, LangError> {
+pub fn call(
+    engine: &mut Engine,
+    name: &str,
+    args: Vec<Value>,
+    pos: usize,
+) -> Result<Value, LangError> {
     // The call boundary is the coarse cancellation seam: a deadline that fired while the engine
     // was outside an inner loop stops the run before another builtin starts.
     checkpoint()?;
@@ -1150,7 +1178,11 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             arity(1)?;
             match &args[0] {
                 Value::Natural(n) => Ok(Value::Natural(n.clone())),
-                Value::Integer(i) => Ok(Value::Integer(if i.is_negative() { i.negate() } else { i.clone() })),
+                Value::Integer(i) => Ok(Value::Integer(if i.is_negative() {
+                    i.negate()
+                } else {
+                    i.clone()
+                })),
                 Value::Real(r) => Ok(Value::Real(r.abs())),
                 Value::Symbolic(e) => {
                     // The reference refuses a canonical node deeper than the published symbolic
@@ -1159,21 +1191,34 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     crate::ensure_symbolic_budget(&expr)?;
                     Ok(Value::Symbolic(expr))
                 }
-                Value::Complex(re, im) => Ok(Value::Real(complex_magnitude(re, im, engine.precision_value()))),
+                Value::Complex(re, im) => Ok(Value::Real(complex_magnitude(
+                    re,
+                    im,
+                    engine.precision_value(),
+                ))),
                 // Elementwise magnitude for a complex array (the magnitude-spectrum idiom). The
                 // reference accepts only an array whose inferred element kind is Complex and
                 // flattens it to a rank-1 vector of Real magnitudes; every other array kind is
                 // refused with the inferred DType in the sentence.
                 Value::Vector(items) => abs_complex_array(items.iter(), engine.precision_value()),
                 Value::Array(array) => abs_complex_array(array.iter(), engine.precision_value()),
-                other => Err(LangError::plain(format!("abs needs a number, but got '{}'.", other.kind_name()))),
+                other => Err(LangError::plain(format!(
+                    "abs needs a number, but got '{}'.",
+                    other.kind_name()
+                ))),
             }
         }
         "sign" => {
             arity(1)?;
             match as_real(&args[0]) {
                 Some(r) => {
-                    let s = if r.is_zero() { 0 } else if r.cmp(&Real::zero()) == std::cmp::Ordering::Less { -1 } else { 1 };
+                    let s = if r.is_zero() {
+                        0
+                    } else if r.cmp(&Real::zero()) == std::cmp::Ordering::Less {
+                        -1
+                    } else {
+                        1
+                    };
                     Ok(Value::Integer(Int::from_i64(s)))
                 }
                 None => Err(LangError::plain("sign needs a number.")),
@@ -1184,7 +1229,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             if let Value::Array(a) = &args[0] {
                 return inv_matrix(a);
             }
-            let r = as_real(&args[0]).ok_or_else(|| LangError::plain("inv needs a number or a matrix."))?;
+            let r = as_real(&args[0])
+                .ok_or_else(|| LangError::plain("inv needs a number or a matrix."))?;
             match Real::from_i64(1).div(&r, engine.precision_value().max(64)) {
                 Some(v) => Ok(Value::Real(v)),
                 None => Err(divide_by_zero()),
@@ -1212,7 +1258,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             })?;
             let (quotient, _) = a.div_rem_signed(&b).ok_or_else(divide_by_zero)?;
             let remainder = integer_remainder(&a, &b).ok_or_else(divide_by_zero)?;
-            let both_natural = matches!(args[0], Value::Natural(_)) && matches!(args[1], Value::Natural(_));
+            let both_natural =
+                matches!(args[0], Value::Natural(_)) && matches!(args[1], Value::Natural(_));
             let q = if both_natural {
                 Value::Natural(quotient.magnitude().clone())
             } else {
@@ -1230,7 +1277,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "is_even" | "is_odd" => {
             arity(1)?;
-            let i = as_int(&args[0]).ok_or_else(|| LangError::plain("Predicate needs an integer."))?;
+            let i =
+                as_int(&args[0]).ok_or_else(|| LangError::plain("Predicate needs an integer."))?;
             let (_, rem) = i.div_rem(&Nat::from_u64(2)).ok_or_else(divide_by_zero)?;
             let even = rem.is_zero();
             Ok(Value::Boolean(if name == "is_even" { even } else { !even }))
@@ -1281,7 +1329,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let name = match &args[0] {
                 Value::Text(t) => t.clone(),
                 other => {
-                    return Err(shape_failure("symbol", 1, "a text name such as \"x\"", other))
+                    return Err(shape_failure(
+                        "symbol",
+                        1,
+                        "a text name such as \"x\"",
+                        other,
+                    ));
                 }
             };
             // An optional domain is ASSUMED for the symbol by the session that created it (the
@@ -1303,7 +1356,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "diff" => {
             arity(2)?;
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("diff needs an expression."))?;
+            let f =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("diff needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(name)) => name.clone(),
                 Value::Text(name) => name.clone(),
@@ -1311,7 +1365,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     return Err(LangError::plain(format!(
                         "diff(): argument 2 must be a symbolic variable; got {}.",
                         other.kind_name()
-                    )))
+                    )));
                 }
             };
             Ok(Value::Symbolic(lovelace_symbolics::diff(&f, &var)))
@@ -1348,7 +1402,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "hessian" => {
             arity(2)?;
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("hessian needs an expression."))?;
+            let f = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("hessian needs an expression."))?;
             let vars = flatten_values(&args[1])?;
             let names: Vec<String> = vars
                 .iter()
@@ -1372,17 +1427,24 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "subs" => {
             arity(3)?;
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("subs needs an expression."))?;
+            let f =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("subs needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(n)) => n.clone(),
                 _ => return Err(LangError::plain("subs needs a variable.")),
             };
-            let replacement = as_expr(&args[2]).ok_or_else(|| LangError::plain("subs needs a replacement."))?;
-            Ok(Value::Symbolic(lovelace_symbolics::substitute(&f, &var, &replacement)))
+            let replacement =
+                as_expr(&args[2]).ok_or_else(|| LangError::plain("subs needs a replacement."))?;
+            Ok(Value::Symbolic(lovelace_symbolics::substitute(
+                &f,
+                &var,
+                &replacement,
+            )))
         }
         "integrate" => {
             arity(2)?;
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("integrate needs an expression."))?;
+            let f = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("integrate needs an expression."))?;
             checkpoint()?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(name)) => name.clone(),
@@ -1402,12 +1464,18 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     if let Some(integrated) = integrate_simple_fraction(&t, &var) {
                         acc = Sym::add(acc, integrated);
                     } else {
-                        return Ok(Value::Symbolic(Sym::Fun("integrate".to_string(), vec![f, Sym::sym(&var)])));
+                        return Ok(Value::Symbolic(Sym::Fun(
+                            "integrate".to_string(),
+                            vec![f, Sym::sym(&var)],
+                        )));
                     }
                 }
                 return Ok(Value::Symbolic(acc));
             }
-            Ok(Value::Symbolic(Sym::Fun("integrate".to_string(), vec![f, Sym::sym(&var)])))
+            Ok(Value::Symbolic(Sym::Fun(
+                "integrate".to_string(),
+                vec![f, Sym::sym(&var)],
+            )))
         }
         "and" | "or" | "not" => {
             if name == "not" {
@@ -1415,62 +1483,87 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             }
             let mut args_out = Vec::new();
             for a in &args {
-                args_out.push(as_expr(a).ok_or_else(|| LangError::plain("Logical operators need expressions."))?);
+                args_out.push(
+                    as_expr(a)
+                        .ok_or_else(|| LangError::plain("Logical operators need expressions."))?,
+                );
             }
             Ok(Value::Symbolic(Sym::Fun(name.to_string(), args_out)))
         }
         "integrate_full" => {
             arity(2)?;
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("integrate needs an expression."))?;
+            let f = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("integrate needs an expression."))?;
             checkpoint()?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(n)) => n.clone(),
                 _ => return Err(LangError::plain("integrate needs a variable.")),
             };
             let antiderivative = integrate_basic(&f, &var);
-            let (status, verified, expression, method, verification, exactness) = match &antiderivative {
-                Some(a) => {
-                    // Verification is the same rule the reference applies: differentiate the
-                    // antiderivative and expand, then compare with the integrand.
-                    let derivative = lovelace_symbolics::expand(&lovelace_symbolics::diff(a, &var));
-                    let verified = derivative == lovelace_symbolics::expand(&f);
-                    (
-                        "SolvedExact",
-                        verified,
-                        Value::Symbolic(a.clone()),
-                        "table",
-                        if verified { "differentiation+expansion" } else { "" },
-                        "Exact",
-                    )
-                }
-                None => (
-                    "Unevaluated",
-                    false,
-                    Value::Symbolic(Sym::Fun("integrate".to_string(), vec![f.clone(), Sym::sym(&var)])),
-                    "",
-                    "",
-                    "None",
-                ),
-            };
+            let (status, verified, expression, method, verification, exactness) =
+                match &antiderivative {
+                    Some(a) => {
+                        // Verification is the same rule the reference applies: differentiate the
+                        // antiderivative and expand, then compare with the integrand.
+                        let derivative =
+                            lovelace_symbolics::expand(&lovelace_symbolics::diff(a, &var));
+                        let verified = derivative == lovelace_symbolics::expand(&f);
+                        (
+                            "SolvedExact",
+                            verified,
+                            Value::Symbolic(a.clone()),
+                            "table",
+                            if verified {
+                                "differentiation+expansion"
+                            } else {
+                                ""
+                            },
+                            "Exact",
+                        )
+                    }
+                    None => (
+                        "Unevaluated",
+                        false,
+                        Value::Symbolic(Sym::Fun(
+                            "integrate".to_string(),
+                            vec![f.clone(), Sym::sym(&var)],
+                        )),
+                        "",
+                        "",
+                        "None",
+                    ),
+                };
             Ok(Value::Record(
                 "IntegrationResult".to_string(),
                 vec![
-                    ("status".to_string(), enum_value("IntegrationStatus", status)),
+                    (
+                        "status".to_string(),
+                        enum_value("IntegrationStatus", status),
+                    ),
                     ("expression".to_string(), expression),
                     ("conditions".to_string(), Value::Vector(Vec::new())),
                     ("verified".to_string(), Value::Boolean(verified)),
                     ("method".to_string(), Value::Text(method.to_string())),
-                    ("verification_method".to_string(), Value::Text(verification.to_string())),
-                    ("exactness".to_string(), enum_value("SolutionExactness", exactness)),
+                    (
+                        "verification_method".to_string(),
+                        Value::Text(verification.to_string()),
+                    ),
+                    (
+                        "exactness".to_string(),
+                        enum_value("SolutionExactness", exactness),
+                    ),
                     ("diagnostics".to_string(), Value::Vector(Vec::new())),
                 ],
             ))
         }
         "compile" | "compile_full" => {
             if args.len() < 2 {
-                return Err(LangError::plain("compile needs an expression and parameters."));
+                return Err(LangError::plain(
+                    "compile needs an expression and parameters.",
+                ));
             }
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("compile needs an expression."))?;
+            let f = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("compile needs an expression."))?;
             let params = flatten_values(&args[1])?;
             let mut names: Vec<String> = Vec::new();
             let mut parameters: Vec<Value> = Vec::new();
@@ -1494,12 +1587,27 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 vec![
                     ("ir".to_string(), Value::Text(ir_text(&f, &names))),
                     ("parameters".to_string(), Value::Vector(parameters)),
-                    ("result_domain".to_string(), Value::Domain("complex".to_string())),
-                    ("result_type".to_string(), Value::Text(result_type(&f, &names))),
-                    ("precision_policy".to_string(), Value::Text("caller_supplied".to_string())),
-                    ("optimization_policy".to_string(), Value::Text("none".to_string())),
+                    (
+                        "result_domain".to_string(),
+                        Value::Domain("complex".to_string()),
+                    ),
+                    (
+                        "result_type".to_string(),
+                        Value::Text(result_type(&f, &names)),
+                    ),
+                    (
+                        "precision_policy".to_string(),
+                        Value::Text("caller_supplied".to_string()),
+                    ),
+                    (
+                        "optimization_policy".to_string(),
+                        Value::Text("none".to_string()),
+                    ),
                     ("target".to_string(), Value::Text("mathir".to_string())),
-                    ("mathir_version".to_string(), Value::Integer(Int::from_i64(2))),
+                    (
+                        "mathir_version".to_string(),
+                        Value::Integer(Int::from_i64(2)),
+                    ),
                     ("exact".to_string(), Value::Boolean(f.is_exact())),
                     ("diagnostics".to_string(), Value::Vector(Vec::new())),
                 ],
@@ -1528,7 +1636,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     }
                     match parse_ir_text(text) {
                         Some(e) => e,
-                        None => return Err(LangError::plain("evalir could not read that IR text.")),
+                        None => {
+                            return Err(LangError::plain("evalir could not read that IR text."));
+                        }
                     }
                 }
                 Value::Symbolic(e) => e.clone(),
@@ -1542,12 +1652,18 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                         .and_then(|(_, v)| as_expr(v))
                     {
                         e
-                    } else if let Some(text) = fields.iter().find(|(k, _)| k == "ir").and_then(|(_, v)| match v {
-                        Value::Text(t) => Some(t),
-                        _ => None,
-                    }) {
-                        parse_ir_text(text)
-                            .ok_or_else(|| LangError::plain("evalir could not read that IR text."))?
+                    } else if let Some(text) =
+                        fields
+                            .iter()
+                            .find(|(k, _)| k == "ir")
+                            .and_then(|(_, v)| match v {
+                                Value::Text(t) => Some(t),
+                                _ => None,
+                            })
+                    {
+                        parse_ir_text(text).ok_or_else(|| {
+                            LangError::plain("evalir could not read that IR text.")
+                        })?
                     } else {
                         return Err(LangError::plain("evalir needs a compiled expression."));
                     }
@@ -1556,7 +1672,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     return Err(LangError::plain(format!(
                         "evalir needs a compiled expression, but got '{}'.",
                         other.kind_name()
-                    )))
+                    )));
                 }
             };
             // One free symbol, in order of first appearance.
@@ -1569,7 +1685,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let coeffs = lovelace_symbolics::poly_coeffs(&expr, &var)
                 .ok_or_else(|| LangError::plain("evalir needs a polynomial expression."))?;
             let evaluate = |point: &Value| -> Result<Value, LangError> {
-                let r = as_real(point).ok_or_else(|| LangError::plain("evalir needs numeric inputs."))?;
+                let r = as_real(point)
+                    .ok_or_else(|| LangError::plain("evalir needs numeric inputs."))?;
                 let mut acc = Real::zero();
                 for c in coeffs.iter().rev() {
                     let num = Int::from_decimal(&c.numerator().to_decimal())
@@ -1624,86 +1741,89 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             // value's own wire form publishes), and a non-symbolic value is inspected, not
             // refused: inspect("hi") answers type Text with Null exactness.
             let value = &args[0];
-            let (type_name, domain, exact, free_symbols, node_count, canonical, pretty) = match value {
-                Value::Symbolic(e) => (
-                    "Symbolic".to_string(),
-                    Value::Domain(e.domain().name().to_string()),
-                    Value::Boolean(e.is_exact()),
-                    Value::Vector(e.free_symbols().into_iter().map(Value::Text).collect()),
-                    Value::Natural(Nat::from_u64(e.node_count() as u64)),
-                    Value::Text(e.canonical()),
-                    Value::Text(e.to_string()),
-                ),
-                Value::Domain(name) => (
-                    "Domain".to_string(),
-                    Value::Domain(name.clone()),
-                    Value::Void,
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                Value::Natural(_) | Value::Integer(_) => (
-                    value.kind_name().to_string(),
-                    Value::Void,
-                    Value::Boolean(true),
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                Value::Real(r) | Value::RealClamped(r, _, _) => (
-                    "Real".to_string(),
-                    Value::Void,
-                    Value::Boolean(r.is_exact()),
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                Value::Complex(re, im) => (
-                    "Complex".to_string(),
-                    Value::Void,
-                    Value::Boolean(re.is_exact() && im.is_exact()),
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                Value::Record(name, _) => (
-                    name.clone(),
-                    Value::Void,
-                    Value::Void,
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                Value::Enum(name, _) => (
-                    name.clone(),
-                    Value::Void,
-                    Value::Void,
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-                other => (
-                    other.kind_name().to_string(),
-                    Value::Void,
-                    Value::Void,
-                    Value::Vector(Vec::new()),
-                    Value::Void,
-                    Value::Void,
-                    Value::Void,
-                ),
-            };
+            let (type_name, domain, exact, free_symbols, node_count, canonical, pretty) =
+                match value {
+                    Value::Symbolic(e) => (
+                        "Symbolic".to_string(),
+                        Value::Domain(e.domain().name().to_string()),
+                        Value::Boolean(e.is_exact()),
+                        Value::Vector(e.free_symbols().into_iter().map(Value::Text).collect()),
+                        Value::Natural(Nat::from_u64(e.node_count() as u64)),
+                        Value::Text(e.canonical()),
+                        Value::Text(e.to_string()),
+                    ),
+                    Value::Domain(name) => (
+                        "Domain".to_string(),
+                        Value::Domain(name.clone()),
+                        Value::Void,
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    Value::Natural(_) | Value::Integer(_) => (
+                        value.kind_name().to_string(),
+                        Value::Void,
+                        Value::Boolean(true),
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    Value::Real(r) | Value::RealClamped(r, _, _) => (
+                        "Real".to_string(),
+                        Value::Void,
+                        Value::Boolean(r.is_exact()),
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    Value::Complex(re, im) => (
+                        "Complex".to_string(),
+                        Value::Void,
+                        Value::Boolean(re.is_exact() && im.is_exact()),
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    Value::Record(name, _) => (
+                        name.clone(),
+                        Value::Void,
+                        Value::Void,
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    Value::Enum(name, _) => (
+                        name.clone(),
+                        Value::Void,
+                        Value::Void,
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                    other => (
+                        other.kind_name().to_string(),
+                        Value::Void,
+                        Value::Void,
+                        Value::Vector(Vec::new()),
+                        Value::Void,
+                        Value::Void,
+                        Value::Void,
+                    ),
+                };
             let domain_of = |v: &Value| -> Value {
                 match v {
                     Value::Symbolic(e) => Value::Domain(e.domain().name().to_string()),
                     Value::Domain(name) => Value::Domain(name.clone()),
                     Value::Natural(_) | Value::Integer(_) => Value::Domain("integer".to_string()),
-                    Value::Real(_) | Value::RealClamped(_, _, _) => Value::Domain("real".to_string()),
+                    Value::Real(_) | Value::RealClamped(_, _, _) => {
+                        Value::Domain("real".to_string())
+                    }
                     Value::Complex(_, _) => Value::Domain("complex".to_string()),
                     _ => Value::Void,
                 }
@@ -1741,9 +1861,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 ),
             };
             let members = match value {
-                Value::Record(_, fields) => {
-                    Value::Vector(fields.iter().map(|(name, _)| Value::Text(name.clone())).collect())
-                }
+                Value::Record(_, fields) => Value::Vector(
+                    fields
+                        .iter()
+                        .map(|(name, _)| Value::Text(name.clone()))
+                        .collect(),
+                ),
                 _ => Value::Void,
             };
             Ok(Value::Record(
@@ -1801,7 +1924,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     return Err(LangError::plain(format!(
                         "latex needs an expression, but got '{}'.",
                         other.kind_name()
-                    )))
+                    )));
                 }
             };
             Ok(Value::Text(text))
@@ -1814,29 +1937,36 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "series" => {
             if args.len() < 4 {
-                return Err(LangError::plain("series needs an expression, a variable, a point and an order."));
+                return Err(LangError::plain(
+                    "series needs an expression, a variable, a point and an order.",
+                ));
             }
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("series needs an expression."))?;
+            let f =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("series needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(name)) => name.clone(),
                 _ => return Err(LangError::plain("series needs a variable.")),
             };
-            let point = as_expr(&args[2]).ok_or_else(|| LangError::plain("series needs a point."))?;
+            let point =
+                as_expr(&args[2]).ok_or_else(|| LangError::plain("series needs a point."))?;
             let order = series_order_argument(&args[3])?;
             // The published series is the RIGHT-HAND expansion: a kink (abs(g) at a point where g
             // vanishes) is resolved by the sign of the argument's leading coefficient before
             // anything is differentiated, the coefficients are carried as expressions (so a
             // symbolic leading coefficient publishes sign(a)*a*x), and the tail is the reference's
             // order node — (order var point degree), displayed O((x - 1)^3).
-            Ok(Value::Symbolic(lovelace_symbolics::series_kink::publish_series(
-                &f, &var, &point, order,
-            )))
+            Ok(Value::Symbolic(
+                lovelace_symbolics::series_kink::publish_series(&f, &var, &point, order),
+            ))
         }
         "limit" | "limit_full" | "limit_left" | "limit_right" => {
             if args.len() < 3 {
-                return Err(LangError::plain("limit needs an expression, a variable and a point."));
+                return Err(LangError::plain(
+                    "limit needs an expression, a variable and a point.",
+                ));
             }
-            let f = as_expr(&args[0]).ok_or_else(|| LangError::plain("limit needs an expression."))?;
+            let f =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("limit needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(name)) => name.clone(),
                 _ => return Err(LangError::plain("limit needs a variable.")),
@@ -1892,10 +2022,15 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                         "0 = 0: every value is a solution.",
                     )
                 } else {
-                    no_solutions_result(&var, &domain, "the equation reduces to a nonzero constant.")
+                    no_solutions_result(
+                        &var,
+                        &domain,
+                        "the equation reduces to a nonzero constant.",
+                    )
                 });
             }
-            let expr = as_expr(&args[0]).ok_or_else(|| LangError::plain("solve needs an equation."))?;
+            let expr =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("solve needs an equation."))?;
             checkpoint()?;
             let equation = match expr {
                 Sym::Rel(lovelace_symbolics::RelOp::Eq, l, r) => Sym::sub(*l, *r),
@@ -1988,7 +2123,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                                 if let Some(outcome) =
                                     power_branch_outcome(base, &var, domain.as_str(), copies)
                                 {
-                                    return Ok(solve_with_assumptions(engine, &var, domain.as_str(), outcome, condition));
+                                    return Ok(solve_with_assumptions(
+                                        engine,
+                                        &var,
+                                        domain.as_str(),
+                                        outcome,
+                                        condition,
+                                    ));
                                 }
                             }
                             // 17..=i64::MAX, and a positive integer too wide for i64: the
@@ -1999,14 +2140,26 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                                 if let Some(outcome) =
                                     power_branch_outcome(base, &var, domain.as_str(), 1)
                                 {
-                                    return Ok(solve_with_assumptions(engine, &var, domain.as_str(), outcome, condition));
+                                    return Ok(solve_with_assumptions(
+                                        engine,
+                                        &var,
+                                        domain.as_str(),
+                                        outcome,
+                                        condition,
+                                    ));
                                 }
                             }
                             None => {
                                 if let Some(outcome) =
                                     power_branch_outcome(base, &var, domain.as_str(), 1)
                                 {
-                                    return Ok(solve_with_assumptions(engine, &var, domain.as_str(), outcome, condition));
+                                    return Ok(solve_with_assumptions(
+                                        engine,
+                                        &var,
+                                        domain.as_str(),
+                                        outcome,
+                                        condition,
+                                    ));
                                 }
                             }
                             _ => {}
@@ -2065,7 +2218,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     if domain == "real" {
                         match base {
                             // No real roots were found where the domain demands them.
-                            lovelace_symbolics::SolveOutcome::Partial(roots) if roots.is_empty() => {
+                            lovelace_symbolics::SolveOutcome::Partial(roots)
+                                if roots.is_empty() =>
+                            {
                                 lovelace_symbolics::SolveOutcome::NoRealSolutions
                             }
                             lovelace_symbolics::SolveOutcome::Unevaluated => {
@@ -2122,23 +2277,32 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 }
                 (other, _) => other,
             };
-            Ok(solve_with_assumptions(engine, &var, domain.as_str(), outcome, condition))
+            Ok(solve_with_assumptions(
+                engine,
+                &var,
+                domain.as_str(),
+                outcome,
+                condition,
+            ))
         }
         "factor" => {
             arity(1)?;
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("factor needs an expression."))?;
+            let e =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("factor needs an expression."))?;
             checkpoint()?;
             Ok(Value::Symbolic(factor_expr(&e)))
         }
         "expand" => {
             arity(1)?;
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("expand needs an expression."))?;
+            let e =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("expand needs an expression."))?;
             checkpoint()?;
             Ok(Value::Symbolic(lovelace_symbolics::expand(&e)))
         }
         "collect" => {
             arity(2)?;
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("collect needs an expression."))?;
+            let e = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("collect needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(name)) => name.clone(),
                 _ => return Err(LangError::plain("collect needs a variable.")),
@@ -2147,7 +2311,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "simplify" | "simplify_full" => {
             arity(1)?;
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("simplify needs an expression."))?;
+            let e = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("simplify needs an expression."))?;
             checkpoint()?;
             if let Sym::Rel(op, lhs, rhs) = &e {
                 if let (Sym::Sym(name), Sym::Num(value)) = (lhs.as_ref(), rhs.as_ref()) {
@@ -2161,7 +2326,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 // TransformResult: the rewritten expression, its side conditions, and the
                 // provenance trace (stable rule ids and classifications), never a bare value.
                 if matches!(e, Sym::Rel(_, _, _)) {
-                    return Ok(transform_result(engine, e.clone(), e, Vec::new(), Vec::new(), false));
+                    return Ok(transform_result(
+                        engine,
+                        e.clone(),
+                        e,
+                        Vec::new(),
+                        Vec::new(),
+                        false,
+                    ));
                 }
                 // A ZERO numerator over a denominator that may vanish: 0/x -> 0 with the
                 // pole condition. This is the reference's rat.cancel-zero-over-x rule; the safe
@@ -2229,9 +2401,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "apart" => {
             if args.len() < 2 {
-                return Err(LangError::plain("apart needs an expression and a variable."));
+                return Err(LangError::plain(
+                    "apart needs an expression and a variable.",
+                ));
             }
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("apart needs an expression."))?;
+            let e =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("apart needs an expression."))?;
             let var = match &args[1] {
                 Value::Symbolic(Sym::Sym(n)) => n.clone(),
                 _ => return Err(LangError::plain("apart needs a variable.")),
@@ -2244,12 +2419,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         "solve_system" | "solve_system_full" => {
             checkpoint()?;
             if args.len() < 2 {
-                return Err(LangError::plain("solve_system needs equations and variables."));
+                return Err(LangError::plain(
+                    "solve_system needs equations and variables.",
+                ));
             }
             // A relation folded to a Boolean is still an equation: false is a contradiction
             // (the complete empty set), true imposes nothing and is carried as 0.
-            const EQUATIONS: &str =
-                "a list of equations, e.g. [x + y == 2, x - y == 0]";
+            const EQUATIONS: &str = "a list of equations, e.g. [x + y == 2, x - y == 0]";
             const VARS: &str = "a list of parameter symbols, e.g. [x, y]";
             let raw_equations = argument_list(name, 1, EQUATIONS, &args[0])?;
             let mut unsatisfiable = false;
@@ -2288,15 +2464,20 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 return Ok(unevaluated_system_result(NO_EQUATIONS_NOTE));
             }
             if identity_only {
-                let var = mutation_vars.first().cloned().unwrap_or_else(|| "x".to_string());
+                let var = mutation_vars
+                    .first()
+                    .cloned()
+                    .unwrap_or_else(|| "x".to_string());
                 return Ok(unevaluated_system_result(&format!(
                     "system-solve.elimination-incomplete: no equation of this branch determines {var}, so the values of {var} are not enumerated here."
                 )));
             }
             match solve_system_impl(&equations, &mutation_vars) {
-                SystemOutcome::Solutions(solutions) => {
-                    Ok(system_result_with_assumptions(engine, &mutation_vars, solutions))
-                }
+                SystemOutcome::Solutions(solutions) => Ok(system_result_with_assumptions(
+                    engine,
+                    &mutation_vars,
+                    solutions,
+                )),
                 SystemOutcome::NoSolutions => Ok(no_solutions_system()),
                 // A well-shaped system this solver cannot decide is the reference's honest
                 // Unevaluated record, not an internal-sounding "no solver" error.
@@ -2305,9 +2486,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "lower" => {
             if args.len() < 2 {
-                return Err(LangError::plain("lower needs a kernel and parameter names."));
+                return Err(LangError::plain(
+                    "lower needs a kernel and parameter names.",
+                ));
             }
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("lower needs an expression."))?;
+            let e =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("lower needs an expression."))?;
             let params = flatten_values(&args[1])?;
             let mut names: Vec<String> = Vec::new();
             for p in &params {
@@ -2321,9 +2505,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "optimize" | "optimize_full" => {
             if args.len() < 2 {
-                return Err(LangError::plain("optimize needs an expression and parameter names."));
+                return Err(LangError::plain(
+                    "optimize needs an expression and parameter names.",
+                ));
             }
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("optimize needs an expression."))?;
+            let e = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("optimize needs an expression."))?;
             let params = flatten_values(&args[1])?;
             let var = match params.first() {
                 Some(Value::Symbolic(Sym::Sym(n))) => n.clone(),
@@ -2363,7 +2550,10 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                         "horner_rewrites".to_string(),
                         Value::Integer(Int::from_i64(rewrites)),
                     ),
-                    ("transformations".to_string(), Value::Vector(transformations)),
+                    (
+                        "transformations".to_string(),
+                        Value::Vector(transformations),
+                    ),
                     ("target".to_string(), Value::Text("mathir".to_string())),
                     (
                         "policy".to_string(),
@@ -2385,12 +2575,16 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let n = shape[0];
             let rhs = flatten_values(&args[1])?;
             if rhs.len() != n {
-                return Err(LangError::plain("linsolve needs a right-hand side of the right length."));
+                return Err(LangError::plain(
+                    "linsolve needs a right-hand side of the right length.",
+                ));
             }
             let determinant = det(a)?;
             // A singular coefficient matrix has no solution vector at all: the record says so
             // structurally, with the diagnostic the reference publishes.
-            let singular = as_expr(&determinant).map(|e| e == Sym::num(0)).unwrap_or(false);
+            let singular = as_expr(&determinant)
+                .map(|e| e == Sym::num(0))
+                .unwrap_or(false);
             if singular {
                 if name == "linsolve" {
                     return Ok(Value::Vector(Vec::new()));
@@ -2401,9 +2595,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             // back-substitution, NOT by Cramer's rule. The difference is observable in the
             // symbolic shape: Cramer simplifies -x/x/(x*y) to -1/(x*y), while the reference's
             // back-substitution keeps the intermediate x/x (the corpus sym/076 rendering).
-            let symbolic = a
-                .iter()
-                .any(|v| !matches!(as_expr(v), Some(Sym::Num(_))))
+            let symbolic = a.iter().any(|v| !matches!(as_expr(v), Some(Sym::Num(_))))
                 || rhs.iter().any(|v| !matches!(as_expr(v), Some(Sym::Num(_))));
             let mut entries: Vec<Value> = Vec::with_capacity(n);
             if symbolic {
@@ -2411,17 +2603,19 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 for r in 0..n {
                     let mut row = Vec::with_capacity(n);
                     for c in 0..n {
-                        row.push(
-                            a.get(&[r, c])
-                                .and_then(as_expr)
-                                .ok_or_else(|| LangError::plain("linsolve needs a symbolic matrix."))?,
-                        );
+                        row.push(a.get(&[r, c]).and_then(as_expr).ok_or_else(|| {
+                            LangError::plain("linsolve needs a symbolic matrix.")
+                        })?);
                     }
                     matrix.push(row);
                 }
                 let right: Vec<Sym> = rhs
                     .iter()
-                    .map(|v| as_expr(v).ok_or_else(|| LangError::plain("linsolve needs a symbolic right-hand side.")))
+                    .map(|v| {
+                        as_expr(v).ok_or_else(|| {
+                            LangError::plain("linsolve needs a symbolic right-hand side.")
+                        })
+                    })
                     .collect::<Result<_, _>>()?;
                 let solved = solve_bareiss(&matrix, &right)
                     .ok_or_else(|| LangError::plain("System is singular or underdetermined."))?;
@@ -2457,8 +2651,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 vec![
                     ("status".to_string(), enum_value("SolveStatus", "Solved")),
                     ("complete".to_string(), Value::Boolean(true)),
-                    ("completeness".to_string(), enum_value("Completeness", "Complete")),
-                    ("solutions".to_string(), Value::Vector(vec![Value::Vector(entries)])),
+                    (
+                        "completeness".to_string(),
+                        enum_value("Completeness", "Complete"),
+                    ),
+                    (
+                        "solutions".to_string(),
+                        Value::Vector(vec![Value::Vector(entries)]),
+                    ),
                     (
                         "conditions".to_string(),
                         Value::Vector(vec![Value::Symbolic(condition)]),
@@ -2482,7 +2682,10 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 vec![
                     ("status".to_string(), enum_value("SolveStatus", "Solved")),
                     ("complete".to_string(), Value::Boolean(true)),
-                    ("completeness".to_string(), enum_value("Completeness", "Complete")),
+                    (
+                        "completeness".to_string(),
+                        enum_value("Completeness", "Complete"),
+                    ),
                     ("inverse".to_string(), inverse),
                     ("conditions".to_string(), Value::Vector(Vec::new())),
                     ("diagnostics".to_string(), Value::Vector(Vec::new())),
@@ -2516,7 +2719,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "cancel" => {
             arity(1)?;
-            let e = as_expr(&args[0]).ok_or_else(|| LangError::plain("cancel needs an expression."))?;
+            let e =
+                as_expr(&args[0]).ok_or_else(|| LangError::plain("cancel needs an expression."))?;
             match lovelace_symbolics::cancel(&e) {
                 Some(v) => Ok(Value::Symbolic(v)),
                 None => Ok(Value::Symbolic(e)),
@@ -2555,7 +2759,10 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 engine
                     .add_assumption(Assumption::SymbolProperty(symbol.clone(), predicate))
                     .map_err(unsatisfiable_assumptions)?;
-                if matches!(predicate, SymbolPredicate::Positive | SymbolPredicate::NonNegative) {
+                if matches!(
+                    predicate,
+                    SymbolPredicate::Positive | SymbolPredicate::NonNegative
+                ) {
                     engine.mark_positive(symbol);
                 }
                 // solve still decides candidate roots against the relation form of the same atom.
@@ -2578,8 +2785,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             // assume_real("y") does; the variable itself is the argument's value.
             let symbolic = match &args[0] {
                 Value::Text(name) => Sym::sym(name),
-                other => as_expr(other)
-                    .ok_or_else(|| LangError::plain(format!("{name} needs a symbolic variable.")))?,
+                other => as_expr(other).ok_or_else(|| {
+                    LangError::plain(format!("{name} needs a symbolic variable."))
+                })?,
             };
             if let Sym::Sym(variable) = &symbolic {
                 let domain = if name == "assume_real" {
@@ -2592,7 +2800,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     .map_err(unsatisfiable_assumptions)?;
                 engine.record_domain_assumption(variable, domain.name());
             } else {
-                return Err(LangError::plain(format!("{name} needs a symbolic variable.")));
+                return Err(LangError::plain(format!(
+                    "{name} needs a symbolic variable."
+                )));
             }
             Ok(Value::Symbolic(symbolic))
         }
@@ -2652,7 +2862,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             .map_err(unsatisfiable_assumptions)?;
                     }
                     // Bounds reasoning: a relation against a constant tightens an interval.
-                    if let (Sym::Sym(name_of_symbol), Sym::Num(value)) = (lhs.as_ref(), rhs.as_ref()) {
+                    if let (Sym::Sym(name_of_symbol), Sym::Num(value)) =
+                        (lhs.as_ref(), rhs.as_ref())
+                    {
                         use lovelace_symbolics::RelOp;
                         let (lower, upper) = match op {
                             RelOp::Gt => (Some((value.clone(), false)), None),
@@ -2703,7 +2915,12 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 }
                 // A wrong-SHAPED argument is the documented argument error, never a silent
                 // accept: assume(1) asserts nothing and used to answer 1 as if it had.
-                other => Err(shape_failure("assume", 1, "a relation such as x > 5", other)),
+                other => Err(shape_failure(
+                    "assume",
+                    1,
+                    "a relation such as x > 5",
+                    other,
+                )),
             }
         }
         "pi" | "e" => {
@@ -2753,7 +2970,10 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     a.shape().first().copied().unwrap_or(1) as u64,
                 ))),
                 Value::Text(t) => Ok(Value::Natural(Nat::from_u64(t.chars().count() as u64))),
-                other => Err(LangError::plain(format!("len needs a vector, array or text, but got '{}'.", other.kind_name()))),
+                other => Err(LangError::plain(format!(
+                    "len needs a vector, array or text, but got '{}'.",
+                    other.kind_name()
+                ))),
             }
         }
         "print" => {
@@ -2839,7 +3059,11 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         // ---- array construction ----
         "zeros" | "ones" => {
             let dims = dims_from(name, &args)?;
-            let fill = if name == "zeros" { Value::Natural(Nat::zero()) } else { Value::Natural(Nat::from_u64(1)) };
+            let fill = if name == "zeros" {
+                Value::Natural(Nat::zero())
+            } else {
+                Value::Natural(Nat::from_u64(1))
+            };
             array_of(name, dims, fill)
         }
         "eye" => {
@@ -2856,7 +3080,8 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             // The reference reads both dimensions through the positive-count contract and then
             // measures the SHAPE against the allocation budget before any buffer exists. The old
             // n * n capacity expression overflowed on eye(2^63) and aborted the process.
-            let rows = exact_integer_argument("eye", "rows", 1, &args[0], CountBounds::Positive)? as u64;
+            let rows =
+                exact_integer_argument("eye", "rows", 1, &args[0], CountBounds::Positive)? as u64;
             let cols = if args.len() == 2 {
                 exact_integer_argument("eye", "cols", 2, &args[1], CountBounds::Positive)? as u64
             } else {
@@ -2868,7 +3093,11 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             for r in 0..rows {
                 poll(r)?;
                 for c in 0..cols {
-                    data.push(if r == c { Value::Natural(Nat::from_u64(1)) } else { Value::Natural(Nat::zero()) });
+                    data.push(if r == c {
+                        Value::Natural(Nat::from_u64(1))
+                    } else {
+                        Value::Natural(Nat::zero())
+                    });
                 }
             }
             Ok(Value::Array(
@@ -2877,27 +3106,41 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "reshape" => {
             if args.len() < 2 {
-                return Err(LangError::plain("reshape needs a value and at least one dimension."));
+                return Err(LangError::plain(
+                    "reshape needs a value and at least one dimension.",
+                ));
             }
             let dims = dims_from(name, &args[1..])?;
             let shape: Vec<usize> = dims.into_iter().map(|d| d as usize).collect();
             let flat = flatten_values(&args[0])?;
-            Ok(Value::Array(NdArray::from_vec(shape, flat).map_err(array_error)?))
+            Ok(Value::Array(
+                NdArray::from_vec(shape, flat).map_err(array_error)?,
+            ))
         }
         "shape" => {
             arity(1)?;
-            let shape = shape_of(&args[0]).ok_or_else(|| LangError::plain("shape needs a vector or an array."))?;
-            Ok(Value::Vector(shape.into_iter().map(|d| Value::Natural(Nat::from_u64(d as u64))).collect()))
+            let shape = shape_of(&args[0])
+                .ok_or_else(|| LangError::plain("shape needs a vector or an array."))?;
+            Ok(Value::Vector(
+                shape
+                    .into_iter()
+                    .map(|d| Value::Natural(Nat::from_u64(d as u64)))
+                    .collect(),
+            ))
         }
         "rank" => {
             arity(1)?;
-            let shape = shape_of(&args[0]).ok_or_else(|| LangError::plain("rank needs a vector or an array."))?;
+            let shape = shape_of(&args[0])
+                .ok_or_else(|| LangError::plain("rank needs a vector or an array."))?;
             Ok(Value::Natural(Nat::from_u64(shape.len() as u64)))
         }
         "numel" => {
             arity(1)?;
-            let shape = shape_of(&args[0]).ok_or_else(|| LangError::plain("numel needs a vector or an array."))?;
-            Ok(Value::Natural(Nat::from_u64(shape.iter().product::<usize>() as u64)))
+            let shape = shape_of(&args[0])
+                .ok_or_else(|| LangError::plain("numel needs a vector or an array."))?;
+            Ok(Value::Natural(Nat::from_u64(
+                shape.iter().product::<usize>() as u64,
+            )))
         }
         "flatten" => {
             arity(1)?;
@@ -2926,9 +3169,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             let text = as_int(position)
                                 .map(|i| i.to_decimal())
                                 .ok_or_else(|| shape_failure(name, 2, PERM, &args[1]))?;
-                            let axis = text.parse::<usize>().map_err(|_| {
-                                shape_failure(name, 2, PERM, &args[1])
-                            })?;
+                            let axis = text
+                                .parse::<usize>()
+                                .map_err(|_| shape_failure(name, 2, PERM, &args[1]))?;
                             axes.push(axis);
                         }
                         return a
@@ -2976,10 +3219,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             // through the integer-argument contract (a Real is refused, never floored), and a
             // vector has exactly one axis, so any other number is the axis-range refusal.
             let inputs = if args.len() == 3 {
-                let axis = exact_integer_argument(name, "axis", 3, &args[2], CountBounds::Unbounded)?;
+                let axis =
+                    exact_integer_argument(name, "axis", 3, &args[2], CountBounds::Unbounded)?;
                 if axis != 0 {
                     return Err(LangError::coded(
-                        format!("concat(): argument 3 (axis) must be the only axis (0); got {axis}."),
+                        format!(
+                            "concat(): argument 3 (axis) must be the only axis (0); got {axis}."
+                        ),
                         0,
                         "InvalidArgument",
                         "TypeMismatch",
@@ -2999,7 +3245,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let a = flatten_values(&args[0])?;
             let b = flatten_values(&args[1])?;
             if a.len() != b.len() {
-                return Err(LangError::plain("dot needs two vectors of the same length."));
+                return Err(LangError::plain(
+                    "dot needs two vectors of the same length.",
+                ));
             }
             let mut acc = Value::Natural(Nat::zero());
             for (i, (x, y)) in a.iter().zip(b.iter()).enumerate() {
@@ -3068,7 +3316,11 @@ fn declared_signature(name: &str) -> Option<ErrorSignature> {
         function: name.to_string(),
         parameters: Some(info.parameters.iter().map(|p| (*p).to_string()).collect()),
         expected_min: Some(info.min_arity),
-        expected_max: if info.variadic { None } else { Some(info.parameter_count) },
+        expected_max: if info.variadic {
+            None
+        } else {
+            Some(info.parameter_count)
+        },
         variadic: Some(info.variadic),
         ..ErrorSignature::default()
     })
@@ -3076,7 +3328,12 @@ fn declared_signature(name: &str) -> Option<ErrorSignature> {
 
 /// A digit-count argument that must be a Natural or Integer: the reference's KIND refusal
 /// (DomainError) or its out-of-range refusal (InvalidArgument/TypeMismatch).
-fn digit_count_bounded(name: &str, arg: &Value, max: usize, min: usize) -> Result<usize, LangError> {
+fn digit_count_bounded(
+    name: &str,
+    arg: &Value,
+    max: usize,
+    min: usize,
+) -> Result<usize, LangError> {
     let value = match arg {
         Value::Natural(_) | Value::Integer(_) => {
             as_int(arg).expect("a Natural or Integer converts to Int")
@@ -3084,11 +3341,14 @@ fn digit_count_bounded(name: &str, arg: &Value, max: usize, min: usize) -> Resul
         other => return Err(non_integer_digit_argument(name, other)),
     };
     let magnitude = value.magnitude().to_u64();
-    let in_range = !value.is_negative()
-        && magnitude.is_some_and(|n| n >= min as u64 && n <= max as u64);
+    let in_range =
+        !value.is_negative() && magnitude.is_some_and(|n| n >= min as u64 && n <= max as u64);
     if !in_range {
         return Err(LangError::coded(
-            format!("{name}(): argument 1 (digits) must be a Natural or Integer between {min} and {max}; got {}.", value.to_decimal()),
+            format!(
+                "{name}(): argument 1 (digits) must be a Natural or Integer between {min} and {max}; got {}.",
+                value.to_decimal()
+            ),
             0,
             "InvalidArgument",
             "TypeMismatch",
@@ -3110,7 +3370,10 @@ fn precision_digit_count(name: &str, arg: &Value) -> Result<usize, LangError> {
     let in_range = !value.is_negative() && magnitude.is_some_and(|n| n >= 1 && n <= max);
     if !in_range {
         return Err(LangError::coded(
-            format!("{name}(): argument 1 (digits) must be a Natural or Integer that is a positive count (1 or more, at most 9223372036854775807); got {}.", value.to_decimal()),
+            format!(
+                "{name}(): argument 1 (digits) must be a Natural or Integer that is a positive count (1 or more, at most 9223372036854775807); got {}.",
+                value.to_decimal()
+            ),
             0,
             "InvalidArgument",
             "TypeMismatch",
@@ -3153,16 +3416,24 @@ fn evalir_digits(name: &str, arg: &Value) -> Result<usize, LangError> {
             let text = n.to_decimal();
             match text.parse::<i64>() {
                 Ok(v) if (1..=2147483647).contains(&v) => Ok(v as usize),
-                Ok(v) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {v}."))),
-                Err(_) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {text}."))),
+                Ok(v) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {v}."
+                ))),
+                Err(_) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {text}."
+                ))),
             }
         }
         Value::Integer(i) => {
             let text = i.to_decimal();
             match text.parse::<i64>() {
                 Ok(v) if (1..=2147483647).contains(&v) => Ok(v as usize),
-                Ok(v) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {v}."))),
-                Err(_) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {text}."))),
+                Ok(v) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {v}."
+                ))),
+                Err(_) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {text}."
+                ))),
             }
         }
         Value::Real(r) => match r.to_int_exact() {
@@ -3192,9 +3463,9 @@ fn evalf_value(engine: &Engine, arg: &Value, digits: usize) -> Result<Value, Lan
     match arg {
         // An integer payload stays an integer (the reference's NumInt arm); the Integer kind is
         // what the reference publishes even for a Natural argument.
-        Value::Natural(_) | Value::Integer(_) => {
-            Ok(Value::Integer(as_int(arg).expect("a Natural or Integer converts to Int")))
-        }
+        Value::Natural(_) | Value::Integer(_) => Ok(Value::Integer(
+            as_int(arg).expect("a Natural or Integer converts to Int"),
+        )),
         Value::Real(r) | Value::RealClamped(r, _, _) => {
             if r.is_exact() && r.is_integer() {
                 if let Some(i) = r.to_int_exact() {
@@ -3256,7 +3527,9 @@ fn clamp_evalf_result(digits: usize, value: Value) -> Value {
 fn evalf_digit_count(arg: &Value) -> Result<usize, LangError> {
     let message = |detail: &str| {
         LangError::coded(
-            format!("evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; {detail}"),
+            format!(
+                "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; {detail}"
+            ),
             0,
             "InvalidArgument",
             "TypeMismatch",
@@ -3280,7 +3553,10 @@ fn stored_fraction_digits(value: &Real) -> usize {
         return usize::MAX;
     }
     match text.find('.') {
-        Some(dot) => text[dot + 1..].chars().filter(|c| c.is_ascii_digit()).count(),
+        Some(dot) => text[dot + 1..]
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .count(),
         None => 0,
     }
 }
@@ -3344,7 +3620,10 @@ fn arity_failure(name: &str, actual: usize) -> (String, Option<ErrorSignature>) 
     };
     let mut signature = declared_signature(name).unwrap_or_default();
     signature.actual = Some(actual);
-    (format!("{name}(): expected {expected}; got {actual}."), Some(signature))
+    (
+        format!("{name}(): expected {expected}; got {actual}."),
+        Some(signature),
+    )
 }
 
 /// Reads a position that must be a LIST (a vector or an array). A scalar where a list is required
@@ -3378,7 +3657,10 @@ fn shape_failure(name: &str, position: usize, expected: &str, arrived: &Value) -
     signature.expected_shape = Some(expected.to_string());
     signature.arrived_kind = Some(arrived.kind_name().to_string());
     LangError::coded(
-        format!("{name}(): argument {position} must be {expected}; got {}.", arrived.kind_name()),
+        format!(
+            "{name}(): argument {position} must be {expected}; got {}.",
+            arrived.kind_name()
+        ),
         0,
         "InvalidArgument",
         "TypeMismatch",
@@ -3514,7 +3796,12 @@ fn exact_integer_argument(
 /// The reference's pre-allocation budget refusal. The count is saturated to i64::MAX when the
 /// true product does not fit a signed 64-bit count; the message says so rather than printing a
 /// wrapped number.
-fn allocation_refusal(name: &str, shape: &[u64], total: u64, product_overflowed: bool) -> LangError {
+fn allocation_refusal(
+    name: &str,
+    shape: &[u64],
+    total: u64,
+    product_overflowed: bool,
+) -> LangError {
     let shape_text = shape
         .iter()
         .map(|dimension| dimension.to_string())
@@ -3547,7 +3834,11 @@ fn ensure_allocation(name: &str, shape: &[u64]) -> Result<usize, LangError> {
         total = total.saturating_mul(dimension as u128);
     }
     let overflowed = total > i64::MAX as u128;
-    let requested = if overflowed { i64::MAX as u64 } else { total as u64 };
+    let requested = if overflowed {
+        i64::MAX as u64
+    } else {
+        total as u64
+    };
     if requested > MAX_SINGLE_ALLOCATION_ELEMENTS {
         return Err(allocation_refusal(name, shape, requested, overflowed));
     }
@@ -3568,7 +3859,9 @@ fn series_order_argument(value: &Value) -> Result<i64, LangError> {
             let text = n.to_decimal();
             match text.parse::<i64>() {
                 Ok(v) if (1..=2147483647).contains(&v) => Ok(v),
-                Ok(v) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {v}."))),
+                Ok(v) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {v}."
+                ))),
                 Err(_) => Err(refuse(format!(
                     "{head} must be a Natural or Integer that denotes an exact integer; got the Natural {text}."
                 ))),
@@ -3578,7 +3871,9 @@ fn series_order_argument(value: &Value) -> Result<i64, LangError> {
             let text = i.to_decimal();
             match text.parse::<i64>() {
                 Ok(v) if (1..=2147483647).contains(&v) => Ok(v),
-                Ok(v) => Err(refuse(format!("{head} must be a Natural or Integer {bounds}; got {v}."))),
+                Ok(v) => Err(refuse(format!(
+                    "{head} must be a Natural or Integer {bounds}; got {v}."
+                ))),
                 Err(_) => Err(refuse(format!(
                     "{head} must be a Natural or Integer that denotes an exact integer; got the Integer {text}."
                 ))),
@@ -3605,8 +3900,13 @@ fn series_order_argument(value: &Value) -> Result<i64, LangError> {
 fn dims_from(name: &str, args: &[Value]) -> Result<Vec<u64>, LangError> {
     let mut dims = Vec::with_capacity(args.len());
     for (index, argument) in args.iter().enumerate() {
-        let dimension =
-            exact_integer_argument(name, "a dimension", index + 1, argument, CountBounds::NonNegative)?;
+        let dimension = exact_integer_argument(
+            name,
+            "a dimension",
+            index + 1,
+            argument,
+            CountBounds::NonNegative,
+        )?;
         dims.push(dimension as u64);
     }
     Ok(dims)
@@ -3617,7 +3917,10 @@ fn array_of(name: &str, dims: Vec<u64>, fill: Value) -> Result<Value, LangError>
     // cost hundreds of milliseconds and must observe the deadline like any other loop.
     checkpoint()?;
     let total = ensure_allocation(name, &dims)?;
-    let shape: Vec<usize> = dims.into_iter().map(|dimension| dimension as usize).collect();
+    let shape: Vec<usize> = dims
+        .into_iter()
+        .map(|dimension| dimension as usize)
+        .collect();
     if shape.len() == 1 {
         return Ok(Value::Vector(filled(total, &fill)?));
     }
@@ -3663,7 +3966,9 @@ fn concat_values(args: &[Value]) -> Result<Value, LangError> {
         }
         return Ok(Value::Vector(out));
     }
-    Err(LangError::plain("concat of higher-rank arrays is not supported yet."))
+    Err(LangError::plain(
+        "concat of higher-rank arrays is not supported yet.",
+    ))
 }
 
 fn numeric_total(v: &Value) -> Result<(Value, u64), LangError> {
@@ -3708,7 +4013,9 @@ fn reduction_builtin(
         return Err(shape_failure(name, 1, "an array or vector", &args[0]));
     };
     if data.is_empty() {
-        return Err(LangError::plain(format!("{name}() cannot reduce an empty array.")));
+        return Err(LangError::plain(format!(
+            "{name}() cannot reduce an empty array."
+        )));
     }
     if args.len() == 1 {
         return reduce_slice(name, &data, kind, engine.precision_value());
@@ -3754,7 +4061,9 @@ fn reduce_slice(
     precision: usize,
 ) -> Result<Value, LangError> {
     if values.is_empty() {
-        return Err(LangError::plain(format!("{name}() cannot reduce an empty array.")));
+        return Err(LangError::plain(format!(
+            "{name}() cannot reduce an empty array."
+        )));
     }
     let mut acc = Value::Natural(Nat::zero());
     for (i, value) in values.iter().enumerate() {
@@ -3772,7 +4081,8 @@ fn reduce_slice(
             precision,
         ),
         Reduction::Norm => {
-            let real = as_real(&acc).ok_or_else(|| LangError::plain("norm needs numeric values."))?;
+            let real =
+                as_real(&acc).ok_or_else(|| LangError::plain("norm needs numeric values."))?;
             Ok(Value::Real(real.sqrt(precision)))
         }
     }
@@ -3922,8 +4232,16 @@ fn reduce_two(name: &str, a: &Value, b: &Value) -> Result<Value, LangError> {
     match name {
         "sum" => add(a, b),
         "prod" => mul(a, b),
-        "min" => Ok(if compare(a, b)? == std::cmp::Ordering::Greater { b.clone() } else { a.clone() }),
-        "max" => Ok(if compare(a, b)? == std::cmp::Ordering::Less { b.clone() } else { a.clone() }),
+        "min" => Ok(if compare(a, b)? == std::cmp::Ordering::Greater {
+            b.clone()
+        } else {
+            a.clone()
+        }),
+        "max" => Ok(if compare(a, b)? == std::cmp::Ordering::Less {
+            b.clone()
+        } else {
+            a.clone()
+        }),
         _ => Err(LangError::plain("Unknown reduction.")),
     }
 }
@@ -3985,7 +4303,10 @@ fn matrix_dims(v: &Value) -> Result<(usize, usize), LangError> {
             let f = flatten_values(v)?;
             Ok((1, f.len()))
         }
-        other => Err(LangError::plain(format!("Expected a matrix, but got '{}'.", other.kind_name()))),
+        other => Err(LangError::plain(format!(
+            "Expected a matrix, but got '{}'.",
+            other.kind_name()
+        ))),
     }
 }
 
@@ -4026,7 +4347,11 @@ fn det(a: &NdArray<Value>) -> Result<Value, LangError> {
         }
         let sub_det = det(&NdArray::from_vec(vec![n - 1, n - 1], minor).map_err(array_error)?)?;
         let term = mul(&m[0][c], &sub_det)?;
-        acc = if c % 2 == 0 { add(&acc, &term)? } else { sub(&acc, &term)? };
+        acc = if c % 2 == 0 {
+            add(&acc, &term)?
+        } else {
+            sub(&acc, &term)?
+        };
     }
     Ok(acc)
 }
@@ -4063,7 +4388,11 @@ fn inv_matrix(a: &NdArray<Value>) -> Result<Value, LangError> {
             } else {
                 Value::Natural(Nat::from_u64(1))
             };
-            let cofactor = if (r + c) % 2 == 0 { minor_det } else { neg(&minor_det)? };
+            let cofactor = if (r + c) % 2 == 0 {
+                minor_det
+            } else {
+                neg(&minor_det)?
+            };
             // Symbolic entries keep an explicit quotient: the reference publishes 0/(x*y)
             // rather than collapsing it to zero.
             if matches!(cofactor, Value::Symbolic(_)) || matches!(d, Value::Symbolic(_)) {
@@ -4097,10 +4426,16 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
     let (xs, ys, title) = match args.len() {
         1 => {
             let ys = flatten_values(&args[0])?;
-            let xs: Vec<Value> = (0..ys.len()).map(|i| Value::Natural(Nat::from_u64(i as u64))).collect();
+            let xs: Vec<Value> = (0..ys.len())
+                .map(|i| Value::Natural(Nat::from_u64(i as u64)))
+                .collect();
             (xs, ys, String::new())
         }
-        2 => (flatten_values(&args[0])?, flatten_values(&args[1])?, String::new()),
+        2 => (
+            flatten_values(&args[0])?,
+            flatten_values(&args[1])?,
+            String::new(),
+        ),
         3 => (
             flatten_values(&args[0])?,
             flatten_values(&args[1])?,
@@ -4109,7 +4444,9 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
         _ => return Err(LangError::plain("plot takes one to three arguments.")),
     };
     if xs.len() != ys.len() || xs.is_empty() {
-        return Err(LangError::plain("plot needs two series of the same length."));
+        return Err(LangError::plain(
+            "plot needs two series of the same length.",
+        ));
     }
     let width = 640.0f64;
     let height = 400.0f64;
@@ -4120,8 +4457,16 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
     let xmax = xv.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let ymin = yv.iter().cloned().fold(f64::INFINITY, f64::min);
     let ymax = yv.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let xr = if (xmax - xmin).abs() < 1e-12 { 1.0 } else { xmax - xmin };
-    let yr = if (ymax - ymin).abs() < 1e-12 { 1.0 } else { ymax - ymin };
+    let xr = if (xmax - xmin).abs() < 1e-12 {
+        1.0
+    } else {
+        xmax - xmin
+    };
+    let yr = if (ymax - ymin).abs() < 1e-12 {
+        1.0
+    } else {
+        ymax - ymin
+    };
     let px = |x: f64| margin + (x - xmin) / xr * (width - 2.0 * margin);
     let py = |y: f64| height - margin - (y - ymin) / yr * (height - 2.0 * margin);
     let mut points = String::new();
@@ -4152,12 +4497,28 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
         path = path.replace('/', "\\");
     }
     if let Some(parent) = std::path::Path::new(&path).parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| LangError::coded(format!("Cannot write plot: {e}."), 0, "PlotFileError", "TypeMismatch"))?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            LangError::coded(
+                format!("Cannot write plot: {e}."),
+                0,
+                "PlotFileError",
+                "TypeMismatch",
+            )
+        })?;
     }
-    std::fs::write(&path, &svg)
-        .map_err(|e| LangError::coded(format!("Cannot write plot: {e}."), 0, "PlotFileError", "TypeMismatch"))?;
-    engine.capture_plot(PlotCapture { path: path.clone(), title, svg });
+    std::fs::write(&path, &svg).map_err(|e| {
+        LangError::coded(
+            format!("Cannot write plot: {e}."),
+            0,
+            "PlotFileError",
+            "TypeMismatch",
+        )
+    })?;
+    engine.capture_plot(PlotCapture {
+        path: path.clone(),
+        title,
+        svg,
+    });
     Ok(Value::Text(path))
 }
 
@@ -4340,9 +4701,10 @@ fn dsp_to_real(value: &Value) -> Result<Real, LangError> {
 fn dsp_to_complex(value: &Value) -> Result<(Real, Real), LangError> {
     match value {
         Value::Complex(re, im) => Ok((re.clone(), im.clone())),
-        Value::Natural(_) | Value::Integer(_) | Value::Real(_) => {
-            Ok((as_real(value).expect("a numeric value converts to Real"), Real::zero()))
-        }
+        Value::Natural(_) | Value::Integer(_) | Value::Real(_) => Ok((
+            as_real(value).expect("a numeric value converts to Real"),
+            Real::zero(),
+        )),
         other => Err(LangError::plain(format!(
             "DSP builtins expect numeric/complex elements, but got '{}'.",
             dsp_payload_type_name(other)
@@ -4359,7 +4721,7 @@ fn dsp_to_complex_array(value: &Value) -> Result<Vec<(Real, Real)>, LangError> {
         _ => {
             return Err(LangError::plain(
                 "DSP builtins expect an array argument, but got a scalar.",
-            ))
+            ));
         }
     };
     let mut out = Vec::with_capacity(items.len());
@@ -4541,8 +4903,15 @@ fn dsp_lreal128_convertible(value: &Real) -> bool {
         digits.push_str(integer.trim_start_matches('0'));
         digits.push_str(prefix);
         digits.push_str(period);
-        let magnitude = if digits.is_empty() { Nat::zero() } else { Nat::from_decimal(&digits).unwrap_or_else(Nat::zero) };
-        (magnitude, -((prefix.chars().count() + period.chars().count()) as i64))
+        let magnitude = if digits.is_empty() {
+            Nat::zero()
+        } else {
+            Nat::from_decimal(&digits).unwrap_or_else(Nat::zero)
+        };
+        (
+            magnitude,
+            -((prefix.chars().count() + period.chars().count()) as i64),
+        )
     } else {
         match dsp_finite_decimal_parts(value) {
             Some(parts) => parts,
@@ -4605,7 +4974,11 @@ fn dsp_lreal128_division_render(numerator: &Real, divisor: i64) -> Option<String
         digits.clone()
     };
     let split_at = padded.len().saturating_sub(frac_len);
-    let int_part = if split_at == 0 { "0" } else { &padded[..split_at] };
+    let int_part = if split_at == 0 {
+        "0"
+    } else {
+        &padded[..split_at]
+    };
     let digit_at = |position: usize| -> char {
         let digits_len = digits.len() as i64;
         let frac_len = frac_len as i64;
@@ -4622,8 +4995,14 @@ fn dsp_lreal128_division_render(numerator: &Real, divisor: i64) -> Option<String
         }
     };
     let non_repeating: String = (0..period_start).map(digit_at).collect();
-    let period: String = (0..period_length).map(|offset| digit_at(period_start + offset)).collect();
-    let sign = if numerator.cmp(&Real::zero()) == std::cmp::Ordering::Less { "-" } else { "" };
+    let period: String = (0..period_length)
+        .map(|offset| digit_at(period_start + offset))
+        .collect();
+    let sign = if numerator.cmp(&Real::zero()) == std::cmp::Ordering::Less {
+        "-"
+    } else {
+        ""
+    };
     Some(format!("{sign}{int_part}.{non_repeating}({period})"))
 }
 
@@ -4726,7 +5105,11 @@ fn dsp_impulse(args: &[Value]) -> Result<Value, LangError> {
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
         out.push(dsp_complex(
-            if i == 0 { Real::from_i64(1) } else { Real::zero() },
+            if i == 0 {
+                Real::from_i64(1)
+            } else {
+                Real::zero()
+            },
             Real::zero(),
         ));
     }
@@ -4755,7 +5138,10 @@ fn dsp_exponential(engine: &Engine, args: &[Value]) -> Result<Value, LangError> 
     let digits = engine.dsp_precision();
     let mut out = Vec::with_capacity(n);
     for k in 0..n {
-        let z = (base.0.mul(&dsp_real(k as i64)), base.1.mul(&dsp_real(k as i64)));
+        let z = (
+            base.0.mul(&dsp_real(k as i64)),
+            base.1.mul(&dsp_real(k as i64)),
+        );
         let sample = dsp_complex_exp(&z, digits, engine.display_precision());
         out.push(dsp_complex(sample.0, sample.1));
     }
@@ -4810,7 +5196,10 @@ fn dsp_powerseries(engine: &Engine, args: &[Value]) -> Result<Value, LangError> 
 fn dsp_noise(engine: &Engine, args: &[Value]) -> Result<Value, LangError> {
     dsp_arity("noise", args.len(), 3, 4)?;
     let (seed, n) = if args.len() == 3 {
-        (0i32, dsp_integer(&args[2], "noise", "n", 3, DspIntBounds::NonNegative)?)
+        (
+            0i32,
+            dsp_integer(&args[2], "noise", "n", 3, DspIntBounds::NonNegative)?,
+        )
     } else {
         (
             dsp_integer(&args[2], "noise", "seed", 3, DspIntBounds::Seed)? as i32,
@@ -4852,7 +5241,11 @@ impl DspRandom {
 
     fn new(seed: i32) -> DspRandom {
         let mut seed_array = [0i32; 56];
-        let subtraction = if seed == i32::MIN { Self::MBIG } else { seed.abs() };
+        let subtraction = if seed == i32::MIN {
+            Self::MBIG
+        } else {
+            seed.abs()
+        };
         let mut mj = Self::MSEED.wrapping_sub(subtraction);
         seed_array[55] = mj;
         let mut mk = 1i32;
@@ -4873,7 +5266,11 @@ impl DspRandom {
                 }
             }
         }
-        DspRandom { seed_array, inext: 0, inextp: 21 }
+        DspRandom {
+            seed_array,
+            inext: 0,
+            inextp: 21,
+        }
     }
 
     fn internal_sample(&mut self) -> i32 {
@@ -4887,8 +5284,8 @@ impl DspRandom {
         if loc_inextp >= 56 {
             loc_inextp = 1;
         }
-        let mut ret = self.seed_array[loc_inext as usize]
-            .wrapping_sub(self.seed_array[loc_inextp as usize]);
+        let mut ret =
+            self.seed_array[loc_inext as usize].wrapping_sub(self.seed_array[loc_inextp as usize]);
         if ret == Self::MBIG {
             ret -= 1;
         }
@@ -4954,9 +5351,8 @@ fn dsp_divide_non_periodic(left: &Real, right: &Real, frac_digits: usize) -> Opt
     }
     let (left_num, left_den) = left.to_rational();
     let (right_num, right_den) = right.to_rational();
-    let numerator = left_num.mul(
-        &Int::from_decimal(&right_den.to_decimal()).expect("a natural decimal is an Int"),
-    );
+    let numerator = left_num
+        .mul(&Int::from_decimal(&right_den.to_decimal()).expect("a natural decimal is an Int"));
     let denominator = left_den.mul(right_num.magnitude());
     let negative = numerator.is_negative();
     // The reference divides the two INTEGER magnitudes and then shifts by the operands' own
@@ -5013,8 +5409,7 @@ fn dsp_exp_taylor(y: &Real, guard: usize) -> Real {
     let mut k: i64 = 1;
     loop {
         let numerator = term.mul(y);
-        term = dsp_divide_non_periodic(&numerator, &dsp_real(k), guard)
-            .unwrap_or_else(Real::zero);
+        term = dsp_divide_non_periodic(&numerator, &dsp_real(k), guard).unwrap_or_else(Real::zero);
         sum = sum.add(&term);
         if dsp_is_below_guard(&term, guard) {
             break;
@@ -5063,11 +5458,7 @@ fn dsp_trig_integer_digits(value: &Real) -> usize {
     }
     let integer = value.abs().to_decimal_fixed(0);
     let digits = integer.trim_start_matches('-').trim_start_matches('0');
-    if digits.is_empty() {
-        0
-    } else {
-        digits.len()
-    }
+    if digits.is_empty() { 0 } else { digits.len() }
 }
 
 /// Real.ReduceToTwoPi: subtract the whole number of turns without truncating small angles.
@@ -5089,9 +5480,8 @@ fn dsp_reduce_to_two_pi(value: &Real, two_pi: &Real) -> Real {
 fn dsp_whole_quotient(left: &Real, right: &Real) -> Real {
     let (left_num, left_den) = left.to_rational();
     let (right_num, right_den) = right.to_rational();
-    let numerator = left_num.mul(
-        &Int::from_decimal(&right_den.to_decimal()).expect("a natural decimal is an Int"),
-    );
+    let numerator = left_num
+        .mul(&Int::from_decimal(&right_den.to_decimal()).expect("a natural decimal is an Int"));
     let denominator = left_den.mul(right_num.magnitude());
     let (quotient, _) = numerator
         .magnitude()
@@ -5170,12 +5560,8 @@ fn dsp_sin_taylor(x: &Real, guard: usize) -> Real {
     let mut k: i64 = 1;
     loop {
         let numerator = term.mul(&x2).neg();
-        term = dsp_divide_non_periodic(
-            &numerator,
-            &dsp_real((2 * k) * (2 * k + 1)),
-            guard,
-        )
-        .unwrap_or_else(Real::zero);
+        term = dsp_divide_non_periodic(&numerator, &dsp_real((2 * k) * (2 * k + 1)), guard)
+            .unwrap_or_else(Real::zero);
         sum = sum.add(&term);
         if dsp_is_below_guard(&term, guard) {
             break;
@@ -5195,12 +5581,8 @@ fn dsp_cos_taylor(x: &Real, guard: usize) -> Real {
     let mut k: i64 = 1;
     loop {
         let numerator = term.mul(&x2).neg();
-        term = dsp_divide_non_periodic(
-            &numerator,
-            &dsp_real((2 * k - 1) * (2 * k)),
-            guard,
-        )
-        .unwrap_or_else(Real::zero);
+        term = dsp_divide_non_periodic(&numerator, &dsp_real((2 * k - 1) * (2 * k)), guard)
+            .unwrap_or_else(Real::zero);
         sum = sum.add(&term);
         if dsp_is_below_guard(&term, guard) {
             break;
@@ -5229,9 +5611,7 @@ fn dsp_real_cos(value: &Real, digits: usize, ambient: usize, publish: usize) -> 
     let pi_places = integer_digits + dsp_argument_places(value) + digits + 12;
     let pi = dsp_fetch_pi(pi_places, working);
     let two_pi = pi.mul(&dsp_real(2));
-    let half_pi = pi
-        .div(&dsp_real(2), working)
-        .unwrap_or_else(Real::zero);
+    let half_pi = pi.div(&dsp_real(2), working).unwrap_or_else(Real::zero);
     x = dsp_reduce_to_two_pi(value, &two_pi);
     if let Some((_, cos)) = dsp_try_special_angle(&x, &pi, working) {
         return cos;
@@ -5278,9 +5658,7 @@ fn dsp_real_sin(value: &Real, digits: usize, publish: usize) -> Real {
     let pi_places = integer_digits + dsp_argument_places(value) + digits + 12;
     let pi = dsp_fetch_pi(pi_places, working);
     let two_pi = pi.mul(&dsp_real(2));
-    let half_pi = pi
-        .div(&dsp_real(2), working)
-        .unwrap_or_else(Real::zero);
+    let half_pi = pi.div(&dsp_real(2), working).unwrap_or_else(Real::zero);
     x = dsp_reduce_to_two_pi(value, &two_pi);
     if let Some((sin, _)) = dsp_try_special_angle(&x, &pi, working) {
         return sin;
@@ -5297,7 +5675,9 @@ fn dsp_real_sin(value: &Real, digits: usize, publish: usize) -> Real {
         x = two_pi.sub(&x);
         negative = true;
     }
-    let sin = dsp_sin_taylor(&x, guard).mark_inexact().truncated_frac(publish);
+    let sin = dsp_sin_taylor(&x, guard)
+        .mark_inexact()
+        .truncated_frac(publish);
     if negative { sin.neg() } else { sin }
 }
 
@@ -5603,7 +5983,10 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
                         if k >= 0 {
                             let new_exp = Sym::num(k + 1);
                             let denom = Sym::num(k + 1);
-                            return Some(Sym::mul(Sym::pow(Sym::sym(var), new_exp), Sym::pow(denom, Sym::num(-1))));
+                            return Some(Sym::mul(
+                                Sym::pow(Sym::sym(var), new_exp),
+                                Sym::pow(denom, Sym::num(-1)),
+                            ));
                         }
                     }
                 }
@@ -5703,7 +6086,10 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
                         if base.as_ref() == &Sym::sym(var) && exp.as_ref() == &Sym::num(2) {
                             outer = match name.as_str() {
                                 "cos" => Some(Sym::Fun("sin".to_string(), vec![args[0].clone()])),
-                                "sin" => Some(Sym::neg(Sym::Fun("cos".to_string(), vec![args[0].clone()]))),
+                                "sin" => Some(Sym::neg(Sym::Fun(
+                                    "cos".to_string(),
+                                    vec![args[0].clone()],
+                                ))),
                                 "exp" => Some(Sym::Fun("exp".to_string(), vec![args[0].clone()])),
                                 _ => None,
                             };
@@ -5813,17 +6199,16 @@ fn limit_at(f: &Sym, var: &str, at_infinity: bool) -> Option<Sym> {
     if !at_infinity {
         let substituted = lovelace_symbolics::substitute(f, var, &Sym::num(0));
         if !substituted.contains(var) {
-            if let Ok(crate::numeric::Num::Exact(value)) = crate::numeric::evaluate(&substituted, 30) {
+            if let Ok(crate::numeric::Num::Exact(value)) =
+                crate::numeric::evaluate(&substituted, 30)
+            {
                 return Some(Sym::Num(value));
             }
         }
     }
     let series = if at_infinity {
-        let substituted = lovelace_symbolics::substitute(
-            f,
-            var,
-            &Sym::pow(Sym::sym("t"), Sym::num(-1)),
-        );
+        let substituted =
+            lovelace_symbolics::substitute(f, var, &Sym::pow(Sym::sym("t"), Sym::num(-1)));
         lovelace_symbolics::series(&substituted, "t", 6)
     } else {
         lovelace_symbolics::series(f, var, 6)
@@ -5881,11 +6266,8 @@ fn limit_is_undecided(f: &Sym, var: &str, at_infinity: bool) -> bool {
         return false;
     }
     let series = if at_infinity {
-        let substituted = lovelace_symbolics::substitute(
-            f,
-            var,
-            &Sym::pow(Sym::sym("t"), Sym::num(-1)),
-        );
+        let substituted =
+            lovelace_symbolics::substitute(f, var, &Sym::pow(Sym::sym("t"), Sym::num(-1)));
         lovelace_symbolics::series(&substituted, "t", 6)
     } else {
         lovelace_symbolics::series(f, var, 6)
@@ -5941,8 +6323,8 @@ fn exponential_family_limit(
     // The cofactor is a RATIO (x * a/x -> a) and the product algebra deliberately keeps x*x^-1
     // (cancelling needs a nonzero assumption). The limit only needs the cancelled form, so try
     // the exact quotient cancellation first and the reciprocal-pair cancellation after it.
-    let cancelled = lovelace_symbolics::cancel(&product)
-        .or_else(|| cancel_var_reciprocal(&product, var));
+    let cancelled =
+        lovelace_symbolics::cancel(&product).or_else(|| cancel_var_reciprocal(&product, var));
     let cofactor = match &cancelled {
         Some(simplified) => limit_at(simplified, var, at_infinity),
         None => limit_at(&product, var, at_infinity),
@@ -6068,11 +6450,8 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
     }
     let series: Option<Series> = if at_infinity {
         let t = "t";
-        let substituted = lovelace_symbolics::substitute(
-            f,
-            var,
-            &Sym::pow(Sym::sym(t), Sym::num(-1)),
-        );
+        let substituted =
+            lovelace_symbolics::substitute(f, var, &Sym::pow(Sym::sym(t), Sym::num(-1)));
         lovelace_symbolics::series(&substituted, t, 8)
     } else {
         lovelace_symbolics::series(&shifted, var, 8)
@@ -6095,7 +6474,16 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
         };
         let diag = diagnostic("limit.unevaluated", "UnsupportedOperation", message);
         return limit_record(
-            "Unevaluated", empty.clone(), empty.clone(), empty.clone(), Vec::new(), empty.clone(), Vec::new(), Vec::new(), Value::Text("None".to_string()), vec![diag],
+            "Unevaluated",
+            empty.clone(),
+            empty.clone(),
+            empty.clone(),
+            Vec::new(),
+            empty.clone(),
+            Vec::new(),
+            Vec::new(),
+            Value::Text("None".to_string()),
+            vec![diag],
         );
     }
     let (min_exp, coeff) = ser[0].clone();
@@ -6118,11 +6506,24 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
         Side::Both => {
             if !odd {
                 return limit_record(
-                    if positive { "PlusInfinity" } else { "MinusInfinity" },
+                    if positive {
+                        "PlusInfinity"
+                    } else {
+                        "MinusInfinity"
+                    },
                     Value::Boolean(true),
-                    Value::Symbolic(if positive { Sym::Fun("inf".to_string(), Vec::new()) } else { Sym::neg(Sym::Fun("inf".to_string(), Vec::new())) }),
-                    empty.clone(), Vec::new(), empty.clone(), Vec::new(), Vec::new(),
-                    Value::Text("Exact".to_string()), Vec::new(),
+                    Value::Symbolic(if positive {
+                        Sym::Fun("inf".to_string(), Vec::new())
+                    } else {
+                        Sym::neg(Sym::Fun("inf".to_string(), Vec::new()))
+                    }),
+                    empty.clone(),
+                    Vec::new(),
+                    empty.clone(),
+                    Vec::new(),
+                    Vec::new(),
+                    Value::Text("Exact".to_string()),
+                    Vec::new(),
                 );
             }
             limit_record(
@@ -6139,18 +6540,36 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
             )
         }
         Side::Right => limit_record(
-            if positive { "PlusInfinity" } else { "MinusInfinity" },
+            if positive {
+                "PlusInfinity"
+            } else {
+                "MinusInfinity"
+            },
             Value::Boolean(true),
             inf_text(true),
-            empty.clone(), Vec::new(), empty.clone(), Vec::new(), Vec::new(),
-            Value::Text("Exact".to_string()), Vec::new(),
+            empty.clone(),
+            Vec::new(),
+            empty.clone(),
+            Vec::new(),
+            Vec::new(),
+            Value::Text("Exact".to_string()),
+            Vec::new(),
         ),
         Side::Left => limit_record(
-            if (positive && odd) || (!positive && !odd) { "MinusInfinity" } else { "PlusInfinity" },
+            if (positive && odd) || (!positive && !odd) {
+                "MinusInfinity"
+            } else {
+                "PlusInfinity"
+            },
             Value::Boolean(true),
             inf_text(false),
-            empty.clone(), Vec::new(), empty.clone(), Vec::new(), Vec::new(),
-            Value::Text("Exact".to_string()), Vec::new(),
+            empty.clone(),
+            Vec::new(),
+            empty.clone(),
+            Vec::new(),
+            Vec::new(),
+            Value::Text("Exact".to_string()),
+            Vec::new(),
         ),
     }
 }
@@ -6193,11 +6612,20 @@ fn limit_record(
             ("exists".to_string(), exists),
             ("value".to_string(), value),
             ("left".to_string(), left),
-            ("left_conditions".to_string(), Value::Vector(left_conditions)),
+            (
+                "left_conditions".to_string(),
+                Value::Vector(left_conditions),
+            ),
             ("right".to_string(), right),
-            ("right_conditions".to_string(), Value::Vector(right_conditions)),
+            (
+                "right_conditions".to_string(),
+                Value::Vector(right_conditions),
+            ),
             ("conditions".to_string(), Value::Vector(conditions)),
-            ("exactness".to_string(), enum_value("SolutionExactness", &exactness_text)),
+            (
+                "exactness".to_string(),
+                enum_value("SolutionExactness", &exactness_text),
+            ),
             ("diagnostics".to_string(), Value::Vector(diagnostics)),
         ],
     )
@@ -6304,7 +6732,9 @@ fn imaginary_constant() -> Sym {
 /// The numeric value of a constant expression at the solver's 40-digit working precision, or None
 /// when the expression is symbolic. The reference's Evaluation.ConstantToNum over the real tier.
 fn constant_real(c: &Sym) -> Option<Real> {
-    crate::numeric::evaluate(c, 40).ok().and_then(|num| num.to_real(40))
+    crate::numeric::evaluate(c, 40)
+        .ok()
+        .and_then(|num| num.to_real(40))
 }
 
 /// True when the expression mentions the solved variable as a free symbol. Structural on purpose:
@@ -6378,14 +6808,23 @@ fn solution_family(template: Sym, parameter: &str, period: Sym, conditions: Vec<
         "SolutionFamily".to_string(),
         vec![
             ("template".to_string(), Value::Symbolic(template)),
-            ("parameter".to_string(), Value::Symbolic(Sym::sym(parameter))),
+            (
+                "parameter".to_string(),
+                Value::Symbolic(Sym::sym(parameter)),
+            ),
             ("period".to_string(), Value::Symbolic(period)),
-            ("parameter_domain".to_string(), Value::Domain("integer".to_string())),
+            (
+                "parameter_domain".to_string(),
+                Value::Domain("integer".to_string()),
+            ),
             (
                 "conditions".to_string(),
                 Value::Vector(conditions.into_iter().map(Value::Symbolic).collect()),
             ),
-            ("exactness".to_string(), enum_value("SolutionExactness", "ParametricExact")),
+            (
+                "exactness".to_string(),
+                enum_value("SolutionExactness", "ParametricExact"),
+            ),
         ],
     )
 }
@@ -6439,7 +6878,10 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
             Sym::mul(kexpr, pi.clone())
         } else {
             Sym::Add(vec![
-                Sym::mul(Sym::rational(&Int::from_i64(1), &Nat::from_u64(2)), pi.clone()),
+                Sym::mul(
+                    Sym::rational(&Int::from_i64(1), &Nat::from_u64(2)),
+                    pi.clone(),
+                ),
                 Sym::mul(kexpr, pi.clone()),
             ])
         };
@@ -6457,7 +6899,10 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
         };
     }
     // |c| < 1: two families, one per branch.
-    let first = add_terms(vec![principal.clone(), Sym::mul(kexpr.clone(), two_pi.clone())]);
+    let first = add_terms(vec![
+        principal.clone(),
+        Sym::mul(kexpr.clone(), two_pi.clone()),
+    ]);
     let second = if name == "sin" {
         add_terms(vec![
             pi.clone(),
@@ -6547,10 +6992,7 @@ fn unity_roots(n: i64) -> Vec<Sym> {
                 minus_half.clone(),
                 Sym::mul(sqrt3_half.clone(), imaginary_constant()),
             );
-            let omega2 = Sym::sub(
-                minus_half,
-                Sym::mul(sqrt3_half, imaginary_constant()),
-            );
+            let omega2 = Sym::sub(minus_half, Sym::mul(sqrt3_half, imaginary_constant()));
             vec![Sym::num(1), omega, omega2]
         }
         _ => {
@@ -6596,7 +7038,7 @@ fn solve_inverse(h: &Sym, c: &Sym, var: &str, domain: &str, depth: usize) -> Opt
             u = Some(args[0].clone());
             match name.as_str() {
                 "sin" | "cos" | "tan" => {
-                    return Some(solve_periodic(name, &args[0], c, var, domain))
+                    return Some(solve_periodic(name, &args[0], c, var, domain));
                 }
                 "exp" => {
                     // exp(u) = 0 has no solution, and over the reals it needs c > 0.
@@ -6858,11 +7300,7 @@ fn solution_exactness(e: &Sym) -> &'static str {
         || e.has_imaginary_unit()
         || e.has_algebraic_power()
         || e.contains_fun("acos");
-    if algebraic {
-        "AlgebraicExact"
-    } else {
-        "Exact"
-    }
+    if algebraic { "AlgebraicExact" } else { "Exact" }
 }
 
 fn solution_record(value: &Sym, conditions: &[Sym]) -> Value {
@@ -6920,7 +7358,10 @@ fn solve_branch_to_value(engine: &Engine, var: &str, domain: &str, branch: Solve
                     ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
                     ("domain".to_string(), Value::Domain(domain.to_string())),
                     ("complete".to_string(), Value::Boolean(true)),
-                    ("completeness".to_string(), enum_value("Completeness", "Complete")),
+                    (
+                        "completeness".to_string(),
+                        enum_value("Completeness", "Complete"),
+                    ),
                     ("solutions".to_string(), Value::Vector(records)),
                     ("families".to_string(), Value::Vector(families)),
                     (
@@ -6931,8 +7372,14 @@ fn solve_branch_to_value(engine: &Engine, var: &str, domain: &str, branch: Solve
                         "represented_count".to_string(),
                         Value::Integer(Int::from_i64(represented as i64)),
                     ),
-                    ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
-                    ("unrepresented_reason".to_string(), Value::Text(String::new())),
+                    (
+                        "unrepresented_count".to_string(),
+                        Value::Integer(Int::from_i64(0)),
+                    ),
+                    (
+                        "unrepresented_reason".to_string(),
+                        Value::Text(String::new()),
+                    ),
                     ("diagnostics".to_string(), Value::Vector(Vec::new())),
                 ],
             );
@@ -6953,7 +7400,8 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
         return result;
     };
     let mut circular: u64 = 0;
-    if let Some((_, Value::Vector(solutions))) = fields.iter_mut().find(|(key, _)| key == "solutions")
+    if let Some((_, Value::Vector(solutions))) =
+        fields.iter_mut().find(|(key, _)| key == "solutions")
     {
         let before = solutions.len();
         solutions.retain(|entry| match entry {
@@ -6967,7 +7415,8 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
         });
         circular += (before - solutions.len()) as u64;
     }
-    if let Some((_, Value::Vector(families))) = fields.iter_mut().find(|(key, _)| key == "families") {
+    if let Some((_, Value::Vector(families))) = fields.iter_mut().find(|(key, _)| key == "families")
+    {
         let before = families.len();
         families.retain(|entry| match entry {
             Value::Record(_, family_fields) => {
@@ -7004,12 +7453,32 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
         }
     }
     if !solutions_left && !families_left {
-        set_field(&mut fields, "status", enum_value("SolveStatus", "Unevaluated"));
+        set_field(
+            &mut fields,
+            "status",
+            enum_value("SolveStatus", "Unevaluated"),
+        );
         set_field(&mut fields, "complete", Value::Boolean(false));
-        set_field(&mut fields, "completeness", enum_value("Completeness", "Unknown"));
-        set_field(&mut fields, "represented_count", Value::Integer(Int::from_i64(0)));
-        set_field(&mut fields, "unrepresented_count", Value::Integer(Int::from_i64(0)));
-        set_field(&mut fields, "unrepresented_reason", Value::Text(String::new()));
+        set_field(
+            &mut fields,
+            "completeness",
+            enum_value("Completeness", "Unknown"),
+        );
+        set_field(
+            &mut fields,
+            "represented_count",
+            Value::Integer(Int::from_i64(0)),
+        );
+        set_field(
+            &mut fields,
+            "unrepresented_count",
+            Value::Integer(Int::from_i64(0)),
+        );
+        set_field(
+            &mut fields,
+            "unrepresented_reason",
+            Value::Text(String::new()),
+        );
         set_field(
             &mut fields,
             "diagnostics",
@@ -7028,7 +7497,11 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
     };
     set_field(&mut fields, "status", enum_value("SolveStatus", "Partial"));
     set_field(&mut fields, "complete", Value::Boolean(false));
-    set_field(&mut fields, "completeness", enum_value("Completeness", "Partial"));
+    set_field(
+        &mut fields,
+        "completeness",
+        enum_value("Completeness", "Partial"),
+    );
     set_field(
         &mut fields,
         "unrepresented_count",
@@ -7070,7 +7543,10 @@ fn parse_ir_text(text: &str) -> Option<Sym> {
         }
         if let Some(rest) = line.strip_prefix("const ") {
             let inner = rest.trim();
-            if let Some(body) = inner.strip_prefix("(rat ").and_then(|s| s.strip_suffix(')')) {
+            if let Some(body) = inner
+                .strip_prefix("(rat ")
+                .and_then(|s| s.strip_suffix(')'))
+            {
                 let mut parts = body.split_whitespace();
                 let num = parts.next()?;
                 let den = parts.next()?;
@@ -7250,8 +7726,7 @@ fn solve_linear_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(St
         }
         cur
     };
-    let zero_assign: Vec<(String, Sym)> =
-        vars.iter().map(|v| (v.clone(), Sym::num(0))).collect();
+    let zero_assign: Vec<(String, Sym)> = vars.iter().map(|v| (v.clone(), Sym::num(0))).collect();
     let mut rows: Vec<Vec<lovelace_symbolics::Rat>> = Vec::with_capacity(n);
     for equation in equations {
         let constant = match evaluate(equation, &zero_assign) {
@@ -7313,11 +7788,12 @@ fn solve_linear_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(St
             }
         }
     }
-    Some(vec![vars
-        .iter()
-        .enumerate()
-        .map(|(i, name)| (name.clone(), Sym::Num(a[i][n].clone())))
-        .collect()])
+    Some(vec![
+        vars.iter()
+            .enumerate()
+            .map(|(i, name)| (name.clone(), Sym::Num(a[i][n].clone())))
+            .collect(),
+    ])
 }
 
 /// The outcome of a polynomial-system solve, before the wire record is built.
@@ -7400,11 +7876,9 @@ fn solve_system_impl(equations: &[Sym], vars: &[String]) -> SystemOutcome {
     if state.contradictions > 0 && state.unproved == 0 && !state.truncated {
         return SystemOutcome::NoSolutions;
     }
-    SystemOutcome::Unevaluated(
-        state
-            .first_reason
-            .unwrap_or_else(|| "system-solve.elimination-incomplete: the system was not decided.".to_string()),
-    )
+    SystemOutcome::Unevaluated(state.first_reason.unwrap_or_else(|| {
+        "system-solve.elimination-incomplete: the system was not decided.".to_string()
+    }))
 }
 
 fn solve_system_recursive(
@@ -7816,10 +8290,16 @@ fn no_solutions_system() -> Value {
     Value::Record(
         "SystemSolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "NoSolutions")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "NoSolutions"),
+            ),
             ("domain".to_string(), Value::Domain("complex".to_string())),
             ("complete".to_string(), Value::Boolean(true)),
-            ("completeness".to_string(), enum_value("Completeness", "Complete")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Complete"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             ("diagnostics".to_string(), Value::Vector(Vec::new())),
         ],
@@ -7866,10 +8346,11 @@ fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
     let last = vars.last().cloned().unwrap_or_default();
     let first = vars.first().cloned().unwrap_or_default();
     sorted.sort_by(|a, b| {
-        let compare = |x: Option<lovelace_symbolics::Rat>, y: Option<lovelace_symbolics::Rat>| match (x, y) {
-            (Some(p), Some(q)) => p.cmp(&q),
-            _ => std::cmp::Ordering::Equal,
-        };
+        let compare =
+            |x: Option<lovelace_symbolics::Rat>, y: Option<lovelace_symbolics::Rat>| match (x, y) {
+                (Some(p), Some(q)) => p.cmp(&q),
+                _ => std::cmp::Ordering::Equal,
+            };
         let by_last = compare(value_of(a, &last), value_of(b, &last));
         if by_last != std::cmp::Ordering::Equal {
             return by_last;
@@ -7901,7 +8382,10 @@ fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
                 vec![
                     ("bindings".to_string(), Value::Vector(bindings)),
                     ("conditions".to_string(), Value::Vector(Vec::new())),
-                    ("exactness".to_string(), enum_value("SolutionExactness", "Exact")),
+                    (
+                        "exactness".to_string(),
+                        enum_value("SolutionExactness", "Exact"),
+                    ),
                 ],
             )
         })
@@ -7912,7 +8396,10 @@ fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
             ("status".to_string(), enum_value("SolveStatus", "Solved")),
             ("domain".to_string(), Value::Domain("complex".to_string())),
             ("complete".to_string(), Value::Boolean(true)),
-            ("completeness".to_string(), enum_value("Completeness", "Complete")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Complete"),
+            ),
             ("solutions".to_string(), Value::Vector(records)),
             ("diagnostics".to_string(), Value::Vector(Vec::new())),
         ],
@@ -8016,7 +8503,11 @@ fn polynomial_is_integral(e: &Sym) -> bool {
 /// Emits a fresh Constant node over the deduplicated constant table. Literal nodes are never
 /// cached: the reference's lowering adds one node per literal occurrence, so two occurrences of
 /// the same value share a const entry but not a node (see the PowInt exponent path).
-fn emit_constant_node(value: &lovelace_symbolics::Rat, constants: &mut Vec<String>, nodes: &mut Vec<String>) -> usize {
+fn emit_constant_node(
+    value: &lovelace_symbolics::Rat,
+    constants: &mut Vec<String>,
+    nodes: &mut Vec<String>,
+) -> usize {
     let ci = constant_index(value, constants);
     nodes.push(format!("Constant 0 {}", ci));
     nodes.len() - 1
@@ -8149,20 +8640,39 @@ fn no_solutions_result(var: &str, domain: &str, message: &str) -> Value {
     Value::Record(
         "SolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "NoSolutions")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "NoSolutions"),
+            ),
             ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
             ("domain".to_string(), Value::Domain(domain.to_string())),
             ("complete".to_string(), Value::Boolean(true)),
-            ("completeness".to_string(), enum_value("Completeness", "Complete")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Complete"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             ("families".to_string(), Value::Vector(Vec::new())),
             ("common_conditions".to_string(), Value::Vector(Vec::new())),
-            ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_reason".to_string(), Value::Text(String::new())),
+            (
+                "represented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_reason".to_string(),
+                Value::Text(String::new()),
+            ),
             (
                 "diagnostics".to_string(),
-                Value::Vector(vec![diagnostic("solve.no-solutions", "NoSolution", message)]),
+                Value::Vector(vec![diagnostic(
+                    "solve.no-solutions",
+                    "NoSolution",
+                    message,
+                )]),
             ),
         ],
     )
@@ -8174,17 +8684,32 @@ fn unevaluated_solve_result(var: &str, domain: &str, code: &str, message: &str) 
     Value::Record(
         "SolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "Unevaluated")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "Unevaluated"),
+            ),
             ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
             ("domain".to_string(), Value::Domain(domain.to_string())),
             ("complete".to_string(), Value::Boolean(false)),
-            ("completeness".to_string(), enum_value("Completeness", "Unknown")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Unknown"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             ("families".to_string(), Value::Vector(Vec::new())),
             ("common_conditions".to_string(), Value::Vector(Vec::new())),
-            ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_reason".to_string(), Value::Text(String::new())),
+            (
+                "represented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_reason".to_string(),
+                Value::Text(String::new()),
+            ),
             (
                 "diagnostics".to_string(),
                 Value::Vector(vec![diagnostic(code, "UnsupportedOperation", message)]),
@@ -8201,15 +8726,24 @@ fn unevaluated_unrepresented_result(var: &str, domain: &str, unrepresented: i64)
     Value::Record(
         "SolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "Unevaluated")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "Unevaluated"),
+            ),
             ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
             ("domain".to_string(), Value::Domain(domain.to_string())),
             ("complete".to_string(), Value::Boolean(false)),
-            ("completeness".to_string(), enum_value("Completeness", "Unknown")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Unknown"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             ("families".to_string(), Value::Vector(Vec::new())),
             ("common_conditions".to_string(), Value::Vector(Vec::new())),
-            ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
+            (
+                "represented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
             (
                 "unrepresented_count".to_string(),
                 Value::Integer(Int::from_i64(unrepresented)),
@@ -8235,10 +8769,16 @@ fn unevaluated_system_result(message: &str) -> Value {
     Value::Record(
         "SystemSolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "Unevaluated")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "Unevaluated"),
+            ),
             ("domain".to_string(), Value::Domain("complex".to_string())),
             ("complete".to_string(), Value::Boolean(false)),
-            ("completeness".to_string(), enum_value("Completeness", "Unknown")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Unknown"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             (
                 "diagnostics".to_string(),
@@ -8269,7 +8809,10 @@ fn power_branch_outcome(
             SolveOutcome::Partial(roots) if roots.is_empty() => SolveOutcome::NoRealSolutions,
             SolveOutcome::Unevaluated => SolveOutcome::NoRealSolutions,
             SolveOutcome::RootExpressions(exprs) => {
-                let real: Vec<_> = exprs.into_iter().filter(|e| !e.has_imaginary_unit()).collect();
+                let real: Vec<_> = exprs
+                    .into_iter()
+                    .filter(|e| !e.has_imaginary_unit())
+                    .collect();
                 if real.is_empty() {
                     SolveOutcome::NoRealSolutions
                 } else {
@@ -8332,17 +8875,32 @@ fn no_solutions_under_assumptions(var: &str, domain: &str) -> Value {
     Value::Record(
         "SolveResult".to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "NoSolutions")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "NoSolutions"),
+            ),
             ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
             ("domain".to_string(), Value::Domain(domain.to_string())),
             ("complete".to_string(), Value::Boolean(true)),
-            ("completeness".to_string(), enum_value("Completeness", "Complete")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Complete"),
+            ),
             ("solutions".to_string(), Value::Vector(Vec::new())),
             ("families".to_string(), Value::Vector(Vec::new())),
             ("common_conditions".to_string(), Value::Vector(Vec::new())),
-            ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
-            ("unrepresented_reason".to_string(), Value::Text(String::new())),
+            (
+                "represented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_count".to_string(),
+                Value::Integer(Int::from_i64(0)),
+            ),
+            (
+                "unrepresented_reason".to_string(),
+                Value::Text(String::new()),
+            ),
             ("diagnostics".to_string(), Value::Vector(Vec::new())),
         ],
     )
@@ -8353,14 +8911,19 @@ fn no_solutions_under_assumptions(var: &str, domain: &str) -> Value {
 /// factors are not complex (the shapes `i`, `-i` and `i*sqrt(2)` take).
 fn provably_non_real(value: &Sym) -> bool {
     fn is_i(e: &Sym) -> bool {
-        matches!(e, Sym::Sym(name) if name == "i") || matches!(e, Sym::Fun(name, args) if name == "i" && args.is_empty())
+        matches!(e, Sym::Sym(name) if name == "i")
+            || matches!(e, Sym::Fun(name, args) if name == "i" && args.is_empty())
     }
     match value {
         Sym::Sym(name) => name == "i",
         Sym::Fun(name, args) => name == "i" && args.is_empty(),
         Sym::Mul(factors) => {
             factors.iter().filter(|factor| is_i(factor)).count() == 1
-                && factors.iter().filter(|factor| factor.has_imaginary_unit()).count() == 1
+                && factors
+                    .iter()
+                    .filter(|factor| factor.has_imaginary_unit())
+                    .count()
+                    == 1
         }
         _ => false,
     }
@@ -8453,13 +9016,22 @@ fn filter_roots(
     (kept, emptied)
 }
 
-fn root_admitted(value: &Sym, var: &str, atoms: &[Sym], domains: &[String], undecided: &mut Vec<Sym>) -> bool {
+fn root_admitted(
+    value: &Sym,
+    var: &str,
+    atoms: &[Sym],
+    domains: &[String],
+    undecided: &mut Vec<Sym>,
+) -> bool {
     for atom in atoms {
         match judge_atom(atom, var, value) {
             Some(true) => {}
             Some(false) => return false,
             None => {
-                if !undecided.iter().any(|existing| existing.to_string() == atom.to_string()) {
+                if !undecided
+                    .iter()
+                    .any(|existing| existing.to_string() == atom.to_string())
+                {
                     undecided.push(atom.clone());
                 }
             }
@@ -8496,18 +9068,32 @@ fn solve_with_assumptions(
             if emptied {
                 return no_solutions_under_assumptions(var, domain);
             }
-            solve_result(var, domain, SolveOutcome::Roots(kept), condition, &undecided)
+            solve_result(
+                var,
+                domain,
+                SolveOutcome::Roots(kept),
+                condition,
+                &undecided,
+            )
         }
         SolveOutcome::RootExpressions(expressions) => {
-            let (kept, emptied) = filter_expressions(expressions, var, &atoms, &domains, &mut undecided);
+            let (kept, emptied) =
+                filter_expressions(expressions, var, &atoms, &domains, &mut undecided);
             if emptied {
                 return no_solutions_under_assumptions(var, domain);
             }
-            solve_result(var, domain, SolveOutcome::RootExpressions(kept), condition, &undecided)
+            solve_result(
+                var,
+                domain,
+                SolveOutcome::RootExpressions(kept),
+                condition,
+                &undecided,
+            )
         }
         SolveOutcome::RootExpressionsCount(expressions, count) => {
             let before = expressions.len() as u64;
-            let (kept, emptied) = filter_expressions(expressions, var, &atoms, &domains, &mut undecided);
+            let (kept, emptied) =
+                filter_expressions(expressions, var, &atoms, &domains, &mut undecided);
             if emptied {
                 return no_solutions_under_assumptions(var, domain);
             }
@@ -8550,11 +9136,13 @@ fn family_with_assumptions(engine: &Engine, var: &str, family: Value) -> Value {
     let Value::Record(name, mut fields) = family else {
         return family;
     };
-    if let Some((_, Value::Vector(families))) = fields.iter_mut().find(|(key, _)| key == "families") {
+    if let Some((_, Value::Vector(families))) = fields.iter_mut().find(|(key, _)| key == "families")
+    {
         for entry in families.iter_mut() {
             if let Value::Record(_, family_fields) = entry {
-                if let Some((_, Value::Vector(conditions))) =
-                    family_fields.iter_mut().find(|(key, _)| key == "conditions")
+                if let Some((_, Value::Vector(conditions))) = family_fields
+                    .iter_mut()
+                    .find(|(key, _)| key == "conditions")
                 {
                     for atom in &atoms {
                         conditions.push(Value::Symbolic(atom.clone()));
@@ -8596,8 +9184,14 @@ fn solve_result(
                     Value::Record(
                         "Solution".to_string(),
                         vec![
-                            ("value".to_string(), Value::Symbolic(lovelace_symbolics::expr_from_rat(&r.value))),
-                            ("conditions".to_string(), solution_conditions(&condition, extra_conditions)),
+                            (
+                                "value".to_string(),
+                                Value::Symbolic(lovelace_symbolics::expr_from_rat(&r.value)),
+                            ),
+                            (
+                                "conditions".to_string(),
+                                solution_conditions(&condition, extra_conditions),
+                            ),
                             // The factorization's multiplicity, not a hard-coded 1: a repeated
                             // root is ONE solution carrying how many times it divides the
                             // polynomial (the oracle's x^2 - 2x + 1 is multiplicity 2).
@@ -8605,7 +9199,10 @@ fn solve_result(
                                 "multiplicity".to_string(),
                                 Value::Integer(Int::from_i64(r.multiplicity as i64)),
                             ),
-                            ("exactness".to_string(), enum_value("SolutionExactness", "Exact")),
+                            (
+                                "exactness".to_string(),
+                                enum_value("SolutionExactness", "Exact"),
+                            ),
                         ],
                     )
                 })
@@ -8659,7 +9256,10 @@ fn solve_result(
                         "Solution".to_string(),
                         vec![
                             ("value".to_string(), Value::Symbolic(e.clone())),
-                            ("conditions".to_string(), solution_conditions(&condition, extra_conditions)),
+                            (
+                                "conditions".to_string(),
+                                solution_conditions(&condition, extra_conditions),
+                            ),
                             ("multiplicity".to_string(), Value::Integer(Int::from_i64(1))),
                             (
                                 "exactness".to_string(),
@@ -8689,9 +9289,15 @@ fn solve_result(
                         "Solution".to_string(),
                         vec![
                             ("value".to_string(), Value::Symbolic(e.clone())),
-                            ("conditions".to_string(), solution_conditions(&condition, extra_conditions)),
+                            (
+                                "conditions".to_string(),
+                                solution_conditions(&condition, extra_conditions),
+                            ),
                             ("multiplicity".to_string(), Value::Integer(Int::from_i64(1))),
-                            ("exactness".to_string(), enum_value("SolutionExactness", "AlgebraicExact")),
+                            (
+                                "exactness".to_string(),
+                                enum_value("SolutionExactness", "AlgebraicExact"),
+                            ),
                         ],
                     )
                 })
@@ -8715,10 +9321,16 @@ fn solve_result(
                     Value::Record(
                         "Solution".to_string(),
                         vec![
-                            ("value".to_string(), Value::Symbolic(lovelace_symbolics::expr_from_rat(r))),
+                            (
+                                "value".to_string(),
+                                Value::Symbolic(lovelace_symbolics::expr_from_rat(r)),
+                            ),
                             ("conditions".to_string(), Value::Vector(Vec::new())),
                             ("multiplicity".to_string(), Value::Integer(Int::from_i64(1))),
-                            ("exactness".to_string(), enum_value("SolutionExactness", "Exact")),
+                            (
+                                "exactness".to_string(),
+                                enum_value("SolutionExactness", "Exact"),
+                            ),
                         ],
                     )
                 })
@@ -8759,7 +9371,10 @@ fn solve_result(
             ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
             ("domain".to_string(), Value::Domain(domain.to_string())),
             ("complete".to_string(), Value::Boolean(complete)),
-            ("completeness".to_string(), enum_value("Completeness", completeness)),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", completeness),
+            ),
             ("solutions".to_string(), solutions),
             ("families".to_string(), Value::Vector(Vec::new())),
             (
@@ -8769,14 +9384,22 @@ fn solve_result(
                     None => Vec::new(),
                 }),
             ),
-            ("represented_count".to_string(), Value::Integer(Int::from_i64(represented as i64))),
-            ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(unrepresented as i64))),
-            ("unrepresented_reason".to_string(), Value::Text(unrepresented_reason.to_string())),
+            (
+                "represented_count".to_string(),
+                Value::Integer(Int::from_i64(represented as i64)),
+            ),
+            (
+                "unrepresented_count".to_string(),
+                Value::Integer(Int::from_i64(unrepresented as i64)),
+            ),
+            (
+                "unrepresented_reason".to_string(),
+                Value::Text(unrepresented_reason.to_string()),
+            ),
             ("diagnostics".to_string(), diagnostics),
         ],
     )
 }
-
 
 /// The live capability statement behind capabilities(): the domains the solver's domain argument
 /// accepts and refuses, every refusal class the kernel publishes, and how exact the statement is.
@@ -8793,9 +9416,15 @@ fn capabilities_record() -> Value {
         Value::Record(
             "UnsupportedCapability".to_string(),
             vec![
-                ("operation_class".to_string(), Value::Text(operation_class.to_string())),
+                (
+                    "operation_class".to_string(),
+                    Value::Text(operation_class.to_string()),
+                ),
                 ("code".to_string(), Value::Text(code.to_string())),
-                ("category".to_string(), enum_value("ErrorCategory", category)),
+                (
+                    "category".to_string(),
+                    enum_value("ErrorCategory", category),
+                ),
                 ("message".to_string(), Value::Text(message.to_string())),
                 ("trigger".to_string(), Value::Text(trigger.to_string())),
                 (
@@ -8834,7 +9463,9 @@ fn capabilities_record() -> Value {
                         "UnsupportedOperation",
                         "Non-integer exponents are not yet supported.",
                         "2^(1/2)",
-                        Some("Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0)."),
+                        Some(
+                            "Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).",
+                        ),
                     ),
                     capability(
                         "pow.negative-base-unrepresentable-exponent",
@@ -8842,7 +9473,9 @@ fn capabilities_record() -> Value {
                         "UnsupportedOperation",
                         "Non-integer exponents are not yet supported.",
                         "(-8)^(1/3)",
-                        Some("Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above)."),
+                        Some(
+                            "Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).",
+                        ),
                     ),
                     capability(
                         "solve.unsupported-domain",
@@ -8982,7 +9615,10 @@ fn capabilities_record() -> Value {
                     ),
                 ]),
             ),
-            ("exactness".to_string(), enum_value("CapabilitiesExactness", "BestEffort")),
+            (
+                "exactness".to_string(),
+                enum_value("CapabilitiesExactness", "BestEffort"),
+            ),
         ],
     )
 }
@@ -8998,14 +9634,24 @@ fn matrix_no_solutions(record: &str, payload_field: &str) -> Value {
     Value::Record(
         record.to_string(),
         vec![
-            ("status".to_string(), enum_value("SolveStatus", "NoSolutions")),
+            (
+                "status".to_string(),
+                enum_value("SolveStatus", "NoSolutions"),
+            ),
             ("complete".to_string(), Value::Boolean(true)),
-            ("completeness".to_string(), enum_value("Completeness", "Complete")),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Complete"),
+            ),
             (payload_field.to_string(), Value::Vector(Vec::new())),
             ("conditions".to_string(), Value::Vector(Vec::new())),
             (
                 "diagnostics".to_string(),
-                Value::Vector(vec![diagnostic("matrix.singular", "NoSolution", "matrix is singular")]),
+                Value::Vector(vec![diagnostic(
+                    "matrix.singular",
+                    "NoSolution",
+                    "matrix is singular",
+                )]),
             ),
         ],
     )
@@ -9052,7 +9698,10 @@ fn assumption_condition_leaf(atom: &Assumption) -> Value {
         Assumption::Interval(expression, lower, lower_open, upper, upper_open) => Value::Record(
             "IntervalCondition".to_string(),
             vec![
-                ("expression".to_string(), Value::Symbolic(expression.clone())),
+                (
+                    "expression".to_string(),
+                    Value::Symbolic(expression.clone()),
+                ),
                 (
                     "lower".to_string(),
                     lower.clone().map(Value::Symbolic).unwrap_or(Value::Void),
@@ -9075,11 +9724,7 @@ fn predicate_leaf(subject: Option<Sym>, predicate: SymbolPredicate) -> Value {
         return Value::Void;
     };
     if let Some(op) = Assumption::relation_op(predicate) {
-        return Value::Symbolic(Sym::Rel(
-            op,
-            Box::new(subject),
-            Box::new(Sym::num(0)),
-        ));
+        return Value::Symbolic(Sym::Rel(op, Box::new(subject), Box::new(Sym::num(0))));
     }
     if predicate == SymbolPredicate::Finite {
         return Value::Record(
@@ -9090,7 +9735,10 @@ fn predicate_leaf(subject: Option<Sym>, predicate: SymbolPredicate) -> Value {
     Value::Record(
         "PredicateCondition".to_string(),
         vec![
-            ("predicate".to_string(), Value::Text(predicate.name().to_string())),
+            (
+                "predicate".to_string(),
+                Value::Text(predicate.name().to_string()),
+            ),
             ("expression".to_string(), Value::Symbolic(subject)),
         ],
     )
@@ -9125,7 +9773,10 @@ fn diagnostic(code: &str, category: &str, message: &str) -> Value {
         "Diagnostic".to_string(),
         vec![
             ("code".to_string(), Value::Text(code.to_string())),
-            ("category".to_string(), enum_value("ErrorCategory", category)),
+            (
+                "category".to_string(),
+                enum_value("ErrorCategory", category),
+            ),
             ("message".to_string(), Value::Text(message.to_string())),
             ("recoverable".to_string(), Value::Boolean(true)),
             ("location".to_string(), Value::Void),
@@ -9173,7 +9824,10 @@ fn factor_expr(e: &Sym) -> Sym {
         }
     }
     // Leading coefficient, when it is not one.
-    let leading = coeffs.last().cloned().unwrap_or_else(lovelace_symbolics::Rat::one);
+    let leading = coeffs
+        .last()
+        .cloned()
+        .unwrap_or_else(lovelace_symbolics::Rat::one);
     let mut out: Vec<Sym> = Vec::new();
     if !leading.is_one() {
         out.push(Sym::Num(leading));
@@ -9340,7 +9994,10 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
                     }
                 }
             }
-            Sym::Fun(name, args.into_iter().map(|a| simplify(engine, a)).collect())
+            Sym::Fun(
+                name,
+                args.into_iter().map(|a| simplify(engine, a)).collect(),
+            )
         }
         Sym::Fun(name, args) if name == "exp" && args.len() == 1 => {
             if let Sym::Fun(inner, inner_args) = &args[0] {
@@ -9356,7 +10013,10 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
                     }
                 }
             }
-            Sym::Fun(name, args.into_iter().map(|a| simplify(engine, a)).collect())
+            Sym::Fun(
+                name,
+                args.into_iter().map(|a| simplify(engine, a)).collect(),
+            )
         }
         Sym::Fun(name, args) if name == "log" && args.len() == 1 => {
             if let Sym::Fun(inner, inner_args) = &args[0] {
@@ -9369,13 +10029,14 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
                     return inner_args[0].clone();
                 }
             }
-            Sym::Fun(name, args.into_iter().map(|a| simplify(engine, a)).collect())
+            Sym::Fun(
+                name,
+                args.into_iter().map(|a| simplify(engine, a)).collect(),
+            )
         }
         Sym::Pow(base, exp) if is_square_exp(&exp) => {
             if let Sym::Fun(name, args) = base.as_ref() {
-                if name == "abs"
-                    && args.len() == 1
-                    && engine.assumptions().provably_real(&args[0])
+                if name == "abs" && args.len() == 1 && engine.assumptions().provably_real(&args[0])
                 {
                     // abs(x)^2 = x^2 only for a real x: over C, |z|^2 is not z^2.
                     return Sym::Pow(Box::new(args[0].clone()), exp);
@@ -9454,7 +10115,6 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
     }
 }
 
-
 /// One applied rewrite: the stable rule id, the rule's declared classification, the node it
 /// rewrote, and the conditions the rewrite requires. Provenance, never a second policy.
 struct RewriteStepData {
@@ -9477,7 +10137,10 @@ fn rewrite_step_value(step: RewriteStepData) -> Value {
         "RewriteStep".to_string(),
         vec![
             ("rule_id".to_string(), Value::Text(step.rule_id.to_string())),
-            ("classification".to_string(), enum_value("RuleClassification", step.classification)),
+            (
+                "classification".to_string(),
+                enum_value("RuleClassification", step.classification),
+            ),
             ("before".to_string(), Value::Symbolic(step.before)),
             ("after".to_string(), Value::Symbolic(step.after)),
             (
@@ -9506,7 +10169,10 @@ fn transform_result(
     let (status, conditions, diagnostics) = if unsatisfiable {
         (
             "Unsatisfiable",
-            vec![Value::Record("UnsatisfiableConditions".to_string(), Vec::new())],
+            vec![Value::Record(
+                "UnsatisfiableConditions".to_string(),
+                Vec::new(),
+            )],
             vec![unsatisfiable_conditions_diagnostic()],
         )
     } else if budget_exceeded {
@@ -9530,11 +10196,21 @@ fn transform_result(
             ("expression".to_string(), Value::Symbolic(expression)),
             ("changed".to_string(), Value::Boolean(changed)),
             ("conditions".to_string(), Value::Vector(conditions)),
-            ("steps".to_string(), Value::Vector(steps.into_iter().map(rewrite_step_value).collect())),
-            ("budget_exceeded".to_string(), Value::Boolean(budget_exceeded)),
+            (
+                "steps".to_string(),
+                Value::Vector(steps.into_iter().map(rewrite_step_value).collect()),
+            ),
+            (
+                "budget_exceeded".to_string(),
+                Value::Boolean(budget_exceeded),
+            ),
             (
                 "budget_kind".to_string(),
-                Value::Text(if budget_exceeded { "rewrite_steps".to_string() } else { String::new() }),
+                Value::Text(if budget_exceeded {
+                    "rewrite_steps".to_string()
+                } else {
+                    String::new()
+                }),
             ),
             ("diagnostics".to_string(), Value::Vector(diagnostics)),
         ],
@@ -9556,7 +10232,11 @@ fn conditions_are_satisfiable(engine: &Engine, conditions: &[Value]) -> bool {
         let Sym::Sym(symbol) = lhs.as_ref() else {
             continue;
         };
-        match set.add(Assumption::SymbolRelation(symbol.clone(), *op, (**rhs).clone())) {
+        match set.add(Assumption::SymbolRelation(
+            symbol.clone(),
+            *op,
+            (**rhs).clone(),
+        )) {
             Ok(next) => set = next,
             Err(_) => return false,
         }
@@ -9719,11 +10399,8 @@ fn simplify_traced(
                     if let Sym::Sym(s) = base.as_ref() {
                         if engine.is_positive(s) && budget.step() {
                             let after = Sym::sym(s);
-                            let condition = Sym::Rel(
-                                RelOp::Ge,
-                                Box::new(after.clone()),
-                                Box::new(Sym::num(0)),
-                            );
+                            let condition =
+                                Sym::Rel(RelOp::Ge, Box::new(after.clone()), Box::new(Sym::num(0)));
                             steps.push(RewriteStepData {
                                 rule_id: "pow.sqrt-square-nonnegative",
                                 classification: "Conditional",
@@ -9767,8 +10444,9 @@ fn simplify_traced(
                 if let Sym::Num(n) = exp.as_ref() {
                     if n.to_string() == "-1" {
                         if let Sym::Sym(s) = base.as_ref() {
-                            if let Some(j) =
-                                factors.iter().position(|f| matches!(f, Sym::Sym(name) if name == s))
+                            if let Some(j) = factors
+                                .iter()
+                                .position(|f| matches!(f, Sym::Sym(name) if name == s))
                             {
                                 if j != i {
                                     pair = Some((i, j, s.clone()));
@@ -9788,11 +10466,7 @@ fn simplify_traced(
                         after = Sym::mul(after, f.clone());
                     }
                 }
-                let condition = Sym::Rel(
-                    RelOp::Ne,
-                    Box::new(Sym::sym(&s)),
-                    Box::new(Sym::num(0)),
-                );
+                let condition = Sym::Rel(RelOp::Ne, Box::new(Sym::sym(&s)), Box::new(Sym::num(0)));
                 steps.push(RewriteStepData {
                     rule_id: "rat.cancel-x-over-x",
                     classification: "Conditional",
@@ -9830,7 +10504,10 @@ struct RewriteBudget {
 
 impl RewriteBudget {
     fn new() -> RewriteBudget {
-        RewriteBudget { steps: 0, exhausted: false }
+        RewriteBudget {
+            steps: 0,
+            exhausted: false,
+        }
     }
 
     /// Consumes one rewrite step. False once the documented budget is spent: no further rule may
@@ -9850,5 +10527,7 @@ impl RewriteBudget {
 }
 
 fn escape_xml(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }

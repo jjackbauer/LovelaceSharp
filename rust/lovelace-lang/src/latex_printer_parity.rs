@@ -25,14 +25,20 @@ fn evaluate(source: &str) -> Value {
 fn latex_of(source: &str) -> String {
     match evaluate(&format!("latex({source})")) {
         Value::Text(text) => text,
-        other => panic!("latex({source}) produced {} instead of Text", other.kind_name()),
+        other => panic!(
+            "latex({source}) produced {} instead of Text",
+            other.kind_name()
+        ),
     }
 }
 
 fn pretty_of(source: &str) -> String {
     match evaluate(source) {
         Value::Symbolic(expr) => expr.to_string(),
-        other => panic!("{source} produced {} instead of Symbolic", other.kind_name()),
+        other => panic!(
+            "{source} produced {} instead of Symbolic",
+            other.kind_name()
+        ),
     }
 }
 
@@ -186,11 +192,17 @@ struct Tok {
 }
 
 fn op(text: &str) -> Tok {
-    Tok { kind: TokKind::Op, text: text.to_string() }
+    Tok {
+        kind: TokKind::Op,
+        text: text.to_string(),
+    }
 }
 
 fn ident(text: &str) -> Tok {
-    Tok { kind: TokKind::Ident, text: text.to_string() }
+    Tok {
+        kind: TokKind::Ident,
+        text: text.to_string(),
+    }
 }
 
 fn is_letter(c: char) -> bool {
@@ -216,16 +228,23 @@ fn tokenize_infix(text: &str) -> Vec<Tok> {
             while j < chars.len() && is_digit(chars[j]) {
                 j += 1;
             }
-            toks.push(Tok { kind: TokKind::Num, text: chars[i..j].iter().collect() });
+            toks.push(Tok {
+                kind: TokKind::Num,
+                text: chars[i..j].iter().collect(),
+            });
             i = j;
             continue;
         }
         if is_letter(c) || c == '_' {
             let mut j = i;
-            while j < chars.len() && (is_letter(chars[j]) || is_digit(chars[j]) || chars[j] == '_') {
+            while j < chars.len() && (is_letter(chars[j]) || is_digit(chars[j]) || chars[j] == '_')
+            {
                 j += 1;
             }
-            toks.push(Tok { kind: TokKind::Ident, text: chars[i..j].iter().collect() });
+            toks.push(Tok {
+                kind: TokKind::Ident,
+                text: chars[i..j].iter().collect(),
+            });
             i = j;
             continue;
         }
@@ -260,7 +279,10 @@ fn tokenize_latex(text: &str) -> Vec<Tok> {
             while j < chars.len() && is_digit(chars[j]) {
                 j += 1;
             }
-            toks.push(Tok { kind: TokKind::Num, text: chars[i..j].iter().collect() });
+            toks.push(Tok {
+                kind: TokKind::Num,
+                text: chars[i..j].iter().collect(),
+            });
             i = j;
             continue;
         }
@@ -284,12 +306,18 @@ fn tokenize_latex(text: &str) -> Vec<Tok> {
                     continue;
                 }
                 "frac" => {
-                    toks.push(Tok { kind: TokKind::Frac, text: "\\frac".to_string() });
+                    toks.push(Tok {
+                        kind: TokKind::Frac,
+                        text: "\\frac".to_string(),
+                    });
                     i = j;
                     continue;
                 }
                 "sqrt" => {
-                    toks.push(Tok { kind: TokKind::Sqrt, text: "\\sqrt".to_string() });
+                    toks.push(Tok {
+                        kind: TokKind::Sqrt,
+                        text: "\\sqrt".to_string(),
+                    });
                     i = j;
                     continue;
                 }
@@ -304,7 +332,10 @@ fn tokenize_latex(text: &str) -> Vec<Tok> {
                     while m < chars.len() && chars[m] != '}' {
                         m += 1;
                     }
-                    toks.push(Tok { kind: TokKind::Ident, text: chars[k..m].iter().collect() });
+                    toks.push(Tok {
+                        kind: TokKind::Ident,
+                        text: chars[k..m].iter().collect(),
+                    });
                     i = m + 1;
                     continue;
                 }
@@ -342,10 +373,14 @@ fn tokenize_latex(text: &str) -> Vec<Tok> {
         }
         if is_letter(c) || c == '_' {
             let mut j = i;
-            while j < chars.len() && (is_letter(chars[j]) || is_digit(chars[j]) || chars[j] == '_') {
+            while j < chars.len() && (is_letter(chars[j]) || is_digit(chars[j]) || chars[j] == '_')
+            {
                 j += 1;
             }
-            toks.push(Tok { kind: TokKind::Ident, text: chars[i..j].iter().collect() });
+            toks.push(Tok {
+                kind: TokKind::Ident,
+                text: chars[i..j].iter().collect(),
+            });
             i = j;
             continue;
         }
@@ -363,11 +398,17 @@ struct Parser {
 
 impl Parser {
     fn new(toks: Vec<Tok>, latex: bool) -> Parser {
-        Parser { toks, latex, pos: 0 }
+        Parser {
+            toks,
+            latex,
+            pos: 0,
+        }
     }
 
     fn is_op(&self, text: &str) -> bool {
-        self.pos < self.toks.len() && self.toks[self.pos].kind == TokKind::Op && self.toks[self.pos].text == text
+        self.pos < self.toks.len()
+            && self.toks[self.pos].kind == TokKind::Op
+            && self.toks[self.pos].text == text
     }
 
     fn take(&mut self) {
@@ -398,7 +439,11 @@ impl Parser {
         if relation {
             let op = format!("rel:{}", self.toks[self.pos].text);
             self.take();
-            return Ok(ShapeTree::Bin(op, Box::new(left), Box::new(self.parse_additive()?)));
+            return Ok(ShapeTree::Bin(
+                op,
+                Box::new(left),
+                Box::new(self.parse_additive()?),
+            ));
         }
         Ok(left)
     }
@@ -408,7 +453,11 @@ impl Parser {
         while self.is_op("+") || self.is_op("-") {
             let op = if self.is_op("+") { "add" } else { "sub" };
             self.take();
-            left = ShapeTree::Bin(op.to_string(), Box::new(left), Box::new(self.parse_unary()?));
+            left = ShapeTree::Bin(
+                op.to_string(),
+                Box::new(left),
+                Box::new(self.parse_unary()?),
+            );
         }
         Ok(left)
     }
@@ -430,7 +479,11 @@ impl Parser {
         while self.is_op("*") || self.is_op("/") {
             let op = if self.is_op("*") { "mul" } else { "div" };
             self.take();
-            left = ShapeTree::Bin(op.to_string(), Box::new(left), Box::new(self.parse_power()?));
+            left = ShapeTree::Bin(
+                op.to_string(),
+                Box::new(left),
+                Box::new(self.parse_power()?),
+            );
         }
         Ok(left)
     }
@@ -441,7 +494,11 @@ impl Parser {
             return Ok(base);
         }
         self.take();
-        Ok(ShapeTree::Bin("pow".to_string(), Box::new(base), Box::new(self.parse_unary()?)))
+        Ok(ShapeTree::Bin(
+            "pow".to_string(),
+            Box::new(base),
+            Box::new(self.parse_unary()?),
+        ))
     }
 
     fn parse_atom(&mut self) -> Result<ShapeTree, String> {
@@ -456,11 +513,18 @@ impl Parser {
             self.take();
             let numerator = self.parse_group()?;
             let denominator = self.parse_group()?;
-            return Ok(ShapeTree::Bin("div".to_string(), Box::new(numerator), Box::new(denominator)));
+            return Ok(ShapeTree::Bin(
+                "div".to_string(),
+                Box::new(numerator),
+                Box::new(denominator),
+            ));
         }
         if kind == TokKind::Sqrt {
             self.take();
-            return Ok(ShapeTree::Call("sqrt".to_string(), vec![self.parse_group()?]));
+            return Ok(ShapeTree::Call(
+                "sqrt".to_string(),
+                vec![self.parse_group()?],
+            ));
         }
         if kind == TokKind::Op {
             match text.as_str() {
@@ -539,7 +603,9 @@ fn delimiter_pairs(text: &str) -> Result<Vec<(usize, usize)>, String> {
             stack.push(i);
             i += 5;
         } else if text[i..].starts_with("\\right)") || text[i..].starts_with("\\right|") {
-            let open = stack.pop().ok_or_else(|| format!("unbalanced right delimiter in {text}"))?;
+            let open = stack
+                .pop()
+                .ok_or_else(|| format!("unbalanced right delimiter in {text}"))?;
             pairs.push((open, i));
             i += 6;
         }
@@ -566,10 +632,12 @@ fn latex_grouping_parity_corpus_matches_the_pretty_rendering() {
     for source in GROUPING_PARITY {
         let pretty = pretty_of(source);
         let latex = latex_of(source);
-        let from_pretty = ShapeTree::parse_infix(&pretty)
-            .unwrap_or_else(|error| panic!("\"{source}\" pretty '{pretty}' did not denoise: {error}"));
-        let from_latex = ShapeTree::parse_latex(&latex)
-            .unwrap_or_else(|error| panic!("\"{source}\" latex '{latex}' did not denoise: {error}"));
+        let from_pretty = ShapeTree::parse_infix(&pretty).unwrap_or_else(|error| {
+            panic!("\"{source}\" pretty '{pretty}' did not denoise: {error}")
+        });
+        let from_latex = ShapeTree::parse_latex(&latex).unwrap_or_else(|error| {
+            panic!("\"{source}\" latex '{latex}' did not denoise: {error}")
+        });
         assert_eq!(
             from_pretty.shape(),
             from_latex.shape(),
@@ -639,8 +707,11 @@ fn latex_flat_denominators_divide_once_per_factor() {
 
 #[test]
 fn latex_arm_is_not_the_pretty_arm() {
-    let same: Vec<&str> =
-        CORPUS.iter().copied().filter(|source| latex_of(source) == pretty_of(source)).collect();
+    let same: Vec<&str> = CORPUS
+        .iter()
+        .copied()
+        .filter(|source| latex_of(source) == pretty_of(source))
+        .collect();
     assert!(
         same.len() <= 2,
         "the LaTeX rendering is the pretty rendering for {} corpus rows: {}",
@@ -766,7 +837,10 @@ fn latex_symbol_name_leaves_no_bare_special_character() {
             bare.is_empty(),
             "symbol \"{name}\" renders as \"{latex}\" and leaves {} bare LaTeX special character(s): {}",
             bare.len(),
-            bare.iter().map(|(index, c)| format!("'{c}' at offset {index}")).collect::<Vec<String>>().join(", ")
+            bare.iter()
+                .map(|(index, c)| format!("'{c}' at offset {index}"))
+                .collect::<Vec<String>>()
+                .join(", ")
         );
     }
 }
@@ -775,7 +849,11 @@ fn latex_symbol_name_leaves_no_bare_special_character() {
 fn latex_symbol_name_decodes_back_to_the_name_exactly() {
     for name in AWKWARD_NAMES {
         let latex = Expr::sym(name).latex();
-        assert_eq!(decode_escapes(&latex), *name, "symbol \"{name}\" renders as \"{latex}\"");
+        assert_eq!(
+            decode_escapes(&latex),
+            *name,
+            "symbol \"{name}\" renders as \"{latex}\""
+        );
     }
 }
 
@@ -783,8 +861,16 @@ fn latex_symbol_name_decodes_back_to_the_name_exactly() {
 fn latex_symbol_name_only_the_latex_arm_escapes() {
     for name in AWKWARD_NAMES {
         let expr = Expr::sym(name);
-        assert_eq!(expr.to_string(), *name, "the pretty arm must keep the name verbatim");
-        assert_eq!(expr.canonical(), format!("(sym {name})"), "the canonical arm must keep the name verbatim");
+        assert_eq!(
+            expr.to_string(),
+            *name,
+            "the pretty arm must keep the name verbatim"
+        );
+        assert_eq!(
+            expr.canonical(),
+            format!("(sym {name})"),
+            "the canonical arm must keep the name verbatim"
+        );
     }
 }
 
@@ -792,8 +878,14 @@ fn latex_symbol_name_only_the_latex_arm_escapes() {
 fn latex_symbol_name_underscore_is_an_escaped_literal_not_a_subscript() {
     let latex = Expr::sym("x_1").latex();
     assert_eq!(latex, r"x\_1");
-    assert!(!latex.contains("_{"), "a subscript rendering would produce x_{{1}}");
-    assert_eq!(Expr::pow(Expr::sym("x_1"), Expr::num(2)).latex(), r"x\_1^{2}");
+    assert!(
+        !latex.contains("_{"),
+        "a subscript rendering would produce x_{{1}}"
+    );
+    assert_eq!(
+        Expr::pow(Expr::sym("x_1"), Expr::num(2)).latex(),
+        r"x\_1^{2}"
+    );
 }
 
 #[test]

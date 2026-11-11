@@ -62,7 +62,6 @@ fn text(value: &Value) -> &str {
     }
 }
 
-
 // ===========================================================================
 // Lovelace.Symbolics.Tests.AssumptionAddScalingTests (2 of 3 rows) and
 // AssumptionSoundnessTests.PropertyAndRelationAtoms_Contradict
@@ -114,7 +113,11 @@ fn assumption_add_mixed_atoms_in_any_insertion_order_yields_the_same_canonical_o
     let mut expected: Vec<String> = atoms.iter().map(|atom| atom.order_key()).collect();
     expected.sort();
 
-    assert_eq!(expected, keys(&build_set(&atoms)), "forward insertion order");
+    assert_eq!(
+        expected,
+        keys(&build_set(&atoms)),
+        "forward insertion order"
+    );
 
     let mut reversed = atoms.clone();
     reversed.reverse();
@@ -304,7 +307,10 @@ fn coefficient(coefficients: &[Rat], degree: usize) -> Rat {
 fn polynomial_coefficients_round_trip_degree_terms_and_coefficients() {
     let x = Expr::sym("x");
     let p = Expr::add(
-        Expr::add(Expr::pow(x.clone(), Expr::num(2)), Expr::mul(Expr::num(2), x)),
+        Expr::add(
+            Expr::pow(x.clone(), Expr::num(2)),
+            Expr::mul(Expr::num(2), x),
+        ),
         Expr::num(1),
     );
     let coefficients = polynomial_in_x(p);
@@ -327,14 +333,11 @@ fn polynomial_coefficients_round_trip_degree_terms_and_coefficients() {
 #[test]
 fn polynomial_division_of_x_cubed_minus_one_by_x_minus_one() {
     let x = Expr::sym("x");
-    let numerator = polynomial_in_x(Expr::add(
-        Expr::pow(x.clone(), Expr::num(3)),
-        Expr::num(-1),
-    ));
+    let numerator = polynomial_in_x(Expr::add(Expr::pow(x.clone(), Expr::num(3)), Expr::num(-1)));
     let denominator = polynomial_in_x(Expr::add(x, Expr::num(-1)));
 
-    let quotient = lovelace_symbolics::poly_div(&numerator, &denominator)
-        .expect("x - 1 divides x^3 - 1");
+    let quotient =
+        lovelace_symbolics::poly_div(&numerator, &denominator).expect("x - 1 divides x^3 - 1");
     assert_eq!(
         vec![Rat::one(), Rat::one(), Rat::one()],
         quotient,
@@ -364,5 +367,8 @@ fn documented_linsolve_example_matches_the_engine() {
     let mut engine = Engine::new();
     eval(&mut engine, "x = symbol(\"x\"); y = symbol(\"y\")");
     let value = eval(&mut engine, "linsolve([[x, 1], [0, y]], [0, 1])");
-    assert_eq!("[-x/x/(x*y), x/(x*y)] (Vector)", engine.format_typed(&value));
+    assert_eq!(
+        "[-x/x/(x*y), x/(x*y)] (Vector)",
+        engine.format_typed(&value)
+    );
 }

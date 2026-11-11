@@ -13,7 +13,7 @@
 //! expressions (see docs/goal-parity-contract/round-16/symbolics-printing.md).
 
 use crate::{Engine, Value};
-use lovelace_symbolics::{canonical_parse, Expr as Sym, PrintMode};
+use lovelace_symbolics::{Expr as Sym, PrintMode, canonical_parse};
 
 const PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); b = symbol(\"b\"); z = symbol(\"z\"); w = symbol(\"w\");\n";
 
@@ -137,7 +137,10 @@ fn symbolic(source: &str) -> Sym {
             Some((_, Value::Symbolic(expr))) => expr.clone(),
             other => panic!("{source} record expression is {other:?}"),
         },
-        other => panic!("{source} produced {} instead of Symbolic", other.kind_name()),
+        other => panic!(
+            "{source} produced {} instead of Symbolic",
+            other.kind_name()
+        ),
     }
 }
 
@@ -244,44 +247,204 @@ fn canonical_and_debug_are_untouched_by_the_latex_arm_on_the_latex_corpus() {
 #[test]
 fn debug_and_canonical_modes_match_the_oracle_on_twenty_eight_expressions() {
     let cases: &[(&str, &str, &str, &str)] = &[
-    ("(x + 1)^12", "(pow (add (rat 1 1) (sym x)) (rat 12 1))", "pow[add[rat(1), sym(x)], rat(12)]", "\\left(x + 1\\right)^{12}"),
-    ("exp(-x^2)", "(fn exp (mul (rat -1 1) (pow (sym x) (rat 2 1))))", "fn:exp(mul[rat(-1), pow[sym(x), rat(2)]])", "\\exp(-x^{2})"),
-    ("factor(-x^2 - 2*x - 1)", "(mul (rat -1 1) (pow (add (rat 1 1) (sym x)) (rat 2 1)))", "mul[rat(-1), pow[add[rat(1), sym(x)], rat(2)]]", "-\\left(x + 1\\right)^{2}"),
-    ("x - (y - a)", "(add (sym x) (mul (rat -1 1) (add (sym y) (mul (rat -1 1) (sym a)))))", "add[sym(x), mul[rat(-1), add[sym(y), mul[rat(-1), sym(a)]]]]", "x - \\left(y - a\\right)"),
-    ("x - y - a", "(add (sym x) (mul (rat -1 1) (sym a)) (mul (rat -1 1) (sym y)))", "add[sym(x), mul[rat(-1), sym(a)], mul[rat(-1), sym(y)]]", "x - a - y"),
-    ("a - (x + y)", "(add (sym a) (mul (rat -1 1) (add (sym x) (sym y))))", "add[sym(a), mul[rat(-1), add[sym(x), sym(y)]]]", "a - \\left(x + y\\right)"),
-    ("-x^2", "(mul (rat -1 1) (pow (sym x) (rat 2 1)))", "mul[rat(-1), pow[sym(x), rat(2)]]", "-x^{2}"),
-    ("(-x)^2", "(pow (mul (rat -1 1) (sym x)) (rat 2 1))", "pow[mul[rat(-1), sym(x)], rat(2)]", "\\left(-x\\right)^{2}"),
-    ("(-x)^3", "(pow (mul (rat -1 1) (sym x)) (rat 3 1))", "pow[mul[rat(-1), sym(x)], rat(3)]", "\\left(-x\\right)^{3}"),
-    ("-(x + y)", "(mul (rat -1 1) (add (sym x) (sym y)))", "mul[rat(-1), add[sym(x), sym(y)]]", "-\\left(x + y\\right)"),
-    ("(-x - 1)^2", "(pow (add (rat -1 1) (mul (rat -1 1) (sym x))) (rat 2 1))", "pow[add[rat(-1), mul[rat(-1), sym(x)]], rat(2)]", "\\left(-x - 1\\right)^{2}"),
-    ("(-x)^(1/2)", "(pow (mul (rat -1 1) (sym x)) (rat 1 2))", "pow[mul[rat(-1), sym(x)], rat(1/2)]", "\\sqrt{-x}"),
-    ("(-1)^x", "(pow (rat -1 1) (sym x))", "pow[rat(-1), sym(x)]", "\\left(-1\\right)^{x}"),
-    ("(-2)^x", "(pow (rat -2 1) (sym x))", "pow[rat(-2), sym(x)]", "\\left(-2\\right)^{x}"),
-    ("(-1/2)^x", "(pow (rat -1 2) (sym x))", "pow[rat(-1/2), sym(x)]", "\\left(-\\frac{1}{2}\\right)^{x}"),
-    ("(-1.5)^x", "(pow (rat -3 2) (sym x))", "pow[rat(-3/2), sym(x)]", "\\left(-\\frac{3}{2}\\right)^{x}"),
-    ("(-3)^(-x)", "(pow (rat -3 1) (mul (rat -1 1) (sym x)))", "pow[rat(-3), mul[rat(-1), sym(x)]]", "\\left(-3\\right)^{-x}"),
-    ("(1/2)^x", "(pow (rat 1 2) (sym x))", "pow[rat(1/2), sym(x)]", "\\frac{1}{2}^{x}"),
-    ("(2/3)^x", "(pow (rat 2 3) (sym x))", "pow[rat(2/3), sym(x)]", "\\frac{2}{3}^{x}"),
-    ("(-3/2)^x", "(pow (rat -3 2) (sym x))", "pow[rat(-3/2), sym(x)]", "\\left(-\\frac{3}{2}\\right)^{x}"),
-    ("(x/y)/z", "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))", "mul[sym(x), pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]", "\\frac{\\frac{x}{y}}{z}"),
-    ("x/y/z", "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))", "mul[sym(x), pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]", "\\frac{\\frac{x}{y}}{z}"),
-    ("x/y/z/w", "(mul (sym x) (pow (sym w) (rat -1 1)) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))", "mul[sym(x), pow[sym(w), rat(-1)], pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]", "\\frac{\\frac{\\frac{x}{w}}{y}}{z}"),
-    ("(x/y)/(z/w)", "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (mul (sym z) (pow (sym w) (rat -1 1))) (rat -1 1)))", "mul[sym(x), pow[sym(y), rat(-1)], pow[mul[sym(z), pow[sym(w), rat(-1)]], rat(-1)]]", "\\frac{\\frac{x}{y}}{\\frac{z}{w}}"),
-    ("x/(y*z)", "(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1)))", "mul[sym(x), pow[mul[sym(y), sym(z)], rat(-1)]]", "\\frac{x}{y \\cdot z}"),
-    ("(x*y)/(z*w)", "(mul (sym x) (sym y) (pow (mul (sym w) (sym z)) (rat -1 1)))", "mul[sym(x), sym(y), pow[mul[sym(w), sym(z)], rat(-1)]]", "\\frac{x \\cdot y}{w \\cdot z}"),
-    ("(x/y)*z", "(mul (sym x) (sym z) (pow (sym y) (rat -1 1)))", "mul[sym(x), sym(z), pow[sym(y), rat(-1)]]", "\\frac{x \\cdot z}{y}"),
-    ("apart(1/(x^2 - 1), x)", "(add (mul (rat -1 2) (pow (add (rat 1 1) (sym x)) (rat -1 1))) (mul (rat 1 2) (pow (add (rat -1 1) (sym x)) (rat -1 1))))", "add[mul[rat(-1/2), pow[add[rat(1), sym(x)], rat(-1)]], mul[rat(1/2), pow[add[rat(-1), sym(x)], rat(-1)]]]", "-\\frac{\\frac{1}{2}}{x + 1} + \\frac{\\frac{1}{2}}{x - 1}"),
+        (
+            "(x + 1)^12",
+            "(pow (add (rat 1 1) (sym x)) (rat 12 1))",
+            "pow[add[rat(1), sym(x)], rat(12)]",
+            "\\left(x + 1\\right)^{12}",
+        ),
+        (
+            "exp(-x^2)",
+            "(fn exp (mul (rat -1 1) (pow (sym x) (rat 2 1))))",
+            "fn:exp(mul[rat(-1), pow[sym(x), rat(2)]])",
+            "\\exp(-x^{2})",
+        ),
+        (
+            "factor(-x^2 - 2*x - 1)",
+            "(mul (rat -1 1) (pow (add (rat 1 1) (sym x)) (rat 2 1)))",
+            "mul[rat(-1), pow[add[rat(1), sym(x)], rat(2)]]",
+            "-\\left(x + 1\\right)^{2}",
+        ),
+        (
+            "x - (y - a)",
+            "(add (sym x) (mul (rat -1 1) (add (sym y) (mul (rat -1 1) (sym a)))))",
+            "add[sym(x), mul[rat(-1), add[sym(y), mul[rat(-1), sym(a)]]]]",
+            "x - \\left(y - a\\right)",
+        ),
+        (
+            "x - y - a",
+            "(add (sym x) (mul (rat -1 1) (sym a)) (mul (rat -1 1) (sym y)))",
+            "add[sym(x), mul[rat(-1), sym(a)], mul[rat(-1), sym(y)]]",
+            "x - a - y",
+        ),
+        (
+            "a - (x + y)",
+            "(add (sym a) (mul (rat -1 1) (add (sym x) (sym y))))",
+            "add[sym(a), mul[rat(-1), add[sym(x), sym(y)]]]",
+            "a - \\left(x + y\\right)",
+        ),
+        (
+            "-x^2",
+            "(mul (rat -1 1) (pow (sym x) (rat 2 1)))",
+            "mul[rat(-1), pow[sym(x), rat(2)]]",
+            "-x^{2}",
+        ),
+        (
+            "(-x)^2",
+            "(pow (mul (rat -1 1) (sym x)) (rat 2 1))",
+            "pow[mul[rat(-1), sym(x)], rat(2)]",
+            "\\left(-x\\right)^{2}",
+        ),
+        (
+            "(-x)^3",
+            "(pow (mul (rat -1 1) (sym x)) (rat 3 1))",
+            "pow[mul[rat(-1), sym(x)], rat(3)]",
+            "\\left(-x\\right)^{3}",
+        ),
+        (
+            "-(x + y)",
+            "(mul (rat -1 1) (add (sym x) (sym y)))",
+            "mul[rat(-1), add[sym(x), sym(y)]]",
+            "-\\left(x + y\\right)",
+        ),
+        (
+            "(-x - 1)^2",
+            "(pow (add (rat -1 1) (mul (rat -1 1) (sym x))) (rat 2 1))",
+            "pow[add[rat(-1), mul[rat(-1), sym(x)]], rat(2)]",
+            "\\left(-x - 1\\right)^{2}",
+        ),
+        (
+            "(-x)^(1/2)",
+            "(pow (mul (rat -1 1) (sym x)) (rat 1 2))",
+            "pow[mul[rat(-1), sym(x)], rat(1/2)]",
+            "\\sqrt{-x}",
+        ),
+        (
+            "(-1)^x",
+            "(pow (rat -1 1) (sym x))",
+            "pow[rat(-1), sym(x)]",
+            "\\left(-1\\right)^{x}",
+        ),
+        (
+            "(-2)^x",
+            "(pow (rat -2 1) (sym x))",
+            "pow[rat(-2), sym(x)]",
+            "\\left(-2\\right)^{x}",
+        ),
+        (
+            "(-1/2)^x",
+            "(pow (rat -1 2) (sym x))",
+            "pow[rat(-1/2), sym(x)]",
+            "\\left(-\\frac{1}{2}\\right)^{x}",
+        ),
+        (
+            "(-1.5)^x",
+            "(pow (rat -3 2) (sym x))",
+            "pow[rat(-3/2), sym(x)]",
+            "\\left(-\\frac{3}{2}\\right)^{x}",
+        ),
+        (
+            "(-3)^(-x)",
+            "(pow (rat -3 1) (mul (rat -1 1) (sym x)))",
+            "pow[rat(-3), mul[rat(-1), sym(x)]]",
+            "\\left(-3\\right)^{-x}",
+        ),
+        (
+            "(1/2)^x",
+            "(pow (rat 1 2) (sym x))",
+            "pow[rat(1/2), sym(x)]",
+            "\\frac{1}{2}^{x}",
+        ),
+        (
+            "(2/3)^x",
+            "(pow (rat 2 3) (sym x))",
+            "pow[rat(2/3), sym(x)]",
+            "\\frac{2}{3}^{x}",
+        ),
+        (
+            "(-3/2)^x",
+            "(pow (rat -3 2) (sym x))",
+            "pow[rat(-3/2), sym(x)]",
+            "\\left(-\\frac{3}{2}\\right)^{x}",
+        ),
+        (
+            "(x/y)/z",
+            "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))",
+            "mul[sym(x), pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]",
+            "\\frac{\\frac{x}{y}}{z}",
+        ),
+        (
+            "x/y/z",
+            "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))",
+            "mul[sym(x), pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]",
+            "\\frac{\\frac{x}{y}}{z}",
+        ),
+        (
+            "x/y/z/w",
+            "(mul (sym x) (pow (sym w) (rat -1 1)) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1)))",
+            "mul[sym(x), pow[sym(w), rat(-1)], pow[sym(y), rat(-1)], pow[sym(z), rat(-1)]]",
+            "\\frac{\\frac{\\frac{x}{w}}{y}}{z}",
+        ),
+        (
+            "(x/y)/(z/w)",
+            "(mul (sym x) (pow (sym y) (rat -1 1)) (pow (mul (sym z) (pow (sym w) (rat -1 1))) (rat -1 1)))",
+            "mul[sym(x), pow[sym(y), rat(-1)], pow[mul[sym(z), pow[sym(w), rat(-1)]], rat(-1)]]",
+            "\\frac{\\frac{x}{y}}{\\frac{z}{w}}",
+        ),
+        (
+            "x/(y*z)",
+            "(mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1)))",
+            "mul[sym(x), pow[mul[sym(y), sym(z)], rat(-1)]]",
+            "\\frac{x}{y \\cdot z}",
+        ),
+        (
+            "(x*y)/(z*w)",
+            "(mul (sym x) (sym y) (pow (mul (sym w) (sym z)) (rat -1 1)))",
+            "mul[sym(x), sym(y), pow[mul[sym(w), sym(z)], rat(-1)]]",
+            "\\frac{x \\cdot y}{w \\cdot z}",
+        ),
+        (
+            "(x/y)*z",
+            "(mul (sym x) (sym z) (pow (sym y) (rat -1 1)))",
+            "mul[sym(x), sym(z), pow[sym(y), rat(-1)]]",
+            "\\frac{x \\cdot z}{y}",
+        ),
+        (
+            "apart(1/(x^2 - 1), x)",
+            "(add (mul (rat -1 2) (pow (add (rat 1 1) (sym x)) (rat -1 1))) (mul (rat 1 2) (pow (add (rat -1 1) (sym x)) (rat -1 1))))",
+            "add[mul[rat(-1/2), pow[add[rat(1), sym(x)], rat(-1)]], mul[rat(1/2), pow[add[rat(-1), sym(x)], rat(-1)]]]",
+            "-\\frac{\\frac{1}{2}}{x + 1} + \\frac{\\frac{1}{2}}{x - 1}",
+        ),
     ];
     assert!(cases.len() >= 20);
     for (source, canonical, debug, latex) in cases {
         let expr = symbolic(source);
-        assert_eq!(expr.canonical(), *canonical, "{source}: canonical differs from the oracle");
-        assert_eq!(expr.print(PrintMode::Canonical), *canonical, "{source}: Canonical mode");
-        assert_eq!(expr.debug_print(), *debug, "{source}: DebugPrint differs from the oracle");
+        assert_eq!(
+            expr.canonical(),
+            *canonical,
+            "{source}: canonical differs from the oracle"
+        );
+        assert_eq!(
+            expr.print(PrintMode::Canonical),
+            *canonical,
+            "{source}: Canonical mode"
+        );
+        assert_eq!(
+            expr.debug_print(),
+            *debug,
+            "{source}: DebugPrint differs from the oracle"
+        );
         assert_eq!(expr.print(PrintMode::Debug), *debug, "{source}: Debug mode");
-        assert_eq!(expr.latex(), *latex, "{source}: LaTeX differs from the oracle");
-        assert_eq!(printed(source, "debug"), *debug, "{source}: print(expr, \"debug\")");
+        assert_eq!(
+            expr.latex(),
+            *latex,
+            "{source}: LaTeX differs from the oracle"
+        );
+        assert_eq!(
+            printed(source, "debug"),
+            *debug,
+            "{source}: print(expr, \"debug\")"
+        );
     }
 }
 

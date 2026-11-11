@@ -13,7 +13,9 @@ fn eval(script: &str) -> Result<Value, LangError> {
 }
 
 fn display(script: &str) -> String {
-    eval(script).unwrap_or_else(|e| panic!("'{script}' failed: {e}")).display()
+    eval(script)
+        .unwrap_or_else(|e| panic!("'{script}' failed: {e}"))
+        .display()
 }
 
 fn refusal(script: &str) -> LangError {
@@ -66,7 +68,9 @@ fn family_conditions(script: &str) -> Vec<String> {
 
 fn structured_json(script: &str) -> lovelace_json::Json {
     let mut engine = Engine::new();
-    let value = engine.eval(script).unwrap_or_else(|e| panic!("'{script}' failed: {e}"));
+    let value = engine
+        .eval(script)
+        .unwrap_or_else(|e| panic!("'{script}' failed: {e}"));
     crate::structured::project_value(&engine, &value, None)
 }
 
@@ -89,7 +93,10 @@ fn json_text(json: &lovelace_json::Json, name: &str) -> String {
 }
 
 fn json_flag(json: &lovelace_json::Json, name: &str) -> bool {
-    matches!(json_field(json, name), Some(lovelace_json::Json::Bool(true)))
+    matches!(
+        json_field(json, name),
+        Some(lovelace_json::Json::Bool(true))
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +107,10 @@ fn json_flag(json: &lovelace_json::Json, name: &str) -> bool {
 #[test]
 fn evalir_honours_the_digit_count_it_was_given() {
     // 0.3(3) truncated to the requested count: 2 places answer 0.33, 40 answer forty 3s.
-    assert_eq!(display("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], 2)"), "0.33");
+    assert_eq!(
+        display("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], 2)"),
+        "0.33"
+    );
     let forty = display("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], 40)");
     assert_eq!(forty, format!("0.{}", "3".repeat(40)));
     let twenty = display("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], 20)");
@@ -170,7 +180,13 @@ fn evalir_batch_carries_the_same_digit_contract() {
 fn evalir_without_a_digit_count_is_the_declared_arity_refusal() {
     let error = refusal("x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1])");
     assert_eq!(error.code, "InvalidArgument");
-    assert!(error.message.starts_with("evalir(): expected 3 arguments; got 2."), "{}", error.message);
+    assert!(
+        error
+            .message
+            .starts_with("evalir(): expected 3 arguments; got 2."),
+        "{}",
+        error.message
+    );
     assert_eq!(error.signature.as_ref().and_then(|s| s.actual), Some(2));
 }
 
@@ -182,15 +198,34 @@ fn evalir_without_a_digit_count_is_the_declared_arity_refusal() {
 #[test]
 fn zeros_and_ones_refuse_a_negative_dimension_with_the_position_and_value() {
     for (script, expected) in [
-        ("zeros(-1)", "zeros(): argument 1 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1."),
-        ("zeros(2, -1)", "zeros(): argument 2 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1."),
-        ("ones(-1)", "ones(): argument 1 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1."),
-        ("ones(2, -1)", "ones(): argument 2 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1."),
+        (
+            "zeros(-1)",
+            "zeros(): argument 1 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1.",
+        ),
+        (
+            "zeros(2, -1)",
+            "zeros(): argument 2 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1.",
+        ),
+        (
+            "ones(-1)",
+            "ones(): argument 1 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1.",
+        ),
+        (
+            "ones(2, -1)",
+            "ones(): argument 2 (a dimension) must be a Natural or Integer that is a non-negative count (0 or more, at most 9223372036854775807); got -1.",
+        ),
     ] {
         let error = refusal(script);
         assert_eq!(error.message, expected, "{script}");
-        assert_eq!((error.code, error.category), ("InvalidArgument", "TypeMismatch"));
-        assert!(!error.message.contains("overflow"), "raw CLR text: {}", error.message);
+        assert_eq!(
+            (error.code, error.category),
+            ("InvalidArgument", "TypeMismatch")
+        );
+        assert!(
+            !error.message.contains("overflow"),
+            "raw CLR text: {}",
+            error.message
+        );
     }
 }
 
@@ -208,13 +243,20 @@ fn series_refuses_a_non_positive_or_too_wide_order() {
         "series(): argument 4 (order) must be a Natural or Integer between 1 and 2147483647; got -1."
     );
     let zero = refusal("x = symbol(\"x\"); series(sin(x), x, 0, 0)");
-    assert!(zero.message.ends_with("between 1 and 2147483647; got 0."), "{}", zero.message);
+    assert!(
+        zero.message.ends_with("between 1 and 2147483647; got 0."),
+        "{}",
+        zero.message
+    );
     let wide = refusal("x = symbol(\"x\"); series(sin(x), x, 0, 10^30)");
     assert_eq!(
         wide.message,
         "series(): argument 4 (order) must be a Natural or Integer that denotes an exact integer; got the Natural 1000000000000000000000000000000."
     );
-    assert_eq!((wide.code, wide.category), ("InvalidArgument", "TypeMismatch"));
+    assert_eq!(
+        (wide.code, wide.category),
+        ("InvalidArgument", "TypeMismatch")
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -261,18 +303,31 @@ fn a_matrix_index_out_of_range_names_the_dimension_and_its_size() {
     let error = refusal("[[1,2],[3,4]][5, 0]");
     assert_eq!(error.code, "InvalidOperation");
     assert_eq!(error.category, "DomainError");
-    assert_eq!(error.message, "Index 5 is out of range for dimension 0 of size 2.");
+    assert_eq!(
+        error.message,
+        "Index 5 is out of range for dimension 0 of size 2."
+    );
 }
 
 #[test]
 fn controls_keep_their_documented_refusals() {
     let negative = refusal("[1, 2, 3][-1]");
-    assert_eq!(negative.message, "Index -1 is out of range for vector of length 3.");
+    assert_eq!(
+        negative.message,
+        "Index -1 is out of range for vector of length 3."
+    );
     assert_eq!(negative.code, "InvalidOperation");
     let out_of_range = refusal("[1, 2, 3][5]");
-    assert_eq!(out_of_range.message, "Index 5 is out of range for vector of length 3.");
+    assert_eq!(
+        out_of_range.message,
+        "Index 5 is out of range for vector of length 3."
+    );
     let wide_matrix = refusal("[[1,2],[3,4]][10^30, 0]");
-    assert!(wide_matrix.message.contains("fits a signed 64-bit integer"), "{}", wide_matrix.message);
+    assert!(
+        wide_matrix.message.contains("fits a signed 64-bit integer"),
+        "{}",
+        wide_matrix.message
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -281,10 +336,22 @@ fn controls_keep_their_documented_refusals() {
 
 #[test]
 fn solve_keeps_only_the_roots_the_assumption_admits() {
-    assert_eq!(solutions("x = symbol(\"x\"); assume(x > 0); solve(x^2 == 4, x)"), vec!["2"]);
-    assert_eq!(solutions("x = symbol(\"x\"); assume_positive(x); solve(x^2 == 4, x)"), vec!["2"]);
-    assert_eq!(solutions("x = symbol(\"x\"); assume(x < 0); solve(x^2 == 4, x)"), vec!["-2"]);
-    assert_eq!(solutions("x = symbol(\"x\"); assume(x == 2); solve(x^2 == 4, x)"), vec!["2"]);
+    assert_eq!(
+        solutions("x = symbol(\"x\"); assume(x > 0); solve(x^2 == 4, x)"),
+        vec!["2"]
+    );
+    assert_eq!(
+        solutions("x = symbol(\"x\"); assume_positive(x); solve(x^2 == 4, x)"),
+        vec!["2"]
+    );
+    assert_eq!(
+        solutions("x = symbol(\"x\"); assume(x < 0); solve(x^2 == 4, x)"),
+        vec!["-2"]
+    );
+    assert_eq!(
+        solutions("x = symbol(\"x\"); assume(x == 2); solve(x^2 == 4, x)"),
+        vec!["2"]
+    );
     assert_eq!(
         solutions("x = symbol(\"x\"); assume(x > -10); solve(x^2 == 4, x)"),
         vec!["-2", "2"]
@@ -330,8 +397,14 @@ fn a_response_that_cannot_decide_is_carried_as_a_condition() {
 
 #[test]
 fn one_session_one_assumption_store_for_simplify_and_solve() {
-    assert_eq!(solutions("x = symbol(\"x\"); assume(x > 0); solve(x^2 == 4, x)"), vec!["2"]);
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 0); simplify(sqrt(x^2))"), "x");
+    assert_eq!(
+        solutions("x = symbol(\"x\"); assume(x > 0); solve(x^2 == 4, x)"),
+        vec!["2"]
+    );
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 0); simplify(sqrt(x^2))"),
+        "x"
+    );
 }
 
 #[test]
@@ -340,17 +413,26 @@ fn system_solve_honours_the_same_store() {
         status("x = symbol(\"x\"); assume(x > 5); solve_system([x == 3], [x])"),
         "NoSolutions"
     );
-    let filtered = display("x = symbol(\"x\"); y = symbol(\"y\"); assume(y > 0); solve_system([x == 1, y^2 == 4], [x, y])");
+    let filtered = display(
+        "x = symbol(\"x\"); y = symbol(\"y\"); assume(y > 0); solve_system([x == 1, y^2 == 4], [x, y])",
+    );
     assert!(filtered.contains("value: 2"), "{filtered}");
     assert!(!filtered.contains("value: -2"), "{filtered}");
-    let unfiltered = display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system([x == 1, y^2 == 4], [x, y])");
+    let unfiltered =
+        display("x = symbol(\"x\"); y = symbol(\"y\"); solve_system([x == 1, y^2 == 4], [x, y])");
     assert!(unfiltered.contains("value: -2"), "{unfiltered}");
 }
 
 #[test]
 fn controls_without_assumptions_publish_exactly_what_they_did() {
-    assert_eq!(solutions("x = symbol(\"x\"); solve(x^2 == 4, x)"), vec!["-2", "2"]);
-    assert_eq!(solutions("x = symbol(\"x\"); solve(x^2 + 1 == 0, x)"), vec!["i", "-i"]);
+    assert_eq!(
+        solutions("x = symbol(\"x\"); solve(x^2 == 4, x)"),
+        vec!["-2", "2"]
+    );
+    assert_eq!(
+        solutions("x = symbol(\"x\"); solve(x^2 + 1 == 0, x)"),
+        vec!["i", "-i"]
+    );
     assert_eq!(
         solutions("x = symbol(\"x\"); y = symbol(\"y\"); assume(y > 5); solve(x == 3, x)"),
         vec!["3"]
@@ -378,7 +460,11 @@ fn the_domain_assume_builtins_answer_the_symbol_they_assumed() {
 // ---------------------------------------------------------------------------
 
 fn timing_positions(engine: &Engine) -> Vec<usize> {
-    engine.operation_timings().iter().map(|timing| timing.position).collect()
+    engine
+        .operation_timings()
+        .iter()
+        .map(|timing| timing.position)
+        .collect()
 }
 
 #[test]
@@ -395,7 +481,9 @@ fn a_leading_byte_order_mark_is_source_text_not_a_parse_error() {
 #[test]
 fn without_a_byte_order_mark_the_same_script_reports_offsets_from_zero() {
     let mut engine = Engine::new();
-    let error = engine.eval("a = 1\nb = 2\ndet(1)").expect_err("det(1) refuses");
+    let error = engine
+        .eval("a = 1\nb = 2\ndet(1)")
+        .expect_err("det(1) refuses");
     assert_eq!(error.position, 12);
     assert_eq!(timing_positions(&engine), vec![0, 6, 12]);
 }
@@ -421,7 +509,10 @@ fn a_request_beyond_the_cap_is_marked_as_clamped() {
     let digits = json_text(&value, "value");
     let places = digits.split('.').nth(1).map(str::len).unwrap_or(0);
     assert_eq!(places, 1000);
-    assert!(json_flag(&value, "truncated"), "the 1000-place clamp crossed unmarked");
+    assert!(
+        json_flag(&value, "truncated"),
+        "the 1000-place clamp crossed unmarked"
+    );
     assert_eq!(json_text(&value, "truncationReason"), "digit-cap");
     assert_eq!(json_text(&value, "budget"), "1000");
     assert!(!json_flag(&value, "exact"));
@@ -430,7 +521,10 @@ fn a_request_beyond_the_cap_is_marked_as_clamped() {
 #[test]
 fn the_smallest_over_cap_request_is_marked_too() {
     let value = structured_json("evalf(1/3, 1001)");
-    assert_eq!(json_text(&value, "value"), format!("0.{}", "3".repeat(1000)));
+    assert_eq!(
+        json_text(&value, "value"),
+        format!("0.{}", "3".repeat(1000))
+    );
     assert!(json_flag(&value, "truncated"));
     assert_eq!(json_text(&value, "truncationReason"), "digit-cap");
     assert_eq!(json_text(&value, "budget"), "1000");
@@ -505,11 +599,20 @@ fn mean_and_norm_refuse_a_non_array_input_with_the_shape_grammar() {
             error.message,
             format!("{name}(): argument 1 must be an array or vector; got Natural.")
         );
-        assert_eq!((error.code, error.category), ("InvalidArgument", "TypeMismatch"));
-        let signature = error.signature.as_ref().expect("a shape refusal carries its signature");
+        assert_eq!(
+            (error.code, error.category),
+            ("InvalidArgument", "TypeMismatch")
+        );
+        let signature = error
+            .signature
+            .as_ref()
+            .expect("a shape refusal carries its signature");
         assert_eq!(signature.position, Some(1));
         assert_eq!(signature.parameter.as_deref(), Some("a"));
-        assert_eq!(signature.expected_shape.as_deref(), Some("an array or vector"));
+        assert_eq!(
+            signature.expected_shape.as_deref(),
+            Some("an array or vector")
+        );
         assert_eq!(signature.arrived_kind.as_deref(), Some("Natural"));
     }
 }
@@ -536,7 +639,10 @@ fn mean_and_norm_refuse_an_axis_the_value_does_not_have() {
 #[test]
 fn mean_and_norm_keep_their_arity_and_empty_refusals() {
     let too_many = refusal("mean([1,2,3], 0, 1)");
-    assert_eq!(too_many.message, "mean(): expected 1 to 2 arguments; got 3.");
+    assert_eq!(
+        too_many.message,
+        "mean(): expected 1 to 2 arguments; got 3."
+    );
     let empty = refusal("mean([])");
     assert_eq!(empty.message, "mean() cannot reduce an empty array.");
     assert_eq!(empty.code, "InvalidOperation");

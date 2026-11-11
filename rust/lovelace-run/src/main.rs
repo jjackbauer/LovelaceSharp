@@ -10,7 +10,7 @@
 use std::io::{Read, Write};
 
 use lovelace_json::Json;
-use lovelace_lang::{registry, structured, Engine};
+use lovelace_lang::{Engine, registry, structured};
 
 const PROTOCOL_VERSION: &str = "1";
 const SYMBOLIC_FORMAT_VERSION: &str = "#!lovelace-sym 1";
@@ -43,7 +43,9 @@ struct Options {
 fn usage() -> String {
     let mut s = String::new();
     s.push_str("lovelace-run - evaluate a Lovelace script\n\n");
-    s.push_str("USAGE:\n  lovelace-run (--eval <src> | --file <path> | --stdin | <path>) [options]\n\n");
+    s.push_str(
+        "USAGE:\n  lovelace-run (--eval <src> | --file <path> | --stdin | <path>) [options]\n\n",
+    );
     s.push_str("OPTIONS:\n");
     s.push_str("  --eval <src>          evaluate the given source\n");
     s.push_str("  --file <path>         evaluate a file\n");
@@ -105,8 +107,8 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 // The characters the reader produced, exactly as produced: a UTF-8 byte-order
                 // mark is source text (the ENGINE strips it and maps positions back), not
                 // transport for this surface to consume.
-                let text = decode_stdin_bytes(bytes)
-                    .map_err(|e| format!("cannot read stdin: {e}"))?;
+                let text =
+                    decode_stdin_bytes(bytes).map_err(|e| format!("cannot read stdin: {e}"))?;
                 o.source = Some(text);
                 i += 1;
             }
@@ -120,9 +122,9 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
             }
             "--cancel-after" => {
                 let v = need(i)?;
-                let ms = v
-                    .parse::<u64>()
-                    .map_err(|_| "--cancel-after requires a positive millisecond count".to_string())?;
+                let ms = v.parse::<u64>().map_err(|_| {
+                    "--cancel-after requires a positive millisecond count".to_string()
+                })?;
                 if ms == 0 {
                     return Err("--cancel-after requires a positive millisecond count".to_string());
                 }
@@ -194,14 +196,22 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
             }
         }
     }
-    if o.source.is_none() && o.source_file.is_none() && !o.list_functions && o.describe_function.is_none() {
+    if o.source.is_none()
+        && o.source_file.is_none()
+        && !o.list_functions
+        && o.describe_function.is_none()
+    {
         if let Some(p) = bare {
             o.source_file = Some(p);
         }
     } else if bare.is_some() && (o.source.is_some() || o.source_file.is_some()) {
         return Err("a script path was given together with another source".to_string());
     }
-    if o.source.is_none() && o.source_file.is_none() && !o.list_functions && o.describe_function.is_none() {
+    if o.source.is_none()
+        && o.source_file.is_none()
+        && !o.list_functions
+        && o.describe_function.is_none()
+    {
         return Err("no script given (use --eval, --file, --stdin, or a path)".to_string());
     }
     Ok(o)
@@ -252,7 +262,10 @@ fn run() {
     // property of the caller's argument, so it crosses as FileReadError/TypeMismatch with the
     // documented envelope rather than as a usage error on stderr.
     let source = if let Some(path) = &opts.source_file {
-        match std::fs::read(path).map_err(|e| e.to_string()).and_then(|bytes| decode_script_bytes(&bytes)) {
+        match std::fs::read(path)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| decode_script_bytes(&bytes))
+        {
             Ok(text) => text,
             Err(e) => emit_pre_engine_error(
                 &opts,
@@ -293,7 +306,14 @@ fn run() {
                 std::process::exit(1);
             }
         }
-        (Mode::Text, Execution { outcome: Ok(value), elapsed_ms, .. }) => {
+        (
+            Mode::Text,
+            Execution {
+                outcome: Ok(value),
+                elapsed_ms,
+                ..
+            },
+        ) => {
             println!("= {}", engine.format_typed(value));
             for line in engine.take_output() {
                 println!("{line}");
@@ -314,7 +334,12 @@ fn run() {
                 }
             }
         }
-        (Mode::Text, Execution { outcome: Err(err), .. }) => {
+        (
+            Mode::Text,
+            Execution {
+                outcome: Err(err), ..
+            },
+        ) => {
             eprintln!("Error [{}/{}]: {}", err.code, err.category, err.message);
             std::process::exit(1);
         }
@@ -336,7 +361,11 @@ fn execute(engine: &mut Engine, opts: &Options, source: &str) -> Execution {
     let outcome = engine.eval(source);
     let elapsed = started.elapsed();
     let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
-    Execution { outcome, elapsed, elapsed_ms }
+    Execution {
+        outcome,
+        elapsed,
+        elapsed_ms,
+    }
 }
 
 /// The envelope and exit code for one execution.
@@ -346,8 +375,17 @@ fn execute(engine: &mut Engine, opts: &Options, source: &str) -> Execution {
 /// diagnostic position). A run that finished between two polls is a SUCCESS envelope whose ledger
 /// reports the overrun truthfully (`stopped:false`, `exceeded:true`) — the reference never turns
 /// a completed evaluation into a cancellation.
-fn envelope_for(engine: &mut Engine, opts: &Options, source: &str, execution: Execution) -> (Json, i32) {
-    let Execution { outcome, elapsed, elapsed_ms } = execution;
+fn envelope_for(
+    engine: &mut Engine,
+    opts: &Options,
+    source: &str,
+    execution: Execution,
+) -> (Json, i32) {
+    let Execution {
+        outcome,
+        elapsed,
+        elapsed_ms,
+    } = execution;
     match outcome {
         Ok(value) => (
             success_envelope(engine, &value, opts, source, elapsed, elapsed_ms),
@@ -403,7 +441,10 @@ fn emit_pre_engine_error(opts: &Options, code: &str, category: &str, message: St
 fn preamble(ok: bool) -> Vec<(&'static str, Json)> {
     vec![
         ("protocolVersion", Json::Num(PROTOCOL_VERSION.to_string())),
-        ("symbolicFormatVersion", Json::Str(SYMBOLIC_FORMAT_VERSION.to_string())),
+        (
+            "symbolicFormatVersion",
+            Json::Str(SYMBOLIC_FORMAT_VERSION.to_string()),
+        ),
         ("mathIrVersion", Json::Num(MATH_IR_VERSION.to_string())),
         ("ok", Json::Bool(ok)),
     ]
@@ -411,19 +452,30 @@ fn preamble(ok: bool) -> Vec<(&'static str, Json)> {
 
 /// One variable in scope: its name, kind, display form and the SAME structured projection the
 /// result carries.
-fn variable_json(engine: &Engine, name: &str, value: &lovelace_lang::Value, budget: Option<usize>) -> Json {
+fn variable_json(
+    engine: &Engine,
+    name: &str,
+    value: &lovelace_lang::Value,
+    budget: Option<usize>,
+) -> Json {
     Json::obj(vec![
         ("name", Json::Str(name.to_string())),
         ("kind", Json::Str(value.kind_name().to_string())),
         ("display", Json::Str(engine.format(value))),
-        ("structured", structured::project_value(engine, value, budget)),
+        (
+            "structured",
+            structured::project_value(engine, value, budget),
+        ),
     ])
 }
 
 /// A duration as a unit-scaled value plus its unit, so an agent never parses a suffix.
 fn duration_json(d: std::time::Duration) -> Json {
     let (value, unit) = scale_duration(d);
-    Json::obj(vec![("value", Json::Num(value)), ("unit", Json::Str(unit.to_string()))])
+    Json::obj(vec![
+        ("value", Json::Num(value)),
+        ("unit", Json::Str(unit.to_string())),
+    ])
 }
 
 /// The one unit selector behind both the human duration string and the structured pair.
@@ -557,7 +609,14 @@ fn cancellation_json(budget: u64, elapsed_ms: f64, stopped: bool) -> Json {
 
 /// The diagnostic that names an exceeded deadline, so a consumer reading only diagnostics cannot
 /// mistake an overrun for a normal run.
-fn overrun_diagnostic(budget: u64, elapsed_ms: f64, position: usize, source: &str, stopped: bool, completed: bool) -> Json {
+fn overrun_diagnostic(
+    budget: u64,
+    elapsed_ms: f64,
+    position: usize,
+    source: &str,
+    stopped: bool,
+    completed: bool,
+) -> Json {
     let excess = (elapsed_ms - budget as f64).max(0.0);
     let (line, column) = line_col(source, position);
     let outcome = if stopped {
@@ -603,7 +662,10 @@ fn success_envelope(
                 ("kind", Json::Str(value.kind_name().to_string())),
                 ("display", Json::Str(engine.format(value))),
                 ("typed", Json::Str(engine.format_typed(value))),
-                ("structured", structured::project_value(engine, value, budget)),
+                (
+                    "structured",
+                    structured::project_value(engine, value, budget),
+                ),
             ]),
         ));
     }
@@ -646,7 +708,10 @@ fn success_envelope(
     fields.push(("elapsedTime", elapsed_time));
     fields.push(("timings", timings_json(engine)));
     if let Some(budget_ms) = opts.cancel_after {
-        fields.push(("cancellation", cancellation_json(budget_ms, elapsed_ms, false)));
+        fields.push((
+            "cancellation",
+            cancellation_json(budget_ms, elapsed_ms, false),
+        ));
         if (elapsed_ms - budget_ms as f64) > 0.0 {
             // The position is the last top-level statement that ran — the statement the deadline
             // passed inside — translated by the same rule every other published position uses.
@@ -658,12 +723,7 @@ fn success_envelope(
             fields.push((
                 "diagnostics",
                 Json::Arr(vec![overrun_diagnostic(
-                    budget_ms,
-                    elapsed_ms,
-                    position,
-                    source,
-                    false,
-                    true,
+                    budget_ms, elapsed_ms, position, source, false, true,
                 )]),
             ));
         }
@@ -754,7 +814,10 @@ fn failure_envelope(
     fields.push(("message", Json::Str(err.message.clone())));
     // An internal invariant failure is the one class the caller cannot recover from; every
     // classified user-level failure can be repaired and retried.
-    fields.push(("recoverable", Json::Bool(err.category != "InternalInvariantFailure")));
+    fields.push((
+        "recoverable",
+        Json::Bool(err.category != "InternalInvariantFailure"),
+    ));
     let (line, column) = line_col(source, err.position);
     let mut diagnostics = vec![Json::obj(vec![
         ("message", Json::Str(err.message.clone())),
@@ -764,7 +827,14 @@ fn failure_envelope(
     ])];
     if let Some(budget) = opts.cancel_after {
         if (elapsed_ms - budget as f64) > 0.0 {
-            diagnostics.push(overrun_diagnostic(budget, elapsed_ms, err.position, source, false, false));
+            diagnostics.push(overrun_diagnostic(
+                budget,
+                elapsed_ms,
+                err.position,
+                source,
+                false,
+                false,
+            ));
         }
     }
     fields.push(("diagnostics", Json::Arr(diagnostics)));
@@ -883,7 +953,10 @@ fn registry_query(opts: &Options) {
             if !hints.is_empty() {
                 fields.push(("hints", Json::str_array(hints)));
             }
-            fields.push(("registrySize", Json::Num(registry::BUILTINS.len().to_string())));
+            fields.push((
+                "registrySize",
+                Json::Num(registry::BUILTINS.len().to_string()),
+            ));
             fields.push(("artifacts", Json::Arr(Vec::new())));
             print_json(&Json::obj(fields));
             std::process::exit(1);
@@ -968,7 +1041,9 @@ fn decode_script_bytes(bytes: &[u8]) -> Result<String, String> {
     if bytes.starts_with(&[0xFF, 0xFE]) {
         return decode_utf16(&bytes[2..], true).map(|text| format!("﻿{text}"));
     }
-    std::str::from_utf8(bytes).map(str::to_string).map_err(|e| e.to_string())
+    std::str::from_utf8(bytes)
+        .map(str::to_string)
+        .map_err(|e| e.to_string())
 }
 
 fn decode_utf16(bytes: &[u8], little_endian: bool) -> Result<String, String> {

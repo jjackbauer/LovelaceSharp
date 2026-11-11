@@ -6,7 +6,7 @@
 //! diagnostic position). Cases whose Rust shape differs are refused in the round report with the
 //! observable difference.
 
-use crate::syntax::{tokenize, Expr, Parser, Stmt, Tok, Token};
+use crate::syntax::{Expr, Parser, Stmt, Tok, Token, tokenize};
 
 /// The C# `Token` is a record with structural equality over its three fields. Rust's `Token` has
 /// the same two stored fields (the text lives in the `Tok` payload), so the test module supplies
@@ -50,7 +50,9 @@ fn sexpr(e: &Expr) -> String {
 
 fn parse(src: &str) -> Expr {
     let toks = tokenize(src).expect("source tokenises");
-    Parser::new(toks).single_expression().expect("source parses")
+    Parser::new(toks)
+        .single_expression()
+        .expect("source parses")
 }
 
 fn parse_shape(src: &str) -> String {
@@ -74,7 +76,13 @@ fn stmt_shape(src: &str) -> String {
 fn tokenize_given_integer_literal_returns_single_number_token() {
     let toks = tokenize("42").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Num("42".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Num("42".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -82,7 +90,13 @@ fn tokenize_given_integer_literal_returns_single_number_token() {
 fn tokenize_given_decimal_literal_returns_single_number_token() {
     let toks = tokenize("3.14").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Num("3.14".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Num("3.14".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -90,7 +104,13 @@ fn tokenize_given_decimal_literal_returns_single_number_token() {
 fn tokenize_given_periodic_literal_returns_single_number_token() {
     let toks = tokenize("0.(3)").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Repr("0.(3)".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Repr("0.(3)".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -98,7 +118,13 @@ fn tokenize_given_periodic_literal_returns_single_number_token() {
 fn tokenize_given_leading_dot_returns_single_number_token() {
     let toks = tokenize(".5").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Num(".5".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Num(".5".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -106,7 +132,13 @@ fn tokenize_given_leading_dot_returns_single_number_token() {
 fn tokenize_given_periodic_with_multiple_digits_returns_single_number_token() {
     let toks = tokenize("1.2(345)").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Repr("1.2(345)".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Repr("1.2(345)".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -114,14 +146,26 @@ fn tokenize_given_periodic_with_multiple_digits_returns_single_number_token() {
 fn tokenize_given_empty_string_returns_eof_only() {
     let toks = tokenize("").unwrap();
     assert_eq!(toks.len(), 1);
-    assert_eq!(toks[0], Token { tok: Tok::Eof, pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Eof,
+            pos: 0
+        }
+    );
 }
 
 #[test]
 fn tokenize_given_number_after_whitespace_reports_correct_position() {
     let toks = tokenize("  42").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Num("42".into()), pos: 2 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Num("42".into()),
+            pos: 2
+        }
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -132,26 +176,50 @@ fn tokenize_given_number_after_whitespace_reports_correct_position() {
 fn tokenize_given_identifier_returns_identifier_token() {
     let toks = tokenize("abc").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Ident("abc".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Ident("abc".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
 #[test]
 fn tokenize_given_identifier_with_underscore_returns_identifier_token() {
     let toks = tokenize("my_var").unwrap();
-    assert_eq!(toks[0], Token { tok: Tok::Ident("my_var".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Ident("my_var".into()),
+            pos: 0
+        }
+    );
 }
 
 #[test]
 fn tokenize_given_leading_underscore_identifier_returns_identifier_token() {
     let toks = tokenize("_result").unwrap();
-    assert_eq!(toks[0], Token { tok: Tok::Ident("_result".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Ident("_result".into()),
+            pos: 0
+        }
+    );
 }
 
 #[test]
 fn tokenize_given_identifier_with_digit_suffix_returns_identifier_token() {
     let toks = tokenize("x1").unwrap();
-    assert_eq!(toks[0], Token { tok: Tok::Ident("x1".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Ident("x1".into()),
+            pos: 0
+        }
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -163,11 +231,27 @@ fn tokenize_given_single_char_operators_returns_correct_token_kinds() {
     let toks = tokenize("+-*/%^=(,)!").unwrap();
     assert_eq!(toks.len(), 12);
     let expected = [
-        ("+", 0), ("-", 1), ("*", 2), ("/", 3), ("%", 4), ("^", 5),
-        ("=", 6), ("(", 7), (",", 8), (")", 9), ("!", 10),
+        ("+", 0),
+        ("-", 1),
+        ("*", 2),
+        ("/", 3),
+        ("%", 4),
+        ("^", 5),
+        ("=", 6),
+        ("(", 7),
+        (",", 8),
+        (")", 9),
+        ("!", 10),
     ];
     for (i, (text, pos)) in expected.iter().enumerate() {
-        assert_eq!(toks[i], Token { tok: Tok::Punct((*text).into()), pos: *pos }, "token {i}");
+        assert_eq!(
+            toks[i],
+            Token {
+                tok: Tok::Punct((*text).into()),
+                pos: *pos
+            },
+            "token {i}"
+        );
     }
     assert_eq!(toks[11].tok, Tok::Eof);
 }
@@ -176,8 +260,20 @@ fn tokenize_given_single_char_operators_returns_correct_token_kinds() {
 fn tokenize_given_greater_and_less_returns_correct_token_kinds() {
     let toks = tokenize("> <").unwrap();
     assert_eq!(toks.len(), 3);
-    assert_eq!(toks[0], Token { tok: Tok::Punct(">".into()), pos: 0 });
-    assert_eq!(toks[1], Token { tok: Tok::Punct("<".into()), pos: 2 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Punct(">".into()),
+            pos: 0
+        }
+    );
+    assert_eq!(
+        toks[1],
+        Token {
+            tok: Tok::Punct("<".into()),
+            pos: 2
+        }
+    );
     assert_eq!(toks[2].tok, Tok::Eof);
 }
 
@@ -187,7 +283,14 @@ fn tokenize_given_two_char_operators_returns_correct_token_kinds() {
     assert_eq!(toks.len(), 5);
     let expected = [("==", 0), ("!=", 3), (">=", 6), ("<=", 9)];
     for (i, (text, pos)) in expected.iter().enumerate() {
-        assert_eq!(toks[i], Token { tok: Tok::Punct((*text).into()), pos: *pos }, "token {i}");
+        assert_eq!(
+            toks[i],
+            Token {
+                tok: Tok::Punct((*text).into()),
+                pos: *pos
+            },
+            "token {i}"
+        );
     }
     assert_eq!(toks[4].tok, Tok::Eof);
 }
@@ -196,7 +299,13 @@ fn tokenize_given_two_char_operators_returns_correct_token_kinds() {
 fn tokenize_given_double_equals_produces_one_double_equals_token() {
     let toks = tokenize("==").unwrap();
     assert_eq!(toks.len(), 2);
-    assert_eq!(toks[0], Token { tok: Tok::Punct("==".into()), pos: 0 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Punct("==".into()),
+            pos: 0
+        }
+    );
     assert_eq!(toks[1].tok, Tok::Eof);
 }
 
@@ -204,9 +313,27 @@ fn tokenize_given_double_equals_produces_one_double_equals_token() {
 fn tokenize_given_whitespace_skips_whitespace_preserves_positions() {
     let toks = tokenize("1 + 2").unwrap();
     assert_eq!(toks.len(), 4);
-    assert_eq!(toks[0], Token { tok: Tok::Num("1".into()), pos: 0 });
-    assert_eq!(toks[1], Token { tok: Tok::Punct("+".into()), pos: 2 });
-    assert_eq!(toks[2], Token { tok: Tok::Num("2".into()), pos: 4 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Num("1".into()),
+            pos: 0
+        }
+    );
+    assert_eq!(
+        toks[1],
+        Token {
+            tok: Tok::Punct("+".into()),
+            pos: 2
+        }
+    );
+    assert_eq!(
+        toks[2],
+        Token {
+            tok: Tok::Num("2".into()),
+            pos: 4
+        }
+    );
     assert_eq!(toks[3].tok, Tok::Eof);
 }
 
@@ -237,11 +364,41 @@ fn tokenize_given_empty_string_returns_eof_only_for_operators() {
 fn tokenize_given_complex_expression_returns_correct_sequence() {
     let toks = tokenize("a = 3.14 * b").unwrap();
     assert_eq!(toks.len(), 6);
-    assert_eq!(toks[0], Token { tok: Tok::Ident("a".into()), pos: 0 });
-    assert_eq!(toks[1], Token { tok: Tok::Punct("=".into()), pos: 2 });
-    assert_eq!(toks[2], Token { tok: Tok::Num("3.14".into()), pos: 4 });
-    assert_eq!(toks[3], Token { tok: Tok::Punct("*".into()), pos: 9 });
-    assert_eq!(toks[4], Token { tok: Tok::Ident("b".into()), pos: 11 });
+    assert_eq!(
+        toks[0],
+        Token {
+            tok: Tok::Ident("a".into()),
+            pos: 0
+        }
+    );
+    assert_eq!(
+        toks[1],
+        Token {
+            tok: Tok::Punct("=".into()),
+            pos: 2
+        }
+    );
+    assert_eq!(
+        toks[2],
+        Token {
+            tok: Tok::Num("3.14".into()),
+            pos: 4
+        }
+    );
+    assert_eq!(
+        toks[3],
+        Token {
+            tok: Tok::Punct("*".into()),
+            pos: 9
+        }
+    );
+    assert_eq!(
+        toks[4],
+        Token {
+            tok: Tok::Ident("b".into()),
+            pos: 11
+        }
+    );
     assert_eq!(toks[5].tok, Tok::Eof);
 }
 
@@ -258,7 +415,7 @@ fn unterminated_interpolated_string_is_a_parse_error() {
 fn well_formed_strings_still_tokenize() {
     let plain = &tokenize("\"abc\"").unwrap()[0];
     assert_eq!(plain.tok, Tok::Str("abc".into()));
-    let interpolated = &tokenize("$\"a{x}\"") .unwrap()[0];
+    let interpolated = &tokenize("$\"a{x}\"").unwrap()[0];
     assert!(matches!(interpolated.tok, Tok::Interp(_)));
 }
 
@@ -268,13 +425,19 @@ fn well_formed_strings_still_tokenize() {
 
 #[test]
 fn token_given_number_literal_kind_returns_correct_kind() {
-    let token = Token { tok: Tok::Num("42".into()), pos: 0 };
+    let token = Token {
+        tok: Tok::Num("42".into()),
+        pos: 0,
+    };
     assert!(matches!(token.tok, Tok::Num(_)));
 }
 
 #[test]
 fn token_given_text_returns_correct_text() {
-    let token = Token { tok: Tok::Ident("myVar".into()), pos: 3 };
+    let token = Token {
+        tok: Tok::Ident("myVar".into()),
+        pos: 3,
+    };
     match token.tok {
         Tok::Ident(text) => assert_eq!(text, "myVar"),
         other => panic!("wrong token: {other:?}"),
@@ -283,35 +446,62 @@ fn token_given_text_returns_correct_text() {
 
 #[test]
 fn token_given_position_returns_correct_position() {
-    let token = Token { tok: Tok::Punct("+".into()), pos: 7 };
+    let token = Token {
+        tok: Tok::Punct("+".into()),
+        pos: 7,
+    };
     assert_eq!(token.pos, 7);
 }
 
 #[test]
 fn token_given_equal_tokens_are_structurally_equal() {
-    let t1 = Token { tok: Tok::Num("42".into()), pos: 0 };
-    let t2 = Token { tok: Tok::Num("42".into()), pos: 0 };
+    let t1 = Token {
+        tok: Tok::Num("42".into()),
+        pos: 0,
+    };
+    let t2 = Token {
+        tok: Tok::Num("42".into()),
+        pos: 0,
+    };
     assert_eq!(t1, t2);
 }
 
 #[test]
 fn token_given_different_kinds_are_not_equal() {
-    let t1 = Token { tok: Tok::Num("42".into()), pos: 0 };
-    let t2 = Token { tok: Tok::Ident("42".into()), pos: 0 };
+    let t1 = Token {
+        tok: Tok::Num("42".into()),
+        pos: 0,
+    };
+    let t2 = Token {
+        tok: Tok::Ident("42".into()),
+        pos: 0,
+    };
     assert_ne!(t1, t2);
 }
 
 #[test]
 fn token_given_different_texts_are_not_equal() {
-    let t1 = Token { tok: Tok::Ident("a".into()), pos: 0 };
-    let t2 = Token { tok: Tok::Ident("b".into()), pos: 0 };
+    let t1 = Token {
+        tok: Tok::Ident("a".into()),
+        pos: 0,
+    };
+    let t2 = Token {
+        tok: Tok::Ident("b".into()),
+        pos: 0,
+    };
     assert_ne!(t1, t2);
 }
 
 #[test]
 fn token_given_different_positions_are_not_equal() {
-    let t1 = Token { tok: Tok::Punct("+".into()), pos: 0 };
-    let t2 = Token { tok: Tok::Punct("+".into()), pos: 5 };
+    let t1 = Token {
+        tok: Tok::Punct("+".into()),
+        pos: 0,
+    };
+    let t2 = Token {
+        tok: Tok::Punct("+".into()),
+        pos: 5,
+    };
     assert_ne!(t1, t2);
 }
 
@@ -336,7 +526,10 @@ fn parse_given_function_call_single_arg_returns_call_expr() {
 
 #[test]
 fn parse_given_function_call_multiple_args_returns_call_expr() {
-    assert_eq!(parse_shape("divrem(a, b)"), "call(divrem, [var(a), var(b)])");
+    assert_eq!(
+        parse_shape("divrem(a, b)"),
+        "call(divrem, [var(a), var(b)])"
+    );
 }
 
 #[test]
@@ -376,7 +569,10 @@ fn parse_given_power_right_associative_correct_tree() {
 
 #[test]
 fn parse_given_parentheses_override_precedence_correct_tree() {
-    assert_eq!(parse_shape("(1 + 2) * 3"), "Mul(Add(num(1), num(2)), num(3))");
+    assert_eq!(
+        parse_shape("(1 + 2) * 3"),
+        "Mul(Add(num(1), num(2)), num(3))"
+    );
 }
 
 #[test]
@@ -391,17 +587,26 @@ fn parse_given_comparison_lower_than_arithmetic_correct_precedence() {
 
 #[test]
 fn parse_given_range_before_power_range_binds_tighter() {
-    assert_eq!(parse_shape("1..10 ^ 2"), "Pow(range(num(1), none, num(10)), num(2))");
+    assert_eq!(
+        parse_shape("1..10 ^ 2"),
+        "Pow(range(num(1), none, num(10)), num(2))"
+    );
 }
 
 #[test]
 fn parse_given_scalar_times_range_range_binds_tighter() {
-    assert_eq!(parse_shape("2 * 1..5"), "Mul(num(2), range(num(1), none, num(5)))");
+    assert_eq!(
+        parse_shape("2 * 1..5"),
+        "Mul(num(2), range(num(1), none, num(5)))"
+    );
 }
 
 #[test]
 fn parse_given_range_plus_scalar_range_binds_tighter() {
-    assert_eq!(parse_shape("1..5 + 1"), "Add(range(num(1), none, num(5)), num(1))");
+    assert_eq!(
+        parse_shape("1..5 + 1"),
+        "Add(range(num(1), none, num(5)), num(1))"
+    );
 }
 
 #[test]
@@ -412,13 +617,17 @@ fn parse_given_assignment_returns_assign_expr() {
 #[test]
 fn parse_given_empty_input_throws_error() {
     let toks = tokenize("").unwrap();
-    let err = Parser::new(toks).single_expression().expect_err("empty source is refused");
+    let err = Parser::new(toks)
+        .single_expression()
+        .expect_err("empty source is refused");
     assert!(!err.message.trim().is_empty());
 }
 
 #[test]
 fn parse_given_unexpected_token_throws_descriptive_error() {
     let toks = tokenize("+ +").unwrap();
-    let err = Parser::new(toks).single_expression().expect_err("unexpected token is refused");
+    let err = Parser::new(toks)
+        .single_expression()
+        .expect_err("unexpected token is refused");
     assert!(!err.message.trim().is_empty());
 }

@@ -42,7 +42,12 @@ pub const INPUT_DEPTH_MAX: usize = 256;
 /// A token's own source text, as the reference's Token.Text publishes it.
 fn token_text(token: &Tok) -> &str {
     match token {
-        Tok::Num(t) | Tok::Repr(t) | Tok::Str(t) | Tok::Interp(t) | Tok::Ident(t) | Tok::Punct(t) => t,
+        Tok::Num(t)
+        | Tok::Repr(t)
+        | Tok::Str(t)
+        | Tok::Interp(t)
+        | Tok::Ident(t)
+        | Tok::Punct(t) => t,
         Tok::Semi => ";",
         Tok::Eof => "",
     }
@@ -172,7 +177,10 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
         let c = chars[i];
         let pos = positions[i];
         if c == '\n' {
-            out.push(Token { tok: Tok::Semi, pos });
+            out.push(Token {
+                tok: Tok::Semi,
+                pos,
+            });
             i += 1;
             continue;
         }
@@ -188,17 +196,24 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
         }
         if c == '"' {
             let (text, next) = scan_string(&chars, i + 1, pos)?;
-            out.push(Token { tok: Tok::Str(text), pos });
+            out.push(Token {
+                tok: Tok::Str(text),
+                pos,
+            });
             i = next;
             continue;
         }
         if c == '$' && i + 1 < chars.len() && chars[i + 1] == '"' {
             let (text, next) = scan_string(&chars, i + 2, pos)?;
-            out.push(Token { tok: Tok::Interp(text), pos });
+            out.push(Token {
+                tok: Tok::Interp(text),
+                pos,
+            });
             i = next;
             continue;
         }
-        if c.is_ascii_digit() || (c == '.' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit()) {
+        if c.is_ascii_digit() || (c == '.' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit())
+        {
             let start = i;
             let mut text = String::new();
             while i < chars.len() && chars[i].is_ascii_digit() {
@@ -219,11 +234,18 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
                     text.push_str(&period);
                     text.push(')');
                     i = j + 1;
-                    out.push(Token { tok: Tok::Repr(text), pos });
+                    out.push(Token {
+                        tok: Tok::Repr(text),
+                        pos,
+                    });
                     continue;
                 }
             }
-            if i < chars.len() && chars[i] == '.' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit() {
+            if i < chars.len()
+                && chars[i] == '.'
+                && i + 1 < chars.len()
+                && chars[i + 1].is_ascii_digit()
+            {
                 text.push('.');
                 i += 1;
                 while i < chars.len() && chars[i].is_ascii_digit() {
@@ -232,7 +254,11 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
                 }
             }
             // Repeating form: 0.(3) or 0.1(6)
-            if i < chars.len() && chars[i] == '(' && i + 1 < chars.len() && chars[i + 1].is_ascii_digit() {
+            if i < chars.len()
+                && chars[i] == '('
+                && i + 1 < chars.len()
+                && chars[i + 1].is_ascii_digit()
+            {
                 let mut period = String::new();
                 let mut j = i + 1;
                 while j < chars.len() && chars[j].is_ascii_digit() {
@@ -244,12 +270,18 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
                     text.push_str(&period);
                     text.push(')');
                     i = j + 1;
-                    out.push(Token { tok: Tok::Repr(text), pos });
+                    out.push(Token {
+                        tok: Tok::Repr(text),
+                        pos,
+                    });
                     continue;
                 }
             }
             let _ = start;
-            out.push(Token { tok: Tok::Num(text), pos });
+            out.push(Token {
+                tok: Tok::Num(text),
+                pos,
+            });
             continue;
         }
         if c.is_alphabetic() || c == '_' {
@@ -258,38 +290,56 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
                 text.push(chars[i]);
                 i += 1;
             }
-            out.push(Token { tok: Tok::Ident(text), pos });
+            out.push(Token {
+                tok: Tok::Ident(text),
+                pos,
+            });
             continue;
         }
         // Punctuators, longest first.
         let two: String = chars[i..(i + 2).min(chars.len())].iter().collect();
         if two == ".." || two == "==" || two == "!=" || two == "<=" || two == ">=" {
-            out.push(Token { tok: Tok::Punct(two), pos });
+            out.push(Token {
+                tok: Tok::Punct(two),
+                pos,
+            });
             i += 2;
             continue;
         }
         if c == ';' {
-            out.push(Token { tok: Tok::Semi, pos });
+            out.push(Token {
+                tok: Tok::Semi,
+                pos,
+            });
             i += 1;
             continue;
         }
         let one = c.to_string();
         if "+-*/%^!=<>()[]{},:.".contains(c) {
-            out.push(Token { tok: Tok::Punct(one), pos });
+            out.push(Token {
+                tok: Tok::Punct(one),
+                pos,
+            });
             i += 1;
             continue;
         }
-        return Err(LangError::plain(format!(
-            "Unexpected character '{}' at position {}.",
-            c, pos
-        ))
-        .with_position(pos));
+        return Err(
+            LangError::plain(format!("Unexpected character '{}' at position {}.", c, pos))
+                .with_position(pos),
+        );
     }
-    out.push(Token { tok: Tok::Eof, pos: unit });
+    out.push(Token {
+        tok: Tok::Eof,
+        pos: unit,
+    });
     Ok(out)
 }
 
-fn scan_string(chars: &[char], mut i: usize, start_pos: usize) -> Result<(String, usize), LangError> {
+fn scan_string(
+    chars: &[char],
+    mut i: usize,
+    start_pos: usize,
+) -> Result<(String, usize), LangError> {
     let mut text = String::new();
     while i < chars.len() {
         let c = chars[i];
@@ -344,7 +394,11 @@ pub struct Parser {
 impl Parser {
     /// Builds a parser over a token stream.
     pub fn new(toks: Vec<Token>) -> Parser {
-        Parser { toks, i: 0, depth: 0 }
+        Parser {
+            toks,
+            i: 0,
+            depth: 0,
+        }
     }
 
     /// Opens one nesting level, refusing past the published input budget.
@@ -522,7 +576,7 @@ impl Parser {
                                 "Expected 'Ident' but found '{}' at position {}.",
                                 token_text(self.peek()),
                                 self.pos()
-                            )))
+                            )));
                         }
                     };
                     match self.peek().clone() {
@@ -534,7 +588,7 @@ impl Parser {
                                 "Expected 'in' after loop variable but found '{}' at position {}.",
                                 token_text(self.peek()),
                                 self.pos()
-                            )))
+                            )));
                         }
                     }
                     let range = self.expression()?;
@@ -570,7 +624,7 @@ impl Parser {
                                 "Expected function name but found '{}' at position {}.",
                                 token_text(self.peek()),
                                 self.pos()
-                            )))
+                            )));
                         }
                     };
                     self.expect_punct("(")?;
@@ -587,7 +641,7 @@ impl Parser {
                                         "Expected 'Ident' but found '{}' at position {}.",
                                         token_text(self.peek()),
                                         self.pos()
-                                    )))
+                                    )));
                                 }
                             }
                             if self.eat_punct(",") {
@@ -777,7 +831,11 @@ impl Parser {
         let second = self.unary()?;
         if self.eat_punct("..") {
             let end = self.unary()?;
-            return Ok(Expr::Range(Box::new(start), Some(Box::new(second)), Box::new(end)));
+            return Ok(Expr::Range(
+                Box::new(start),
+                Some(Box::new(second)),
+                Box::new(end),
+            ));
         }
         Ok(Expr::Range(Box::new(start), None, Box::new(second)))
     }
@@ -849,7 +907,8 @@ impl Parser {
                             break;
                         }
                     }
-                    let stop = if matches!(self.peek(), Tok::Punct(p) if p == ":" || p == "," || p == "]") {
+                    let stop = if matches!(self.peek(), Tok::Punct(p) if p == ":" || p == "," || p == "]")
+                    {
                         None
                     } else {
                         Some(self.expression()?)
@@ -894,7 +953,7 @@ impl Parser {
                             "Expected 'Ident' but found '{}' at position {}.",
                             token_text(self.peek()),
                             self.pos()
-                        )))
+                        )));
                     }
                 }
             }

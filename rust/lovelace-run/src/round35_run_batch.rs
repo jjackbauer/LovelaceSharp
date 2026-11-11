@@ -100,11 +100,16 @@ fn unknown_function_text_surface_carries_the_same_answer() {
     ]);
     assert_eq!(run.code, Some(1));
     assert!(
-        run.stderr.contains("Error [UnknownFunction/UnsupportedOperation]"),
+        run.stderr
+            .contains("Error [UnknownFunction/UnsupportedOperation]"),
         "stderr: {}",
         run.stderr
     );
-    assert!(run.stderr.contains("Did you mean 'det'?"), "stderr: {}", run.stderr);
+    assert!(
+        run.stderr.contains("Did you mean 'det'?"),
+        "stderr: {}",
+        run.stderr
+    );
 }
 
 // ===========================================================================
@@ -120,7 +125,11 @@ fn real_process_stdout_is_one_json_document_and_print_stays_in_output() {
     writeln!(file, "print(\"hello from the script\"); 1 + 1").expect("write script");
     drop(file);
 
-    let run = spawn(&["--file", script.to_str().expect("utf-8 path"), "--omit-functions"]);
+    let run = spawn(&[
+        "--file",
+        script.to_str().expect("utf-8 path"),
+        "--omit-functions",
+    ]);
     assert_eq!(run.code, Some(0), "stderr: {}", run.stderr);
     let envelope = Json::parse(run.stdout.trim()).expect("stdout is one JSON document");
     let output: Vec<&str> = envelope
@@ -150,26 +159,62 @@ fn limit_short_form_refusals_carry_the_diagnostic() {
         assert_eq!(exit, 0, "{script}: {}", envelope.to_string());
         assert_eq!(envelope.get("ok").and_then(bool_of), Some(true));
 
-        let structured = envelope.get("result").expect("result").get("structured").expect("structured");
-        assert_eq!(structured.get("kind").and_then(Json::as_str), Some("Record"));
-        assert_eq!(structured.get("type").and_then(Json::as_str), Some("LimitResult"));
+        let structured = envelope
+            .get("result")
+            .expect("result")
+            .get("structured")
+            .expect("structured");
+        assert_eq!(
+            structured.get("kind").and_then(Json::as_str),
+            Some("Record")
+        );
+        assert_eq!(
+            structured.get("type").and_then(Json::as_str),
+            Some("LimitResult")
+        );
 
         let status = field(structured, "status");
         assert_eq!(status.get("kind").and_then(Json::as_str), Some("Enum"));
-        assert_eq!(status.get("type").and_then(Json::as_str), Some("LimitStatus"));
-        assert_eq!(status.get("value").and_then(Json::as_str), Some("Unevaluated"));
-        assert_eq!(field(structured, "exists").get("kind").and_then(Json::as_str), Some("Null"));
+        assert_eq!(
+            status.get("type").and_then(Json::as_str),
+            Some("LimitStatus")
+        );
+        assert_eq!(
+            status.get("value").and_then(Json::as_str),
+            Some("Unevaluated")
+        );
+        assert_eq!(
+            field(structured, "exists")
+                .get("kind")
+                .and_then(Json::as_str),
+            Some("Null")
+        );
 
         let diagnostics = field(structured, "diagnostics");
-        let elements = diagnostics.get("elements").and_then(Json::as_arr).expect("elements");
+        let elements = diagnostics
+            .get("elements")
+            .and_then(Json::as_arr)
+            .expect("elements");
         assert_eq!(elements.len(), 1, "{script}: {}", diagnostics.to_string());
         let diagnostic = &elements[0];
-        assert_eq!(diagnostic.get("type").and_then(Json::as_str), Some("Diagnostic"));
+        assert_eq!(
+            diagnostic.get("type").and_then(Json::as_str),
+            Some("Diagnostic")
+        );
         assert_eq!(text(field(diagnostic, "code")), "limit.unevaluated");
         let category = field(diagnostic, "category");
-        assert_eq!(category.get("type").and_then(Json::as_str), Some("ErrorCategory"));
-        assert_eq!(category.get("value").and_then(Json::as_str), Some("UnsupportedOperation"));
-        assert_eq!(text(field(diagnostic, "message")), "leading coefficient is symbolic");
+        assert_eq!(
+            category.get("type").and_then(Json::as_str),
+            Some("ErrorCategory")
+        );
+        assert_eq!(
+            category.get("value").and_then(Json::as_str),
+            Some("UnsupportedOperation")
+        );
+        assert_eq!(
+            text(field(diagnostic, "message")),
+            "leading coefficient is symbolic"
+        );
         assert_eq!(text(field(diagnostic, "recoverable")), "true");
     }
 }
@@ -182,14 +227,27 @@ fn limit_short_form_refusals_carry_the_diagnostic() {
 fn assumptions_returns_structured_atoms_with_display_and_domain_condition() {
     let (envelope, exit) = run_envelope("x = symbol(\"x\"); assume(x > 5); assumptions()");
     assert_eq!(exit, 0);
-    let structured = envelope.get("result").expect("result").get("structured").expect("structured");
-    assert_eq!(structured.get("type").and_then(Json::as_str), Some("AssumptionSet"));
+    let structured = envelope
+        .get("result")
+        .expect("result")
+        .get("structured")
+        .expect("structured");
+    assert_eq!(
+        structured.get("type").and_then(Json::as_str),
+        Some("AssumptionSet")
+    );
     let display = field(structured, "display");
     assert_eq!(text(display), "x > 5");
     let atoms = field(structured, "assumptions");
-    let elements = atoms.get("elements").and_then(Json::as_arr).expect("elements");
+    let elements = atoms
+        .get("elements")
+        .and_then(Json::as_arr)
+        .expect("elements");
     assert_eq!(elements.len(), 1);
-    assert_eq!(elements[0].get("kind").and_then(Json::as_str), Some("Symbolic"));
+    assert_eq!(
+        elements[0].get("kind").and_then(Json::as_str),
+        Some("Symbolic")
+    );
     assert_eq!(
         elements[0].get("canonical").and_then(Json::as_str),
         Some("(gt (sym x) (rat 5 1))")
@@ -197,11 +255,21 @@ fn assumptions_returns_structured_atoms_with_display_and_domain_condition() {
 
     let (envelope, exit) = run_envelope("x = symbol(\"x\"); assume_integer(x); assumptions()");
     assert_eq!(exit, 0);
-    let structured = envelope.get("result").expect("result").get("structured").expect("structured");
+    let structured = envelope
+        .get("result")
+        .expect("result")
+        .get("structured")
+        .expect("structured");
     let atoms = field(structured, "assumptions");
-    let elements = atoms.get("elements").and_then(Json::as_arr).expect("elements");
+    let elements = atoms
+        .get("elements")
+        .and_then(Json::as_arr)
+        .expect("elements");
     let atom = &elements[0];
-    assert_eq!(atom.get("type").and_then(Json::as_str), Some("DomainCondition"));
+    assert_eq!(
+        atom.get("type").and_then(Json::as_str),
+        Some("DomainCondition")
+    );
     let domain = field(atom, "domain");
     assert_eq!(domain.get("kind").and_then(Json::as_str), Some("Domain"));
     assert_eq!(domain.get("domain").and_then(Json::as_str), Some("integer"));

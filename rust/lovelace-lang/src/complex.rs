@@ -76,7 +76,10 @@ impl Complex {
 
     /// Builds the purely real re + 0i.
     pub fn from_real(re: Real) -> Complex {
-        Complex { im: Real::zero(), re }
+        Complex {
+            im: Real::zero(),
+            re,
+        }
     }
 
     /// Builds a complex number from an integer (Integer/Natural promotion).
@@ -356,7 +359,12 @@ struct Fixed {
 
 impl Fixed {
     fn zero() -> Fixed {
-        Fixed { sig: 0, exp: 0, neg: false, inexact: false }
+        Fixed {
+            sig: 0,
+            exp: 0,
+            neg: false,
+            inexact: false,
+        }
     }
 
     fn is_zero(&self) -> bool {
@@ -364,7 +372,11 @@ impl Fixed {
     }
 
     fn digits_len(&self) -> usize {
-        if self.sig == 0 { 0 } else { self.sig.to_string().len() }
+        if self.sig == 0 {
+            0
+        } else {
+            self.sig.to_string().len()
+        }
     }
 
     fn fits(&self, max: usize) -> bool {
@@ -406,14 +418,27 @@ impl Fixed {
         digits.push_str(frac);
         let digits = digits.trim_start_matches('0').to_string();
         if digits.is_empty() {
-            return Some(Fixed { sig: 0, exp: 0, neg: false, inexact: !value.is_exact() });
+            return Some(Fixed {
+                sig: 0,
+                exp: 0,
+                neg: false,
+                inexact: !value.is_exact(),
+            });
         }
         if digits.len() > max {
             return None;
         }
         let sig = digits.parse::<u128>().ok()?;
         let exp = i32::try_from(-(frac.len() as i64)).ok()?;
-        Some(Fixed { sig, exp, neg, inexact: !value.is_exact() }.normalized())
+        Some(
+            Fixed {
+                sig,
+                exp,
+                neg,
+                inexact: !value.is_exact(),
+            }
+            .normalized(),
+        )
     }
 
     fn to_real(&self) -> Real {
@@ -462,13 +487,23 @@ impl Fixed {
             (scale(self.sig, diff, max)?, other.sig, other.exp)
         };
         let (sig, neg) = if self.neg == other.neg {
-            (a.checked_add(b).ok_or_else(|| LRealPromoteException::new(max))?, self.neg)
+            (
+                a.checked_add(b)
+                    .ok_or_else(|| LRealPromoteException::new(max))?,
+                self.neg,
+            )
         } else if a >= b {
             (a - b, self.neg)
         } else {
             (b - a, other.neg)
         };
-        let result = Fixed { sig, exp, neg, inexact: self.inexact || other.inexact }.normalized();
+        let result = Fixed {
+            sig,
+            exp,
+            neg,
+            inexact: self.inexact || other.inexact,
+        }
+        .normalized();
         if result.fits(max) {
             Ok(result)
         } else {
@@ -477,7 +512,10 @@ impl Fixed {
     }
 
     fn negate(&self) -> Fixed {
-        Fixed { neg: !self.neg && self.sig != 0, ..*self }
+        Fixed {
+            neg: !self.neg && self.sig != 0,
+            ..*self
+        }
     }
 
     fn mul(&self, other: &Fixed, max: usize) -> Result<Fixed, LRealPromoteException> {
@@ -518,7 +556,12 @@ impl Fixed {
             return Err(LRealPromoteException::new(max));
         }
         if self.sig == 0 {
-            return Ok(Fixed { sig: 0, exp: 0, neg: false, inexact: self.inexact || other.inexact });
+            return Ok(Fixed {
+                sig: 0,
+                exp: 0,
+                neg: false,
+                inexact: self.inexact || other.inexact,
+            });
         }
         let mut numerator = self.sig;
         let mut extra = 0u32;
@@ -610,7 +653,10 @@ impl FixedComplex {
     ) -> Result<FixedComplex, LRealPromoteException> {
         let width = self.width;
         let (re, im) = match op {
-            FixedOp::Add => (self.re.add(&other.re, width)?, self.im.add(&other.im, width)?),
+            FixedOp::Add => (
+                self.re.add(&other.re, width)?,
+                self.im.add(&other.im, width)?,
+            ),
             FixedOp::Sub => (
                 self.re.add(&other.re.negate(), width)?,
                 self.im.add(&other.im.negate(), width)?,
@@ -632,12 +678,18 @@ impl FixedComplex {
     }
 
     fn conjugate(&self) -> FixedComplex {
-        FixedComplex { re: self.re, im: self.im.negate(), width: self.width }
+        FixedComplex {
+            re: self.re,
+            im: self.im.negate(),
+            width: self.width,
+        }
     }
 
     fn magnitude_squared(&self) -> Result<Fixed, LRealPromoteException> {
         let width = self.width;
-        self.re.mul(&self.re, width)?.add(&self.im.mul(&self.im, width)?, width)
+        self.re
+            .mul(&self.re, width)?
+            .add(&self.im.mul(&self.im, width)?, width)
     }
 
     fn reciprocal(&self) -> Result<FixedComplex, LRealPromoteException> {
@@ -654,12 +706,15 @@ impl FixedComplex {
     }
 
     fn negate(&self) -> FixedComplex {
-        FixedComplex { re: self.re.negate(), im: self.im.negate(), width: self.width }
+        FixedComplex {
+            re: self.re.negate(),
+            im: self.im.negate(),
+            width: self.width,
+        }
     }
 
     fn eq_component(left: Fixed, right: Fixed) -> bool {
-        left.sig == right.sig
-            && (left.sig == 0 || (left.exp == right.exp && left.neg == right.neg))
+        left.sig == right.sig && (left.sig == 0 || (left.exp == right.exp && left.neg == right.neg))
     }
 }
 
@@ -717,7 +772,11 @@ macro_rules! fixed_complex {
                 if body.is_empty() || body == "+" || body == "-" {
                     let im = parse_fixed(if body == "-" { "-1" } else { "1" }, $width)?;
                     return Ok($name {
-                        inner: FixedComplex { re: Fixed::zero(), im, width: $width },
+                        inner: FixedComplex {
+                            re: Fixed::zero(),
+                            im,
+                            width: $width,
+                        },
                     });
                 }
                 let mut split = None;
@@ -743,7 +802,11 @@ macro_rules! fixed_complex {
                 if im_digits.is_empty() {
                     im_digits = "1".to_string();
                 }
-                let im_text = if sign == '-' { format!("-{im_digits}") } else { im_digits };
+                let im_text = if sign == '-' {
+                    format!("-{im_digits}")
+                } else {
+                    im_digits
+                };
                 Ok($name {
                     inner: FixedComplex {
                         re: parse_fixed(re_part, $width)?,
@@ -766,32 +829,44 @@ macro_rules! fixed_complex {
 
             /// Component-wise addition; promotes when a component outgrows the width.
             pub fn checked_add(&self, other: &$name) -> Result<$name, LRealPromoteException> {
-                self.inner.apply(&other.inner, FixedOp::Add).map(|inner| $name { inner })
+                self.inner
+                    .apply(&other.inner, FixedOp::Add)
+                    .map(|inner| $name { inner })
             }
 
             /// Component-wise subtraction; promotes when a component outgrows the width.
             pub fn checked_sub(&self, other: &$name) -> Result<$name, LRealPromoteException> {
-                self.inner.apply(&other.inner, FixedOp::Sub).map(|inner| $name { inner })
+                self.inner
+                    .apply(&other.inner, FixedOp::Sub)
+                    .map(|inner| $name { inner })
             }
 
             /// FOIL multiplication; promotes when a component outgrows the width.
             pub fn checked_mul(&self, other: &$name) -> Result<$name, LRealPromoteException> {
-                self.inner.apply(&other.inner, FixedOp::Mul).map(|inner| $name { inner })
+                self.inner
+                    .apply(&other.inner, FixedOp::Mul)
+                    .map(|inner| $name { inner })
             }
 
             /// Complex division; promotes when the exact quotient does not fit the width.
             pub fn checked_div(&self, other: &$name) -> Result<$name, LRealPromoteException> {
-                self.inner.apply(&other.inner, FixedOp::Div).map(|inner| $name { inner })
+                self.inner
+                    .apply(&other.inner, FixedOp::Div)
+                    .map(|inner| $name { inner })
             }
 
             /// Negation.
             pub fn neg(&self) -> $name {
-                $name { inner: self.inner.negate() }
+                $name {
+                    inner: self.inner.negate(),
+                }
             }
 
             /// Complex conjugate.
             pub fn conjugate(&self) -> $name {
-                $name { inner: self.inner.conjugate() }
+                $name {
+                    inner: self.inner.conjugate(),
+                }
             }
 
             /// |z|^2 in the fixed width (promotes when the squares do not fit).
@@ -822,7 +897,11 @@ macro_rules! fixed_complex {
     };
 }
 
-fixed_complex!(LComplex64, 19, "Fixed-width complex number over 19-significant-digit exact decimals.");
+fixed_complex!(
+    LComplex64,
+    19,
+    "Fixed-width complex number over 19-significant-digit exact decimals."
+);
 fixed_complex!(
     LComplex128,
     38,

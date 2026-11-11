@@ -31,7 +31,13 @@ fn raw(neg: bool, mag: Nat, exp: i64, inexact: bool) -> Real {
     if neg {
         int = int.negate();
     }
-    Real { int, exp, period_start: -1, period_len: 0, inexact }
+    Real {
+        int,
+        exp,
+        period_start: -1,
+        period_len: 0,
+        inexact,
+    }
 }
 
 /// Builds a normalised value, preserving the provenance flag.
@@ -275,7 +281,11 @@ impl Real {
         let negate = self.int.is_negative();
         let ax = self.abs();
         let big = ax.cmp(&one()) == Ordering::Greater;
-        let arg = if big { div_truncate(&one(), &ax, work) } else { ax };
+        let arg = if big {
+            div_truncate(&one(), &ax, work)
+        } else {
+            ax
+        };
         let mut y = arg;
         for _ in 0..3 {
             let denom = one().add(&y.mul(&y)).sqrt(work);
@@ -283,7 +293,10 @@ impl Real {
         }
         let atan_arg = atan_series(&y, work).mul(&Real::from_i64(8));
         let mut result = if big {
-            Real::pi(work).div(&two(), work).unwrap_or_else(Real::zero).sub(&atan_arg)
+            Real::pi(work)
+                .div(&two(), work)
+                .unwrap_or_else(Real::zero)
+                .sub(&atan_arg)
         } else {
             atan_arg
         };
@@ -296,10 +309,13 @@ impl Real {
     /// \`asin(x)\` for |x| <= 1, truncated to \`digits\` fractional places.
     pub fn asin(&self, digits: usize) -> Option<Real> {
         let digits = digits.max(1);
-        if self.cmp(&one()) == Ordering::Greater || self.cmp(&Real::from_i64(-1)) == Ordering::Less {
+        if self.cmp(&one()) == Ordering::Greater || self.cmp(&Real::from_i64(-1)) == Ordering::Less
+        {
             return None;
         }
-        let half_pi = Real::pi(digits).div(&two(), digits).unwrap_or_else(Real::zero);
+        let half_pi = Real::pi(digits)
+            .div(&two(), digits)
+            .unwrap_or_else(Real::zero);
         if self.cmp(&one()) == Ordering::Equal {
             return Some(half_pi);
         }
@@ -315,7 +331,9 @@ impl Real {
     pub fn acos(&self, digits: usize) -> Option<Real> {
         let digits = digits.max(1);
         let asin = self.asin(digits)?;
-        let half_pi = Real::pi(digits).div(&two(), digits).unwrap_or_else(Real::zero);
+        let half_pi = Real::pi(digits)
+            .div(&two(), digits)
+            .unwrap_or_else(Real::zero);
         Some(half_pi.sub(&asin))
     }
 
@@ -330,7 +348,11 @@ impl Real {
             if y_zero {
                 return with_two_argument_provenance(Real::zero(), y, x);
             }
-            let branch = if y.int.is_negative() { half_pi.neg() } else { half_pi };
+            let branch = if y.int.is_negative() {
+                half_pi.neg()
+            } else {
+                half_pi
+            };
             return with_two_argument_provenance(branch, y, x);
         }
         let work = digits + GUARD_DIGITS;
@@ -389,12 +411,17 @@ impl Real {
     /// \`atanh(x) = (ln(1+x) - ln(1-x))/2\` for |x| < 1. \`None\` outside the open interval.
     pub fn atanh(&self, digits: usize) -> Option<Real> {
         let digits = digits.max(1);
-        if self.cmp(&one()) != Ordering::Less || self.cmp(&Real::from_i64(-1)) != Ordering::Greater {
+        if self.cmp(&one()) != Ordering::Less || self.cmp(&Real::from_i64(-1)) != Ordering::Greater
+        {
             return None;
         }
         let left = one().add(self).ln(digits)?;
         let right = one().sub(self).ln(digits)?;
-        Some(left.sub(&right).div(&two(), digits).unwrap_or_else(Real::zero))
+        Some(
+            left.sub(&right)
+                .div(&two(), digits)
+                .unwrap_or_else(Real::zero),
+        )
     }
 
     /// \`b^e = exp(e * ln b)\` for b > 0. \`None\` otherwise.
@@ -416,15 +443,20 @@ impl Real {
     /// The reference \`RealSinh\`: (e^x - e^-x)/2 with each exp at the ambient precision.
     pub fn sinh_hyperbolic(&self, digits: usize) -> Real {
         let digits = digits.max(1);
-        self.exp(digits).sub(&self.neg().exp(digits)).div(&two(), digits).unwrap_or_else(Real::zero)
+        self.exp(digits)
+            .sub(&self.neg().exp(digits))
+            .div(&two(), digits)
+            .unwrap_or_else(Real::zero)
     }
 
     /// The reference \`RealCosh\`.
     pub fn cosh_hyperbolic(&self, digits: usize) -> Real {
         let digits = digits.max(1);
-        self.exp(digits).add(&self.neg().exp(digits)).div(&two(), digits).unwrap_or_else(Real::zero)
+        self.exp(digits)
+            .add(&self.neg().exp(digits))
+            .div(&two(), digits)
+            .unwrap_or_else(Real::zero)
     }
-
 }
 
 /// The reference \`ComplexMath.Decompose\`: positive x = m * 10^L with m in [1, 10).
@@ -474,11 +506,7 @@ fn argument_places(x: &Real) -> i64 {
     if x.period_len > 0 {
         return 0;
     }
-    if x.exp < 0 {
-        -x.exp
-    } else {
-        0
-    }
+    if x.exp < 0 { -x.exp } else { 0 }
 }
 
 fn pi_digits_for(x: &Real, digits: usize) -> usize {
@@ -604,7 +632,11 @@ fn atan_series(y: &Real, work: usize) -> Real {
     for k in 1..=max_k {
         pow = pow.mul(&y2);
         let contrib = div_truncate(&pow, &Real::from_i64((2 * k + 1) as i64), work);
-        sum = if k & 1 == 1 { sum.sub(&contrib) } else { sum.add(&contrib) };
+        sum = if k & 1 == 1 {
+            sum.sub(&contrib)
+        } else {
+            sum.add(&contrib)
+        };
         if contrib.abs().cmp(&threshold) == Ordering::Less {
             break;
         }
@@ -943,11 +975,7 @@ fn real_sin(value: &Real, digits: usize) -> Real {
         negative = true;
     }
     let sin = sin_taylor_guarded(&x, guard).mark_inexact();
-    if negative {
-        sin.neg()
-    } else {
-        sin
-    }
+    if negative { sin.neg() } else { sin }
 }
 
 /// Real.Cos(value, digits), the reference's even-symmetry/table/reduction order.
@@ -992,9 +1020,5 @@ fn real_cos(value: &Real, digits: usize) -> Real {
         cos_taylor_guarded(&x, guard)
     }
     .mark_inexact();
-    if negate {
-        cos.neg()
-    } else {
-        cos
-    }
+    if negate { cos.neg() } else { cos }
 }

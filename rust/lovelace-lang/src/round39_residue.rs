@@ -40,9 +40,15 @@ fn indeterminate_exponential_limits_answer_the_exact_closed_form() {
     assert_eq!(limit_value("limit((1 + 1/x)^x, x, inf)").display(), "e");
     assert_eq!(limit_value("limit((1 + x)^(1/x), x, 0)").display(), "e");
     assert_eq!(limit_value("limit((1 + 2/x)^x, x, inf)").display(), "e^2");
-    assert_eq!(limit_value("limit((1 + 1/x)^(3*x), x, inf)").display(), "e^3");
+    assert_eq!(
+        limit_value("limit((1 + 1/x)^(3*x), x, inf)").display(),
+        "e^3"
+    );
     assert_eq!(limit_value("limit((1 + 1/x)^x, x, -inf)").display(), "e");
-    assert_eq!(limit_value("limit((1 + 3/x)^(x/2), x, inf)").display(), "e^(3/2)");
+    assert_eq!(
+        limit_value("limit((1 + 3/x)^(x/2), x, inf)").display(),
+        "e^(3/2)"
+    );
     assert_eq!(
         display("x = symbol(\"x\"); a = symbol(\"a\"); limit((1 + x)^(a/x), x, 0).value"),
         "e^a"
@@ -70,9 +76,14 @@ fn indeterminate_exponential_shapes_stay_unevaluated_with_a_reason() {
             text.starts_with("LimitResult(status: Unevaluated"),
             "{body} was answered: {text}"
         );
-        assert!(text.contains("limit.unevaluated"), "{body} carries no diagnostic: {text}");
+        assert!(
+            text.contains("limit.unevaluated"),
+            "{body} carries no diagnostic: {text}"
+        );
     }
-    let text = eval(&with_x("limit((1 + 1/x)^(x^2), x, inf)")).expect("record").display();
+    let text = eval(&with_x("limit((1 + 1/x)^(x^2), x, inf)"))
+        .expect("record")
+        .display();
     assert!(
         text.contains("the indeterminate factor"),
         "the cofactor refusal carries the reference reason: {text}"
@@ -88,7 +99,10 @@ fn determined_limits_keep_their_answers() {
     assert_eq!(limit_value("limit((1 + x)^2, x, 0)").display(), "1");
     assert_eq!(limit_value("limit(2^x, x, 3)").display(), "8");
     assert_eq!(limit_value("limit(x^x, x, 0)").display(), "1");
-    assert_eq!(limit_value("limit((x^2 + 1)/(x^2 - 1), x, inf)").display(), "1");
+    assert_eq!(
+        limit_value("limit((x^2 + 1)/(x^2 - 1), x, inf)").display(),
+        "1"
+    );
     assert_eq!(
         display("x = symbol(\"x\"); limit(1/x, x, 0)"),
         "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: [])"
@@ -102,7 +116,10 @@ fn integration_table_rows_are_exact_and_verify() {
     let cases = [
         ("integrate(x^7, x)", "1/8*x^8"),
         ("integrate(3*x^2 + 2*x + 1, x)", "x^3 + x^2 + x"),
-        ("integrate(1/(x^2 - 1), x)", "-1/2*log(x + 1) + 1/2*log(x - 1)"),
+        (
+            "integrate(1/(x^2 - 1), x)",
+            "-1/2*log(x + 1) + 1/2*log(x - 1)",
+        ),
         ("integrate(sin(x), x)", "-cos(x)"),
         ("integrate(exp(3*x), x)", "1/3*exp(3*x)"),
         ("integrate(2*x*cos(x^2), x)", "sin(x^2)"),
@@ -139,7 +156,10 @@ fn mathir_old_version_is_rejected_with_the_reference_message() {
     );
     // a version the reader cannot see is quoted verbatim, exactly as the reference quotes it
     let error = eval("evalir(\"#!mathir 3\", [1], 10)").expect_err("version 3 must be refused");
-    assert_eq!(error.message, "Unsupported MathIR format version '3' (expected 2).");
+    assert_eq!(
+        error.message,
+        "Unsupported MathIR format version '3' (expected 2)."
+    );
 }
 
 /// DxSemanticClosureTests.Solve_QuarticWithRealRoots_DefaultDomain_KeepsRootOfRoots: the

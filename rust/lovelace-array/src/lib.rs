@@ -140,12 +140,20 @@ impl Slice {
 
     /// Builds the full slice (all indices in order).
     pub const fn full() -> Self {
-        Self { start: None, stop: None, step: None }
+        Self {
+            start: None,
+            stop: None,
+            step: None,
+        }
     }
 
     /// Builds the half-open range start..stop with the default step.
     pub const fn range(start: i64, stop: i64) -> Self {
-        Self { start: Some(start), stop: Some(stop), step: None }
+        Self {
+            start: Some(start),
+            stop: Some(stop),
+            step: None,
+        }
     }
 
     /// Returns this slice with the step replaced.
@@ -292,7 +300,10 @@ impl<T> NdArray<T> {
 
     /// Builds a rank-0 array holding value.
     pub fn scalar(value: T) -> Self {
-        Self { shape: Vec::new(), data: vec![value] }
+        Self {
+            shape: Vec::new(),
+            data: vec![value],
+        }
     }
 
     /// Builds a rank-2 array from rows, rejecting ragged input.
@@ -309,7 +320,10 @@ impl<T> NdArray<T> {
             return Err(ArrayError::Ragged);
         }
         let data: Vec<T> = rows.into_iter().flatten().collect();
-        Ok(Self { shape: vec![row_count, col_count], data })
+        Ok(Self {
+            shape: vec![row_count, col_count],
+            data,
+        })
     }
 
     /// The shape, outermost dimension first. The empty slice denotes rank 0.
@@ -428,11 +442,7 @@ impl<T> NdArray<T> {
     ///
     /// Returns [ArrayError::ShapeMismatch] when neither equal shapes nor a scalar
     /// broadcast applies.
-    pub fn zip_map_broadcast<U, F>(
-        &self,
-        other: &Self,
-        f: F,
-    ) -> Result<NdArray<U>, ArrayError>
+    pub fn zip_map_broadcast<U, F>(&self, other: &Self, f: F) -> Result<NdArray<U>, ArrayError>
     where
         F: Fn(&T, &T) -> U,
     {
@@ -453,13 +463,21 @@ impl<T> NdArray<T> {
         if self.is_scalar() {
             return Ok(NdArray {
                 shape: other.shape.clone(),
-                data: other.data.iter().map(|right| f(&self.data[0], right)).collect(),
+                data: other
+                    .data
+                    .iter()
+                    .map(|right| f(&self.data[0], right))
+                    .collect(),
             });
         }
         if other.is_scalar() {
             return Ok(NdArray {
                 shape: self.shape.clone(),
-                data: self.data.iter().map(|left| f(left, &other.data[0])).collect(),
+                data: self
+                    .data
+                    .iter()
+                    .map(|left| f(left, &other.data[0]))
+                    .collect(),
             });
         }
         Err(ArrayError::ShapeMismatch)
@@ -491,7 +509,10 @@ impl<T: Clone> NdArray<T> {
         }
         let shape = self.shape[indices.len()..].to_vec();
         let count = strides[indices.len()];
-        Ok(Self { shape, data: self.data[offset..offset + count].to_vec() })
+        Ok(Self {
+            shape,
+            data: self.data[offset..offset + count].to_vec(),
+        })
     }
 
     /// Slices every axis; there must be exactly one [Slice] per dimension.
@@ -535,7 +556,10 @@ impl<T: Clone> NdArray<T> {
             }
             data.push(self.data[offset].clone());
         }
-        Ok(Self { shape: out_shape, data })
+        Ok(Self {
+            shape: out_shape,
+            data,
+        })
     }
 
     /// Returns the same row-major data under a new shape.
@@ -548,7 +572,10 @@ impl<T: Clone> NdArray<T> {
         if element_count(&shape) != Some(self.numel()) {
             return Err(ArrayError::ShapeMismatch);
         }
-        Ok(Self { shape, data: self.data.clone() })
+        Ok(Self {
+            shape,
+            data: self.data.clone(),
+        })
     }
 
     /// Reverses the axes.
@@ -591,7 +618,10 @@ impl<T: Clone> NdArray<T> {
             }
             data.push(self.data[offset].clone());
         }
-        Ok(Self { shape: out_shape, data })
+        Ok(Self {
+            shape: out_shape,
+            data,
+        })
     }
 
     /// Removes every dimension of length 1.
@@ -600,12 +630,18 @@ impl<T: Clone> NdArray<T> {
     /// holds the same single element. A rank-0 array is unchanged.
     pub fn squeeze(&self) -> Self {
         let shape = self.shape.iter().copied().filter(|&dim| dim != 1).collect();
-        Self { shape, data: self.data.clone() }
+        Self {
+            shape,
+            data: self.data.clone(),
+        }
     }
 
     /// Returns a rank-1 copy of the row-major data.
     pub fn flatten(&self) -> Self {
-        Self { shape: vec![self.numel()], data: self.data.clone() }
+        Self {
+            shape: vec![self.numel()],
+            data: self.data.clone(),
+        }
     }
 
     /// Concatenates arrays along axis.
@@ -656,8 +692,10 @@ impl<T: Clone> NdArray<T> {
         }
         out_shape[axis] = axis_total;
         let out_numel = element_count(&out_shape).ok_or(ArrayError::ShapeMismatch)?;
-        let strides: Vec<Vec<usize>> =
-            parts.iter().map(|part| compute_strides(&part.shape)).collect();
+        let strides: Vec<Vec<usize>> = parts
+            .iter()
+            .map(|part| compute_strides(&part.shape))
+            .collect();
         let mut data = Vec::with_capacity(out_numel);
         for linear in 0..out_numel {
             let mut remainder = linear;
@@ -684,7 +722,10 @@ impl<T: Clone> NdArray<T> {
             }
             data.push(part.data[offset].clone());
         }
-        Ok(Self { shape: out_shape, data })
+        Ok(Self {
+            shape: out_shape,
+            data,
+        })
     }
 }
 
@@ -692,13 +733,19 @@ impl<T: Field> NdArray<T> {
     /// Builds an array of shape filled with [Field::zero].
     pub fn zeros(shape: Vec<usize>) -> Self {
         let count = element_count(&shape).expect("array shape overflows usize");
-        Self { shape, data: vec![T::zero(); count] }
+        Self {
+            shape,
+            data: vec![T::zero(); count],
+        }
     }
 
     /// Builds an array of shape filled with [Field::one].
     pub fn ones(shape: Vec<usize>) -> Self {
         let count = element_count(&shape).expect("array shape overflows usize");
-        Self { shape, data: vec![T::one(); count] }
+        Self {
+            shape,
+            data: vec![T::one(); count],
+        }
     }
 
     /// Builds the n by n identity matrix.
@@ -708,7 +755,10 @@ impl<T: Field> NdArray<T> {
         for i in 0..n {
             data[i * n + i] = T::one();
         }
-        Self { shape: vec![n, n], data }
+        Self {
+            shape: vec![n, n],
+            data,
+        }
     }
 
     /// Sums all elements. The empty sum is [Field::zero].
@@ -757,7 +807,11 @@ impl<T: Field> NdArray<T> {
                 let dim = out_shape[out_axis];
                 let coordinate = remainder % dim;
                 remainder /= dim;
-                let source_axis = if out_axis < axis { out_axis } else { out_axis + 1 };
+                let source_axis = if out_axis < axis {
+                    out_axis
+                } else {
+                    out_axis + 1
+                };
                 base += coordinate * strides[source_axis + 1];
             }
             let mut accumulator = seed.clone();
@@ -766,7 +820,10 @@ impl<T: Field> NdArray<T> {
             }
             data.push(accumulator);
         }
-        Ok(Self { shape: out_shape, data })
+        Ok(Self {
+            shape: out_shape,
+            data,
+        })
     }
 
     /// Sums along one axis, removing it from the output shape.
@@ -997,9 +1054,18 @@ mod tests {
     #[test]
     fn IndexPartial_GivenOutOfBounds_ReturnsIndexOutOfBounds() {
         let m = arr(vec![2, 3], vec![1, 2, 3, 4, 5, 6]);
-        assert_eq!(m.index_partial(&[2]).unwrap_err(), ArrayError::IndexOutOfBounds);
-        assert_eq!(m.index_partial(&[0, 3]).unwrap_err(), ArrayError::IndexOutOfBounds);
-        assert_eq!(m.index_partial(&[0, 0, 0]).unwrap_err(), ArrayError::IndexOutOfBounds);
+        assert_eq!(
+            m.index_partial(&[2]).unwrap_err(),
+            ArrayError::IndexOutOfBounds
+        );
+        assert_eq!(
+            m.index_partial(&[0, 3]).unwrap_err(),
+            ArrayError::IndexOutOfBounds
+        );
+        assert_eq!(
+            m.index_partial(&[0, 0, 0]).unwrap_err(),
+            ArrayError::IndexOutOfBounds
+        );
     }
 
     #[test]
@@ -1010,7 +1076,9 @@ mod tests {
         assert_eq!(tail.as_slice(), &[7, 8, 9]);
         let head = v.slice(&[Slice::new(None, Some(-2), None)]).unwrap();
         assert_eq!(head.as_slice(), &[0, 1, 2, 3, 4, 5, 6, 7]);
-        let clamped = v.slice(&[Slice::new(Some(-100), Some(100), Some(3))]).unwrap();
+        let clamped = v
+            .slice(&[Slice::new(Some(-100), Some(100), Some(3))])
+            .unwrap();
         assert_eq!(clamped.as_slice(), &[0, 3, 6, 9]);
     }
 
@@ -1048,9 +1116,7 @@ mod tests {
             .unwrap();
         assert_eq!(negative.shape(), &[1, 2]);
         assert_eq!(negative.as_slice(), &[7, 8]);
-        let empty = m
-            .slice(&[Slice::range(0, 0), Slice::range(0, 4)])
-            .unwrap();
+        let empty = m.slice(&[Slice::range(0, 0), Slice::range(0, 4)]).unwrap();
         assert_eq!(empty.shape(), &[0, 4]);
         assert!(empty.is_empty());
         let scalar = NdArray::<i64>::scalar(5);
@@ -1085,7 +1151,10 @@ mod tests {
     #[test]
     fn Reshape_GivenMismatchedNumel_ReturnsShapeMismatch() {
         let m = arr(vec![2, 3], (1..=6).collect());
-        assert_eq!(m.reshape(vec![4, 2]).unwrap_err(), ArrayError::ShapeMismatch);
+        assert_eq!(
+            m.reshape(vec![4, 2]).unwrap_err(),
+            ArrayError::ShapeMismatch
+        );
         assert_eq!(
             NdArray::<i64>::scalar(1).reshape(vec![0]).unwrap_err(),
             ArrayError::ShapeMismatch
@@ -1126,9 +1195,15 @@ mod tests {
     #[test]
     fn TransposeAxes_GivenInvalidPermutation_ReturnsBadAxis() {
         let a = arr(vec![2, 3, 4], (0..24).collect());
-        assert_eq!(a.transpose_axes(&[0, 0, 2]).unwrap_err(), ArrayError::BadAxis);
+        assert_eq!(
+            a.transpose_axes(&[0, 0, 2]).unwrap_err(),
+            ArrayError::BadAxis
+        );
         assert_eq!(a.transpose_axes(&[0, 1]).unwrap_err(), ArrayError::BadAxis);
-        assert_eq!(a.transpose_axes(&[0, 1, 3]).unwrap_err(), ArrayError::BadAxis);
+        assert_eq!(
+            a.transpose_axes(&[0, 1, 3]).unwrap_err(),
+            ArrayError::BadAxis
+        );
     }
 
     #[test]
@@ -1215,7 +1290,10 @@ mod tests {
             NdArray::concat(&[a.clone(), a.clone()], 2).unwrap_err(),
             ArrayError::BadAxis
         );
-        assert_eq!(NdArray::<i64>::concat(&[], 0).unwrap_err(), ArrayError::BadAxis);
+        assert_eq!(
+            NdArray::<i64>::concat(&[], 0).unwrap_err(),
+            ArrayError::BadAxis
+        );
     }
 
     #[test]
@@ -1262,7 +1340,9 @@ mod tests {
     fn ZipMapBroadcast_GivenScalar_ReusesValue() {
         let m = arr(vec![2, 3], vec![1, 2, 3, 4, 5, 6]);
         let scalar = NdArray::<i64>::scalar(10);
-        let added = m.zip_map_broadcast(&scalar, |left, right| *left + *right).unwrap();
+        let added = m
+            .zip_map_broadcast(&scalar, |left, right| *left + *right)
+            .unwrap();
         assert_eq!(added.shape(), &[2, 3]);
         assert_eq!(added.as_slice(), &[11, 12, 13, 14, 15, 16]);
         let multiplied = scalar
@@ -1282,9 +1362,7 @@ mod tests {
         assert_eq!(result.as_slice(), &[3, 6, 9]);
         let left = NdArray::<i64>::scalar(2);
         let right = arr(vec![1, 1], vec![3]);
-        let both = left
-            .zip_map_broadcast(&right, |a, b| *a + *b)
-            .unwrap();
+        let both = left.zip_map_broadcast(&right, |a, b| *a + *b).unwrap();
         assert_eq!(both.shape(), &[1, 1]);
         assert_eq!(both.as_slice(), &[5]);
         let empty = arr(vec![0, 3], vec![]);
@@ -1468,7 +1546,10 @@ mod tests {
         // C# NdArrayTests.Reshape_Mismatch_Throws (line 79-84): reshaping shape {2,3}
         // with six elements to {2,2} throws ArgumentException.
         let a = arr(vec![2, 3], (1..=6).collect());
-        assert_eq!(a.reshape(vec![2, 2]).unwrap_err(), ArrayError::ShapeMismatch);
+        assert_eq!(
+            a.reshape(vec![2, 2]).unwrap_err(),
+            ArrayError::ShapeMismatch
+        );
     }
 
     #[test]

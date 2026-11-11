@@ -26,7 +26,10 @@ fn eval(script: &str) -> Value {
 fn symbolic(script: &str) -> Sym {
     match eval(script) {
         Value::Symbolic(expression) => expression,
-        other => panic!("script: {script} produced {} instead of a symbolic value", other.kind_name()),
+        other => panic!(
+            "script: {script} produced {} instead of a symbolic value",
+            other.kind_name()
+        ),
     }
 }
 
@@ -36,7 +39,10 @@ fn symbolic_text(script: &str) -> String {
 
 fn refusal(script: &str) -> LangError {
     match Engine::new().eval(script) {
-        Ok(value) => panic!("script: {script} answered {} instead of refusing", value.typed()),
+        Ok(value) => panic!(
+            "script: {script} answered {} instead of refusing",
+            value.typed()
+        ),
         Err(error) => error,
     }
 }
@@ -149,10 +155,25 @@ fn kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run() {
         let first = symbolic(script);
         let second = symbolic(script);
         assert_eq!(first.to_string(), *expected_display, "display of {script}");
-        assert_eq!(second.to_string(), *expected_display, "second run of {script}");
-        assert_eq!(first.canonical(), *expected_canonical, "canonical of {script}");
-        assert_eq!(second.canonical(), *expected_canonical, "second canonical of {script}");
-        assert_eq!(first, second, "the two runs must build the same tree: {script}");
+        assert_eq!(
+            second.to_string(),
+            *expected_display,
+            "second run of {script}"
+        );
+        assert_eq!(
+            first.canonical(),
+            *expected_canonical,
+            "canonical of {script}"
+        );
+        assert_eq!(
+            second.canonical(),
+            *expected_canonical,
+            "second canonical of {script}"
+        );
+        assert_eq!(
+            first, second,
+            "the two runs must build the same tree: {script}"
+        );
     }
 }
 
@@ -166,12 +187,24 @@ fn kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative() {
         let published = symbolic(script);
         let text = published.to_string();
         let decoded = published.to_string();
-        assert!(!text.contains("__"), "internal symbol leaked: {script} -> {text}");
-        assert!(!decoded.contains("__"), "internal symbol leaked: {script} -> {decoded}");
+        assert!(
+            !text.contains("__"),
+            "internal symbol leaked: {script} -> {text}"
+        );
+        assert!(
+            !decoded.contains("__"),
+            "internal symbol leaked: {script} -> {decoded}"
+        );
         assert_eq!(text, *expected_display);
         assert_eq!(published.canonical(), *expected_canonical);
-        assert!(!text.contains("diff("), "unevaluated derivative leaked: {text}");
-        assert!(!text.contains("piecewise("), "unevaluated piecewise leaked: {text}");
+        assert!(
+            !text.contains("diff("),
+            "unevaluated derivative leaked: {text}"
+        );
+        assert!(
+            !text.contains("piecewise("),
+            "unevaluated piecewise leaked: {text}"
+        );
         assert!(!text.contains("sqrt(0)"), "division by zero leaked: {text}");
     }
 }
@@ -187,10 +220,22 @@ fn kink_series_takes_the_sympy_value_at_the_sample_point() {
         ("x = symbol(\"x\"); series(abs(x), x, 0, 3)", "1/2", "1/2"),
         ("x = symbol(\"x\"); series(abs(x), x, 0, 2)", "1/2", "1/2"),
         ("x = symbol(\"x\"); series(x*abs(x), x, 0, 3)", "1/2", "1/4"),
-        ("x = symbol(\"x\"); series(abs(sin(x)), x, 0, 3)", "1/2", "1/2"),
-        ("x = symbol(\"x\"); series(abs(x - 1), x, 0, 3)", "1/2", "1/2"),
+        (
+            "x = symbol(\"x\"); series(abs(sin(x)), x, 0, 3)",
+            "1/2",
+            "1/2",
+        ),
+        (
+            "x = symbol(\"x\"); series(abs(x - 1), x, 0, 3)",
+            "1/2",
+            "1/2",
+        ),
         ("x = symbol(\"x\"); series(abs(x), x, 1, 3)", "3/2", "3/2"),
-        ("x = symbol(\"x\"); series(abs(x^2 - 1), x, 0, 3)", "1/2", "3/4"),
+        (
+            "x = symbol(\"x\"); series(abs(x^2 - 1), x, 0, 3)",
+            "1/2",
+            "3/4",
+        ),
         ("x = symbol(\"x\"); series(sin(x), x, 0, 5)", "1/2", "23/48"),
     ];
     for (script, sample, expected) in rows {
@@ -199,7 +244,10 @@ fn kink_series_takes_the_sympy_value_at_the_sample_point() {
             .split(" + O(")
             .next()
             .unwrap_or_else(|| panic!("{script} published no O-term tail: {shown}"));
-        assert_ne!(polynomial, shown, "a series display always carries its tail: {shown}");
+        assert_ne!(
+            polynomial, shown,
+            "a series display always carries its tail: {shown}"
+        );
         let value = symbolic_text(&format!(
             "x = symbol(\"x\"); subs({polynomial}, x, {sample})"
         ));
@@ -216,7 +264,10 @@ fn kink_series_takes_the_sympy_value_at_the_sample_point() {
 fn kink_series_neighbouring_shapes_follow_the_same_rule() {
     let rows: &[(&str, &str)] = &[
         ("x = symbol(\"x\"); series(abs(x)/x, x, 0, 3)", "1 + O(x^3)"),
-        ("x = symbol(\"x\"); series(abs(x)^2, x, 0, 3)", "x^2 + O(x^3)"),
+        (
+            "x = symbol(\"x\"); series(abs(x)^2, x, 0, 3)",
+            "x^2 + O(x^3)",
+        ),
         (
             "x = symbol(\"x\"); series(exp(abs(x)), x, 0, 3)",
             "1 + x + 1/2*x^2 + O(x^3)",
@@ -242,7 +293,10 @@ fn kink_series_truncation_gap_is_the_dropped_term_not_a_silent_approximation() {
         "x + O(x^3)"
     );
     assert_eq!(display(&eval("x = symbol(\"x\"); subs(x, x, 1/2)")), "1/2");
-    assert_eq!(display(&eval("x = symbol(\"x\"); subs(x^3/6, x, 1/2)")), "1/48");
+    assert_eq!(
+        display(&eval("x = symbol(\"x\"); subs(x^3/6, x, 1/2)")),
+        "1/48"
+    );
 }
 
 /// SeriesKinkDeterminismTests.LimitEngine_TwoSidedKinkAnswers_AreUnchanged (#0..#3).
@@ -259,13 +313,25 @@ fn limit_engine_two_sided_kink_answers_are_unchanged() {
             "Value",
             Some("1/2"),
         ),
-        ("x = symbol(\"x\"); limit(sqrt(x), x, 0)", "Value", Some("0")),
-        ("x = symbol(\"x\"); limit(abs(x)/x, x, 0)", "Unevaluated", None),
+        (
+            "x = symbol(\"x\"); limit(sqrt(x), x, 0)",
+            "Value",
+            Some("0"),
+        ),
+        (
+            "x = symbol(\"x\"); limit(abs(x)/x, x, 0)",
+            "Unevaluated",
+            None,
+        ),
     ];
     for (script, expected_status, expected_value) in rows {
         let record = eval(script);
         let fields = record_fields(&record, "LimitResult");
-        assert_eq!(variant(field(fields, "status")), *expected_status, "{script}");
+        assert_eq!(
+            variant(field(fields, "status")),
+            *expected_status,
+            "{script}"
+        );
         match expected_value {
             None => {
                 assert!(matches!(field(fields, "value"), Value::Void), "{script}");
@@ -292,11 +358,7 @@ fn limit_engine_two_sided_kink_answers_are_unchanged() {
 /// below 1e-40.
 #[test]
 fn cubic_roots_satisfy_polynomial_numerically() {
-    let polynomials = [
-        "x^3 + 2*x^2 + 3*x + 4",
-        "x^3 + 1",
-        "x^3 - 3*x + 1",
-    ];
+    let polynomials = ["x^3 + 2*x^2 + 3*x + 4", "x^3 + 1", "x^3 - 3*x + 1"];
     let tolerance =
         lovelace_real::Real::from_str(&format!("0.{}1", "0".repeat(39))).expect("decimal");
     for polynomial in polynomials {
@@ -316,10 +378,7 @@ fn cubic_roots_satisfy_polynomial_numerically() {
                 "x = symbol(\"x\"); s = solve_full({polynomial} == 0, x).solutions[{index}].value; \
                  evalf(abs(subs({polynomial}, x, s)), 60)"
             ));
-            let root = display(field(
-                record_fields(&solutions[index], "Solution"),
-                "value",
-            ));
+            let root = display(field(record_fields(&solutions[index], "Solution"), "value"));
             match residual {
                 Value::Real(value) => assert!(
                     value.cmp(&tolerance) == Ordering::Less,

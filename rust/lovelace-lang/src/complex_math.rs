@@ -4,8 +4,8 @@
 //! that budget, and re-attaches the argument's provenance to both components: a component computed
 //! from an approximation is itself an approximation however exact its digits look.
 
-use lovelace_real::transcendental::truncate_frac;
 use lovelace_real::Real;
+use lovelace_real::transcendental::truncate_frac;
 
 use crate::complex::Complex;
 
@@ -27,7 +27,10 @@ fn with_provenance(result: Complex, argument: &Complex) -> Complex {
     if argument.is_exact() {
         result
     } else {
-        Complex::new(result.re().clone().mark_inexact(), result.im().clone().mark_inexact())
+        Complex::new(
+            result.re().clone().mark_inexact(),
+            result.im().clone().mark_inexact(),
+        )
     }
 }
 
@@ -37,7 +40,10 @@ pub fn exp(z: &Complex, digits: usize) -> Complex {
     let e = z.re().exp(digits);
     let cos = real_cos(z.im(), digits);
     let sin = real_sin(z.im(), digits);
-    with_provenance(truncate_pair(&Complex::new(e.mul(&cos), e.mul(&sin)), digits), z)
+    with_provenance(
+        truncate_pair(&Complex::new(e.mul(&cos), e.mul(&sin)), digits),
+        z,
+    )
 }
 
 /// \`sin(a+bi) = sin a cosh b + i cos a sinh b\`.
@@ -101,10 +107,21 @@ pub fn sqrt(z: &Complex, digits: usize) -> Complex {
     let two = Real::from_i64(2);
     let mag = z.magnitude(digits);
     let a = z.re();
-    let s = mag.add(a).div(&two, digits).unwrap_or_else(Real::zero).sqrt(digits);
+    let s = mag
+        .add(a)
+        .div(&two, digits)
+        .unwrap_or_else(Real::zero)
+        .sqrt(digits);
     let diff = mag.sub(a);
-    let diff = if diff.cmp(&Real::zero()) == std::cmp::Ordering::Less { Real::zero() } else { diff };
-    let t = diff.div(&two, digits).unwrap_or_else(Real::zero).sqrt(digits);
+    let diff = if diff.cmp(&Real::zero()) == std::cmp::Ordering::Less {
+        Real::zero()
+    } else {
+        diff
+    };
+    let t = diff
+        .div(&two, digits)
+        .unwrap_or_else(Real::zero)
+        .sqrt(digits);
     let value = if z.im().cmp(&Real::zero()) == std::cmp::Ordering::Less {
         Complex::new(s, t.neg())
     } else {
@@ -134,4 +151,3 @@ pub fn pow(base: &Complex, exponent: &Complex, digits: usize) -> Option<Complex>
     let product = exponent.mul_at(&log, digits);
     Some(exp(&product, digits))
 }
-

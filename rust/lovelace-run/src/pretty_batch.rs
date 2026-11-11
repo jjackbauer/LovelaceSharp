@@ -13,47 +13,161 @@ const PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); a = symbol(\"a\"); 
 z = symbol(\"z\"); w = symbol(\"w\"); ";
 
 const CORPUS: &[&str] = &[
-    "(x + 1)^12", "exp(-x^2)", "integrate_full(exp(-x^2), x)", "factor(-x^2 - 2*x - 1)",
-    "x - (y - a)", "x - y - a", "a - (x + y)", "-x^2", "(-x)^2", "(-x)^3", "-(x + y)",
-    "(-x - 1)^2", "(-x)^(1/2)", "(-1)^x", "(-2)^x", "(-1/2)^x", "(-1.5)^x", "(-3)^(-x)",
-    "(1/2)^x", "(2/3)^x", "(-3/2)^x", "(x/y)/z", "x/y/z", "x/y/z/w", "(x/y)/(z/w)",
-    "x/(y*z)", "(x*y)/(z*w)", "(x/y)*z", "apart(1/(x^2 - 1), x)", "(x^y)^2", "x^(y^2)",
-    "(x + y)*(x - y)", "x*(y + a)", "-(x + y)*(x - y)", "x/(y + 1)", "(x + 1)/y", "x^(-2)",
-    "(x + 1)^(-1)", "1/(2*(x + 1))", "-1/(2*(x + 1))", "(1/2)*x + 1/3", "x/2",
-    "exp(-(x + 1)^2)", "sin(x + y) + cos(x^2)", "sqrt(x + y)", "log(x + 1)/(x - 1)",
-    "diff(exp(x)*x^2, x)", "sin((x + y)/(x - y))",
+    "(x + 1)^12",
+    "exp(-x^2)",
+    "integrate_full(exp(-x^2), x)",
+    "factor(-x^2 - 2*x - 1)",
+    "x - (y - a)",
+    "x - y - a",
+    "a - (x + y)",
+    "-x^2",
+    "(-x)^2",
+    "(-x)^3",
+    "-(x + y)",
+    "(-x - 1)^2",
+    "(-x)^(1/2)",
+    "(-1)^x",
+    "(-2)^x",
+    "(-1/2)^x",
+    "(-1.5)^x",
+    "(-3)^(-x)",
+    "(1/2)^x",
+    "(2/3)^x",
+    "(-3/2)^x",
+    "(x/y)/z",
+    "x/y/z",
+    "x/y/z/w",
+    "(x/y)/(z/w)",
+    "x/(y*z)",
+    "(x*y)/(z*w)",
+    "(x/y)*z",
+    "apart(1/(x^2 - 1), x)",
+    "(x^y)^2",
+    "x^(y^2)",
+    "(x + y)*(x - y)",
+    "x*(y + a)",
+    "-(x + y)*(x - y)",
+    "x/(y + 1)",
+    "(x + 1)/y",
+    "x^(-2)",
+    "(x + 1)^(-1)",
+    "1/(2*(x + 1))",
+    "-1/(2*(x + 1))",
+    "(1/2)*x + 1/3",
+    "x/2",
+    "exp(-(x + 1)^2)",
+    "sin(x + y) + cos(x^2)",
+    "sqrt(x + y)",
+    "log(x + 1)/(x - 1)",
+    "diff(exp(x)*x^2, x)",
+    "sin((x + y)/(x - y))",
 ];
 
 /// The sources whose round-trip the reference accepts and Rust reproduces.
 const ROUND_TRIP: &[&str] = &[
-    "(x + 1)^12", "exp(-x^2)", "integrate_full(exp(-x^2), x)", "factor(-x^2 - 2*x - 1)",
-    "x - y - a", "-x^2", "(-x)^2", "(-x)^3",
-    "-(x + y)", "(-x - 1)^2", "x/(y*z)", "(x*y)/(z*w)",
-    "(x/y)*z", "apart(1/(x^2 - 1), x)", "(x^y)^2", "x^(y^2)",
-    "(x + y)*(x - y)", "x*(y + a)", "-(x + y)*(x - y)", "x/(y + 1)",
-    "(x + 1)/y", "x^(-2)", "(x + 1)^(-1)", "1/(2*(x + 1))",
-    "-1/(2*(x + 1))", "x/2", "exp(-(x + 1)^2)", "sin(x + y) + cos(x^2)",
-    "sqrt(x + y)", "log(x + 1)/(x - 1)", "diff(exp(x)*x^2, x)", "sin((x + y)/(x - y))",
+    "(x + 1)^12",
+    "exp(-x^2)",
+    "integrate_full(exp(-x^2), x)",
+    "factor(-x^2 - 2*x - 1)",
+    "x - y - a",
+    "-x^2",
+    "(-x)^2",
+    "(-x)^3",
+    "-(x + y)",
+    "(-x - 1)^2",
+    "x/(y*z)",
+    "(x*y)/(z*w)",
+    "(x/y)*z",
+    "apart(1/(x^2 - 1), x)",
+    "(x^y)^2",
+    "x^(y^2)",
+    "(x + y)*(x - y)",
+    "x*(y + a)",
+    "-(x + y)*(x - y)",
+    "x/(y + 1)",
+    "(x + 1)/y",
+    "x^(-2)",
+    "(x + 1)^(-1)",
+    "1/(2*(x + 1))",
+    "-1/(2*(x + 1))",
+    "x/2",
+    "exp(-(x + 1)^2)",
+    "sin(x + y) + cos(x^2)",
+    "sqrt(x + y)",
+    "log(x + 1)/(x - 1)",
+    "diff(exp(x)*x^2, x)",
+    "sin((x + y)/(x - y))",
     // the negative/rational power bases, whose display now re-parses to the same canonical form
-    "(-x)^(1/2)", "(-1)^x", "(-2)^x", "(-1/2)^x", "(-1.5)^x", "(-3)^(-x)",
-    "(1/2)^x", "(2/3)^x", "(-3/2)^x", "(1/2)*x + 1/3",
+    "(-x)^(1/2)",
+    "(-1)^x",
+    "(-2)^x",
+    "(-1/2)^x",
+    "(-1.5)^x",
+    "(-3)^(-x)",
+    "(1/2)^x",
+    "(2/3)^x",
+    "(-3/2)^x",
+    "(1/2)*x + 1/3",
     // nested subtraction and flat denominators: the display divided once per denominator factor
     // and kept the subtrahend's sum delimited, so these now re-parse to the same value
-    "x - (y - a)", "a - (x + y)",
-    "(x/y)/z", "x/y/z", "x/y/z/w", "(x/y)/(z/w)",
+    "x - (y - a)",
+    "a - (x + y)",
+    "(x/y)/z",
+    "x/y/z",
+    "x/y/z/w",
+    "(x/y)/(z/w)",
 ];
 
 /// The sources whose Rust display is minimal: no doubled parenthesis pair.
 const MINIMALITY: &[&str] = &[
-    "(x + 1)^12", "exp(-x^2)", "integrate_full(exp(-x^2), x)", "factor(-x^2 - 2*x - 1)",
-    "x - (y - a)", "x - y - a", "a - (x + y)", "-x^2", "(-x)^2", "(-x)^3", "-(x + y)",
-    "(-x - 1)^2", "(-x)^(1/2)", "(-1)^x", "(-2)^x", "(-1/2)^x", "(-1.5)^x", "(-3)^(-x)",
-    "(1/2)^x", "(-3/2)^x", "(x/y)/z", "x/y/z", "x/y/z/w", "(x/y)/(z/w)", "x/(y*z)",
-    "(x*y)/(z*w)", "(x/y)*z", "apart(1/(x^2 - 1), x)", "(x^y)^2", "x^(y^2)",
-    "(x + y)*(x - y)", "x*(y + a)", "-(x + y)*(x - y)", "x/(y + 1)", "(x + 1)/y", "x^(-2)",
-    "(x + 1)^(-1)", "1/(2*(x + 1))", "-1/(2*(x + 1))", "x/2", "exp(-(x + 1)^2)",
-    "sin(x + y) + cos(x^2)", "sqrt(x + y)", "log(x + 1)/(x - 1)", "diff(exp(x)*x^2, x)",
-    "sin((x + y)/(x - y))", "(2/3)^x", "(1/2)*x + 1/3",
+    "(x + 1)^12",
+    "exp(-x^2)",
+    "integrate_full(exp(-x^2), x)",
+    "factor(-x^2 - 2*x - 1)",
+    "x - (y - a)",
+    "x - y - a",
+    "a - (x + y)",
+    "-x^2",
+    "(-x)^2",
+    "(-x)^3",
+    "-(x + y)",
+    "(-x - 1)^2",
+    "(-x)^(1/2)",
+    "(-1)^x",
+    "(-2)^x",
+    "(-1/2)^x",
+    "(-1.5)^x",
+    "(-3)^(-x)",
+    "(1/2)^x",
+    "(-3/2)^x",
+    "(x/y)/z",
+    "x/y/z",
+    "x/y/z/w",
+    "(x/y)/(z/w)",
+    "x/(y*z)",
+    "(x*y)/(z*w)",
+    "(x/y)*z",
+    "apart(1/(x^2 - 1), x)",
+    "(x^y)^2",
+    "x^(y^2)",
+    "(x + y)*(x - y)",
+    "x*(y + a)",
+    "-(x + y)*(x - y)",
+    "x/(y + 1)",
+    "(x + 1)/y",
+    "x^(-2)",
+    "(x + 1)^(-1)",
+    "1/(2*(x + 1))",
+    "-1/(2*(x + 1))",
+    "x/2",
+    "exp(-(x + 1)^2)",
+    "sin(x + y) + cos(x^2)",
+    "sqrt(x + y)",
+    "log(x + 1)/(x - 1)",
+    "diff(exp(x)*x^2, x)",
+    "sin((x + y)/(x - y))",
+    "(2/3)^x",
+    "(1/2)*x + 1/3",
 ];
 
 struct Built {
@@ -76,8 +190,15 @@ fn build(source: &str) -> Built {
         structured = expression;
         pretty = text(get(expression, "pretty")).to_string();
     }
-    assert_eq!(text(get(structured, "kind")), "Symbolic", "'{source}' is not symbolic");
-    Built { pretty, canonical: text(get(structured, "canonical")).to_string() }
+    assert_eq!(
+        text(get(structured, "kind")),
+        "Symbolic",
+        "'{source}' is not symbolic"
+    );
+    Built {
+        pretty,
+        canonical: text(get(structured, "canonical")).to_string(),
+    }
 }
 
 fn build_display(source: &str) -> String {
@@ -114,7 +235,11 @@ fn pretty_round_trips_to_the_same_canonical_form() {
     for source in ROUND_TRIP {
         let built = build(source);
         let reparsed = evaluate(&built.pretty);
-        assert_eq!(reparsed.exit, 0, "'{source}' display '{}' must re-parse", built.pretty);
+        assert_eq!(
+            reparsed.exit, 0,
+            "'{source}' display '{}' must re-parse",
+            built.pretty
+        );
         let mut structured = get(get(&reparsed.env, "result"), "structured");
         if text(get(structured, "kind")) == "Record" {
             structured = record_field(structured, "expression");
@@ -173,11 +298,20 @@ fn matching_close(text: &str, open: usize) -> Option<usize> {
 /// Asserts that `rendering` raises a power whose base text is exactly the one delimited group
 /// `expected_base`: the base cannot leak an operator of its own to the power's level.
 fn assert_delimited_base(rendering: &str, expected_base: &str) {
-    let caret = rendering.find('^').unwrap_or_else(|| panic!("no power in \"{rendering}\""));
+    let caret = rendering
+        .find('^')
+        .unwrap_or_else(|| panic!("no power in \"{rendering}\""));
     let basis = &rendering[..caret];
     assert_eq!(basis, expected_base);
-    assert!(basis.starts_with('('), "the base {basis} is not a delimited group");
-    assert_eq!(matching_close(basis, 0), Some(basis.len() - 1), "the group IS the whole base");
+    assert!(
+        basis.starts_with('('),
+        "the base {basis} is not a delimited group"
+    );
+    assert_eq!(
+        matching_close(basis, 0),
+        Some(basis.len() - 1),
+        "the group IS the whole base"
+    );
 }
 
 /// ReportedCase_FactoredSquare_HasOnePair — the factoriser emits -(x + 1)^2, one pair around the
@@ -210,12 +344,20 @@ fn latex_grouping_rows_carry_the_same_nesting_as_pretty() {
         ("(x/y)/z", "x/y/z", "\\frac{\\frac{x}{y}}{z}"),
         ("x/y/z", "x/y/z", "\\frac{\\frac{x}{y}}{z}"),
         ("x/y/z/w", "x/w/y/z", "\\frac{\\frac{\\frac{x}{w}}{y}}{z}"),
-        ("(x/y)/(z/w)", "x/y/(z/w)", "\\frac{\\frac{x}{y}}{\\frac{z}{w}}"),
+        (
+            "(x/y)/(z/w)",
+            "x/y/(z/w)",
+            "\\frac{\\frac{x}{y}}{\\frac{z}{w}}",
+        ),
         ("(-x)^(1/2)", "sqrt(-x)", "\\sqrt{-x}"),
         ("x^(-1/2)", "1/sqrt(x)", "\\frac{1}{\\sqrt{x}}"),
     ] {
         assert_eq!(build_display(source), pretty, "{source}: pretty");
-        assert_eq!(build_display(&format!("latex({source})")), latex, "{source}: latex");
+        assert_eq!(
+            build_display(&format!("latex({source})")),
+            latex,
+            "{source}: latex"
+        );
     }
 }
 

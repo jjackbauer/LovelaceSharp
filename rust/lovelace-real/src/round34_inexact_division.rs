@@ -20,8 +20,8 @@
 //! (`rust/target/tmp/inexactprobe`, untracked, driving `Lovelace.Real` under
 //! `Real.WithPrecision(places, places)`) and is reproduced here as the durable contract.
 
-use crate::transcendental::{e_constant, special_angle_candidate};
 use crate::Real;
+use crate::transcendental::{e_constant, special_angle_candidate};
 
 fn r(text: &str) -> Real {
     Real::from_str(text).expect("a decimal literal")
@@ -41,7 +41,10 @@ fn inexact_operand_quotients_are_the_reference_truncations_at_the_budget() {
 
     assert_case(
         "5*pi/3 at 20 places",
-        &pi20.mul(&Real::from_i64(5)).div(&three, 20).expect("quotient"),
+        &pi20
+            .mul(&Real::from_i64(5))
+            .div(&three, 20)
+            .expect("quotient"),
         "5.23598775598298873076",
         false,
     );
@@ -59,7 +62,10 @@ fn inexact_operand_quotients_are_the_reference_truncations_at_the_budget() {
     );
     assert_case(
         "2*pi/3 at 20 places",
-        &pi20.mul(&Real::from_i64(2)).div(&three, 20).expect("quotient"),
+        &pi20
+            .mul(&Real::from_i64(2))
+            .div(&three, 20)
+            .expect("quotient"),
         // The reference's `Normalize` drops the trailing zero the truncation ends on.
         "2.0943951023931954923",
         false,
@@ -72,7 +78,10 @@ fn inexact_operand_quotients_are_the_reference_truncations_at_the_budget() {
     );
     assert_case(
         "5*pi/3 at 50 places",
-        &Real::pi(50).mul(&Real::from_i64(5)).div(&three, 50).expect("quotient"),
+        &Real::pi(50)
+            .mul(&Real::from_i64(5))
+            .div(&three, 50)
+            .expect("quotient"),
         "5.23598775598298873077107230546583814032861566562516",
         false,
     );
@@ -86,7 +95,9 @@ fn inexact_operand_quotients_are_the_reference_truncations_at_the_budget() {
     );
     assert_case(
         "1/7 at 20 places",
-        &Real::from_i64(1).div(&Real::from_i64(7), 20).expect("quotient"),
+        &Real::from_i64(1)
+            .div(&Real::from_i64(7), 20)
+            .expect("quotient"),
         "0.(142857)",
         true,
     );
@@ -98,7 +109,9 @@ fn inexact_operand_quotients_are_the_reference_truncations_at_the_budget() {
     );
     assert_case(
         "1/4 at 20 places",
-        &Real::from_i64(1).div(&Real::from_i64(4), 20).expect("quotient"),
+        &Real::from_i64(1)
+            .div(&Real::from_i64(4), 20)
+            .expect("quotient"),
         "0.25",
         true,
     );
@@ -141,8 +154,14 @@ fn the_reference_truncates_a_period_that_closes_exactly_at_the_cap() {
 fn termination_is_decided_from_the_denominator_like_the_reference() {
     let pi100 = Real::pi(100);
     let quotient = pi100.div(&Real::from_i64(6), 100).expect("quotient");
-    assert!(!quotient.is_exact(), "pi(100)/6 must be the cap truncation, not the exact decimal");
-    assert_eq!(quotient.exp, -100, "the cap must store exactly 100 fractional digits");
+    assert!(
+        !quotient.is_exact(),
+        "pi(100)/6 must be the cap truncation, not the exact decimal"
+    );
+    assert_eq!(
+        quotient.exp, -100,
+        "the cap must store exactly 100 fractional digits"
+    );
     assert_eq!(
         quotient.to_string(),
         "0.5235987755982988730771072305465838140328615665625176368291574320513027343810348331046724708903528446"
@@ -162,7 +181,10 @@ fn an_inexact_quotient_is_still_periodic_when_its_period_closes_before_the_cap()
         .div(&Real::from_i64(3), 1000)
         .expect("quotient");
     assert_eq!(value.to_string(), "5.2359877559829887307(6)");
-    assert!(!value.is_exact(), "pi's provenance survives the periodic divide");
+    assert!(
+        !value.is_exact(),
+        "pi's provenance survives the periodic divide"
+    );
     assert_eq!(value.period_start, 19);
     assert_eq!(value.period_len, 1);
 }

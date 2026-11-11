@@ -4,7 +4,7 @@
 //! (AcceptanceTests) and two polynomial-root rows (KernelHardeningTests). Each test states the C#
 //! assertion against the same operation on the same values.
 
-use crate::{real_root_count, solve_polynomial, Rat, SolveOutcome};
+use crate::{Rat, SolveOutcome, real_root_count, solve_polynomial};
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 
@@ -33,12 +33,7 @@ fn kernel_hardening_root_of_multiple_root_is_square_free_normalized() {
 #[test]
 fn kernel_hardening_rational_roots_include_zero() {
     // x*(x - 1/1000)*(x - 1) = x^3 - (1001/1000)x^2 + (1/1000)x
-    let outcome = solve_polynomial(&[
-        rat(0, 1),
-        rat(1, 1000),
-        rat(-1001, 1000),
-        rat(1, 1),
-    ]);
+    let outcome = solve_polynomial(&[rat(0, 1), rat(1, 1000), rat(-1001, 1000), rat(1, 1)]);
     let roots = match outcome {
         SolveOutcome::Roots(roots) => roots,
         other => panic!("expected exact rational roots, got {other:?}"),

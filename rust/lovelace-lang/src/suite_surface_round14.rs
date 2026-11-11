@@ -6,7 +6,7 @@
 //! surface (parser, builtin dispatch, arithmetic rules, structured payload) is shared by every row
 //! the surface unblocks.
 
-use crate::syntax::{tokenize, Expr, IndexArg, Parser};
+use crate::syntax::{Expr, IndexArg, Parser, tokenize};
 use crate::{Engine, LangError, Value};
 use lovelace_json::Json;
 
@@ -31,7 +31,10 @@ fn display(script: &str) -> String {
 fn error(script: &str) -> LangError {
     let mut engine = Engine::new();
     match engine.eval(script) {
-        Ok(value) => panic!("script: {script} unexpectedly answered {}", engine.format_typed(&value)),
+        Ok(value) => panic!(
+            "script: {script} unexpectedly answered {}",
+            engine.format_typed(&value)
+        ),
         Err(err) => err,
     }
 }
@@ -106,7 +109,10 @@ fn unary_plus_is_the_identity_and_binds_looser_than_power() {
         let mut parser = Parser::new(tokens);
         parser.single_expression().expect("parse")
     };
-    assert!(matches!(expr, Expr::Binary(..)), "unexpected expression: {expr:?}");
+    assert!(
+        matches!(expr, Expr::Binary(..)),
+        "unexpected expression: {expr:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -125,13 +131,18 @@ fn slice_syntax_matches_the_reference_forms() {
     assert_eq!(typed("[0, 1, 2, 3, 4][:]"), "[0, 1, 2, 3, 4] (Vector)");
     assert_eq!(typed("[0, 1, 2, 3, 4][1::2]"), "[1, 3] (Vector)");
     assert_eq!(typed("[0, 1, 2, 3, 4][:3:2]"), "[0, 2] (Vector)");
-    assert_eq!(typed("[[1, 2, 3], [4, 5, 6]][:, ::2]"), "[[1, 3], [4, 6]] (Array)");
+    assert_eq!(
+        typed("[[1, 2, 3], [4, 5, 6]][:, ::2]"),
+        "[[1, 3], [4, 6]] (Array)"
+    );
     let expr = {
         let tokens = tokenize("[0,1,2,3,4][::2]").expect("tokenize");
         let mut parser = Parser::new(tokens);
         parser.single_expression().expect("parse")
     };
-    assert!(matches!(expr, Expr::Index(_, ref args) if matches!(args[0], IndexArg::Slice(_, _, Some(_)))));
+    assert!(
+        matches!(expr, Expr::Index(_, ref args) if matches!(args[0], IndexArg::Slice(_, _, Some(_))))
+    );
 }
 
 #[test]
@@ -144,10 +155,16 @@ fn slice_step_must_be_positive() {
         let err = error(script);
         assert_eq!(
             err.message,
-            format!("range(): argument 'step' must be a Natural or Integer that is a positive count (1 or more, at most 9223372036854775807); got {got}."),
+            format!(
+                "range(): argument 'step' must be a Natural or Integer that is a positive count (1 or more, at most 9223372036854775807); got {got}."
+            ),
             "script: {script}"
         );
-        assert_eq!((err.code, err.category), ("InvalidArgument", "TypeMismatch"), "script: {script}");
+        assert_eq!(
+            (err.code, err.category),
+            ("InvalidArgument", "TypeMismatch"),
+            "script: {script}"
+        );
     }
 }
 
@@ -167,8 +184,14 @@ fn empty_reductions_answer_the_monoid_identity_and_refuse_min_max() {
         error("max([])").message,
         "max() cannot reduce an empty array."
     );
-    assert_eq!(error("mean([])").message, "mean() cannot reduce an empty array.");
-    assert_eq!(error("norm([])").message, "norm() cannot reduce an empty array.");
+    assert_eq!(
+        error("mean([])").message,
+        "mean() cannot reduce an empty array."
+    );
+    assert_eq!(
+        error("norm([])").message,
+        "norm() cannot reduce an empty array."
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -192,12 +215,24 @@ fn evalf_publishes_the_exactness_the_digits_deserve() {
     // 30 is the truncation residue (the oracle's own Real.Parse boundary).
     let exact_29 = structured("evalf(1/3, 29)");
     assert_eq!(json_bool(&exact_29, "exact"), Some(true));
-    assert_eq!(json_str(&exact_29, "denominator"), Some("100000000000000000000000000000"));
-    assert_eq!(json_bool(&structured("evalf(1/3, 30)"), "exact"), Some(false));
+    assert_eq!(
+        json_str(&exact_29, "denominator"),
+        Some("100000000000000000000000000000")
+    );
+    assert_eq!(
+        json_bool(&structured("evalf(1/3, 30)"), "exact"),
+        Some(false)
+    );
 
     // setprecision lifts the plugin budget, so the same request is exact again.
-    assert_eq!(json_bool(&structured("setprecision(1000); evalf(1/3, 50)"), "exact"), Some(true));
-    assert_eq!(json_bool(&structured("evalf(1/2, 40)"), "exact"), Some(true));
+    assert_eq!(
+        json_bool(&structured("setprecision(1000); evalf(1/3, 50)"), "exact"),
+        Some(true)
+    );
+    assert_eq!(
+        json_bool(&structured("evalf(1/2, 40)"), "exact"),
+        Some(true)
+    );
 
     // Integer payloads stay integers; an exact Real with an integral value becomes Integer.
     assert_eq!(typed("evalf(2, 5)"), "2 (Integer)");
@@ -210,16 +245,26 @@ fn evalf_publishes_the_exactness_the_digits_deserve() {
         json_str(&truncated, "value"),
         Some("3.141592653589793238462643383279")
     );
-    assert_eq!(json_bool(&structured("evalf(sqrt(2), 5)"), "exact"), Some(false));
+    assert_eq!(
+        json_bool(&structured("evalf(sqrt(2), 5)"), "exact"),
+        Some(false)
+    );
 }
 
 #[test]
 fn evalf_arity_and_digit_count_are_guarded() {
-    assert_eq!(error("evalf(1/3)").message, "evalf(): expected 2 arguments; got 1.");
-    assert_eq!(error("evalf(1/3, 0)").message,
-        "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got 0.");
-    assert_eq!(error("evalf(1/3, 3.0)").message,
-        "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Real.");
+    assert_eq!(
+        error("evalf(1/3)").message,
+        "evalf(): expected 2 arguments; got 1."
+    );
+    assert_eq!(
+        error("evalf(1/3, 0)").message,
+        "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got 0."
+    );
+    assert_eq!(
+        error("evalf(1/3, 3.0)").message,
+        "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Real."
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -235,7 +280,10 @@ fn inverse_hyperbolics_fold_at_their_defining_point() {
     assert_eq!(typed("acosh(2)"), "acosh(2) (Symbolic)");
     assert_eq!(typed("atanh(0.5)"), "atanh(1/2) (Symbolic)");
     for name in ["asinh", "acosh", "atanh"] {
-        assert!(crate::registry::find(name).is_some(), "{name} is not registered");
+        assert!(
+            crate::registry::find(name).is_some(),
+            "{name} is not registered"
+        );
     }
 }
 
@@ -346,7 +394,10 @@ fn modulus_matches_the_reference_sign_and_real_rules() {
     assert_eq!(typed("7 % -3"), "-1 (Integer)");
     let zero = error("5 % 0");
     assert_eq!(zero.message, "Cannot divide by zero.");
-    assert_eq!((zero.code, zero.category), ("DivisionByZero", "DomainError"));
+    assert_eq!(
+        (zero.code, zero.category),
+        ("DivisionByZero", "DomainError")
+    );
 }
 
 #[test]
@@ -364,9 +415,21 @@ fn divrem_publishes_the_reference_pair_and_kinds() {
         ("divrem(-7, -3)", "2", "1"),
     ] {
         let (_, value) = eval(script);
-        assert_eq!(number(record_field(&value, "quotient")), quotient, "script: {script}");
-        assert_eq!(number(record_field(&value, "remainder")), remainder, "script: {script}");
-        assert_eq!(record_field(&value, "quotient").kind_name(), "Integer", "script: {script}");
+        assert_eq!(
+            number(record_field(&value, "quotient")),
+            quotient,
+            "script: {script}"
+        );
+        assert_eq!(
+            number(record_field(&value, "remainder")),
+            remainder,
+            "script: {script}"
+        );
+        assert_eq!(
+            record_field(&value, "quotient").kind_name(),
+            "Integer",
+            "script: {script}"
+        );
     }
 
     assert_eq!(
@@ -386,14 +449,26 @@ fn ranges_are_inclusive_and_default_to_a_positive_step() {
     assert_eq!(typed("5..1"), "[] (Vector)");
     assert_eq!(typed("len(1..0)"), "0 (Natural)");
     let stepped = structured("1..2..7");
-    assert_eq!(elements(&stepped, "1..2..7"), vec![
-        "Integer=1".to_string(), "Integer=3".to_string(), "Integer=5".to_string(), "Integer=7".to_string()
-    ]);
+    assert_eq!(
+        elements(&stepped, "1..2..7"),
+        vec![
+            "Integer=1".to_string(),
+            "Integer=3".to_string(),
+            "Integer=5".to_string(),
+            "Integer=7".to_string()
+        ]
+    );
     let descending = structured("5..-1..1");
-    assert_eq!(elements(&descending, "5..-1..1"), vec![
-        "Integer=5".to_string(), "Integer=4".to_string(), "Integer=3".to_string(),
-        "Integer=2".to_string(), "Integer=1".to_string()
-    ]);
+    assert_eq!(
+        elements(&descending, "5..-1..1"),
+        vec![
+            "Integer=5".to_string(),
+            "Integer=4".to_string(),
+            "Integer=3".to_string(),
+            "Integer=2".to_string(),
+            "Integer=1".to_string()
+        ]
+    );
     assert_eq!(typed("-2..2"), "[-2, -1, 0, 1, 2] (Vector)");
 }
 
@@ -456,7 +531,11 @@ fn array_division_narrows_homogeneously() {
 fn mixed_numeric_literals_promote_homogeneously() {
     assert_eq!(
         elements(&structured("[1, 2.5, 3]"), "[1, 2.5, 3]"),
-        vec!["Real=1".to_string(), "Real=2.5".to_string(), "Real=3".to_string()]
+        vec![
+            "Real=1".to_string(),
+            "Real=2.5".to_string(),
+            "Real=3".to_string()
+        ]
     );
     assert_eq!(
         elements(&structured("[[1, 2.5], [3, 4]]"), "[[1, 2.5], [3, 4]]"),
@@ -473,11 +552,19 @@ fn mixed_numeric_literals_promote_homogeneously() {
     );
     assert_eq!(
         elements(&structured("[1, 2, 3]"), "[1, 2, 3]"),
-        vec!["Natural=1".to_string(), "Natural=2".to_string(), "Natural=3".to_string()]
+        vec![
+            "Natural=1".to_string(),
+            "Natural=2".to_string(),
+            "Natural=3".to_string()
+        ]
     );
     assert_eq!(
         elements(&structured("[1, 2, [3]]"), "[1, 2, [3]]"),
-        vec!["Natural=1".to_string(), "Natural=2".to_string(), "Array=".to_string()]
+        vec![
+            "Natural=1".to_string(),
+            "Natural=2".to_string(),
+            "Array=".to_string()
+        ]
     );
 }
 
@@ -487,10 +574,22 @@ fn mixed_numeric_literals_promote_homogeneously() {
 
 #[test]
 fn arity_refusals_keep_the_reference_grammar() {
-    assert_eq!(error("sqrt()").message, "sqrt(): expected 1 argument; got 0.");
-    assert_eq!(error("sqrt(4, 9)").message, "sqrt(): expected 1 argument; got 2.");
-    assert_eq!(error("pi(10, 20)").message, "pi(): expected 0 to 1 arguments; got 2.");
-    assert_eq!(error("setprecision(10, 20)").message, "setprecision(): expected 1 argument; got 2.");
+    assert_eq!(
+        error("sqrt()").message,
+        "sqrt(): expected 1 argument; got 0."
+    );
+    assert_eq!(
+        error("sqrt(4, 9)").message,
+        "sqrt(): expected 1 argument; got 2."
+    );
+    assert_eq!(
+        error("pi(10, 20)").message,
+        "pi(): expected 0 to 1 arguments; got 2."
+    );
+    assert_eq!(
+        error("setprecision(10, 20)").message,
+        "setprecision(): expected 1 argument; got 2."
+    );
     for (script, code) in [
         ("sqrt()", "InvalidArgument"),
         ("pi(10, 20)", "InvalidArgument"),

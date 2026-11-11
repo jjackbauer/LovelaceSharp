@@ -45,8 +45,14 @@ fn mentions_infinity(e: &Expr) -> bool {
 #[test]
 fn infinity_minus_infinity_is_not_definite_zero() {
     let e = Expr::sub(infinity(), infinity());
-    assert!(!is_definite_zero(&e), "inf - inf must not fold to a definite 0; got: {e}");
-    assert!(mentions_infinity(&e), "the infinity operand must survive the fold; got: {e}");
+    assert!(
+        !is_definite_zero(&e),
+        "inf - inf must not fold to a definite 0; got: {e}"
+    );
+    assert!(
+        mentions_infinity(&e),
+        "the infinity operand must survive the fold; got: {e}"
+    );
     // The chosen outcome: the canonical indeterminate product 0*inf, exactly the treatment
     // 0/x gets (the zero coefficient stays visible over a hazardous remainder).
     assert_eq!(e.to_string(), "0*inf");
@@ -55,8 +61,14 @@ fn infinity_minus_infinity_is_not_definite_zero() {
 #[test]
 fn zero_times_infinity_is_not_definite_zero() {
     let e = Expr::mul(Expr::num(0), infinity());
-    assert!(!is_definite_zero(&e), "0 * inf must not fold to a definite 0; got: {e}");
-    assert!(mentions_infinity(&e), "the infinity factor must survive the fold; got: {e}");
+    assert!(
+        !is_definite_zero(&e),
+        "0 * inf must not fold to a definite 0; got: {e}"
+    );
+    assert!(
+        mentions_infinity(&e),
+        "the infinity factor must survive the fold; got: {e}"
+    );
     assert_eq!(e.to_string(), "0*inf");
 }
 
@@ -64,7 +76,10 @@ fn zero_times_infinity_is_not_definite_zero() {
 fn infinity_plus_one_stays_unevaluated() {
     // Control: the honest treatment that inf - inf and 0 * inf must match.
     let e = Expr::add(infinity(), Expr::num(1));
-    assert!(!is_definite_zero(&e), "inf + 1 has no numeric value; got: {e}");
+    assert!(
+        !is_definite_zero(&e),
+        "inf + 1 has no numeric value; got: {e}"
+    );
     assert!(mentions_infinity(&e), "inf must survive; got: {e}");
 }
 
@@ -85,7 +100,10 @@ fn nested_infinity_difference_is_not_definite_zero() {
 fn indeterminate_difference_embedded_in_sum_does_not_resurrect_zero() {
     // The Add path re-applies the same guard: (inf - inf) + 1 must not become 1.
     let e = Expr::add(Expr::sub(infinity(), infinity()), Expr::num(1));
-    assert!(!is_definite_zero(&e), "(inf - inf) + 1 must not fold to 1; got: {e}");
+    assert!(
+        !is_definite_zero(&e),
+        "(inf - inf) + 1 must not fold to 1; got: {e}"
+    );
     assert!(mentions_infinity(&e), "inf must survive; got: {e}");
 }
 
@@ -121,7 +139,10 @@ fn finite_named_constant_identities_still_fold() {
 fn sibling_infinity_over_infinity_stays_unevaluated() {
     let e = Expr::div(infinity(), infinity());
     assert!(!is_definite_zero(&e), "inf/inf must not be 0; got: {e}");
-    assert!(!matches!(&e, Expr::Num(n) if n.is_one()), "inf/inf must not be 1; got: {e}");
+    assert!(
+        !matches!(&e, Expr::Num(n) if n.is_one()),
+        "inf/inf must not be 1; got: {e}"
+    );
 }
 
 #[test]

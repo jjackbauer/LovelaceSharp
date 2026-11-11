@@ -616,7 +616,10 @@ pub fn wide(text: &str) -> Vec<u16> {
 
 /// Decodes a NUL-terminated UTF-16 buffer.
 pub fn from_wide(buffer: &[u16]) -> String {
-    let end = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
+    let end = buffer
+        .iter()
+        .position(|unit| *unit == 0)
+        .unwrap_or(buffer.len());
     String::from_utf16_lossy(&buffer[..end])
 }
 
@@ -686,7 +689,10 @@ pub fn client_size(hwnd: HWND) -> (i32, i32) {
     if ok == 0 {
         return (0, 0);
     }
-    ((rect.right - rect.left).max(0), (rect.bottom - rect.top).max(0))
+    (
+        (rect.right - rect.left).max(0),
+        (rect.bottom - rect.top).max(0),
+    )
 }
 
 /// Returns the outer window size.
@@ -697,7 +703,10 @@ pub fn window_size(hwnd: HWND) -> (i32, i32) {
     if ok == 0 {
         return (0, 0);
     }
-    ((rect.right - rect.left).max(0), (rect.bottom - rect.top).max(0))
+    (
+        (rect.right - rect.left).max(0),
+        (rect.bottom - rect.top).max(0),
+    )
 }
 
 /// Moves and resizes a window.
@@ -883,7 +892,11 @@ pub fn append_menu(menu: HMENU, flags: u32, id: usize, text: &str) {
 pub fn create_accelerators(entries: &[(u8, u16, u16)]) -> isize {
     let accelerators: Vec<ACCEL> = entries
         .iter()
-        .map(|(virt, key, cmd)| ACCEL { fVirt: *virt, key: *key, cmd: *cmd })
+        .map(|(virt, key, cmd)| ACCEL {
+            fVirt: *virt,
+            key: *key,
+            cmd: *cmd,
+        })
         .collect();
     // SAFETY: the array is valid for accelerators.len() entries and CreateAcceleratorTableW copies
     // it before returning.
@@ -1140,7 +1153,10 @@ pub fn open_file_dialog(owner: HWND) -> Option<PathBuf> {
         lpstrFile: file.as_mut_ptr(),
         nMaxFile: file.len() as u32,
         lpstrTitle: title.as_ptr(),
-        Flags: OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR
+        Flags: OFN_FILEMUSTEXIST
+            | OFN_PATHMUSTEXIST
+            | OFN_EXPLORER
+            | OFN_NOCHANGEDIR
             | OFN_HIDEREADONLY,
         ..OPENFILENAMEW::default()
     };
@@ -1151,7 +1167,11 @@ pub fn open_file_dialog(owner: HWND) -> Option<PathBuf> {
         return None;
     }
     let path = from_wide(&file);
-    if path.is_empty() { None } else { Some(PathBuf::from(path)) }
+    if path.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(path))
+    }
 }
 
 /// Shows the Save As dialog and returns the chosen path.
@@ -1184,7 +1204,11 @@ pub fn save_file_dialog(owner: HWND, suggested: &str) -> Option<PathBuf> {
         return None;
     }
     let path = from_wide(&file);
-    if path.is_empty() { None } else { Some(PathBuf::from(path)) }
+    if path.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(path))
+    }
 }
 
 /// A stock object index for the default GUI font, for callers that need it.

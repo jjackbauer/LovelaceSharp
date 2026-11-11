@@ -491,9 +491,7 @@ impl DigitStore {
     /// Removes non-significant leading zeros and restores zero state for an all-zero value.
     pub fn trim_leading_zeros(&self) {
         let mut inner = self.lock();
-        while inner.digit_count > 1
-            && digit_public(&inner, (inner.digit_count - 1) as i64) == 0
-        {
+        while inner.digit_count > 1 && digit_public(&inner, (inner.digit_count - 1) as i64) == 0 {
             shrink_inner(&mut inner);
         }
         if inner.digit_count == 1 && digit_public(&inner, 0) == 0 {
@@ -1033,10 +1031,7 @@ mod tests {
 
     #[test]
     fn ToString_GivenSeparatorAndLessThanFourDigits_NoSeparatorInserted() {
-        assert_eq!(
-            store_with(&[3, 2, 1]).to_string_with_separator(','),
-            "123"
-        );
+        assert_eq!(store_with(&[3, 2, 1]).to_string_with_separator(','), "123");
     }
 
     // =========================================================
@@ -1606,7 +1601,10 @@ mod tests {
         assert_eq!(store.get_u32_limb(2), 3);
         assert_eq!(store.get_u32_limb(9), 0);
         assert_eq!(DigitStore::new().limb_count(), 0);
-        assert_eq!(DigitStore::from_u32_limbs(&[u32::MAX]).get_u32_limb(0), u32::MAX);
+        assert_eq!(
+            DigitStore::from_u32_limbs(&[u32::MAX]).get_u32_limb(0),
+            u32::MAX
+        );
     }
 
     #[test]
@@ -1622,4 +1620,3 @@ mod tests {
         assert!(zero.to_nat().is_zero());
     }
 }
-

@@ -7,7 +7,10 @@ use super::parity_batch::*;
 use super::*;
 use lovelace_json::Json;
 
-const FIXTURES: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../Lovelace.Run.Tests/fixtures");
+const FIXTURES: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../Lovelace.Run.Tests/fixtures"
+);
 const VOLATILE: [&str; 4] = ["revision", "elapsed", "elapsedTime", "timings"];
 
 fn normalise(j: &Json) -> Json {
@@ -43,19 +46,41 @@ fn fixture(name: &str) -> Json {
 #[test]
 fn every_fixture_matches_its_golden_envelope() {
     let corpus = [
-        "symbolic", "vector", "array", "record", "nested_record", "solve_result",
-        "solve_nosolutions", "transform_result", "limit_result", "system_solve",
-        "integration_result", "optimization_result", "compilation", "complex",
-        "matrix_inverse_result", "matrix_solve_result", "absent_field", "capabilities",
-        "error_envelope", "print_purity",
+        "symbolic",
+        "vector",
+        "array",
+        "record",
+        "nested_record",
+        "solve_result",
+        "solve_nosolutions",
+        "transform_result",
+        "limit_result",
+        "system_solve",
+        "integration_result",
+        "optimization_result",
+        "compilation",
+        "complex",
+        "matrix_inverse_result",
+        "matrix_solve_result",
+        "absent_field",
+        "capabilities",
+        "error_envelope",
+        "print_purity",
     ];
     for name in corpus {
         let r = run_fixture(name);
         let expected_exit = if name == "error_envelope" { 1 } else { 0 };
-        assert_eq!(r.exit, expected_exit, "'{name}' exited {}: {}", r.exit, r.stdout);
+        assert_eq!(
+            r.exit, expected_exit,
+            "'{name}' exited {}: {}",
+            r.exit, r.stdout
+        );
         let actual = normalise(&r.env);
         let expected = normalise(&fixture(name));
-        assert_eq!(actual, expected, "{name}: envelope does not match the golden fixture");
+        assert_eq!(
+            actual, expected,
+            "{name}: envelope does not match the golden fixture"
+        );
     }
 }
 
@@ -75,10 +100,19 @@ fn solve_record_carries_the_structural_solve_contract() {
     assert_eq!(text(get(completeness, "kind")), "Enum");
     assert_eq!(text(get(completeness, "type")), "Completeness");
     assert_eq!(text(get(completeness, "value")), "Complete");
-    assert_eq!(text(get(record_field(structured, "domain"), "domain")), "complex");
+    assert_eq!(
+        text(get(record_field(structured, "domain"), "domain")),
+        "complex"
+    );
     let solutions = record_field(structured, "solutions");
     assert_eq!(text(get(solutions, "kind")), "Array");
-    assert_eq!(array(get(solutions, "shape")).iter().map(number).collect::<Vec<_>>(), vec![2]);
+    assert_eq!(
+        array(get(solutions, "shape"))
+            .iter()
+            .map(number)
+            .collect::<Vec<_>>(),
+        vec![2]
+    );
     let elements = array(get(solutions, "elements"));
     assert_eq!(elements.len(), 2);
     for solution in elements {
@@ -119,7 +153,10 @@ fn rich_result_diagnostics_cross_the_wire_as_an_array() {
         assert_eq!(text(get(structured, "kind")), "Record");
         assert_eq!(text(get(structured, "type")), record_type);
         let ordered = array(get(structured, "fields"));
-        assert_eq!(text(get(&ordered[ordered.len() - 1], "name")), "diagnostics");
+        assert_eq!(
+            text(get(&ordered[ordered.len() - 1], "name")),
+            "diagnostics"
+        );
         let diagnostics = record_field(structured, "diagnostics");
         assert_eq!(text(get(diagnostics, "kind")), "Array");
         assert!(opt(diagnostics, "value").is_none());
@@ -132,7 +169,10 @@ fn wire_diagnostic_carries_the_six_frozen_fields_in_order() {
     let r = run_fixture("solve_result");
     assert_eq!(r.exit, 0);
     let structured = get(get(&r.env, "result"), "structured");
-    assert_eq!(text(get(record_field(structured, "status"), "value")), "Partial");
+    assert_eq!(
+        text(get(record_field(structured, "status"), "value")),
+        "Partial"
+    );
     let diagnostics = record_field(structured, "diagnostics");
     assert_eq!(text(get(diagnostics, "kind")), "Array");
     let elements = array(get(diagnostics, "elements"));
@@ -140,15 +180,34 @@ fn wire_diagnostic_carries_the_six_frozen_fields_in_order() {
     let diagnostic = &elements[0];
     assert_eq!(text(get(diagnostic, "kind")), "Record");
     assert_eq!(text(get(diagnostic, "type")), "Diagnostic");
-    let names: Vec<&str> = array(get(diagnostic, "fields")).iter().map(|f| text(get(f, "name"))).collect();
-    assert_eq!(names, vec!["code", "category", "message", "recoverable", "location", "details"]);
+    let names: Vec<&str> = array(get(diagnostic, "fields"))
+        .iter()
+        .map(|f| text(get(f, "name")))
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "code",
+            "category",
+            "message",
+            "recoverable",
+            "location",
+            "details"
+        ]
+    );
     assert!(!text(get(record_field(diagnostic, "code"), "value")).is_empty());
     assert!(!text(get(record_field(diagnostic, "message"), "value")).is_empty());
     let category = record_field(diagnostic, "category");
     assert_eq!(text(get(category, "kind")), "Enum");
     assert_eq!(text(get(category, "type")), "ErrorCategory");
-    assert_eq!(text(get(record_field(diagnostic, "recoverable"), "kind")), "Boolean");
-    assert_eq!(text(get(record_field(diagnostic, "location"), "kind")), "Null");
+    assert_eq!(
+        text(get(record_field(diagnostic, "recoverable"), "kind")),
+        "Boolean"
+    );
+    assert_eq!(
+        text(get(record_field(diagnostic, "location"), "kind")),
+        "Null"
+    );
     let details = record_field(diagnostic, "details");
     assert_eq!(text(get(details, "kind")), "Array");
     assert!(array(get(details, "elements")).is_empty());
@@ -165,11 +224,26 @@ fn every_fixture_script_has_a_corpus_row() {
         .collect();
     on_disk.sort();
     let mut corpus = vec![
-        "symbolic", "vector", "array", "record", "nested_record", "solve_result",
-        "solve_nosolutions", "transform_result", "limit_result", "system_solve",
-        "integration_result", "optimization_result", "compilation", "complex",
-        "matrix_inverse_result", "matrix_solve_result", "absent_field", "capabilities",
-        "error_envelope", "print_purity",
+        "symbolic",
+        "vector",
+        "array",
+        "record",
+        "nested_record",
+        "solve_result",
+        "solve_nosolutions",
+        "transform_result",
+        "limit_result",
+        "system_solve",
+        "integration_result",
+        "optimization_result",
+        "compilation",
+        "complex",
+        "matrix_inverse_result",
+        "matrix_solve_result",
+        "absent_field",
+        "capabilities",
+        "error_envelope",
+        "print_purity",
     ];
     corpus.sort();
     assert_eq!(on_disk, corpus);

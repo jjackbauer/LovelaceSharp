@@ -119,7 +119,15 @@ impl<W: LRealWidth> Default for Fixed<W> {
 
 impl<W: LRealWidth> Fixed<W> {
     fn parts(sig: u128, exp: i64, p_start: i64, p_len: i64, neg: bool, inexact: bool) -> Self {
-        Fixed { sig, exp, p_start, p_len, neg, inexact, _width: PhantomData }
+        Fixed {
+            sig,
+            exp,
+            p_start,
+            p_len,
+            neg,
+            inexact,
+            _width: PhantomData,
+        }
     }
 
     /// The value zero.
@@ -261,7 +269,11 @@ impl<W: LRealWidth> Fixed<W> {
         }
         let neg = neg && mag != 0;
         let value = Self::parts(mag, exp, p_start, p_len, neg, false);
-        Some(if p_len == 0 { Self::normalize(value) } else { value })
+        Some(if p_len == 0 {
+            Self::normalize(value)
+        } else {
+            value
+        })
     }
 
     // ------------------------------------------------------------------
@@ -279,9 +291,18 @@ impl<W: LRealWidth> Fixed<W> {
         value
     }
 
-    fn from_normalized_nat(mag: Nat, exp: i64, neg: bool, inexact: bool) -> Result<Self, LRealError> {
+    fn from_normalized_nat(
+        mag: Nat,
+        exp: i64,
+        neg: bool,
+        inexact: bool,
+    ) -> Result<Self, LRealError> {
         if mag.is_zero() {
-            return Ok(if inexact { Self::zero().as_inexact() } else { Self::zero() });
+            return Ok(if inexact {
+                Self::zero().as_inexact()
+            } else {
+                Self::zero()
+            });
         }
         let mut s = mag;
         let mut e = exp;
@@ -419,7 +440,14 @@ impl<W: LRealWidth> Fixed<W> {
             if p_len > W::MAX_SIGNIFICANT_DIGITS as i64 {
                 return Err(LRealError::Promote);
             }
-            return Ok(Self::parts(sig, result_exp, p_start, p_len, neg, a.inexact || b.inexact));
+            return Ok(Self::parts(
+                sig,
+                result_exp,
+                p_start,
+                p_len,
+                neg,
+                a.inexact || b.inexact,
+            ));
         }
         if rem == 0 {
             return Self::from_normalized_nat(nat_of(sig), result_exp, neg, a.inexact || b.inexact);
@@ -430,7 +458,14 @@ impl<W: LRealWidth> Fixed<W> {
     /// Negation (a zero stays unsigned).
     pub fn neg(&self) -> Self {
         let neg = if self.is_zero() { false } else { !self.neg };
-        Self::parts(self.sig, self.exp, self.p_start, self.p_len, neg, self.inexact)
+        Self::parts(
+            self.sig,
+            self.exp,
+            self.p_start,
+            self.p_len,
+            neg,
+            self.inexact,
+        )
     }
 
     /// Absolute value.
@@ -469,9 +504,17 @@ impl<W: LRealWidth> Fixed<W> {
 
     fn expand_to_non_periodic(&self, frac_digits: usize) -> Result<Self, LRealError> {
         let digits = self.sig.to_string();
-        let frac_len = if self.exp < 0 { (-self.exp) as usize } else { 0 };
+        let frac_len = if self.exp < 0 {
+            (-self.exp) as usize
+        } else {
+            0
+        };
         let int_part_len = digits.len().saturating_sub(frac_len);
-        let int_part = if int_part_len > 0 { &digits[..int_part_len] } else { "0" };
+        let int_part = if int_part_len > 0 {
+            &digits[..int_part_len]
+        } else {
+            "0"
+        };
         let mut text = String::with_capacity(int_part.len() + frac_digits);
         text.push_str(int_part);
         for position in 0..frac_digits {
@@ -493,7 +536,11 @@ impl<W: LRealWidth> Fixed<W> {
         let digits = value.sig.to_string();
         let frac_len = (-value.exp) as usize;
         let int_part_len = digits.len().saturating_sub(frac_len);
-        let int_part = if int_part_len > 0 { &digits[..int_part_len] } else { "0" };
+        let int_part = if int_part_len > 0 {
+            &digits[..int_part_len]
+        } else {
+            "0"
+        };
         let mut frac_part = if digits.len() > int_part_len {
             digits[int_part_len..].to_string()
         } else {

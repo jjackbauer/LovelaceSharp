@@ -18,9 +18,7 @@
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 
-use crate::{
-    canonical_parse, canonical_order, Expr, PrintMode, RelOp, UnknownPrintMode,
-};
+use crate::{Expr, PrintMode, RelOp, UnknownPrintMode, canonical_order, canonical_parse};
 
 fn rational(num: i64, den: u64) -> Expr {
     Expr::rational(&Int::from_i64(num), &Nat::from_u64(den))
@@ -78,7 +76,10 @@ fn corpus() -> Vec<Expr> {
         Expr::sqrt(Expr::add(x(), y())),
         sin(Expr::add(x(), y())),
         exp(Expr::mul(Expr::num(-1), Expr::pow(x(), Expr::num(2)))),
-        Expr::div(log(Expr::add(x(), Expr::num(1))), Expr::sub(x(), Expr::num(1))),
+        Expr::div(
+            log(Expr::add(x(), Expr::num(1))),
+            Expr::sub(x(), Expr::num(1)),
+        ),
         sin(Expr::div(Expr::add(x(), y()), Expr::sub(x(), y()))),
         named("pi"),
         named("e"),
@@ -122,7 +123,13 @@ fn canonical_parse_rebuilds_leaf_values_exactly() {
     // Leaf values are rebuilt exactly. Sum and product nodes are stored in the constructor's
     // display order, while the canonical text is sorted; those two orders differ, which is why
     // the C# contract compares canonical TEXT (the identity) rather than object identity.
-    for expr in [Expr::num(42), rational(-1, 2), x(), named("pi"), named("inf")] {
+    for expr in [
+        Expr::num(42),
+        rational(-1, 2),
+        x(),
+        named("pi"),
+        named("inf"),
+    ] {
         let text = expr.canonical();
         let reparsed = canonical_parse(&text).expect("canonical parse");
         assert_eq!(reparsed, expr, "parse changed the leaf built for {text}");
@@ -141,9 +148,14 @@ fn canonical_parse_rebuilds_leaf_values_exactly() {
 #[test]
 fn canonical_parse_accepts_the_oracle_int_alias_and_normalises_it() {
     assert_eq!(canonical_parse("(int 5)").unwrap().canonical(), "(rat 5 1)");
-    assert_eq!(canonical_parse("(int -3)").unwrap().canonical(), "(rat -3 1)");
     assert_eq!(
-        canonical_parse("(add (int 1) (sym x))").unwrap().canonical(),
+        canonical_parse("(int -3)").unwrap().canonical(),
+        "(rat -3 1)"
+    );
+    assert_eq!(
+        canonical_parse("(add (int 1) (sym x))")
+            .unwrap()
+            .canonical(),
         "(add (rat 1 1) (sym x))"
     );
 }
@@ -161,8 +173,14 @@ fn canonical_parse_refuses_malformed_text_with_a_position() {
         ("(rat 1 -2)", "non-negative integer denominator"),
         ("(pow (sym x))", "expected '('"),
         ("(real 1.5)", "numeric literal"),
-        ("(integ (x) (sym x))", "not part of this crate's canonical vocabulary"),
-        ("(order (sym x) (rat 0 1) (rat 1 1))", "not part of this crate's canonical vocabulary"),
+        (
+            "(integ (x) (sym x))",
+            "not part of this crate's canonical vocabulary",
+        ),
+        (
+            "(order (sym x) (rat 0 1) (rat 1 1))",
+            "not part of this crate's canonical vocabulary",
+        ),
     ];
     for (text, needle) in cases {
         let err = canonical_parse(text).expect_err(text);
@@ -200,10 +218,7 @@ fn debug_print_matches_the_reference_shapes() {
             Expr::Div(Box::new(x()), Box::new(y())),
             "mul[sym(x), pow[sym(y), rat(-1)]]",
         ),
-        (
-            call("and", vec![x(), y()]),
-            "and[sym(x), sym(y)]",
-        ),
+        (call("and", vec![x(), y()]), "and[sym(x), sym(y)]"),
         (call("not", vec![x()]), "not[sym(x)]"),
         (
             Expr::pow(Expr::add(x(), Expr::num(1)), Expr::num(12)),
@@ -222,18 +237,21 @@ fn debug_print_matches_the_reference_shapes() {
             "mul[sym(x), pow[mul[sym(y), sym(z)], rat(-1)]]",
         ),
         (
-            Expr::div(Expr::num(1), Expr::mul(Expr::num(2), Expr::add(x(), Expr::num(1)))),
+            Expr::div(
+                Expr::num(1),
+                Expr::mul(Expr::num(2), Expr::add(x(), Expr::num(1))),
+            ),
             "pow[mul[rat(2), add[rat(1), sym(x)]], rat(-1)]",
         ),
         (
-            Expr::add(
-                Expr::mul(rational(1, 2), x()),
-                rational(1, 3),
-            ),
+            Expr::add(Expr::mul(rational(1, 2), x()), rational(1, 3)),
             "add[rat(1/3), mul[rat(1/2), sym(x)]]",
         ),
         (
-            Expr::add(call("sin", vec![Expr::add(x(), y())]), call("cos", vec![Expr::pow(x(), Expr::num(2))])),
+            Expr::add(
+                call("sin", vec![Expr::add(x(), y())]),
+                call("cos", vec![Expr::pow(x(), Expr::num(2))]),
+            ),
             "add[fn:cos(pow[sym(x), rat(2)]), fn:sin(add[sym(x), sym(y)])]",
         ),
         (
@@ -241,12 +259,23 @@ fn debug_print_matches_the_reference_shapes() {
             "pow[add[sym(x), sym(y)], rat(1/2)]",
         ),
         (
-            call("rootof", vec![Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(2)), Expr::num(0)]),
+            call(
+                "rootof",
+                vec![
+                    Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(2)),
+                    Expr::num(0),
+                ],
+            ),
             "rootof[add[rat(-2), pow[sym(x), rat(2)]], 0]",
         ),
     ];
     for (expr, expected) in cases {
-        assert_eq!(expr.debug_print(), *expected, "debug shape of {}", expr.canonical());
+        assert_eq!(
+            expr.debug_print(),
+            *expected,
+            "debug shape of {}",
+            expr.canonical()
+        );
         assert_eq!(expr.print(PrintMode::Debug), *expected);
     }
 }
@@ -268,7 +297,10 @@ fn debug_print_visits_operands_in_canonical_order_not_display_order() {
     let mut left = Expr::add(x(), Expr::num(1));
     left = Expr::mul(left, y());
     left = Expr::pow(left, Expr::num(2));
-    assert_eq!(left.debug_print(), "pow[mul[sym(y), add[rat(1), sym(x)]], rat(2)]");
+    assert_eq!(
+        left.debug_print(),
+        "pow[mul[sym(y), add[rat(1), sym(x)]], rat(2)]"
+    );
 }
 
 #[test]
@@ -295,7 +327,11 @@ fn print_dispatches_every_mode_and_the_dispatch_is_case_insensitive() {
         assert_eq!(mode.name(), name);
         assert_eq!(expr.print_named(name).unwrap(), expr.print(mode));
         let upper = name.to_ascii_uppercase();
-        assert_eq!(PrintMode::from_name(&upper).unwrap(), mode, "case-insensitive {upper}");
+        assert_eq!(
+            PrintMode::from_name(&upper).unwrap(),
+            mode,
+            "case-insensitive {upper}"
+        );
     }
 }
 
@@ -304,14 +340,19 @@ fn unknown_print_mode_is_refused_and_names_every_accepted_mode() {
     let err = PrintMode::from_name("wibble").unwrap_err();
     assert_eq!(
         err,
-        UnknownPrintMode { name: "wibble".to_string() }
+        UnknownPrintMode {
+            name: "wibble".to_string()
+        }
     );
     assert_eq!(
         err.to_string(),
         "unknown print mode 'wibble'; expected one of: pretty, canonical, latex, debug"
     );
     assert!(PrintMode::from_name("").is_err());
-    assert!(PrintMode::from_name("Debug ").is_err(), "no trimming: the name is exact");
+    assert!(
+        PrintMode::from_name("Debug ").is_err(),
+        "no trimming: the name is exact"
+    );
 }
 
 #[test]

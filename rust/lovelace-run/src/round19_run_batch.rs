@@ -21,7 +21,13 @@ fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'stati
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
     with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"])
+        run_args(&[
+            "--eval",
+            &script,
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+        ])
     })
 }
 
@@ -63,7 +69,10 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!("structured record has no field '{name}': {}", st.to_string())
+    panic!(
+        "structured record has no field '{name}': {}",
+        st.to_string()
+    )
 }
 
 fn decimals(rendering: &str) -> usize {
@@ -79,15 +88,24 @@ fn real_value(r: &RunResult) -> &str {
 }
 
 fn assert_timing_shape(t: &Json, what: &str) {
-    assert!(opt(t, "position").is_some(), "{what}: a timing carries its source position");
+    assert!(
+        opt(t, "position").is_some(),
+        "{what}: a timing carries its source position"
+    );
     let elapsed = get(t, "elapsed");
     let unit = text(get(elapsed, "unit"));
     assert!(
         ["ns", "us", "µs", "ms", "s", "min", "h"].contains(&unit),
         "{what}: unknown timing unit {unit}"
     );
-    assert!(opt(t, "resultKind").is_some(), "{what}: a timing carries the result kind");
-    assert!(opt(t, "hasOutput").is_some(), "{what}: a timing says whether the statement printed");
+    assert!(
+        opt(t, "resultKind").is_some(),
+        "{what}: a timing carries the result kind"
+    );
+    assert!(
+        opt(t, "hasOutput").is_some(),
+        "{what}: a timing says whether the statement printed"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -100,7 +118,12 @@ fn run_engine_precision_request_above_the_engine_precision_is_the_documented_arg
         let script = format!("setprecision(20); {builtin}(500)");
         let r = run_script(&script);
         let entries = timings(&r);
-        assert_eq!(entries.len(), 2, "{builtin}: one engine, two statements: {}", r.env.to_string());
+        assert_eq!(
+            entries.len(),
+            2,
+            "{builtin}: one engine, two statements: {}",
+            r.env.to_string()
+        );
         let expected_position = script.find(&format!("{builtin}(")).unwrap() as i64;
         assert_eq!(number(get(&entries[1], "position")), expected_position);
         assert_eq!(r.exit, 1);
@@ -130,12 +153,20 @@ fn run_engine_precision_default_request_is_answered_in_full() {
     const E_TAIL: &str = "93163688923009879312";
     for (builtin, head, tail) in [("pi", PI_HEAD, PI_TAIL), ("e", E_HEAD, E_TAIL)] {
         let r = run_script(&format!("{builtin}(500)"));
-        assert_eq!(r.exit, 0, "{builtin}(500) must answer: {}", r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "{builtin}(500) must answer: {}",
+            r.env.to_string()
+        );
         let st = structured(&r);
         assert_eq!(text(get(st, "kind")), "Real");
         let value = text(get(st, "value"));
         assert_eq!(decimals(value), 500);
-        assert!(value.contains(head) && value.ends_with(tail), "{builtin}: {value}");
+        assert!(
+            value.contains(head) && value.ends_with(tail),
+            "{builtin}: {value}"
+        );
         assert!(!boolean(get(st, "exact")));
     }
 }
@@ -143,21 +174,37 @@ fn run_engine_precision_default_request_is_answered_in_full() {
 #[test]
 fn run_engine_precision_request_inside_the_engine_precision_still_succeeds() {
     let cases = [
-        ("setprecision(20); pi(20)", 20usize, Some("3.14159265358979323846")),
+        (
+            "setprecision(20); pi(20)",
+            20usize,
+            Some("3.14159265358979323846"),
+        ),
         ("setprecision(20); pi(10)", 10, Some("3.1415926535")),
-        ("setprecision(20); e(20)", 20, Some("2.71828182845904523536")),
+        (
+            "setprecision(20); e(20)",
+            20,
+            Some("2.71828182845904523536"),
+        ),
         ("setprecision(2000); pi(500)", 500, None),
     ];
     for (script, digits, expected) in cases {
         let r = run_script(script);
-        assert_eq!(r.exit, 0, "{script} exited {}: {}", r.exit, r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "{script} exited {}: {}",
+            r.exit,
+            r.env.to_string()
+        );
         assert!(boolean(get(&r.env, "ok")));
         let value = real_value(&r);
         assert_eq!(decimals(value), digits, "{script}: {value}");
         if let Some(expected) = expected {
             assert_eq!(value, expected);
         } else {
-            assert!(value.starts_with("3.141592653589793238462643383279502884197169399375105820974944"));
+            assert!(
+                value.starts_with("3.141592653589793238462643383279502884197169399375105820974944")
+            );
             assert!(value.ends_with("89122793818301194912"));
         }
     }
@@ -191,7 +238,10 @@ fn run_engine_precision_count_wider_than_int64_is_the_same_typed_refusal() {
         assert_eq!(category(&r), "TypeMismatch");
         let text = message(&r);
         assert!(text.contains("1000000000000000000000000000000"), "{text}");
-        assert!(text.contains(&format!("{builtin}(): argument 1 (digits)")), "{text}");
+        assert!(
+            text.contains(&format!("{builtin}(): argument 1 (digits)")),
+            "{text}"
+        );
     }
 }
 
@@ -216,7 +266,12 @@ fn run_engine_precision_of_one_run_does_not_leak_into_the_next() {
     assert_eq!(refused.exit, 1);
     assert!(!boolean(get(&refused.env, "ok")));
     let answered = run_script("pi(500)");
-    assert_eq!(answered.exit, 0, "the next run must answer: {}", answered.env.to_string());
+    assert_eq!(
+        answered.exit,
+        0,
+        "the next run must answer: {}",
+        answered.env.to_string()
+    );
     assert_eq!(decimals(real_value(&answered)), 500);
 }
 
@@ -230,12 +285,24 @@ fn run_evalf_honours_the_digit_count_for_an_already_numeric_argument() {
         ("evalf(sqrt(2), 5)", "1.41421"),
         ("evalf(pi, 5)", "3.14159"),
         ("evalf(1/3, 5)", "0.33333"),
-        ("evalf(sqrt(2), 50)", "1.41421356237309504880168872420969807856967187537694"),
-        ("setprecision(20); evalf(sqrt(2), 20)", "1.4142135623730950488"),
+        (
+            "evalf(sqrt(2), 50)",
+            "1.41421356237309504880168872420969807856967187537694",
+        ),
+        (
+            "setprecision(20); evalf(sqrt(2), 20)",
+            "1.4142135623730950488",
+        ),
     ];
     for (script, expected) in cases {
         let r = run_script(script);
-        assert_eq!(r.exit, 0, "{script} exited {}: {}", r.exit, r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "{script} exited {}: {}",
+            r.exit,
+            r.env.to_string()
+        );
         let st = structured(&r);
         assert_eq!(text(get(st, "kind")), "Real");
         assert_eq!(text(get(st, "value")), expected, "{script}");
@@ -264,7 +331,10 @@ fn run_evalf_refuses_a_digit_count_it_cannot_honour_as_a_recoverable_argument_er
         assert_eq!(category(&r), "TypeMismatch", "{script}");
         assert!(boolean(get(&r.env, "recoverable")));
         assert!(message(&r).starts_with(prefix), "{script}: {}", message(&r));
-        assert_ne!(message(&r), "Object reference not set to an instance of an object.");
+        assert_ne!(
+            message(&r),
+            "Object reference not set to an instance of an object."
+        );
     }
 }
 
@@ -275,7 +345,9 @@ fn run_capabilities_domain_statement_is_scoped_to_solve_and_integer_domains_stil
     let st = structured(&r);
     assert!(opt(st, "fields").is_some());
     for absent in ["supported_domains", "unsupported_domains"] {
-        let has = array(get(st, "fields")).iter().any(|f| text(get(f, "name")) == absent);
+        let has = array(get(st, "fields"))
+            .iter()
+            .any(|f| text(get(f, "name")) == absent);
         assert!(!has, "the runtime-wide domain claim must be gone");
     }
     let domains = |name: &str| -> Vec<String> {
@@ -285,17 +357,27 @@ fn run_capabilities_domain_statement_is_scoped_to_solve_and_integer_domains_stil
             .collect()
     };
     assert_eq!(domains("solve_domains_accepted"), vec!["real", "complex"]);
-    assert_eq!(domains("solve_domains_refused"), vec!["integer", "rational"]);
+    assert_eq!(
+        domains("solve_domains_refused"),
+        vec!["integer", "rational"]
+    );
     for domain in ["integer", "rational"] {
-        let refused = run_script(&format!("x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"));
+        let refused = run_script(&format!(
+            "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"
+        ));
         assert_eq!(refused.exit, 1, "the statement refuses {domain}");
         assert!(!boolean(get(&refused.env, "ok")));
         assert!(message(&refused).contains(&format!("got {domain}")));
     }
     for domain in ["real", "complex"] {
-        let accepted = run_script(&format!("x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"));
+        let accepted = run_script(&format!(
+            "x = symbol(\"x\"); solve(x^2 - 2 == 0, x, {domain})"
+        ));
         assert_eq!(accepted.exit, 0);
-        assert_eq!(text(get(field(structured(&accepted), "domain"), "domain")), domain);
+        assert_eq!(
+            text(get(field(structured(&accepted), "domain"), "domain")),
+            domain
+        );
     }
     for domain in ["real", "complex", "integer", "rational"] {
         let symbol = run_script(&format!("symbol(\"s\", {domain})"));
@@ -313,7 +395,9 @@ fn project(script: &str, precision: Option<usize>) -> Json {
     if let Some(precision) = precision {
         engine.set_precision(precision);
     }
-    let value = engine.eval(script).unwrap_or_else(|e| panic!("'{script}' failed: {e}"));
+    let value = engine
+        .eval(script)
+        .unwrap_or_else(|e| panic!("'{script}' failed: {e}"));
     structured::project_value(&engine, &value, None)
 }
 
@@ -322,7 +406,9 @@ fn project_value(script: &str, precision: Option<usize>) -> lovelace_lang::Value
     if let Some(precision) = precision {
         engine.set_precision(precision);
     }
-    engine.eval(script).unwrap_or_else(|e| panic!("'{script}' failed: {e}"))
+    engine
+        .eval(script)
+        .unwrap_or_else(|e| panic!("'{script}' failed: {e}"))
 }
 
 fn opt_text<'a>(j: &'a Json, key: &str) -> Option<&'a str> {
@@ -354,18 +440,46 @@ fn run_library_facade_and_cli_agree_on_one_structured_value() {
         let cli = run_script(script);
         assert_eq!(cli.exit, 0, "{script}: {}", cli.env.to_string());
         let cli = structured(&cli);
-        assert_eq!(text(get(cli, "kind")), text(get(&facade, "kind")), "{script}");
-        assert_eq!(opt_text(cli, "value"), opt_text(&facade, "value"), "{script}");
-        assert_eq!(opt_bool(cli, "exact"), opt_bool(&facade, "exact"), "{script}");
-        assert_eq!(opt_bool(cli, "truncated"), opt_bool(&facade, "truncated"), "{script}");
+        assert_eq!(
+            text(get(cli, "kind")),
+            text(get(&facade, "kind")),
+            "{script}"
+        );
+        assert_eq!(
+            opt_text(cli, "value"),
+            opt_text(&facade, "value"),
+            "{script}"
+        );
+        assert_eq!(
+            opt_bool(cli, "exact"),
+            opt_bool(&facade, "exact"),
+            "{script}"
+        );
+        assert_eq!(
+            opt_bool(cli, "truncated"),
+            opt_bool(&facade, "truncated"),
+            "{script}"
+        );
         assert_eq!(
             opt_text(cli, "truncationReason"),
             opt_text(&facade, "truncationReason"),
             "{script}"
         );
-        assert_eq!(opt_number(cli, "budget"), opt_number(&facade, "budget"), "{script}");
-        assert_eq!(opt_text(cli, "numerator"), opt_text(&facade, "numerator"), "{script}");
-        assert_eq!(opt_text(cli, "denominator"), opt_text(&facade, "denominator"), "{script}");
+        assert_eq!(
+            opt_number(cli, "budget"),
+            opt_number(&facade, "budget"),
+            "{script}"
+        );
+        assert_eq!(
+            opt_text(cli, "numerator"),
+            opt_text(&facade, "numerator"),
+            "{script}"
+        );
+        assert_eq!(
+            opt_text(cli, "denominator"),
+            opt_text(&facade, "denominator"),
+            "{script}"
+        );
     }
 }
 
@@ -414,10 +528,23 @@ fn run_inspection_answers_exactness_as_a_boolean() {
     for (source, expected) in [("1", true), ("1/3", true), ("1/(10^19)", true)] {
         let script = format!("v = {source}; i = inspect(v)");
         let r = run_script(&script);
-        assert_eq!(r.exit, 0, "inspect({source}) exited {}: {}", r.exit, r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "inspect({source}) exited {}: {}",
+            r.exit,
+            r.env.to_string()
+        );
         let exact = field(structured(&r), "exact");
-        assert_eq!(text(get(exact, "kind")), "Boolean", "inspect({source}).exact is not a Boolean");
-        assert_eq!(text(get(exact, "value")), if expected { "true" } else { "false" });
+        assert_eq!(
+            text(get(exact, "kind")),
+            "Boolean",
+            "inspect({source}).exact is not a Boolean"
+        );
+        assert_eq!(
+            text(get(exact, "value")),
+            if expected { "true" } else { "false" }
+        );
     }
 }
 
@@ -434,7 +561,11 @@ fn run_inspection_exact_agrees_with_the_values_own_exact_flag() {
             .expect("the variable form of v is published");
         let record = field(structured(&r), "exact");
         let value_exact = boolean(get(value, "exact"));
-        assert_eq!(text(get(record, "value")) == "true", value_exact, "{source}");
+        assert_eq!(
+            text(get(record, "value")) == "true",
+            value_exact,
+            "{source}"
+        );
     }
 }
 
@@ -456,7 +587,10 @@ fn run_source_position_runtime_failure_in_the_third_statement_names_that_stateme
     assert_eq!(number(get(diagnostic(&r), "position")), failing);
     assert_eq!(number(get(diagnostic(&r), "line")), 3);
     assert_eq!(number(get(diagnostic(&r), "column")), 1);
-    let positions: Vec<i64> = timings(&r).iter().map(|t| number(get(t, "position"))).collect();
+    let positions: Vec<i64> = timings(&r)
+        .iter()
+        .map(|t| number(get(t, "position")))
+        .collect();
     assert_eq!(positions, vec![0, 6, 12]);
     assert_eq!(*positions.last().unwrap(), failing);
 }
@@ -471,7 +605,10 @@ fn run_source_position_runtime_failure_in_the_third_statement_names_that_stateme
     assert_eq!(number(get(diagnostic(&r), "position")), failing);
     assert_eq!(number(get(diagnostic(&r), "line")), 3);
     assert_eq!(number(get(diagnostic(&r), "column")), 1);
-    let positions: Vec<i64> = timings(&r).iter().map(|t| number(get(t, "position"))).collect();
+    let positions: Vec<i64> = timings(&r)
+        .iter()
+        .map(|t| number(get(t, "position")))
+        .collect();
     assert_eq!(positions, vec![0, 7, 14]);
 }
 
@@ -482,7 +619,10 @@ fn run_source_position_single_statement_failure_keeps_position_zero_line_one_col
     assert_eq!(number(get(diagnostic(&r), "position")), 0);
     assert_eq!(number(get(diagnostic(&r), "line")), 1);
     assert_eq!(number(get(diagnostic(&r), "column")), 1);
-    let positions: Vec<i64> = timings(&r).iter().map(|t| number(get(t, "position"))).collect();
+    let positions: Vec<i64> = timings(&r)
+        .iter()
+        .map(|t| number(get(t, "position")))
+        .collect();
     assert_eq!(positions, vec![0]);
 }
 
@@ -534,7 +674,10 @@ fn run_call_signature_an_arity_refusal_publishes_the_signature() {
     assert_eq!(code(&r), "InvalidArgument");
     let signature = get(&r.env, "signature");
     assert_eq!(text(get(signature, "function")), "dot");
-    let parameters: Vec<&str> = array(get(signature, "parameters")).iter().map(text).collect();
+    let parameters: Vec<&str> = array(get(signature, "parameters"))
+        .iter()
+        .map(text)
+        .collect();
     assert_eq!(parameters, vec!["a", "b"]);
     assert_eq!(number(get(signature, "expectedMin")), 2);
     assert_eq!(number(get(signature, "expectedMax")), 2);
@@ -618,7 +761,13 @@ fn run_arity_optional_trailing_parameters_stay_callable_in_the_shorter_form() {
         "dft([0, 1, 0, 0])",
     ] {
         let r = run_script(script);
-        assert_eq!(r.exit, 0, "'{script}' exited {}: {}", r.exit, r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "'{script}' exited {}: {}",
+            r.exit,
+            r.env.to_string()
+        );
         assert!(boolean(get(&r.env, "ok")), "'{script}' must evaluate");
     }
 }
@@ -636,7 +785,13 @@ fn run_system_builtin_declared_list_form_still_succeeds() {
     ] {
         let script = format!("x = symbol(\"x\"); y = symbol(\"y\"); {call}");
         let r = run_script(&script);
-        assert_eq!(r.exit, 0, "'{call}' exited {}: {}", r.exit, r.env.to_string());
+        assert_eq!(
+            r.exit,
+            0,
+            "'{call}' exited {}: {}",
+            r.exit,
+            r.env.to_string()
+        );
         assert!(boolean(get(&r.env, "ok")), "'{call}' must evaluate");
     }
 }
@@ -676,7 +831,11 @@ fn run_wide_zeros_with_zero_still_answers_an_empty_array() {
 fn run_wide_indexing_with_a_negative_index_keeps_its_documented_refusal() {
     let r = run_script("[1, 2, 3][-1]");
     assert_eq!(code(&r), "InvalidOperation");
-    assert!(message(&r).contains("Index -1 is out of range for vector of length 3."), "{}", message(&r));
+    assert!(
+        message(&r).contains("Index -1 is out of range for vector of length 3."),
+        "{}",
+        message(&r)
+    );
 }
 
 #[test]
@@ -708,7 +867,13 @@ fn run_wide_pi_with_a_count_wider_than_int64_still_names_the_count_and_the_cap()
 fn div_rem_structured(a: &str, b: &str) -> Json {
     let script = format!("A = {a}; B = {b}; divrem(A, B)");
     let r = run_args_of(&["--eval", &script, "--json", "--omit-functions"]);
-    assert_eq!(r.exit, 0, "divrem({a}, {b}) exited {}: {}", r.exit, r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "divrem({a}, {b}) exited {}: {}",
+        r.exit,
+        r.env.to_string()
+    );
     structured(&r).clone()
 }
 
@@ -725,7 +890,10 @@ fn run_divrem_returns_two_integer_fields_that_satisfy_the_division_identity() {
         let st = div_rem_structured(a, b);
         assert_eq!(text(get(&st, "kind")), "Record");
         assert_eq!(text(get(&st, "type")), "DivRemResult");
-        let names: Vec<&str> = array(get(&st, "fields")).iter().map(|f| text(get(f, "name"))).collect();
+        let names: Vec<&str> = array(get(&st, "fields"))
+            .iter()
+            .map(|f| text(get(f, "name")))
+            .collect();
         assert_eq!(names, vec!["quotient", "remainder"]);
         let quotient = field(&st, "quotient");
         let remainder = field(&st, "remainder");
@@ -735,13 +903,27 @@ fn run_divrem_returns_two_integer_fields_that_satisfy_the_division_identity() {
         let b_mag = abs_decimal(b_decimal);
         let q_mag = abs_decimal(text(get(quotient, "value")));
         let r_mag = abs_decimal(text(get(remainder, "value")));
-        assert_eq!(a_mag, add_decimal(&mul_decimal(&q_mag, &b_mag), &r_mag), "divrem({a},{b}) identity");
-        assert_eq!(cmp_decimal(&r_mag, &b_mag), std::cmp::Ordering::Less, "|r| < |b|");
+        assert_eq!(
+            a_mag,
+            add_decimal(&mul_decimal(&q_mag, &b_mag), &r_mag),
+            "divrem({a},{b}) identity"
+        );
+        assert_eq!(
+            cmp_decimal(&r_mag, &b_mag),
+            std::cmp::Ordering::Less,
+            "|r| < |b|"
+        );
         if text(get(quotient, "value")) != "0" {
-            assert_eq!(sign(text(get(quotient, "value"))), sign(a_decimal) * sign(b_decimal));
+            assert_eq!(
+                sign(text(get(quotient, "value"))),
+                sign(a_decimal) * sign(b_decimal)
+            );
         }
         if text(get(quotient, "value")) != "0" && text(get(remainder, "value")) != "0" {
-            assert_eq!(sign(text(get(quotient, "value"))), sign(text(get(remainder, "value"))));
+            assert_eq!(
+                sign(text(get(quotient, "value"))),
+                sign(text(get(remainder, "value")))
+            );
         }
     }
 }
@@ -773,7 +955,11 @@ fn normalize_decimal(text: &str) -> String {
     let negative = text.starts_with('-');
     let digits = text.trim_start_matches(['-', '+']).trim_start_matches('0');
     let digits = if digits.is_empty() { "0" } else { digits };
-    if negative && digits != "0" { format!("-{digits}") } else { digits.to_string() }
+    if negative && digits != "0" {
+        format!("-{digits}")
+    } else {
+        digits.to_string()
+    }
 }
 
 fn abs_decimal(text: &str) -> String {
@@ -790,7 +976,9 @@ fn add_decimal(a: &str, b: &str) -> String {
         out.push(sum % 10);
         carry = sum / 10;
     }
-    if carry > 0 { out.push(carry); }
+    if carry > 0 {
+        out.push(carry);
+    }
     let s: String = out.iter().rev().map(|d| (d + b'0') as char).collect();
     normalize_decimal(&s)
 }
@@ -814,7 +1002,9 @@ fn mul_decimal(a: &str, b: &str) -> String {
             k += 1;
         }
     }
-    while out.len() > 1 && out.last() == Some(&0) { out.pop(); }
+    while out.len() > 1 && out.last() == Some(&0) {
+        out.pop();
+    }
     let s: String = out.iter().rev().map(|d| (d + b'0') as char).collect();
     normalize_decimal(&s)
 }
@@ -860,7 +1050,13 @@ fn run_parse_failure_in_a_single_line_script_crosses_as_parse_error() {
 #[test]
 fn run_missing_script_file_is_not_a_parse_error() {
     let missing = format!("{}/c6-pd-missing-round19.ls", plot_dir());
-    let r = run_args_of(&["--file", &missing, "--json", "--omit-functions", "--omit-variables"]);
+    let r = run_args_of(&[
+        "--file",
+        &missing,
+        "--json",
+        "--omit-functions",
+        "--omit-variables",
+    ]);
     assert_eq!(r.exit, 1);
     assert!(!boolean(get(&r.env, "ok")));
     assert_eq!(code(&r), "FileReadError");
@@ -960,11 +1156,19 @@ fn run_valid_plot_directory_still_receives_the_plot_file() {
         "--plot-dir",
         &plot_directory,
     ]);
-    assert_eq!(r.exit, 0, "a usable --plot-dir must still succeed: {}", r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "a usable --plot-dir must still succeed: {}",
+        r.env.to_string()
+    );
     assert!(boolean(get(&r.env, "ok")));
     let plot = get(&r.env, "plot");
     let path = text(get(plot, "path"));
-    assert!(std::path::Path::new(path).exists(), "the plot file must exist: {path}");
+    assert!(
+        std::path::Path::new(path).exists(),
+        "the plot file must exist: {path}"
+    );
     let svg = std::fs::read_to_string(path).unwrap();
     assert!(svg.to_lowercase().contains("<svg"));
     let expected = std::fs::canonicalize(format!("{plot_directory}/plot.svg"))
@@ -989,11 +1193,20 @@ fn run_writable_plot_file_is_still_written() {
         "--plot-file",
         "ok.svg",
     ]);
-    assert_eq!(r.exit, 0, "a writable --plot-file must succeed: {}", r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "a writable --plot-file must succeed: {}",
+        r.env.to_string()
+    );
     assert!(boolean(get(&r.env, "ok")));
     let expected = std::fs::canonicalize(std::path::Path::new(&plot_directory).join("ok.svg"))
         .expect("the plot file canonicalizes");
-    assert!(expected.exists(), "the plot file must be written to {}", expected.display());
+    assert!(
+        expected.exists(),
+        "the plot file must be written to {}",
+        expected.display()
+    );
     assert_eq!(
         std::fs::canonicalize(text(get(get(&r.env, "plot"), "path"))).unwrap(),
         expected
@@ -1007,7 +1220,12 @@ fn run_writable_plot_file_is_still_written() {
 
 #[test]
 fn run_failure_publishes_the_committed_bindings() {
-    let r = run_args_of(&["--eval", "x = 42\ny = x + 1\ndet(1)", "--json", "--omit-functions"]);
+    let r = run_args_of(&[
+        "--eval",
+        "x = 42\ny = x + 1\ndet(1)",
+        "--json",
+        "--omit-functions",
+    ]);
     assert_eq!(r.exit, 1);
     assert_eq!(code(&r), "InvalidArgument");
     let names: Vec<&str> = array(get(&r.env, "partialVariables"))
@@ -1038,13 +1256,21 @@ fn run_structured_real_counts_at_or_below_the_request_are_carried_exactly() {
             .iter()
             .find(|v| text(get(v, "name")) == "_")
             .expect("the result variable");
-        assert_eq!(decimals(text(get(get(variable, "structured"), "value"))), expected);
+        assert_eq!(
+            decimals(text(get(get(variable, "structured"), "value"))),
+            expected
+        );
     }
 }
 
 #[test]
 fn run_structured_real_nested_reals_inside_an_array_cross_in_full_too() {
-    let r = run_args_of(&["--eval", "setprecision(1100); [pi(1100), e(1100)]", "--json", "--omit-functions"]);
+    let r = run_args_of(&[
+        "--eval",
+        "setprecision(1100); [pi(1100), e(1100)]",
+        "--json",
+        "--omit-functions",
+    ]);
     assert_eq!(r.exit, 0);
     let elements = array(get(structured(&r), "elements"));
     assert_eq!(decimals(text(get(&elements[0], "value"))), 1100);
@@ -1057,7 +1283,12 @@ fn run_structured_real_nested_reals_inside_an_array_cross_in_full_too() {
 
 #[test]
 fn run_evalf_plain_expression_under_the_same_precision_is_not_clamped() {
-    let r = run_args_of(&["--eval", "setprecision(5000); sqrt(2)", "--json", "--omit-functions"]);
+    let r = run_args_of(&[
+        "--eval",
+        "setprecision(5000); sqrt(2)",
+        "--json",
+        "--omit-functions",
+    ]);
     assert_eq!(r.exit, 0);
     let st = structured(&r);
     assert_eq!(decimals(text(get(st, "value"))), 5000);
@@ -1086,7 +1317,11 @@ fn run_evalf_exact_answer_to_an_over_cap_request_is_not_marked() {
 fn run_matrix_e_digit_count_boundary_cells_are_accepted() {
     for literal in ["1", "2", "3"] {
         let r = run_script(&format!("e({literal})"));
-        assert!(boolean(get(&r.env, "ok")), "e({literal}) must be accepted: {}", r.env.to_string());
+        assert!(
+            boolean(get(&r.env, "ok")),
+            "e({literal}) must be accepted: {}",
+            r.env.to_string()
+        );
         assert_eq!(r.exit, 0);
     }
 }
@@ -1101,7 +1336,10 @@ fn run_matrix_inventory_templates_reach_the_argument_they_name() {
     ];
     for (builtin, script, anchor) in cases {
         let r = run_script(script);
-        assert!(!boolean(get(&r.env, "ok")), "{script}: the sentinel was accepted");
+        assert!(
+            !boolean(get(&r.env, "ok")),
+            "{script}: the sentinel was accepted"
+        );
         let code = code(&r);
         let category = category(&r);
         let text = message(&r);
@@ -1113,8 +1351,14 @@ fn run_matrix_inventory_templates_reach_the_argument_they_name() {
             category == "TypeMismatch" || category == "DomainError",
             "{script}: expected a caller-side refusal category, got {category}"
         );
-        assert!(text.starts_with(&format!("{builtin}()")), "{script}: {text}");
-        assert!(text.contains(anchor), "{script}: '{text}' must name {anchor}");
+        assert!(
+            text.starts_with(&format!("{builtin}()")),
+            "{script}: {text}"
+        );
+        assert!(
+            text.contains(anchor),
+            "{script}: '{text}' must name {anchor}"
+        );
     }
 }
 
@@ -1146,7 +1390,13 @@ fn run_print_budget_identifier_longer_than_the_kernel_allowance_is_never_split()
     assert_eq!(text(get(st, "truncationReason")), "node-budget");
     assert_eq!(number(get(st, "budget")), 1);
 
-    let full = run_args_of(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"]);
+    let full = run_args_of(&[
+        "--eval",
+        &script,
+        "--json",
+        "--omit-functions",
+        "--omit-variables",
+    ]);
     let full_pretty = text(get(structured(&full), "pretty"));
     assert!(full_pretty.starts_with(body));
     assert!(full_pretty.len() > body.len());
@@ -1165,9 +1415,18 @@ fn run_print_budget_unbudgeted_renderings_are_unchanged() {
         "1",
     ]);
     assert_eq!(r.exit, 0);
-    assert_eq!(text(get(get(&r.env, "result"), "display")), format!("{LONG_NAME} + 1"));
+    assert_eq!(
+        text(get(get(&r.env, "result"), "display")),
+        format!("{LONG_NAME} + 1")
+    );
     assert!(text(get(get(&r.env, "result"), "typed")).starts_with(&format!("{LONG_NAME} + 1 ")));
-    let unbudgeted = run_args_of(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"]);
+    let unbudgeted = run_args_of(&[
+        "--eval",
+        &script,
+        "--json",
+        "--omit-functions",
+        "--omit-variables",
+    ]);
     let st = structured(&unbudgeted);
     assert!(opt(st, "truncated").is_none());
     assert_eq!(text(get(st, "pretty")), format!("{LONG_NAME} + 1"));
@@ -1191,9 +1450,18 @@ fn run_print_budget_also_bounds_the_structured_variables() {
         .find(|v| text(get(v, "name")) == "_")
         .expect("the result variable");
     let x_squared = get(underscore, "structured");
-    assert!(boolean(get(x_squared, "truncated")), "the variable holding the result must be abbreviated");
-    assert_eq!(text(get(x_squared, "canonical")), text(get(result, "canonical")));
-    let x = variables.iter().find(|v| text(get(v, "name")) == "x").expect("x");
+    assert!(
+        boolean(get(x_squared, "truncated")),
+        "the variable holding the result must be abbreviated"
+    );
+    assert_eq!(
+        text(get(x_squared, "canonical")),
+        text(get(result, "canonical"))
+    );
+    let x = variables
+        .iter()
+        .find(|v| text(get(v, "name")) == "x")
+        .expect("x");
     let x_structured = get(x, "structured");
     assert!(opt(x_structured, "truncated").is_none());
     assert_eq!(text(get(x_structured, "canonical")), "(sym x)");
@@ -1206,7 +1474,12 @@ fn run_print_budget_also_bounds_the_structured_variables() {
 #[test]
 fn run_function_arity_published_range_is_the_range_the_call_site_enforces() {
     let accepted = run_args_of(&["--eval", "concat([1], [2])", "--json", "--omit-functions"]);
-    assert_eq!(accepted.exit, 0, "concat with minArity arguments was refused: {}", accepted.env.to_string());
+    assert_eq!(
+        accepted.exit,
+        0,
+        "concat with minArity arguments was refused: {}",
+        accepted.env.to_string()
+    );
     assert!(boolean(get(&accepted.env, "ok")));
     let refused = run_args_of(&["--eval", "concat([1])", "--json", "--omit-functions"]);
     assert_eq!(refused.exit, 1);
@@ -1252,9 +1525,11 @@ fn run_solve_session_assumption_that_admits_every_root_publishes_the_same_set() 
         .map(|s| text(get(field(s, "value"), "pretty")).to_string())
         .collect();
     assert_eq!(values, vec!["-2", "2"]);
-    assert!(array(get(field(st, "solutions"), "elements"))
-        .iter()
-        .all(|s| array(get(field(s, "conditions"), "elements")).is_empty()));
+    assert!(
+        array(get(field(st, "solutions"), "elements"))
+            .iter()
+            .all(|s| array(get(field(s, "conditions"), "elements")).is_empty())
+    );
 }
 
 #[test]
@@ -1268,9 +1543,11 @@ fn run_solve_session_assumption_on_another_symbol_changes_nothing() {
         .map(|s| text(get(field(s, "value"), "pretty")).to_string())
         .collect();
     assert_eq!(values, vec!["3"]);
-    assert!(array(get(field(st, "solutions"), "elements"))
-        .iter()
-        .all(|s| array(get(field(s, "conditions"), "elements")).is_empty()));
+    assert!(
+        array(get(field(st, "solutions"), "elements"))
+            .iter()
+            .all(|s| array(get(field(s, "conditions"), "elements")).is_empty())
+    );
 }
 
 #[test]

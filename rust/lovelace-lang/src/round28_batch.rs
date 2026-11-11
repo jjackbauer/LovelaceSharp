@@ -12,7 +12,9 @@ fn eval(script: &str) -> Result<Value, LangError> {
 }
 
 fn display(script: &str) -> String {
-    eval(script).unwrap_or_else(|error| panic!("'{script}' failed: {}", error.message)).display()
+    eval(script)
+        .unwrap_or_else(|error| panic!("'{script}' failed: {}", error.message))
+        .display()
 }
 
 fn typed(script: &str) -> String {
@@ -71,14 +73,22 @@ fn solution_values(value: &Value) -> Vec<String> {
 fn solution_conditions(value: &Value) -> Vec<String> {
     array_items(record_field(value, "solutions"))
         .iter()
-        .flat_map(|solution| array_items(record_field(solution, "conditions")).iter().map(Value::display))
+        .flat_map(|solution| {
+            array_items(record_field(solution, "conditions"))
+                .iter()
+                .map(Value::display)
+        })
         .collect()
 }
 
 fn family_conditions(value: &Value) -> Vec<String> {
     array_items(record_field(value, "families"))
         .iter()
-        .flat_map(|family| array_items(record_field(family, "conditions")).iter().map(Value::display))
+        .flat_map(|family| {
+            array_items(record_field(family, "conditions"))
+                .iter()
+                .map(Value::display)
+        })
         .collect()
 }
 
@@ -117,7 +127,8 @@ fn solve_does_not_publish_a_root_the_session_assumption_excludes() {
 
 #[test]
 fn solve_keeps_only_the_roots_the_assumption_admits() {
-    let positive = eval("x = symbol(\"x\"); assume_positive(x); solve(x^2 == 4, x)").expect("record");
+    let positive =
+        eval("x = symbol(\"x\"); assume_positive(x); solve(x^2 == 4, x)").expect("record");
     assert_eq!(record_field(&positive, "status").display(), "Solved");
     assert_eq!(record_field(&positive, "complete").display(), "True");
     assert_eq!(solution_values(&positive), vec!["2"]);
@@ -152,7 +163,10 @@ fn solve_honours_a_domain_assumption() {
 fn one_session_one_assumption_store_for_simplify_and_solve() {
     let solved = eval("x = symbol(\"x\"); assume(x > 0); solve(x^2 == 4, x)").expect("record");
     assert_eq!(solution_values(&solved), vec!["2"]);
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 0); simplify(sqrt(x^2))"), "x");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 0); simplify(sqrt(x^2))"),
+        "x"
+    );
 }
 
 #[test]
@@ -165,7 +179,8 @@ fn a_response_that_cannot_decide_is_carried_as_a_condition() {
 
 #[test]
 fn system_solve_honours_the_same_store() {
-    let refuted = eval("x = symbol(\"x\"); assume(x > 5); solve_system([x == 3], [x])").expect("record");
+    let refuted =
+        eval("x = symbol(\"x\"); assume(x > 5); solve_system([x == 3], [x])").expect("record");
     assert_eq!(record_field(&refuted, "status").display(), "NoSolutions");
     assert_eq!(record_field(&refuted, "complete").display(), "True");
     assert!(solution_values(&refuted).is_empty());
@@ -199,7 +214,10 @@ fn descriptor_examples_that_were_refused_now_execute() {
             .eval(EXAMPLE_PRELUDE)
             .unwrap_or_else(|error| panic!("descriptor prelude failed: {}", error.message));
         engine.eval(example).unwrap_or_else(|error| {
-            panic!("the descriptor example for '{function}' does not execute: {example}: {}", error.message)
+            panic!(
+                "the descriptor example for '{function}' does not execute: {example}: {}",
+                error.message
+            )
         });
     }
 }
@@ -232,7 +250,10 @@ fn complex_accessors_read_real_components() {
 fn re_im_conj_map_a_complex_vector_elementwise() {
     assert_eq!(typed("re(fft([0, 1, 0, 0]))"), "[1, 0, -1, 0] (Vector)");
     assert_eq!(typed("im(fft([0, 1, 0, 0]))"), "[0, -1, 0, 1] (Vector)");
-    assert_eq!(typed("conj(fft([0, 1, 0, 0]))"), "[1, 1i, -1, -1i] (Vector)");
+    assert_eq!(
+        typed("conj(fft([0, 1, 0, 0]))"),
+        "[1, 1i, -1, -1i] (Vector)"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -273,15 +294,23 @@ fn abs_of_an_integer_is_still_the_magnitude() {
 fn assumptions_conjunction_and_negation_through_the_engine() {
     let mut engine = Engine::new();
     engine.eval("x = symbol(\"x\")").expect("symbol");
-    engine.eval("assume(and(x > 0, x < 5))").expect("conjunction");
+    engine
+        .eval("assume(and(x > 0, x < 5))")
+        .expect("conjunction");
     let value = engine.eval("assumptions()").expect("assumptions");
     assert_eq!(record_field(&value, "display").display(), "x > 0; x < 5");
     assert_eq!(array_len(record_field(&value, "assumptions")), 2);
     engine.eval("assume(not(x == 2))").expect("negation");
     let value = engine.eval("assumptions()").expect("assumptions");
-    assert_eq!(record_field(&value, "display").display(), "x > 0; x < 5; x != 2");
+    assert_eq!(
+        record_field(&value, "display").display(),
+        "x > 0; x < 5; x != 2"
+    );
     assert_eq!(array_len(record_field(&value, "assumptions")), 3);
-    assert_eq!(display("x = symbol(\"x\"); and(x > 0, x < 1)"), "x < 1 and x > 0");
+    assert_eq!(
+        display("x = symbol(\"x\"); and(x > 0, x < 1)"),
+        "x < 1 and x > 0"
+    );
 }
 
 #[test]
@@ -307,9 +336,7 @@ fn solve_sin_zero_publishes_the_family() {
 fn evalir_integral_digit_counts_are_still_honoured() {
     for builtin in ["evalir", "evalir_batch"] {
         let points = if builtin == "evalir" { "[1]" } else { "[1, 2]" };
-        let script = format!(
-            "x = symbol(\"x\"); {builtin}(compile(x*1/3, [x]), {points}, 40)"
-        );
+        let script = format!("x = symbol(\"x\"); {builtin}(compile(x*1/3, [x]), {points}, 40)");
         let rendered = display(&script);
         assert!(
             rendered.contains("3333333333333333333333333333333333333333"),
@@ -337,7 +364,10 @@ fn evalf_digit_count_refusal_is_unchanged() {
         error.message,
         "evalf(): argument 2 (digits) must be a Natural or Integer digit count between 1 and 2147483647; got Real."
     );
-    assert_eq!((error.code, error.category), ("InvalidArgument", "TypeMismatch"));
+    assert_eq!(
+        (error.code, error.category),
+        ("InvalidArgument", "TypeMismatch")
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -23,12 +23,16 @@ fn real_e_and_pi_constants_match_their_known_prefixes() {
     // ComplexTests.ETo_Given30Digits_MatchesKnownConstant and
     // ComplexTests.PiTo_Given30Digits_MatchesKnownConstant.
     assert!(
-        Real::e(30).to_string().starts_with("2.71828182845904523536"),
+        Real::e(30)
+            .to_string()
+            .starts_with("2.71828182845904523536"),
         "ETo(30) = {}",
         Real::e(30)
     );
     assert!(
-        Real::pi(30).to_string().starts_with("3.14159265358979323846"),
+        Real::pi(30)
+            .to_string()
+            .starts_with("3.14159265358979323846"),
         "PiTo(30) = {}",
         Real::pi(30)
     );

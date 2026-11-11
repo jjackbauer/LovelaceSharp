@@ -50,10 +50,9 @@ fn array_items(value: &Value) -> &[Value] {
 /// domain atom renders as membership and projects to a DomainCondition leaf.
 #[test]
 fn assumptions_publish_domain_property_and_relation_atoms() {
-    let value = eval(
-        "x = symbol(\"x\"); assume_real(x); assume_positive(x); assume(x > 5); assumptions()",
-    )
-    .expect("assumptions");
+    let value =
+        eval("x = symbol(\"x\"); assume_real(x); assume_positive(x); assume(x > 5); assumptions()")
+            .expect("assumptions");
     assert_eq!(
         record_field(&value, "display").display(),
         "x in Real; x is Positive; x > 5"
@@ -89,7 +88,9 @@ fn assumption_atoms_are_published_in_canonical_order_regardless_of_insertion() {
     // node KIND, not its value), so their insertion order decides between them; the operator and
     // atom kind decide everything else.
     assert_eq!(
-        display("x = symbol(\"x\"); assume(x != 2); assume(x > 5); assume_real(x); assume(x > 0); assumptions()"),
+        display(
+            "x = symbol(\"x\"); assume(x != 2); assume(x > 5); assume_real(x); assume(x > 0); assumptions()"
+        ),
         "AssumptionSet(display: x in Real; x > 5; x > 0; x != 2, assumptions: [DomainCondition(variable: x, domain: real), x > 5, x > 0, x != 2])"
     );
 }
@@ -178,7 +179,10 @@ fn assume_clear_empties_the_session() {
         display("x = symbol(\"x\"); assume(x > 0); assume_clear(); simplify(sqrt(x^2))"),
         "sqrt(x^2)"
     );
-    assert_eq!(display("x = symbol(\"x\"); assume_clear()"), "assumptions cleared");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume_clear()"),
+        "assumptions cleared"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -188,28 +192,52 @@ fn assume_clear_empties_the_session() {
 /// C# AcceptanceTests.Simplify_SqrtSquare_UnderAssumptions and AbsSymbolicRoundTripTests.
 #[test]
 fn simplify_sqrt_square_under_real_is_abs_x() {
-    assert_eq!(display("x = symbol(\"x\", real); simplify(sqrt(x^2))"), "abs(x)");
+    assert_eq!(
+        display("x = symbol(\"x\", real); simplify(sqrt(x^2))"),
+        "abs(x)"
+    );
     // a provably nonnegative x keeps the unconditional form
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 5); simplify(sqrt(x^2))"), "x");
-    assert_eq!(display("x = symbol(\"x\"); assume(x >= 0); simplify(sqrt(x^2))"), "x");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 5); simplify(sqrt(x^2))"),
+        "x"
+    );
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x >= 0); simplify(sqrt(x^2))"),
+        "x"
+    );
     // without a premise the identity is not licensed
-    assert_eq!(display("x = symbol(\"x\"); simplify(sqrt(x^2))"), "sqrt(x^2)");
+    assert_eq!(
+        display("x = symbol(\"x\"); simplify(sqrt(x^2))"),
+        "sqrt(x^2)"
+    );
 }
 
 /// C# KernelHardeningTests.AbsSquare_Simplified_UnderReal.
 #[test]
 fn simplify_abs_square_under_real_is_x_squared() {
-    assert_eq!(display("x = symbol(\"x\", real); simplify(abs(x)^2)"), "x^2");
+    assert_eq!(
+        display("x = symbol(\"x\", real); simplify(abs(x)^2)"),
+        "x^2"
+    );
     assert_eq!(display("x = symbol(\"x\"); simplify(abs(x)^2)"), "abs(x)^2");
 }
 
 /// C# KernelHardeningTests.LogExp_Simplified_UnderReal.
 #[test]
 fn simplify_log_exp_under_real_is_the_identity() {
-    assert_eq!(display("x = symbol(\"x\", real); simplify(log(exp(x)))"), "x");
-    assert_eq!(display("x = symbol(\"x\"); simplify(log(exp(x)))"), "log(exp(x))");
+    assert_eq!(
+        display("x = symbol(\"x\", real); simplify(log(exp(x)))"),
+        "x"
+    );
+    assert_eq!(
+        display("x = symbol(\"x\"); simplify(log(exp(x)))"),
+        "log(exp(x))"
+    );
     // an integer is a real (the domain lattice only ever narrows), so the rule still fires
-    assert_eq!(display("x = symbol(\"x\"); assume_integer(x); simplify(log(exp(x)))"), "x");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume_integer(x); simplify(log(exp(x)))"),
+        "x"
+    );
     // a merely rational-bound symbol with no real domain stays unresolved
     assert_eq!(
         display("x = symbol(\"x\"); assume(x > 0); simplify(log(exp(x)))"),
@@ -226,12 +254,24 @@ fn simplify_log_exp_under_real_is_the_identity() {
 /// when the set proves the relation and False only when it proves the negation.
 #[test]
 fn simplify_relation_answers_true_false_or_stays_unevaluated() {
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 5); simplify(x > 0)"), "True");
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 5); simplify(x < 5)"), "False");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 5); simplify(x > 0)"),
+        "True"
+    );
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 5); simplify(x < 5)"),
+        "False"
+    );
     // x > 5 says nothing about x < 7
-    assert_eq!(display("x = symbol(\"x\"); assume(x > 5); simplify(x < 7)"), "x < 7");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume(x > 5); simplify(x < 7)"),
+        "x < 7"
+    );
     // a property atom answers through the same lattice
-    assert_eq!(display("x = symbol(\"x\"); assume_positive(x); simplify(x > 0)"), "True");
+    assert_eq!(
+        display("x = symbol(\"x\"); assume_positive(x); simplify(x > 0)"),
+        "True"
+    );
     // and an empty set answers nothing
     assert_eq!(display("x = symbol(\"x\"); simplify(x > 0)"), "x > 0");
 }
@@ -253,8 +293,14 @@ fn simplify_full_reports_unsatisfiable_conditions_as_a_marker() {
     let diagnostics = array_items(record_field(&value, "diagnostics"));
     assert_eq!(diagnostics.len(), 1);
     let diagnostic = &diagnostics[0];
-    assert_eq!(record_field(diagnostic, "code").display(), "transform.unsatisfiable-conditions");
-    assert_eq!(record_field(diagnostic, "category").display(), "DomainError");
+    assert_eq!(
+        record_field(diagnostic, "code").display(),
+        "transform.unsatisfiable-conditions"
+    );
+    assert_eq!(
+        record_field(diagnostic, "category").display(),
+        "DomainError"
+    );
     assert_eq!(record_field(diagnostic, "recoverable").display(), "False");
     assert_eq!(
         record_field(diagnostic, "message").display(),
@@ -284,7 +330,10 @@ fn inspect_reports_only_the_assumptions_that_constrain_the_free_symbols() {
     .expect("inspection");
     let assumptions = array_items(record_field(&value, "assumptions"));
     assert_eq!(assumptions.len(), 2);
-    assert_eq!(assumptions[0].display(), "DomainCondition(variable: x, domain: real)");
+    assert_eq!(
+        assumptions[0].display(),
+        "DomainCondition(variable: x, domain: real)"
+    );
     assert_eq!(assumptions[1].display(), "x > 0");
     // an expression with no free symbols carries no conditions
     let constant = eval("x = symbol(\"x\"); assume(x > 0); inspect(2 + 2)").expect("inspection");
@@ -320,7 +369,10 @@ fn engines_keep_their_own_assumption_sets() {
         "sqrt(x^2)"
     );
     assert_eq!(
-        first.eval("simplify(sqrt(x^2))").expect("simplify").display(),
+        first
+            .eval("simplify(sqrt(x^2))")
+            .expect("simplify")
+            .display(),
         "abs(x)"
     );
     // and the first engine's set is untouched by the second engine's work
@@ -339,9 +391,9 @@ fn engines_keep_their_own_assumption_sets() {
 /// insertions stay inside the reference's 250 ms tripwire.
 #[test]
 fn eight_hundred_atoms_stay_ordered_and_fast() {
-    use lovelace_symbolics::assumptions::{Assumption, AssumptionSet};
     use lovelace_symbolics::Expr as Sym;
     use lovelace_symbolics::RelOp;
+    use lovelace_symbolics::assumptions::{Assumption, AssumptionSet};
 
     let start = std::time::Instant::now();
     let mut set = AssumptionSet::empty();
@@ -358,7 +410,12 @@ fn eight_hundred_atoms_stay_ordered_and_fast() {
     assert_eq!(set.atoms().len(), 800);
     let keys: Vec<String> = set.atoms().iter().map(Assumption::order_key).collect();
     for pair in keys.windows(2) {
-        assert!(pair[0] <= pair[1], "order broken: {} > {}", pair[0], pair[1]);
+        assert!(
+            pair[0] <= pair[1],
+            "order broken: {} > {}",
+            pair[0],
+            pair[1]
+        );
     }
     // every atom is present, and the order is the insertion order among the tied keys
     let rendered: Vec<String> = set.atoms().iter().map(Assumption::describe).collect();
@@ -368,7 +425,10 @@ fn eight_hundred_atoms_stay_ordered_and_fast() {
     // Category=Timing so an instrumented CI run excludes it. A debug build is 20-40x slower
     // (unoptimized arithmetic and allocation), so the tripwire is only meaningful there; the
     // structural assertions above are the machine-independent half and run in both.
-    println!("800 atoms: {elapsed:?} (ceiling {} ms)", if cfg!(debug_assertions) { 2000 } else { 250 });
+    println!(
+        "800 atoms: {elapsed:?} (ceiling {} ms)",
+        if cfg!(debug_assertions) { 2000 } else { 250 }
+    );
     let ceiling = if cfg!(debug_assertions) { 2_000 } else { 250 };
     assert!(elapsed.as_millis() < ceiling, "800 atoms took {elapsed:?}");
 }

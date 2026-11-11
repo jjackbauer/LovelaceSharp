@@ -63,7 +63,6 @@ fn real_of(script: &str) -> Real {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // Defect 1 — the cubic solver panicked with an index-out-of-bounds.
 // ---------------------------------------------------------------------------
@@ -118,7 +117,10 @@ fn round13_solve_cubic_without_rational_root_never_panics_in_any_branch() {
 fn round13_expanded_repeated_root_reports_its_multiplicity() {
     for (script, multiplicity) in [
         ("x = symbol(\"x\"); solve_full(x^2 - 2*x + 1 == 0, x)", 2),
-        ("x = symbol(\"x\"); solve_full(x^3 - 3*x^2 + 3*x - 1 == 0, x)", 3),
+        (
+            "x = symbol(\"x\"); solve_full(x^3 - 3*x^2 + 3*x - 1 == 0, x)",
+            3,
+        ),
     ] {
         let result = eval(script);
         let solutions = items(record_field(&result, "solutions"));
@@ -161,15 +163,24 @@ fn round13_simplify_420_redexes_returns_budget_exceeded_instead_of_aborting() {
     let script = format!("x = symbol(\"x\"); simplify_full({})", terms.join(" + "));
     let result = eval(&script);
     assert_eq!(result.kind_name(), "Record");
-    assert_eq!(enum_variant(record_field(&result, "status")), "BudgetExceeded");
+    assert_eq!(
+        enum_variant(record_field(&result, "status")),
+        "BudgetExceeded"
+    );
     assert!(boolean(record_field(&result, "budget_exceeded")));
-    assert_eq!(record_field(&result, "budget_kind").display(), "rewrite_steps");
+    assert_eq!(
+        record_field(&result, "budget_kind").display(),
+        "rewrite_steps"
+    );
     assert!(boolean(record_field(&result, "changed")));
     assert_eq!(items(record_field(&result, "steps")).len(), 400);
     assert_eq!(items(record_field(&result, "conditions")).len(), 400);
     let diagnostics = items(record_field(&result, "diagnostics"));
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(record_field(&diagnostics[0], "code").display(), "transform.budget-exceeded");
+    assert_eq!(
+        record_field(&diagnostics[0], "code").display(),
+        "transform.budget-exceeded"
+    );
     assert_eq!(
         enum_variant(record_field(&diagnostics[0], "category")),
         "BudgetExceeded"
@@ -205,7 +216,10 @@ fn round13_simplify_exp_log_carries_the_finite_condition_record() {
     let conditions = items(record_field(&result, "conditions"));
     assert_eq!(conditions.len(), 1);
     assert_eq!(conditions[0].kind_name(), "Record");
-    assert_eq!(record_field(&conditions[0], "expression").display(), "log(x)");
+    assert_eq!(
+        record_field(&conditions[0], "expression").display(),
+        "log(x)"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -226,8 +240,16 @@ fn round13_exact_terminating_quotients_are_exact_with_no_guard_digit() {
         assert!(value.is_exact(), "{script} was marked inexact");
         assert_eq!(value.to_string(), display, "{script} display");
         let (num, den) = value.to_rational();
-        assert_eq!(num.to_decimal(), numerator.to_string(), "{script} numerator");
-        assert_eq!(den.to_decimal(), denominator.to_string(), "{script} denominator");
+        assert_eq!(
+            num.to_decimal(),
+            numerator.to_string(),
+            "{script} numerator"
+        );
+        assert_eq!(
+            den.to_decimal(),
+            denominator.to_string(),
+            "{script} denominator"
+        );
     }
 }
 

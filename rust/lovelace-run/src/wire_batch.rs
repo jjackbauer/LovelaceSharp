@@ -14,7 +14,10 @@ fn eval_keep_vars(script: &str) -> RunResult {
 }
 
 fn output(r: &RunResult) -> Vec<&str> {
-    array(get(&r.env, "output")).iter().map(|v| text(v)).collect()
+    array(get(&r.env, "output"))
+        .iter()
+        .map(|v| text(v))
+        .collect()
 }
 
 fn has_output(r: &RunResult) -> Vec<bool> {
@@ -33,7 +36,11 @@ fn print_two_lines() {
     let r = eval("print(\"A\"); print(\"B\")");
     assert_eq!(r.exit, 0);
     assert_eq!(output(&r), vec!["A", "B"]);
-    assert!(r.stdout.contains("\"output\":[\"A\",\"B\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"A\",\"B\"]"),
+        "raw: {}",
+        r.stdout
+    );
     assert!(!r.stdout.contains("\\r"));
 }
 
@@ -42,7 +49,11 @@ fn print_three_lines() {
     let r = eval("print(\"A\"); print(\"B\"); print(\"C\")");
     assert_eq!(r.exit, 0);
     assert_eq!(output(&r), vec!["A", "B", "C"]);
-    assert!(r.stdout.contains("\"output\":[\"A\",\"B\",\"C\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"A\",\"B\",\"C\"]"),
+        "raw: {}",
+        r.stdout
+    );
     assert!(!r.stdout.contains("\\r"));
 }
 
@@ -59,7 +70,11 @@ fn print_blank_line_is_empty_element() {
     let r = eval("print(\"\"); print(\"A\")");
     assert_eq!(r.exit, 0);
     assert_eq!(output(&r), vec!["", "A"]);
-    assert!(r.stdout.contains("\"output\":[\"\",\"A\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"\",\"A\"]"),
+        "raw: {}",
+        r.stdout
+    );
     assert!(!r.stdout.contains("\\r"));
 }
 
@@ -81,7 +96,11 @@ fn trailing_blank_print_is_kept() {
     assert_eq!(r.exit, 0);
     assert_eq!(output(&r), vec!["a", ""]);
     assert_eq!(has_output(&r), vec![true, true]);
-    assert!(r.stdout.contains("\"output\":[\"a\",\"\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"a\",\"\"]"),
+        "raw: {}",
+        r.stdout
+    );
 }
 
 #[test]
@@ -143,7 +162,11 @@ fn failure_keeps_line_printed_before_it() {
     assert_eq!(r.exit, 1);
     assert!(!boolean(get(&r.env, "ok")), "stdout: {}", r.stdout);
     assert_eq!(output(&r), vec!["hello"]);
-    assert!(r.stdout.contains("\"output\":[\"hello\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"hello\"]"),
+        "raw: {}",
+        r.stdout
+    );
     assert!(boolean(get(&array(get(&r.env, "timings"))[0], "hasOutput")));
 }
 
@@ -160,7 +183,11 @@ fn failure_that_printed_nothing_has_empty_output() {
     let r = eval("det(1)");
     assert_eq!(r.exit, 1);
     assert!(array(get(&r.env, "output")).is_empty());
-    assert!(array(get(&r.env, "timings")).iter().all(|t| !boolean(get(t, "hasOutput"))));
+    assert!(
+        array(get(&r.env, "timings"))
+            .iter()
+            .all(|t| !boolean(get(t, "hasOutput")))
+    );
 }
 
 #[test]
@@ -176,7 +203,11 @@ fn success_path_output_unchanged() {
     let r = eval("print(\"hello\"); 1+1");
     assert_eq!(r.exit, 0);
     assert_eq!(output(&r), vec!["hello"]);
-    assert!(r.stdout.contains("\"output\":[\"hello\"]"), "raw: {}", r.stdout);
+    assert!(
+        r.stdout.contains("\"output\":[\"hello\"]"),
+        "raw: {}",
+        r.stdout
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +236,14 @@ fn registry_listing_carries_no_documentation() {
     let functions = array(get(&r.env, "functions"));
     assert!(!functions.is_empty());
     for entry in functions {
-        for key in ["name", "parameters", "minArity", "parameterCount", "variadic", "category"] {
+        for key in [
+            "name",
+            "parameters",
+            "minArity",
+            "parameterCount",
+            "variadic",
+            "category",
+        ] {
             assert!(opt(entry, key).is_some(), "missing {key}");
         }
         for key in ["summary", "examples", "related"] {
@@ -221,12 +259,21 @@ fn registry_describes_det_with_the_declared_metadata() {
     let entry = get(&r.env, "function");
     assert!(opt(&r.env, "functions").is_none());
     assert_eq!(text(get(entry, "name")), "det");
-    assert_eq!(text(get(entry, "summary")), "Determinant (fraction-free for symbolic matrices).");
+    assert_eq!(
+        text(get(entry, "summary")),
+        "Determinant (fraction-free for symbolic matrices)."
+    );
     assert_eq!(text(get(entry, "returnKind")), "Real | Symbolic");
     assert_eq!(text(get(entry, "category")), "Linear Algebra");
-    let params: Vec<&str> = array(get(entry, "parameters")).iter().map(|p| text(p)).collect();
+    let params: Vec<&str> = array(get(entry, "parameters"))
+        .iter()
+        .map(|p| text(p))
+        .collect();
     assert_eq!(params, vec!["m"]);
-    let related: Vec<&str> = array(get(entry, "related")).iter().map(|p| text(p)).collect();
+    let related: Vec<&str> = array(get(entry, "related"))
+        .iter()
+        .map(|p| text(p))
+        .collect();
     assert_eq!(related, vec!["inv", "matrix_rank"]);
 }
 
@@ -244,12 +291,18 @@ fn registry_page_reports_its_own_truncation() {
 #[test]
 fn registry_listing_is_ordinal_and_stable() {
     let first = run_args(&["--functions", "--function-limit", "200"]);
-    let names: Vec<&str> = array(get(&first.env, "functions")).iter().map(|f| text(get(f, "name"))).collect();
+    let names: Vec<&str> = array(get(&first.env, "functions"))
+        .iter()
+        .map(|f| text(get(f, "name")))
+        .collect();
     let mut sorted = names.clone();
     sorted.sort();
     assert_eq!(names, sorted);
     let again = run_args(&["--functions", "--function-limit", "200"]);
-    let names2: Vec<&str> = array(get(&again.env, "functions")).iter().map(|f| text(get(f, "name"))).collect();
+    let names2: Vec<&str> = array(get(&again.env, "functions"))
+        .iter()
+        .map(|f| text(get(f, "name")))
+        .collect();
     assert_eq!(names, names2);
 }
 
@@ -258,7 +311,10 @@ fn registry_envelope_still_carries_the_full_registry() {
     let r = run_args(&["--eval", "1 + 1"]);
     assert_eq!(r.exit, 0);
     let functions = array(get(&r.env, "functions"));
-    let det = functions.iter().find(|f| text(get(f, "name")) == "det").expect("det in registry");
+    let det = functions
+        .iter()
+        .find(|f| text(get(f, "name")) == "det")
+        .expect("det in registry");
     assert_eq!(text(get(det, "category")), "Linear Algebra");
     assert!(opt(det, "summary").is_some());
 }
@@ -283,22 +339,71 @@ fn enum_field<'a>(field: &'a Json, type_name: &str) -> &'a str {
 #[test]
 fn limit_short_forms_publish_limit_result_records() {
     let rows = [
-        ("x = symbol(\"x\"); limit(1/x, x, 0)", "DoesNotExist", "Boolean", "false"),
-        ("x = symbol(\"x\"); limit_left(1/x, x, 0)", "MinusInfinity", "Boolean", "true"),
-        ("x = symbol(\"x\"); limit_right(1/x, x, 0)", "PlusInfinity", "Boolean", "true"),
-        ("x = symbol(\"x\"); limit(sin(x), x, inf)", "Unevaluated", "Null", ""),
-        ("x = symbol(\"x\"); limit_left(sin(x), x, inf)", "Unevaluated", "Null", ""),
-        ("x = symbol(\"x\"); limit_right(sin(x), x, inf)", "Unevaluated", "Null", ""),
-        ("x = symbol(\"x\"); limit(sin(x)/x, x, 0)", "Value", "Boolean", "true"),
-        ("x = symbol(\"x\"); limit_left(sin(x)/x, x, 0)", "Value", "Boolean", "true"),
-        ("x = symbol(\"x\"); limit_right(sin(x)/x, x, 0)", "Value", "Boolean", "true"),
+        (
+            "x = symbol(\"x\"); limit(1/x, x, 0)",
+            "DoesNotExist",
+            "Boolean",
+            "false",
+        ),
+        (
+            "x = symbol(\"x\"); limit_left(1/x, x, 0)",
+            "MinusInfinity",
+            "Boolean",
+            "true",
+        ),
+        (
+            "x = symbol(\"x\"); limit_right(1/x, x, 0)",
+            "PlusInfinity",
+            "Boolean",
+            "true",
+        ),
+        (
+            "x = symbol(\"x\"); limit(sin(x), x, inf)",
+            "Unevaluated",
+            "Null",
+            "",
+        ),
+        (
+            "x = symbol(\"x\"); limit_left(sin(x), x, inf)",
+            "Unevaluated",
+            "Null",
+            "",
+        ),
+        (
+            "x = symbol(\"x\"); limit_right(sin(x), x, inf)",
+            "Unevaluated",
+            "Null",
+            "",
+        ),
+        (
+            "x = symbol(\"x\"); limit(sin(x)/x, x, 0)",
+            "Value",
+            "Boolean",
+            "true",
+        ),
+        (
+            "x = symbol(\"x\"); limit_left(sin(x)/x, x, 0)",
+            "Value",
+            "Boolean",
+            "true",
+        ),
+        (
+            "x = symbol(\"x\"); limit_right(sin(x)/x, x, 0)",
+            "Value",
+            "Boolean",
+            "true",
+        ),
     ];
     for (script, status, exists_kind, exists_value) in rows {
         let r = eval(script);
         assert_eq!(r.exit, 0, "{script}");
         assert!(boolean(get(&r.env, "ok")), "{script}");
         let record = limit_record(&r);
-        assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), status, "{script}");
+        assert_eq!(
+            enum_field(record_field(record, "status"), "LimitStatus"),
+            status,
+            "{script}"
+        );
         let exists = record_field(record, "exists");
         assert_eq!(text(get(exists, "kind")), exists_kind, "{script}");
         if exists_kind == "Boolean" {
@@ -345,7 +450,10 @@ fn limit_no_limit_keeps_every_prose_value() {
         .collect();
     assert_eq!(right, vec!["x > 0"]);
     assert_eq!(text(get(record_field(record, "value"), "kind")), "Null");
-    assert_eq!(enum_field(record_field(record, "exactness"), "SolutionExactness"), "Exact");
+    assert_eq!(
+        enum_field(record_field(record, "exactness"), "SolutionExactness"),
+        "Exact"
+    );
     assert!(array(get(record_field(record, "diagnostics"), "elements")).is_empty());
 }
 
@@ -354,16 +462,28 @@ fn limit_one_sided_short_forms_publish_structure() {
     let left = eval("x = symbol(\"x\"); limit_left(1/x, x, 0)");
     assert_eq!(left.exit, 0);
     let record = limit_record(&left);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "MinusInfinity");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "MinusInfinity"
+    );
     assert_eq!(text(get(record_field(record, "value"), "pretty")), "-inf");
-    assert_eq!(enum_field(record_field(record, "exactness"), "SolutionExactness"), "Exact");
+    assert_eq!(
+        enum_field(record_field(record, "exactness"), "SolutionExactness"),
+        "Exact"
+    );
 
     let right = eval("x = symbol(\"x\"); limit_right(1/x, x, 0)");
     assert_eq!(right.exit, 0);
     let record = limit_record(&right);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "PlusInfinity");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "PlusInfinity"
+    );
     assert_eq!(text(get(record_field(record, "value"), "pretty")), "inf");
-    assert_eq!(enum_field(record_field(record, "exactness"), "SolutionExactness"), "Exact");
+    assert_eq!(
+        enum_field(record_field(record, "exactness"), "SolutionExactness"),
+        "Exact"
+    );
 }
 
 #[test]
@@ -371,12 +491,18 @@ fn limit_success_publishes_value_and_exactness() {
     let r = eval("x = symbol(\"x\"); limit(sin(x)/x, x, 0)");
     assert_eq!(r.exit, 0);
     let record = limit_record(&r);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Value");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "Value"
+    );
     let value = record_field(record, "value");
     assert_eq!(text(get(value, "pretty")), "1");
     assert_eq!(text(get(value, "domain")), "rational");
     assert!(boolean(get(value, "exact")));
-    assert_eq!(enum_field(record_field(record, "exactness"), "SolutionExactness"), "Exact");
+    assert_eq!(
+        enum_field(record_field(record, "exactness"), "SolutionExactness"),
+        "Exact"
+    );
     assert!(array(get(record_field(record, "diagnostics"), "elements")).is_empty());
     assert!(array(get(record_field(record, "left_conditions"), "elements")).is_empty());
     assert!(array(get(record_field(record, "right_conditions"), "elements")).is_empty());
@@ -385,23 +511,41 @@ fn limit_success_publishes_value_and_exactness() {
 #[test]
 fn limit_unevaluated_carries_diagnostic_code_and_category() {
     let rows = [
-        ("limit(sin(x), x, inf)", "coefficient does not evaluate at the point"),
-        ("limit_left(sin(x), x, inf)", "coefficient does not evaluate at the point"),
-        ("limit_right(sin(x), x, inf)", "coefficient does not evaluate at the point"),
+        (
+            "limit(sin(x), x, inf)",
+            "coefficient does not evaluate at the point",
+        ),
+        (
+            "limit_left(sin(x), x, inf)",
+            "coefficient does not evaluate at the point",
+        ),
+        (
+            "limit_right(sin(x), x, inf)",
+            "coefficient does not evaluate at the point",
+        ),
     ];
     for (call, message) in rows {
         let r = eval(&format!("a = symbol(\"a\"); x = symbol(\"x\"); {call}"));
         assert_eq!(r.exit, 0, "{call}");
         assert!(boolean(get(&r.env, "ok")));
         let record = limit_record(&r);
-        assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Unevaluated");
+        assert_eq!(
+            enum_field(record_field(record, "status"), "LimitStatus"),
+            "Unevaluated"
+        );
         assert_eq!(text(get(record_field(record, "exists"), "kind")), "Null");
         let diagnostics = array(get(record_field(record, "diagnostics"), "elements"));
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(text(get(&diagnostics[0], "type")), "Diagnostic");
         let d = &diagnostics[0];
-        assert_eq!(text(get(record_field(d, "code"), "value")), "limit.unevaluated");
-        assert_eq!(enum_field(record_field(d, "category"), "ErrorCategory"), "UnsupportedOperation");
+        assert_eq!(
+            text(get(record_field(d, "code"), "value")),
+            "limit.unevaluated"
+        );
+        assert_eq!(
+            enum_field(record_field(d, "category"), "ErrorCategory"),
+            "UnsupportedOperation"
+        );
         assert_eq!(text(get(record_field(d, "message"), "value")), message);
         assert_eq!(text(get(record_field(d, "recoverable"), "value")), "true");
     }
@@ -419,9 +563,15 @@ fn divrem_fields(r: &RunResult) -> (&Json, &Json) {
     let structured = get(get(&r.env, "result"), "structured");
     assert_eq!(text(get(structured, "kind")), "Record");
     assert_eq!(text(get(structured, "type")), "DivRemResult");
-    let names: Vec<&str> = array(get(structured, "fields")).iter().map(|f| text(get(f, "name"))).collect();
+    let names: Vec<&str> = array(get(structured, "fields"))
+        .iter()
+        .map(|f| text(get(f, "name")))
+        .collect();
     assert_eq!(names, vec!["quotient", "remainder"]);
-    (record_field(structured, "quotient"), record_field(structured, "remainder"))
+    (
+        record_field(structured, "quotient"),
+        record_field(structured, "remainder"),
+    )
 }
 
 #[test]
@@ -451,7 +601,11 @@ fn divrem_identity_cases() {
         assert!(qk == "Natural" || qk == "Integer");
         assert!(rk == "Natural" || rk == "Integer");
         assert_eq!(text(get(quotient, "value")), q, "divrem({a}, {b}) quotient");
-        assert_eq!(text(get(remainder, "value")), rem, "divrem({a}, {b}) remainder");
+        assert_eq!(
+            text(get(remainder, "value")),
+            rem,
+            "divrem({a}, {b}) remainder"
+        );
     }
 }
 
@@ -511,8 +665,8 @@ fn variable_every_kind_has_a_structured_form() {
     let r = every_kind(&[]);
     assert_eq!(r.exit, 0);
     let documented = [
-        "Natural", "Integer", "Real", "Complex", "Boolean", "Text", "Array", "Symbolic",
-        "Record", "Domain", "Enum", "Function", "Null",
+        "Natural", "Integer", "Real", "Complex", "Boolean", "Text", "Array", "Symbolic", "Record",
+        "Domain", "Enum", "Function", "Null",
     ];
     for variable in array(get(&r.env, "variables")) {
         let structured = opt(variable, "structured").expect("variable has structured form");
@@ -521,10 +675,22 @@ fn variable_every_kind_has_a_structured_form() {
         assert_ne!(kind, "Null");
         assert!(!text(get(variable, "display")).is_empty());
     }
-    assert_eq!(text(get(get(variable(&r, "g"), "structured"), "kind")), "Record");
-    assert_eq!(text(get(get(variable(&r, "m"), "structured"), "kind")), "Array");
-    assert_eq!(text(get(get(variable(&r, "z"), "structured"), "kind")), "Complex");
-    assert_eq!(text(get(get(variable(&r, "r"), "structured"), "kind")), "Real");
+    assert_eq!(
+        text(get(get(variable(&r, "g"), "structured"), "kind")),
+        "Record"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "m"), "structured"), "kind")),
+        "Array"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "z"), "structured"), "kind")),
+        "Complex"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "r"), "structured"), "kind")),
+        "Real"
+    );
 }
 
 #[test]
@@ -537,7 +703,13 @@ fn variable_structured_forms_carry_meaning() {
     assert_eq!(text(get(x, "domain")), "complex");
     assert!(boolean(get(x, "exact")));
     assert_eq!(number(get(x, "nodeCount")), 1);
-    assert_eq!(array(get(x, "freeSymbols")).iter().map(|v| text(v)).collect::<Vec<_>>(), vec!["x"]);
+    assert_eq!(
+        array(get(x, "freeSymbols"))
+            .iter()
+            .map(|v| text(v))
+            .collect::<Vec<_>>(),
+        vec!["x"]
+    );
 
     let third = get(variable(&r, "r"), "structured");
     assert_eq!(text(get(third, "kind")), "Real");
@@ -557,16 +729,37 @@ fn variable_structured_forms_carry_meaning() {
 
     let matrix = get(variable(&r, "m"), "structured");
     assert_eq!(text(get(matrix, "type")), "Array");
-    assert_eq!(array(get(matrix, "shape")).iter().map(number).collect::<Vec<_>>(), vec![2, 2]);
+    assert_eq!(
+        array(get(matrix, "shape"))
+            .iter()
+            .map(number)
+            .collect::<Vec<_>>(),
+        vec![2, 2]
+    );
     assert_eq!(array(get(matrix, "elements")).len(), 4);
     let vector = get(variable(&r, "v"), "structured");
     assert_eq!(text(get(vector, "type")), "Vector");
 
-    assert_eq!(text(get(get(variable(&r, "n"), "structured"), "value")), "42");
-    assert_eq!(text(get(get(variable(&r, "k"), "structured"), "value")), "-7");
-    assert_eq!(text(get(get(variable(&r, "b"), "structured"), "value")), "true");
-    assert_eq!(text(get(get(variable(&r, "t"), "structured"), "value")), "hi");
-    assert_eq!(text(get(get(variable(&r, "d"), "structured"), "domain")), "real");
+    assert_eq!(
+        text(get(get(variable(&r, "n"), "structured"), "value")),
+        "42"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "k"), "structured"), "value")),
+        "-7"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "b"), "structured"), "value")),
+        "true"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "t"), "structured"), "value")),
+        "hi"
+    );
+    assert_eq!(
+        text(get(get(variable(&r, "d"), "structured"), "domain")),
+        "real"
+    );
 
     let status = get(variable(&r, "s"), "structured");
     assert_eq!(text(get(status, "kind")), "Enum");
@@ -665,17 +858,35 @@ fn real_results_display_follows_script_precision() {
 #[test]
 fn arity_documented_call_forms_stay_callable() {
     let scripts = [
-        "pi()", "zeros(2, 2)", "ones(3)", "eye(3)",
-        "transpose([[1, 2], [3, 4]])", "sum([1, 2, 3])", "prod([1, 2, 3])",
-        "min([3, 1, 2])", "max([3, 1, 2])", "mean([1, 2, 3])", "norm([3, 4])",
-        "reshape([1, 2, 3, 4], 2, 2)", "concat([1, 2], [3, 4])", "print(\"A\", \"B\")",
-        "plot([1, 2, 3])", "symbol(\"x\")",
+        "pi()",
+        "zeros(2, 2)",
+        "ones(3)",
+        "eye(3)",
+        "transpose([[1, 2], [3, 4]])",
+        "sum([1, 2, 3])",
+        "prod([1, 2, 3])",
+        "min([3, 1, 2])",
+        "max([3, 1, 2])",
+        "mean([1, 2, 3])",
+        "norm([3, 4])",
+        "reshape([1, 2, 3, 4], 2, 2)",
+        "concat([1, 2], [3, 4])",
+        "print(\"A\", \"B\")",
+        "plot([1, 2, 3])",
+        "symbol(\"x\")",
         "x = symbol(\"x\"); solve(x^2 - 4 == 0, x)",
         "x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)",
         "dft([0, 1, 0, 0])",
     ];
     for script in scripts {
-        let r = run_args(&["--eval", script, "--omit-functions", "--omit-variables", "--plot-dir", &plot_dir()]);
+        let r = run_args(&[
+            "--eval",
+            script,
+            "--omit-functions",
+            "--omit-variables",
+            "--plot-dir",
+            &plot_dir(),
+        ]);
         assert_eq!(r.exit, 0, "'{script}' exited {}", r.exit);
         assert!(boolean(get(&r.env, "ok")), "'{script}' must still evaluate");
     }
@@ -693,14 +904,29 @@ fn functions_publish_their_declared_arity() {
     assert_eq!(functions.len(), registry::BUILTINS.len());
     for entry in functions {
         let name = text(get(entry, "name"));
-        let info = registry::find(name).unwrap_or_else(|| panic!("published unknown builtin {name}"));
-        let params: Vec<&str> = array(get(entry, "parameters")).iter().map(|p| text(p)).collect();
+        let info =
+            registry::find(name).unwrap_or_else(|| panic!("published unknown builtin {name}"));
+        let params: Vec<&str> = array(get(entry, "parameters"))
+            .iter()
+            .map(|p| text(p))
+            .collect();
         assert_eq!(params, info.parameters, "{name} parameters");
-        assert_eq!(number(get(entry, "parameterCount")), info.parameter_count as i64, "{name}");
-        assert_eq!(number(get(entry, "minArity")), info.min_arity as i64, "{name}");
+        assert_eq!(
+            number(get(entry, "parameterCount")),
+            info.parameter_count as i64,
+            "{name}"
+        );
+        assert_eq!(
+            number(get(entry, "minArity")),
+            info.min_arity as i64,
+            "{name}"
+        );
         assert_eq!(boolean(get(entry, "variadic")), info.variadic, "{name}");
         let min = number(get(entry, "minArity"));
-        assert!((0..=number(get(entry, "parameterCount"))).contains(&min), "{name}");
+        assert!(
+            (0..=number(get(entry, "parameterCount"))).contains(&min),
+            "{name}"
+        );
     }
 }
 
@@ -715,8 +941,13 @@ fn functions_show_optional_and_variadic_parameters() {
             .unwrap_or_else(|| panic!("no {name}"))
     };
     for (name, min, count, variadic) in [
-        ("solve", 2, 3, false), ("symbol", 1, 2, false), ("concat", 2, 3, false),
-        ("dft", 1, 2, false), ("abs", 1, 1, false), ("print", 0, 1, true), ("zeros", 1, 1, true),
+        ("solve", 2, 3, false),
+        ("symbol", 1, 2, false),
+        ("concat", 2, 3, false),
+        ("dft", 1, 2, false),
+        ("abs", 1, 1, false),
+        ("print", 0, 1, true),
+        ("zeros", 1, 1, true),
     ] {
         let entry = find(name);
         assert_eq!(number(get(entry, "minArity")), min, "{name}");
@@ -724,9 +955,11 @@ fn functions_show_optional_and_variadic_parameters() {
         assert_eq!(boolean(get(entry, "variadic")), variadic, "{name}");
     }
     assert!(functions.iter().any(|f| boolean(get(f, "variadic"))));
-    assert!(functions
-        .iter()
-        .any(|f| number(get(f, "minArity")) < number(get(f, "parameterCount"))));
+    assert!(
+        functions
+            .iter()
+            .any(|f| number(get(f, "minArity")) < number(get(f, "parameterCount")))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -766,14 +999,23 @@ fn committed_parse_error_commits_nothing() {
 fn committed_artifact_written_before_failure_is_published() {
     let dir = format!("{}/committed-artifact", plot_dir());
     let _ = std::fs::create_dir_all(&dir);
-    let r = run_args(&["--eval", "plot([1, 2, 3])\ndet(1)", "--omit-functions", "--plot-dir", &dir]);
+    let r = run_args(&[
+        "--eval",
+        "plot([1, 2, 3])\ndet(1)",
+        "--omit-functions",
+        "--plot-dir",
+        &dir,
+    ]);
     assert_eq!(r.exit, 1);
     let artifacts = array(get(&r.env, "artifacts"));
     assert_eq!(artifacts.len(), 1);
     let artifact = &artifacts[0];
     assert_eq!(text(get(artifact, "kind")), "plot");
     let path = text(get(artifact, "path"));
-    assert!(std::path::Path::new(path).exists(), "artifact path must exist: {path}");
+    assert!(
+        std::path::Path::new(path).exists(),
+        "artifact path must exist: {path}"
+    );
     assert_eq!(
         number(get(artifact, "bytes")),
         std::fs::metadata(path).unwrap().len() as i64
@@ -792,13 +1034,22 @@ fn committed_run_that_wrote_nothing_has_empty_artifacts() {
 fn committed_successful_plot_publishes_the_same_artifact() {
     let dir = format!("{}/committed-plot", plot_dir());
     let _ = std::fs::create_dir_all(&dir);
-    let r = run_args(&["--eval", "plot([1, 2, 3])", "--omit-functions", "--plot-dir", &dir]);
+    let r = run_args(&[
+        "--eval",
+        "plot([1, 2, 3])",
+        "--omit-functions",
+        "--plot-dir",
+        &dir,
+    ]);
     assert_eq!(r.exit, 0);
     let artifacts = array(get(&r.env, "artifacts"));
     assert_eq!(artifacts.len(), 1);
     let artifact = &artifacts[0];
     assert_eq!(text(get(artifact, "kind")), "plot");
-    assert_eq!(text(get(artifact, "path")), text(get(get(&r.env, "plot"), "path")));
+    assert_eq!(
+        text(get(artifact, "path")),
+        text(get(get(&r.env, "plot"), "path"))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -807,11 +1058,18 @@ fn committed_successful_plot_publishes_the_same_artifact() {
 
 fn diagnostic_position(env: &Json) -> (i64, i64, i64) {
     let d = &array(get(env, "diagnostics"))[0];
-    (number(get(d, "position")), number(get(d, "line")), number(get(d, "column")))
+    (
+        number(get(d, "position")),
+        number(get(d, "line")),
+        number(get(d, "column")),
+    )
 }
 
 fn timing_positions(env: &Json) -> Vec<i64> {
-    array(get(env, "timings")).iter().map(|t| number(get(t, "position"))).collect()
+    array(get(env, "timings"))
+        .iter()
+        .map(|t| number(get(t, "position")))
+        .collect()
 }
 
 #[test]
@@ -874,7 +1132,10 @@ fn positions_failure_in_second_statement_names_it() {
 fn limit_exists_is_three_valued() {
     let undetermined = eval("x = symbol(\"x\"); limit_full(x*sin(1/x), x, 0)");
     let record = limit_record(&undetermined);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Unevaluated");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "Unevaluated"
+    );
     assert_eq!(text(get(record_field(record, "exists"), "kind")), "Null");
     assert_eq!(text(get(record_field(record, "left"), "kind")), "Null");
     assert_eq!(text(get(record_field(record, "right"), "kind")), "Null");
@@ -886,14 +1147,20 @@ fn limit_exists_is_three_valued() {
 
     let determined = eval("x = symbol(\"x\"); limit_full(sin(x)/x, x, 0)");
     let record = limit_record(&determined);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Value");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "Value"
+    );
     assert_eq!(text(get(record_field(record, "exists"), "kind")), "Boolean");
     assert_eq!(text(get(record_field(record, "exists"), "value")), "true");
     assert_eq!(text(get(record_field(record, "value"), "pretty")), "1");
 
     let missing = eval("x = symbol(\"x\"); limit_full(1/x, x, 0)");
     let record = limit_record(&missing);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "DoesNotExist");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "DoesNotExist"
+    );
     assert_eq!(text(get(record_field(record, "exists"), "kind")), "Boolean");
     assert_eq!(text(get(record_field(record, "exists"), "value")), "false");
     assert_eq!(text(get(record_field(record, "left"), "pretty")), "-inf");
@@ -901,23 +1168,35 @@ fn limit_exists_is_three_valued() {
 
     let left = eval("x = symbol(\"x\"); limit_left(x*sin(1/x), x, 0)");
     let record = limit_record(&left);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Unevaluated");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "Unevaluated"
+    );
     assert_eq!(text(get(record_field(record, "value"), "kind")), "Null");
 
     let right = eval("x = symbol(\"x\"); limit_right(x*sin(1/x), x, 0)");
     let record = limit_record(&right);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "Unevaluated");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "Unevaluated"
+    );
     assert_eq!(text(get(record_field(record, "value"), "kind")), "Null");
 
     let left_pole = eval("x = symbol(\"x\"); limit_left(1/x, x, 0)");
     let record = limit_record(&left_pole);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "MinusInfinity");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "MinusInfinity"
+    );
     assert_eq!(text(get(record_field(record, "exists"), "value")), "true");
     assert_eq!(text(get(record_field(record, "value"), "pretty")), "-inf");
 
     let right_pole = eval("x = symbol(\"x\"); limit_right(1/x, x, 0)");
     let record = limit_record(&right_pole);
-    assert_eq!(enum_field(record_field(record, "status"), "LimitStatus"), "PlusInfinity");
+    assert_eq!(
+        enum_field(record_field(record, "status"), "LimitStatus"),
+        "PlusInfinity"
+    );
     assert_eq!(text(get(record_field(record, "exists"), "value")), "true");
     assert_eq!(text(get(record_field(record, "value"), "pretty")), "inf");
 }
@@ -939,7 +1218,14 @@ fn builtin_shape_declared_forms_stay_callable() {
         "x = symbol(\"x\"); assume_positive(x)",
     ];
     for script in scripts {
-        let r = run_args(&["--eval", script, "--omit-functions", "--omit-variables", "--plot-dir", &plot_dir()]);
+        let r = run_args(&[
+            "--eval",
+            script,
+            "--omit-functions",
+            "--omit-variables",
+            "--plot-dir",
+            &plot_dir(),
+        ]);
         assert_eq!(r.exit, 0, "'{script}' exited {}", r.exit);
         assert!(boolean(get(&r.env, "ok")), "'{script}' must evaluate");
     }
@@ -961,17 +1247,32 @@ fn builtin_solve_short_form_publishes_the_same_record_as_full() {
     assert_eq!(text(get(a, "type")), "SolveResult");
     assert_eq!(a, b);
     assert_eq!(text(get(record_field(a, "status"), "value")), "Solved");
-    assert_eq!(number(&array(get(record_field(a, "solutions"), "shape"))[0]), 2);
+    assert_eq!(
+        number(&array(get(record_field(a, "solutions"), "shape"))[0]),
+        2
+    );
     let values: Vec<&str> = array(get(record_field(a, "solutions"), "elements"))
         .iter()
         .map(|s| text(get(record_field(s, "value"), "canonical")))
         .collect();
     assert_eq!(values, vec!["(rat -2 1)", "(rat 2 1)"]);
     let family_env = eval("x = symbol(\"x\"); solve(sin(x) == 0, x)");
-    let family = &array(get(record_field(get(get(&family_env.env, "result"), "structured"), "families"), "elements"))[0];
+    let family = &array(get(
+        record_field(
+            get(get(&family_env.env, "result"), "structured"),
+            "families",
+        ),
+        "elements",
+    ))[0];
     assert_eq!(text(get(family, "type")), "SolutionFamily");
-    assert_eq!(text(get(record_field(family, "template"), "canonical")), "(mul (sym k) (pi))");
-    assert_eq!(text(get(record_field(family, "parameter_domain"), "domain")), "integer");
+    assert_eq!(
+        text(get(record_field(family, "template"), "canonical")),
+        "(mul (sym k) (pi))"
+    );
+    assert_eq!(
+        text(get(record_field(family, "parameter_domain"), "domain")),
+        "integer"
+    );
 }
 
 #[test]
@@ -988,6 +1289,9 @@ fn builtin_protocol_document_examples_match_the_binary() {
     assert_eq!(error.exit, 1);
     assert!(!boolean(get(&error.env, "ok")));
     for key in ["elapsed", "elapsedTime", "timings"] {
-        assert!(opt(&error.env, key).is_some(), "live error envelope missing {key}");
+        assert!(
+            opt(&error.env, key).is_some(),
+            "live error envelope missing {key}"
+        );
     }
 }

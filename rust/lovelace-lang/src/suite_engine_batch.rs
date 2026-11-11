@@ -14,7 +14,9 @@ fn engine() -> Engine {
 
 fn typed(script: &str) -> String {
     let mut e = engine();
-    let v = e.eval(script).unwrap_or_else(|err| panic!("script {script}: {}", err.message));
+    let v = e
+        .eval(script)
+        .unwrap_or_else(|err| panic!("script {script}: {}", err.message));
     e.format_typed(&v)
 }
 
@@ -50,7 +52,9 @@ fn evaluate_given_index_uses_zero_based_indexing() {
 #[test]
 fn evaluate_given_index_out_of_range_throws() {
     let mut e = engine();
-    let err = e.eval("[10, 20, 30][3]").expect_err("index 3 is out of range");
+    let err = e
+        .eval("[10, 20, 30][3]")
+        .expect_err("index 3 is out of range");
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -67,7 +71,9 @@ fn evaluate_given_vector_scalar_multiply_broadcasts() {
 #[test]
 fn evaluate_given_mismatched_vector_lengths_throws() {
     let mut e = engine();
-    let err = e.eval("[1, 2] + [1, 2, 3]").expect_err("mismatched lengths are refused");
+    let err = e
+        .eval("[1, 2] + [1, 2, 3]")
+        .expect_err("mismatched lengths are refused");
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -90,8 +96,16 @@ fn evaluate_given_assignment_exposes_variable_in_variables_dictionary() {
     let mut e = engine();
     e.eval("x = 42").expect("assignment evaluates");
     let vars = e.variable_values();
-    let value = vars.iter().find(|(name, _)| name == "x").map(|(_, v)| v).expect("x is stored");
-    assert!(matches!(value, Value::Natural(_)), "x is not Natural: {}", value.kind_name());
+    let value = vars
+        .iter()
+        .find(|(name, _)| name == "x")
+        .map(|(_, v)| v)
+        .expect("x is stored");
+    assert!(
+        matches!(value, Value::Natural(_)),
+        "x is not Natural: {}",
+        value.kind_name()
+    );
     assert_eq!(value.display(), "42");
 }
 
@@ -100,7 +114,11 @@ fn evaluate_given_result_stores_in_underscore_variable() {
     let mut e = engine();
     e.eval("1 + 1").expect("addition evaluates");
     let vars = e.variable_values();
-    let value = vars.iter().find(|(name, _)| name == "_").map(|(_, v)| v).expect("_ is stored");
+    let value = vars
+        .iter()
+        .find(|(name, _)| name == "_")
+        .map(|(_, v)| v)
+        .expect("_ is stored");
     assert_eq!(value.display(), "2");
 }
 
@@ -114,8 +132,13 @@ fn parse_given_statements_returns_program() {
 #[test]
 fn parse_expression_given_expression_returns_binary_expr() {
     let toks = crate::syntax::tokenize("1 + 2").expect("source tokenises");
-    let expr = Parser::new(toks).single_expression().expect("source parses");
-    assert!(matches!(expr, Expr::Binary(crate::syntax::BinOp::Add, _, _)), "wrong node: {expr:?}");
+    let expr = Parser::new(toks)
+        .single_expression()
+        .expect("source parses");
+    assert!(
+        matches!(expr, Expr::Binary(crate::syntax::BinOp::Add, _, _)),
+        "wrong node: {expr:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -130,11 +153,19 @@ fn evaluate_async_given_multiline_script_plots_one_over_x_squared() {
     e.set_plot_file("invx2.svg");
     let source = "x = 1..10\ny = 1 / x^2\nplot(x, y, \"1/x^2\")";
     let value = e.eval(source).expect("multiline script evaluates");
-    assert!(matches!(value, Value::Text(_)), "plot does not return Text: {}", value.kind_name());
+    assert!(
+        matches!(value, Value::Text(_)),
+        "plot does not return Text: {}",
+        value.kind_name()
+    );
     let plot = e.last_plot().expect("plot captured");
     assert_eq!(plot.title, "1/x^2");
     let vars = e.variable_values();
-    let y = vars.iter().find(|(name, _)| name == "y").map(|(_, v)| v).expect("y is stored");
+    let y = vars
+        .iter()
+        .find(|(name, _)| name == "y")
+        .map(|(_, v)| v)
+        .expect("y is stored");
     match y {
         Value::Vector(items) => {
             assert_eq!(items.len(), 10);
@@ -161,7 +192,10 @@ fn plot_given_single_vector_writes_svg_file() {
         Value::Text(path) => path,
         other => panic!("plot does not return Text: {}", other.kind_name()),
     };
-    assert!(std::path::Path::new(&path).exists(), "missing plot file {path}");
+    assert!(
+        std::path::Path::new(&path).exists(),
+        "missing plot file {path}"
+    );
     let svg = std::fs::read_to_string(&path).expect("plot file readable");
     assert!(svg.starts_with("<svg"), "svg does not start with <svg");
     assert!(svg.contains("<polyline"), "svg has no polyline");
@@ -170,7 +204,9 @@ fn plot_given_single_vector_writes_svg_file() {
 #[test]
 fn plot_given_mismatched_vector_lengths_throws() {
     let mut e = engine();
-    let err = e.eval("plot(1..3, [1, 2])").expect_err("mismatched plot is refused");
+    let err = e
+        .eval("plot(1..3, [1, 2])")
+        .expect_err("mismatched plot is refused");
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -187,7 +223,9 @@ fn plot_given_title_includes_title_in_svg() {
     let mut e = engine();
     e.set_plot_dir(&dir);
     e.set_plot_file("titled.svg");
-    let value = e.eval("plot(1..3, [1, 4, 9], \"My Plot\")").expect("titled plot evaluates");
+    let value = e
+        .eval("plot(1..3, [1, 4, 9], \"My Plot\")")
+        .expect("titled plot evaluates");
     let path = match value {
         Value::Text(path) => path,
         other => panic!("plot does not return Text: {}", other.kind_name()),
@@ -228,7 +266,11 @@ fn evaluate_given_variable_reference_returns_stored_value() {
 fn evaluate_given_undefined_variable_throws_error() {
     let mut e = engine();
     let err = e.eval("y").expect_err("undefined variable is refused");
-    assert!(err.message.contains('y'), "message does not name y: {}", err.message);
+    assert!(
+        err.message.contains('y'),
+        "message does not name y: {}",
+        err.message
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -251,14 +293,15 @@ fn evaluate_given_inv_of_zero_throws_divide_by_zero_exception() {
 fn arithmetic_does_not_degrade_exactness() {
     for source in ["1/3 * 3", "1/3 - 1/3", "1/6 + 1/3", "1/3 + 0"] {
         let mut e = engine();
-        let value = e.eval(source).unwrap_or_else(|err| panic!("{source}: {}", err.message));
+        let value = e
+            .eval(source)
+            .unwrap_or_else(|err| panic!("{source}: {}", err.message));
         match value {
             Value::Real(real) => assert!(real.is_exact(), "{source} lost exactness"),
             other => panic!("{source} is {}, not Real", other.kind_name()),
         }
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // DescriptorExampleTests.Example_Executes — every remaining example the Rust
@@ -299,7 +342,10 @@ fn descriptor_examples_execute() {
         e.eval(DESCRIPTOR_PRELUDE)
             .unwrap_or_else(|err| panic!("descriptor prelude failed: {}", err.message));
         e.eval(example).unwrap_or_else(|err| {
-            panic!("the descriptor example for '{function}' does not execute: {example}: {}", err.message)
+            panic!(
+                "the descriptor example for '{function}' does not execute: {example}: {}",
+                err.message
+            )
         });
     }
 }
@@ -321,7 +367,11 @@ fn fft_given_impulse_returns_complex_typed_vector() {
         Value::Vector(items) => {
             assert_eq!(items.len(), 4);
             for item in &items {
-                assert!(matches!(item, Value::Complex(_, _)), "element is {}", item.kind_name());
+                assert!(
+                    matches!(item, Value::Complex(_, _)),
+                    "element is {}",
+                    item.kind_name()
+                );
             }
         }
         other => panic!("fft is not a vector: {}", other.kind_name()),
@@ -341,17 +391,30 @@ fn abs_given_complex_returns_magnitude() {
 fn enum_values_are_equal_exactly_when_type_name_and_name_match() {
     let mut e = engine();
     e.eval("x = symbol(\"x\")").expect("symbol evaluates");
-    let solved = e.eval("solve_full(x^2 - 4 == 0, x).status").expect("status evaluates");
-    let solved_again = e.eval("solve_full(x^2 - 4 == 0, x).status").expect("status evaluates");
+    let solved = e
+        .eval("solve_full(x^2 - 4 == 0, x).status")
+        .expect("status evaluates");
+    let solved_again = e
+        .eval("solve_full(x^2 - 4 == 0, x).status")
+        .expect("status evaluates");
     assert_eq!(solved, solved_again);
-    let status = e.eval("solve_full(x^4 - x^2 - 1 == 0, x).status").expect("status evaluates");
-    let completeness =
-        e.eval("solve_full(x^4 - x^2 - 1 == 0, x).completeness").expect("completeness evaluates");
+    let status = e
+        .eval("solve_full(x^4 - x^2 - 1 == 0, x).status")
+        .expect("status evaluates");
+    let completeness = e
+        .eval("solve_full(x^4 - x^2 - 1 == 0, x).completeness")
+        .expect("completeness evaluates");
     assert_ne!(status, completeness);
     let status_debug = format!("{status:?}");
     let completeness_debug = format!("{completeness:?}");
-    assert!(status_debug.contains("SolveStatus"), "wrong type: {status_debug}");
-    assert!(completeness_debug.contains("Completeness"), "wrong type: {completeness_debug}");
+    assert!(
+        status_debug.contains("SolveStatus"),
+        "wrong type: {status_debug}"
+    );
+    assert!(
+        completeness_debug.contains("Completeness"),
+        "wrong type: {completeness_debug}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -373,7 +436,10 @@ fn value_given_integer_stores_integer_kind() {
 #[test]
 fn value_given_real_stores_real_kind() {
     use lovelace_real::Real;
-    assert_eq!(Value::Real(Real::from_str("3.14").unwrap()).kind_name(), "Real");
+    assert_eq!(
+        Value::Real(Real::from_str("3.14").unwrap()).kind_name(),
+        "Real"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -418,12 +484,18 @@ fn lreal_dispatch_arithmetic_at_low_precision_matches_class_real() {
         ("1 / 3", 18, "0.(3)"),
         ("3.14 * 2.71", 18, "8.5094"),
         ("10 / 7", 18, "1.(428571)"),
-        ("2.345678901234567 * 1.234567890123456", 37, "2.895899852004265910684444703552"),
+        (
+            "2.345678901234567 * 1.234567890123456",
+            37,
+            "2.895899852004265910684444703552",
+        ),
     ];
     for (expr, precision, expected) in cases {
         let mut e = engine();
         e.set_precision(*precision);
-        let value = e.eval(expr).unwrap_or_else(|err| panic!("{expr}: {}", err.message));
+        let value = e
+            .eval(expr)
+            .unwrap_or_else(|err| panic!("{expr}: {}", err.message));
         assert_eq!(e.format(&value), *expected, "{expr} at {precision} places");
     }
 }
@@ -442,7 +514,10 @@ fn lreal_dispatch_default_precision_is_unchanged() {
 #[test]
 fn writable_plot_file_is_still_written() {
     let dir = plot_dir("suite-plot-writable");
-    let dir = std::fs::canonicalize(&dir).expect("plot dir exists").to_string_lossy().to_string();
+    let dir = std::fs::canonicalize(&dir)
+        .expect("plot dir exists")
+        .to_string_lossy()
+        .to_string();
     let mut e = engine();
     e.set_plot_dir(&dir);
     e.set_plot_file("ok.svg");
@@ -451,13 +526,15 @@ fn writable_plot_file_is_still_written() {
         Value::Text(path) => path,
         other => panic!("plot does not return Text: {}", other.kind_name()),
     };
-    let expected = std::path::Path::new(&dir).join("ok.svg").to_string_lossy().to_string();
+    let expected = std::path::Path::new(&dir)
+        .join("ok.svg")
+        .to_string_lossy()
+        .to_string();
     assert_eq!(path, expected);
     assert!(std::path::Path::new(&path).exists(), "plot file missing");
     let svg = std::fs::read_to_string(&path).expect("plot readable");
     assert!(svg.to_lowercase().contains("<svg"), "plot is not SVG");
 }
-
 
 // ---------------------------------------------------------------------------
 // InterpreterBuiltinSetprecisionTests (the rows whose observable is the one
@@ -467,7 +544,9 @@ fn writable_plot_file_is_still_written() {
 #[test]
 fn setprecision_given_natural_argument_sets_engine_precision() {
     let mut e = engine();
-    let value = e.eval("setprecision(2500)").expect("setprecision evaluates");
+    let value = e
+        .eval("setprecision(2500)")
+        .expect("setprecision evaluates");
     assert_eq!(value, Value::Void);
     assert_eq!(e.precision(), 2500);
 }
@@ -475,7 +554,9 @@ fn setprecision_given_natural_argument_sets_engine_precision() {
 #[test]
 fn setprecision_given_integer_argument_sets_engine_precision() {
     let mut e = engine();
-    let value = e.eval("setprecision(-(-2500))").expect("setprecision evaluates");
+    let value = e
+        .eval("setprecision(-(-2500))")
+        .expect("setprecision evaluates");
     assert_eq!(value, Value::Void);
     assert_eq!(e.precision(), 2500);
 }
@@ -483,13 +564,18 @@ fn setprecision_given_integer_argument_sets_engine_precision() {
 #[test]
 fn setprecision_given_precision_above_default_allows_pi_to_compute_that_many_digits() {
     let mut e = engine();
-    e.eval("setprecision(1100)").expect("setprecision evaluates");
+    e.eval("setprecision(1100)")
+        .expect("setprecision evaluates");
     let value = e.eval("pi(1100)").expect("pi(1100) evaluates");
     match value {
         Value::Real(real) => {
             let text = real.to_string();
             let fractional = text.split_once('.').map(|(_, f)| f).unwrap_or("");
-            assert_eq!(fractional.len(), 1100, "pi(1100) does not carry 1100 fractional digits");
+            assert_eq!(
+                fractional.len(),
+                1100,
+                "pi(1100) does not carry 1100 fractional digits"
+            );
         }
         other => panic!("pi is not Real: {}", other.kind_name()),
     }
@@ -498,7 +584,9 @@ fn setprecision_given_precision_above_default_allows_pi_to_compute_that_many_dig
 #[test]
 fn setprecision_given_integral_real_keeps_the_documented_type_refusal() {
     let mut e = engine();
-    let err = e.eval("setprecision(3.0)").expect_err("a Real count is refused");
+    let err = e
+        .eval("setprecision(3.0)")
+        .expect_err("a Real count is refused");
     assert_eq!(err.code, "InvalidOperation");
 }
 
@@ -511,7 +599,11 @@ fn factorial_given_real_factorial_throws_descriptive_error() {
     let mut e = engine();
     let err = e.eval("3.14!").expect_err("a Real factorial is refused");
     assert_eq!(err.code, "InvalidOperation");
-    assert!(err.message.contains("Real"), "message does not name Real: {}", err.message);
+    assert!(
+        err.message.contains("Real"),
+        "message does not name Real: {}",
+        err.message
+    );
 }
 
 // ---------------------------------------------------------------------------

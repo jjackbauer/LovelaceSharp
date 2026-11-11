@@ -58,4 +58,3 @@ fn a_polynomial_with_the_i64_min_coefficient_does_not_panic_in_root_search() {
 fn a_negative_i64_min_exponent_is_refused_not_negated() {
     assert!(Rat::from_i64(2).pow_i64(i64::MIN).is_none());
 }
-

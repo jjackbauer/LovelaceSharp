@@ -12,10 +12,21 @@ fn eval(script: &str) -> Result<Value, LangError> {
 /// RECOVERABLE typed refusal rather than a panic.
 fn assert_refusal(script: &str, code: &str, category: &str, message: &str) {
     match eval(script) {
-        Ok(value) => panic!("{script}: expected a refusal, evaluated to {}", value.display()),
+        Ok(value) => panic!(
+            "{script}: expected a refusal, evaluated to {}",
+            value.display()
+        ),
         Err(error) => {
-            assert_eq!(error.code, code, "{script}: code (message: {})", error.message);
-            assert_eq!(error.category, category, "{script}: category (message: {})", error.message);
+            assert_eq!(
+                error.code, code,
+                "{script}: code (message: {})",
+                error.message
+            );
+            assert_eq!(
+                error.category, category,
+                "{script}: category (message: {})",
+                error.message
+            );
             assert_eq!(error.message, message, "{script}: message");
         }
     }
@@ -55,8 +66,18 @@ fn eye_shape_over_the_allocation_budget_is_refused_before_the_allocator() {
 #[test]
 fn eye_zero_and_negative_rows_are_positive_count_refusals_not_magnitudes() {
     let positive = "eye(): argument 1 (rows) must be a Natural or Integer that is a positive count (1 or more, at most 9223372036854775807); got ";
-    assert_refusal("eye(0)", "InvalidArgument", "TypeMismatch", &format!("{positive}0."));
-    assert_refusal("eye(-1)", "InvalidArgument", "TypeMismatch", &format!("{positive}-1."));
+    assert_refusal(
+        "eye(0)",
+        "InvalidArgument",
+        "TypeMismatch",
+        &format!("{positive}0."),
+    );
+    assert_refusal(
+        "eye(-1)",
+        "InvalidArgument",
+        "TypeMismatch",
+        &format!("{positive}-1."),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +183,10 @@ fn slice_bounds_at_i64_min_are_clipped_instead_of_overflowing() {
 
 #[test]
 fn a_slice_step_that_would_overflow_ends_the_slice_at_the_last_index() {
-    assert_eq!(display("[1, 2, 3][9223372036854775806:9223372036854775807:2]"), "[]");
+    assert_eq!(
+        display("[1, 2, 3][9223372036854775806:9223372036854775807:2]"),
+        "[]"
+    );
     assert_eq!(display("[1, 2, 3][0:1:9223372036854775807]"), "[1]");
 }
 

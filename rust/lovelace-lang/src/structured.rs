@@ -53,7 +53,10 @@ pub fn project_value(_engine: &Engine, value: &Value, budget: Option<usize>) -> 
             }
         }
         Value::Boolean(b) => {
-            fields.push(("value", Json::Str(if *b { "true" } else { "false" }.to_string())));
+            fields.push((
+                "value",
+                Json::Str(if *b { "true" } else { "false" }.to_string()),
+            ));
         }
         Value::Text(t) => {
             fields.push(("value", Json::Str(t.clone())));
@@ -64,7 +67,12 @@ pub fn project_value(_engine: &Engine, value: &Value, budget: Option<usize>) -> 
             fields.push(("shape", Json::num_array(vec![items.len() as i64])));
             fields.push((
                 "elements",
-                Json::Arr(items.iter().map(|v| project_value(_engine, v, budget)).collect()),
+                Json::Arr(
+                    items
+                        .iter()
+                        .map(|v| project_value(_engine, v, budget))
+                        .collect(),
+                ),
             ));
         }
         Value::Array(a) => {
@@ -75,7 +83,11 @@ pub fn project_value(_engine: &Engine, value: &Value, budget: Option<usize>) -> 
             ));
             fields.push((
                 "elements",
-                Json::Arr(a.iter().map(|v| project_value(_engine, v, budget)).collect::<Vec<Json>>()),
+                Json::Arr(
+                    a.iter()
+                        .map(|v| project_value(_engine, v, budget))
+                        .collect::<Vec<Json>>(),
+                ),
             ));
         }
         Value::Function(name) => {
@@ -177,11 +189,7 @@ fn cut_at_token_boundary(text: &str, cut: usize) -> usize {
     while after < chars.len() && is_token_char(chars[after]) {
         after += 1;
     }
-    if after < chars.len() {
-        after
-    } else {
-        0
-    }
+    if after < chars.len() { after } else { 0 }
 }
 
 fn is_token_char(c: char) -> bool {
@@ -197,9 +205,15 @@ fn array_elements(a: &NdArray<Value>) -> Vec<Value> {
 pub fn descriptor_json(info: &crate::registry::BuiltinInfo) -> Json {
     let mut fields: Vec<(&str, Json)> = vec![
         ("name", Json::Str(info.name.to_string())),
-        ("parameters", Json::str_array(info.parameters.iter().copied())),
+        (
+            "parameters",
+            Json::str_array(info.parameters.iter().copied()),
+        ),
         ("minArity", Json::Num(info.min_arity.to_string())),
-        ("parameterCount", Json::Num(info.parameter_count.to_string())),
+        (
+            "parameterCount",
+            Json::Num(info.parameter_count.to_string()),
+        ),
         ("variadic", Json::Bool(info.variadic)),
         ("builtin", Json::Bool(true)),
     ];
@@ -226,9 +240,15 @@ pub fn descriptor_json(info: &crate::registry::BuiltinInfo) -> Json {
 pub fn listing_json(info: &crate::registry::BuiltinInfo) -> Json {
     Json::obj(vec![
         ("name", Json::Str(info.name.to_string())),
-        ("parameters", Json::str_array(info.parameters.iter().copied())),
+        (
+            "parameters",
+            Json::str_array(info.parameters.iter().copied()),
+        ),
         ("minArity", Json::Num(info.min_arity.to_string())),
-        ("parameterCount", Json::Num(info.parameter_count.to_string())),
+        (
+            "parameterCount",
+            Json::Num(info.parameter_count.to_string()),
+        ),
         ("variadic", Json::Bool(info.variadic)),
         ("category", Json::Str(info.category.to_string())),
     ])
@@ -245,7 +265,11 @@ pub fn project_functions(_engine: &Engine, pattern: Option<&str>, limit: Option<
     let matches = crate::registry::matching(pattern);
     let total = matches.len();
     let limit = limit.unwrap_or(50);
-    let page: Vec<Json> = matches.iter().take(limit).map(|info| listing_json(info)).collect();
+    let page: Vec<Json> = matches
+        .iter()
+        .take(limit)
+        .map(|info| listing_json(info))
+        .collect();
     let returned = page.len();
     Json::obj(vec![
         ("pattern", Json::Str(pattern.to_string())),

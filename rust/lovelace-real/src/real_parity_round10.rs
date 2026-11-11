@@ -130,7 +130,10 @@ fn constructor_given_read_only_span_empty_throws_format_exception() {
 
 #[test]
 fn constructor_given_read_only_span_malformed_throws_format_exception() {
-    assert!(Real::from_str("abc").is_none(), "malformed input must be refused");
+    assert!(
+        Real::from_str("abc").is_none(),
+        "malformed input must be refused"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +170,11 @@ fn to_string_given_period_longer_than_stored_digits_does_not_throw() {
     };
     let text = malformed.to_string();
     assert!(!text.is_empty(), "rendering is empty");
-    assert_eq!(malformed, parse(&text), "rendering does not reparse: {text}");
+    assert_eq!(
+        malformed,
+        parse(&text),
+        "rendering does not reparse: {text}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +187,9 @@ fn times_power_of_ten(coefficient: &str, zero_run: usize) -> Real {
 
 #[test]
 fn divide_given_quotient_inside_the_budget_still_reports_the_exact_period() {
-    let quotient = parse("1").div(&times_power_of_ten("3", 100), 1000).expect("nonzero divisor");
+    let quotient = parse("1")
+        .div(&times_power_of_ten("3", 100), 1000)
+        .expect("nonzero divisor");
     assert!(quotient.is_exact());
     assert_eq!(digits(&quotient), "3");
     assert_eq!(quotient.exp, -101);
@@ -188,15 +197,10 @@ fn divide_given_quotient_inside_the_budget_still_reports_the_exact_period() {
     assert_eq!(quotient.period_len, 1);
 }
 
-
-
 // ===========================================================================
 // Round 12 batch — Lovelace.Real.Tests rows whose assertion this crate
 // reproduces (division scale/period, zero-base powers, copy semantics).
 // ===========================================================================
-
-
-
 
 /// C# RealDivideTests.cs:185 — Divide_GivenDivisorJustBelowOne_StoresTheQuotientAtItsOwnScale.
 #[test]
@@ -233,7 +237,9 @@ fn pow_zero_base_negative_exponent_refuses() {
 #[test]
 fn pow_zero_base_positive_exponent_is_still_zero() {
     for exponent in [1i64, 2] {
-        let result = Real::zero().pow_int(exponent).expect("0 to a positive power has a value");
+        let result = Real::zero()
+            .pow_int(exponent)
+            .expect("0 to a positive power has a value");
         assert!(result.is_zero(), "0^{exponent} returned {result}");
     }
 }
@@ -256,7 +262,6 @@ fn assign_given_other_real_produces_deep_copy() {
     mutated.exp = -99;
     assert_eq!(a.exp, -2);
 }
-
 
 // ===========================================================================
 // Round 15 — Lovelace.Real.Tests rows the exactness/division repairs unblock.
@@ -351,7 +356,11 @@ fn r15_divide_leading_zero_run_keeps_the_value_and_its_scale() {
         let divisor_text = coefficient.to_string() + &"0".repeat(zero_run);
         let divisor = parse(&divisor_text);
         let quotient = parse("1").div(&divisor, 1000).expect("division");
-        assert_eq!(digits(&quotient), period, "coefficient {coefficient} run {zero_run}");
+        assert_eq!(
+            digits(&quotient),
+            period,
+            "coefficient {coefficient} run {zero_run}"
+        );
         assert_eq!(
             quotient.exp,
             -((zero_run + period.len()) as i64),
@@ -359,7 +368,10 @@ fn r15_divide_leading_zero_run_keeps_the_value_and_its_scale() {
         );
         assert_eq!(quotient.period_start, zero_run as i64);
         assert_eq!(quotient.period_len, period.len() as i64);
-        assert!(quotient.is_exact(), "coefficient {coefficient} run {zero_run}");
+        assert!(
+            quotient.is_exact(),
+            "coefficient {coefficient} run {zero_run}"
+        );
         let expected = format!("0.{}({})", "0".repeat(zero_run), period);
         assert_eq!(quotient.to_string(), expected);
         assert_eq!(quotient, parse(&expected));
@@ -380,13 +392,19 @@ fn r15_dividing_periodic_operands_keeps_representable_quotients_exact() {
         ("0.(9)", "0.(3)", "3", "1"),
     ] {
         let expected = parse(exp_num).div(&parse(exp_den), 1000).expect("expected");
-        let quotient = parse(left_text).div(&parse(right_text), 1000).expect("quotient");
+        let quotient = parse(left_text)
+            .div(&parse(right_text), 1000)
+            .expect("quotient");
         assert_eq!(quotient, expected, "{left_text}/{right_text}");
         assert!(quotient.is_exact(), "{left_text}/{right_text} was inexact");
     }
 
-    let five_sixths = Real::from_i64(5).div(&Real::from_i64(6), 1000).expect("5/6");
-    let seven_elevenths = Real::from_i64(7).div(&Real::from_i64(11), 1000).expect("7/11");
+    let five_sixths = Real::from_i64(5)
+        .div(&Real::from_i64(6), 1000)
+        .expect("5/6");
+    let seven_elevenths = Real::from_i64(7)
+        .div(&Real::from_i64(11), 1000)
+        .expect("7/11");
     let by_division = five_sixths.div(&seven_elevenths, 1000).expect("division");
     let by_multiplication = five_sixths.mul(
         &Real::from_i64(11)
@@ -397,7 +415,9 @@ fn r15_dividing_periodic_operands_keeps_representable_quotients_exact() {
     assert!(by_division.is_exact() && by_multiplication.is_exact());
     assert_eq!(
         by_division,
-        Real::from_i64(55).div(&Real::from_i64(42), 1000).expect("55/42")
+        Real::from_i64(55)
+            .div(&Real::from_i64(42), 1000)
+            .expect("55/42")
     );
 }
 

@@ -29,8 +29,14 @@ fn division_and_its_multiplication_twin_agree_on_value_and_exactness() {
                     let direct = of(a * d).div(&of(b * c), 1000).expect("b*c is nonzero");
                     let what = format!("({a}/{b})/({c}/{d})");
 
-                    assert_eq!(quotient, twin, "{what} = {quotient} but the twin *{d}/{c} = {twin}");
-                    assert_eq!(quotient, direct, "{what} = {quotient} but ({a}*{d})/({b}*{c}) = {direct}");
+                    assert_eq!(
+                        quotient, twin,
+                        "{what} = {quotient} but the twin *{d}/{c} = {twin}"
+                    );
+                    assert_eq!(
+                        quotient, direct,
+                        "{what} = {quotient} but ({a}*{d})/({b}*{c}) = {direct}"
+                    );
                     assert_eq!(
                         twin.is_exact(),
                         quotient.is_exact(),
@@ -38,8 +44,15 @@ fn division_and_its_multiplication_twin_agree_on_value_and_exactness() {
                         twin.is_exact(),
                         quotient.is_exact()
                     );
-                    assert!(quotient.is_exact(), "{what} = {quotient} was reported inexact");
-                    assert_eq!(quotient.mul(&right), left, "{what} * ({c}/{d}) did not return {a}/{b}");
+                    assert!(
+                        quotient.is_exact(),
+                        "{what} = {quotient} was reported inexact"
+                    );
+                    assert_eq!(
+                        quotient.mul(&right),
+                        left,
+                        "{what} * ({c}/{d}) did not return {a}/{b}"
+                    );
                     assert_eq!(
                         quotient,
                         left.mul(&inverse),

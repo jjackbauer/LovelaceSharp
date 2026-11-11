@@ -144,7 +144,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Assumes a relation (or conjunction of relations) with a constant bound for the session (the engine this plugin was loaded into), e.g. x > 5."),
+        summary: Some(
+            "Assumes a relation (or conjunction of relations) with a constant bound for the session (the engine this plugin was loaded into), e.g. x > 5.",
+        ),
         return_kind: Some("Symbolic"),
         related: &["assume_positive", "assumptions", "assume_clear"],
         examples: &["assume(x > 5)", "assume(and(x > 0, x < 10))"],
@@ -235,7 +237,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions."),
+        summary: Some(
+            "Lists the active assumptions as a structured AssumptionSet: the human rendering in display and the same atoms projected as structured conditions in assumptions.",
+        ),
         return_kind: Some("AssumptionSet"),
         related: &["assume", "assume_clear"],
         examples: &["assumptions()"],
@@ -274,7 +278,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Cancels common polynomial factors in a rational function. The result is a bare value and CANNOT carry the side conditions the cancellation requires: removing a common factor g extends the domain (the input is undefined where g = 0), so the value holds only off that pole. Use cancel_full when the definedness delta matters."),
+        summary: Some(
+            "Cancels common polynomial factors in a rational function. The result is a bare value and CANNOT carry the side conditions the cancellation requires: removing a common factor g extends the domain (the input is undefined where g = 0), so the value holds only off that pole. Use cancel_full when the definedness delta matters.",
+        ),
         return_kind: Some("Symbolic"),
         related: &["cancel_full", "apart", "factor"],
         examples: &["cancel((x^2 - 1)/(x - 1))"],
@@ -287,7 +293,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Structured cancel: a CancelResult record with status (Exact/Conditional), the reduced expression, and the conditions it requires (the removed common factor must be nonzero — the same condition the simplify rewrite path attaches to rat.cancel-x-over-x). An Exact reduction reports no conditions at all."),
+        summary: Some(
+            "Structured cancel: a CancelResult record with status (Exact/Conditional), the reduced expression, and the conditions it requires (the removed common factor must be nonzero — the same condition the simplify rewrite path attaches to rat.cancel-x-over-x). An Exact reduction reports no conditions at all.",
+        ),
         return_kind: Some("CancelResult"),
         related: &["cancel", "simplify_full"],
         examples: &["cancel_full(x/x)", "cancel_full((x^2 - 1)/(x - 1))"],
@@ -300,7 +308,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Introspection",
-        summary: Some("Reports which domain values the solver's domain argument accepts (solve_domains_accepted) and refuses (solve_domains_refused), and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces. The domain pair is scoped to solve(f, x, domain): symbol(name, domain), assume_* and a SolutionFamily's parameter_domain accept every domain value."),
+        summary: Some(
+            "Reports which domain values the solver's domain argument accepts (solve_domains_accepted) and refuses (solve_domains_refused), and the known-unsupported operation classes, each with the exact error code and ErrorCategory member its live call produces. The domain pair is scoped to solve(f, x, domain): symbol(name, domain), assume_* and a SolutionFamily's parameter_domain accept every domain value.",
+        ),
         return_kind: Some("CapabilitiesResult"),
         related: &["solve", "solve_full", "symbol", "type"],
         examples: &["capabilities()"],
@@ -326,7 +336,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.MathIR"),
         category: "Compilation",
-        summary: Some("Compiles a symbolic expression to a validated MathIR kernel (serialized IR text). Use compile_full for the structured kernel metadata."),
+        summary: Some(
+            "Compiles a symbolic expression to a validated MathIR kernel (serialized IR text). Use compile_full for the structured kernel metadata.",
+        ),
         return_kind: Some("Text"),
         related: &["compile_full", "evalir", "evalir_batch"],
         examples: &["compile(x^2 + 1, [x])"],
@@ -339,7 +351,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.MathIR"),
         category: "Compilation",
-        summary: Some("Structured compile: a CompilationResult record with the IR, per-parameter name and domain, result domain and type, the precision and optimization policies, target, MathIR version, and exactness."),
+        summary: Some(
+            "Structured compile: a CompilationResult record with the IR, per-parameter name and domain, result domain and type, the precision and optimization policies, target, MathIR version, and exactness.",
+        ),
         return_kind: Some("CompilationResult"),
         related: &["compile", "evalir_batch"],
         examples: &["compile_full(x^2 + 1, [x])"],
@@ -482,7 +496,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Dsp"),
         category: "DSP",
-        summary: Some("Discrete Fourier transform; an optional length n zero-pads or truncates the signal."),
+        summary: Some(
+            "Discrete Fourier transform; an optional length n zero-pads or truncates the signal.",
+        ),
         return_kind: Some("Vector"),
         related: &["fft"],
         examples: &["dft([0, 1, 0, 0])"],
@@ -547,7 +563,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Numerics",
-        summary: Some("Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike. The DECIMAL PLACES are COMPUTED, not merely printed: the evaluation runs at the requested count plus the integer digits of the result plus a guard, so a value with k integer digits keeps all N of its decimals (evalf(sinh(34/3), 30) answers 41780.548053564065925188446077567339), and the published count is bounded by the builtin's own 1000-place computation cap: a request above 1000 answers a value carrying at most 1000 decimal places (a request the builtin CAN honour in full is never reduced, and an exact answer stays exact), so the value that was cut says so on the wire — truncated: true, truncationReason: digit-cap, budget: 1000 — instead of crossing as if the count had been honoured."),
+        summary: Some(
+            "Numerically evaluates a symbolic expression to the given number of decimal places. The count is honoured for an already-numeric argument too: such an argument is truncated to the requested count instead of being passed through at the ambient precision, so evalf(sqrt(2), 5) and evalf(1/3, 5) answer alike. The DECIMAL PLACES are COMPUTED, not merely printed: the evaluation runs at the requested count plus the integer digits of the result plus a guard, so a value with k integer digits keeps all N of its decimals (evalf(sinh(34/3), 30) answers 41780.548053564065925188446077567339), and the published count is bounded by the builtin's own 1000-place computation cap: a request above 1000 answers a value carrying at most 1000 decimal places (a request the builtin CAN honour in full is never reduced, and an exact answer stays exact), so the value that was cut says so on the wire — truncated: true, truncationReason: digit-cap, budget: 1000 — instead of crossing as if the count had been honoured.",
+        ),
         return_kind: Some("Real | Complex"),
         related: &["subs"],
         examples: &["evalf(sqrt(2), 30)", "evalf(1/3, 30)"],
@@ -560,7 +578,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.MathIR"),
         category: "Compilation",
-        summary: Some("Evaluates a compiled kernel (IR text or CompilationResult) at one point at the given precision."),
+        summary: Some(
+            "Evaluates a compiled kernel (IR text or CompilationResult) at one point at the given precision.",
+        ),
         return_kind: Some("Real | Complex"),
         related: &["evalir_batch", "compile"],
         examples: &["evalir(compile(x^2 + 1, [x]), [3], 40)"],
@@ -573,7 +593,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.MathIR"),
         category: "Compilation",
-        summary: Some("Batch-evaluates a compiled kernel (IR text or CompilationResult) over flat row-major values at the given precision."),
+        summary: Some(
+            "Batch-evaluates a compiled kernel (IR text or CompilationResult) over flat row-major values at the given precision.",
+        ),
         return_kind: Some("Vector"),
         related: &["compile", "evalir"],
         examples: &["k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)"],
@@ -664,7 +686,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Dsp"),
         category: "DSP",
-        summary: Some("Difference-equation filter of a signal (or the impulse response of length n)."),
+        summary: Some(
+            "Difference-equation filter of a signal (or the impulse response of length n).",
+        ),
         return_kind: Some("Vector"),
         related: &["conv", "movingavg"],
         examples: &["filter([1], [1], [1, 2, 3])"],
@@ -742,7 +766,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: None,
         category: "Introspection",
-        summary: Some("Structural introspection of x as a record (type, domain, exactness, free symbols, shape)."),
+        summary: Some(
+            "Structural introspection of x as a record (type, domain, exactness, free symbols, shape).",
+        ),
         return_kind: Some("Inspection"),
         related: &[],
         examples: &["inspect(x^2 + 1)"],
@@ -768,7 +794,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("Indefinite integral of f with respect to x; every closed form is differentiated and verified."),
+        summary: Some(
+            "Indefinite integral of f with respect to x; every closed form is differentiated and verified.",
+        ),
         return_kind: Some("Symbolic"),
         related: &["diff", "integrate_full"],
         examples: &["integrate(2*x*cos(x^2), x)"],
@@ -781,7 +809,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag."),
+        summary: Some(
+            "Structured integration: an IntegrationResult record with status (SolvedExact/SolvedConditional/Unevaluated), the antiderivative, its conditions, and the self-verification flag.",
+        ),
         return_kind: Some("IntegrationResult"),
         related: &["integrate"],
         examples: &["integrate_full(x^2, x)"],
@@ -807,7 +837,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: None,
         category: "Linear Algebra",
-        summary: Some("Structured matrix inverse: a MatrixInverseResult with status, the inverse, and the det(a) != 0 side condition."),
+        summary: Some(
+            "Structured matrix inverse: a MatrixInverseResult with status, the inverse, and the det(a) != 0 side condition.",
+        ),
         return_kind: Some("MatrixInverseResult"),
         related: &["inv", "linsolve_full"],
         examples: &["inv_full([[x, 1], [1, x]])"],
@@ -846,7 +878,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("Jacobian matrix (first derivatives) of the function vector in the given variables."),
+        summary: Some(
+            "Jacobian matrix (first derivatives) of the function vector in the given variables.",
+        ),
         return_kind: Some("Array"),
         related: &["hessian", "diff"],
         examples: &["jacobian([x*y, x+y], [x, y])"],
@@ -859,7 +893,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Introspection",
-        summary: Some("Renders an expression as LaTeX source. This is the printer's LaTeX mode, not a second printer: it shares the precedence table and the structural decisions of the pretty form, so the two can never describe different expressions."),
+        summary: Some(
+            "Renders an expression as LaTeX source. This is the printer's LaTeX mode, not a second printer: it shares the precedence table and the structural decisions of the pretty form, so the two can never describe different expressions.",
+        ),
         return_kind: Some("Text"),
         related: &["print", "type"],
         examples: &["latex((x + 1)/y)"],
@@ -885,7 +921,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("Two-sided limit of f as x → x0, returned as the SAME LimitResult record limit_full returns: status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint it holds under, exactness and diagnostics. Nothing has to be parsed out of prose."),
+        summary: Some(
+            "Two-sided limit of f as x → x0, returned as the SAME LimitResult record limit_full returns: status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint it holds under, exactness and diagnostics. Nothing has to be parsed out of prose.",
+        ),
         return_kind: Some("LimitResult"),
         related: &["limit_left", "limit_right", "limit_full"],
         examples: &["limit(sin(x)/x, x, 0)", "limit(1/x, x, 0)"],
@@ -898,7 +936,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics."),
+        summary: Some(
+            "Structured limit: a LimitResult record with status, exists, the two-sided value and its conditions, the left/right one-sided values each with the side constraint they hold under, exactness, and diagnostics.",
+        ),
         return_kind: Some("LimitResult"),
         related: &["limit", "limit_left", "limit_right"],
         examples: &["limit_full(1/x, x, 0)"],
@@ -911,7 +951,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("One-sided limit from the left as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics."),
+        summary: Some(
+            "One-sided limit from the left as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
+        ),
         return_kind: Some("LimitResult"),
         related: &["limit", "limit_full"],
         examples: &["limit_left(1/x, x, 0)"],
@@ -924,7 +966,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Calculus",
-        summary: Some("One-sided limit from the right as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics."),
+        summary: Some(
+            "One-sided limit from the right as x approaches x0, returned as the SAME LimitResult record limit_full returns: status, exists, the one-sided value, exactness and diagnostics.",
+        ),
         return_kind: Some("LimitResult"),
         related: &["limit", "limit_full"],
         examples: &["limit_right(1/x, x, 0)"],
@@ -937,7 +981,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: None,
         category: "Linear Algebra",
-        summary: Some("Exact linear system solve over a symbolic matrix (Bareiss); valid under det(a) != 0."),
+        summary: Some(
+            "Exact linear system solve over a symbolic matrix (Bareiss); valid under det(a) != 0.",
+        ),
         return_kind: Some("Vector"),
         related: &["matrix_rank", "solve_system", "linsolve_full"],
         examples: &["linsolve([[x, 1], [1, x]], [5, 4])"],
@@ -950,7 +996,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: None,
         category: "Linear Algebra",
-        summary: Some("Structured linear solve: a MatrixSolveResult with status, the solution vector, and the det(a) != 0 side condition."),
+        summary: Some(
+            "Structured linear solve: a MatrixSolveResult with status, the solution vector, and the det(a) != 0 side condition.",
+        ),
         return_kind: Some("MatrixSolveResult"),
         related: &["linsolve", "inv_full"],
         examples: &["linsolve_full([[x, 1], [1, x]], [5, 4])"],
@@ -976,7 +1024,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.MathIR"),
         category: "Compilation",
-        summary: Some("Lowers a symbolic expression to MathIR (the typed, validated computational DAG)."),
+        summary: Some(
+            "Lowers a symbolic expression to MathIR (the typed, validated computational DAG).",
+        ),
         return_kind: Some("Text"),
         related: &["compile"],
         examples: &["lower(x^2 + 1, [x])"],
@@ -1080,7 +1130,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Dsp"),
         category: "DSP",
-        summary: Some("Deterministic seeded noise sequence (the same seed always yields the same signal)."),
+        summary: Some(
+            "Deterministic seeded noise sequence (the same seed always yields the same signal).",
+        ),
         return_kind: Some("Vector"),
         related: &["cosine"],
         examples: &["noise(1, 0, 4, 3)"],
@@ -1145,7 +1197,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Optimization",
-        summary: Some("Equivalence-preserving optimization for evaluation (CSE accounting, policy-gated Hornerization). Use optimize_full for the cost trace."),
+        summary: Some(
+            "Equivalence-preserving optimization for evaluation (CSE accounting, policy-gated Hornerization). Use optimize_full for the cost trace.",
+        ),
         return_kind: Some("Symbolic"),
         related: &["optimize_full", "compile"],
         examples: &["optimize(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])"],
@@ -1158,7 +1212,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Optimization",
-        summary: Some("Structured optimization: an OptimizationResult with the original and optimized expressions, estimated costs before/after, and the applied transformations."),
+        summary: Some(
+            "Structured optimization: an OptimizationResult with the original and optimized expressions, estimated costs before/after, and the applied transformations.",
+        ),
         return_kind: Some("OptimizationResult"),
         related: &["optimize", "compile"],
         examples: &["optimize_full(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])"],
@@ -1379,7 +1435,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Safe simplification: applies only universal rules and rules whose side conditions are already provable from the active assumptions (conditions are never silently discarded)."),
+        summary: Some(
+            "Safe simplification: applies only universal rules and rules whose side conditions are already provable from the active assumptions (conditions are never silently discarded).",
+        ),
         return_kind: Some("Symbolic"),
         related: &["simplify_full", "expand", "factor"],
         examples: &["simplify(sin(x)^2 + cos(x)^2)", "simplify(x/x)"],
@@ -1392,7 +1450,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Structured simplify: a TransformResult record with the rewritten expression, required side conditions, and the applied rule steps (stable rule ids and classifications)."),
+        summary: Some(
+            "Structured simplify: a TransformResult record with the rewritten expression, required side conditions, and the applied rule steps (stable rule ids and classifications).",
+        ),
         return_kind: Some("TransformResult"),
         related: &["simplify"],
         examples: &["simplify_full(x/x)", "simplify_full(exp(log(x)))"],
@@ -1431,7 +1491,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Solving",
-        summary: Some("Solves an equation for x and returns the SAME SolveResult record solve_full returns: status, domain (a Domain value), complete/completeness, per-solution conditions/multiplicity/exactness, parametric families and diagnostics. The default domain is Complex; pass real for real solutions only."),
+        summary: Some(
+            "Solves an equation for x and returns the SAME SolveResult record solve_full returns: status, domain (a Domain value), complete/completeness, per-solution conditions/multiplicity/exactness, parametric families and diagnostics. The default domain is Complex; pass real for real solutions only.",
+        ),
         return_kind: Some("SolveResult"),
         related: &["solve_full", "solve_system", "linsolve"],
         examples: &["solve(x^2 - 4 == 0, x)", "solve(x^2 + 1 == 0, x, real)"],
@@ -1444,10 +1506,15 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Solving",
-        summary: Some("Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain."),
+        summary: Some(
+            "Structured solve: a SolveResult record with status, domain (a Domain value), complete flag, per-solution conditions/multiplicity/exactness, parametric families, and diagnostics. status is Solved only when the represented set is complete over the requested domain.",
+        ),
         return_kind: Some("SolveResult"),
         related: &["solve", "solve_system_full"],
-        examples: &["solve_full(x^2 - 4 == 0, x)", "solve_full(x^4 - x^2 - 1 == 0, x)"],
+        examples: &[
+            "solve_full(x^2 - 4 == 0, x)",
+            "solve_full(x^4 - x^2 - 1 == 0, x)",
+        ],
     },
     BuiltinInfo {
         name: "solve_system",
@@ -1457,7 +1524,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Solving",
-        summary: Some("Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions) and returns the SAME SystemSolveResult record solve_system_full does."),
+        summary: Some(
+            "Solves a polynomial equation system (Gröbner elimination into triangular form, verified solutions) and returns the SAME SystemSolveResult record solve_system_full does.",
+        ),
         return_kind: Some("SystemSolveResult"),
         related: &["solve_system_full", "solve"],
         examples: &["solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"],
@@ -1470,7 +1539,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Solving",
-        summary: Some("Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions."),
+        summary: Some(
+            "Structured system solve: a SystemSolveResult with status, domain, complete, per-solution Binding records (name, value) and conditions.",
+        ),
         return_kind: Some("SystemSolveResult"),
         related: &["solve_system", "solve_full"],
         examples: &["solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])"],
@@ -1548,7 +1619,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: Some("Lovelace.Symbolics"),
         category: "Symbolics",
-        summary: Some("Creates a symbolic variable; an optional domain (integer/rational/real/complex) is assumed for it."),
+        summary: Some(
+            "Creates a symbolic variable; an optional domain (integer/rational/real/complex) is assumed for it.",
+        ),
         return_kind: Some("Symbolic"),
         related: &["assume", "real", "complex"],
         examples: &["symbol(\"x\")", "symbol(\"x\", real)"],
@@ -1613,7 +1686,9 @@ pub static BUILTINS: &[BuiltinInfo] = &[
         variadic: false,
         plugin: None,
         category: "Introspection",
-        summary: Some("The value-kind name of x; structured results report their record type name."),
+        summary: Some(
+            "The value-kind name of x; structured results report their record type name.",
+        ),
         return_kind: Some("Text"),
         related: &[],
         examples: &["type(42)", "type(solve_full(x^2 - 4 == 0, x))"],
@@ -1680,7 +1755,10 @@ const SYNONYMS: &[(&str, &[&str])] = &[
 /// Notes for names that are not missing functions at all: a language feature the caller reached
 /// for as a function, or a builtin the language deliberately does not have.
 const SYNTAX_HINTS: &[(&str, &str)] = &[
-    ("range", "The range operator is written 1..n; no builtin is needed."),
+    (
+        "range",
+        "The range operator is written 1..n; no builtin is needed.",
+    ),
     (
         "map",
         "There is no map builtin: arithmetic and powers broadcast over arrays, so (1..n)^2 squares elementwise.",
@@ -1744,7 +1822,11 @@ pub fn name_rank(registered: &str, queried: &str) -> i32 {
         if reg.starts_with(&query) || query.starts_with(&reg) {
             return 1;
         }
-        let tolerance = if registered.len().min(queried.len()) <= 4 { 1 } else { 2 };
+        let tolerance = if registered.len().min(queried.len()) <= 4 {
+            1
+        } else {
+            2
+        };
         if edit_distance(&reg, &query) <= tolerance {
             return 2;
         }

@@ -116,8 +116,12 @@ pub fn parse(svg: &str) -> Plot {
         match tag.name {
             "svg" if !tag.close => {
                 let attrs = attributes(tag.attrs);
-                let width = attr(&attrs, "width").and_then(parse_milli).filter(|v| *v > 0);
-                let height = attr(&attrs, "height").and_then(parse_milli).filter(|v| *v > 0);
+                let width = attr(&attrs, "width")
+                    .and_then(parse_milli)
+                    .filter(|v| *v > 0);
+                let height = attr(&attrs, "height")
+                    .and_then(parse_milli)
+                    .filter(|v| *v > 0);
                 let view_box = attr(&attrs, "viewBox").and_then(parse_view_box);
                 match (width, height, view_box) {
                     (Some(w), Some(h), vb) => {
@@ -214,7 +218,10 @@ fn next_tag(src: &str, from: usize) -> Option<Tag<'_>> {
             j += 1;
         }
         let name_start = j;
-        while j < bytes.len() && !bytes[j].is_ascii_whitespace() && bytes[j] != b'>' && bytes[j] != b'/'
+        while j < bytes.len()
+            && !bytes[j].is_ascii_whitespace()
+            && bytes[j] != b'>'
+            && bytes[j] != b'/'
         {
             j += 1;
         }
@@ -434,7 +441,9 @@ pub fn parse_milli(text: &str) -> Option<i64> {
     let mut fraction_digits = 0usize;
     let mut any = false;
     while i < bytes.len() && bytes[i].is_ascii_digit() {
-        integer = integer.checked_mul(10)?.checked_add((bytes[i] - b'0') as i64)?;
+        integer = integer
+            .checked_mul(10)?
+            .checked_add((bytes[i] - b'0') as i64)?;
         i += 1;
         any = true;
     }
@@ -611,7 +620,13 @@ mod tests {
         assert_eq!(plot.width, 200 * MILLI);
         assert_eq!(plot.height, 100 * MILLI);
         assert_eq!(plot.title.as_deref(), Some("Café & co"));
-        assert_eq!(plot.polylines[0].points[1], Point { x: 10_500, y: 20_000 });
+        assert_eq!(
+            plot.polylines[0].points[1],
+            Point {
+                x: 10_500,
+                y: 20_000
+            }
+        );
         assert_eq!(plot.texts[0].anchor, TextAnchor::Middle);
         assert_eq!(plot.texts[0].size, 14_000);
         assert!(plot.texts[0].bold);

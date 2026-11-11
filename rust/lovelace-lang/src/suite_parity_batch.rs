@@ -28,7 +28,10 @@ fn check_typed(script: &str, expected: &str) {
 fn check_error(script: &str, expected: &str) {
     let mut e = engine();
     match e.eval(script) {
-        Ok(v) => panic!("script: {script} was expected to fail but produced {}", e.format_typed(&v)),
+        Ok(v) => panic!(
+            "script: {script} was expected to fail but produced {}",
+            e.format_typed(&v)
+        ),
         Err(err) => assert_eq!(err.message, expected, "script: {script}"),
     }
 }
@@ -37,7 +40,10 @@ fn check_text(script: &str, expected: &str) {
     let mut e = engine();
     match e.eval(script) {
         Ok(crate::Value::Text(text)) => assert_eq!(text, expected, "script: {script}"),
-        Ok(v) => panic!("script: {script} produced {} instead of Text", e.format_typed(&v)),
+        Ok(v) => panic!(
+            "script: {script} produced {} instead of Text",
+            e.format_typed(&v)
+        ),
         Err(err) => panic!("script: {script} unexpectedly failed: {}", err.message),
     }
 }
@@ -57,7 +63,9 @@ fn check_plot_title(script: &str, expected: &str) {
     let mut e = engine();
     match e.eval(script) {
         Ok(_) => {
-            let plot = e.last_plot().unwrap_or_else(|| panic!("script: {script} produced no plot"));
+            let plot = e
+                .last_plot()
+                .unwrap_or_else(|| panic!("script: {script} produced no plot"));
             assert_eq!(plot.title, expected, "script: {script}");
         }
         Err(err) => panic!("script: {script} unexpectedly failed: {}", err.message),
@@ -73,7 +81,6 @@ fn structured_of(script: &str) -> (String, Json) {
     let j = crate::structured::project_value(&e, &v, None);
     (e.format_typed(&v), j)
 }
-
 
 fn json_bool(j: &Json) -> Option<bool> {
     match j {
@@ -105,7 +112,11 @@ fn gcd_u64(mut a: u64, mut b: u64) -> u64 {
 /// The C# property: IF the payload is exact, its numerator/denominator are the quotient itself.
 fn check_quotient_payload(script: &str, num: u64, den: u64) {
     let (typed, j) = structured_of(script);
-    assert_eq!(field(&j, "kind"), Some("Real"), "script: {script} ({typed})");
+    assert_eq!(
+        field(&j, "kind"),
+        Some("Real"),
+        "script: {script} ({typed})"
+    );
     let exact = j.get("exact").and_then(json_bool).unwrap_or(false);
     if exact {
         let n: u64 = field(&j, "numerator")
@@ -123,25 +134,55 @@ fn check_quotient_payload(script: &str, num: u64, den: u64) {
 
 fn check_rational_payload(script: &str, num: &str, den: &str) {
     let (typed, j) = structured_of(script);
-    assert_eq!(field(&j, "kind"), Some("Real"), "script: {script} ({typed})");
-    assert_eq!(j.get("exact").and_then(json_bool), Some(true), "script: {script}");
+    assert_eq!(
+        field(&j, "kind"),
+        Some("Real"),
+        "script: {script} ({typed})"
+    );
+    assert_eq!(
+        j.get("exact").and_then(json_bool),
+        Some(true),
+        "script: {script}"
+    );
     assert_eq!(field(&j, "numerator"), Some(num), "script: {script}");
     assert_eq!(field(&j, "denominator"), Some(den), "script: {script}");
 }
 
 fn check_not_exact(script: &str) {
     let (typed, j) = structured_of(script);
-    assert_eq!(field(&j, "kind"), Some("Real"), "script: {script} ({typed})");
-    assert_eq!(j.get("exact").and_then(json_bool), Some(false), "script: {script}");
-    assert!(j.get("numerator").is_none(), "script: {script} published a numerator");
-    assert!(j.get("denominator").is_none(), "script: {script} published a denominator");
+    assert_eq!(
+        field(&j, "kind"),
+        Some("Real"),
+        "script: {script} ({typed})"
+    );
+    assert_eq!(
+        j.get("exact").and_then(json_bool),
+        Some(false),
+        "script: {script}"
+    );
+    assert!(
+        j.get("numerator").is_none(),
+        "script: {script} published a numerator"
+    );
+    assert!(
+        j.get("denominator").is_none(),
+        "script: {script} published a denominator"
+    );
 }
 
 fn check_payload(script: &str, value: &str, num: &str, den: &str) {
     let (typed, j) = structured_of(script);
-    assert_eq!(field(&j, "kind"), Some("Real"), "script: {script} ({typed})");
+    assert_eq!(
+        field(&j, "kind"),
+        Some("Real"),
+        "script: {script} ({typed})"
+    );
     assert_eq!(field(&j, "value"), Some(value), "script: {script}");
-    assert_eq!(j.get("exact").and_then(json_bool), Some(true), "script: {script}");
+    assert_eq!(
+        j.get("exact").and_then(json_bool),
+        Some(true),
+        "script: {script}"
+    );
     assert_eq!(field(&j, "numerator"), Some(num), "script: {script}");
     assert_eq!(field(&j, "denominator"), Some(den), "script: {script}");
 }
@@ -193,16 +234,20 @@ fn check_count(script: &str, expected: usize) {
 fn check_element(script: &str, index: usize, expected: &str) {
     let (typed, j) = structured_of(script);
     let actual = element_strings(&j, script);
-    let got = actual.get(index).unwrap_or_else(|| panic!("script: {script} has no element {index} ({typed})"));
+    let got = actual
+        .get(index)
+        .unwrap_or_else(|| panic!("script: {script} has no element {index} ({typed})"));
     assert_eq!(got, expected, "script: {script}");
 }
 
 fn check_exact(script: &str, expected: bool) {
     let (typed, j) = structured_of(script);
-    assert_eq!(j.get("exact").and_then(json_bool), Some(expected), "script: {script} ({typed})");
+    assert_eq!(
+        j.get("exact").and_then(json_bool),
+        Some(expected),
+        "script: {script} ({typed})"
+    );
 }
-
-
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_001_numbers.
 #[test]
@@ -225,43 +270,64 @@ fn lang_doc_011_3_operators_and_preceden() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_101_symbolic_mathematics.
 #[test]
 fn lang_doc_101_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)", "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)",
+        "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_102_symbolic_mathematics.
 #[test]
 fn lang_doc_102_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_103_symbolic_mathematics.
 #[test]
 fn lang_doc_103_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 6)", "1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 6)",
+        "1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_104_symbolic_mathematics.
 #[test]
 fn lang_doc_104_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)", "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)",
+        "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_105_symbolic_mathematics.
 #[test]
 fn lang_doc_105_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)", "sin(x^2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)",
+        "sin(x^2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_106_symbolic_mathematics.
 #[test]
 fn lang_doc_106_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])", "x^2 - y (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])",
+        "x^2 - y (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_107_symbolic_mathematics.
 #[test]
 fn lang_doc_107_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))",
+        "x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_108_symbolic_mathematics.
@@ -273,13 +339,19 @@ fn lang_doc_108_symbolic_mathematics() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_109_symbolic_mathematics.
 #[test]
 fn lang_doc_109_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status", "Solved");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status",
+        "Solved",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_110_symbolic_mathematics.
 #[test]
 fn lang_doc_110_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])", "[[y, x], [1, 1]] (Array)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])",
+        "[[y, x], [1, 1]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_012_addition_and_multiplicat.
@@ -291,7 +363,10 @@ fn lang_doc_012_addition_and_multiplicat() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_111_symbolic_mathematics.
 #[test]
 fn lang_doc_111_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))", "SolveResult");
+    check_typed(
+        "x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))",
+        "SolveResult",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_013_addition_and_multiplicat.
@@ -465,13 +540,19 @@ fn lang_doc_038_indexing() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_039_indexing.
 #[test]
 fn lang_doc_039_indexing() {
-    check_error("[10, 20, 30][3]", "Index 3 is out of range for vector of length 3.");
+    check_error(
+        "[10, 20, 30][3]",
+        "Index 3 is out of range for vector of length 3.",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_040_indexing.
 #[test]
 fn lang_doc_040_indexing() {
-    check_error("[1, 2, 3][-1]", "Index -1 is out of range for vector of length 3.");
+    check_error(
+        "[1, 2, 3][-1]",
+        "Index -1 is out of range for vector of length 3.",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_005_strings.
@@ -507,7 +588,10 @@ fn lang_doc_044_element_wise_arithmetic_() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_045_element_wise_arithmetic_.
 #[test]
 fn lang_doc_045_element_wise_arithmetic_() {
-    check_error("[1, 2] + [1, 2, 3]", "Operands could not be broadcast together with shapes [2] and [3].");
+    check_error(
+        "[1, 2] + [1, 2, 3]",
+        "Operands could not be broadcast together with shapes [2] and [3].",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_046_slicing.
@@ -567,13 +651,19 @@ fn lang_doc_053_conditionals() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_054_conditionals.
 #[test]
 fn lang_doc_054_conditionals() {
-    check_error("if (1) { 2 }", "if condition must be Boolean, but got 'Natural'.");
+    check_error(
+        "if (1) { 2 }",
+        "if condition must be Boolean, but got 'Natural'.",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_055_loops.
 #[test]
 fn lang_doc_055_loops() {
-    check_typed("sum = 0; for i in 1..4 { sum = sum + i }; sum", "10 (Natural)");
+    check_typed(
+        "sum = 0; for i in 1..4 { sum = sum + i }; sum",
+        "10 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_056_loops.
@@ -615,7 +705,10 @@ fn lang_doc_037_list_literals() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_061_10_functions.
 #[test]
 fn lang_doc_061_10_functions() {
-    check_typed("func fact(n) { if (n == 0) { 1 } else { n * fact(n - 1) } }; fact(5)", "120 (Natural)");
+    check_typed(
+        "func fact(n) { if (n == 0) { 1 } else { n * fact(n - 1) } }; fact(5)",
+        "120 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_062_abs_x.
@@ -633,7 +726,10 @@ fn lang_doc_063_inv_x() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_064_divrem_a_b.
 #[test]
 fn lang_doc_064_divrem_a_b() {
-    check_typed("divrem(17, 5)", "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)");
+    check_typed(
+        "divrem(17, 5)",
+        "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_065_is_even_x_is_odd_x.
@@ -669,7 +765,10 @@ fn lang_doc_069_pi_pi_digits() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_070_setprecision_n.
 #[test]
 fn lang_doc_070_setprecision_n() {
-    check_typed("setprecision(50)\npi(50)", "3.14159265358979323846264338327950288419716939937510 (Real)");
+    check_typed(
+        "setprecision(50)\npi(50)",
+        "3.14159265358979323846264338327950288419716939937510 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_032_ranges.
@@ -705,7 +804,10 @@ fn lang_doc_074_dsp_functions_loaded_by_() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_075_dsp_functions_loaded_by_.
 #[test]
 fn lang_doc_075_dsp_functions_loaded_by_() {
-    check_typed("z = fft([0, 1, 0, 0])[1]; [re(z), im(z), abs(z)]", "[0, -1, 1] (Vector)");
+    check_typed(
+        "z = fft([0, 1, 0, 0])[1]; [re(z), im(z), abs(z)]",
+        "[0, -1, 1] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_076_12_plotting.
@@ -723,7 +825,10 @@ fn lang_doc_077_13_errors_and_diagnostic() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_078_13_errors_and_diagnostic.
 #[test]
 fn lang_doc_078_13_errors_and_diagnostic() {
-    check_error("2 + \"x\"", "Cannot widen from Natural to Text: only numeric kinds (Natural, Integer, Real) support widening.");
+    check_error(
+        "2 + \"x\"",
+        "Cannot widen from Natural to Text: only numeric kinds (Natural, Integer, Real) support widening.",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_079_literals.
@@ -735,7 +840,10 @@ fn lang_doc_079_literals() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_080_literals.
 #[test]
 fn lang_doc_080_literals() {
-    check_typed("[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]", "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]] (Array)");
+    check_typed(
+        "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]",
+        "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_009_3_operators_and_preceden.
@@ -747,7 +855,10 @@ fn lang_doc_009_3_operators_and_preceden() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_081_literals.
 #[test]
 fn lang_doc_081_literals() {
-    check_error("[[1, 2], [3]]", "Ragged nested list literal: every row must have the same shape.");
+    check_error(
+        "[[1, 2], [3]]",
+        "Ragged nested list literal: every row must have the same shape.",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_082_indexing.
@@ -759,7 +870,10 @@ fn lang_doc_082_indexing() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_083_indexing.
 #[test]
 fn lang_doc_083_indexing() {
-    check_typed("[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][0]", "[[1, 2], [3, 4]] (Array)");
+    check_typed(
+        "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][0]",
+        "[[1, 2], [3, 4]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_084_construction_and_shape.
@@ -807,13 +921,19 @@ fn lang_doc_090_reductions() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_010_3_operators_and_preceden.
 #[test]
 fn lang_doc_010_3_operators_and_preceden() {
-    check_typed("1..10 ^ 2", "[1, 4, 9, 16, 25, 36, 49, 64, 81, 100] (Vector)");
+    check_typed(
+        "1..10 ^ 2",
+        "[1, 4, 9, 16, 25, 36, 49, 64, 81, 100] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_091_linear_algebra.
 #[test]
 fn lang_doc_091_linear_algebra() {
-    check_typed("matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])", "[[19, 22], [43, 50]] (Array)");
+    check_typed(
+        "matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])",
+        "[[19, 22], [43, 50]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_092_linear_algebra.
@@ -867,13 +987,19 @@ fn lang_doc_099_shape_manipulation_and_c() {
 /// C# Lovelace.Suite.Tests/LanguageDocumentationTests.cs:23 — lang_doc_100_symbolic_mathematics.
 #[test]
 fn lang_doc_100_symbolic_mathematics() {
-    check_typed("x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)", "3*x^2 + 4*x + 5 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)",
+        "3*x^2 + 4*x + 5 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_001_1_quick_start.
 #[test]
 fn sym_doc_001_1_quick_start() {
-    check_typed("x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)", "3*x^2 + 4*x + 5 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nf = x^3 + 2*x^2 + 5*x + 7\ndiff(f, x)",
+        "3*x^2 + 4*x + 5 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_002_2_symbols_expressions_an.
@@ -885,25 +1011,37 @@ fn sym_doc_002_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_011_2_symbols_expressions_an.
 #[test]
 fn sym_doc_011_2_symbols_expressions_an() {
-    check_typed("x = symbol(\"x\")\nx^2 - 2*x + 1", "x^2 - 2*x + 1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nx^2 - 2*x + 1",
+        "x^2 - 2*x + 1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_101_18b_structured_results_t.
 #[test]
 fn sym_doc_101_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))", "SolveResult");
+    check_typed(
+        "x = symbol(\"x\")\ntype(solve_full(x^2 - 4 == 0, x))",
+        "SolveResult",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_102_18b_structured_results_t.
 #[test]
 fn sym_doc_102_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\ninspect(x^2 + 1).free_symbols", "[x] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\ninspect(x^2 + 1).free_symbols",
+        "[x] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_103_18b_structured_results_t.
 #[test]
 fn sym_doc_103_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve(x^2 + 1 == 0, x, real)", "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x^2 + 1 == 0, x, real)",
+        "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_012_2_symbols_expressions_an.
@@ -933,19 +1071,28 @@ fn sym_doc_015_3_assumptions() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_016_3_assumptions.
 #[test]
 fn sym_doc_016_3_assumptions() {
-    check_typed("x = symbol(\"x\")\nassume(x > 5)\nassumptions()", "AssumptionSet(display: x > 5, assumptions: [x > 5]) (AssumptionSet)");
+    check_typed(
+        "x = symbol(\"x\")\nassume(x > 5)\nassumptions()",
+        "AssumptionSet(display: x > 5, assumptions: [x > 5]) (AssumptionSet)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_017_3_assumptions.
 #[test]
 fn sym_doc_017_3_assumptions() {
-    check_typed("x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nassume_positive(x)\nsimplify(sqrt(x^2))",
+        "x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_018_3_assumptions.
 #[test]
 fn sym_doc_018_3_assumptions() {
-    check_typed("y = symbol(\"y\")\nsimplify(sqrt(y^2))", "sqrt(y^2) (Symbolic)");
+    check_typed(
+        "y = symbol(\"y\")\nsimplify(sqrt(y^2))",
+        "sqrt(y^2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_019_3_assumptions.
@@ -957,7 +1104,10 @@ fn sym_doc_019_3_assumptions() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_020_4_simplification.
 #[test]
 fn sym_doc_020_4_simplification() {
-    check_typed("x = symbol(\"x\")\nsimplify(sin(x)^2 + cos(x)^2)", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nsimplify(sin(x)^2 + cos(x)^2)",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_003_2_symbols_expressions_an.
@@ -969,43 +1119,64 @@ fn sym_doc_003_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_021_4_simplification.
 #[test]
 fn sym_doc_021_4_simplification() {
-    check_typed("x = symbol(\"x\")\nsimplify(exp(log(x)))", "exp(log(x)) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nsimplify(exp(log(x)))",
+        "exp(log(x)) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_022_4_simplification.
 #[test]
 fn sym_doc_022_4_simplification() {
-    check_typed("x = symbol(\"x\")\nassume(x > 0)\nsimplify(exp(log(x)))", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nassume(x > 0)\nsimplify(exp(log(x)))",
+        "x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_023_5_algebra_expand_collect.
 #[test]
 fn sym_doc_023_5_algebra_expand_collect() {
-    check_typed("x = symbol(\"x\")\nexpand((x+1)^3)", "x^3 + 3*x^2 + 3*x + 1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nexpand((x+1)^3)",
+        "x^3 + 3*x^2 + 3*x + 1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_024_5_algebra_expand_collect.
 #[test]
 fn sym_doc_024_5_algebra_expand_collect() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ncollect(x*y + x + 2, x)", "2 + x*(y + 1) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ncollect(x*y + x + 2, x)",
+        "2 + x*(y + 1) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_025_5_algebra_expand_collect.
 #[test]
 fn sym_doc_025_5_algebra_expand_collect() {
-    check_typed("x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)", "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)",
+        "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_026_5_algebra_expand_collect.
 #[test]
 fn sym_doc_026_5_algebra_expand_collect() {
-    check_typed("x = symbol(\"x\")\ncancel((x^2 - 1)/(x - 1))", "x + 1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ncancel((x^2 - 1)/(x - 1))",
+        "x + 1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_027_5_algebra_expand_collect.
 #[test]
 fn sym_doc_027_5_algebra_expand_collect() {
-    check_typed("x = symbol(\"x\")\napart(1/(x^2 - 1), x)", "-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\napart(1/(x^2 - 1), x)",
+        "-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_028_5_algebra_expand_collect.
@@ -1017,13 +1188,19 @@ fn sym_doc_028_5_algebra_expand_collect() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_029_6_differentiation.
 #[test]
 fn sym_doc_029_6_differentiation() {
-    check_typed("x = symbol(\"x\")\ndiff(x*exp(x), x)", "exp(x) + x*exp(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ndiff(x*exp(x), x)",
+        "exp(x) + x*exp(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_030_6_differentiation.
 #[test]
 fn sym_doc_030_6_differentiation() {
-    check_typed("x = symbol(\"x\")\ndiff(diff(x^4, x), x)", "12*x^2 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ndiff(diff(x^4, x), x)",
+        "12*x^2 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_004_2_symbols_expressions_an.
@@ -1035,61 +1212,91 @@ fn sym_doc_004_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_031_6_differentiation.
 #[test]
 fn sym_doc_031_6_differentiation() {
-    check_typed("x = symbol(\"x\")\ndiff(cos(x^2), x)", "-2*x*sin(x^2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ndiff(cos(x^2), x)",
+        "-2*x*sin(x^2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_032_6_differentiation.
 #[test]
 fn sym_doc_032_6_differentiation() {
-    check_error("x = symbol(\"x\")\ndiff(x^2, 3)", "diff(): argument 2 must be a symbolic variable; got Natural.");
+    check_error(
+        "x = symbol(\"x\")\ndiff(x^2, 3)",
+        "diff(): argument 2 must be a symbolic variable; got Natural.",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_033_7_vector_calculus_jacobi.
 #[test]
 fn sym_doc_033_7_vector_calculus_jacobi() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])", "[[y, x], [1, 1]] (Array)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\njacobian([x*y, x+y], [x, y])",
+        "[[y, x], [1, 1]] (Array)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_034_7_vector_calculus_jacobi.
 #[test]
 fn sym_doc_034_7_vector_calculus_jacobi() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\nhessian(x*y, [x, y])", "[[0, 1], [1, 0]] (Array)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\nhessian(x*y, [x, y])",
+        "[[0, 1], [1, 0]] (Array)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_035_8_series.
 #[test]
 fn sym_doc_035_8_series() {
-    check_typed("x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 8)", "1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 8)",
+        "1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_036_8_series.
 #[test]
 fn sym_doc_036_8_series() {
-    check_typed("x = symbol(\"x\")\nseries(exp(x), x, 0, 5)", "1 + x + 1/2*x^2 + 1/6*x^3 + 1/24*x^4 + O(x^5) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nseries(exp(x), x, 0, 5)",
+        "1 + x + 1/2*x^2 + 1/6*x^3 + 1/24*x^4 + O(x^5) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_037_9_limits.
 #[test]
 fn sym_doc_037_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)", "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(sin(x)/x, x, 0)",
+        "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_038_9_limits.
 #[test]
 fn sym_doc_038_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit((1 - cos(x))/x^2, x, 0)", "LimitResult(status: Value, exists: True, value: 1/2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit((1 - cos(x))/x^2, x, 0)",
+        "LimitResult(status: Value, exists: True, value: 1/2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_039_9_limits.
 #[test]
 fn sym_doc_039_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(1/x, x, 0)", "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(1/x, x, 0)",
+        "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_040_9_limits.
 #[test]
 fn sym_doc_040_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit_left(1/x, x, 0)", "LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit_left(1/x, x, 0)",
+        "LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_005_2_symbols_expressions_an.
@@ -1101,37 +1308,55 @@ fn sym_doc_005_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_041_9_limits.
 #[test]
 fn sym_doc_041_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit_right(1/x, x, 0)", "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit_right(1/x, x, 0)",
+        "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_042_9_limits.
 #[test]
 fn sym_doc_042_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(1/x^2, x, 0)", "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(1/x^2, x, 0)",
+        "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_043_9_limits.
 #[test]
 fn sym_doc_043_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(1/(x+1), x, inf)", "LimitResult(status: Value, exists: True, value: 0, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(1/(x+1), x, inf)",
+        "LimitResult(status: Value, exists: True, value: 0, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_044_9_limits.
 #[test]
 fn sym_doc_044_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(x^2 + 1, x, inf)", "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(x^2 + 1, x, inf)",
+        "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_045_9_limits.
 #[test]
 fn sym_doc_045_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit((2*x^2 + 1)/(x^2 - 1), x, inf)", "LimitResult(status: Value, exists: True, value: 2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit((2*x^2 + 1)/(x^2 - 1), x, inf)",
+        "LimitResult(status: Value, exists: True, value: 2, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_046_9_limits.
 #[test]
 fn sym_doc_046_9_limits() {
-    check_typed("x = symbol(\"x\")\nlimit(exp(-(x^2)), x, inf)", "LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics: [Diagnostic(code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, recoverable: True, location: , details: [])]) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit(exp(-(x^2)), x, inf)",
+        "LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics: [Diagnostic(code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, recoverable: True, location: , details: [])]) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_047_10_integration.
@@ -1149,79 +1374,118 @@ fn sym_doc_048_10_integration() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_049_10_integration.
 #[test]
 fn sym_doc_049_10_integration() {
-    check_typed("x = symbol(\"x\")\nintegrate(1/(x^2 - 1), x)", "-1/2*log(x + 1) + 1/2*log(x - 1) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate(1/(x^2 - 1), x)",
+        "-1/2*log(x + 1) + 1/2*log(x - 1) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_050_10_integration.
 #[test]
 fn sym_doc_050_10_integration() {
-    check_typed("x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)", "sin(x^2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate(2*x*cos(x^2), x)",
+        "sin(x^2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_006_2_symbols_expressions_an.
 #[test]
 fn sym_doc_006_2_symbols_expressions_an() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\n(x+y)+x", "y + 2*x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\n(x+y)+x",
+        "y + 2*x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_051_10_integration.
 #[test]
 fn sym_doc_051_10_integration() {
-    check_typed("x = symbol(\"x\")\nintegrate(exp(-(x^2)), x)", "integrate(exp(-x^2), x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate(exp(-(x^2)), x)",
+        "integrate(exp(-x^2), x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_052_10b_assumed_bounds_decid.
 #[test]
 fn sym_doc_052_10b_assumed_bounds_decid() {
-    check_typed("x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x < 5)", "False (Boolean)");
+    check_typed(
+        "x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x < 5)",
+        "False (Boolean)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_053_10b_assumed_bounds_decid.
 #[test]
 fn sym_doc_053_10b_assumed_bounds_decid() {
-    check_typed("x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x > 4)", "True (Boolean)");
+    check_typed(
+        "x = symbol(\"x\")\nassume(x >= 5)\nsimplify(x > 4)",
+        "True (Boolean)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_054_10b_assumed_bounds_decid.
 #[test]
 fn sym_doc_054_10b_assumed_bounds_decid() {
-    check_error("x = symbol(\"x\")\nassume(x > 0)\nassume(x <= 0)", "Assumption x <= 0 contradicts the existing assumptions (its negation x > 0 is provable).");
+    check_error(
+        "x = symbol(\"x\")\nassume(x > 0)\nassume(x <= 0)",
+        "Assumption x <= 0 contradicts the existing assumptions (its negation x > 0 is provable).",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_055_11_solving_equations.
 #[test]
 fn sym_doc_055_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(2*x - 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(2*x - 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_056_11_solving_equations.
 #[test]
 fn sym_doc_056_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(x^2 - 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x^2 - 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_057_11_solving_equations.
 #[test]
 fn sym_doc_057_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x^4 - 5*x^2 + 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 4, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_058_11_solving_equations.
 #[test]
 fn sym_doc_058_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(x^3 - 1 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 1/2*(i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1/2*(-i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 3, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x^3 - 1 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: 1/2*(i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1/2*(-i*sqrt(3) - 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 3, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_059_11_solving_equations.
 #[test]
 fn sym_doc_059_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(exp(x) == 5, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: log(5) + 2*k*pi*i, parameter: k, period: 2*pi*i, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(exp(x) == 5, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: log(5) + 2*k*pi*i, parameter: k, period: 2*pi*i, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_060_11_solving_equations.
 #[test]
 fn sym_doc_060_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(sin(x) == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(sin(x) == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [SolutionFamily(template: k*pi, parameter: k, period: pi, parameter_domain: integer, conditions: [], exactness: ParametricExact)], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_007_2_symbols_expressions_an.
@@ -1233,55 +1497,82 @@ fn sym_doc_007_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_061_11_solving_equations.
 #[test]
 fn sym_doc_061_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\nsolve(x + y == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -y, conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\nsolve(x + y == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -y, conditions: [1 != 0], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [1 != 0], represented_count: 1, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_063_11_solving_equations.
 #[test]
 fn sym_doc_063_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(x - x + 1 == 0, x)", "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: the equation reduces to a nonzero constant., recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(x - x + 1 == 0, x)",
+        "SolveResult(status: NoSolutions, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: the equation reduces to a nonzero constant., recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_064_11_solving_equations.
 #[test]
 fn sym_doc_064_11_solving_equations() {
-    check_typed("x = symbol(\"x\")\nsolve(exp(x) + x == 0, x)", "SolveResult(status: Unevaluated, variable: x, domain: complex, complete: False, completeness: Unknown, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.unevaluated, category: UnsupportedOperation, message: No solver for this structure., recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve(exp(x) + x == 0, x)",
+        "SolveResult(status: Unevaluated, variable: x, domain: complex, complete: False, completeness: Unknown, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.unevaluated, category: UnsupportedOperation, message: No solver for this structure., recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_065_12_symbolic_matrices.
 #[test]
 fn sym_doc_065_12_symbolic_matrices() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])", "x^2 - y (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])",
+        "x^2 - y (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_066_12_symbolic_matrices.
 #[test]
 fn sym_doc_066_12_symbolic_matrices() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ninv([[x, 1], [0, y]])", "[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Array)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ninv([[x, 1], [0, y]])",
+        "[[y/(x*y), -1/(x*y)], [0/(x*y), x/(x*y)]] (Array)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_067_12_symbolic_matrices.
 #[test]
 fn sym_doc_067_12_symbolic_matrices() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\nmatmul([[x, 1], [0, x]], [[y], [1]])", "[[1 + x*y], [x]] (Array)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\nmatmul([[x, 1], [0, x]], [[y], [1]])",
+        "[[1 + x*y], [x]] (Array)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_068_12_symbolic_matrices.
 #[test]
 fn sym_doc_068_12_symbolic_matrices() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ntrace([[x, y], [y, x]])", "2*x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ntrace([[x, y], [y, x]])",
+        "2*x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_069_12_symbolic_matrices.
 #[test]
 fn sym_doc_069_12_symbolic_matrices() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ndot([x, y], [1, 2])", "x + 2*y (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ndot([x, y], [1, 2])",
+        "x + 2*y (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_070_13_optimization_and_math.
 #[test]
 fn sym_doc_070_13_optimization_and_math() {
-    check_typed("x = symbol(\"x\")\noptimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])", "x^2*(1 + x*(3 + x*(x + 2))) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\noptimize(x^5 + 2*x^4 + 3*x^3 + x^2, [x])",
+        "x^2*(1 + x*(3 + x*(x + 2))) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_008_2_symbols_expressions_an.
@@ -1293,19 +1584,28 @@ fn sym_doc_008_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_073_14_relations_conditions_.
 #[test]
 fn sym_doc_073_14_relations_conditions_() {
-    check_typed("x = symbol(\"x\")\ncond = and(x > 0, x < 1)", "x < 1 and x > 0 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ncond = and(x > 0, x < 1)",
+        "x < 1 and x > 0 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_075_15_symbolic_matrices_ran.
 #[test]
 fn sym_doc_075_15_symbolic_matrices_ran() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\nmatrix_rank([[x, 1], [y, x]])", "2 (Integer)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\nmatrix_rank([[x, 1], [y, x]])",
+        "2 (Integer)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_077_16_compilation_and_batch.
 #[test]
 fn sym_doc_077_16_compilation_and_batch() {
-    check_typed("x = symbol(\"x\")\nk = compile(x^2 + 1, [x])\nevalir_batch(k, [1, 2, 3], 40)", "[2, 5, 10] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\nk = compile(x^2 + 1, [x])\nevalir_batch(k, [1, 2, 3], 40)",
+        "[2, 5, 10] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_078_17_substitution_and_eval.
@@ -1335,715 +1635,1072 @@ fn sym_doc_009_2_symbols_expressions_an() {
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_081_17_substitution_and_eval.
 #[test]
 fn sym_doc_081_17_substitution_and_eval() {
-    check_typed("setprecision(20)\nevalf(sqrt(2), 20)", "1.4142135623730950488 (Real)");
+    check_typed(
+        "setprecision(20)\nevalf(sqrt(2), 20)",
+        "1.4142135623730950488 (Real)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_082_17_substitution_and_eval.
 #[test]
 fn sym_doc_082_17_substitution_and_eval() {
-    check_error("x = symbol(\"x\")\nevalf(x, 20)", "No value for symbol 'x'.");
+    check_error(
+        "x = symbol(\"x\")\nevalf(x, 20)",
+        "No value for symbol 'x'.",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_083_18b_structured_results_t.
 #[test]
 fn sym_doc_083_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status", "Solved");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x).status",
+        "Solved",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_084_18b_structured_results_t.
 #[test]
 fn sym_doc_084_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).solutions", "[Solution(value: -1, conditions: [x - 1 != 0], multiplicity: 1, exactness: Exact)] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).solutions",
+        "[Solution(value: -1, conditions: [x - 1 != 0], multiplicity: 1, exactness: Exact)] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_085_18b_structured_results_t.
 #[test]
 fn sym_doc_085_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions", "[x - 1 != 0] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full((x^2 - 1)/(x - 1) == 0, x).common_conditions",
+        "[x - 1 != 0] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_086_18b_structured_results_t.
 #[test]
 fn sym_doc_086_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).status", "Partial");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).status",
+        "Partial",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_087_18b_structured_results_t.
 #[test]
 fn sym_doc_087_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).complete", "False (Boolean)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).complete",
+        "False (Boolean)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_088_18b_structured_results_t.
 #[test]
 fn sym_doc_088_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).domain", "complex (Domain)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).domain",
+        "complex (Domain)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_089_18b_structured_results_t.
 #[test]
 fn sym_doc_089_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count", "2 (Integer)");
+    check_typed(
+        "x = symbol(\"x\")\nsolve_full(x^4 - x^2 - 1 == 0, x).unrepresented_count",
+        "2 (Integer)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_090_18b_structured_results_t.
 #[test]
 fn sym_doc_090_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsimplify_full(x/x).expression", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nsimplify_full(x/x).expression",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_010_2_symbols_expressions_an.
 #[test]
 fn sym_doc_010_2_symbols_expressions_an() {
-    check_typed("x = symbol(\"x\")\nassume(x != 0)\nsimplify(x/x)", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nassume(x != 0)\nsimplify(x/x)",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_091_18b_structured_results_t.
 #[test]
 fn sym_doc_091_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsimplify_full(x/x).conditions", "[x != 0] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\nsimplify_full(x/x).conditions",
+        "[x != 0] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_092_18b_structured_results_t.
 #[test]
 fn sym_doc_092_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nsimplify_full(x/x).steps[0].rule_id", "rat.cancel-x-over-x");
+    check_typed(
+        "x = symbol(\"x\")\nsimplify_full(x/x).steps[0].rule_id",
+        "rat.cancel-x-over-x",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_093_18b_structured_results_t.
 #[test]
 fn sym_doc_093_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nlimit_full(1/x, x, 0).exists", "False (Boolean)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit_full(1/x, x, 0).exists",
+        "False (Boolean)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_094_18b_structured_results_t.
 #[test]
 fn sym_doc_094_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nlimit_full(1/x, x, 0).left", "-inf (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nlimit_full(1/x, x, 0).left",
+        "-inf (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_095_18b_structured_results_t.
 #[test]
 fn sym_doc_095_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nintegrate_full(x^2, x).status", "SolvedExact");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate_full(x^2, x).status",
+        "SolvedExact",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_096_18b_structured_results_t.
 #[test]
 fn sym_doc_096_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\nintegrate_full(x^2, x).verified", "True (Boolean)");
+    check_typed(
+        "x = symbol(\"x\")\nintegrate_full(x^2, x).verified",
+        "True (Boolean)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_097_18b_structured_results_t.
 #[test]
 fn sym_doc_097_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).mathir_version", "2 (Integer)");
+    check_typed(
+        "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).mathir_version",
+        "2 (Integer)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_098_18b_structured_results_t.
 #[test]
 fn sym_doc_098_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).parameters", "[ParameterInfo(name: x, domain: complex)] (Vector)");
+    check_typed(
+        "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).parameters",
+        "[ParameterInfo(name: x, domain: complex)] (Vector)",
+    );
 }
 
 /// C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 — sym_doc_099_18b_structured_results_t.
 #[test]
 fn sym_doc_099_18b_structured_results_t() {
-    check_typed("x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).result_domain", "complex (Domain)");
+    check_typed(
+        "x = symbol(\"x\")\ncompile_full(x^2 + 1, [x]).result_domain",
+        "complex (Domain)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_000_abs.
 #[test]
 fn descriptor_example_000_abs() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); abs(-3)", "3 (Integer)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); abs(-3)",
+        "3 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_101_prod.
 #[test]
 fn descriptor_example_101_prod() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); prod([1, 2, 3])", "6 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); prod([1, 2, 3])",
+        "6 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_102_rank.
 #[test]
 fn descriptor_example_102_rank() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); rank([[1, 2], [3, 4]])", "2 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); rank([[1, 2], [3, 4]])",
+        "2 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_103_rational.
 #[test]
 fn descriptor_example_103_rational() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"q\", rational)", "q (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"q\", rational)",
+        "q (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_104_re.
 #[test]
 fn descriptor_example_104_re() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); re(fft([0, 1, 0, 0])[1])", "0 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); re(fft([0, 1, 0, 0])[1])",
+        "0 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_105_real.
 #[test]
 fn descriptor_example_105_real() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, real)", "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, real)",
+        "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_106_reshape.
 #[test]
 fn descriptor_example_106_reshape() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); reshape([1, 2, 3, 4], 2, 2)", "[[1, 2], [3, 4]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); reshape([1, 2, 3, 4], 2, 2)",
+        "[[1, 2], [3, 4]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_109_series.
 #[test]
 fn descriptor_example_109_series() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); series(sin(x)/x, x, 0, 8)", "1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); series(sin(x)/x, x, 0, 8)",
+        "1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_111_shape.
 #[test]
 fn descriptor_example_111_shape() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); shape([[1, 2], [3, 4]])", "[2, 2] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); shape([[1, 2], [3, 4]])",
+        "[2, 2] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_112_sign.
 #[test]
 fn descriptor_example_112_sign() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sign(-7)", "-1 (Integer)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sign(-7)",
+        "-1 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_113_simplify.
 #[test]
 fn descriptor_example_113_simplify() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify(sin(x)^2 + cos(x)^2)", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify(sin(x)^2 + cos(x)^2)",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_114_simplify.
 #[test]
 fn descriptor_example_114_simplify() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify(x/x)", "x/x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify(x/x)",
+        "x/x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_115_simplify_full.
 #[test]
 fn descriptor_example_115_simplify_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify_full(x/x)", "TransformResult(status: Satisfied, original: x/x, expression: 1, changed: True, conditions: [x != 0], steps: [RewriteStep(rule_id: rat.cancel-x-over-x, classification: Conditional, before: x/x, after: 1, required_conditions: [x != 0])], budget_exceeded: False, budget_kind: , diagnostics: []) (TransformResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); simplify_full(x/x)",
+        "TransformResult(status: Satisfied, original: x/x, expression: 1, changed: True, conditions: [x != 0], steps: [RewriteStep(rule_id: rat.cancel-x-over-x, classification: Conditional, before: x/x, after: 1, required_conditions: [x != 0])], budget_exceeded: False, budget_kind: , diagnostics: []) (TransformResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_117_sin.
 #[test]
 fn descriptor_example_117_sin() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sin(x)", "sin(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sin(x)",
+        "sin(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_118_sinh.
 #[test]
 fn descriptor_example_118_sinh() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sinh(x)", "sinh(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sinh(x)",
+        "sinh(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_119_solve.
 #[test]
 fn descriptor_example_119_solve() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 - 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 - 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_120_solve.
 #[test]
 fn descriptor_example_120_solve() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, real)", "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, real)",
+        "SolveResult(status: NoSolutions, variable: x, domain: real, complete: True, completeness: Complete, solutions: [], families: [], common_conditions: [], represented_count: 0, unrepresented_count: 0, unrepresented_reason: , diagnostics: [Diagnostic(code: solve.no-solutions, category: NoSolution, message: no real solutions, recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_121_solve_full.
 #[test]
 fn descriptor_example_121_solve_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_full(x^2 - 4 == 0, x)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_full(x^2 - 4 == 0, x)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -2, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 2, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_122_solve_full.
 #[test]
 fn descriptor_example_122_solve_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_full(x^4 - x^2 - 1 == 0, x)", "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof(x^4 - x^2 - 1, 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof(x^4 - x^2 - 1, 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])]) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_full(x^4 - x^2 - 1 == 0, x)",
+        "SolveResult(status: Partial, variable: x, domain: complex, complete: False, completeness: Partial, solutions: [Solution(value: rootof(x^4 - x^2 - 1, 0), conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: rootof(x^4 - x^2 - 1, 1), conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 2, unrepresented_reason: complex algebraic roots not supported (RootOf is real-only in v1)., diagnostics: [Diagnostic(code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., recoverable: True, location: , details: [])]) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_123_solve_system.
 #[test]
 fn descriptor_example_123_solve_system() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])", "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_system([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])",
+        "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_124_solve_system_full.
 #[test]
 fn descriptor_example_124_solve_system_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])", "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve_system_full([x^2 + y^2 - 1 == 0, x*y == 0], [x, y])",
+        "SystemSolveResult(status: Solved, domain: complex, complete: True, completeness: Complete, solutions: [SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: -1)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: -1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 1), Binding(name: y, value: 0)], conditions: [], exactness: Exact), SystemSolution(bindings: [Binding(name: x, value: 0), Binding(name: y, value: 1)], conditions: [], exactness: Exact)], diagnostics: []) (SystemSolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_125_sqrt.
 #[test]
 fn descriptor_example_125_sqrt() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sqrt(4)", "2 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sqrt(4)",
+        "2 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_126_sqrt.
 #[test]
 fn descriptor_example_126_sqrt() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sqrt(x)", "sqrt(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sqrt(x)",
+        "sqrt(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_129_subs.
 #[test]
 fn descriptor_example_129_subs() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); subs(x^2 + 1, x, 3)", "10 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); subs(x^2 + 1, x, 3)",
+        "10 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_130_sum.
 #[test]
 fn descriptor_example_130_sum() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sum([1, 2, 3])", "6 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); sum([1, 2, 3])",
+        "6 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_131_symbol.
 #[test]
 fn descriptor_example_131_symbol() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"x\")", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"x\")",
+        "x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_132_symbol.
 #[test]
 fn descriptor_example_132_symbol() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"x\", real)", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"x\", real)",
+        "x (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_133_tan.
 #[test]
 fn descriptor_example_133_tan() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); tan(x)", "tan(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); tan(x)",
+        "tan(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_134_tanh.
 #[test]
 fn descriptor_example_134_tanh() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); tanh(x)", "tanh(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); tanh(x)",
+        "tanh(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_135_trace.
 #[test]
 fn descriptor_example_135_trace() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); trace([[1, 2], [3, 4]])", "5 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); trace([[1, 2], [3, 4]])",
+        "5 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_136_transpose.
 #[test]
 fn descriptor_example_136_transpose() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); transpose([[1, 2], [3, 4]])", "[[1, 3], [2, 4]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); transpose([[1, 2], [3, 4]])",
+        "[[1, 3], [2, 4]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_137_type.
 #[test]
 fn descriptor_example_137_type() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); type(42)", "Natural");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); type(42)",
+        "Natural",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_138_type.
 #[test]
 fn descriptor_example_138_type() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); type(solve_full(x^2 - 4 == 0, x))", "SolveResult");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); type(solve_full(x^2 - 4 == 0, x))",
+        "SolveResult",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_139_zeros.
 #[test]
 fn descriptor_example_139_zeros() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); zeros(3)", "[0, 0, 0] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); zeros(3)",
+        "[0, 0, 0] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_140_zeros.
 #[test]
 fn descriptor_example_140_zeros() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); zeros(2, 2)", "[[0, 0], [0, 0]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); zeros(2, 2)",
+        "[[0, 0], [0, 0]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_017_assumptions.
 #[test]
 fn descriptor_example_017_assumptions() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assumptions()", "AssumptionSet(display: , assumptions: []) (AssumptionSet)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assumptions()",
+        "AssumptionSet(display: , assumptions: []) (AssumptionSet)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_018_atan.
 #[test]
 fn descriptor_example_018_atan() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); atan(x)", "atan(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); atan(x)",
+        "atan(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_002_acos.
 #[test]
 fn descriptor_example_002_acos() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); acos(x)", "acos(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); acos(x)",
+        "acos(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_020_cancel.
 #[test]
 fn descriptor_example_020_cancel() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cancel((x^2 - 1)/(x - 1))", "x + 1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cancel((x^2 - 1)/(x - 1))",
+        "x + 1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_023_capabilities.
 #[test]
 fn descriptor_example_023_capabilities() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); capabilities()", "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent-of-a-positive-base, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2), scope: Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3), scope: Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer), scope: ), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x), scope: ), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf), scope: ), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: ), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x)), scope: ), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2]), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x), scope: ), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1), scope: ), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1), scope: ), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0), scope: ), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3]), scope: ), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b), scope: ), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]), scope: ), UnsupportedCapability(operation_class: solve.unevaluated-in-record-diagnostics, code: solve.unevaluated, category: UnsupportedOperation, message: 0 = 0: every value is a solution., trigger: x = symbol(\"x\"); solve_full(x == x, x), scope: ), UnsupportedCapability(operation_class: system-solve.unevaluated-in-record-diagnostics, code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., trigger: x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y]), scope: ), UnsupportedCapability(operation_class: integration.no-closed-form-in-record-diagnostics, code: integration.no-closed-form, category: UnsupportedOperation, message: no integration tier produced a candidate closed form for integrate(exp(x^2), x), trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: )], exactness: BestEffort) (CapabilitiesResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); capabilities()",
+        "CapabilitiesResult(solve_domains_accepted: [real, complex], solve_domains_refused: [integer, rational], unsupported_operations: [UnsupportedCapability(operation_class: pow.non-integer-exponent-of-a-positive-base, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: 2^(1/2), scope: Refused for a POSITIVE base: 2^(1/2), 4^(1/2), 9^(1/2), 0.5^(1/2) and 2^(-1/2) all fail. The message is the kernel's own and is wider than the refusal: an exact NEGATIVE base under the principal square root IS supported — (-4)^(1/2) = 2*i, (-9)^(1/2) = 3*i, (-2)^(1/2) = i*sqrt(2) — and a ZERO base is supported too (0^(1/2) = 0).), UnsupportedCapability(operation_class: pow.negative-base-unrepresentable-exponent, code: UnsupportedOperation, category: UnsupportedOperation, message: Non-integer exponents are not yet supported., trigger: (-8)^(1/3), scope: Refused for a NEGATIVE base with any non-integer exponent OTHER than the principal square root: (-8)^(1/3), (-4)^(1/4), (-4)^(2/3), (-4)^(3/2) and (-4)^(-1/2) all fail, while (-4)^(1/2) is supported (the entry above).), UnsupportedCapability(operation_class: solve.unsupported-domain, code: InvalidOperation, category: DomainError, message: solve(): currently supports domains real and complex; got integer., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, x, integer), scope: ), UnsupportedCapability(operation_class: rootof.complex-algebraic, code: solve.unrepresented-roots, category: UnsupportedOperation, message: complex algebraic roots not supported (RootOf is real-only in v1)., trigger: x = symbol(\"x\"); solve_full(x^4 - x^2 - 1 == 0, x), scope: ), UnsupportedCapability(operation_class: limit.unevaluated-in-record-diagnostics, code: limit.unevaluated, category: UnsupportedOperation, message: coefficient does not evaluate at the point, trigger: x = symbol(\"x\"); limit_full(sin(x), x, inf), scope: ), UnsupportedCapability(operation_class: integration.unevaluated-in-record-diagnostics, code: integration.unevaluated, category: UnsupportedOperation, message: No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details., trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: ), UnsupportedCapability(operation_class: plot.symbolic-expression, code: InvalidOperation, category: DomainError, message: plot() argument 1 must be a vector, but got 'Symbolic'., trigger: x = symbol(\"x\"); plot(sin(x)), scope: ), UnsupportedCapability(operation_class: plot.symbolic-element, code: InvalidOperation, category: DomainError, message: Cannot convert value of kind 'Symbolic' to a number for plotting., trigger: x = symbol(\"x\"); plot([x, 1, 2]), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: solve(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); solve(x^2 - 2 == 0, 1), scope: ), UnsupportedCapability(operation_class: solve.non-symbolic-expression, code: InvalidOperation, category: DomainError, message: solve(): argument 1 must be a symbolic expression; got Vector., trigger: x = symbol(\"x\"); solve([x == 1], x), scope: ), UnsupportedCapability(operation_class: diff.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: diff(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); diff(x^2, 1), scope: ), UnsupportedCapability(operation_class: integrate.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: integrate(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); integrate(x^2, 1), scope: ), UnsupportedCapability(operation_class: limit.non-symbolic-variable, code: InvalidOperation, category: DomainError, message: limit(): argument 2 must be a symbolic variable; got Natural., trigger: x = symbol(\"x\"); limit(sin(x), 1, 0), scope: ), UnsupportedCapability(operation_class: dsp.symbolic-element, code: InvalidOperation, category: DomainError, message: DSP builtins expect numeric/complex elements, but got 'SymbolExpr'., trigger: x = symbol(\"x\"); dft([x, 1, 2, 3]), scope: ), UnsupportedCapability(operation_class: linsolve.non-symbolic-matrix, code: InvalidOperation, category: DomainError, message: linsolve() requires a symbolic matrix A., trigger: A = [[1,2],[2,4]]; b = [[1],[3]]; linsolve(A, b), scope: ), UnsupportedCapability(operation_class: fft.non-power-of-two-length, code: InvalidArgument, category: TypeMismatch, message: FFT length must be a power of two, but got 3. (Parameter 'x'), trigger: x = symbol(\"x\"); fft([1,2,3]), scope: ), UnsupportedCapability(operation_class: solve.unevaluated-in-record-diagnostics, code: solve.unevaluated, category: UnsupportedOperation, message: 0 = 0: every value is a solution., trigger: x = symbol(\"x\"); solve_full(x == x, x), scope: ), UnsupportedCapability(operation_class: system-solve.unevaluated-in-record-diagnostics, code: system-solve.unevaluated, category: UnsupportedOperation, message: system-solve.elimination-incomplete: the Gröbner basis has no polynomial in y alone, so the values of y are not enumerated here., trigger: x = symbol(\"x\"); y = symbol(\"y\"); solve_system_full([x + y == 1], [x, y]), scope: ), UnsupportedCapability(operation_class: integration.no-closed-form-in-record-diagnostics, code: integration.no-closed-form, category: UnsupportedOperation, message: no integration tier produced a candidate closed form for integrate(exp(x^2), x), trigger: x = symbol(\"x\"); integrate_full(exp(x^2), x), scope: )], exactness: BestEffort) (CapabilitiesResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_026_compile_full.
 #[test]
 fn descriptor_example_026_compile_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); compile_full(x^2 + 1, [x])", "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: []) (CompilationResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); compile_full(x^2 + 1, [x])",
+        "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: []) (CompilationResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_027_complex.
 #[test]
 fn descriptor_example_027_complex() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, complex)", "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: i, conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: -i, conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); solve(x^2 + 1 == 0, x, complex)",
+        "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: i, conditions: [], multiplicity: 1, exactness: AlgebraicExact), Solution(value: -i, conditions: [], multiplicity: 1, exactness: AlgebraicExact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: []) (SolveResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_028_concat.
 #[test]
 fn descriptor_example_028_concat() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); concat([1, 2], [3, 4])", "[1, 2, 3, 4] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); concat([1, 2], [3, 4])",
+        "[1, 2, 3, 4] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_030_conv.
 #[test]
 fn descriptor_example_030_conv() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); conv([1, 2], [1, 1])", "[1, 3, 2] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); conv([1, 2], [1, 1])",
+        "[1, 3, 2] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_031_cos.
 #[test]
 fn descriptor_example_031_cos() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cos(x)", "cos(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cos(x)",
+        "cos(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_032_cosh.
 #[test]
 fn descriptor_example_032_cosh() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cosh(x)", "cosh(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cosh(x)",
+        "cosh(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_034_cross.
 #[test]
 fn descriptor_example_034_cross() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cross([1, 0, 0], [0, 1, 0])", "[0, 0, 1] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); cross([1, 0, 0], [0, 1, 0])",
+        "[0, 0, 1] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_036_det.
 #[test]
 fn descriptor_example_036_det() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); det([[1, 2], [3, 4]])", "-2 (Integer)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); det([[1, 2], [3, 4]])",
+        "-2 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_037_det.
 #[test]
 fn descriptor_example_037_det() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); det([[x, 1], [y, x]])", "x^2 - y (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); det([[x, 1], [y, x]])",
+        "x^2 - y (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_038_dft.
 #[test]
 fn descriptor_example_038_dft() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); dft([0, 1, 0, 0])", "[1, -1i, -1, 1i] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); dft([0, 1, 0, 0])",
+        "[1, -1i, -1, 1i] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_039_diff.
 #[test]
 fn descriptor_example_039_diff() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); diff(x^3 + 2*x^2 + 5*x + 7, x)", "3*x^2 + 4*x + 5 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); diff(x^3 + 2*x^2 + 5*x + 7, x)",
+        "3*x^2 + 4*x + 5 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_004_and.
 #[test]
 fn descriptor_example_004_and() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 0); and(x > 0, x < 1)", "x < 1 and x > 0 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 0); and(x > 0, x < 1)",
+        "x < 1 and x > 0 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_040_divrem.
 #[test]
 fn descriptor_example_040_divrem() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); divrem(17, 5)", "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); divrem(17, 5)",
+        "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_041_dot.
 #[test]
 fn descriptor_example_041_dot() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); dot([1, 2], [3, 4])", "11 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); dot([1, 2], [3, 4])",
+        "11 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_043_evalf.
 #[test]
 fn descriptor_example_043_evalf() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalf(sqrt(2), 30)", "1.414213562373095048801688724209 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalf(sqrt(2), 30)",
+        "1.414213562373095048801688724209 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_044_evalf.
 #[test]
 fn descriptor_example_044_evalf() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalf(1/3, 30)", "0.333333333333333333333333333333 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalf(1/3, 30)",
+        "0.333333333333333333333333333333 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_045_evalir.
 #[test]
 fn descriptor_example_045_evalir() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalir(compile(x^2 + 1, [x]), [3], 40)", "10 (Integer)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); evalir(compile(x^2 + 1, [x]), [3], 40)",
+        "10 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_046_evalir_batch.
 #[test]
 fn descriptor_example_046_evalir_batch() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)", "[2, 5, 10] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)",
+        "[2, 5, 10] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_047_exp.
 #[test]
 fn descriptor_example_047_exp() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); exp(x)", "exp(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); exp(x)",
+        "exp(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_048_expand.
 #[test]
 fn descriptor_example_048_expand() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); expand((x+1)^3)", "x^3 + 3*x^2 + 3*x + 1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); expand((x+1)^3)",
+        "x^3 + 3*x^2 + 3*x + 1 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_005_apart.
 #[test]
 fn descriptor_example_005_apart() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); apart(1/(x^2 - 1), x)", "-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); apart(1/(x^2 - 1), x)",
+        "-1/2/(x + 1) + 1/2/(x - 1) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_050_eye.
 #[test]
 fn descriptor_example_050_eye() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); eye(3)", "[[1, 0, 0], [0, 1, 0], [0, 0, 1]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); eye(3)",
+        "[[1, 0, 0], [0, 1, 0], [0, 0, 1]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_051_factor.
 #[test]
 fn descriptor_example_051_factor() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); factor(x^4 - 5*x^2 + 4)", "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); factor(x^4 - 5*x^2 + 4)",
+        "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_052_fft.
 #[test]
 fn descriptor_example_052_fft() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); fft([0, 1, 0, 0])", "[1, -1i, -1, 1i] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); fft([0, 1, 0, 0])",
+        "[1, -1i, -1, 1i] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_054_flatten.
 #[test]
 fn descriptor_example_054_flatten() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); flatten([[1, 2], [3, 4]])", "[1, 2, 3, 4] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); flatten([[1, 2], [3, 4]])",
+        "[1, 2, 3, 4] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_055_hessian.
 #[test]
 fn descriptor_example_055_hessian() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); hessian(x*y, [x, y])", "[[0, 1], [1, 0]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); hessian(x*y, [x, y])",
+        "[[0, 1], [1, 0]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_056_im.
 #[test]
 fn descriptor_example_056_im() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); im(fft([0, 1, 0, 0])[1])", "-1 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); im(fft([0, 1, 0, 0])[1])",
+        "-1 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_058_inf.
 #[test]
 fn descriptor_example_058_inf() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inf", "inf (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inf",
+        "inf (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_059_inspect.
 #[test]
 fn descriptor_example_059_inspect() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inspect(x^2 + 1)", "Inspection(type: Symbolic, domain: complex, exact: True, free_symbols: [x], node_count: 5, canonical: (add (rat 1 1) (pow (sym x) (rat 2 1))), pretty: x^2 + 1, shape: , rank: , element_domain: complex, assumptions: [], members: ) (Inspection)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inspect(x^2 + 1)",
+        "Inspection(type: Symbolic, domain: complex, exact: True, free_symbols: [x], node_count: 5, canonical: (add (rat 1 1) (pow (sym x) (rat 2 1))), pretty: x^2 + 1, shape: , rank: , element_domain: complex, assumptions: [], members: ) (Inspection)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_006_append.
 #[test]
 fn descriptor_example_006_append() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); append([1, 2], [3])", "[1, 2, 3] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); append([1, 2], [3])",
+        "[1, 2, 3] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_060_integer.
 #[test]
 fn descriptor_example_060_integer() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"n\", integer)", "n (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); symbol(\"n\", integer)",
+        "n (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_061_integrate.
 #[test]
 fn descriptor_example_061_integrate() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); integrate(2*x*cos(x^2), x)", "sin(x^2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); integrate(2*x*cos(x^2), x)",
+        "sin(x^2) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_062_integrate_full.
 #[test]
 fn descriptor_example_062_integrate_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); integrate_full(x^2, x)", "IntegrationResult(status: SolvedExact, expression: 1/3*x^3, conditions: [], verified: True, method: table, verification_method: differentiation+expansion, exactness: Exact, diagnostics: []) (IntegrationResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); integrate_full(x^2, x)",
+        "IntegrationResult(status: SolvedExact, expression: 1/3*x^3, conditions: [], verified: True, method: table, verification_method: differentiation+expansion, exactness: Exact, diagnostics: []) (IntegrationResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_063_inv.
 #[test]
 fn descriptor_example_063_inv() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inv(2)", "0.5 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inv(2)",
+        "0.5 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_064_inv.
 #[test]
 fn descriptor_example_064_inv() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inv([[1, 2], [3, 4]])", "[[-2, 1], [1.5, -0.5]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); inv([[1, 2], [3, 4]])",
+        "[[-2, 1], [1.5, -0.5]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_066_is_even.
 #[test]
 fn descriptor_example_066_is_even() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); is_even(4)", "True (Boolean)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); is_even(4)",
+        "True (Boolean)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_067_is_odd.
 #[test]
 fn descriptor_example_067_is_odd() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); is_odd(4)", "False (Boolean)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); is_odd(4)",
+        "False (Boolean)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_068_jacobian.
 #[test]
 fn descriptor_example_068_jacobian() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); jacobian([x*y, x+y], [x, y])", "[[y, x], [1, 1]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); jacobian([x*y, x+y], [x, y])",
+        "[[y, x], [1, 1]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_007_asin.
 #[test]
 fn descriptor_example_007_asin() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); asin(x)", "asin(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); asin(x)",
+        "asin(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_070_len.
 #[test]
 fn descriptor_example_070_len() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); len([1, 2, 3])", "3 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); len([1, 2, 3])",
+        "3 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_071_limit.
 #[test]
 fn descriptor_example_071_limit() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit(sin(x)/x, x, 0)", "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit(sin(x)/x, x, 0)",
+        "LimitResult(status: Value, exists: True, value: 1, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_072_limit.
 #[test]
 fn descriptor_example_072_limit() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit(1/x, x, 0)", "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit(1/x, x, 0)",
+        "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_073_limit_full.
 #[test]
 fn descriptor_example_073_limit_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_full(1/x, x, 0)", "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_full(1/x, x, 0)",
+        "LimitResult(status: DoesNotExist, exists: False, value: , left: -inf, left_conditions: [x < 0], right: inf, right_conditions: [x > 0], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_074_limit_left.
 #[test]
 fn descriptor_example_074_limit_left() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_left(1/x, x, 0)", "LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_left(1/x, x, 0)",
+        "LimitResult(status: MinusInfinity, exists: True, value: -inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_075_limit_right.
 #[test]
 fn descriptor_example_075_limit_right() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_right(1/x, x, 0)", "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); limit_right(1/x, x, 0)",
+        "LimitResult(status: PlusInfinity, exists: True, value: inf, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: Exact, diagnostics: []) (LimitResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_078_log.
 #[test]
 fn descriptor_example_078_log() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); log(x)", "log(x) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); log(x)",
+        "log(x) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_079_lower.
 #[test]
 fn descriptor_example_079_lower() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); lower(x^2 + 1, [x])", "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); lower(x^2 + 1, [x])",
+        "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_080_matmul.
 #[test]
 fn descriptor_example_080_matmul() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); matmul([[1, 2], [3, 4]], [[5], [6]])", "[[17], [39]] (Array)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); matmul([[1, 2], [3, 4]], [[5], [6]])",
+        "[[17], [39]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_081_matrix_rank.
 #[test]
 fn descriptor_example_081_matrix_rank() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); matrix_rank([[x, 1], [1, x]])", "2 (Integer)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); matrix_rank([[x, 1], [1, x]])",
+        "2 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_082_max.
 #[test]
 fn descriptor_example_082_max() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); max([3, 1, 2])", "3 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); max([3, 1, 2])",
+        "3 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_084_min.
 #[test]
 fn descriptor_example_084_min() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); min([3, 1, 2])", "1 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); min([3, 1, 2])",
+        "1 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_088_norm.
 #[test]
 fn descriptor_example_088_norm() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); norm([3, 4])", "5 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); norm([3, 4])",
+        "5 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_089_not.
 #[test]
 fn descriptor_example_089_not() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); not(x > 0)", "not x > 0 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); not(x > 0)",
+        "not x > 0 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_009_assume.
 #[test]
 fn descriptor_example_009_assume() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 5)", "x > 5 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 5)",
+        "x > 5 (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_090_numel.
 #[test]
 fn descriptor_example_090_numel() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); numel([[1, 2], [3, 4]])", "4 (Natural)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); numel([[1, 2], [3, 4]])",
+        "4 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_091_ones.
 #[test]
 fn descriptor_example_091_ones() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); ones(3)", "[1, 1, 1] (Vector)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); ones(3)",
+        "[1, 1, 1] (Vector)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_092_optimize.
 #[test]
 fn descriptor_example_092_optimize() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); optimize(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])", "1 + x*(1 + x*(1 + x*(3 + x*(x + 2)))) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); optimize(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])",
+        "1 + x*(1 + x*(1 + x*(3 + x*(x + 2)))) (Symbolic)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_093_optimize_full.
 #[test]
 fn descriptor_example_093_optimize_full() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); optimize_full(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])", "OptimizationResult(original: x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, optimized: 1 + x*(1 + x*(1 + x*(3 + x*(x + 2)))), estimated_cost_before: 19, estimated_cost_after: 19, shared_subtrees: 6, horner_rewrites: 1, transformations: [cse, horner], target: mathir, policy: cse+horner+precision-aware, diagnostics: []) (OptimizationResult)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); optimize_full(x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, [x])",
+        "OptimizationResult(original: x^5 + 2*x^4 + 3*x^3 + x^2 + x + 1, optimized: 1 + x*(1 + x*(1 + x*(3 + x*(x + 2)))), estimated_cost_before: 19, estimated_cost_after: 19, shared_subtrees: 6, horner_rewrites: 1, transformations: [cse, horner], target: mathir, policy: cse+horner+precision-aware, diagnostics: []) (OptimizationResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_096_pi.
 #[test]
 fn descriptor_example_096_pi() {
-    check_typed("x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); pi(50)", "3.14159265358979323846264338327950288419716939937510 (Real)");
+    check_typed(
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); pi(50)",
+        "3.14159265358979323846264338327950288419716939937510 (Real)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:58 — structured_quotient_000.
@@ -2469,19 +3126,31 @@ fn structured_terminating_015() {
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_016.
 #[test]
 fn structured_terminating_016() {
-    check_rational_payload("setprecision(5); 1/100000000000000000000", "1", "100000000000000000000");
+    check_rational_payload(
+        "setprecision(5); 1/100000000000000000000",
+        "1",
+        "100000000000000000000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_017.
 #[test]
 fn structured_terminating_017() {
-    check_rational_payload("setprecision(5); 1/18446744073709551616", "1", "18446744073709551616");
+    check_rational_payload(
+        "setprecision(5); 1/18446744073709551616",
+        "1",
+        "18446744073709551616",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_018.
 #[test]
 fn structured_terminating_018() {
-    check_rational_payload("setprecision(5); 1/542101086242752217003726400434970855712890625", "1", "542101086242752217003726400434970855712890625");
+    check_rational_payload(
+        "setprecision(5); 1/542101086242752217003726400434970855712890625",
+        "1",
+        "542101086242752217003726400434970855712890625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_002.
@@ -2529,19 +3198,31 @@ fn structured_terminating_025() {
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_026.
 #[test]
 fn structured_terminating_026() {
-    check_rational_payload("setprecision(18); 1/100000000000000000000", "1", "100000000000000000000");
+    check_rational_payload(
+        "setprecision(18); 1/100000000000000000000",
+        "1",
+        "100000000000000000000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_027.
 #[test]
 fn structured_terminating_027() {
-    check_rational_payload("setprecision(18); 1/18446744073709551616", "1", "18446744073709551616");
+    check_rational_payload(
+        "setprecision(18); 1/18446744073709551616",
+        "1",
+        "18446744073709551616",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_028.
 #[test]
 fn structured_terminating_028() {
-    check_rational_payload("setprecision(18); 1/542101086242752217003726400434970855712890625", "1", "542101086242752217003726400434970855712890625");
+    check_rational_payload(
+        "setprecision(18); 1/542101086242752217003726400434970855712890625",
+        "1",
+        "542101086242752217003726400434970855712890625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_003.
@@ -2589,19 +3270,31 @@ fn structured_terminating_035() {
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_036.
 #[test]
 fn structured_terminating_036() {
-    check_rational_payload("setprecision(30); 1/100000000000000000000", "1", "100000000000000000000");
+    check_rational_payload(
+        "setprecision(30); 1/100000000000000000000",
+        "1",
+        "100000000000000000000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_037.
 #[test]
 fn structured_terminating_037() {
-    check_rational_payload("setprecision(30); 1/18446744073709551616", "1", "18446744073709551616");
+    check_rational_payload(
+        "setprecision(30); 1/18446744073709551616",
+        "1",
+        "18446744073709551616",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_038.
 #[test]
 fn structured_terminating_038() {
-    check_rational_payload("setprecision(30); 1/542101086242752217003726400434970855712890625", "1", "542101086242752217003726400434970855712890625");
+    check_rational_payload(
+        "setprecision(30); 1/542101086242752217003726400434970855712890625",
+        "1",
+        "542101086242752217003726400434970855712890625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_004.
@@ -2643,31 +3336,51 @@ fn structured_terminating_044() {
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_045.
 #[test]
 fn structured_terminating_045() {
-    check_rational_payload("setprecision(1000); 1/95367431640625", "1", "95367431640625");
+    check_rational_payload(
+        "setprecision(1000); 1/95367431640625",
+        "1",
+        "95367431640625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_046.
 #[test]
 fn structured_terminating_046() {
-    check_rational_payload("setprecision(1000); 1/100000000000000000000", "1", "100000000000000000000");
+    check_rational_payload(
+        "setprecision(1000); 1/100000000000000000000",
+        "1",
+        "100000000000000000000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_047.
 #[test]
 fn structured_terminating_047() {
-    check_rational_payload("setprecision(1000); 1/18446744073709551616", "1", "18446744073709551616");
+    check_rational_payload(
+        "setprecision(1000); 1/18446744073709551616",
+        "1",
+        "18446744073709551616",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_048.
 #[test]
 fn structured_terminating_048() {
-    check_rational_payload("setprecision(1000); 1/542101086242752217003726400434970855712890625", "1", "542101086242752217003726400434970855712890625");
+    check_rational_payload(
+        "setprecision(1000); 1/542101086242752217003726400434970855712890625",
+        "1",
+        "542101086242752217003726400434970855712890625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_049.
 #[test]
 fn structured_terminating_049() {
-    check_rational_payload("setprecision(1000); 1/158456325028528675187087900672000", "1", "158456325028528675187087900672000");
+    check_rational_payload(
+        "setprecision(1000); 1/158456325028528675187087900672000",
+        "1",
+        "158456325028528675187087900672000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_005.
@@ -2679,19 +3392,31 @@ fn structured_terminating_005() {
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_006.
 #[test]
 fn structured_terminating_006() {
-    check_rational_payload("setprecision(1); 1/100000000000000000000", "1", "100000000000000000000");
+    check_rational_payload(
+        "setprecision(1); 1/100000000000000000000",
+        "1",
+        "100000000000000000000",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_007.
 #[test]
 fn structured_terminating_007() {
-    check_rational_payload("setprecision(1); 1/18446744073709551616", "1", "18446744073709551616");
+    check_rational_payload(
+        "setprecision(1); 1/18446744073709551616",
+        "1",
+        "18446744073709551616",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:86 — structured_terminating_008.
 #[test]
 fn structured_terminating_008() {
-    check_rational_payload("setprecision(1); 1/542101086242752217003726400434970855712890625", "1", "542101086242752217003726400434970855712890625");
+    check_rational_payload(
+        "setprecision(1); 1/542101086242752217003726400434970855712890625",
+        "1",
+        "542101086242752217003726400434970855712890625",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:172 — structured_irrational_002.
@@ -2728,7 +3453,10 @@ fn arraytests_givenpartialindex_returnslowerrank() {
 /// C# Lovelace.Suite.Tests/ArrayTests.cs:61 — GivenFullIndex_ReturnsElement.
 #[test]
 fn arraytests_givenfullindex_returnselement() {
-    check_typed("[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][1, 0, 1]", "6 (Natural)");
+    check_typed(
+        "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]][1, 0, 1]",
+        "6 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/ArrayTests.cs:79 — Zeros_ProducesRequestedShape.
@@ -2792,7 +3520,10 @@ fn arraytests_norm_euclidean() {
 /// C# Lovelace.Suite.Tests/ArrayTests.cs:142 — MatMul_2x2.
 #[test]
 fn arraytests_matmul_2x2() {
-    check_typed("matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])", "[[19, 22], [43, 50]] (Array)");
+    check_typed(
+        "matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]])",
+        "[[19, 22], [43, 50]] (Array)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/ArrayTests.cs:147 — Dot_InnerProduct.
@@ -2859,19 +3590,28 @@ fn statementtests_evaluate_givenwhileloop_accumulatescount() {
 /// C# Lovelace.Suite.Tests/StatementTests.cs:54 — Evaluate_GivenForRange_IteratesInclusiveBounds.
 #[test]
 fn statementtests_evaluate_givenforrange_iteratesinclusive() {
-    check_typed("sum = 0; for i in 1..4 { sum = sum + i }; sum", "10 (Natural)");
+    check_typed(
+        "sum = 0; for i in 1..4 { sum = sum + i }; sum",
+        "10 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StatementTests.cs:64 — Evaluate_GivenForBreak_StopsEarly.
 #[test]
 fn statementtests_evaluate_givenforbreak_stopsearly() {
-    check_typed("n = 0; for i in 1..10 { n = i; if (i == 3) { break } }; n", "3 (Natural)");
+    check_typed(
+        "n = 0; for i in 1..10 { n = i; if (i == 3) { break } }; n",
+        "3 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StatementTests.cs:74 — Evaluate_GivenForContinue_SkipsElement.
 #[test]
 fn statementtests_evaluate_givenforcontinue_skipselement() {
-    check_typed("sum = 0; for i in 1..5 { if (i == 3) { continue }; sum = sum + i }; sum", "12 (Natural)");
+    check_typed(
+        "sum = 0; for i in 1..5 { if (i == 3) { continue }; sum = sum + i }; sum",
+        "12 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/StatementTests.cs:85 — Evaluate_GivenReturnAtTopLevel_ReturnsValue.
@@ -2917,14 +3657,23 @@ fn functiontests_evaluate_givenblockbodiedfunction_return() {
 /// C# Lovelace.Suite.Tests/FunctionTests.cs:33 — Evaluate_GivenExplicitReturn_ReturnsEarly.
 #[test]
 fn functiontests_evaluate_givenexplicitreturn_returnsearl() {
-    check_typed("func f(x) { if (x > 0) { return 1 }; return -1 }; f(5)", "1 (Natural)");
-    check_typed("func f(x) { if (x > 0) { return 1 }; return -1 }; f(-5)", "-1 (Integer)");
+    check_typed(
+        "func f(x) { if (x > 0) { return 1 }; return -1 }; f(5)",
+        "1 (Natural)",
+    );
+    check_typed(
+        "func f(x) { if (x > 0) { return 1 }; return -1 }; f(-5)",
+        "-1 (Integer)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/FunctionTests.cs:44 — Evaluate_GivenRecursiveFunction_ComputesFactorial.
 #[test]
 fn functiontests_evaluate_givenrecursivefunction_computes() {
-    check_typed("func fact(n) { if (n == 0) { return 1 }; n * fact(n - 1) }; fact(6)", "720 (Natural)");
+    check_typed(
+        "func fact(n) { if (n == 0) { return 1 }; n * fact(n - 1) }; fact(6)",
+        "720 (Natural)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/InterpolationPrintTests.cs:9 — Evaluate_GivenInterpolatedString_FormatsEmbeddedExpression.
@@ -3322,13 +4071,19 @@ fn interpreterbuiltinisevenisoddtests_evaluate_givenisoddofoddnegativeinteger_()
 /// C# Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs:43 — Evaluate_GivenDivRemOfNaturals_ReturnsAStructuredRecord.
 #[test]
 fn interpreterbuiltindivremtests_evaluate_givendivremofnaturals_returnsas() {
-    check_typed("divrem(17, 5)", "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)");
+    check_typed(
+        "divrem(17, 5)",
+        "DivRemResult(quotient: 3, remainder: 2) (DivRemResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/InterpreterBuiltinDivRemTests.cs:64 — Evaluate_GivenDivRemWithANegativeDividend_KeepsTheTruncatedSigns.
 #[test]
 fn interpreterbuiltindivremtests_evaluate_givendivremwithanegativedividen() {
-    check_typed("divrem(-17, 5)", "DivRemResult(quotient: -3, remainder: -2) (DivRemResult)");
+    check_typed(
+        "divrem(-17, 5)",
+        "DivRemResult(quotient: -3, remainder: -2) (DivRemResult)",
+    );
 }
 
 /// C# Lovelace.Suite.Tests/InterpreterBinaryArithmeticTests.cs:26 — Evaluate_GivenNaturalPlusNatural_ReturnsNatural.
@@ -3421,7 +4176,7 @@ fn interpreterbuiltinpitests_evaluate_givenpiwithnoarguments_returnsr() {
 // Each test names the C# case it ports; the C# assertion is the contract.
 // ===========================================================================
 
-use crate::syntax::{tokenize, Expr, Parser};
+use crate::syntax::{Expr, Parser, tokenize};
 
 /// The engine's untyped rendering, which is what the C# `FormatValue` contract asserts.
 fn r12_display(script: &str) -> String {
@@ -3443,7 +4198,10 @@ fn r12_value(script: &str) -> crate::Value {
 fn r12_err(script: &str) -> crate::LangError {
     let mut e = engine();
     match e.eval(script) {
-        Ok(v) => panic!("script: {script} was expected to fail but produced {}", e.format_typed(&v)),
+        Ok(v) => panic!(
+            "script: {script} was expected to fail but produced {}",
+            e.format_typed(&v)
+        ),
         Err(err) => err,
     }
 }
@@ -3553,8 +4311,14 @@ fn signprecedencetests_parse_negatedpower_signwrapsthepower() {
     match expr {
         Expr::Neg(inner) => match *inner {
             Expr::Binary(crate::syntax::BinOp::Pow, left, right) => {
-                assert!(matches!(*left, Expr::Var(ref n, _) if n == "x"), "left is not x");
-                assert!(matches!(*right, Expr::Number(ref t) if t == "2"), "right is not 2");
+                assert!(
+                    matches!(*left, Expr::Var(ref n, _) if n == "x"),
+                    "left is not x"
+                );
+                assert!(
+                    matches!(*right, Expr::Number(ref t) if t == "2"),
+                    "right is not 2"
+                );
             }
             other => panic!("operand is not a power: {other:?}"),
         },
@@ -3569,7 +4333,10 @@ fn signprecedencetests_parse_parenthesisednegatedbase_powerappliestothenegation(
     let expr = Parser::new(toks).single_expression().expect("parses");
     match expr {
         Expr::Binary(crate::syntax::BinOp::Pow, left, _) => {
-            assert!(matches!(*left, Expr::Neg(_)), "base is not the negation: {left:?}");
+            assert!(
+                matches!(*left, Expr::Neg(_)),
+                "base is not the negation: {left:?}"
+            );
         }
         other => panic!("not a power: {other:?}"),
     }
@@ -3582,7 +4349,10 @@ fn signprecedencetests_parse_negativeexponent_parsesassignedpower() {
     let expr = Parser::new(toks).single_expression().expect("parses");
     match expr {
         Expr::Binary(crate::syntax::BinOp::Pow, _, right) => {
-            assert!(matches!(*right, Expr::Neg(_)), "exponent is not the negation: {right:?}");
+            assert!(
+                matches!(*right, Expr::Neg(_)),
+                "exponent is not the negation: {right:?}"
+            );
         }
         other => panic!("not a power: {other:?}"),
     }
@@ -3597,11 +4367,17 @@ fn signprecedencetests_parse_signedrangestart_isnotanegatedrange() {
         Expr::Range(start, None, end) => {
             match *start {
                 Expr::Neg(inner) => {
-                    assert!(matches!(*inner, Expr::Number(ref t) if t == "1"), "start is not 1");
+                    assert!(
+                        matches!(*inner, Expr::Number(ref t) if t == "1"),
+                        "start is not 1"
+                    );
                 }
                 other => panic!("range start is not the negation: {other:?}"),
             }
-            assert!(matches!(*end, Expr::Number(ref t) if t == "2"), "end is not 2");
+            assert!(
+                matches!(*end, Expr::Number(ref t) if t == "2"),
+                "end is not 2"
+            );
         }
         other => panic!("not a range: {other:?}"),
     }
@@ -3614,8 +4390,14 @@ fn signprecedencetests_parse_rangestillbindstighterthanpower() {
     let expr = Parser::new(toks).single_expression().expect("parses");
     match expr {
         Expr::Binary(crate::syntax::BinOp::Pow, left, right) => {
-            assert!(matches!(*left, Expr::Range(_, _, _)), "left is not the range: {left:?}");
-            assert!(matches!(*right, Expr::Number(ref t) if t == "2"), "right is not 2");
+            assert!(
+                matches!(*left, Expr::Range(_, _, _)),
+                "left is not the range: {left:?}"
+            );
+            assert!(
+                matches!(*right, Expr::Number(ref t) if t == "2"),
+                "right is not 2"
+            );
         }
         other => panic!("not a power: {other:?}"),
     }
@@ -3627,7 +4409,10 @@ fn signprecedencetests_parse_postfixstillbindstighterthansign() {
     let toks = tokenize("-5!").expect("tokenizes");
     let expr = Parser::new(toks).single_expression().expect("parses");
     match expr {
-        Expr::Neg(inner) => assert!(matches!(*inner, Expr::Fact(_)), "operand is not a factorial: {inner:?}"),
+        Expr::Neg(inner) => assert!(
+            matches!(*inner, Expr::Fact(_)),
+            "operand is not a factorial: {inner:?}"
+        ),
         other => panic!("not a negation: {other:?}"),
     }
 }
@@ -3690,7 +4475,10 @@ fn signprecedencetests_evaluate_symboliccanonicalform_keepsthesignoutsidethepowe
     r12_eval_on(&mut e, "x = symbol(\"x\")");
     let v = r12_eval_on(&mut e, "inspect(-x^2).canonical");
     let canonical = r12_text(&v);
-    assert!(canonical.contains("(pow (sym x) (rat 2 1))"), "canonical: {canonical}");
+    assert!(
+        canonical.contains("(pow (sym x) (rat 2 1))"),
+        "canonical: {canonical}"
+    );
     assert!(!canonical.contains("(pow (mul"), "canonical: {canonical}");
 }
 
@@ -3704,7 +4492,10 @@ fn suiteenginetests_evaluate_givenbuiltin_ismarkedbuiltin() {
     let mut e = engine();
     let v = r12_eval_on(&mut e, "abs(-5)");
     assert_eq!(e.format_typed(&v), "5 (Integer)");
-    assert!(crate::registry::find("abs").is_some(), "abs is not a registered builtin");
+    assert!(
+        crate::registry::find("abs").is_some(),
+        "abs is not a registered builtin"
+    );
 }
 
 /// C# SuiteEngineTests.cs:45 — Evaluate_GivenResult_StoresInUnderscoreVariable.
@@ -3713,7 +4504,10 @@ fn suiteenginetests_evaluate_givenresult_storesinunderscorevariable() {
     let mut e = engine();
     r12_eval_on(&mut e, "1 + 1");
     let vars = e.variables();
-    let underscore = vars.iter().find(|(n, _)| n == "_").unwrap_or_else(|| panic!("no '_' variable: {vars:?}"));
+    let underscore = vars
+        .iter()
+        .find(|(n, _)| n == "_")
+        .unwrap_or_else(|| panic!("no '_' variable: {vars:?}"));
     assert_eq!(underscore.1, "2 (Natural)");
 }
 
@@ -3730,7 +4524,10 @@ fn suiteenginetests_parse_givenstatements_returnsprogram() {
 fn suiteenginetests_parseexpression_givenexpression_returnsexpr() {
     let toks = tokenize("1 + 2").expect("tokenizes");
     let expr = Parser::new(toks).single_expression().expect("parses");
-    assert!(matches!(expr, Expr::Binary(crate::syntax::BinOp::Add, _, _)), "not a binary expr: {expr:?}");
+    assert!(
+        matches!(expr, Expr::Binary(crate::syntax::BinOp::Add, _, _)),
+        "not a binary expr: {expr:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -3749,7 +4546,11 @@ fn suiteengineoutputplottests_evaluateasync_givenplotcall_setslastplotsvg() {
     let v = r12_eval_on(&mut e, "plot(1..3, [1, 4, 9])");
     let _ = v;
     let plot = e.last_plot().unwrap_or_else(|| panic!("no plot captured"));
-    assert!(plot.svg.starts_with("<svg"), "svg does not start with <svg: {}", &plot.svg[..plot.svg.len().min(40)]);
+    assert!(
+        plot.svg.starts_with("<svg"),
+        "svg does not start with <svg: {}",
+        &plot.svg[..plot.svg.len().min(40)]
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -3763,19 +4564,44 @@ fn r12_rich_result(type_name: &str, script: &str) {
     let record = r12_eval_on(&mut e, script);
     assert_eq!(r12_type_name(&record), type_name, "script: {script}");
     let fields = r12_fields(&record);
-    assert_eq!(fields.last().map(|(n, _)| n.as_str()), Some("diagnostics"), "diagnostics is not the last field: {fields:?}");
+    assert_eq!(
+        fields.last().map(|(n, _)| n.as_str()),
+        Some("diagnostics"),
+        "diagnostics is not the last field: {fields:?}"
+    );
     let diagnostics = r12_field(&record, "diagnostics");
-    assert_ne!(diagnostics.kind_name(), "Text", "diagnostics crossed as Text");
-    assert_ne!(diagnostics.kind_name(), "Void", "diagnostics crossed as Null");
+    assert_ne!(
+        diagnostics.kind_name(),
+        "Text",
+        "diagnostics crossed as Text"
+    );
+    assert_ne!(
+        diagnostics.kind_name(),
+        "Void",
+        "diagnostics crossed as Null"
+    );
     assert_eq!(diagnostics.kind_name(), "Vector");
     let structured = r12_structured(&e, diagnostics);
-    assert_eq!(r12_json_str(&structured, "kind"), Some("Array"), "structured: {}", structured.to_string());
-    assert!(structured.get("value").is_none(), "an Array carries no scalar value: {}", structured.to_string());
-    let elements = r12_json_arr(&structured, "elements").unwrap_or_else(|| panic!("no elements: {}", structured.to_string()));
-    let shape = r12_json_arr(&structured, "shape").unwrap_or_else(|| panic!("no shape: {}", structured.to_string()));
+    assert_eq!(
+        r12_json_str(&structured, "kind"),
+        Some("Array"),
+        "structured: {}",
+        structured.to_string()
+    );
+    assert!(
+        structured.get("value").is_none(),
+        "an Array carries no scalar value: {}",
+        structured.to_string()
+    );
+    let elements = r12_json_arr(&structured, "elements")
+        .unwrap_or_else(|| panic!("no elements: {}", structured.to_string()));
+    let shape = r12_json_arr(&structured, "shape")
+        .unwrap_or_else(|| panic!("no shape: {}", structured.to_string()));
     // the shape's first entry is the element count
     match shape.first() {
-        Some(Json::Num(s)) => assert_eq!(elements.len().to_string(), *s, "shape[0] != element count"),
+        Some(Json::Num(s)) => {
+            assert_eq!(elements.len().to_string(), *s, "shape[0] != element count")
+        }
         other => panic!("shape[0] is not numeric: {other:?}"),
     }
 }
@@ -3789,7 +4615,10 @@ fn diagnosticcontracttests_everyrichresult_solve_result_ends_with_diagnostics_ar
 /// C# DiagnosticContractTests.cs:67 — ...(SystemSolveResult).
 #[test]
 fn diagnosticcontracttests_everyrichresult_system_solve_result_ends_with_diagnostics_array() {
-    r12_rich_result("SystemSolveResult", "solve_system_full([x + y == 1, x - y == 3], [x, y])");
+    r12_rich_result(
+        "SystemSolveResult",
+        "solve_system_full([x + y == 1, x - y == 3], [x, y])",
+    );
 }
 
 /// C# DiagnosticContractTests.cs:67 — ...(LimitResult).
@@ -3831,29 +4660,62 @@ fn diagnosticcontracttests_partialsolve_carriesadiagnosticwithastablecodeandacat
     let (ty, status) = r12_enum(r12_field(&record, "status"));
     assert_eq!((ty, status), ("SolveStatus", "Partial"));
     let diagnostics = r12_vector(r12_field(&record, "diagnostics"));
-    assert!(!diagnostics.is_empty(), "a partial solve carries at least one Diagnostic");
+    assert!(
+        !diagnostics.is_empty(),
+        "a partial solve carries at least one Diagnostic"
+    );
     let diagnostic = &diagnostics[0];
     assert_eq!(r12_type_name(diagnostic), "Diagnostic");
-    let names: Vec<&str> = r12_fields(diagnostic).iter().map(|(n, _)| n.as_str()).collect();
-    assert_eq!(names, vec!["code", "category", "message", "recoverable", "location", "details"]);
+    let names: Vec<&str> = r12_fields(diagnostic)
+        .iter()
+        .map(|(n, _)| n.as_str())
+        .collect();
+    assert_eq!(
+        names,
+        vec![
+            "code",
+            "category",
+            "message",
+            "recoverable",
+            "location",
+            "details"
+        ]
+    );
     let code = r12_field(diagnostic, "code");
     assert_eq!(code.kind_name(), "Text");
     assert_eq!(r12_text(code), "solve.unrepresented-roots");
     let category = r12_field(diagnostic, "category");
     let (cat_ty, cat_name) = r12_enum(category);
     assert_eq!(cat_ty, "ErrorCategory");
-    assert!(["ParseError", "DomainError", "UnsupportedOperation", "BudgetExceeded", "NoSolution", "TypeMismatch", "InternalInvariantFailure"].contains(&cat_name));
+    assert!(
+        [
+            "ParseError",
+            "DomainError",
+            "UnsupportedOperation",
+            "BudgetExceeded",
+            "NoSolution",
+            "TypeMismatch",
+            "InternalInvariantFailure"
+        ]
+        .contains(&cat_name)
+    );
     let message = r12_field(diagnostic, "message");
     assert_eq!(message.kind_name(), "Text");
     assert!(!r12_text(message).is_empty());
     assert_eq!(r12_field(diagnostic, "recoverable").kind_name(), "Boolean");
     let location = r12_field(diagnostic, "location");
     assert_eq!(location.kind_name(), "Void");
-    assert_eq!(r12_json_str(&r12_structured(&e, location), "kind"), Some("Null"));
+    assert_eq!(
+        r12_json_str(&r12_structured(&e, location), "kind"),
+        Some("Null")
+    );
     let details = r12_field(diagnostic, "details");
     assert_eq!(details.kind_name(), "Vector");
     assert!(r12_vector(details).is_empty());
-    assert_eq!(r12_json_str(&r12_structured(&e, details), "kind"), Some("Array"));
+    assert_eq!(
+        r12_json_str(&r12_structured(&e, details), "kind"),
+        Some("Array")
+    );
 }
 
 /// C# DiagnosticContractTests.cs:137 — CompleteSolveWithoutANote_CarriesAnEmptyDiagnosticsArray.
@@ -3869,7 +4731,11 @@ fn diagnosticcontracttests_completesolvewithoutanote_carriesanemptydiagnosticsar
     assert!(r12_vector(diagnostics).is_empty());
     let structured = r12_structured(&e, diagnostics);
     assert_eq!(r12_json_str(&structured, "kind"), Some("Array"));
-    assert!(r12_json_arr(&structured, "elements").unwrap_or(&[]).is_empty());
+    assert!(
+        r12_json_arr(&structured, "elements")
+            .unwrap_or(&[])
+            .is_empty()
+    );
 }
 
 /// C# DiagnosticContractTests.cs:155 — SatisfiedTransformation_CarriesAnEmptyDiagnosticsArray.
@@ -3882,9 +4748,6 @@ fn diagnosticcontracttests_satisfiedtransformation_carriesanemptydiagnosticsarra
     assert_eq!(status, "Satisfied");
     assert!(r12_vector(r12_field(&record, "diagnostics")).is_empty());
 }
-
-
-
 
 // ---------------------------------------------------------------------------
 // Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs (18 of 29; the
@@ -3914,25 +4777,37 @@ fn dxsemanticclosuretests_simplify_xoverx_staysunevaluated_withoutassumptions() 
 /// C# DxSemanticClosureTests.cs:60 — Simplify_XOverX_Cancels_UnderNonZeroAssumption.
 #[test]
 fn dxsemanticclosuretests_simplify_xoverx_cancels_undernonzeroassumption() {
-    check_typed("x = symbol(\"x\"); assume(x != 0); simplify(x/x)", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); assume(x != 0); simplify(x/x)",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# DxSemanticClosureTests.cs:70 — Simplify_ExpLog_StaysUnevaluated_WithoutAssumptions.
 #[test]
 fn dxsemanticclosuretests_simplify_explog_staysunevaluated_withoutassumptions() {
-    check_typed("x = symbol(\"x\"); simplify(exp(log(x)))", "exp(log(x)) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); simplify(exp(log(x)))",
+        "exp(log(x)) (Symbolic)",
+    );
 }
 
 /// C# DxSemanticClosureTests.cs:80 — Simplify_ExpLog_Fires_UnderPositiveAssumption.
 #[test]
 fn dxsemanticclosuretests_simplify_explog_fires_underpositiveassumption() {
-    check_typed("x = symbol(\"x\"); assume(x > 0); simplify(exp(log(x)))", "x (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); assume(x > 0); simplify(exp(log(x)))",
+        "x (Symbolic)",
+    );
 }
 
 /// C# DxSemanticClosureTests.cs:91 — Simplify_UniversalRule_Fires_WithoutAssumptions.
 #[test]
 fn dxsemanticclosuretests_simplify_universalrule_fires_withoutassumptions() {
-    check_typed("x = symbol(\"x\"); simplify(sin(x)^2 + cos(x)^2)", "1 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\"); simplify(sin(x)^2 + cos(x)^2)",
+        "1 (Symbolic)",
+    );
 }
 
 /// C# DxSemanticClosureTests.cs:106 — Transform_XOverX_CarriesNonZeroCondition.
@@ -3972,9 +4847,11 @@ fn dxsemanticclosuretests_solve_quadraticnegativediscriminant_realdomainisempty(
     let (_, status) = r12_enum(r12_field(&record, "status"));
     assert_eq!(status, "NoSolutions");
     let diagnostics = r12_vector(r12_field(&record, "diagnostics"));
-    assert_eq!(r12_text(r12_field(&diagnostics[0], "message")), "no real solutions");
+    assert_eq!(
+        r12_text(r12_field(&diagnostics[0], "message")),
+        "no real solutions"
+    );
 }
-
 
 /// C# DxSemanticClosureTests.cs:189 — Solve_QuarticNoRealRoots_RealDomain_IsEmpty.
 #[test]
@@ -3985,9 +4862,11 @@ fn dxsemanticclosuretests_solve_quarticnorealroots_realdomainisempty() {
     let (_, status) = r12_enum(r12_field(&record, "status"));
     assert_eq!(status, "NoSolutions");
     let diagnostics = r12_vector(r12_field(&record, "diagnostics"));
-    assert_eq!(r12_text(r12_field(&diagnostics[0], "message")), "no real solutions");
+    assert_eq!(
+        r12_text(r12_field(&diagnostics[0], "message")),
+        "no real solutions"
+    );
 }
-
 
 /// C# DxSemanticClosureTests.cs:210 — Solve_CubicRealDomain_KeepsOnlyRealRoots.
 #[test]
@@ -4006,11 +4885,12 @@ fn dxsemanticclosuretests_solve_cubicrealdomain_keepsonlyrealroots() {
 #[test]
 fn dxsemanticclosuretests_assume_contradictoryrelations_throws() {
     let err = r12_err("x = symbol(\"x\"); assume(x > 0); assume(x < 0)");
-    assert!(err.message.contains("contradicts"), "message: {}", err.message);
+    assert!(
+        err.message.contains("contradicts"),
+        "message: {}",
+        err.message
+    );
 }
-
-
-
 
 /// C# DxSemanticClosureTests.cs:324 — Language_SolveQuartic_MixedRoots_IsPartial_NotComplete.
 #[test]
@@ -4038,9 +4918,21 @@ fn dxsemanticclosuretests_language_solvequartic_mixedroots_ispartial_notcomplete
 #[test]
 fn dxsemanticclosuretests_language_solveunsupporteddomain_isrejected() {
     let integer = r12_err("x = symbol(\"x\"); solve(x^2 + 1 == 0, x, integer)");
-    assert!(integer.message.contains("currently supports domains real and complex; got integer"), "message: {}", integer.message);
+    assert!(
+        integer
+            .message
+            .contains("currently supports domains real and complex; got integer"),
+        "message: {}",
+        integer.message
+    );
     let rational = r12_err("x = symbol(\"x\"); solve(x^2 + 1 == 0, x, rational)");
-    assert!(rational.message.contains("currently supports domains real and complex; got rational"), "message: {}", rational.message);
+    assert!(
+        rational
+            .message
+            .contains("currently supports domains real and complex; got rational"),
+        "message: {}",
+        rational.message
+    );
 }
 
 /// C# DxSemanticClosureTests.cs:362 — Language_SolvePrincipalBranch_ReturnsAllRoots.
@@ -4049,13 +4941,15 @@ fn dxsemanticclosuretests_language_solveprincipalbranch_returnsallroots() {
     let mut e = engine();
     r12_eval_on(&mut e, "x = symbol(\"x\")");
     let quad = r12_eval_on(&mut e, "solve((x+1)^2 - 4 == 0, x)");
-    assert_eq!(r12_solutions(&quad), vec!["-3".to_string(), "1".to_string()]);
+    assert_eq!(
+        r12_solutions(&quad),
+        vec!["-3".to_string(), "1".to_string()]
+    );
     let cube = r12_eval_on(&mut e, "solve_full((x+1)^3 == 8, x)");
     let (_, status) = r12_enum(r12_field(&cube, "status"));
     assert_eq!(status, "Solved");
     assert_eq!(r12_vector(r12_field(&cube, "solutions")).len(), 3);
 }
-
 
 /// C# DxSemanticClosureTests.cs:399 — Language_Simplify_IsSafeByDefault.
 #[test]
@@ -4073,7 +4967,11 @@ fn dxsemanticclosuretests_language_simplify_issafebydefault() {
 #[test]
 fn dxsemanticclosuretests_language_assume_contradictionthrows() {
     let err = r12_err("x = symbol(\"x\"); assume(x > 0); assume(x < 0)");
-    assert!(err.message.contains("contradicts"), "message: {}", err.message);
+    assert!(
+        err.message.contains("contradicts"),
+        "message: {}",
+        err.message
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -4095,8 +4993,14 @@ fn hyperbolicbuiltinsandnegativeintegerpowerstests_twototheminusone_istheexactva
     assert_eq!(r12_json_str(&structured, "numerator"), Some("1"));
     assert_eq!(r12_json_str(&structured, "denominator"), Some("2"));
     let half_structured = r12_structured(&e, &half);
-    assert_eq!(r12_json_str(&structured, "numerator"), r12_json_str(&half_structured, "numerator"));
-    assert_eq!(r12_json_str(&structured, "denominator"), r12_json_str(&half_structured, "denominator"));
+    assert_eq!(
+        r12_json_str(&structured, "numerator"),
+        r12_json_str(&half_structured, "numerator")
+    );
+    assert_eq!(
+        r12_json_str(&structured, "denominator"),
+        r12_json_str(&half_structured, "denominator")
+    );
 }
 
 /// C# HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:141 — ThreeToTheMinusTwo_IsTheExactValueOfOneNinth.
@@ -4121,7 +5025,6 @@ fn hyperbolicbuiltinsandnegativeintegerpowerstests_positiveandexactintegerpowers
     assert_eq!(r12_display("4^-1 * 4^2"), "4");
 }
 
-
 // ---------------------------------------------------------------------------
 // Lovelace.Symbolics.Tests/SolveCompletenessMappingTests.cs and
 // SolveCompletenessPairingTests.cs (the published (status, complete,
@@ -4142,10 +5045,22 @@ fn solvecompletenessmappingtests_everystatuscarriesthedocumentedpair() {
     let mut e = engine();
     r12_eval_on(&mut e, "x = symbol(\"x\")");
     for (script, expected) in [
-        ("solve_full(x^2 - 4 == 0, x)", ("Solved".to_string(), true, "Complete".to_string())),
-        ("solve_full((x^2-1)/(x^2-1) == 0, x)", ("NoSolutions".to_string(), true, "Complete".to_string())),
-        ("solve_full(x^4 - x^2 - 1 == 0, x)", ("Partial".to_string(), false, "Partial".to_string())),
-        ("solve_full(x/x == 0, x)", ("NoSolutions".to_string(), true, "Complete".to_string())),
+        (
+            "solve_full(x^2 - 4 == 0, x)",
+            ("Solved".to_string(), true, "Complete".to_string()),
+        ),
+        (
+            "solve_full((x^2-1)/(x^2-1) == 0, x)",
+            ("NoSolutions".to_string(), true, "Complete".to_string()),
+        ),
+        (
+            "solve_full(x^4 - x^2 - 1 == 0, x)",
+            ("Partial".to_string(), false, "Partial".to_string()),
+        ),
+        (
+            "solve_full(x/x == 0, x)",
+            ("NoSolutions".to_string(), true, "Complete".to_string()),
+        ),
     ] {
         assert_eq!(r12_pair(&mut e, script), expected, "script: {script}");
     }
@@ -4158,11 +5073,26 @@ fn solvecompletenessmappingtests_languagestatuses_reportexactlywhatthemappingret
     let mut e = engine();
     r12_eval_on(&mut e, "x = symbol(\"x\")");
     for (script, expected) in [
-        ("solve_full(x^2 - 4 == 0, x)", ("Solved".to_string(), true, "Complete".to_string())),
-        ("solve_full(x^4 - x^2 - 1 == 0, x)", ("Partial".to_string(), false, "Partial".to_string())),
-        ("solve_full((x^2-1)/(x^2-1) == 0, x)", ("NoSolutions".to_string(), true, "Complete".to_string())),
-        ("solve_full(x/x == 0, x)", ("NoSolutions".to_string(), true, "Complete".to_string())),
-        ("solve_full(x^2 + 1 == 0, x, real)", ("NoSolutions".to_string(), true, "Complete".to_string())),
+        (
+            "solve_full(x^2 - 4 == 0, x)",
+            ("Solved".to_string(), true, "Complete".to_string()),
+        ),
+        (
+            "solve_full(x^4 - x^2 - 1 == 0, x)",
+            ("Partial".to_string(), false, "Partial".to_string()),
+        ),
+        (
+            "solve_full((x^2-1)/(x^2-1) == 0, x)",
+            ("NoSolutions".to_string(), true, "Complete".to_string()),
+        ),
+        (
+            "solve_full(x/x == 0, x)",
+            ("NoSolutions".to_string(), true, "Complete".to_string()),
+        ),
+        (
+            "solve_full(x^2 + 1 == 0, x, real)",
+            ("NoSolutions".to_string(), true, "Complete".to_string()),
+        ),
     ] {
         assert_eq!(r12_pair(&mut e, script), expected, "script: {script}");
     }
@@ -4209,7 +5139,6 @@ fn solvecompletenesspairingtests_solved_iscomplete() {
     );
 }
 
-
 // ---------------------------------------------------------------------------
 // Lovelace.Symbolics.Tests/ExactnessFlagTests.cs (20 theory rows on the model,
 // plus the language-surface facts the crate reproduces)
@@ -4250,7 +5179,10 @@ fn exactnessflagtests_elementaryfunctionofanexactargument_isexact() {
             vec![SExpr::sym("x"), SExpr::sym("y")]
         };
         let e = SExpr::Fun(name.to_string(), args);
-        assert!(e.is_exact(), "{name}(...) over exact arguments must be exact");
+        assert!(
+            e.is_exact(),
+            "{name}(...) over exact arguments must be exact"
+        );
     }
 }
 
@@ -4268,8 +5200,16 @@ fn exactnessflagtests_inspectexact_istrue_forexactclosedforms() {
     let mut e = engine();
     r12_eval_on(&mut e, "x = symbol(\"x\")");
     let expressions = [
-        "sin(x)", "cos(x)", "sqrt(x)", "log(x)", "exp(x)", "diff(sin(x), x)", "abs(x)", "x + 1",
-        "sqrt(-2)", "x^(3/2)",
+        "sin(x)",
+        "cos(x)",
+        "sqrt(x)",
+        "log(x)",
+        "exp(x)",
+        "diff(sin(x), x)",
+        "abs(x)",
+        "x + 1",
+        "sqrt(-2)",
+        "x^(3/2)",
     ];
     for expression in expressions {
         let script = format!("inspect({expression}).exact");
@@ -4278,7 +5218,6 @@ fn exactnessflagtests_inspectexact_istrue_forexactclosedforms() {
         assert!(r12_boolean(&v), "inspect({expression}).exact");
     }
 }
-
 
 /// C# ExactnessFlagTests.cs:312 — RootOfRootPublishedByTheSolver_IsExact.
 #[test]
@@ -4290,16 +5229,16 @@ fn exactnessflagtests_rootofrootpublishedbythesolver_isexact() {
     assert!(!solutions.is_empty(), "the quintic published no solution");
     for solution in solutions {
         assert!(r12_symbolic_is_exact(r12_field(solution, "value")));
-        assert_eq!(r12_enum(r12_field(solution, "exactness")).1, "AlgebraicExact");
+        assert_eq!(
+            r12_enum(r12_field(solution, "exactness")).1,
+            "AlgebraicExact"
+        );
     }
 }
-
 
 // ---------------------------------------------------------------------------
 // Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs (12 of 19)
 // ---------------------------------------------------------------------------
-
-
 
 fn r12_symbolic_mentions_x(v: &crate::Value) -> bool {
     match v {
@@ -4307,11 +5246,6 @@ fn r12_symbolic_mentions_x(v: &crate::Value) -> bool {
         _ => false,
     }
 }
-
-
-
-
-
 
 /// C# InfiniteFamilyCompletenessTests.cs:320 — AcceptanceControls_NothingElseMoves.
 #[test]
@@ -4328,7 +5262,10 @@ fn infinitefamilycompletenesstests_acceptancecontrols_nothingelsemoves() {
     let extraneous = r12_eval_on(&mut e, "solve_full(sqrt(x) + 2 == 0, x)");
     assert_eq!(r12_enum(r12_field(&extraneous, "status")).1, "Unevaluated");
     assert!(!r12_boolean(r12_field(&extraneous, "complete")));
-    assert_eq!(r12_integer(r12_field(&extraneous, "represented_count")), "0");
+    assert_eq!(
+        r12_integer(r12_field(&extraneous, "represented_count")),
+        "0"
+    );
     let quartic = r12_eval_on(&mut e, "solve_full(x^4 - x^2 - 1 == 0, x)");
     assert_eq!(r12_enum(r12_field(&quartic, "status")).1, "Partial");
     assert!(!r12_boolean(r12_field(&quartic, "complete")));
@@ -4372,9 +5309,6 @@ fn relationsandfamiliestests_solve_sinzero_returnsfamily() {
     assert_eq!(e.format(r12_field(&families[0], "parameter")), "k");
 }
 
-
-
-
 /// C# RelationsAndFamiliesTests.cs:197 — Solve_SinZero_EngineDisplaysFamily.
 #[test]
 fn relationsandfamiliestests_solve_sinzero_enginedisplaysfamily() {
@@ -4391,7 +5325,6 @@ fn relationsandfamiliestests_solve_sinzero_enginedisplaysfamily() {
     assert_eq!(r12_domain(r12_field(family, "parameter_domain")), "integer");
 }
 
-
 // ---------------------------------------------------------------------------
 // Lovelace.Symbolics.Tests/SmokeTests.cs — class AcceptanceTests (language and
 // model-level rows this crate reproduces; the numeric/oracle rows are refused)
@@ -4402,7 +5335,7 @@ fn relationsandfamiliestests_solve_sinzero_enginedisplaysfamily() {
 /// form of the same fact so the row has a one-to-one Rust test as well.
 #[test]
 fn acceptancetests_diff_polynomial_returnscanonicalderivative() {
-    use lovelace_symbolics::{diff, Expr as SExpr};
+    use lovelace_symbolics::{Expr as SExpr, diff};
     let x = SExpr::sym("x");
     // x^3 + 2*x^2 + 5*x + 7
     let f = SExpr::add(
@@ -4415,7 +5348,6 @@ fn acceptancetests_diff_polynomial_returnscanonicalderivative() {
     assert_eq!(diff(&f, "x").to_string(), "3*x^2 + 4*x + 5");
 }
 
-
 /// C# SmokeTests.cs:44 — AcceptanceTests.CanonicalRules_HoldInvariants.
 #[test]
 fn acceptancetests_canonicalrules_holdinvariants() {
@@ -4424,26 +5356,50 @@ fn acceptancetests_canonicalrules_holdinvariants() {
     assert_eq!(SExpr::add(x.clone(), SExpr::num(0)), x);
     assert_eq!(SExpr::mul(x.clone(), SExpr::num(1)), x);
     assert_eq!(SExpr::mul(x.clone(), SExpr::num(0)), SExpr::num(0));
-    assert_eq!(SExpr::mul(SExpr::num(2), x.clone()), SExpr::add(x.clone(), x.clone()));
+    assert_eq!(
+        SExpr::mul(SExpr::num(2), x.clone()),
+        SExpr::add(x.clone(), x.clone())
+    );
     assert_eq!(
         SExpr::mul(SExpr::num(5), x.clone()),
-        SExpr::add(SExpr::mul(SExpr::num(2), x.clone()), SExpr::mul(SExpr::num(3), x.clone()))
+        SExpr::add(
+            SExpr::mul(SExpr::num(2), x.clone()),
+            SExpr::mul(SExpr::num(3), x.clone())
+        )
     );
-    assert_eq!(SExpr::pow(x.clone(), SExpr::num(2)), SExpr::mul(x.clone(), x.clone()));
+    assert_eq!(
+        SExpr::pow(x.clone(), SExpr::num(2)),
+        SExpr::mul(x.clone(), x.clone())
+    );
     assert_eq!(
         SExpr::pow(x.clone(), SExpr::num(5)),
-        SExpr::mul(SExpr::pow(x.clone(), SExpr::num(2)), SExpr::pow(x.clone(), SExpr::num(3)))
+        SExpr::mul(
+            SExpr::pow(x.clone(), SExpr::num(2)),
+            SExpr::pow(x.clone(), SExpr::num(3))
+        )
     );
     assert_eq!(SExpr::pow(SExpr::num(2), SExpr::num(3)), SExpr::num(8));
-    assert_eq!(SExpr::add(SExpr::add(x.clone(), SExpr::num(1)), SExpr::neg(SExpr::num(1))), x);
+    assert_eq!(
+        SExpr::add(
+            SExpr::add(x.clone(), SExpr::num(1)),
+            SExpr::neg(SExpr::num(1))
+        ),
+        x
+    );
 }
 
 /// C# SmokeTests.cs:59 — AcceptanceTests.Factor_SquaresDifference_FullyFactors.
 #[test]
 fn acceptancetests_factor_squaresdifference_fullyfactors() {
-    check_typed("x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)", "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nfactor(x^4 - 5*x^2 + 4)",
+        "(x - 2)*(x - 1)*(x + 1)*(x + 2) (Symbolic)",
+    );
     // the C# fact also asserts expand(f) == p: the factored form must multiply back
-    check_typed("x = symbol(\"x\")\nexpand((x - 2)*(x - 1)*(x + 1)*(x + 2))", "x^4 - 5*x^2 + 4 (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nexpand((x - 2)*(x - 1)*(x + 1)*(x + 2))",
+        "x^4 - 5*x^2 + 4 (Symbolic)",
+    );
 }
 
 /// C# SmokeTests.cs:70 — AcceptanceTests.Solve_QuarticWithRationalRoots_ReturnsAllFour.
@@ -4458,7 +5414,10 @@ fn acceptancetests_solve_quarticwithrationalroots_returnsallfour() {
         .map(|s| e.format(r12_field(s, "value")))
         .collect();
     for root in ["2", "-2", "1", "-1"] {
-        assert!(roots.contains(&root.to_string()), "missing root {root}: {roots:?}");
+        assert!(
+            roots.contains(&root.to_string()),
+            "missing root {root}: {roots:?}"
+        );
     }
 }
 
@@ -4482,16 +5441,20 @@ fn acceptancetests_solve_quadratic_exactformula() {
 fn acceptancetests_series_sinox_givesexpectedcoefficients() {
     // the C# fact reads coefficients[0..4] of the order-6 series; the language publishes the same
     // expansion, which pins every one of those coefficients and the zeroes between them
-    check_typed("x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 6)", "1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\nseries(sin(x)/x, x, 0, 6)",
+        "1 - 1/6*x^2 + 1/120*x^4 + O(x^6) (Symbolic)",
+    );
 }
 
 /// C# SmokeTests.cs:147 — AcceptanceTests.Det_SymbolicMatrix_Bareiss.
 #[test]
 fn acceptancetests_det_symbolicmatrix_bareiss() {
-    check_typed("x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])", "x^2 - y (Symbolic)");
+    check_typed(
+        "x = symbol(\"x\")\ny = symbol(\"y\")\ndet([[x, 1], [y, x]])",
+        "x^2 - y (Symbolic)",
+    );
 }
-
-
 
 // ===========================================================================
 // Round 15 — the language/engine surface implemented by the previous round:
@@ -4535,7 +5498,11 @@ fn r15_exact_payload_carries_the_quotient_at_five_places() {
         ("setprecision(5); 22/7", "22", "7"),
     ] {
         let (typed, j) = structured_of(script);
-        assert_eq!(field(&j, "kind"), Some("Real"), "script: {script} ({typed})");
+        assert_eq!(
+            field(&j, "kind"),
+            Some("Real"),
+            "script: {script} ({typed})"
+        );
         if j.get("exact").and_then(json_bool) == Some(true) {
             assert_eq!(field(&j, "numerator"), Some(num), "script: {script}");
             assert_eq!(field(&j, "denominator"), Some(den), "script: {script}");
@@ -4579,7 +5546,11 @@ fn r15_terminating_quotient_past_the_default_budget_is_certified_exact() {
         );
         assert_eq!(field(&j, "numerator"), Some("1"), "{script}");
         let expected = lovelace_nat::Nat::from_u64(base).pow(exponent).to_decimal();
-        assert_eq!(field(&j, "denominator"), Some(expected.as_str()), "{script}");
+        assert_eq!(
+            field(&j, "denominator"),
+            Some(expected.as_str()),
+            "{script}"
+        );
         assert!(
             field(&j, "value").unwrap_or("").starts_with("0.0000"),
             "{script} rendered {:?}",
@@ -4798,7 +5769,11 @@ fn r15_setprecision_range_refusals_name_the_count() {
             .expect_err("a range refusal was expected");
         assert_eq!(err.code, "InvalidArgument", "setprecision({argument})");
         assert_eq!(err.category, "TypeMismatch", "setprecision({argument})");
-        assert_eq!(err.message, format!("{bound}{got}."), "setprecision({argument})");
+        assert_eq!(
+            err.message,
+            format!("{bound}{got}."),
+            "setprecision({argument})"
+        );
     }
 }
 
@@ -4859,7 +5834,11 @@ fn r15_name_nothing_is_close_to_is_not_guessed_at() {
         let err = e
             .eval(&format!("{queried}(1)"))
             .expect_err("an unresolved name was expected");
-        assert!(err.suggestions.is_empty(), "query {queried}: {:?}", err.suggestions);
+        assert!(
+            err.suggestions.is_empty(),
+            "query {queried}: {:?}",
+            err.suggestions
+        );
     }
 }
 
@@ -4867,7 +5846,9 @@ fn r15_name_nothing_is_close_to_is_not_guessed_at() {
 #[test]
 fn r15_offered_list_is_capped_and_ordered() {
     let mut e = engine();
-    let err = e.eval("sol(1)").expect_err("an unresolved name was expected");
+    let err = e
+        .eval("sol(1)")
+        .expect_err("an unresolved name was expected");
     assert_eq!(
         err.suggestions,
         vec![
@@ -4882,8 +5863,14 @@ fn r15_offered_list_is_capped_and_ordered() {
 #[test]
 fn r15_syntax_name_carries_its_note() {
     let mut e = engine();
-    let err = e.eval("range(1)").expect_err("an unresolved name was expected");
-    assert!(err.suggestions.is_empty(), "range suggestions: {:?}", err.suggestions);
+    let err = e
+        .eval("range(1)")
+        .expect_err("an unresolved name was expected");
+    assert!(
+        err.suggestions.is_empty(),
+        "range suggestions: {:?}",
+        err.suggestions
+    );
     assert!(
         err.hints.first().is_some_and(|h| h.contains("1..n")),
         "range hints: {:?}",
@@ -4951,7 +5938,9 @@ fn r15_periodic_expression_at_limited_precision_matches_class_real() {
         for prec in [18usize, 37] {
             let mut e = engine();
             e.set_precision(prec);
-            let value = e.eval(expr).unwrap_or_else(|err| panic!("{expr}: {}", err.message));
+            let value = e
+                .eval(expr)
+                .unwrap_or_else(|err| panic!("{expr}: {}", err.message));
             assert_eq!(
                 r15_class_real(expr, prec),
                 e.format(&value),
@@ -4968,7 +5957,9 @@ fn r15_one_over_seventeen_times_seventeen_is_exactly_one() {
         let mut e = engine();
         e.set_precision(prec);
         for script in ["(1/17)*17", "(1/17)*17 == 1", "(1/17)*17 - 1 == 0"] {
-            let value = e.eval(script).unwrap_or_else(|err| panic!("{script}: {}", err.message));
+            let value = e
+                .eval(script)
+                .unwrap_or_else(|err| panic!("{script}: {}", err.message));
             let expected = if script == "(1/17)*17" { "1" } else { "True" };
             assert_eq!(e.format(&value), expected, "{script} at {prec}");
         }
@@ -4986,12 +5977,13 @@ fn r15_periodic_quotient_times_its_divisor_is_the_dividend() {
             ("(1/6)*6", "1"),
             ("(1/6)*6 == 1", "True"),
         ] {
-            let value = e.eval(script).unwrap_or_else(|err| panic!("{script}: {}", err.message));
+            let value = e
+                .eval(script)
+                .unwrap_or_else(|err| panic!("{script}: {}", err.message));
             assert_eq!(e.format(&value), expected, "{script} at {prec}");
         }
     }
 }
-
 
 // ===========================================================================
 // Round 15 — Symbolics rows on the same language/engine surface: evalf's digit
@@ -5107,7 +6099,10 @@ fn r15_evalf_truncated_constant_is_never_exact() {
             Some(false),
             "{script} claimed exactness"
         );
-        assert!(j.get("numerator").is_none(), "{script} published a numerator");
+        assert!(
+            j.get("numerator").is_none(),
+            "{script} published a numerator"
+        );
         assert!(
             j.get("denominator").is_none(),
             "{script} published a denominator"
@@ -5237,7 +6232,9 @@ fn r15_hyperbolic_builtins_keep_their_symbolic_application_form() {
     let mut e = engine();
     e.eval("x = symbol(\"x\")").expect("symbol");
     for call in ["asinh(x)", "acosh(x)", "atanh(x)"] {
-        let value = e.eval(call).unwrap_or_else(|err| panic!("{call}: {}", err.message));
+        let value = e
+            .eval(call)
+            .unwrap_or_else(|err| panic!("{call}: {}", err.message));
         assert_eq!(e.format(&value), call, "{call}");
     }
 }

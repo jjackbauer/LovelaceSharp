@@ -14,7 +14,7 @@
 //! against that record; where the C# row checks the residual itself, the same 40-digit residual
 //! predicate the kernel uses is called directly.
 
-use lovelace_symbolics::{substitute, Expr as Sym};
+use lovelace_symbolics::{Expr as Sym, substitute};
 
 use crate::{Engine, Value};
 
@@ -163,7 +163,10 @@ fn the_extraneous_candidate_four_is_not_represented() {
     let result = eval("x = symbol(\"x\"); solve_full(sqrt(x) + 2 == 0, x)");
 
     for value in solution_values(&result) {
-        assert_ne!(value, "4", "x = 4 is an extraneous candidate of sqrt(x) = -2");
+        assert_ne!(
+            value, "4",
+            "x = 4 is an extraneous candidate of sqrt(x) = -2"
+        );
     }
     let equation = Sym::add(square_root(x()), Sym::num(2));
     assert_eq!(
@@ -378,4 +381,3 @@ fn polynomial_solve_stays_solved_and_complete_with_two_solutions() {
     assert_eq!(completeness(&result), "Complete");
     assert_eq!(integer(record_field(&result, "represented_count")), 2);
 }
-

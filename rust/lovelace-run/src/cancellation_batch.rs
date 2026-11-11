@@ -14,7 +14,9 @@ use lovelace_json::Json;
 
 fn as_f64(j: &Json) -> f64 {
     match j {
-        Json::Num(raw) => raw.parse::<f64>().unwrap_or_else(|_| panic!("not a number: {j:?}")),
+        Json::Num(raw) => raw
+            .parse::<f64>()
+            .unwrap_or_else(|_| panic!("not a number: {j:?}")),
         other => panic!("not a number: {other:?}"),
     }
 }
@@ -31,7 +33,8 @@ fn envelope_ms(env: &Json) -> f64 {
 }
 
 fn ledger(env: &Json) -> &Json {
-    opt(env, "cancellation").unwrap_or_else(|| panic!("the envelope carries no cancellation ledger: {env:?}"))
+    opt(env, "cancellation")
+        .unwrap_or_else(|| panic!("the envelope carries no cancellation ledger: {env:?}"))
 }
 
 fn diagnostics(env: &Json) -> &[Json] {
@@ -55,7 +58,11 @@ fn assert_ledger_consistency(env: &Json, budget: u64) {
     let exceeded = boolean(get(ledger, "exceeded"));
     let excess = as_f64(get(ledger, "excessMs"));
     assert!(excess >= 0.0, "a negative excess was reported: {ledger:?}");
-    assert_eq!(exceeded, excess > 0.0, "exceeded and excessMs disagree: {ledger:?}");
+    assert_eq!(
+        exceeded,
+        excess > 0.0,
+        "exceeded and excessMs disagree: {ledger:?}"
+    );
     assert_eq!(
         overrun_diagnostics(env).len(),
         if exceeded { 1 } else { 0 },
@@ -96,8 +103,14 @@ fn run_given_budget_far_below_the_sum_stops_inside_the_kernel_and_says_so() {
     assert_eq!(text(get(env, "code")), "Cancelled");
     assert_eq!(text(get(env, "category")), "BudgetExceeded");
     assert!(boolean(get(env, "recoverable")));
-    assert_eq!(text(get(env, "message")), "the evaluation was cancelled by the caller.");
-    assert!(boolean(get(ledger(env), "stopped")), "the deadline did not stop the run: {env:?}");
+    assert_eq!(
+        text(get(env, "message")),
+        "the evaluation was cancelled by the caller."
+    );
+    assert!(
+        boolean(get(ledger(env), "stopped")),
+        "the deadline did not stop the run: {env:?}"
+    );
     assert_ledger_consistency(env, 100);
     // Promptness is read from the LEDGER, which the kernel writes, not from the harness clock.
     assert!(
@@ -124,7 +137,10 @@ fn run_given_budget_far_below_the_matrix_product_stops_inside_the_kernel_and_say
     assert_eq!(result.exit, 1, "a cancelled run exits 1: {env:?}");
     assert!(!boolean(get(env, "ok")));
     assert_eq!(text(get(env, "code")), "Cancelled");
-    assert!(boolean(get(ledger(env), "stopped")), "the deadline did not stop the run: {env:?}");
+    assert!(
+        boolean(get(ledger(env), "stopped")),
+        "the deadline did not stop the run: {env:?}"
+    );
     assert!(
         as_f64(get(ledger(env), "elapsedMs")) < 2500.0,
         "a 100 ms budget took {} ms on matmul(eye(400), eye(400)): {env:?}",
@@ -141,19 +157,37 @@ fn run_given_work_inside_the_budget_succeeds_normally_and_reports_no_excess() {
     assert_eq!(text(get(get(env, "result"), "display")), "500500");
     let ledger = ledger(env);
     assert_eq!(number(get(ledger, "budgetMs")), 60000);
-    assert!(!boolean(get(ledger, "stopped")), "the deadline did not stop it: {ledger:?}");
-    assert!(!boolean(get(ledger, "exceeded")), "the run did not exceed its budget: {ledger:?}");
+    assert!(
+        !boolean(get(ledger, "stopped")),
+        "the deadline did not stop it: {ledger:?}"
+    );
+    assert!(
+        !boolean(get(ledger, "exceeded")),
+        "the run did not exceed its budget: {ledger:?}"
+    );
     assert_eq!(as_f64(get(ledger, "excessMs")), 0.0);
 }
 
 #[test]
 fn run_given_no_budget_carries_no_cancellation_block_at_all() {
-    let result = run_args(&["--eval", "sum(1..1000)", "--json", "--omit-functions", "--omit-variables"]);
+    let result = run_args(&[
+        "--eval",
+        "sum(1..1000)",
+        "--json",
+        "--omit-functions",
+        "--omit-variables",
+    ]);
     let env = &result.env;
     assert_eq!(result.exit, 0);
     assert!(boolean(get(env, "ok")));
-    assert!(opt(env, "cancellation").is_none(), "an un-budgeted run carries no ledger: {env:?}");
-    assert!(opt(env, "diagnostics").is_none(), "an un-budgeted run carries no diagnostics: {env:?}");
+    assert!(
+        opt(env, "cancellation").is_none(),
+        "an un-budgeted run carries no ledger: {env:?}"
+    );
+    assert!(
+        opt(env, "diagnostics").is_none(),
+        "an un-budgeted run carries no diagnostics: {env:?}"
+    );
 }
 
 #[test]
@@ -197,7 +231,10 @@ fn run_given_a_deadline_reports_its_verdict_consistently() {
 
 #[test]
 fn the_cancelled_path_keeps_partial_output_and_carries_the_documented_output() {
-    let result = cancelled_run("x = symbol(\"x\"); print(\"hello\"); sum(1..10000000)", "100");
+    let result = cancelled_run(
+        "x = symbol(\"x\"); print(\"hello\"); sum(1..10000000)",
+        "100",
+    );
     let env = &result.env;
     assert_eq!(result.exit, 1);
     assert_eq!(text(get(env, "code")), "Cancelled");
@@ -244,11 +281,17 @@ fn a_cancelled_envelope_publishes_exactly_the_reference_key_set() {
         "cancellation",
         "artifacts",
     ] {
-        assert!(opt(env, key).is_some(), "the cancelled envelope lost '{key}': {env:?}");
+        assert!(
+            opt(env, key).is_some(),
+            "the cancelled envelope lost '{key}': {env:?}"
+        );
     }
     // A cancelled run commits nothing that a success envelope publishes.
     for key in ["revision", "result", "variables", "functions"] {
-        assert!(opt(env, key).is_none(), "a cancelled envelope must not carry '{key}': {env:?}");
+        assert!(
+            opt(env, key).is_none(),
+            "a cancelled envelope must not carry '{key}': {env:?}"
+        );
     }
     assert_eq!(array(get(env, "artifacts")).len(), 0);
 }
@@ -277,9 +320,16 @@ fn the_diagnostic_position_is_the_completed_prefix_on_the_cli_cancellation_row()
     let committed = array(get(env, "partialVariables")).len();
     let expected_stop = if committed == 0 { 0 } else { 17 };
     let timings = array(get(env, "timings"));
-    assert!(!timings.is_empty(), "the stopped statement keeps its timing entry: {env:?}");
+    assert!(
+        !timings.is_empty(),
+        "the stopped statement keeps its timing entry: {env:?}"
+    );
     let last = &timings[timings.len() - 1];
-    assert_eq!(number(get(last, "position")), expected_stop, "the stopped statement: {env:?}");
+    assert_eq!(
+        number(get(last, "position")),
+        expected_stop,
+        "the stopped statement: {env:?}"
+    );
     assert_eq!(text(get(last, "resultKind")), "Void");
 }
 
@@ -307,7 +357,10 @@ fn a_run_that_completes_past_its_deadline_is_a_success_with_a_truthful_ledger() 
     assert!(boolean(get(env, "ok")));
     let ledger = ledger(env);
     assert!(!boolean(get(ledger, "stopped")));
-    assert!(boolean(get(ledger, "exceeded")), "the ledger must say it overran: {ledger:?}");
+    assert!(
+        boolean(get(ledger, "exceeded")),
+        "the ledger must say it overran: {ledger:?}"
+    );
     let diagnostics = diagnostics(env);
     assert_eq!(diagnostics.len(), 1);
     assert!(

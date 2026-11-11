@@ -274,7 +274,11 @@ mod tests {
                 holes.push(format!("{}: return kind not declared", info.name));
             }
         }
-        assert!(holes.is_empty(), "builtins with incomplete metadata: {}", holes.join("; "));
+        assert!(
+            holes.is_empty(),
+            "builtins with incomplete metadata: {}",
+            holes.join("; ")
+        );
     }
 
     /// HelpMetadataCompletenessTests.Signature_DistinguishesOptionalParameters.
@@ -283,7 +287,10 @@ mod tests {
         let solve = function("solve").expect("solve has help");
         assert!(solve.contains("solve(f, x [, domain])"), "{solve}");
         let solve_full = function("solve_full").expect("solve_full has help");
-        assert!(solve_full.contains("solve_full(f, x [, domain])"), "{solve_full}");
+        assert!(
+            solve_full.contains("solve_full(f, x [, domain])"),
+            "{solve_full}"
+        );
         let diff = function("diff").expect("diff has help");
         assert!(diff.contains("diff(f, x)"), "{diff}");
     }

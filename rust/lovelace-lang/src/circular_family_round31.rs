@@ -5,7 +5,7 @@
 //! contains the solved variable is a circular answer, not a value. Every test below repeats the C#
 //! assertion it is mapped to.
 
-use lovelace_symbolics::{substitute, Expr as Sym};
+use lovelace_symbolics::{Expr as Sym, substitute};
 
 use crate::{Engine, Value};
 
@@ -123,7 +123,10 @@ fn solve_full_exp_symbolic_complex_represents_the_whole_family() {
         domain_name(record_field(family, "parameter_domain")),
         "integer"
     );
-    assert_eq!(enum_name(record_field(family, "exactness")), "ParametricExact");
+    assert_eq!(
+        enum_name(record_field(family, "exactness")),
+        "ParametricExact"
+    );
 
     // exp(x) = 0 has no solution, so the family is valid under c != 0 and says so.
     let conditions = array_items(record_field(family, "conditions"));
@@ -142,7 +145,10 @@ fn kernel_exp_symbolic_complex_every_family_member_solves() {
     let template = symbolic(record_field(family, "template")).clone();
     let parameter = symbolic(record_field(family, "parameter")).to_string();
     assert_eq!(parameter, "k");
-    assert!(!mentions_x(&template), "a family template must not contain x");
+    assert!(
+        !mentions_x(&template),
+        "a family template must not contain x"
+    );
 
     // For a concrete c = 3 every member of the family is a solution of exp(x) - 3 = 0 ...
     let equation = Sym::Fun("exp".to_string(), vec![Sym::sym("x")]);
@@ -162,7 +168,10 @@ fn kernel_exp_symbolic_complex_every_family_member_solves() {
     let mut distinct: Vec<String> = members.iter().map(|m| m.to_string()).collect();
     distinct.sort();
     distinct.dedup();
-    assert!(distinct.len() >= 4, "the family members must be pairwise distinct");
+    assert!(
+        distinct.len() >= 4,
+        "the family members must be pairwise distinct"
+    );
 }
 
 #[test]
@@ -178,7 +187,10 @@ fn solve_full_exp_numeric_complex_is_not_the_principal_value_alone() {
         domain_name(record_field(&families[0], "parameter_domain")),
         "integer"
     );
-    assert!(!mentions_x(symbolic(record_field(&families[0], "template"))));
+    assert!(!mentions_x(symbolic(record_field(
+        &families[0],
+        "template"
+    ))));
     assert_eq!(family_templates(&result), vec!["log(5) + 2*k*pi*i"]);
 }
 
@@ -303,7 +315,10 @@ fn circular_candidates_are_not_represented_and_are_not_a_complete_set() {
             status, "NoSolutions",
             "{script} has solutions; nothing is proven empty"
         );
-        assert!(!boolean(record_field(&result, "complete")), "{script} claims complete");
+        assert!(
+            !boolean(record_field(&result, "complete")),
+            "{script} claims complete"
+        );
         assert_ne!(
             enum_name(record_field(&result, "completeness")),
             "Complete",
@@ -372,7 +387,10 @@ fn acceptance_controls_nothing_else_moves() {
     assert!(boolean(record_field(&no_real, "complete")));
 
     let extraneous = solve("x = symbol(\"x\"); solve_full(sqrt(x) + 2 == 0, x)");
-    assert_eq!(enum_name(record_field(&extraneous, "status")), "Unevaluated");
+    assert_eq!(
+        enum_name(record_field(&extraneous, "status")),
+        "Unevaluated"
+    );
     assert!(!boolean(record_field(&extraneous, "complete")));
     assert_eq!(integer(record_field(&extraneous, "represented_count")), 0);
 
@@ -430,10 +448,7 @@ fn kernel_exp_symbolic_complex_every_family_member_solves_in_a_complete_set() {
     let result = solve("x = symbol(\"x\"); c = symbol(\"c\"); solve_full(exp(x) == c, x)");
 
     assert_eq!(enum_name(record_field(&result, "status")), "Solved");
-    assert_eq!(
-        enum_name(record_field(&result, "completeness")),
-        "Complete"
-    );
+    assert_eq!(enum_name(record_field(&result, "completeness")), "Complete");
     assert!(boolean(record_field(&result, "complete")));
     assert!(array_items(record_field(&result, "solutions")).is_empty());
 
@@ -446,7 +461,10 @@ fn kernel_exp_symbolic_complex_every_family_member_solves_in_a_complete_set() {
     );
     let template = symbolic(record_field(family, "template")).clone();
     let parameter = symbolic(record_field(family, "parameter")).to_string();
-    assert!(!mentions_x(&template), "a family template must not contain x");
+    assert!(
+        !mentions_x(&template),
+        "a family template must not contain x"
+    );
 
     // For a concrete c = 3, every member of the family is a solution of exp(x) - 3 = 0 ...
     let equation = Sym::sub(

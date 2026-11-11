@@ -20,7 +20,11 @@ fn run(source: &str) -> RunResult {
 fn accept(source: &str) -> RunResult {
     let result = run(source);
     assert_eq!(result.exit, 0, "{source}: {}", result.stdout);
-    assert!(boolean(get(&result.env, "ok")), "{source}: {}", result.stdout);
+    assert!(
+        boolean(get(&result.env, "ok")),
+        "{source}: {}",
+        result.stdout
+    );
     result
 }
 
@@ -38,7 +42,11 @@ fn output(source: &str) -> Vec<String> {
 fn refusal(source: &str) -> RunResult {
     let result = run(source);
     assert_eq!(result.exit, 1, "{source}: {}", result.stdout);
-    assert!(!boolean(get(&result.env, "ok")), "{source}: {}", result.stdout);
+    assert!(
+        !boolean(get(&result.env, "ok")),
+        "{source}: {}",
+        result.stdout
+    );
     result
 }
 
@@ -84,7 +92,10 @@ fn boundary_movingavg_w_accepts_one_two_three() {
         let typed_value = typed(&source);
         assert!(typed_value.ends_with("(Vector)"), "{source}: {typed_value}");
     }
-    assert_eq!(typed("movingavg([1, 2, 3, 4, 5], 1)"), "[1, 2, 3, 4, 5] (Vector)");
+    assert_eq!(
+        typed("movingavg([1, 2, 3, 4, 5], 1)"),
+        "[1, 2, 3, 4, 5] (Vector)"
+    );
     assert_eq!(
         typed("movingavg([1, 2, 3, 4, 5], 3)"),
         "[0.(3), 1, 2, 3, 4] (Vector)"
@@ -219,7 +230,10 @@ fn accepted_dsp_shapes_still_answer() {
         output("print(movingavg([1, 2, 3, 4, 5], 3))"),
         vec!["[0.(3), 1, 2, 3, 4]"]
     );
-    assert_eq!(output("print(delay([1, 2, 3, 4], 1))"), vec!["[0, 1, 2, 3]"]);
+    assert_eq!(
+        output("print(delay([1, 2, 3, 4], 1))"),
+        vec!["[0, 1, 2, 3]"]
+    );
     assert_eq!(output("print(impulse(3))"), vec!["[1, 0, 0]"]);
     assert_eq!(output("print(len(step(4)))"), vec!["4"]);
 }
@@ -279,7 +293,10 @@ fn movingaverage_given_nonpositive_window_throws_actionable_error() {
 fn dsp_plugin_untouched_knob_computes_at_fast_budget_and_promotes() {
     let fast = typed("im(dft([1, 2, 3])[1])");
     let fast_digits = decimals(&fast);
-    assert!((15..=45).contains(&fast_digits), "fast digits {fast_digits}: {fast}");
+    assert!(
+        (15..=45).contains(&fast_digits),
+        "fast digits {fast_digits}: {fast}"
+    );
 
     let promoted = typed("setprecision(60); im(dft([1, 2, 3])[1])");
     let promoted_digits = decimals(&promoted);
@@ -293,17 +310,40 @@ fn dsp_plugin_untouched_knob_computes_at_fast_budget_and_promotes() {
 // ---------------------------------------------------------------------------
 
 const INTEGER_SEMANTIC_NAMES: &[&str] = &[
-    "dims", "rows", "cols", "axis", "axes", "order", "digits", "w", "k", "n", "index", "bound", "seed",
+    "dims", "rows", "cols", "axis", "axes", "order", "digits", "w", "k", "n", "index", "bound",
+    "seed",
 ];
 
 const INVENTORY: &[(&str, &str)] = &[
-    ("zeros", "dims"), ("ones", "dims"), ("eye", "rows"), ("eye", "cols"),
-    ("reshape", "dims"), ("sum", "axis"), ("prod", "axis"), ("min", "axis"), ("max", "axis"),
-    ("mean", "axis"), ("norm", "axis"), ("concat", "axis"), ("setprecision", "digits"),
-    ("pi", "digits"), ("e", "digits"), ("evalf", "digits"), ("series", "order"),
-    ("evalir", "digits"), ("evalir_batch", "digits"), ("movingavg", "w"), ("delay", "k"),
-    ("dft", "n"), ("impulse", "n"), ("step", "n"), ("exponential", "n"), ("cosine", "n"),
-    ("powerseries", "n"), ("noise", "n"), ("noise", "seed"),
+    ("zeros", "dims"),
+    ("ones", "dims"),
+    ("eye", "rows"),
+    ("eye", "cols"),
+    ("reshape", "dims"),
+    ("sum", "axis"),
+    ("prod", "axis"),
+    ("min", "axis"),
+    ("max", "axis"),
+    ("mean", "axis"),
+    ("norm", "axis"),
+    ("concat", "axis"),
+    ("setprecision", "digits"),
+    ("pi", "digits"),
+    ("e", "digits"),
+    ("evalf", "digits"),
+    ("series", "order"),
+    ("evalir", "digits"),
+    ("evalir_batch", "digits"),
+    ("movingavg", "w"),
+    ("delay", "k"),
+    ("dft", "n"),
+    ("impulse", "n"),
+    ("step", "n"),
+    ("exponential", "n"),
+    ("cosine", "n"),
+    ("powerseries", "n"),
+    ("noise", "n"),
+    ("noise", "seed"),
 ];
 
 const NON_REGISTRY_INVENTORY: &[(&str, &str)] = &[("index", "index"), ("range", "bound")];
@@ -349,9 +389,7 @@ fn the_inventory_covers_every_integer_semantic_parameter_in_the_registry() {
     }
     for (builtin, parameter) in INVENTORY {
         assert!(
-            required
-                .iter()
-                .any(|(b, p)| b == builtin && p == parameter),
+            required.iter().any(|(b, p)| b == builtin && p == parameter),
             "the boundary matrix carries an entry the registry no longer declares: {builtin}:{parameter}"
         );
     }
@@ -367,7 +405,11 @@ fn the_inventory_covers_every_integer_semantic_parameter_in_the_registry() {
         "the registry exposed only {} builtins",
         registry::BUILTINS.len()
     );
-    assert!(INVENTORY.len() >= 15, "the inventory carries only {} rows", INVENTORY.len());
+    assert!(
+        INVENTORY.len() >= 15,
+        "the inventory carries only {} rows",
+        INVENTORY.len()
+    );
     assert!(
         NON_REGISTRY_INVENTORY.len() >= 2,
         "the non-registry inventory lost its call sites"
@@ -384,4 +426,3 @@ fn every_exclusion_is_still_needed() {
         );
     }
 }
-

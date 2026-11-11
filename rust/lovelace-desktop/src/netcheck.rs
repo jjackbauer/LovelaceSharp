@@ -90,7 +90,8 @@ pub fn imported_dlls(bytes: &[u8]) -> Result<Vec<String>, String> {
 
 /// Reads the import directory of a file on disk.
 pub fn file_imports(path: &Path) -> Result<Vec<String>, String> {
-    let bytes = std::fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let bytes =
+        std::fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
     imported_dlls(&bytes)
 }
 
@@ -206,7 +207,10 @@ mod tests {
     #[test]
     fn reads_the_import_directory_of_a_synthetic_image() {
         let image = synthetic_pe("WS2_32.dll");
-        assert_eq!(imported_dlls(&image).unwrap(), vec!["WS2_32.dll".to_string()]);
+        assert_eq!(
+            imported_dlls(&image).unwrap(),
+            vec!["WS2_32.dll".to_string()]
+        );
         assert_eq!(
             network_imports(&imported_dlls(&image).unwrap()),
             vec!["WS2_32.dll".to_string()]
@@ -247,7 +251,11 @@ mod tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
         let mut files = Vec::new();
         collect_rust_files(&root, &mut files);
-        assert!(files.len() > 4, "expected to scan the crate sources, found {}", files.len());
+        assert!(
+            files.len() > 4,
+            "expected to scan the crate sources, found {}",
+            files.len()
+        );
         let needles = [
             "TcpListener",
             "TcpStream",
@@ -259,7 +267,11 @@ mod tests {
         ];
         let mut hits: Vec<String> = Vec::new();
         for file in files {
-            if file.file_name().map(|name| name == "netcheck.rs").unwrap_or(false) {
+            if file
+                .file_name()
+                .map(|name| name == "netcheck.rs")
+                .unwrap_or(false)
+            {
                 continue;
             }
             let text = std::fs::read_to_string(&file).unwrap_or_default();
@@ -280,7 +292,11 @@ mod tests {
             let path = entry.path();
             if path.is_dir() {
                 collect_rust_files(&path, out);
-            } else if path.extension().map(|extension| extension == "rs").unwrap_or(false) {
+            } else if path
+                .extension()
+                .map(|extension| extension == "rs")
+                .unwrap_or(false)
+            {
                 out.push(path);
             }
         }

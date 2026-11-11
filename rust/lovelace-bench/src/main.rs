@@ -77,16 +77,29 @@ impl Work {
             }
             Work::Mul => {
                 let value = std::hint::black_box(a.mul(b));
-                if want_digest { Some(value.to_decimal()) } else { None }
+                if want_digest {
+                    Some(value.to_decimal())
+                } else {
+                    None
+                }
             }
             Work::Div => {
-                let divisor = Nat::from_decimal(&random_digits((digits / 4).max(1), 99999)).expect("c");
+                let divisor =
+                    Nat::from_decimal(&random_digits((digits / 4).max(1), 99999)).expect("c");
                 let pair = std::hint::black_box(a.div_rem(&divisor));
-                if want_digest { pair.map(|(q, _)| q.to_decimal()) } else { None }
+                if want_digest {
+                    pair.map(|(q, _)| q.to_decimal())
+                } else {
+                    None
+                }
             }
             Work::Factorial => {
                 let value = std::hint::black_box(Nat::factorial(digits as u64));
-                if want_digest { Some(value.to_decimal()) } else { None }
+                if want_digest {
+                    Some(value.to_decimal())
+                } else {
+                    None
+                }
             }
             Work::ToString => {
                 let text = std::hint::black_box(a.to_decimal());
@@ -102,7 +115,11 @@ impl Work {
             Work::Parse => {
                 let text = random_digits(digits, 4242);
                 let value = std::hint::black_box(Nat::from_decimal(&text).unwrap());
-                if want_digest { Some(value.to_decimal()) } else { None }
+                if want_digest {
+                    Some(value.to_decimal())
+                } else {
+                    None
+                }
             }
             Work::Pi => {
                 let value = std::hint::black_box(Real::pi(digits)).to_string();

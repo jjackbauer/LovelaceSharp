@@ -410,10 +410,7 @@ mod tests {
 
     #[test]
     fn add_GivenSameSignNegative_AddsMagnitudes() {
-        assert_eq!(
-            Int::from_i64(-2).add(&Int::from_i64(-3)),
-            Int::from_i64(-5)
-        );
+        assert_eq!(Int::from_i64(-2).add(&Int::from_i64(-3)), Int::from_i64(-5));
     }
 
     #[test]
@@ -448,10 +445,7 @@ mod tests {
 
     #[test]
     fn sub_GivenNegativeMinusNegative_CanBePositive() {
-        assert_eq!(
-            Int::from_i64(-3).sub(&Int::from_i64(-7)),
-            Int::from_i64(4)
-        );
+        assert_eq!(Int::from_i64(-3).sub(&Int::from_i64(-7)), Int::from_i64(4));
     }
 
     #[test]
@@ -469,18 +463,12 @@ mod tests {
 
     #[test]
     fn mul_GivenNegativeAndPositive_ReturnsNegative() {
-        assert_eq!(
-            Int::from_i64(-7).mul(&Int::from_i64(6)),
-            Int::from_i64(-42)
-        );
+        assert_eq!(Int::from_i64(-7).mul(&Int::from_i64(6)), Int::from_i64(-42));
     }
 
     #[test]
     fn mul_GivenTwoNegatives_ReturnsPositive() {
-        assert_eq!(
-            Int::from_i64(-7).mul(&Int::from_i64(-6)),
-            Int::from_i64(42)
-        );
+        assert_eq!(Int::from_i64(-7).mul(&Int::from_i64(-6)), Int::from_i64(42));
     }
 
     #[test]
@@ -540,9 +528,7 @@ mod tests {
 
     #[test]
     fn div_rem_signed_GivenNegativeDivisor_TruncatesTowardZero() {
-        let (quotient, remainder) = Int::from_i64(7)
-            .div_rem_signed(&Int::from_i64(-2))
-            .unwrap();
+        let (quotient, remainder) = Int::from_i64(7).div_rem_signed(&Int::from_i64(-2)).unwrap();
         assert_eq!(quotient, Int::from_i64(-3));
         assert_eq!(remainder, Int::from_i64(1));
     }
@@ -632,7 +618,7 @@ mod tests {
         );
     }
 
-// ------------------------------------------------------------------
+    // ------------------------------------------------------------------
     // Ports of Lovelace.Integer.Tests. Each test reproduces the C# method's
     // concrete operands and concrete expected value. The C# operators
     // (+, -, *, /, %, unary -) delegate to the named methods, so the Rust
@@ -679,7 +665,10 @@ mod tests {
     #[test]
     fn operator_plus_GivenTwoPositives_ReturnsOneHundredTwentyThree() {
         // IntegerAddTests.OperatorPlus_GivenTwoPositives: 100 + 23 == 123.
-        assert_eq!(Int::from_i64(100).add(&Int::from_i64(23)), Int::from_i64(123));
+        assert_eq!(
+            Int::from_i64(100).add(&Int::from_i64(23)),
+            Int::from_i64(123)
+        );
     }
 
     #[test]
@@ -790,9 +779,7 @@ mod tests {
         // IntegerDivideTests.DivRem_GivenPositiveDividendAndDivisor (10/3 -> 3 r 1),
         // DivisionOperator_GivenPositives (10/3 == 3) and ModulusOperator_GivenPositives
         // (10%3 == 1) all describe the same concrete quotient and remainder.
-        let (quotient, remainder) = Int::from_i64(10)
-            .div_rem_signed(&Int::from_i64(3))
-            .unwrap();
+        let (quotient, remainder) = Int::from_i64(10).div_rem_signed(&Int::from_i64(3)).unwrap();
         assert_eq!(quotient, Int::from_i64(3));
         assert_eq!(remainder, Int::from_i64(1));
     }
@@ -826,9 +813,7 @@ mod tests {
     fn div_rem_signed_GivenExactDivision_ReturnsZeroRemainder() {
         // IntegerDivideTests.DivRem_GivenExactDivision_RemainderIsZero (12/4) and
         // ModulusOperator_GivenExactDivision (12%4 == 0).
-        let (quotient, remainder) = Int::from_i64(12)
-            .div_rem_signed(&Int::from_i64(4))
-            .unwrap();
+        let (quotient, remainder) = Int::from_i64(12).div_rem_signed(&Int::from_i64(4)).unwrap();
         assert_eq!(quotient, Int::from_i64(3));
         assert!(remainder.is_zero());
     }
@@ -865,10 +850,7 @@ mod tests {
         // IntegerEqualityTests.CompareTo_GivenPositiveGreaterThanNegative (1 vs -1),
         // GreaterThanOperator_GivenPositiveVsNegative and
         // LessThanOperator_GivenNegativeVsPositive all use the pair 1 and -1.
-        assert_eq!(
-            Int::from_i64(1).cmp(&Int::from_i64(-1)),
-            Ordering::Greater
-        );
+        assert_eq!(Int::from_i64(1).cmp(&Int::from_i64(-1)), Ordering::Greater);
         assert!(Int::from_i64(1) > Int::from_i64(-1));
         assert_eq!(Int::from_i64(-1).cmp(&Int::from_i64(1)), Ordering::Less);
         assert!(Int::from_i64(-1) < Int::from_i64(1));

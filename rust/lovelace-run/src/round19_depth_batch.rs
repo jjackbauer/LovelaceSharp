@@ -13,7 +13,13 @@ use lovelace_json::Json;
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
     with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"])
+        run_args(&[
+            "--eval",
+            &script,
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+        ])
     })
 }
 
@@ -63,7 +69,10 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!("structured record has no field '{name}': {}", st.to_string())
+    panic!(
+        "structured record has no field '{name}': {}",
+        st.to_string()
+    )
 }
 
 fn assert_depth_refusal(r: &RunResult, message_fragment: &str) {
@@ -71,7 +80,10 @@ fn assert_depth_refusal(r: &RunResult, message_fragment: &str) {
     assert!(!boolean(get(&r.env, "ok")));
     assert_eq!(code(r), "DepthExceeded");
     assert_eq!(category(r), "BudgetExceeded");
-    assert!(boolean(get(&r.env, "recoverable")), "the caller can retry shallower");
+    assert!(
+        boolean(get(&r.env, "recoverable")),
+        "the caller can retry shallower"
+    );
     assert!(
         message(r).contains(message_fragment),
         "the message must name the refusal ({message_fragment}): {}",
@@ -86,14 +98,35 @@ fn assert_depth_refusal(r: &RunResult, message_fragment: &str) {
 #[test]
 fn run_depth_guard_deep_inputs_are_typed_refusals_never_process_deaths() {
     let shapes: Vec<(&str, String)> = vec![
-        ("nested parentheses", format!("{}1{};", "(".repeat(3000), ")".repeat(3000))),
+        (
+            "nested parentheses",
+            format!("{}1{};", "(".repeat(3000), ")".repeat(3000)),
+        ),
         ("unary minus chain", format!("{}1;", "-".repeat(3000))),
-        ("nested abs() calls", format!("{}1{};", "abs(".repeat(3000), ")".repeat(3000))),
-        ("nested (+1) groups", format!("{}1{};", "(".repeat(3000), "+1)".repeat(3000))),
-        ("nested list literals", format!("{}1{};", "[".repeat(3000), "]".repeat(3000))),
-        ("nested sqrt() calls", format!("{}1{};", "sqrt(".repeat(3000), ")".repeat(3000))),
-        ("flat subtraction chain (20000)", format!("1{};", "-1".repeat(20000))),
-        ("flat addition chain (20000)", format!("1{};", "+1".repeat(20000))),
+        (
+            "nested abs() calls",
+            format!("{}1{};", "abs(".repeat(3000), ")".repeat(3000)),
+        ),
+        (
+            "nested (+1) groups",
+            format!("{}1{};", "(".repeat(3000), "+1)".repeat(3000)),
+        ),
+        (
+            "nested list literals",
+            format!("{}1{};", "[".repeat(3000), "]".repeat(3000)),
+        ),
+        (
+            "nested sqrt() calls",
+            format!("{}1{};", "sqrt(".repeat(3000), ")".repeat(3000)),
+        ),
+        (
+            "flat subtraction chain (20000)",
+            format!("1{};", "-1".repeat(20000)),
+        ),
+        (
+            "flat addition chain (20000)",
+            format!("1{};", "+1".repeat(20000)),
+        ),
     ];
     for (what, script) in shapes {
         let r = run_script(&script);
@@ -101,7 +134,10 @@ fn run_depth_guard_deep_inputs_are_typed_refusals_never_process_deaths() {
         assert!(!boolean(get(&r.env, "ok")), "{what}: ok must be false");
         assert_eq!(code(&r), "DepthExceeded", "{what}: {}", r.env.to_string());
         assert_eq!(category(&r), "BudgetExceeded", "{what}");
-        assert!(boolean(get(&r.env, "recoverable")), "{what}: the caller can retry shallower");
+        assert!(
+            boolean(get(&r.env, "recoverable")),
+            "{what}: the caller can retry shallower"
+        );
         let msg = message(&r);
         assert!(
             msg.contains("depth ") && (msg.contains("of 256") || msg.contains("of 512")),
@@ -123,7 +159,11 @@ fn run_depth_guard_loop_built_expression_depth_is_a_typed_refusal() {
 fn run_depth_guard_input_at_the_limit_is_accepted() {
     let script = format!("{}1{};", "(".repeat(254), ")".repeat(254));
     let r = run_script(&script);
-    assert!(boolean(get(&r.env, "ok")), "depth 256 is exactly the budget: {}", r.env.to_string());
+    assert!(
+        boolean(get(&r.env, "ok")),
+        "depth 256 is exactly the budget: {}",
+        r.env.to_string()
+    );
     assert_eq!(r.exit, 0);
 }
 
@@ -133,14 +173,22 @@ fn run_depth_guard_input_one_past_the_limit_is_refused() {
     let r = run_script(&script);
     assert_ne!(r.exit, 0);
     assert_eq!(code(&r), "DepthExceeded");
-    assert!(message(&r).contains("257"), "the message names depth 257: {}", message(&r));
+    assert!(
+        message(&r).contains("257"),
+        "the message names depth 257: {}",
+        message(&r)
+    );
 }
 
 #[test]
 fn run_depth_guard_flat_chain_at_the_limit_is_accepted() {
     let script = format!("1{};", "-1".repeat(509));
     let r = run_script(&script);
-    assert!(boolean(get(&r.env, "ok")), "a flat chain of depth 512 must be accepted: {}", r.env.to_string());
+    assert!(
+        boolean(get(&r.env, "ok")),
+        "a flat chain of depth 512 must be accepted: {}",
+        r.env.to_string()
+    );
     assert_eq!(r.exit, 0);
 }
 
@@ -150,7 +198,11 @@ fn run_depth_guard_flat_chain_one_past_the_limit_is_refused() {
     let r = run_script(&script);
     assert_ne!(r.exit, 0);
     assert_eq!(code(&r), "DepthExceeded");
-    assert!(message(&r).contains("513"), "the message names tree depth 513: {}", message(&r));
+    assert!(
+        message(&r).contains("513"),
+        "the message names tree depth 513: {}",
+        message(&r)
+    );
 }
 
 #[test]
@@ -159,25 +211,36 @@ fn run_depth_guard_flat_sum_of_hundreds_of_terms_is_still_accepted() {
     let script = format!("x = symbol(\"x\"); simplify_full({})", terms.join(" + "));
     let r = run_script(&script);
     assert_eq!(r.exit, 0);
-    assert!(boolean(get(&r.env, "ok")), "a 420-term flat sum must still run: {}", r.env.to_string());
+    assert!(
+        boolean(get(&r.env, "ok")),
+        "a 420-term flat sum must still run: {}",
+        r.env.to_string()
+    );
 }
 
 #[test]
 fn run_depth_guard_wide_program_of_shallow_statements_is_still_accepted() {
     let script = format!("e = 0;{}", "e = e + 1;".repeat(5000));
     let r = run_script(&script);
-    assert_eq!(r.exit, 0, "5000 shallow statements must still run: {}", r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "5000 shallow statements must still run: {}",
+        r.env.to_string()
+    );
     assert!(boolean(get(&r.env, "ok")));
     assert_eq!(text(get(get(&r.env, "result"), "display")), "5000");
 }
 
 #[test]
 fn run_depth_guard_ordinary_nested_arithmetic_is_unchanged() {
-    let r = run_script(
-        "x = symbol(\"x\"); e = -(-(-(1 + 2*3))) + sqrt(sqrt(16)) + abs(-2); e;",
-    );
+    let r = run_script("x = symbol(\"x\"); e = -(-(-(1 + 2*3))) + sqrt(sqrt(16)) + abs(-2); e;");
     assert_eq!(r.exit, 0);
-    assert!(boolean(get(&r.env, "ok")), "ordinary arithmetic must still run: {}", r.env.to_string());
+    assert!(
+        boolean(get(&r.env, "ok")),
+        "ordinary arithmetic must still run: {}",
+        r.env.to_string()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -236,7 +299,11 @@ fn run_value_depth_deep_result_with_no_deep_variable_is_also_refused() {
 #[test]
 fn run_value_depth_at_the_limit_is_accepted() {
     let r = run_script(&wrap_script(1023));
-    assert!(boolean(get(&r.env, "ok")), "value depth 1024 is the budget: {}", r.env.to_string());
+    assert!(
+        boolean(get(&r.env, "ok")),
+        "value depth 1024 is the budget: {}",
+        r.env.to_string()
+    );
     assert_eq!(r.exit, 0);
     assert!(opt(&r.env, "code").is_none());
 }
@@ -257,10 +324,16 @@ fn run_value_depth_increasing_wrap_counts_answer_or_refuse_never_die() {
         let r = run_script(&wrap_script(wraps));
         let depth = wraps + 1;
         if depth <= 1024 {
-            assert!(boolean(get(&r.env, "ok")), "{wraps} wraps (depth {depth}) must answer");
+            assert!(
+                boolean(get(&r.env, "ok")),
+                "{wraps} wraps (depth {depth}) must answer"
+            );
             assert_eq!(r.exit, 0);
         } else {
-            assert!(!boolean(get(&r.env, "ok")), "{wraps} wraps (depth {depth}) must be refused");
+            assert!(
+                !boolean(get(&r.env, "ok")),
+                "{wraps} wraps (depth {depth}) must be refused"
+            );
             assert_eq!(r.exit, 1);
             assert_eq!(code(&r), "DepthExceeded");
             assert_eq!(category(&r), "BudgetExceeded");
@@ -273,7 +346,10 @@ fn run_value_depth_increasing_wrap_counts_answer_or_refuse_never_die() {
 fn run_value_depth_legitimate_values_are_not_refused() {
     let wide = run_script("v = 1..20000; v[19999]");
     assert_eq!(wide.exit, 0);
-    assert!(boolean(get(&wide.env, "ok")), "a 20000-element flat vector must run");
+    assert!(
+        boolean(get(&wide.env, "ok")),
+        "a 20000-element flat vector must run"
+    );
     let nested = run_script("x = 1; for i in 1..20 { x = [x] }; x");
     assert_eq!(nested.exit, 0);
     assert!(boolean(get(&nested.env, "ok")));
@@ -284,8 +360,7 @@ fn run_value_depth_legitimate_values_are_not_refused() {
 // RecursionDepthEnvelopeTests
 // ---------------------------------------------------------------------------
 
-const RECURSION_FUNCTION: &str =
-    "func f(n) { if (n == 0) { return 0 }; return f(n - 1) }\n";
+const RECURSION_FUNCTION: &str = "func f(n) { if (n == 0) { return 0 }; return f(n - 1) }\n";
 
 fn recursion(depth: i64) -> String {
     format!("{RECURSION_FUNCTION}f({depth})")
@@ -324,10 +399,16 @@ fn run_recursion_depth_increasing_depths_answer_or_refuse_never_die() {
     for depth in [0i64, 1, 8, 64, 85, 86, 200, 432, 433, 448, 2000, 100000] {
         let r = run_script(&recursion(depth));
         if depth <= 85 {
-            assert!(boolean(get(&r.env, "ok")), "depth {depth} is within the budget and must answer");
+            assert!(
+                boolean(get(&r.env, "ok")),
+                "depth {depth} is within the budget and must answer"
+            );
             assert_eq!(r.exit, 0);
         } else {
-            assert!(!boolean(get(&r.env, "ok")), "depth {depth} is past the budget and must be refused");
+            assert!(
+                !boolean(get(&r.env, "ok")),
+                "depth {depth} is past the budget and must be refused"
+            );
             assert_eq!(r.exit, 1);
             assert_eq!(code(&r), "DepthExceeded");
             assert_eq!(category(&r), "BudgetExceeded");
@@ -340,8 +421,7 @@ fn run_recursion_depth_increasing_depths_answer_or_refuse_never_die() {
 // RecursionBudgetCompositionEnvelopeTests
 // ---------------------------------------------------------------------------
 
-const DEFINITION: &str =
-    "func f(n) { if (n == 0) { return 0 }; return f(n - 1) }\n";
+const DEFINITION: &str = "func f(n) { if (n == 0) { return 0 }; return f(n - 1) }\n";
 
 #[test]
 fn run_recursion_budget_preceding_sibling_does_not_spend_the_call_budget() {
@@ -368,7 +448,9 @@ fn run_recursion_budget_both_block_orders_answer_at_the_documented_boundary() {
 
 fn measured_evaluation_depth(r: &RunResult) -> i64 {
     let msg = message(r);
-    let at = msg.find("evaluation depth ").expect("the message names the evaluation depth")
+    let at = msg
+        .find("evaluation depth ")
+        .expect("the message names the evaluation depth")
         + "evaluation depth ".len();
     let tail = &msg[at..];
     let end = tail.find(' ').expect("a space terminates the number");
@@ -379,13 +461,22 @@ fn measured_evaluation_depth(r: &RunResult) -> i64 {
 fn run_recursion_budget_refusal_reports_the_same_depth_in_both_block_orders() {
     let top = run_script(&recursion(86));
     assert_eq!(top.exit, 1);
-    assert_depth_refusal(&top, "exceeds the maximum supported evaluation depth of 512");
+    assert_depth_refusal(
+        &top,
+        "exceeds the maximum supported evaluation depth of 512",
+    );
     let top_depth = measured_evaluation_depth(&top);
-    assert!(top_depth > 512, "the measured depth must be past the budget, was {top_depth}");
+    assert!(
+        top_depth > 512,
+        "the measured depth must be past the budget, was {top_depth}"
+    );
 
     let block = run_script(&format!("{DEFINITION}{{ 1; f(86) }}"));
     assert_eq!(block.exit, 1);
-    assert_depth_refusal(&block, "exceeds the maximum supported evaluation depth of 512");
+    assert_depth_refusal(
+        &block,
+        "exceeds the maximum supported evaluation depth of 512",
+    );
     assert_eq!(top_depth, measured_evaluation_depth(&block));
 }
 

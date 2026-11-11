@@ -4,7 +4,7 @@
 //! a value whose magnitude is wider than the display bound is asserted against the oracle's
 //! published 100 fractional digits, which is the observable both runners publish.
 
-use crate::{structured, Engine, LangError, Value};
+use crate::{Engine, LangError, Value, structured};
 
 fn eval(source: &str) -> Result<Value, LangError> {
     let mut engine = Engine::new();
@@ -44,7 +44,10 @@ fn element_field(source: &str, index: usize, field: &str) -> String {
 
 fn element_exact(source: &str, index: usize) -> bool {
     let elements = structured_elements(source);
-    matches!(elements[index].get("exact"), Some(lovelace_json::Json::Bool(true)))
+    matches!(
+        elements[index].get("exact"),
+        Some(lovelace_json::Json::Bool(true))
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +108,10 @@ fn delay_given_empty_signal_carries_the_sample_range_refusal() {
 
 #[test]
 fn movingavg_given_exact_windows_matches_the_oracle_sequences() {
-    assert_eq!(typed("movingavg([1, 2, 3, 4], 2)"), "[0.5, 1.5, 2.5, 3.5] (Vector)");
+    assert_eq!(
+        typed("movingavg([1, 2, 3, 4], 2)"),
+        "[0.5, 1.5, 2.5, 3.5] (Vector)"
+    );
     assert_eq!(
         typed("movingavg([1, 2, 3, 4, 5], 3)"),
         "[0.(3), 1, 2, 3, 4] (Vector)"
@@ -218,7 +224,10 @@ fn powerseries_given_zero_k_or_zero_a_stays_exact() {
 
 #[test]
 fn powerseries_given_periodic_operands_matches_the_fixed_width_provenance() {
-    assert_eq!(typed("powerseries(2, 1/3, 3)"), "[0, 0.(6), 0.(4)] (Vector)");
+    assert_eq!(
+        typed("powerseries(2, 1/3, 3)"),
+        "[0, 0.(6), 0.(4)] (Vector)"
+    );
     assert!(!element_exact("powerseries(2, 1/3, 3)", 1));
     assert!(element_exact("powerseries(2, 1/3, 3)", 0));
 }
@@ -350,11 +359,18 @@ fn noise_given_two_arguments_publishes_the_declared_arity_signature() {
     assert_eq!(err.code, "InvalidArgument");
     assert_eq!(err.category, "TypeMismatch");
     assert_eq!(err.message, "noise(): expected 3 to 4 arguments; got 2.");
-    let signature = err.signature.expect("an arity refusal carries its signature");
+    let signature = err
+        .signature
+        .expect("an arity refusal carries its signature");
     assert_eq!(signature.function, "noise");
     assert_eq!(
         signature.parameters,
-        Some(vec!["scale".to_string(), "disp".to_string(), "n".to_string(), "seed".to_string()])
+        Some(vec![
+            "scale".to_string(),
+            "disp".to_string(),
+            "n".to_string(),
+            "seed".to_string()
+        ])
     );
     assert_eq!(signature.expected_min, Some(3));
     assert_eq!(signature.expected_max, Some(4));
@@ -374,7 +390,10 @@ fn movingavg_given_scalar_signal_reports_the_array_contract() {
     let err = error("movingavg(5, 2)");
     assert_eq!(err.code, "InvalidOperation");
     assert_eq!(err.category, "DomainError");
-    assert_eq!(err.message, "DSP builtins expect an array argument, but got a scalar.");
+    assert_eq!(
+        err.message,
+        "DSP builtins expect an array argument, but got a scalar."
+    );
 }
 
 #[test]

@@ -18,7 +18,10 @@ fn args_owned(args: &[&str]) -> Vec<String> {
 }
 
 pub fn plot_dir() -> String {
-    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../target/tmp/parity-run-tests");
+    let dir = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../target/tmp/parity-run-tests"
+    );
     let _ = std::fs::create_dir_all(dir);
     dir.to_string()
 }
@@ -30,7 +33,11 @@ pub fn run_args(args: &[&str]) -> RunResult {
     if opts.list_functions || opts.describe_function.is_some() {
         let env = registry_query_envelope(&opts);
         let ok = matches!(env.get("ok"), Some(Json::Bool(true)));
-        return RunResult { exit: if ok { 0 } else { 1 }, stdout: env.to_string(), env };
+        return RunResult {
+            exit: if ok { 0 } else { 1 },
+            stdout: env.to_string(),
+            env,
+        };
     }
     let source = match &opts.source_file {
         // The SAME decoder main uses: a leading byte-order mark is kept as U+FEFF (the engine
@@ -46,7 +53,11 @@ pub fn run_args(args: &[&str]) -> RunResult {
                     "TypeMismatch",
                     format!("Cannot read script file '{path}': {e}"),
                 );
-                return RunResult { exit: 1, stdout: env.to_string(), env };
+                return RunResult {
+                    exit: 1,
+                    stdout: env.to_string(),
+                    env,
+                };
             }
         },
         None => opts.source.clone().unwrap_or_default(),
@@ -62,7 +73,11 @@ pub fn run_args(args: &[&str]) -> RunResult {
                 "TypeMismatch",
                 format!("Cannot use plot directory '{dir}': {e}"),
             );
-            return RunResult { exit: 1, stdout: env.to_string(), env };
+            return RunResult {
+                exit: 1,
+                stdout: env.to_string(),
+                env,
+            };
         }
     }
     if let Some(name) = &opts.plot_file {
@@ -72,7 +87,11 @@ pub fn run_args(args: &[&str]) -> RunResult {
     // assertion here cannot pass on a flow the binary does not run.
     let execution = execute(&mut engine, &opts, &source);
     let (env, exit) = envelope_for(&mut engine, &opts, &source, execution);
-    RunResult { exit, stdout: env.to_string(), env }
+    RunResult {
+        exit,
+        stdout: env.to_string(),
+        env,
+    }
 }
 
 /// The same JSON the production registry query prints, returned instead of printed.
@@ -117,7 +136,10 @@ fn registry_query_envelope(opts: &Options) -> Json {
         if !hints.is_empty() {
             fields.push(("hints", Json::str_array(hints)));
         }
-        fields.push(("registrySize", Json::Num(registry::BUILTINS.len().to_string())));
+        fields.push((
+            "registrySize",
+            Json::Num(registry::BUILTINS.len().to_string()),
+        ));
         fields.push(("artifacts", Json::Arr(Vec::new())));
         return Json::obj(fields);
     }
@@ -140,7 +162,8 @@ fn registry_query_envelope(opts: &Options) -> Json {
 }
 
 pub fn get<'a>(j: &'a Json, key: &str) -> &'a Json {
-    j.get(key).unwrap_or_else(|| panic!("missing key '{key}' in {}", j.to_string()))
+    j.get(key)
+        .unwrap_or_else(|| panic!("missing key '{key}' in {}", j.to_string()))
 }
 
 pub fn opt<'a>(j: &'a Json, key: &str) -> Option<&'a Json> {
@@ -148,7 +171,8 @@ pub fn opt<'a>(j: &'a Json, key: &str) -> Option<&'a Json> {
 }
 
 pub fn text(j: &Json) -> &str {
-    j.as_str().unwrap_or_else(|| panic!("not a string: {}", j.to_string()))
+    j.as_str()
+        .unwrap_or_else(|| panic!("not a string: {}", j.to_string()))
 }
 
 pub fn boolean(j: &Json) -> bool {
@@ -166,7 +190,8 @@ pub fn number(j: &Json) -> i64 {
 }
 
 pub fn array(j: &Json) -> &[Json] {
-    j.as_arr().unwrap_or_else(|| panic!("not an array: {}", j.to_string()))
+    j.as_arr()
+        .unwrap_or_else(|| panic!("not an array: {}", j.to_string()))
 }
 
 pub fn record_field<'a>(record: &'a Json, name: &str) -> &'a Json {
@@ -223,21 +248,42 @@ fn matrix_case(builtin: &str, param: &str) {
                 "{where_}: a caller-side argument mistake crossed as an INTERNAL failure \
                  (code={code}, category={category}, recoverable={recoverable}, message='{message}')"
             );
-            assert!(recoverable, "{where_}: the refusal is not recoverable (code={code}, category={category}, message='{message}')");
-            assert!(*must != 1, "{where_}: this literal denotes an exact integer the call site accepts, but it was refused (code={code}, message='{message}')");
+            assert!(
+                recoverable,
+                "{where_}: the refusal is not recoverable (code={code}, category={category}, message='{message}')"
+            );
+            assert!(
+                *must != 1,
+                "{where_}: this literal denotes an exact integer the call site accepts, but it was refused (code={code}, message='{message}')"
+            );
             assert_eq!(result.exit, 1, "{where_}: a refusal must exit 1");
             if code == "Cancelled" {
-                assert_eq!(category, "BudgetExceeded", "{where_}: a cancellation must carry category BudgetExceeded");
+                assert_eq!(
+                    category, "BudgetExceeded",
+                    "{where_}: a cancellation must carry category BudgetExceeded"
+                );
                 continue;
             }
             if code == "InvalidArgument" {
-                assert_eq!(category, "TypeMismatch", "{where_}: an argument refusal must carry category TypeMismatch");
-                assert!(message.starts_with(&format!("{builtin}()")), "{where_}: the refusal must name the builtin as '{builtin}()'");
-                assert!(!message.contains("(Parameter '"), "{where_}: the refusal carries raw framework text");
+                assert_eq!(
+                    category, "TypeMismatch",
+                    "{where_}: an argument refusal must carry category TypeMismatch"
+                );
+                assert!(
+                    message.starts_with(&format!("{builtin}()")),
+                    "{where_}: the refusal must name the builtin as '{builtin}()'"
+                );
+                assert!(
+                    !message.contains("(Parameter '"),
+                    "{where_}: the refusal carries raw framework text"
+                );
             }
             continue;
         }
-        assert!(*must != 0, "{where_}: an argument that is not an exact integer was ACCEPTED — the silent-coercion class");
+        assert!(
+            *must != 0,
+            "{where_}: an argument that is not an exact integer was ACCEPTED — the silent-coercion class"
+        );
         assert_eq!(result.exit, 0, "{where_}: an accepted call must exit 0");
     }
 }
@@ -296,340 +342,494 @@ matrix_rows![
     (matrix_range_bound, "range", "bound"),
 ];
 
-
 const MATRIX: &[(&str, &str, &str, &[(&str, i8)])] = &[
-    ("zeros", "dims", "zeros({0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("ones", "dims", "ones({0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("eye", "rows", "eye({0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-    ]),
-    ("eye", "cols", "eye(2, {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("reshape", "dims", "reshape([1, 2, 3, 4], {0})", &[
-        ("4", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("sum", "axis", "sum([[1, 2], [3, 4]], {0})", &[
-        ("0", 1),
-        ("1", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("prod", "axis", "prod([1, 2, 3], {0})", &[
-        ("0", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("min", "axis", "min([1, 2, 3], {0})", &[
-        ("0", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("max", "axis", "max([1, 2, 3], {0})", &[
-        ("0", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("mean", "axis", "mean([1, 2, 3], {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("norm", "axis", "norm([1, 2, 3], {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("concat", "axis", "concat([1, 2], [3, 4], {0})", &[
-        ("0", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("setprecision", "digits", "setprecision({0}); 1", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("pi", "digits", "pi({0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("e", "digits", "e({0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("evalf", "digits", "evalf(1/3, {0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("series", "order", "x = symbol(\"x\"); series(sin(x), x, 0, {0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("evalir", "digits", "x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("evalir_batch", "digits", "x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1], {0})", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("movingavg", "w", "movingavg([1, 2, 3, 4, 5], {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("delay", "k", "delay([1, 2, 3, 4], {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("dft", "n", "dft([1, 2, 3, 4], {0})", &[
-        ("4", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("impulse", "n", "impulse({0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("step", "n", "step({0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("exponential", "n", "exponential(0.5, {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("cosine", "n", "cosine(0.25, 0, {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("powerseries", "n", "powerseries(2, 0.5, {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("noise", "n", "noise(1, 0, {0})", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("noise", "seed", "noise(1, 0, {0}, 2)", &[
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-    ]),
-    ("index", "index", "[1, 2, 3][{0}]", &[
-        ("0", 1),
-        ("1", 1),
-        ("2", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-        ("9223372036854775808", -1),
-    ]),
-    ("range", "bound", "1..{0}", &[
-        ("1", 1),
-        ("2", 1),
-        ("3", 1),
-        ("2.5", 0),
-        ("0.5", 0),
-        ("2.9999", 0),
-        ("(5/2)", 0),
-        ("2.0", -1),
-        ("0", -1),
-        ("-1", -1),
-        ("10^30", -1),
-    ]),
+    (
+        "zeros",
+        "dims",
+        "zeros({0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "ones",
+        "dims",
+        "ones({0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "eye",
+        "rows",
+        "eye({0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+        ],
+    ),
+    (
+        "eye",
+        "cols",
+        "eye(2, {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "reshape",
+        "dims",
+        "reshape([1, 2, 3, 4], {0})",
+        &[
+            ("4", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "sum",
+        "axis",
+        "sum([[1, 2], [3, 4]], {0})",
+        &[
+            ("0", 1),
+            ("1", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "prod",
+        "axis",
+        "prod([1, 2, 3], {0})",
+        &[
+            ("0", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "min",
+        "axis",
+        "min([1, 2, 3], {0})",
+        &[
+            ("0", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "max",
+        "axis",
+        "max([1, 2, 3], {0})",
+        &[
+            ("0", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "mean",
+        "axis",
+        "mean([1, 2, 3], {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "norm",
+        "axis",
+        "norm([1, 2, 3], {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "concat",
+        "axis",
+        "concat([1, 2], [3, 4], {0})",
+        &[
+            ("0", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "setprecision",
+        "digits",
+        "setprecision({0}); 1",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "pi",
+        "digits",
+        "pi({0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "e",
+        "digits",
+        "e({0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "evalf",
+        "digits",
+        "evalf(1/3, {0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "series",
+        "order",
+        "x = symbol(\"x\"); series(sin(x), x, 0, {0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "evalir",
+        "digits",
+        "x = symbol(\"x\"); evalir(compile(x*1/3, [x]), [1], {0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "evalir_batch",
+        "digits",
+        "x = symbol(\"x\"); evalir_batch(compile(x*1/3, [x]), [1], {0})",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "movingavg",
+        "w",
+        "movingavg([1, 2, 3, 4, 5], {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "delay",
+        "k",
+        "delay([1, 2, 3, 4], {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "dft",
+        "n",
+        "dft([1, 2, 3, 4], {0})",
+        &[
+            ("4", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "impulse",
+        "n",
+        "impulse({0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "step",
+        "n",
+        "step({0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "exponential",
+        "n",
+        "exponential(0.5, {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "cosine",
+        "n",
+        "cosine(0.25, 0, {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "powerseries",
+        "n",
+        "powerseries(2, 0.5, {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "noise",
+        "n",
+        "noise(1, 0, {0})",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "noise",
+        "seed",
+        "noise(1, 0, {0}, 2)",
+        &[
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+        ],
+    ),
+    (
+        "index",
+        "index",
+        "[1, 2, 3][{0}]",
+        &[
+            ("0", 1),
+            ("1", 1),
+            ("2", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+            ("9223372036854775808", -1),
+        ],
+    ),
+    (
+        "range",
+        "bound",
+        "1..{0}",
+        &[
+            ("1", 1),
+            ("2", 1),
+            ("3", 1),
+            ("2.5", 0),
+            ("0.5", 0),
+            ("2.9999", 0),
+            ("(5/2)", 0),
+            ("2.0", -1),
+            ("0", -1),
+            ("-1", -1),
+            ("10^30", -1),
+        ],
+    ),
 ];

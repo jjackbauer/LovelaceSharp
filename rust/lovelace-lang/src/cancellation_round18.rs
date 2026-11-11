@@ -13,7 +13,7 @@
 
 use std::time::{Duration, Instant};
 
-use lovelace_symbolics::{cancel, Rat, SolveOutcome};
+use lovelace_symbolics::{Rat, SolveOutcome, cancel};
 
 use crate::{Engine, Value};
 
@@ -27,7 +27,11 @@ fn code(error: &crate::LangError) -> &'static str {
 
 /// Runs `script` under `budget` and returns the failure plus the measured wall time. A run that
 /// does NOT cancel fails the test with the time it took, never a hung process.
-fn expect_cancelled(engine: &mut Engine, script: &str, budget_ms: u64) -> (crate::LangError, Duration) {
+fn expect_cancelled(
+    engine: &mut Engine,
+    script: &str,
+    budget_ms: u64,
+) -> (crate::LangError, Duration) {
     engine.set_cancel_after(Some(Duration::from_millis(budget_ms)));
     let started = Instant::now();
     let outcome = engine.eval(script);
@@ -46,9 +50,16 @@ fn expect_cancelled(engine: &mut Engine, script: &str, budget_ms: u64) -> (crate
         wall,
         FENCE
     );
-    assert_eq!(code(&error), "Cancelled", "'{script}': the failure is not a cancellation: {error:?}");
+    assert_eq!(
+        code(&error),
+        "Cancelled",
+        "'{script}': the failure is not a cancellation: {error:?}"
+    );
     assert_eq!(error.category, "BudgetExceeded");
-    assert!(engine.was_cancelled(), "'{script}': the token was not observed");
+    assert!(
+        engine.was_cancelled(),
+        "'{script}': the token was not observed"
+    );
     (error, wall)
 }
 
@@ -86,7 +97,11 @@ fn while_loop_cancels_between_iterations() {
     // statement-boundary check alone never sees the deadline. The C# row runs 100M iterations; the
     // Rust port bounds the failure cost with 1M (still 15x the budget).
     let mut engine = Engine::new();
-    let _ = expect_cancelled(&mut engine, "i = 0; while (i < 1000000) { i = i + 1 }; i", 200);
+    let _ = expect_cancelled(
+        &mut engine,
+        "i = 0; while (i < 1000000) { i = i + 1 }; i",
+        200,
+    );
 }
 
 #[test]
@@ -101,7 +116,9 @@ fn run_inside_budget_still_returns_the_result() {
     // The negative control: polling changes nothing when the work fits the budget.
     let mut engine = Engine::new();
     engine.set_cancel_after(Some(Duration::from_secs(60)));
-    let value = engine.eval("sum(1..1000)").expect("an in-budget run answers");
+    let value = engine
+        .eval("sum(1..1000)")
+        .expect("an in-budget run answers");
     assert_eq!(value.display(), "500500");
     assert!(!engine.was_cancelled());
 }
@@ -112,7 +129,9 @@ fn an_unbudgeted_run_is_unchanged() {
     // and the token reports nothing.
     let mut engine = Engine::new();
     assert_eq!(engine.cancel_after(), None);
-    let value = engine.eval("sum(1..1000)").expect("an un-budgeted run answers");
+    let value = engine
+        .eval("sum(1..1000)")
+        .expect("an un-budgeted run answers");
     assert_eq!(value.display(), "500500");
     assert!(!engine.was_cancelled());
 }
@@ -150,10 +169,12 @@ fn simplify_cancels_inside_the_walk() {
     // is built WITHOUT a deadline, so the stop belongs to the simplify walk itself.
     let mut engine = Engine::new();
     let terms: Vec<lovelace_symbolics::Expr> = (0..200_000)
-        .map(|i| lovelace_symbolics::Expr::pow(
-            lovelace_symbolics::Expr::sym("x"),
-            lovelace_symbolics::Expr::num(i as i64),
-        ))
+        .map(|i| {
+            lovelace_symbolics::Expr::pow(
+                lovelace_symbolics::Expr::sym("x"),
+                lovelace_symbolics::Expr::num(i as i64),
+            )
+        })
         .collect();
     engine.set_var("big", Value::Symbolic(lovelace_symbolics::Expr::Add(terms)));
     let _ = expect_cancelled(&mut engine, "simplify(big)", 20);
@@ -177,7 +198,10 @@ fn solve_consults_the_deadline() {
         matches!(outcome, SolveOutcome::Unevaluated),
         "a solver under an expired deadline must abandon the search, got {outcome:?}"
     );
-    assert!(cancel::observed(), "the solver did not consult the deadline token");
+    assert!(
+        cancel::observed(),
+        "the solver did not consult the deadline token"
+    );
 }
 
 #[test]
@@ -188,7 +212,15 @@ fn symbolic_builtins_refuse_at_the_call_seam_when_the_deadline_is_spent() {
     let mut engine = Engine::new();
     let x = engine.eval("symbol(\"x\")").expect("symbol");
     let _scope = cancel::arm(Some(Instant::now()));
-    for name in ["factor", "integrate", "simplify", "expand", "solve", "collect", "series"] {
+    for name in [
+        "factor",
+        "integrate",
+        "simplify",
+        "expand",
+        "solve",
+        "collect",
+        "series",
+    ] {
         let args = match name {
             "integrate" | "solve" => vec![x.clone(), x.clone()],
             "collect" | "series" => vec![x.clone(), x.clone()],
@@ -217,7 +249,11 @@ fn cancellation_names_the_statement_that_was_running() {
     assert_eq!(error.position, 17);
     assert_eq!(engine.last_completed_position(), 0);
     let timings = engine.operation_timings();
-    assert_eq!(timings.len(), 2, "the stopped statement still has its timing entry");
+    assert_eq!(
+        timings.len(),
+        2,
+        "the stopped statement still has its timing entry"
+    );
     assert_eq!(timings[0].position, 0);
     assert_eq!(timings[1].position, 17);
     assert_eq!(timings[1].result_kind, "Void");
@@ -232,7 +268,11 @@ fn a_cancelled_run_keeps_the_partial_state_it_committed() {
         50,
     );
     assert_eq!(engine.take_output(), vec!["hello".to_string()]);
-    let names: Vec<String> = engine.variable_values().into_iter().map(|(name, _)| name).collect();
+    let names: Vec<String> = engine
+        .variable_values()
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
     assert_eq!(names, vec!["x".to_string()]);
 }
 

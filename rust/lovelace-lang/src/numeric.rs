@@ -10,13 +10,13 @@ use std::cmp::Ordering;
 
 use lovelace_int::Int;
 use lovelace_nat::Nat;
-use lovelace_real::transcendental::truncate_frac;
 use lovelace_real::Real;
+use lovelace_real::transcendental::truncate_frac;
 use lovelace_symbolics::{Expr as Sym, Rat};
 
+use crate::LangError;
 use crate::complex::Complex;
 use crate::complex_math;
-use crate::LangError;
 
 /// A numeric value at the reference's three tiers.
 #[derive(Clone, Debug)]
@@ -120,7 +120,8 @@ impl Num {
                     .add_at(b, places),
             )),
             _ => Ok(Num::Real(
-                self.to_real(places).ok_or_else(complex_to_real_error)?
+                self.to_real(places)
+                    .ok_or_else(complex_to_real_error)?
                     .add(&other.to_real(places).ok_or_else(complex_to_real_error)?),
             )),
         }
@@ -140,7 +141,8 @@ impl Num {
                     .sub_at(b, places),
             )),
             _ => Ok(Num::Real(
-                self.to_real(places).ok_or_else(complex_to_real_error)?
+                self.to_real(places)
+                    .ok_or_else(complex_to_real_error)?
                     .sub(&other.to_real(places).ok_or_else(complex_to_real_error)?),
             )),
         }
@@ -160,7 +162,8 @@ impl Num {
                     .mul_at(b, places),
             )),
             _ => Ok(Num::Real(
-                self.to_real(places).ok_or_else(complex_to_real_error)?
+                self.to_real(places)
+                    .ok_or_else(complex_to_real_error)?
                     .mul(&other.to_real(places).ok_or_else(complex_to_real_error)?),
             )),
         }
@@ -182,20 +185,30 @@ impl Num {
                 .map(Num::Exact)
                 .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation.")),
             (Num::Complex(a), _) => Ok(Num::Complex(
-                a.div_at(&other.to_complex(places).ok_or_else(complex_to_real_error)?, places)
-                    .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation."))?,
+                a.div_at(
+                    &other.to_complex(places).ok_or_else(complex_to_real_error)?,
+                    places,
+                )
+                .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation."))?,
             )),
             (_, Num::Complex(b)) => Ok(Num::Complex(
                 self.to_complex(places)
                     .ok_or_else(complex_to_real_error)?
                     .div_at(b, places)
-                    .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation."))?,
+                    .ok_or_else(|| {
+                        LangError::plain("Division by zero during numeric evaluation.")
+                    })?,
             )),
             _ => Ok(Num::Real(
                 self.to_real(places)
                     .ok_or_else(complex_to_real_error)?
-                    .div(&other.to_real(places).ok_or_else(complex_to_real_error)?, places)
-                    .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation."))?,
+                    .div(
+                        &other.to_real(places).ok_or_else(complex_to_real_error)?,
+                        places,
+                    )
+                    .ok_or_else(|| {
+                        LangError::plain("Division by zero during numeric evaluation.")
+                    })?,
             )),
         }
     }
@@ -229,7 +242,10 @@ impl Num {
         if self.is_zero() {
             return Ok(Num::Exact(Rat::zero()));
         }
-        if let Some(n) = exponent.is_integral().and_then(|i| i.to_decimal().parse::<i64>().ok()) {
+        if let Some(n) = exponent
+            .is_integral()
+            .and_then(|i| i.to_decimal().parse::<i64>().ok())
+        {
             return self.pow_int(n, places);
         }
         // b^e = exp(e ln b): the real path for a positive real base, the principal branch otherwise.
@@ -243,7 +259,9 @@ impl Num {
             }
         }
         let base = self.to_complex(places).ok_or_else(complex_to_real_error)?;
-        let e = exponent.to_complex(places).ok_or_else(complex_to_real_error)?;
+        let e = exponent
+            .to_complex(places)
+            .ok_or_else(complex_to_real_error)?;
         complex_math::pow(&base, &e, places)
             .map(Num::Complex)
             .ok_or_else(|| LangError::plain("Pow(b, e) requires b > 0."))
@@ -450,7 +468,11 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
             let x = unary(name, values)?;
             match x {
                 Num::Complex(z) => Ok(Num::Complex(complex_math::exp(z, places))),
-                _ => Ok(Num::Real(x.to_real(places).ok_or_else(complex_to_real_error)?.exp(places))),
+                _ => Ok(Num::Real(
+                    x.to_real(places)
+                        .ok_or_else(complex_to_real_error)?
+                        .exp(places),
+                )),
             }
         }
         "log" => {
@@ -481,30 +503,43 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
                     "cos" => Ok(Num::Complex(complex_math::cos(z, places))),
                     _ => complex_math::tan(z, places)
                         .map(Num::Complex)
-                        .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation.")),
+                        .ok_or_else(|| {
+                            LangError::plain("Division by zero during numeric evaluation.")
+                        }),
                 },
                 _ => {
                     let real = x.to_real(places).ok_or_else(complex_to_real_error)?;
                     match name {
-                        "sin" => Ok(Num::Real(truncate_frac(&real.sin_cos_raw(places).0, places))),
-                        "cos" => Ok(Num::Real(truncate_frac(&real.sin_cos_raw(places).1, places))),
-                        _ => real
-                            .tan(places)
-                            .map(Num::Real)
-                            .ok_or_else(|| LangError::plain("Division by zero during numeric evaluation.")),
+                        "sin" => Ok(Num::Real(truncate_frac(
+                            &real.sin_cos_raw(places).0,
+                            places,
+                        ))),
+                        "cos" => Ok(Num::Real(truncate_frac(
+                            &real.sin_cos_raw(places).1,
+                            places,
+                        ))),
+                        _ => real.tan(places).map(Num::Real).ok_or_else(|| {
+                            LangError::plain("Division by zero during numeric evaluation.")
+                        }),
                     }
                 }
             }
         }
         "atan" => {
             let x = unary(name, values)?;
-            let real = x.to_real(places).ok_or_else(|| LangError::plain("atan is real-only in v1."))?;
+            let real = x
+                .to_real(places)
+                .ok_or_else(|| LangError::plain("atan is real-only in v1."))?;
             Ok(Num::Real(real.atan(places)))
         }
         "asin" | "acos" => {
             let x = unary(name, values)?;
             let real = x.to_real(places).ok_or_else(complex_to_real_error)?;
-            let value = if name == "asin" { real.asin(places) } else { real.acos(places) };
+            let value = if name == "asin" {
+                real.asin(places)
+            } else {
+                real.acos(places)
+            };
             value
                 .map(Num::Real)
                 .ok_or_else(|| domain_argument_error("AsinReal(x) requires |x| <= 1."))
@@ -545,7 +580,10 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
         "i" if values.is_empty() => Ok(Num::Complex(Complex::i())),
         "sqrt" => {
             let x = unary(name, values)?;
-            x.pow(&Num::Exact(Rat::from_i64(1).div(&Rat::from_i64(2)).unwrap()), places)
+            x.pow(
+                &Num::Exact(Rat::from_i64(1).div(&Rat::from_i64(2)).unwrap()),
+                places,
+            )
         }
         "abs" => {
             let x = unary(name, values)?;

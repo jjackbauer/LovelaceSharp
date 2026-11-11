@@ -21,7 +21,8 @@ fn display(script: &str) -> String {
     eval(script).display()
 }
 
-const HUGE_POWER_SOLVE: &str = "x = symbol(\"x\"); solve_full((x^2 - 1)^9223372036854775807 == 0, x)";
+const HUGE_POWER_SOLVE: &str =
+    "x = symbol(\"x\"); solve_full((x^2 - 1)^9223372036854775807 == 0, x)";
 
 /// The pinned dotnet oracle's exact result for HUGE_POWER_SOLVE.
 const HUGE_POWER_ORACLE: &str = "SolveResult(status: Solved, variable: x, domain: complex, complete: True, completeness: Complete, solutions: [Solution(value: -1, conditions: [], multiplicity: 1, exactness: Exact), Solution(value: 1, conditions: [], multiplicity: 1, exactness: Exact)], families: [], common_conditions: [], represented_count: 2, unrepresented_count: 0, unrepresented_reason: , diagnostics: [])";
@@ -74,7 +75,10 @@ fn solve_full_with_a_coefficient_at_i64_min_returns_instead_of_panicking() {
     // (x^2 + x - 9223372036854775808 has the two algebraic roots below); before that path existed
     // the same input returned Unevaluated, which was honest but less complete than the reference.
     let rendered = display("x = symbol(\"x\"); solve_full(x^2 + x - 9223372036854775808 == 0, x)");
-    assert!(rendered.starts_with("SolveResult(status: Solved"), "{rendered}");
+    assert!(
+        rendered.starts_with("SolveResult(status: Solved"),
+        "{rendered}"
+    );
     assert_eq!(
         rendered.matches("Solution(value: 1/2*").count(),
         2,
@@ -112,7 +116,11 @@ fn a_zero_width_huge_dimension_displays_within_a_timeout_and_a_node_budget() {
         .recv_timeout(Duration::from_secs(10))
         .expect("the display of zeros(9223372036854775807, 0) did not return");
     assert_eq!(numel, "0");
-    assert!(rendered.starts_with("[[], [], "), "{}", &rendered[..rendered.len().min(40)]);
+    assert!(
+        rendered.starts_with("[[], [], "),
+        "{}",
+        &rendered[..rendered.len().min(40)]
+    );
     assert!(rendered.ends_with(']'));
     assert!(rendered.contains("..."), "the abbreviation is visible");
     assert!(

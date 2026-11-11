@@ -69,9 +69,18 @@ fn decimals(rendering: &str) -> usize {
 fn assert_inexact_without_rational(script: &str) {
     let projection = structured(script);
     assert_eq!(text(field(&projection, "kind")), "Real", "{script}");
-    assert!(!boolean(field(&projection, "exact")), "{script} claims exactness");
-    assert!(!has_field(&projection, "numerator"), "{script} publishes a numerator");
-    assert!(!has_field(&projection, "denominator"), "{script} publishes a denominator");
+    assert!(
+        !boolean(field(&projection, "exact")),
+        "{script} claims exactness"
+    );
+    assert!(
+        !has_field(&projection, "numerator"),
+        "{script} publishes a numerator"
+    );
+    assert!(
+        !has_field(&projection, "denominator"),
+        "{script} publishes a denominator"
+    );
     match eval(script) {
         Value::Real(value) => assert!(!value.is_exact(), "{script} carries an exact Real"),
         other => panic!("{script}: not a Real ({})", other.kind_name()),
@@ -105,7 +114,11 @@ fn evalf_sinh_working_precision_honours_the_requested_decimals() {
             100,
             "41780.5480535640659251884460775673391926758349273862253644277306454458985775018289223615326471730513352561",
         ),
-        ("sinh(65/3)", 30, "1284351149.965741094255005311674965079318"),
+        (
+            "sinh(65/3)",
+            30,
+            "1284351149.965741094255005311674965079318",
+        ),
         (
             "sinh(65/3)",
             100,
@@ -122,8 +135,15 @@ fn evalf_sinh_working_precision_honours_the_requested_decimals() {
         assert_eq!(display(&script), expected, "{script}");
         let projection = structured(&script);
         assert_eq!(text(field(&projection, "value")), expected, "{script}");
-        assert_eq!(decimals(expected), digits, "{script}: delivered decimal count");
-        assert!(!boolean(field(&projection, "exact")), "{script} claims exactness");
+        assert_eq!(
+            decimals(expected),
+            digits,
+            "{script}: delivered decimal count"
+        );
+        assert!(
+            !boolean(field(&projection, "exact")),
+            "{script} claims exactness"
+        );
     }
 }
 
@@ -169,7 +189,9 @@ fn evalf_digits_one_is_accepted_for_every_transcendental_shape() {
         assert_eq!(text(field(&projection, "kind")), "Real");
         assert_eq!(text(field(&projection, "value")), expected);
     }
-    let error = Engine::new().eval("evalf(sin(1), 0)").expect_err("digits 0 must be refused");
+    let error = Engine::new()
+        .eval("evalf(sin(1), 0)")
+        .expect_err("digits 0 must be refused");
     assert_eq!(error.code, "InvalidArgument");
     assert_eq!(error.category, "TypeMismatch");
 }
@@ -218,7 +240,10 @@ fn evalf_elementary_function_of_an_exact_argument_stays_exact() {
         let script = format!("evalf({function}({argument}), 40)");
         let projection = structured(&script);
         assert_eq!(text(field(&projection, "kind")), "Integer", "{script}");
-        assert!(boolean(field(&projection, "exact")), "{script} lost its exactness");
+        assert!(
+            boolean(field(&projection, "exact")),
+            "{script} lost its exactness"
+        );
         assert_eq!(text(field(&projection, "value")), expected, "{script}");
     }
 }
@@ -230,15 +255,24 @@ fn evalf_truncated_value_that_is_a_rational_is_still_inexact() {
     let script = "evalf(sin(pi(30)/6), 40)";
     let projection = structured(script);
     assert_eq!(text(field(&projection, "kind")), "Real");
-    assert!(!boolean(field(&projection, "exact")), "{script} claims exactness");
-    assert!(!has_field(&projection, "numerator"), "{script} publishes a rational form");
+    assert!(
+        !boolean(field(&projection, "exact")),
+        "{script} claims exactness"
+    );
+    assert!(
+        !has_field(&projection, "numerator"),
+        "{script} publishes a rational form"
+    );
     let value = match eval(script) {
         Value::Real(value) => value,
         other => panic!("{script}: not a Real ({})", other.kind_name()),
     };
     assert!(!value.is_exact());
     assert_ne!(value, Real::from_str("0.5").expect("0.5"));
-    assert!(!value.to_string().contains('('), "the value must not be a periodic expansion");
+    assert!(
+        !value.to_string().contains('('),
+        "the value must not be a periodic expansion"
+    );
     let distance = Real::from_str("0.5").expect("0.5").sub(&value).abs();
     let budget = Real::from_str(&format!("0.{}1", "0".repeat(28))).expect("1e-29");
     assert!(

@@ -6,7 +6,7 @@
 //! record carries the same contract (status, completeness, families, diagnostics), and the numeric
 //! member check reuses the kernel's own 40-digit residual predicate.
 
-use lovelace_symbolics::{substitute, Expr as Sym};
+use lovelace_symbolics::{Expr as Sym, substitute};
 
 use crate::{Engine, Value};
 
@@ -138,7 +138,10 @@ fn solve_exp_zero_is_empty() {
 fn solve_sin_beyond_range_is_empty_over_the_reals_and_unevaluated_over_the_complexes() {
     let real = eval("x = symbol(\"x\"); solve_full(sin(x) == 2, x, real)");
     assert_eq!(status(&real), "NoSolutions");
-    assert!(!diagnostics(&real).is_empty(), "the empty answer carries a note");
+    assert!(
+        !diagnostics(&real).is_empty(),
+        "the empty answer carries a note"
+    );
 
     let complex = eval("x = symbol(\"x\"); solve_full(sin(x) == 2, x)");
     assert_eq!(status(&complex), "Unevaluated");

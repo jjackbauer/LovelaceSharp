@@ -38,7 +38,9 @@ impl Monomial {
     }
 
     fn unit(width: usize) -> Monomial {
-        Monomial { exps: vec![0; width] }
+        Monomial {
+            exps: vec![0; width],
+        }
     }
 
     fn with(width: usize, index: usize, exponent: u32) -> Monomial {
@@ -123,7 +125,10 @@ pub struct Polynomial {
 impl Polynomial {
     /// The zero polynomial over the given variable order.
     pub fn new(variables: &[String]) -> Polynomial {
-        Polynomial { variables: variables.to_vec(), terms: Vec::new() }
+        Polynomial {
+            variables: variables.to_vec(),
+            terms: Vec::new(),
+        }
     }
 
     /// The variable order this polynomial lives in.
@@ -143,9 +148,7 @@ impl Polynomial {
 
     /// True when the polynomial is the constant one.
     pub fn is_one(&self) -> bool {
-        self.terms.len() == 1
-            && self.terms[0].0.total_degree() == 0
-            && self.terms[0].1.is_one()
+        self.terms.len() == 1 && self.terms[0].0.total_degree() == 0 && self.terms[0].1.is_one()
     }
 
     /// The total degree, or -1 for the zero polynomial.
@@ -153,7 +156,11 @@ impl Polynomial {
         if self.terms.is_empty() {
             return -1;
         }
-        self.terms.iter().map(|(m, _)| m.total_degree() as i64).max().unwrap_or(-1)
+        self.terms
+            .iter()
+            .map(|(m, _)| m.total_degree() as i64)
+            .max()
+            .unwrap_or(-1)
     }
 
     /// The leading term under `order`.
@@ -174,7 +181,9 @@ impl Polynomial {
 
     /// The leading coefficient under `order`.
     pub fn leading_coefficient(&self, order: MonomialOrder) -> Rat {
-        self.leading_term(order).map(|(_, c)| c.clone()).unwrap_or_else(Rat::zero)
+        self.leading_term(order)
+            .map(|(_, c)| c.clone())
+            .unwrap_or_else(Rat::zero)
     }
 
     /// The constant term.
@@ -365,7 +374,9 @@ impl Polynomial {
             .iter()
             .filter_map(|name| self.variables.iter().position(|v| v == name))
             .collect();
-        self.terms.iter().all(|(m, _)| indices.iter().all(|i| m.exponent(*i) == 0))
+        self.terms
+            .iter()
+            .all(|(m, _)| indices.iter().all(|i| m.exponent(*i) == 0))
     }
 }
 
@@ -389,15 +400,14 @@ pub fn reduce(p: &Polynomial, basis: &[Polynomial], order: MonomialOrder) -> Pol
             if !leading.divisible_by(divisor_leading) {
                 continue;
             }
-            let quotient_monomial = leading.divide(divisor_leading).expect("divisibility checked");
+            let quotient_monomial = leading
+                .divide(divisor_leading)
+                .expect("divisibility checked");
             let Some(quotient_coefficient) = coefficient.div(divisor_coefficient) else {
                 continue;
             };
-            let quotient = Polynomial::from_term(
-                p.variables(),
-                quotient_monomial,
-                quotient_coefficient,
-            );
+            let quotient =
+                Polynomial::from_term(p.variables(), quotient_monomial, quotient_coefficient);
             current = Polynomial::subtract(&current, &Polynomial::multiply(&quotient, divisor));
             reduced = true;
             break;
@@ -469,7 +479,11 @@ pub fn groebner_basis(generators: &[Polynomial], order: MonomialOrder) -> Vec<Po
         }
     }
     let mut seen = pairs.clone();
-    while let Some((i, j)) = if pairs.is_empty() { None } else { Some(pairs.remove(0)) } {
+    while let Some((i, j)) = if pairs.is_empty() {
+        None
+    } else {
+        Some(pairs.remove(0))
+    } {
         let s = s_polynomial(&basis[i], &basis[j], order);
         if s.is_zero() {
             continue;
@@ -550,10 +564,7 @@ mod tests {
         let basis = groebner_basis(&[circle(), hyperbola()], MonomialOrder::GrLex);
         assert_eq!(basis.len(), 3);
         assert_is_basis(&basis, MonomialOrder::GrLex);
-        let eliminated = poly(Expr::sub(
-            Expr::pow(y(), Expr::num(3)),
-            y(),
-        ));
+        let eliminated = poly(Expr::sub(Expr::pow(y(), Expr::num(3)), y()));
         assert!(reduce(&eliminated, &basis, MonomialOrder::GrLex).is_zero());
     }
 
@@ -608,10 +619,8 @@ mod tests {
 
     #[test]
     fn quadratic_with_a_positive_nonsquare_discriminant_has_exact_radical_roots() {
-        let outcome = crate::solve_polynomial_named(
-            &[Rat::from_i64(-2), Rat::zero(), Rat::one()],
-            "x",
-        );
+        let outcome =
+            crate::solve_polynomial_named(&[Rat::from_i64(-2), Rat::zero(), Rat::one()], "x");
         match outcome {
             crate::SolveOutcome::RootExpressions(expressions) => {
                 let texts: Vec<String> = expressions.iter().map(|e| e.to_string()).collect();
@@ -625,10 +634,7 @@ mod tests {
     fn a_single_polynomial_is_its_own_basis() {
         let basis = groebner_basis(
             &[poly(Expr::add(
-                Expr::sub(
-                    Expr::pow(x(), Expr::num(3)),
-                    Expr::mul(Expr::num(2), x()),
-                ),
+                Expr::sub(Expr::pow(x(), Expr::num(3)), Expr::mul(Expr::num(2), x())),
                 Expr::num(1),
             ))],
             MonomialOrder::Lex,

@@ -20,9 +20,7 @@ fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'stati
 
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
-    with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions"])
-    })
+    with_large_stack(move || run_args(&["--eval", &script, "--json", "--omit-functions"]))
 }
 
 fn code(r: &RunResult) -> &str {
@@ -47,17 +45,34 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!("structured record has no field '{name}': {}", st.to_string())
+    panic!(
+        "structured record has no field '{name}': {}",
+        st.to_string()
+    )
 }
 
 fn assert_argument_refusal(script: &str, builtin: &str) {
     let r = run_script(script);
     assert_eq!(r.exit, 1, "{script}: a refusal exits 1");
     assert!(!boolean(get(&r.env, "ok")), "{script}");
-    assert_eq!(code(&r), "InvalidArgument", "{script}: code ({})", message(&r));
-    assert_eq!(category(&r), "TypeMismatch", "{script}: category ({})", message(&r));
+    assert_eq!(
+        code(&r),
+        "InvalidArgument",
+        "{script}: code ({})",
+        message(&r)
+    );
+    assert_eq!(
+        category(&r),
+        "TypeMismatch",
+        "{script}: category ({})",
+        message(&r)
+    );
     assert!(boolean(get(&r.env, "recoverable")), "{script}: recoverable");
-    assert!(message(&r).starts_with(&format!("{builtin}(): ")), "{script}: '{}'", message(&r));
+    assert!(
+        message(&r).starts_with(&format!("{builtin}(): ")),
+        "{script}: '{}'",
+        message(&r)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -76,7 +91,8 @@ fn integer_boundary_concat_dft_and_range_refuse_a_non_integral_argument() {
         );
         assert_argument_refusal(&format!("dft([1, 2, 3, 4], {literal})"), "dft");
         assert!(
-            message(&run_script(&format!("dft([1, 2, 3, 4], {literal})"))).contains("argument 2 (n)"),
+            message(&run_script(&format!("dft([1, 2, 3, 4], {literal})")))
+                .contains("argument 2 (n)"),
             "dft {literal} must name argument 2 (n)"
         );
         assert_argument_refusal(&format!("1..{literal}"), "range");
@@ -127,7 +143,11 @@ fn integer_boundary_inventory_templates_reach_the_argument_they_name() {
         ("max([1, 2, 3], \"sentinel\")", "max", "(axis)"),
     ] {
         assert_argument_refusal(script, builtin);
-        assert!(message(&run_script(script)).contains(anchor), "{script} must name {anchor}: {}", message(&run_script(script)));
+        assert!(
+            message(&run_script(script)).contains(anchor),
+            "{script} must name {anchor}: {}",
+            message(&run_script(script))
+        );
     }
 }
 
@@ -138,7 +158,11 @@ fn integer_boundary_dft_named_bounds_are_typed_refusals() {
         let r = run_script(&format!("dft([1, 2, 3, 4], {literal})"));
         assert_eq!(code(&r), "InvalidArgument", "{literal}: {}", message(&r));
         assert_eq!(category(&r), "TypeMismatch");
-        assert!(message(&r).contains("between 0 and 2147483647"), "{}", message(&r));
+        assert!(
+            message(&r).contains("between 0 and 2147483647"),
+            "{}",
+            message(&r)
+        );
     }
 }
 
@@ -162,10 +186,22 @@ fn inspection_answers_exactness_as_a_boolean_for_every_numeric_kind() {
         let r = inspect(source);
         assert_eq!(r.exit, 0, "inspect({source}): {}", message(&r));
         let record = structured(&r);
-        assert_eq!(text(get(field(record, "type"), "value")), kind, "inspect({source}).type");
+        assert_eq!(
+            text(get(field(record, "type"), "value")),
+            kind,
+            "inspect({source}).type"
+        );
         let exact = field(record, "exact");
-        assert_eq!(text(get(exact, "kind")), "Boolean", "inspect({source}).exact is not Boolean");
-        assert_eq!(text(get(exact, "value")), expected, "inspect({source}).exact");
+        assert_eq!(
+            text(get(exact, "kind")),
+            "Boolean",
+            "inspect({source}).exact is not Boolean"
+        );
+        assert_eq!(
+            text(get(exact, "value")),
+            expected,
+            "inspect({source}).exact"
+        );
     }
 }
 
@@ -195,7 +231,11 @@ fn inspection_keeps_null_where_exactness_does_not_apply() {
     for source in ["\"hi\"", "is_even(4)", "[1, 2]"] {
         let r = inspect(source);
         assert_eq!(r.exit, 0, "inspect({source}) exited");
-        assert_eq!(text(get(field(structured(&r), "exact"), "kind")), "Null", "inspect({source}).exact");
+        assert_eq!(
+            text(get(field(structured(&r), "exact"), "kind")),
+            "Null",
+            "inspect({source}).exact"
+        );
     }
 }
 
@@ -209,7 +249,10 @@ fn inspection_truncated_quotient_at_the_budget_is_not_exact() {
         .find(|v| text(get(v, "name")) == "v")
         .map(|v| get(v, "structured"))
         .expect("v is published");
-    assert!(!boolean(get(value, "exact")), "the truncated quotient's own flag is false");
+    assert!(
+        !boolean(get(value, "exact")),
+        "the truncated quotient's own flag is false"
+    );
     let exact = field(structured(&r), "exact");
     assert_eq!(text(get(exact, "kind")), "Boolean");
     assert_eq!(text(get(exact, "value")), "false");
@@ -233,12 +276,22 @@ fn solve_of_a_folded_false_equation_is_the_empty_set() {
     let r = solve_record("solve(0 == 1, x)");
     let record = structured(&r);
     assert_eq!(text(get(field(record, "status"), "value")), "NoSolutions");
-    assert_eq!(text(get(field(record, "complete"), "value")), "true", "complete");
-    assert_eq!(text(get(field(record, "completeness"), "value")), "Complete");
+    assert_eq!(
+        text(get(field(record, "complete"), "value")),
+        "true",
+        "complete"
+    );
+    assert_eq!(
+        text(get(field(record, "completeness"), "value")),
+        "Complete"
+    );
     assert!(array(get(field(record, "solutions"), "elements")).is_empty());
     let diagnostics = array(get(field(record, "diagnostics"), "elements"));
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(text(get(field(&diagnostics[0], "code"), "value")), "solve.no-solutions");
+    assert_eq!(
+        text(get(field(&diagnostics[0], "code"), "value")),
+        "solve.no-solutions"
+    );
     assert_eq!(
         text(get(field(&diagnostics[0], "message"), "value")),
         "the equation reduces to a nonzero constant."
@@ -251,8 +304,15 @@ fn solve_full_of_a_folded_false_equation_reports_no_solutions_complete() {
     let r = solve_record("solve_full(2 == 3, x)");
     let record = structured(&r);
     assert_eq!(text(get(field(record, "status"), "value")), "NoSolutions");
-    assert_eq!(text(get(field(record, "complete"), "value")), "true", "complete");
-    assert_eq!(text(get(field(record, "completeness"), "value")), "Complete");
+    assert_eq!(
+        text(get(field(record, "complete"), "value")),
+        "true",
+        "complete"
+    );
+    assert_eq!(
+        text(get(field(record, "completeness"), "value")),
+        "Complete"
+    );
     assert!(array(get(field(record, "solutions"), "elements")).is_empty());
 }
 
@@ -262,7 +322,11 @@ fn solve_system_of_a_folded_false_equation_answers_the_empty_set() {
     let r = solve_record("solve_system([0 == 1], [x])");
     let record = structured(&r);
     assert_eq!(text(get(field(record, "status"), "value")), "NoSolutions");
-    assert_eq!(text(get(field(record, "complete"), "value")), "true", "complete");
+    assert_eq!(
+        text(get(field(record, "complete"), "value")),
+        "true",
+        "complete"
+    );
     assert!(array(get(field(record, "solutions"), "elements")).is_empty());
     assert!(array(get(field(record, "diagnostics"), "elements")).is_empty());
 }
@@ -273,12 +337,19 @@ fn solve_system_of_a_non_polynomial_system_is_an_unevaluated_record() {
     let r = solve_record("solve_system([sin(x) == 0], [x])");
     let record = structured(&r);
     assert_eq!(text(get(field(record, "status"), "value")), "Unevaluated");
-    assert_eq!(text(get(field(record, "complete"), "value")), "false", "complete");
+    assert_eq!(
+        text(get(field(record, "complete"), "value")),
+        "false",
+        "complete"
+    );
     assert_eq!(text(get(field(record, "completeness"), "value")), "Unknown");
     assert!(array(get(field(record, "solutions"), "elements")).is_empty());
     let diagnostics = array(get(field(record, "diagnostics"), "elements"));
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(text(get(field(&diagnostics[0], "code"), "value")), "system-solve.unevaluated");
+    assert_eq!(
+        text(get(field(&diagnostics[0], "code"), "value")),
+        "system-solve.unevaluated"
+    );
     assert_eq!(
         text(get(field(&diagnostics[0], "message"), "value")),
         "system-solve.non-polynomial: only polynomial systems are supported in v1."
@@ -291,7 +362,11 @@ fn solve_of_a_folded_identity_is_unevaluated() {
     let r = solve_record("solve(1 == 1, x)");
     let record = structured(&r);
     assert_eq!(text(get(field(record, "status"), "value")), "Unevaluated");
-    assert_eq!(text(get(field(record, "complete"), "value")), "false", "complete");
+    assert_eq!(
+        text(get(field(record, "complete"), "value")),
+        "false",
+        "complete"
+    );
     let diagnostics = array(get(field(record, "diagnostics"), "elements"));
     assert_eq!(
         text(get(field(&diagnostics[0], "message"), "value")),

@@ -21,7 +21,13 @@ fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'stati
 fn run_script(script: &str) -> RunResult {
     let script = script.to_string();
     with_large_stack(move || {
-        run_args(&["--eval", &script, "--json", "--omit-functions", "--omit-variables"])
+        run_args(&[
+            "--eval",
+            &script,
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+        ])
     })
 }
 
@@ -31,14 +37,22 @@ fn field<'a>(st: &'a Json, name: &str) -> &'a Json {
             return get(f, "value");
         }
     }
-    panic!("structured record has no field '{name}': {}", st.to_string())
+    panic!(
+        "structured record has no field '{name}': {}",
+        st.to_string()
+    )
 }
 
 /// SolveEmptySetTests.Solve_OfAProvablyFalseEquation_AnswersTheEmptySet_NotADomainError.
 #[test]
 fn solve_of_a_provably_false_equation_publishes_the_solve_result_record() {
     let r = run_script("x = symbol(\"x\"); solve(0 == 1, x)");
-    assert_eq!(r.exit, 0, "solve(0 == 1, x) must answer, not fail: {}", r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "solve(0 == 1, x) must answer, not fail: {}",
+        r.env.to_string()
+    );
     assert!(boolean(get(&r.env, "ok")));
 
     let record = get(get(&r.env, "result"), "structured");
@@ -49,9 +63,15 @@ fn solve_of_a_provably_false_equation_publishes_the_solve_result_record() {
     assert_eq!(text(get(field(record, "complete"), "value")), "true");
 
     let diagnostics = array(get(field(record, "diagnostics"), "elements"));
-    assert!(!diagnostics.is_empty(), "the empty set reports why it is empty");
+    assert!(
+        !diagnostics.is_empty(),
+        "the empty set reports why it is empty"
+    );
     let diagnostic = &diagnostics[0];
-    assert_eq!(text(get(field(diagnostic, "code"), "value")), "solve.no-solutions");
+    assert_eq!(
+        text(get(field(diagnostic, "code"), "value")),
+        "solve.no-solutions"
+    );
     assert_eq!(
         text(get(field(diagnostic, "message"), "value")),
         "the equation reduces to a nonzero constant."
@@ -62,7 +82,12 @@ fn solve_of_a_provably_false_equation_publishes_the_solve_result_record() {
 #[test]
 fn solve_full_of_a_provably_false_equation_publishes_no_solutions_complete() {
     let r = run_script("x = symbol(\"x\"); solve_full(2 == 3, x)");
-    assert_eq!(r.exit, 0, "solve_full(2 == 3, x) must answer, not fail: {}", r.env.to_string());
+    assert_eq!(
+        r.exit,
+        0,
+        "solve_full(2 == 3, x) must answer, not fail: {}",
+        r.env.to_string()
+    );
 
     let record = get(get(&r.env, "result"), "structured");
     assert_eq!(text(get(record, "kind")), "Record");
@@ -80,16 +105,26 @@ fn solve_full_of_a_provably_false_equation_publishes_no_solutions_complete() {
     assert_eq!(text(get(completeness, "value")), "Complete");
 
     let solutions = field(record, "solutions");
-    assert_eq!(number(&array(get(solutions, "shape"))[0]), 0, "solutions shape[0]");
+    assert_eq!(
+        number(&array(get(solutions, "shape"))[0]),
+        0,
+        "solutions shape[0]"
+    );
 
     let diagnostics = array(get(field(record, "diagnostics"), "elements"));
-    assert!(!diagnostics.is_empty(), "a NoSolutions answer reports why the set is empty");
+    assert!(
+        !diagnostics.is_empty(),
+        "a NoSolutions answer reports why the set is empty"
+    );
     let diagnostic = &diagnostics[0];
     let category = field(diagnostic, "category");
     assert_eq!(text(get(category, "kind")), "Enum");
     assert_eq!(text(get(category, "type")), "ErrorCategory");
     assert_eq!(text(get(category, "value")), "NoSolution");
-    assert_eq!(text(get(field(diagnostic, "code"), "value")), "solve.no-solutions");
+    assert_eq!(
+        text(get(field(diagnostic, "code"), "value")),
+        "solve.no-solutions"
+    );
 }
 
 // ===========================================================================
@@ -143,7 +178,10 @@ fn complex_quadratic_with_negative_discriminant_yields_the_exact_complex_solutio
         .map(|s| canonical_of(field(s, "value")))
         .collect();
     values.sort();
-    assert_eq!(values, vec!["(i)".to_string(), "(mul (rat -1 1) (i))".to_string()]);
+    assert_eq!(
+        values,
+        vec!["(i)".to_string(), "(mul (rat -1 1) (i))".to_string()]
+    );
 
     for root in ["(-1)^(1/2)", "-(-1)^(1/2)"] {
         let check = run_script(&format!(
@@ -172,7 +210,10 @@ fn complex_quadratic_covers_a_non_zero_real_part() {
     values.sort();
     assert_eq!(
         values,
-        vec!["(mul (rat -2 1) (i))".to_string(), "(mul (rat 2 1) (i))".to_string()]
+        vec![
+            "(mul (rat -2 1) (i))".to_string(),
+            "(mul (rat 2 1) (i))".to_string()
+        ]
     );
 
     let shifted = run_script("x = symbol(\"x\"); solve_full(x^2 + 2*x + 5 == 0, x)");
@@ -242,8 +283,18 @@ fn assert_documented_shape_refusal(script: &str, builtin: &str, position: &str, 
     let r = run_script(script);
     assert_eq!(r.exit, 1, "{script}: a refusal exits 1");
     assert!(!boolean(get(&r.env, "ok")), "{script}");
-    assert_eq!(code_of(&r), "InvalidArgument", "{script}: {}", message_of(&r));
-    assert_eq!(category_of(&r), "TypeMismatch", "{script}: {}", message_of(&r));
+    assert_eq!(
+        code_of(&r),
+        "InvalidArgument",
+        "{script}: {}",
+        message_of(&r)
+    );
+    assert_eq!(
+        category_of(&r),
+        "TypeMismatch",
+        "{script}: {}",
+        message_of(&r)
+    );
     assert!(boolean(get(&r.env, "recoverable")), "{script}: recoverable");
     let prefix = format!("{builtin}(): argument {position} must be {expected}");
     assert!(
@@ -251,8 +302,16 @@ fn assert_documented_shape_refusal(script: &str, builtin: &str, position: &str, 
         "{script}: '{}' does not start with '{prefix}'",
         message_of(&r)
     );
-    assert!(message_of(&r).contains("; got "), "{script}: '{}'", message_of(&r));
-    assert!(!message_of(&r).contains("cast"), "{script}: '{}'", message_of(&r));
+    assert!(
+        message_of(&r).contains("; got "),
+        "{script}: '{}'",
+        message_of(&r)
+    );
+    assert!(
+        !message_of(&r).contains("cast"),
+        "{script}: '{}'",
+        message_of(&r)
+    );
 }
 
 /// WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure (the six theory rows).
@@ -263,7 +322,12 @@ fn system_builtins_refuse_a_wrong_shaped_argument() {
     let expressions = "a list of expressions, e.g. [x*y, x + y]";
     let symbols = "a list of parameter symbols, e.g. [x, y]";
     for (call, builtin, position, expected) in [
-        ("solve_system(x + y == 2, x - y == 0)", "solve_system", "1", equations),
+        (
+            "solve_system(x + y == 2, x - y == 0)",
+            "solve_system",
+            "1",
+            equations,
+        ),
         (
             "solve_system_full(x + y == 2, x - y == 0)",
             "solve_system_full",
@@ -271,8 +335,18 @@ fn system_builtins_refuse_a_wrong_shaped_argument() {
             equations,
         ),
         ("jacobian(x*y, [x, y])", "jacobian", "1", expressions),
-        ("solve_system([x + y == 2], x)", "solve_system", "2", symbols),
-        ("solve_system_full([x + y == 2], x)", "solve_system_full", "2", symbols),
+        (
+            "solve_system([x + y == 2], x)",
+            "solve_system",
+            "2",
+            symbols,
+        ),
+        (
+            "solve_system_full([x + y == 2], x)",
+            "solve_system_full",
+            "2",
+            symbols,
+        ),
         ("jacobian([x*y], x)", "jacobian", "2", symbols),
     ] {
         let script = format!("{declare}{call}");
@@ -312,7 +386,11 @@ fn the_declared_system_list_forms_still_succeed() {
         "x = symbol(\"x\"); y = symbol(\"y\"); jacobian([x*y, x + y], [x, y])",
     ] {
         let r = run_script(script);
-        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env.to_string());
+        assert!(
+            boolean(get(&r.env, "ok")),
+            "{script}: {}",
+            r.env.to_string()
+        );
     }
 }
 
@@ -327,7 +405,11 @@ fn audit_reproductions_cross_as_the_documented_argument_error() {
         ("det(1)", "det", "a square matrix"),
         ("matmul(1, 1)", "matmul", "an array or vector"),
         ("symbol(1)", "symbol", "a text name such as \"x\""),
-        ("x = symbol(\"x\"); assume(1)", "assume", "a relation such as x > 5"),
+        (
+            "x = symbol(\"x\"); assume(1)",
+            "assume",
+            "a relation such as x > 5",
+        ),
         ("transpose(1, 1)", "transpose", "an array or vector"),
     ] {
         assert_documented_shape_refusal(call, builtin, "1", expected);
@@ -353,8 +435,16 @@ fn the_declared_audit_forms_stay_callable() {
         ("x = symbol(\"x\"); assume_real(\"y\")", "y"),
     ] {
         let r = run_script(script);
-        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env.to_string());
-        assert_eq!(text(get(get(&r.env, "result"), "display")), expected, "{script}");
+        assert!(
+            boolean(get(&r.env, "ok")),
+            "{script}: {}",
+            r.env.to_string()
+        );
+        assert_eq!(
+            text(get(get(&r.env, "result"), "display")),
+            expected,
+            "{script}"
+        );
     }
 }
 
@@ -366,10 +456,18 @@ fn the_declared_audit_forms_stay_callable() {
 /// leading coefficient, the sin(x)-at-infinity controls keep the point-evaluation message.
 #[test]
 fn limit_short_form_reports_the_symbolic_leading_coefficient() {
-    for call in ["limit(a/x, x, 0)", "limit_left(a/x, x, 0)", "limit_right(a/x, x, 0)"] {
+    for call in [
+        "limit(a/x, x, 0)",
+        "limit_left(a/x, x, 0)",
+        "limit_right(a/x, x, 0)",
+    ] {
         let script = format!("a = symbol(\"a\"); x = symbol(\"x\"); {call}");
         let r = run_script(&script);
-        assert!(boolean(get(&r.env, "ok")), "{script}: {}", r.env.to_string());
+        assert!(
+            boolean(get(&r.env, "ok")),
+            "{script}: {}",
+            r.env.to_string()
+        );
         let st = structured_of(&r);
         assert_eq!(value_of(field(st, "status")), "Unevaluated", "{call}");
         assert_eq!(text(get(field(st, "exists"), "kind")), "Null", "{call}");
@@ -377,7 +475,11 @@ fn limit_short_form_reports_the_symbolic_leading_coefficient() {
         assert_eq!(diagnostics.len(), 1, "{call}");
         let diagnostic = &diagnostics[0];
         assert_eq!(text(get(diagnostic, "type")), "Diagnostic", "{call}");
-        assert_eq!(value_of(field(diagnostic, "code")), "limit.unevaluated", "{call}");
+        assert_eq!(
+            value_of(field(diagnostic, "code")),
+            "limit.unevaluated",
+            "{call}"
+        );
         assert_eq!(
             value_of(field(diagnostic, "category")),
             "UnsupportedOperation",

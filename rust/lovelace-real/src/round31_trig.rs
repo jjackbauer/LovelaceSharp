@@ -62,7 +62,9 @@ const COS_1E100_100: &str = "928081905074655343456194643776955928183182076439050
 /// correct at 30, 50 and 100 places.
 #[test]
 fn requested_fractional_digits_are_correct_at_every_huge_magnitude() {
-    let huge20 = Real::from_str("1").map(|one| one).unwrap_or_else(Real::zero);
+    let huge20 = Real::from_str("1")
+        .map(|one| one)
+        .unwrap_or_else(Real::zero);
     let _ = huge20;
     let twenty = Real::from_str(&format!("1{}", "0".repeat(20))).expect("10^20");
     let hundred = Real::from_str(&format!("1{}", "0".repeat(100))).expect("10^100");
@@ -158,13 +160,15 @@ fn exact_multiples_of_the_ambient_pi_keep_their_exact_table_values() {
             let sin = angle.sin(places);
             let cos = angle.cos(places);
             assert_eq!(
-                sin, values[index].0,
+                sin,
+                values[index].0,
                 "sin(pi*{num}/{den}) at {places} places = {sin} (exact {}), expected {}",
                 sin.is_exact(),
                 values[index].0
             );
             assert_eq!(
-                cos, values[index].1,
+                cos,
+                values[index].1,
                 "cos(pi*{num}/{den}) at {places} places = {cos} (exact {}), expected {}",
                 cos.is_exact(),
                 values[index].1
@@ -182,7 +186,6 @@ fn exact_multiples_of_the_ambient_pi_keep_their_exact_table_values() {
         }
     }
 }
-
 
 /// The negative-angle control of the same table (RealTrigSymmetryTests): the odd/even symmetry is
 /// exact, so a negated special angle keeps its table value.

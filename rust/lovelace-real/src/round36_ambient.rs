@@ -21,7 +21,10 @@ fn sin_of_a_two_pi_truncation_finer_than_the_ambient_precision_keeps_its_residua
     let actual = x.sin(30);
     let expected = real(&expected_text);
 
-    assert!(!actual.is_zero(), "sin(2*pi(100)) at 30 places = 0, expected {expected}");
+    assert!(
+        !actual.is_zero(),
+        "sin(2*pi(100)) at 30 places = 0, expected {expected}"
+    );
     let tolerance = real(&format!("0.{}1", "0".repeat(104)));
     assert!(
         actual.sub(&expected).abs() < tolerance,

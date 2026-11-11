@@ -22,7 +22,9 @@ fn main() -> ExitCode {
     let filter = args.iter().find(|a| !a.starts_with("--")).cloned();
     let verbose = args.iter().any(|a| a == "--verbose");
 
-    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("..")
+        .join("..");
     let files = [
         root.join("parity").join("corpus").join("lang.json"),
         root.join("parity").join("corpus").join("symbolics.json"),
@@ -88,7 +90,12 @@ fn main() -> ExitCode {
                 failures.push((ex.id.clone(), one_line(&ex.script), ex.text.clone(), got));
             }
             Err(msg) => {
-                failures.push((ex.id.clone(), one_line(&ex.script), ex.text.clone(), format!("<harness error: {msg}>")));
+                failures.push((
+                    ex.id.clone(),
+                    one_line(&ex.script),
+                    ex.text.clone(),
+                    format!("<harness error: {msg}>"),
+                ));
             }
         }
     }
@@ -102,7 +109,11 @@ fn main() -> ExitCode {
         failures.len(),
         filter.map(|f| format!(" (filter {f})")).unwrap_or_default()
     );
-    if failures.is_empty() { ExitCode::SUCCESS } else { ExitCode::from(1) }
+    if failures.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
 }
 
 fn one_line(s: &str) -> String {

@@ -37,5 +37,8 @@ fn the_documented_deepest_recursion_is_accepted() {
     );
     let result = doc.get("result").expect("the envelope has no result");
     assert_eq!(result.get("display").and_then(|v| v.as_str()), Some("0"));
-    assert_eq!(result.get("typed").and_then(|v| v.as_str()), Some("0 (Natural)"));
+    assert_eq!(
+        result.get("typed").and_then(|v| v.as_str()),
+        Some("0 (Natural)")
+    );
 }

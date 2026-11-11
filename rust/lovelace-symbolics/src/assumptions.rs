@@ -162,18 +162,22 @@ impl Assumption {
     pub fn negate(&self) -> Option<Assumption> {
         match self {
             Assumption::SymbolProperty(s, p) => match p {
-                SymbolPredicate::Positive => {
-                    Some(Assumption::SymbolProperty(s.clone(), SymbolPredicate::NonPositive))
-                }
-                SymbolPredicate::NonPositive => {
-                    Some(Assumption::SymbolProperty(s.clone(), SymbolPredicate::Positive))
-                }
-                SymbolPredicate::NonNegative => {
-                    Some(Assumption::SymbolProperty(s.clone(), SymbolPredicate::Negative))
-                }
-                SymbolPredicate::Negative => {
-                    Some(Assumption::SymbolProperty(s.clone(), SymbolPredicate::NonNegative))
-                }
+                SymbolPredicate::Positive => Some(Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::NonPositive,
+                )),
+                SymbolPredicate::NonPositive => Some(Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Positive,
+                )),
+                SymbolPredicate::NonNegative => Some(Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Negative,
+                )),
+                SymbolPredicate::Negative => Some(Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::NonNegative,
+                )),
                 SymbolPredicate::Even => {
                     Some(Assumption::SymbolProperty(s.clone(), SymbolPredicate::Odd))
                 }
@@ -191,7 +195,11 @@ impl Assumption {
                     RelOp::Lt => RelOp::Ge,
                     RelOp::Ge => RelOp::Lt,
                 };
-                Some(Assumption::SymbolRelation(s.clone(), negated, bound.clone()))
+                Some(Assumption::SymbolRelation(
+                    s.clone(),
+                    negated,
+                    bound.clone(),
+                ))
             }
             _ => None,
         }
@@ -257,7 +265,10 @@ impl Assumption {
     pub fn order_key(&self) -> String {
         match self {
             Assumption::SymbolDomain(s, d) => {
-                format!("SymbolDomainAssumption {{ S = {s}, D = {} }}", d.kernel_name())
+                format!(
+                    "SymbolDomainAssumption {{ S = {s}, D = {} }}",
+                    d.kernel_name()
+                )
             }
             Assumption::SymbolProperty(s, p) => {
                 format!("SymbolPropertyAssumption {{ S = {s}, P = {} }}", p.name())
@@ -296,11 +307,7 @@ fn rel_op_name(op: RelOp) -> &'static str {
 }
 
 fn cs_bool(value: bool) -> &'static str {
-    if value {
-        "True"
-    } else {
-        "False"
-    }
+    if value { "True" } else { "False" }
 }
 
 /// The ordering key's rendering of an expression: the reference orders atoms by the record's
@@ -349,14 +356,22 @@ impl Default for AssumptionSet {
 impl AssumptionSet {
     /// The empty set: no condition holds.
     pub fn empty() -> AssumptionSet {
-        AssumptionSet { atoms: Vec::new(), keys: Vec::new(), unsatisfiable: false }
+        AssumptionSet {
+            atoms: Vec::new(),
+            keys: Vec::new(),
+            unsatisfiable: false,
+        }
     }
 
     /// The sentinel for a provably contradictory set (no model exists). Distinct from empty: an
     /// unsatisfiable branch is not the absence of conditions, it is a contradiction that must be
     /// pruned or reported.
     pub fn unsatisfiable() -> AssumptionSet {
-        AssumptionSet { atoms: Vec::new(), keys: Vec::new(), unsatisfiable: true }
+        AssumptionSet {
+            atoms: Vec::new(),
+            keys: Vec::new(),
+            unsatisfiable: true,
+        }
     }
 
     /// True when this is the unsatisfiable sentinel.
@@ -389,22 +404,25 @@ impl AssumptionSet {
         // reference's ordered insertion does for a tied key.
         pairs.sort_by(|a, b| a.0.cmp(&b.0));
         let (keys, atoms) = pairs.into_iter().unzip();
-        AssumptionSet { atoms, keys, unsatisfiable: false }
+        AssumptionSet {
+            atoms,
+            keys,
+            unsatisfiable: false,
+        }
     }
 
     /// Returns a new set including `a`; fails on contradiction. Adding to the unsatisfiable
     /// sentinel stays unsatisfiable.
     pub fn add(&self, a: Assumption) -> Result<AssumptionSet, Contradiction> {
-        self.clone().add_owned(a).map_err(|(contradiction, _)| contradiction)
+        self.clone()
+            .add_owned(a)
+            .map_err(|(contradiction, _)| contradiction)
     }
 
     /// [AssumptionSet::add] for a caller that already owns the set: the atoms and their keys are
     /// moved into the new set instead of being copied, and a contradiction hands the unchanged
     /// set back so the caller can keep serving queries from it.
-    pub fn add_owned(
-        self,
-        a: Assumption,
-    ) -> Result<AssumptionSet, (Contradiction, AssumptionSet)> {
+    pub fn add_owned(self, a: Assumption) -> Result<AssumptionSet, (Contradiction, AssumptionSet)> {
         if self.unsatisfiable {
             return Ok(self);
         }
@@ -537,25 +555,49 @@ impl AssumptionSet {
         }
         let derived = match predicate {
             // ---- symbol properties: implication lattice ----
-            Assumption::SymbolProperty(s, SymbolPredicate::Positive) => {
-                self.ask(&Assumption::SymbolRelation(s.clone(), RelOp::Gt, Expr::num(0)))
-            }
+            Assumption::SymbolProperty(s, SymbolPredicate::Positive) => self.ask(
+                &Assumption::SymbolRelation(s.clone(), RelOp::Gt, Expr::num(0)),
+            ),
             Assumption::SymbolProperty(s, SymbolPredicate::NonNegative) => or(&[
-                self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Positive)),
-                self.ask(&Assumption::SymbolRelation(s.clone(), RelOp::Ge, Expr::num(0))),
+                self.ask(&Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Positive,
+                )),
+                self.ask(&Assumption::SymbolRelation(
+                    s.clone(),
+                    RelOp::Ge,
+                    Expr::num(0),
+                )),
             ]),
-            Assumption::SymbolProperty(s, SymbolPredicate::Negative) => {
-                self.ask(&Assumption::SymbolRelation(s.clone(), RelOp::Lt, Expr::num(0)))
-            }
+            Assumption::SymbolProperty(s, SymbolPredicate::Negative) => self.ask(
+                &Assumption::SymbolRelation(s.clone(), RelOp::Lt, Expr::num(0)),
+            ),
             Assumption::SymbolProperty(s, SymbolPredicate::NonPositive) => or(&[
-                self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Negative)),
-                self.ask(&Assumption::SymbolRelation(s.clone(), RelOp::Le, Expr::num(0))),
+                self.ask(&Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Negative,
+                )),
+                self.ask(&Assumption::SymbolRelation(
+                    s.clone(),
+                    RelOp::Le,
+                    Expr::num(0),
+                )),
             ]),
             Assumption::SymbolProperty(s, SymbolPredicate::NonZero) => or(&[
-                self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Positive)),
-                self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Negative)),
+                self.ask(&Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Positive,
+                )),
+                self.ask(&Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Negative,
+                )),
                 self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Odd)),
-                self.ask(&Assumption::SymbolRelation(s.clone(), RelOp::Ne, Expr::num(0))),
+                self.ask(&Assumption::SymbolRelation(
+                    s.clone(),
+                    RelOp::Ne,
+                    Expr::num(0),
+                )),
             ]),
             Assumption::SymbolProperty(s, SymbolPredicate::Finite) => or(&[
                 self.ask(&Assumption::SymbolDomain(s.clone(), Domain::Real)),
@@ -566,7 +608,10 @@ impl AssumptionSet {
             // ---- domain lattice (only narrower domains infer wider ones) ----
             // Even/Odd imply Integer (never the reverse)
             Assumption::SymbolDomain(s, Domain::Integer) => or(&[
-                self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Even)),
+                self.ask(&Assumption::SymbolProperty(
+                    s.clone(),
+                    SymbolPredicate::Even,
+                )),
                 self.ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::Odd)),
             ]),
             Assumption::SymbolDomain(s, Domain::Complex) => or(&[
@@ -623,10 +668,12 @@ impl AssumptionSet {
         for atom in &self.atoms {
             let (atom_op, atom_bound) = match atom {
                 Assumption::SymbolRelation(s, o, b) if s == symbol => (*o, numeric_to_rational(b)),
-                Assumption::SymbolProperty(s, p) if s == symbol => match Assumption::relation_op(*p) {
-                    Some(o) => (o, Some(Rat::zero())),
-                    None => continue,
-                },
+                Assumption::SymbolProperty(s, p) if s == symbol => {
+                    match Assumption::relation_op(*p) {
+                        Some(o) => (o, Some(Rat::zero())),
+                        None => continue,
+                    }
+                }
                 _ => continue,
             };
             let Some(assumed) = atom_bound else {
@@ -665,8 +712,10 @@ impl AssumptionSet {
                 _ => false,
             },
             Expr::Fun(name, args) => {
-                matches!(name.as_str(), "re" | "im" | "abs" | "sign" | "floor" | "ceil")
-                    && !args.is_empty()
+                matches!(
+                    name.as_str(),
+                    "re" | "im" | "abs" | "sign" | "floor" | "ceil"
+                ) && !args.is_empty()
                     && self.provably_real(&args[0])
             }
             _ => false,
@@ -689,8 +738,10 @@ impl AssumptionSet {
                 }
                 if p == SymbolPredicate::Positive || p == SymbolPredicate::NonZero {
                     return match &args[0] {
-                        Expr::Sym(s) => self
-                            .ask(&Assumption::SymbolProperty(s.clone(), SymbolPredicate::NonZero)),
+                        Expr::Sym(s) => self.ask(&Assumption::SymbolProperty(
+                            s.clone(),
+                            SymbolPredicate::NonZero,
+                        )),
                         _ => Tristate::Unknown,
                     };
                 }
@@ -978,21 +1029,13 @@ fn compare_to_zero(bound: &Expr, is_lower: bool, open: bool) -> Tristate {
         return Tristate::Unknown;
     };
     let ok = if is_lower {
-        if open {
-            sign < 0
-        } else {
-            sign <= 0
-        }
+        if open { sign < 0 } else { sign <= 0 }
     } else if open {
         sign > 0
     } else {
         sign >= 0
     };
-    if ok {
-        Tristate::True
-    } else {
-        Tristate::False
-    }
+    if ok { Tristate::True } else { Tristate::False }
 }
 
 /// The sign of a constant expression, when it has one: -1, 0 or 1.
@@ -1143,7 +1186,11 @@ pub fn decimal_to_rational(text: &str) -> Option<Rat> {
     } else if exponent < 0 {
         denominator = denominator.mul(&ten.pow((-exponent) as u64));
     }
-    let numerator = if sign < 0 { numerator.negate() } else { numerator };
+    let numerator = if sign < 0 {
+        numerator.negate()
+    } else {
+        numerator
+    };
     Some(Rat::from_parts(numerator, denominator))
 }
 
@@ -1186,7 +1233,9 @@ mod tests {
     }
 
     fn half() -> Rat {
-        Rat::from_i64(1).div(&Rat::from_i64(2)).expect("nonzero divisor")
+        Rat::from_i64(1)
+            .div(&Rat::from_i64(2))
+            .expect("nonzero divisor")
     }
 
     fn rational_expr(value: Rat) -> Expr {
@@ -1196,7 +1245,10 @@ mod tests {
     /// The reference truth table's witness sample: integers plus the two half-points that make
     /// the strict-bound pairs satisfiable over the reals.
     fn reference_witnesses() -> Vec<Rat> {
-        let mut out: Vec<Rat> = [-100i64, 0, 3, 4, 5, 6, 100].iter().map(|v| Rat::from_i64(*v)).collect();
+        let mut out: Vec<Rat> = [-100i64, 0, 3, 4, 5, 6, 100]
+            .iter()
+            .map(|v| Rat::from_i64(*v))
+            .collect();
         out.push(Rat::from_i64(9).div(&Rat::from_i64(2)).expect("nonzero"));
         out.push(Rat::from_i64(11).div(&Rat::from_i64(2)).expect("nonzero"));
         out
@@ -1215,7 +1267,9 @@ mod tests {
 
     #[test]
     fn bound_reasoning_proves_and_refutes() {
-        let set = AssumptionSet::empty().add(relation(RelOp::Gt, 5)).expect("consistent");
+        let set = AssumptionSet::empty()
+            .add(relation(RelOp::Gt, 5))
+            .expect("consistent");
         assert_eq!(set.ask(&relation(RelOp::Gt, 0)), Tristate::True);
         assert_eq!(set.ask(&relation(RelOp::Ge, 0)), Tristate::True);
         assert_eq!(set.ask(&relation(RelOp::Lt, 5)), Tristate::False);
@@ -1228,7 +1282,14 @@ mod tests {
 
     #[test]
     fn bound_truth_table_matches_the_reference_over_witnesses() {
-        let ops = [RelOp::Eq, RelOp::Ne, RelOp::Gt, RelOp::Ge, RelOp::Lt, RelOp::Le];
+        let ops = [
+            RelOp::Eq,
+            RelOp::Ne,
+            RelOp::Gt,
+            RelOp::Ge,
+            RelOp::Lt,
+            RelOp::Le,
+        ];
         let bounds = [4i64, 5, 6];
         let witnesses = reference_witnesses();
         for assumed_op in ops {
@@ -1242,13 +1303,15 @@ mod tests {
                         let in_set: Vec<Rat> = witnesses
                             .iter()
                             .cloned()
-                            .filter(|w| {
-                                satisfies(w, assumed_op, &Rat::from_i64(assumed_bound))
-                            })
+                            .filter(|w| satisfies(w, assumed_op, &Rat::from_i64(assumed_bound)))
                             .collect();
                         let all = !in_set.is_empty()
-                            && in_set.iter().all(|w| satisfies(w, query_op, &Rat::from_i64(query_bound)));
-                        let none = in_set.iter().all(|w| !satisfies(w, query_op, &Rat::from_i64(query_bound)));
+                            && in_set
+                                .iter()
+                                .all(|w| satisfies(w, query_op, &Rat::from_i64(query_bound)));
+                        let none = in_set
+                            .iter()
+                            .all(|w| !satisfies(w, query_op, &Rat::from_i64(query_bound)));
                         let expected = if all {
                             Tristate::True
                         } else if none {
@@ -1273,7 +1336,10 @@ mod tests {
             .expect("consistent");
         assert_eq!(positive.ask(&relation(RelOp::Gt, 0)), Tristate::True);
         assert_eq!(
-            positive.ask(&Assumption::SymbolProperty(x(), SymbolPredicate::NonNegative)),
+            positive.ask(&Assumption::SymbolProperty(
+                x(),
+                SymbolPredicate::NonNegative
+            )),
             Tristate::True
         );
         assert_eq!(
@@ -1293,7 +1359,10 @@ mod tests {
         let odd = AssumptionSet::empty()
             .add(Assumption::SymbolProperty(x(), SymbolPredicate::Odd))
             .expect("consistent");
-        assert_eq!(odd.ask(&Assumption::SymbolDomain(x(), Domain::Integer)), Tristate::True);
+        assert_eq!(
+            odd.ask(&Assumption::SymbolDomain(x(), Domain::Integer)),
+            Tristate::True
+        );
         assert_eq!(
             odd.ask(&Assumption::SymbolProperty(x(), SymbolPredicate::NonZero)),
             Tristate::True
@@ -1303,7 +1372,10 @@ mod tests {
         let integer = AssumptionSet::empty()
             .add(Assumption::SymbolDomain(x(), Domain::Integer))
             .expect("consistent");
-        assert_eq!(integer.ask(&Assumption::SymbolDomain(x(), Domain::Real)), Tristate::True);
+        assert_eq!(
+            integer.ask(&Assumption::SymbolDomain(x(), Domain::Real)),
+            Tristate::True
+        );
         assert_eq!(
             integer.ask(&Assumption::SymbolProperty(x(), SymbolPredicate::Odd)),
             Tristate::Unknown
@@ -1316,7 +1388,14 @@ mod tests {
 
     #[test]
     fn contradiction_detection_is_neither_missed_nor_invented() {
-        let ops = [RelOp::Eq, RelOp::Ne, RelOp::Gt, RelOp::Ge, RelOp::Lt, RelOp::Le];
+        let ops = [
+            RelOp::Eq,
+            RelOp::Ne,
+            RelOp::Gt,
+            RelOp::Ge,
+            RelOp::Lt,
+            RelOp::Le,
+        ];
         let bounds = [4i64, 5, 6];
         let witnesses = reference_witnesses();
         for o1 in ops {
@@ -1334,7 +1413,11 @@ mod tests {
                             second.is_err(),
                             !has_model,
                             "({o1:?} {b1}) & ({o2:?} {b2}) should {}",
-                            if has_model { "be accepted" } else { "be refused" }
+                            if has_model {
+                                "be accepted"
+                            } else {
+                                "be refused"
+                            }
                         );
                     }
                 }
@@ -1369,7 +1452,11 @@ mod tests {
             Tristate::Unsatisfiable
         );
         // the sentinel is sticky
-        assert!(set.add(relation(RelOp::Gt, 0)).expect("sticky").is_unsatisfiable());
+        assert!(
+            set.add(relation(RelOp::Gt, 0))
+                .expect("sticky")
+                .is_unsatisfiable()
+        );
     }
 
     #[test]
@@ -1379,7 +1466,11 @@ mod tests {
             .expect("consistent");
         // no integer lies strictly between 1/2 and 1
         let bounded = integer
-            .add(Assumption::SymbolRelation(x(), RelOp::Gt, rational_expr(half())))
+            .add(Assumption::SymbolRelation(
+                x(),
+                RelOp::Gt,
+                rational_expr(half()),
+            ))
             .expect("1/2 < x");
         let refusal = bounded
             .add(Assumption::SymbolRelation(x(), RelOp::Lt, Expr::num(1)))
@@ -1394,7 +1485,11 @@ mod tests {
             .add(Assumption::SymbolDomain(x(), Domain::Real))
             .expect("consistent");
         let bounded = reals
-            .add(Assumption::SymbolRelation(x(), RelOp::Gt, rational_expr(half())))
+            .add(Assumption::SymbolRelation(
+                x(),
+                RelOp::Gt,
+                rational_expr(half()),
+            ))
             .expect("1/2 < x");
         assert!(
             bounded
@@ -1461,7 +1556,10 @@ mod tests {
             .add(Assumption::SymbolDomain(x(), Domain::Integer))
             .expect("consistent");
         assert_eq!(set.domain_of_symbol("x"), Domain::Integer);
-        assert_eq!(set.ask(&Assumption::SymbolDomain(x(), Domain::Real)), Tristate::True);
+        assert_eq!(
+            set.ask(&Assumption::SymbolDomain(x(), Domain::Real)),
+            Tristate::True
+        );
         assert_eq!(set.domain_of_symbol("unconstrained"), Domain::Complex);
     }
 
@@ -1500,7 +1598,11 @@ mod tests {
             Assumption::SymbolRelation(x(), RelOp::Lt, Expr::num(1)),
             Assumption::SymbolRelation(x(), RelOp::Gt, Expr::num(9)),
         ]);
-        let rendered: Vec<String> = by_operator.atoms().iter().map(Assumption::describe).collect();
+        let rendered: Vec<String> = by_operator
+            .atoms()
+            .iter()
+            .map(Assumption::describe)
+            .collect();
         assert_eq!(rendered, vec!["x > 9", "x < 1", "x != 2"]);
     }
 
@@ -1509,11 +1611,7 @@ mod tests {
         // C# AssumptionSoundnessTests.RealValuedBounds_ParticipateInReasoning: a bound carried
         // as a RealConstant leaf is still an exact decimal, so the bound lattice reads it.
         let set = AssumptionSet::empty()
-            .add(Assumption::SymbolRelation(
-                x(),
-                RelOp::Ge,
-                Expr::real("5"),
-            ))
+            .add(Assumption::SymbolRelation(x(), RelOp::Ge, Expr::real("5")))
             .expect("consistent");
         assert_eq!(set.ask(&relation(RelOp::Lt, 5)), Tristate::False);
         assert_eq!(set.ask(&relation(RelOp::Gt, 4)), Tristate::True);
@@ -1532,12 +1630,16 @@ mod tests {
             Some("5")
         );
         assert_eq!(
-            decimal_to_rational("-0.5").map(|r| r.to_string()).as_deref(),
+            decimal_to_rational("-0.5")
+                .map(|r| r.to_string())
+                .as_deref(),
             Some("-1/2")
         );
         // a periodic rendering denotes its rational exactly: 0.(3) is 1/3
         assert_eq!(
-            decimal_to_rational("0.(3)").map(|r| r.to_string()).as_deref(),
+            decimal_to_rational("0.(3)")
+                .map(|r| r.to_string())
+                .as_deref(),
             Some("1/3")
         );
         assert!(decimal_to_rational("not a decimal").is_none());
@@ -1550,18 +1652,27 @@ mod tests {
             .expect("consistent");
         let abs_x = Expr::Fun("abs".to_string(), vec![Expr::sym("x")]);
         assert_eq!(
-            set.ask(&Assumption::ExpressionProperty(abs_x, SymbolPredicate::NonNegative)),
+            set.ask(&Assumption::ExpressionProperty(
+                abs_x,
+                SymbolPredicate::NonNegative
+            )),
             Tristate::True
         );
         // abs(x) is positive because x is nonzero
         let abs_x = Expr::Fun("abs".to_string(), vec![Expr::sym("x")]);
         assert_eq!(
-            set.ask(&Assumption::ExpressionProperty(abs_x, SymbolPredicate::Positive)),
+            set.ask(&Assumption::ExpressionProperty(
+                abs_x,
+                SymbolPredicate::Positive
+            )),
             Tristate::True
         );
         // an expression with no such shape is unknown
         assert_eq!(
-            set.ask(&Assumption::ExpressionProperty(Expr::num(0), SymbolPredicate::NonNegative)),
+            set.ask(&Assumption::ExpressionProperty(
+                Expr::num(0),
+                SymbolPredicate::NonNegative
+            )),
             Tristate::Unknown
         );
     }
