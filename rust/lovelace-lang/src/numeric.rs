@@ -34,6 +34,14 @@ pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
     let places = places.max(1);
     match expression {
         Sym::Num(r) => Ok(Num::Exact(r.clone())),
+        // A real constant is the decimal the numeric tier handed over; reading it back marks the
+        // value inexact, so an approximation is never promoted to an exact rational.
+        Sym::Real(text) => match Real::from_str(text) {
+            Some(value) => Ok(Num::Real(value.mark_inexact())),
+            None => Err(LangError::plain(format!(
+                "The real constant '{text}' is not a decimal value."
+            ))),
+        },
         Sym::Sym(name) => Err(LangError::plain(format!("No value for symbol '{}'.", name))),
         Sym::Add(terms) => {
             let mut acc = Num::Exact(Rat::zero());

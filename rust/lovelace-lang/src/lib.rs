@@ -497,6 +497,10 @@ pub struct Engine {
     /// solution of THIS session's equation.
     domain_assumptions: Vec<(String, String)>,
     bounds: Vec<(String, Option<(lovelace_symbolics::Rat, bool)>, Option<(lovelace_symbolics::Rat, bool)>)>,
+    /// The session's assumption set: the tri-state kernel the assume builtins feed and merge,
+    /// solve, simplify, simplify_full and inspect read. One set per engine, so two engines that
+    /// run concurrently never answer each other's queries.
+    assumptions: lovelace_symbolics::assumptions::AssumptionSet,
 }
 
 impl Default for Engine {
@@ -532,6 +536,7 @@ impl Engine {
             assumption_atoms: Vec::new(),
             domain_assumptions: Vec::new(),
             bounds: Vec::new(),
+            assumptions: lovelace_symbolics::assumptions::AssumptionSet::empty(),
         }
     }
 
@@ -1198,6 +1203,45 @@ impl Engine {
         self.output.push(line);
     }
 
+    /// This engine's assumption set.
+    pub(crate) fn assumptions(&self) -> &lovelace_symbolics::assumptions::AssumptionSet {
+        &self.assumptions
+    }
+
+    /// Adds one atom to this engine's set; a contradiction is the reference's refusal sentence
+    /// (the caller publishes it with the reference's error code and category).
+    pub(crate) fn add_assumption(
+        &mut self,
+        atom: lovelace_symbolics::assumptions::Assumption,
+    ) -> Result<(), String> {
+        let current = std::mem::replace(
+            &mut self.assumptions,
+            lovelace_symbolics::assumptions::AssumptionSet::empty(),
+        );
+        match current.add_owned(atom) {
+            Ok(next) => {
+                self.assumptions = next;
+                Ok(())
+            }
+            Err((contradiction, unchanged)) => {
+                self.assumptions = unchanged;
+                Err(contradiction.message)
+            }
+        }
+    }
+
+    /// Drops every assumption of THIS engine: the set, the legacy projections solve still reads,
+    /// and the interval bounds. A fresh engine and a cleared one answer alike.
+    pub(crate) fn clear_assumptions(&mut self) {
+        self.assumptions = lovelace_symbolics::assumptions::AssumptionSet::empty();
+        self.positive_symbols.clear();
+        self.nonzero_symbols.clear();
+        self.assumption_texts.clear();
+        self.assumption_atoms.clear();
+        self.domain_assumptions.clear();
+        self.bounds.clear();
+    }
+
     pub(crate) fn record_assumption(&mut self, text: &str) {
         if !self.assumption_texts.iter().any(|t| t == text) {
             self.assumption_texts.push(text.to_string());
@@ -1400,7 +1444,7 @@ pub(crate) fn symbolic_depth(root: &Sym) -> usize {
                 stack.push((left, next));
                 stack.push((right, next));
             }
-            Sym::Num(_) | Sym::Sym(_) => {}
+            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => {}
         }
     }
     max
@@ -1753,3 +1797,15 @@ mod relations_families_round33;
 mod symbolics_tail_round34;
 
 mod symbolics_round23;
+
+#[cfg(test)]
+mod assumptions_round35;
+
+#[cfg(test)]
+mod real_constant_round35;
+
+#[cfg(test)]
+mod suite_tail_round35;
+
+#[cfg(test)]
+mod round35_extra_tail;

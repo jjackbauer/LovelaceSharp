@@ -4,6 +4,7 @@ use lovelace_array::{ArrayError, NdArray};
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
+use lovelace_symbolics::assumptions::{Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate};
 use lovelace_symbolics::Expr as Sym;
 
 use crate::registry;
@@ -125,32 +126,41 @@ pub fn as_expr(v: &Value) -> Option<Sym> {
         Value::Integer(i) => Some(Sym::rational(i, &Nat::from_u64(1))),
         Value::Real(r) => {
             // An exact Real is a rational at heart, including a periodic one (1/3 is exact and
-            // publishes as 1/3, not as the decimal 0.(3)). An inexact Real keeps the decimal
-            // path: only a terminating spelling can be represented symbolically.
+            // publishes as 1/3, not as the decimal 0.(3)). An INEXACT Real keeps its decimal
+            // identity: the value crossed into the expression from the numeric tier, so it is a
+            // RealConstant leaf (outside the exact basis by its kind), never a rational silently
+            // promoted to exact.
             if r.is_exact() {
                 let (num, den) = r.to_rational();
                 return Some(Sym::rational(&num, &den));
             }
-            if r.is_integer() {
-                return r.to_int_exact().map(|i| Sym::rational(&i, &Nat::from_u64(1)));
-            }
+            // The reference carries a real VALUE into an expression as a rational while its
+            // decimal is short enough to read back exactly, and as a RealConstant leaf beyond
+            // that. The boundary is measured, not assumed: subs(x + 1, x, pi(18)) answers the
+            // rational 2070796326794896619/500000000000000000 while subs(x + 1, x, pi(19))
+            // answers 1 + 3.1415926535897932384 (a Real leaf).
             let text = r.to_string();
-            if text.contains('(') {
-                return None;
-            }
-            match text.split_once('.') {
-                Some((ip, fp)) => {
-                    let sign = if ip.starts_with('-') { -1 } else { 1 };
-                    let int_part = ip.trim_start_matches('-');
-                    let digits = format!("{}{}", if int_part.is_empty() { "0" } else { int_part }, fp);
-                    let num = Int::from_decimal(&digits)?;
-                    let den = Nat::from_u64(10).pow(fp.len() as u64);
-                    Some(Sym::rational(&if sign < 0 { num.negate() } else { num }, &den))
+            if significant_digits(&text) <= 19 {
+                if let Some(value) = lovelace_symbolics::assumptions::decimal_to_rational(&text) {
+                    return Some(Sym::Num(value));
                 }
-                None => None,
             }
+            Some(Sym::real(&text))
         }
         _ => None,
+    }
+}
+
+/// The count of significant decimal digits in a rendering (leading and trailing zeros are not
+/// significant), used for the real-value-to-expression boundary.
+fn significant_digits(text: &str) -> usize {
+    let body = text.trim_start_matches('-');
+    let digits: String = body.chars().filter(|c| c.is_ascii_digit()).collect();
+    let trimmed = digits.trim_start_matches('0').trim_end_matches('0');
+    if trimmed.is_empty() {
+        digits.trim_start_matches('0').len()
+    } else {
+        trimmed.len()
     }
 }
 
@@ -1263,6 +1273,21 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     return Err(shape_failure("symbol", 1, "a text name such as \"x\"", other))
                 }
             };
+            // An optional domain is ASSUMED for the symbol by the session that created it (the
+            // reference's SymbolWithDomain), which is what lets simplify(sqrt(x^2)) answer abs(x)
+            // under symbol("x", real) and inspect report the DomainCondition.
+            if let Some(Value::Domain(domain)) = args.get(1) {
+                let narrowed = match domain.as_str() {
+                    "real" => AssumptionDomain::Real,
+                    "integer" => AssumptionDomain::Integer,
+                    "rational" => AssumptionDomain::Rational,
+                    _ => AssumptionDomain::Complex,
+                };
+                engine
+                    .add_assumption(Assumption::SymbolDomain(name.clone(), narrowed))
+                    .map_err(unsatisfiable_assumptions)?;
+                engine.record_domain_assumption(&name, narrowed.name());
+            }
             Ok(Value::Symbolic(Sym::sym(&name)))
         }
         "diff" => {
@@ -1716,7 +1741,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     ("shape".to_string(), shape),
                     ("rank".to_string(), rank),
                     ("element_domain".to_string(), element_domain),
-                    ("assumptions".to_string(), Value::Vector(Vec::new())),
+                    (
+                        "assumptions".to_string(),
+                        Value::Vector(match value {
+                            Value::Symbolic(e) => relevant_assumption_leaves(engine, e),
+                            _ => Vec::new(),
+                        }),
+                    ),
                     ("members".to_string(), members),
                 ],
             ))
@@ -2112,7 +2143,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 // TransformResult: the rewritten expression, its side conditions, and the
                 // provenance trace (stable rule ids and classifications), never a bare value.
                 if matches!(e, Sym::Rel(_, _, _)) {
-                    return Ok(transform_result(e.clone(), e, Vec::new(), Vec::new(), false));
+                    return Ok(transform_result(engine, e.clone(), e, Vec::new(), Vec::new(), false));
                 }
                 // A quotient of a numerator by itself: x/x -> 1 with the pole condition. This is
                 // the rat.cancel-x-over-x rule the reference applies to x*x^-1.
@@ -2131,6 +2162,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             required_conditions: vec![Value::Symbolic(condition.clone())],
                         };
                         return Ok(transform_result(
+                            engine,
                             e.clone(),
                             Sym::num(1),
                             vec![Value::Symbolic(condition)],
@@ -2143,6 +2175,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 let (simplified, steps) = simplify_traced(engine, e.clone(), &mut budget);
                 let conditions = step_conditions(&steps);
                 return Ok(transform_result(
+                    engine,
                     e,
                     simplified,
                     conditions,
@@ -2422,56 +2455,52 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             }
         }
         "assumptions" => {
-            let items: Vec<String> = engine.assumption_texts();
-            let display = items.join("; ");
+            // The SAME atom projection every other condition array uses, next to the human
+            // rendering: the set is a structured value, never a string a caller has to parse.
+            let set = engine.assumptions();
+            let display = set
+                .atoms()
+                .iter()
+                .map(|atom| assumption_text(atom))
+                .collect::<Vec<String>>()
+                .join("; ");
+            let items: Vec<Value> = set.atoms().iter().map(assumption_condition_leaf).collect();
             Ok(Value::Record(
                 "AssumptionSet".to_string(),
                 vec![
                     ("display".to_string(), Value::Text(display)),
-                    ("assumptions".to_string(), Value::Vector(items.into_iter().map(Value::Text).collect())),
+                    ("assumptions".to_string(), Value::Vector(items)),
                 ],
             ))
         }
-        "assume_positive" => {
+        "assume_positive" | "assume_nonnegative" | "assume_negative" => {
             arity(1)?;
-            if let Value::Symbolic(Sym::Sym(name)) = &args[0] {
-                engine.mark_positive(name);
-                // `assume_positive(x)` stores the atom `x > 0` (the reference's
-                // SymbolPropertyAssumption(Positive)), so solve can decide a candidate root
-                // against it.
-                engine.record_assumption_atom(&Sym::Rel(
-                    lovelace_symbolics::RelOp::Gt,
-                    Box::new(Sym::sym(name)),
-                    Box::new(Sym::num(0)),
-                ));
+            if let Value::Symbolic(Sym::Sym(symbol)) = &args[0] {
+                let predicate = match name {
+                    "assume_positive" => SymbolPredicate::Positive,
+                    "assume_nonnegative" => SymbolPredicate::NonNegative,
+                    _ => SymbolPredicate::Negative,
+                };
+                // The property atom is what the set stores (the reference's
+                // SymbolPropertyAssumption), so assumptions() renders "x is Positive" and the
+                // implication lattice can derive x > 0 from it.
+                engine
+                    .add_assumption(Assumption::SymbolProperty(symbol.clone(), predicate))
+                    .map_err(unsatisfiable_assumptions)?;
+                if matches!(predicate, SymbolPredicate::Positive | SymbolPredicate::NonNegative) {
+                    engine.mark_positive(symbol);
+                }
+                // solve still decides candidate roots against the relation form of the same atom.
+                if let Some(op) = Assumption::relation_op(predicate) {
+                    engine.record_assumption_atom(&Sym::Rel(
+                        op,
+                        Box::new(Sym::sym(symbol)),
+                        Box::new(Sym::num(0)),
+                    ));
+                }
                 // The reference answers the SYMBOL, not Void: the assume* builtins publish the
                 // expression whose assumption they recorded.
-                return Ok(Value::Symbolic(Sym::sym(name)));
-            }
-            Ok(Value::Void)
-        }
-        "assume_nonnegative" => {
-            arity(1)?;
-            if let Value::Symbolic(Sym::Sym(name)) = &args[0] {
-                engine.mark_positive(name);
-                engine.record_assumption_atom(&Sym::Rel(
-                    lovelace_symbolics::RelOp::Ge,
-                    Box::new(Sym::sym(name)),
-                    Box::new(Sym::num(0)),
-                ));
-                return Ok(Value::Symbolic(Sym::sym(name)));
-            }
-            Ok(Value::Void)
-        }
-        "assume_negative" => {
-            arity(1)?;
-            if let Value::Symbolic(Sym::Sym(name)) = &args[0] {
-                engine.record_assumption_atom(&Sym::Rel(
-                    lovelace_symbolics::RelOp::Lt,
-                    Box::new(Sym::sym(name)),
-                    Box::new(Sym::num(0)),
-                ));
-                return Ok(Value::Symbolic(Sym::sym(name)));
+                return Ok(Value::Symbolic(Sym::sym(symbol)));
             }
             Ok(Value::Void)
         }
@@ -2485,12 +2514,24 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     .ok_or_else(|| LangError::plain(format!("{name} needs a symbolic variable.")))?,
             };
             if let Sym::Sym(variable) = &symbolic {
-                let domain = if name == "assume_real" { "real" } else { "integer" };
-                engine.record_domain_assumption(variable, domain);
+                let domain = if name == "assume_real" {
+                    AssumptionDomain::Real
+                } else {
+                    AssumptionDomain::Integer
+                };
+                engine
+                    .add_assumption(Assumption::SymbolDomain(variable.clone(), domain))
+                    .map_err(unsatisfiable_assumptions)?;
+                engine.record_domain_assumption(variable, domain.name());
             } else {
                 return Err(LangError::plain(format!("{name} needs a symbolic variable.")));
             }
             Ok(Value::Symbolic(symbolic))
+        }
+        "assume_clear" => {
+            // One engine's assumptions, never another's and never a host-wide slot.
+            engine.clear_assumptions();
+            Ok(Value::Text("assumptions cleared".to_string()))
         }
         "assume" => {
             arity(1)?;
@@ -2514,6 +2555,15 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             RelOp::Ge => RelOp::Lt,
                         };
                         let relation = Sym::Rel(negated, a.clone(), b.clone());
+                        if let (Sym::Sym(symbol), Sym::Num(bound)) = (a.as_ref(), b.as_ref()) {
+                            engine
+                                .add_assumption(Assumption::SymbolRelation(
+                                    symbol.clone(),
+                                    negated,
+                                    Sym::Num(bound.clone()),
+                                ))
+                                .map_err(unsatisfiable_assumptions)?;
+                        }
                         engine.record_assumption(&relation.to_string());
                         engine.record_assumption_atom(&relation);
                         return Ok(Value::Symbolic(relation));
@@ -2522,8 +2572,19 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             }
             match &args[0] {
                 Value::Symbolic(rel @ Sym::Rel(op, lhs, rhs)) => {
+                    // The set is the authority on contradictions: it knows the property lattice
+                    // and the integer-domain emptiness a bound comparison cannot see.
+                    if let Sym::Sym(symbol) = lhs.as_ref() {
+                        engine
+                            .add_assumption(Assumption::SymbolRelation(
+                                symbol.clone(),
+                                *op,
+                                (**rhs).clone(),
+                            ))
+                            .map_err(unsatisfiable_assumptions)?;
+                    }
                     // Bounds reasoning: a relation against a constant tightens an interval.
-                    if let (Sym::Sym(name), Sym::Num(value)) = (lhs.as_ref(), rhs.as_ref()) {
+                    if let (Sym::Sym(name_of_symbol), Sym::Num(value)) = (lhs.as_ref(), rhs.as_ref()) {
                         use lovelace_symbolics::RelOp;
                         let (lower, upper) = match op {
                             RelOp::Gt => (Some((value.clone(), false)), None),
@@ -2533,7 +2594,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             _ => (None, None),
                         };
                         if lower.is_some() || upper.is_some() {
-                            if engine.add_bound(name, lower, upper).is_err() {
+                            if engine.add_bound(name_of_symbol, lower, upper).is_err() {
                                 let negation = match op {
                                     RelOp::Le => ">",
                                     RelOp::Lt => ">=",
@@ -2545,25 +2606,25 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                                 return Err(LangError::plain(format!(
                                     "Assumption {} contradicts the existing assumptions (its negation {} {} is provable).",
                                     rel.to_string(),
-                                    name,
+                                    name_of_symbol,
                                     format!("{} {}", negation, value.to_string())
                                 )));
                             }
                         }
                     }
-                    if let Sym::Sym(name) = lhs.as_ref() {
+                    if let Sym::Sym(name_of_symbol) = lhs.as_ref() {
                         match op {
                             lovelace_symbolics::RelOp::Ne => {
                                 if let Sym::Num(n) = rhs.as_ref() {
                                     if n.is_zero() {
-                                        engine.mark_nonzero(name);
+                                        engine.mark_nonzero(name_of_symbol);
                                     }
                                 } else {
-                                    engine.mark_nonzero(name);
+                                    engine.mark_nonzero(name_of_symbol);
                                 }
                             }
                             lovelace_symbolics::RelOp::Gt | lovelace_symbolics::RelOp::Ge => {
-                                engine.mark_positive(name);
+                                engine.mark_positive(name_of_symbol);
                             }
                             _ => {}
                         }
@@ -5778,7 +5839,7 @@ fn mentions_solved_variable(e: &Sym, var: &str) -> bool {
     match e {
         Sym::Fun(name, _) if name == "rootof" => false,
         Sym::Sym(s) => s == var,
-        Sym::Num(_) => false,
+        Sym::Num(_) | Sym::Real(_) => false,
         Sym::Add(v) | Sym::Mul(v) => v.iter().any(|x| mentions_solved_variable(x, var)),
         Sym::Pow(a, b) => mentions_solved_variable(a, var) || mentions_solved_variable(b, var),
         Sym::Fun(_, args) => args.iter().any(|a| mentions_solved_variable(a, var)),
@@ -6996,7 +7057,7 @@ fn shared_subtree_count(e: &Sym) -> usize {
                 walk(b, counts);
             }
             Sym::Fun(_, args) => args.iter().for_each(|a| walk(a, counts)),
-            Sym::Num(_) | Sym::Sym(_) => {}
+            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => {}
         }
     }
     let mut counts: Vec<(String, usize)> = Vec::new();
@@ -7037,6 +7098,8 @@ fn result_type(e: &Sym, params: &[String]) -> String {
 fn polynomial_is_integral(e: &Sym) -> bool {
     match e {
         Sym::Num(n) => n.denominator().to_decimal() == "1",
+        // a real constant is a decimal value: never an integer polynomial coefficient
+        Sym::Real(_) => false,
         Sym::Sym(_) => true,
         Sym::Add(items) | Sym::Mul(items) => items.iter().all(polynomial_is_integral),
         Sym::Pow(base, exp) => {
@@ -7083,6 +7146,18 @@ fn emit_ir(
         }
         Sym::Num(r) => {
             let ci = constant_index(r, constants);
+            nodes.push(format!("Constant 0 {}", ci));
+            nodes.len() - 1
+        }
+        Sym::Real(text) => {
+            let entry = format!("(real {text})");
+            let ci = match constants.iter().position(|c| *c == entry) {
+                Some(i) => i,
+                None => {
+                    constants.push(entry);
+                    constants.len() - 1
+                }
+            };
             nodes.push(format!("Constant 0 {}", ci));
             nodes.len() - 1
         }
@@ -7985,6 +8060,114 @@ fn matrix_no_solutions(record: &str, payload_field: &str) -> Value {
 }
 
 /// A Diagnostic record: the vocabulary every rich record's diagnostics array carries.
+/// The reference's refusal for an assumption that contradicts the session: the sentence is the
+/// diagnostic consumers read, and the code/category say the branch has no model.
+fn unsatisfiable_assumptions(message: String) -> LangError {
+    LangError::coded(message, 0, "UnsatisfiableAssumptions", "DomainError")
+}
+
+/// The human rendering one assumption atom publishes in assumptions().display.
+fn assumption_text(atom: &Assumption) -> String {
+    atom.describe()
+}
+
+/// One assumption atom as its structured condition leaf: a relation stays a symbolic relation, a
+/// predicate with no relation form becomes an explicit FiniteCondition/PredicateCondition record, a domain
+/// restriction becomes DomainCondition, an interval becomes IntervalCondition.
+fn assumption_condition_leaf(atom: &Assumption) -> Value {
+    match atom {
+        Assumption::SymbolRelation(symbol, op, bound) => Value::Symbolic(Sym::Rel(
+            *op,
+            Box::new(Sym::sym(symbol)),
+            Box::new(bound.clone()),
+        )),
+        Assumption::SymbolProperty(symbol, predicate) => {
+            predicate_leaf(Some(Sym::sym(symbol)), *predicate)
+        }
+        Assumption::ExpressionProperty(expression, predicate) => {
+            predicate_leaf(Some(expression.clone()), *predicate)
+        }
+        Assumption::SymbolDomain(symbol, domain) => Value::Record(
+            "DomainCondition".to_string(),
+            vec![
+                ("variable".to_string(), Value::Symbolic(Sym::sym(symbol))),
+                (
+                    "domain".to_string(),
+                    Value::Domain(domain.name().to_string()),
+                ),
+            ],
+        ),
+        Assumption::Interval(expression, lower, lower_open, upper, upper_open) => Value::Record(
+            "IntervalCondition".to_string(),
+            vec![
+                ("expression".to_string(), Value::Symbolic(expression.clone())),
+                (
+                    "lower".to_string(),
+                    lower.clone().map(Value::Symbolic).unwrap_or(Value::Void),
+                ),
+                ("lower_open".to_string(), Value::Boolean(*lower_open)),
+                (
+                    "upper".to_string(),
+                    upper.clone().map(Value::Symbolic).unwrap_or(Value::Void),
+                ),
+                ("upper_open".to_string(), Value::Boolean(*upper_open)),
+            ],
+        ),
+    }
+}
+
+/// A predicate leaf: the equivalent relation when one exists (NonZero => x != 0), otherwise an
+/// explicit predicate record, so the payload never degrades to text.
+fn predicate_leaf(subject: Option<Sym>, predicate: SymbolPredicate) -> Value {
+    let Some(subject) = subject else {
+        return Value::Void;
+    };
+    if let Some(op) = Assumption::relation_op(predicate) {
+        return Value::Symbolic(Sym::Rel(
+            op,
+            Box::new(subject),
+            Box::new(Sym::num(0)),
+        ));
+    }
+    if predicate == SymbolPredicate::Finite {
+        return Value::Record(
+            "FiniteCondition".to_string(),
+            vec![("expression".to_string(), Value::Symbolic(subject))],
+        );
+    }
+    Value::Record(
+        "PredicateCondition".to_string(),
+        vec![
+            ("predicate".to_string(), Value::Text(predicate.name().to_string())),
+            ("expression".to_string(), Value::Symbolic(subject)),
+        ],
+    )
+}
+
+/// Projects the engine's active assumptions that constrain the symbols free in an expression, as
+/// the same structured condition leaves assumptions() publishes.
+fn relevant_assumption_leaves(engine: &Engine, expression: &Sym) -> Vec<Value> {
+    let names = expression.free_symbols();
+    if names.is_empty() {
+        return Vec::new();
+    }
+    let relevant: Vec<Assumption> = engine
+        .assumptions()
+        .atoms()
+        .iter()
+        .filter(|atom| names.iter().any(|name| atom.mentions(name)))
+        .cloned()
+        .collect();
+    if relevant.is_empty() {
+        return Vec::new();
+    }
+    lovelace_symbolics::assumptions::AssumptionSet::from_atoms(relevant)
+        .atoms()
+        .iter()
+        .map(assumption_condition_leaf)
+        .collect()
+}
+
 fn diagnostic(code: &str, category: &str, message: &str) -> Value {
     Value::Record(
         "Diagnostic".to_string(),
@@ -8082,78 +8265,25 @@ fn quotient_parts(e: &Sym) -> Option<(Sym, Sym)> {
     Some((num, den))
 }
 
-/// Decides a relation against the engine's interval bounds, when they settle it.
+/// Decides a relation against the engine's assumption set: True only when the set proves it,
+/// False only when the set proves its negation, and undecided otherwise (never a guess).
 fn decide_relation(
     engine: &Engine,
     op: lovelace_symbolics::RelOp,
     var: &str,
     value: &lovelace_symbolics::Rat,
 ) -> Option<bool> {
-    use lovelace_symbolics::RelOp;
-    let (lower, upper) = engine.bounds_of(var)?;
-    // x >= lower, x <= upper
-    let at_least = |n: &lovelace_symbolics::Rat| -> Option<bool> {
-        // Is x >= n guaranteed?
-        match &lower {
-            Some((lo, inclusive)) => match lo.cmp(n) {
-                std::cmp::Ordering::Greater => Some(true),
-                std::cmp::Ordering::Equal => Some(*inclusive),
-                std::cmp::Ordering::Less => None,
-            },
-            None => None,
-        }
-    };
-    let at_most = |n: &lovelace_symbolics::Rat| -> Option<bool> {
-        match &upper {
-            Some((hi, inclusive)) => match hi.cmp(n) {
-                std::cmp::Ordering::Less => Some(true),
-                std::cmp::Ordering::Equal => Some(*inclusive),
-                std::cmp::Ordering::Greater => None,
-            },
-            None => None,
-        }
-    };
-    match op {
-        RelOp::Lt => {
-            if at_least(value) == Some(true) {
-                return Some(false);
-            }
-            if at_most(value) == Some(true) {
-                return Some(true);
-            }
-            None
-        }
-        RelOp::Le => {
-            if at_least(value) == Some(true) {
-                let strict_lower = matches!(&lower, Some((lo, inc)) if lo.cmp(value) == std::cmp::Ordering::Greater && !*inc);
-                if !strict_lower {
-                    return Some(true);
-                }
-            }
-            None
-        }
-        RelOp::Gt => {
-            if at_least(value) == Some(true) {
-                return Some(true);
-            }
-            if at_most(value) == Some(true) {
-                return Some(false);
-            }
-            None
-        }
-        RelOp::Ge => {
-            if at_least(value) == Some(true) {
-                return Some(true);
-            }
-            None
-        }
-        _ => None,
+    let query = Assumption::SymbolRelation(var.to_string(), op, Sym::Num(value.clone()));
+    match engine.assumptions().ask(&query) {
+        Tristate::True => Some(true),
+        Tristate::False => Some(false),
+        Tristate::Unknown | Tristate::Unsatisfiable => None,
     }
 }
 
 fn node_count(e: &Sym) -> u64 {
     match e {
-        Sym::Num(_) | Sym::Sym(_) => 1,
+        Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => 1,
         Sym::Add(v) | Sym::Mul(v) => 1 + v.iter().map(node_count).sum::<u64>(),
         Sym::Pow(a, b) => 1 + node_count(a) + node_count(b),
         Sym::Fun(_, args) => 1 + args.iter().map(node_count).sum::<u64>(),
@@ -8191,7 +8321,7 @@ fn collect_all_symbols(e: &Sym, out: &mut Vec<String>) {
             collect_all_symbols(a, out);
             collect_all_symbols(b, out);
         }
-        Sym::Num(_) => {}
+        Sym::Num(_) | Sym::Real(_) => {}
     }
 }
 
@@ -8224,7 +8354,7 @@ fn collect_symbols(e: &Sym, found: &mut Option<String>) {
             collect_symbols(a, found);
             collect_symbols(b, found);
         }
-        Sym::Num(_) => {}
+        Sym::Num(_) | Sym::Real(_) => {}
     }
 }
 
@@ -8241,10 +8371,19 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
             if let Sym::Pow(base, exp) = &args[0] {
                 if let Sym::Num(n) = exp.as_ref() {
                     if n.to_string() == "2" {
-                        if let Sym::Sym(sym) = base.as_ref() {
-                            if engine.is_positive(sym) {
-                                return Sym::sym(sym);
-                            }
+                        // sqrt(x^2) = x when x is provably nonnegative, abs(x) when x is
+                        // provably real, and stays unevaluated otherwise: the identity without a
+                        // sign premise is the domain-conditional rule, and firing it unguarded
+                        // would define sqrt((-1)^2) as -1.
+                        if engine.assumptions().ask(&Assumption::ExpressionProperty(
+                            (**base).clone(),
+                            SymbolPredicate::NonNegative,
+                        )) == Tristate::True
+                        {
+                            return (**base).clone();
+                        }
+                        if engine.assumptions().provably_real(base) {
+                            return Sym::Fun("abs".to_string(), vec![(**base).clone()]);
                         }
                     }
                 }
@@ -8255,13 +8394,42 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
             if let Sym::Fun(inner, inner_args) = &args[0] {
                 if inner == "log" && inner_args.len() == 1 {
                     if let Sym::Sym(sym) = &inner_args[0] {
-                        if engine.is_positive(sym) {
+                        if engine.assumptions().ask(&Assumption::SymbolProperty(
+                            sym.clone(),
+                            SymbolPredicate::Positive,
+                        )) == Tristate::True
+                        {
                             return Sym::sym(sym);
                         }
                     }
                 }
             }
             Sym::Fun(name, args.into_iter().map(|a| simplify(engine, a)).collect())
+        }
+        Sym::Fun(name, args) if name == "log" && args.len() == 1 => {
+            if let Sym::Fun(inner, inner_args) = &args[0] {
+                if inner == "exp"
+                    && inner_args.len() == 1
+                    && engine.assumptions().provably_real(&inner_args[0])
+                {
+                    // log(exp(x)) = x only for a real x: over the complexes the identity fails by
+                    // the imaginary period, so the unconditioned form stays unevaluated.
+                    return inner_args[0].clone();
+                }
+            }
+            Sym::Fun(name, args.into_iter().map(|a| simplify(engine, a)).collect())
+        }
+        Sym::Pow(base, exp) if is_square_exp(&exp) => {
+            if let Sym::Fun(name, args) = base.as_ref() {
+                if name == "abs"
+                    && args.len() == 1
+                    && engine.assumptions().provably_real(&args[0])
+                {
+                    // abs(x)^2 = x^2 only for a real x: over C, |z|^2 is not z^2.
+                    return Sym::Pow(Box::new(args[0].clone()), exp);
+                }
+            }
+            Sym::Pow(base, exp)
         }
         Sym::Add(terms) => {
             let simplified: Vec<Sym> = terms.into_iter().map(|t| simplify(engine, t)).collect();
@@ -8307,7 +8475,10 @@ pub fn simplify(engine: &Engine, e: Sym) -> Sym {
                     if let Sym::Num(n) = exp.as_ref() {
                         if n.to_string() == "-1" {
                             if let Sym::Sym(name) = base.as_ref() {
-                                if engine.is_nonzero(name)
+                                if engine.assumptions().ask(&Assumption::SymbolProperty(
+                                    name.clone(),
+                                    SymbolPredicate::NonZero,
+                                )) == Tristate::True
                                     && kept.iter().any(|k| *k == Sym::sym(name))
                                 {
                                     kept.retain(|k| *k != Sym::sym(name));
@@ -8368,6 +8539,7 @@ fn rewrite_step_value(step: RewriteStepData) -> Value {
 /// The TransformResult record simplify_full publishes: status, original, expression, changed,
 /// the conditions the result requires, the rule steps that produced it, budget state, diagnostics.
 fn transform_result(
+    engine: &Engine,
     original: Sym,
     expression: Sym,
     conditions: Vec<Value>,
@@ -8375,25 +8547,33 @@ fn transform_result(
     budget_exceeded: bool,
 ) -> Value {
     let changed = original != expression;
-    let diagnostics = if budget_exceeded {
-        vec![diagnostic(
-            "transform.budget-exceeded",
+    // A rewrite that fired is only valid where its conditions can hold. When the session's
+    // assumptions already deny them, the branch has no model and the result says so with the
+    // sticky Unsatisfiable marker instead of a Satisfied answer over a contradiction.
+    let unsatisfiable = !conditions_are_satisfiable(engine, &conditions);
+    let (status, conditions, diagnostics) = if unsatisfiable {
+        (
+            "Unsatisfiable",
+            vec![Value::Record("UnsatisfiableConditions".to_string(), Vec::new())],
+            vec![unsatisfiable_conditions_diagnostic()],
+        )
+    } else if budget_exceeded {
+        (
             "BudgetExceeded",
-            "the rewrite budget 'rewrite_steps' was exhausted; the returned expression is a partial result.",
-        )]
+            conditions,
+            vec![diagnostic(
+                "transform.budget-exceeded",
+                "BudgetExceeded",
+                "the rewrite budget 'rewrite_steps' was exhausted; the returned expression is a partial result.",
+            )],
+        )
     } else {
-        Vec::new()
+        ("Satisfied", conditions, Vec::new())
     };
     Value::Record(
         "TransformResult".to_string(),
         vec![
-            (
-                "status".to_string(),
-                enum_value(
-                    "TransformStatus",
-                    if budget_exceeded { "BudgetExceeded" } else { "Satisfied" },
-                ),
-            ),
+            ("status".to_string(), enum_value("TransformStatus", status)),
             ("original".to_string(), Value::Symbolic(original)),
             ("expression".to_string(), Value::Symbolic(expression)),
             ("changed".to_string(), Value::Boolean(changed)),
@@ -8405,6 +8585,57 @@ fn transform_result(
                 Value::Text(if budget_exceeded { "rewrite_steps".to_string() } else { String::new() }),
             ),
             ("diagnostics".to_string(), Value::Vector(diagnostics)),
+        ],
+    )
+}
+
+/// True when the engine's assumptions plus the rewrite's conditions have a model. Conditions are
+/// only decided when they are a symbol-relation atom; anything else adds nothing, so an
+/// undecidable condition is never reported as a contradiction.
+fn conditions_are_satisfiable(engine: &Engine, conditions: &[Value]) -> bool {
+    let mut set = engine.assumptions().clone();
+    if set.is_unsatisfiable() {
+        return false;
+    }
+    for condition in conditions {
+        let Value::Symbolic(Sym::Rel(op, lhs, rhs)) = condition else {
+            continue;
+        };
+        let Sym::Sym(symbol) = lhs.as_ref() else {
+            continue;
+        };
+        match set.add(Assumption::SymbolRelation(symbol.clone(), *op, (**rhs).clone())) {
+            Ok(next) => set = next,
+            Err(_) => return false,
+        }
+    }
+    true
+}
+
+/// The DomainError the Unsatisfiable status carries: the branch no model, so the rewrite is not a
+/// value of this session.
+fn unsatisfiable_conditions_diagnostic() -> Value {
+    Value::Record(
+        "Diagnostic".to_string(),
+        vec![
+            (
+                "code".to_string(),
+                Value::Text("transform.unsatisfiable-conditions".to_string()),
+            ),
+            (
+                "category".to_string(),
+                enum_value("ErrorCategory", "DomainError"),
+            ),
+            (
+                "message".to_string(),
+                Value::Text(
+                    "the applied rules require contradictory conditions, so this branch has no model."
+                        .to_string(),
+                ),
+            ),
+            ("recoverable".to_string(), Value::Boolean(false)),
+            ("location".to_string(), Value::Void),
+            ("details".to_string(), Value::Vector(Vec::new())),
         ],
     )
 }

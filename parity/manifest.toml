@@ -495,16 +495,20 @@ note = "C#: Lovelace.Array.Tests/NdArrayTests.cs:114 asserts concatenating {1,2,
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Det_Inverse_Trace#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_det_inverse_trace"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.Det_Inverse_Trace: det -2, trace 5, inverse [[-2,1],[1.5,-0.5]]."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/DotAndCross#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_dot_and_cross"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.DotAndCross: dot 32, cross [0,0,1]."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Get_FullIndex_ReturnsElement#0"
@@ -545,16 +549,20 @@ note = "C#: Lovelace.Array.Tests/NdArrayTests.cs:32 asserts shape {2,2,2}, rank 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Inverse_Singular_Throws#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_inverse_singular_is_refused"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.Inverse_Singular_Throws: 'Matrix is singular.'"
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/MatMul_2x2#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_matmul_2x2"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.MatMul_2x2: [[19,22],[43,50]]."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/MatMul_Batched#0"
@@ -566,16 +574,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/MeanAndNorm#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_mean_and_norm"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.MeanAndNorm: mean 2, norm 5."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/MinMax#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_min_max"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.MinMax: min 1, max 4."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Reshape_MatchingNumel_ReturnsNewShape#0"
@@ -616,9 +628,11 @@ note = "C#: Lovelace.Array.Tests/NdArrayTests.cs:106 asserts shape {1,2,1,3} squ
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Sum_AllAndAxis#0"
 project = "Lovelace.Array.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::array_sum_all_and_axis"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NdArrayTests.Sum_AllAndAxis: 10, axis 0 [4,6], axis 1 [3,7] through the array builtins."
 
 [[test]]
 id = "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/Transpose_ExplicitPermutation#0"
@@ -2517,9 +2531,11 @@ note = "C#: Lovelace.Integer.Tests/IntegerConstructorTests.cs:62-63 asserts `new
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenNatural_IsAlwaysPositive#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerConstructorTests Natural/signed-magnitude rows (4): natural is non-negative, negative magnitude is negative, -0 normalises."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenNegativeDecimalString_ReturnsCorrectValue#0"
@@ -2551,9 +2567,11 @@ note = "C#: Lovelace.Integer.Tests/IntegerConstructorTests.cs:144 asserts \"-3\"
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenNonZeroMagnitudeAndIsNegativeTrue_IsNegative#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerConstructorTests Natural/signed-magnitude rows (4): natural is non-negative, negative magnitude is negative, -0 normalises."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenPositiveDecimalString_ReturnsCorrectValue#0"
@@ -2603,16 +2621,20 @@ note = "C#: Lovelace.Integer.Tests/IntegerConstructorTests.cs:53-55 asserts `new
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenZeroMagnitudeAndIsNegativeTrue_NormalisedToPositive#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerConstructorTests Natural/signed-magnitude rows (4): natural is non-negative, negative magnitude is negative, -0 normalises."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenZeroNatural_IsZero#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerConstructorTests Natural/signed-magnitude rows (4): natural is non-negative, negative magnitude is negative, -0 normalises."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenZeroString_IsZeroAndPositive#0"
@@ -2858,9 +2880,11 @@ note = "C#: Lovelace.Integer.Tests/IntegerEqualityTests.cs:98 asserts -5 <= -4. 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerFactorialTests/Factorial_GivenNegativeInteger_Throws#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_factorial_of_negative_is_refused"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerFactorialTests.Factorial_GivenNegativeInteger_Throws: (-1)! refuses as a named domain failure."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerFactorialTests/Factorial_GivenOne_ReturnsOne#0"
@@ -2901,58 +2925,74 @@ note = "C#: Lovelace.Integer.Tests/IntegerFactorialTests.cs:21-22 asserts `new I
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Decrement_GivenNegativeValue_DecrementsFurtherNegative#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Decrement_GivenPositiveValue_DecrementsByOne#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Decrement_GivenZero_ReturnsNegativeOne#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Increment_GivenNegativeValue_MovesTowardsZero#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Increment_GivenPositiveValue_IncrementsByOne#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/Increment_GivenZero_ReturnsOne#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/PreDecrementOperator_MutatesAndReturnsNewValue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerIncrementTests/PreIncrementOperator_MutatesAndReturnsNewValue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_increment_decrement_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerIncrementTests (8): Increment/Decrement and the pre-operators are add/sub one; negative and zero outcomes asserted."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerMultiplyTests/Multiply_GivenLargeNegativeAndPositive_ReturnsNegativeProduct#0"
@@ -3144,23 +3184,29 @@ note = "C#: Lovelace.Integer.Tests/IntegerNegationTests.cs:74 asserts negating z
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerNegationTests/UnaryPlus_GivenNegativeValue_ReturnsCopyWithSameSign#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_unary_plus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer operator+ preserves a negative sign; asserted on an Integer -5 through the language's unary plus."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerNegationTests/UnaryPlus_GivenPositiveValue_ReturnsCopyWithSameSign#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_unary_plus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer operator+ returns a copy with the same sign; the Rust language's unary plus is the identity on an Integer operand, and the case is asserted through it."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerNegationTests/UnaryPlus_GivenZero_ReturnsZero#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_unary_plus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer operator+ on zero is zero and non-negative; asserted through the language's unary plus."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerParseTests/Parse_GivenArbitraryPrecisionString_ParsesCorrectly#0"
@@ -3312,30 +3358,38 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsEvenInteger_GivenEvenNegativeValue_ReturnsTrue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsEvenInteger_GivenEvenPositiveValue_ReturnsTrue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsEvenInteger_GivenOddValue_ReturnsFalse#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsEvenInteger_GivenZero_ReturnsTrue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsNegative_GivenNegativeValue_ReturnsTrue#0"
@@ -3367,30 +3421,38 @@ note = "C#: Lovelace.Integer.Tests/IntegerPredicateTests.cs:83 asserts 0 is not 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsOddInteger_GivenEvenValue_ReturnsFalse#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsOddInteger_GivenOddNegativeValue_ReturnsTrue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsOddInteger_GivenOddPositiveValue_ReturnsTrue#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsOddInteger_GivenZero_ReturnsFalse#0"
 project = "Lovelace.Integer.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::integer_parity_predicate_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntegerPredicateTests IsEven/IsOdd (8): parity computed from the truncated remainder by 2."
 
 [[test]]
 id = "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPredicateTests/IsPositive_GivenNegativeValue_ReturnsFalse#0"
@@ -4369,9 +4431,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ConcurrentArithmeticOnLazyParsedValue_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_concurrent_arithmetic_on_lazy_parsed_values"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalDecimalCacheTests.ConcurrentArithmeticOnLazyParsedValue: 64 threads, fixed sum/product."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ConcurrentParseToString_GivenManyValues_MatchesBigInteger#0"
@@ -4645,65 +4709,83 @@ note = "C#: Lovelace.Natural.Tests/NaturalFactorialTests.cs:14-15 asserts `new N
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPostfix_GivenValue_ReturnsPreviousValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_postfix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests postfix rows (2): n++ is the pair (old value, rebound incremented value)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPostfix_GivenZero_ReturnsPreviousValueAndIncrementsVariable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_postfix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests postfix rows (2): n++ is the pair (old value, rebound incremented value)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_AppliedMultipleTimes_AccumulatesCorrectly#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenAllNines_PropagatesCarryCorrectly#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenAllNines_PropagatesCarryCorrectly#1"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenAllNines_PropagatesCarryCorrectly#2"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenArbitraryValue_ReturnsValuePlusOne#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenNine_ReturnsTen#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalIncrementTests/IncrementPrefix_GivenZero_ReturnsOne#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_increment_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalIncrementTests prefix rows (7): ++n is Nat::add(1) on the immutable value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalMultiplyTests/Multiply_GivenCarryAcrossAllDigits_ProducesCorrectResult#0"
@@ -4735,9 +4817,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalMultiplyTests.cs:180 asserts 10^150 * 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalMultiplyTests/Multiply_GivenLargeMultiplicationsRunConcurrently_AllReturnCorrectResults#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_concurrent_multiply_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalMultiplyTests concurrent rows (2): 16 threads on 10^200 and 32 threads on 10^11 answer the expected products."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalMultiplyTests/Multiply_GivenLargeNumbers_ExceedsUlongMax#0"
@@ -4823,9 +4907,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalMultiplyTests.cs:130 asserts 10 * 10 =
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalMultiplyTests/Multiply_GivenSharedLargeOperandReadConcurrently_AllResultsConsistent#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_concurrent_multiply_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalMultiplyTests concurrent rows (2): 16 threads on 10^200 and 32 threads on 10^11 answer the expected products."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalMultiplyTests/Multiply_GivenTwoFifteenDigitNumbers_ReturnsCorrectProduct#0"
@@ -5132,9 +5218,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalPowTests.cs:59 asserts 3^7 == 2187. Ru
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenAdversarialCarryPatterns_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_adversarial_carry_patterns"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# CrossCheck_GivenAdversarialCarryPatterns: all 25 fixed pairs, add/mul/sub/divrem against an independent BigInt table."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#0"
@@ -5174,9 +5262,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/DivRem_GivenOverflowAlignment_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_overflow_alignment_division"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# DivRem_GivenOverflowAlignment: quotient and remainder of the fixed operand pair."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/DivRem_GivenPowerOfTenDivisor_MatchesBigInteger#0"
@@ -5188,37 +5278,47 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_factorial_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!, 5!, 20!, 100!."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#1"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_factorial_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!, 5!, 20!, 100!."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#2"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_factorial_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!, 5!, 20!, 100!."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#3"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_factorial_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!, 5!, 20!, 100!."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#4"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_factorial_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!, 5!, 20!, 100!."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/DisplayDigits_AfterMultipleSets_ReturnsLastValue#0"
@@ -5384,37 +5484,47 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPostfix_GivenValue_ReturnsPreviousValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_decrement_postfix_row"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalSubtractTests.DecrementPostfix: previous value 5, rebound value 4."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPrefix_GivenLargeCarry_ProducesCorrectResult#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_decrement_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalSubtractTests prefix decrement rows (4): --n is Nat::sub(1); zero refuses as None."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPrefix_GivenOne_ReturnsZero#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_decrement_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalSubtractTests prefix decrement rows (4): --n is Nat::sub(1); zero refuses as None."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPrefix_GivenTen_ReturnsNine#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_decrement_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalSubtractTests prefix decrement rows (4): --n is Nat::sub(1); zero refuses as None."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPrefix_GivenZero_ThrowsInvalidOperationException#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::natural_decrement_prefix_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# NaturalSubtractTests prefix decrement rows (4): --n is Nat::sub(1); zero refuses as None."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/Subtract_GivenBorrowPropagation_ProducesCorrectResult#0"
@@ -22023,9 +22133,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDecimalMaxValue_ParsesWithoutThrow#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_decimal_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealConstructorTests decimal rows (3): decimal.MaxValue round-trips, -3.14 is negative, 0 is zero."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDefault_ProducesZeroWithExponentZero#0"
@@ -22062,9 +22174,11 @@ note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs:109 Lovelace.Real.Tests.
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenNegativeDecimal_ParsesCorrectly#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_decimal_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealConstructorTests decimal rows (3): decimal.MaxValue round-trips, -3.14 is negative, 0 is zero."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenNegativeDouble_IsNegative#0"
@@ -22191,9 +22305,11 @@ note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs:72 Lovelace.Real.Tests.R
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenZeroDecimal_ReturnsZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_decimal_constructor_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealConstructorTests decimal rows (3): decimal.MaxValue round-trips, -3.14 is negative, 0 is zero."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDecrementTests/Decrement_GivenDecimalValue_ReturnsValueMinusOne#0"
@@ -22687,58 +22803,74 @@ note = "C#: Lovelace.Real.Tests/RealInvertTests.cs:86 Invert_GivenZero_ThrowsExc
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenDecimalOperands_ReturnsCorrectRemainder#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenDividendLessThanDivisor_ReturnsDividend#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenDivisorZero_ThrowsDivideByZeroException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenExactMultiple_ReturnsZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenNegativeDividend_ReturnsNegativeRemainder#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenNegativeDivisor_FollowsTruncatedSemantics#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenTwoPositiveIntegers_ReturnsRemainder#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealModulusTests/Modulus_GivenZeroDividend_ReturnsZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_modulus_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealModulusTests (8): Real % is left - trunc(left/right)*right on Real operands, including the zero-divisor refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealMultiplyPeriodicExactTests/Multiply_DividendOverDivisorTimesDivisor_AuditShapes_AreExactlyTheDividend#0"
@@ -26765,9 +26897,11 @@ note = "C#: Lovelace.Real.Tests/RealPiTests.cs:44 Pi_GivenFiftyDigits_MatchesKno
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenNegativeDigits_ThrowsArgumentOutOfRangeException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_pi_refuses_zero_and_negative_digit_counts"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealPiTests zero/negative digits: refused as an argument error naming the digits argument."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenOneDigit_ReturnsValueStartingWithThreePointOne#0"
@@ -26790,9 +26924,11 @@ note = "C#: Lovelace.Real.Tests/RealPiTests.cs:33 Pi_GivenTenDigits_ReturnsCorre
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenZeroDigits_ThrowsArgumentOutOfRangeException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::real_pi_refuses_zero_and_negative_digit_counts"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealPiTests zero/negative digits: refused as an argument error naming the digits argument."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiToAsyncTests/PiToAsync_GivenConcurrentAwaits_AllReturnCorrectValues#0"
@@ -29458,9 +29594,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinSurfaceContractTests/Assumptions_ReturnsStructuredAtoms_WithTheHumanRenderingInDisplay#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::assumptions_returns_structured_atoms_with_display_and_domain_condition"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# BuiltinSurfaceContractTests.Assumptions_ReturnsStructuredAtoms: AssumptionSet with display, symbolic atom canonical text, and DomainCondition/domain integer."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinSurfaceContractTests/Capabilities_DomainStatement_IsScopedToSolve_AndIntegerDomainsStillWork#0"
@@ -34081,23 +34219,29 @@ note = "C#: Lovelace.Run.Tests/LimitShortFormRecordTests.cs:206 Refusal_CarriesT
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.LimitShortFormRecordTests/Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises#3"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::limit_short_form_refusals_carry_the_diagnostic"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# LimitShortFormRecordTests.Refusal rows 3-5: limit/limit_left/limit_right carry status Unevaluated and one Diagnostic(limit.unevaluated/UnsupportedOperation, 'leading coefficient is symbolic', recoverable)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.LimitShortFormRecordTests/Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises#4"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::limit_short_form_refusals_carry_the_diagnostic"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# LimitShortFormRecordTests.Refusal rows 3-5: limit/limit_left/limit_right carry status Unevaluated and one Diagnostic(limit.unevaluated/UnsupportedOperation, 'leading coefficient is symbolic', recoverable)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.LimitShortFormRecordTests/Refusal_CarriesTheCodeAndCategoryTheStatementAdvertises#5"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::limit_short_form_refusals_carry_the_diagnostic"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# LimitShortFormRecordTests.Refusal rows 3-5: limit/limit_left/limit_right carry status Unevaluated and one Diagnostic(limit.unevaluated/UnsupportedOperation, 'leading coefficient is symbolic', recoverable)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.LimitShortFormRecordTests/ShortForm_PublishesALimitResultRecord_NeverProse#0"
@@ -35174,9 +35318,11 @@ note = "C#: Lovelace.Run.Tests/SourcePositionTests.cs:159 TimingsPositions_AreCa
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.StdoutPurityTests/RealProcessStdoutIsExactlyOneJsonDocumentAndPrintStaysInTheOutputArray#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::real_process_stdout_is_one_json_document_and_print_stays_in_output"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# StdoutPurityTests: the real process writes exactly one JSON document; print stays in output[] and result.structured.value is 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.StructuredRealPrecisionTests/CountsAtOrBelowTheRequest_AreCarriedExactly#0"
@@ -35453,9 +35599,11 @@ note = "C# asserts range(5) carries the 1..n hint and no suggestion; repeated he
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.UnknownFunctionEnvelopeTests/TheTextSurface_CarriesTheSameAnswer#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round35_run_batch::unknown_function_text_surface_carries_the_same_answer"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# UnknownFunctionEnvelopeTests.TheTextSurface: stderr carries Error [UnknownFunction/UnsupportedOperation] and 'Did you mean det?'."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.ValueDepthEnvelopeTests/ADeepResultWithNoDeepVariable_IsAlsoRefused#0"
@@ -35935,9 +36083,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayAllocationRefusalTests/Zeros_ElementProductBeyondTheBudget_IsRefusedByNameAndLimit#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::zeros_element_product_beyond_the_budget_is_refused_by_name_and_limit"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Zeros_ElementProductBeyondTheBudget: names zeros, the requested element count and the budget limit."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayAllocationRefusalTests/Zeros_ShapesWithinTheBudget_StillBuild#0"
@@ -35951,9 +36101,11 @@ note = "Round-28: C# Zeros_ShapesWithinTheBudget_StillBuild row; Rust lovelace-l
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayAllocationRefusalTests/Zeros_TenToTheNinth_IsRefusedWithoutAllocating#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::zeros_ten_to_the_ninth_is_refused_without_allocating"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ArrayAllocationRefusalTests.Zeros_TenToTheNinth: refused before allocating; Rust AllocationRefused/BudgetExceeded before the buffer exists."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayKernelCancellationTests/ElementwiseArrayArithmetic_GivenShortBudget_CancelsInsideTheMap#0"
@@ -36340,9 +36492,11 @@ note = "C#: Lovelace.Suite.Tests/CrossEngineIsolationTests.cs:44 Lovelace.Suite.
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CrossEngineIsolationTests/ConcurrentEngines_KeepTheirOwnAssumptions#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::concurrent_engines_keep_their_own_assumptions"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# CrossEngineIsolationTests: two engines, each answering from its OWN assumption set (True for its own direction, False for the opposite). Rust has one assumption set per Engine, so the same two-engine contract is asserted directly."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CrossEngineIsolationTests/ConcurrentEngines_KeepTheirOwnVariables#0"
@@ -38151,23 +38305,29 @@ note = "C#: Lovelace.Suite.Tests/FunctionTests.cs:77 Evaluate_GivenWrongArity_Th
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Funcs_All_IsCategorized#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::funcs_all_is_categorized"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Funcs_All_IsCategorized: funcs() carries Symbolics, Calculus, Compilation and DSP headings."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Funcs_Calculus_ListsCalculusFunctions#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::funcs_calculus_lists_calculus_functions"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Funcs_Calculus_ListsCalculusFunctions: funcs('calculus') lists diff/integrate/series/limit."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Compile_ShowsDescriptor#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::help_compile_shows_descriptor"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Help_Compile_ShowsDescriptor: compile(f, params), MathIR and compile_full."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Overview_ListsAllCategories#0"
@@ -38179,23 +38339,29 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Solve_ShowsSignatureSummaryExampleAndSeeAlso#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::help_solve_shows_signature_summary_example_and_see_also"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Help_Solve_ShowsSignatureSummaryExampleAndSeeAlso: signature, Solve summary, example, Returns and See also under the reference wording."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Symbolics_ListsCoreFunctions#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::help_symbolics_lists_core_functions"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Help_Symbolics_ListsCoreFunctions: category('symbolics') names symbol/simplify/expand/factor."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_UnknownArgument_Explains#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::help_unknown_argument_explains"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# HelpServiceTests.Help_UnknownArgument_Explains: an unknown argument explains 'No category'. Rust lookup() answers None for it and category() carries the same sentence."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/UnicodeOutput_ThreadsThroughEngineFormatting#0"
@@ -38207,9 +38373,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.InputDepthGuardTests/FlatChainOnePastTheBudget_IsRefused#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::flat_chain_one_past_the_budget_is_refused"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# InputDepthGuardTests.FlatChainOnePastTheBudget: 512-level parsed tree accepted, 513 refused with 'tree depth' and 512."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.InputDepthGuardTests/NestedBlocksOnePastTheBudget_AreRefused#0"
@@ -38250,9 +38418,11 @@ note = "C# parses ordinary nesting and an interpolation; repeated here."
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.InputDepthGuardTests/SymbolicConstructionOnePastTheBudget_IsRefused#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::symbolic_construction_one_past_the_budget_is_refused"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# SymbolicConstructionOnePastTheBudget: 255 abs wrappers accepted, 256 refused with 'symbolic expression depth' and 256."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.InputDepthGuardTests/UnaryChainOnePastTheBudget_IsRefused#0"
@@ -41522,16 +41692,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SharedPluginInstanceAssumptionIsolationTests/OnePluginTwoEngines_AssumptionInA_DoesNotDecideB#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::assumption_in_one_engine_does_not_decide_another"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# K-3 row: an assumption committed in engine A never decides engine B (B's relations stay unevaluated). Rust has no plugin instance to share; the per-engine set is the same contract."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SharedPluginInstanceAssumptionIsolationTests/OnePluginTwoEngines_EveryAssumptionReaderAnswersForTheAskingEngine#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::every_assumption_reader_answers_for_the_asking_engine"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# K-3 row: inspect(x).assumptions and assumptions() answer for the asking engine, and assume_clear() on B leaves A's set intact."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SignPrecedenceTests/Evaluate_SignAndPowerFollowMathConvention#0"
@@ -43080,9 +43254,11 @@ note = "C# asserts the failing statement position; repeated here."
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/Evaluate_GivenFunctionDefinition_ExposesSignatureAndBody#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_tail_round35::function_definition_exposes_signature_and_body"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# SuiteEngineTests: Functions['f'] is a user definition with parameters [a, b] and a non-empty body. Rust functions() publishes the user signature (builtins are not in that table) and evaluating f(1,2) runs the body."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/Evaluate_GivenResult_StoresInUnderscoreVariable#0"
@@ -44185,9 +44361,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Simplify_SqrtSquare_UnderAssumptions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::simplify_sqrt_square_under_real_is_abs_x"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Simplify_SqrtSquare_UnderAssumptions: under a real assumption sqrt(x^2) simplifies to abs(x) (and an unconstrained x stays put)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Solve_Quadratic_ExactFormula#0"
@@ -44233,16 +44411,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionAddScalingTests/Add_SameAtomTwiceFromDifferentContexts_IsStoredOnce#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::the_same_atom_from_two_contexts_is_stored_once"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Add_SameAtomTwice: the same domain atom from two contexts is stored once, and the set stays in canonical order."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionAddScalingTests/Add_Scaling_800AtomsStaysUnder250ms_AndKeepsEveryAtomInOrder#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::eight_hundred_atoms_stay_ordered_and_fast"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Add_Scaling: 800 atoms keep every atom in non-decreasing key order inside the tripwire (the Rust test runs debug, so its ceiling is the documented debug 2 s; it measures the relation workload)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionScopeIsolationTests/NestedScopes_RestoreTheEnclosingScopeOnDispose#0"
@@ -44261,30 +44443,38 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/BoundReasoning_MatchesReferenceTruthTable#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::bound_truth_table_matches_the_reference_over_witnesses"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# BoundReasoning: the 6x3x6x3 operator/bound truth table over the witness set."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/ContradictionDetection_IsNeitherMissedNorInvented#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::contradiction_detection_is_neither_missed_nor_invented"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ContradictionDetection: every atom pair is accepted exactly when the reference model is non-empty."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/DomainAtoms_MergeToTheNarrowest#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::domain_atoms_merge_to_the_narrowest"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# DomainAtoms_MergeToTheNarrowest: complex + integer merges to integer (DomainOfSymbol)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/IntervalBounds_WithUnevaluableBound_AreUnknown#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::interval_bounds_with_unevaluable_bound_are_unknown"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntervalBounds: a symbolic bound is Unknown; the pi bounds decide True/False."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/PropertyAndRelationAtoms_Contradict#0"
@@ -44296,16 +44486,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/RealValuedBounds_ParticipateInReasoning#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::real_valued_bounds_participate_in_reasoning"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# RealValuedBounds: a RealConstant bound is read as the exact decimal it denotes."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/UnsatisfiableSet_AnswersUnsatisfiable_NotUnknown#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::unsatisfiable_set_answers_unsatisfiable_not_unknown"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# UnsatisfiableSet: the sentinel answers Unsatisfiable, not Unknown."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/AdvertisedCodesAndCategories_MatchTheLiveEnvelope#0"
@@ -44817,23 +45011,29 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/AskRelation_ProvesWeakerBounds#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::simplify_relation_answers_true_false_or_stays_unevaluated"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# AskRelation_ProvesWeakerBounds: x > 5 proves x > 0 and leaves x < 7 unevaluated."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/AskRelation_RefutesContradictoryBounds#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::simplify_relation_answers_true_false_or_stays_unevaluated"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# AskRelation_RefutesContradictoryBounds: x > 5 refutes x < 5 (False)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Assume_CompatibleRelations_DoNotThrow#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::compatible_relations_do_not_throw"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Assume_CompatibleRelations_DoNotThrow: compatible relation atoms are accepted and published in order."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Assume_ContradictoryRelations_Throws#0"
@@ -45051,9 +45251,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:106 asserts simpl
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Unsatisfiable_Sentinel_IsSticky#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::unsatisfiable_sentinel_is_sticky"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Unsatisfiable_Sentinel_IsSticky: Unsatisfiable is sticky and not the empty set."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/CompileFull_ExposesKernelMetadata_AndBatchAcceptsRecord#0"
@@ -45113,9 +45315,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:349 Lovelace.Sy
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/Inspect_ReportsTheAssumptionsThatConstrainTheFreeSymbols#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::inspect_reports_only_the_assumptions_that_constrain_the_free_symbols"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Inspect_Reports...: inspect(x + 1) carries only x's atoms; a constant expression carries none."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/IntegrateFull_ReportsStatusAndVerification#0"
@@ -46409,30 +46613,38 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::elementary_functions_of_an_approximate_argument_are_inexact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ElementaryFunctionOfAnApproximateArgument (sin): sin of an approximate leaf is inexact."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::elementary_functions_of_an_approximate_argument_are_inexact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ElementaryFunctionOfAnApproximateArgument (cos): cos of an approximate leaf is inexact."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::elementary_functions_of_an_approximate_argument_are_inexact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ElementaryFunctionOfAnApproximateArgument (exp): exp of an approximate leaf is inexact."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::elementary_functions_of_an_approximate_argument_are_inexact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# ElementaryFunctionOfAnApproximateArgument (log): log of an approximate leaf is inexact."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#4"
@@ -46631,9 +46843,11 @@ note = "C#: Lovelace.Symbolics.Tests/ExactnessFlagTests.cs:186 row 9 asserts a f
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/InspectExact_IsFalse_WhenARealApproximationIsInTheTree#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::real_constant_round35::substituting_a_truncated_constant_keeps_a_real_leaf"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# InspectExact_IsFalse: an expression carrying a truncated Real approximation reports exact = false."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/InspectExact_IsTrue_ForExactClosedForms#0"
@@ -47601,37 +47815,47 @@ note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:229 asse
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Integer_NonEmptyInterval_IsAccepted#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::integer_intervals_that_hold_are_accepted"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer_NonEmptyInterval: [1, 2] is satisfiable."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Integer_OpenBoundaryLeavesItsNeighbourReachable#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::integer_interval_emptiness_is_detected_but_reals_stay_satisfiable"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer_OpenBoundary: (1, 2] leaves 2 reachable."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Integer_StrictFractionalSandwich_IsContradictory#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::integer_interval_emptiness_is_detected_but_reals_stay_satisfiable"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer_StrictFractionalSandwich: no integer in (1/2, 1); the refusal names 'no integer'."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Integer_UnitInterval_IsContradictory#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::integer_interval_emptiness_is_detected_but_reals_stay_satisfiable"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer_UnitInterval: no integer strictly between 0 and 1."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Reals_WithTheSameFractionalBounds_StaySatisfiable#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::integer_interval_emptiness_is_detected_but_reals_stay_satisfiable"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Reals_WithTheSameFractionalBounds: 1/2 < x < 1 has real solutions."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/CandidateWithAnUndecidableResidual_IsKept#0"
@@ -47779,9 +48003,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AbsSquare_Simplified_UnderReal#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::simplify_abs_square_under_real_is_x_squared"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# AbsSquare_Simplified_UnderReal: abs(x)^2 -> x^2 under real x, unchanged over complex."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AddDroppingZeroCoefficientOverPole_KeepsDefinedness#0"
@@ -47851,16 +48077,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/DomainPredicates_AreRealGuarded#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::predicate_lattice_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# DomainPredicates: exp(x) Positive is Unknown over complex and True under a real domain."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/EvenOdd_ImplyInteger_OddImpliesNonZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::predicate_lattice_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# EvenOdd: even/odd imply integer and odd implies NonZero (even does not)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/ExpLog_SafeSimplify_RequiresDefinednessConditions#0"
@@ -47888,16 +48118,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Integer_DoesNotImply_EvenOddNonZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::predicate_lattice_rows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Integer_DoesNotImply: the integer domain leaves Even/Odd/NonZero Unknown."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/IntervalCondition_ImZero_ForProvablyReal#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::assumptions::tests::interval_condition_im_zero_requires_provably_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# IntervalCondition_ImZero: the im strip is Unknown over complex and True under real."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_OneOverX_LeftMinusInf#0"
@@ -47956,9 +48190,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/LogExp_Simplified_UnderReal#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::assumptions_round35::simplify_log_exp_under_real_is_the_identity"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# LogExp_Simplified_UnderReal: log(exp(x)) -> x under real x, unchanged unconstrained."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MathIR_Deserialize_RejectsOldVersion#0"
@@ -47993,9 +48229,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Or_ReturnsFalse_WhenAllDisjunctsFalse#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::or_returns_false_when_every_disjunct_is_false"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C# Or: NonPositive + x < 0 makes NonNegative provably False."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/PowerOfSymbolicExponent_PreservesExponent#0"
@@ -53172,9 +53410,11 @@ note = "C# Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs Ele
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/ExactControls_StayExact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::truncating_exact_controls_stay_exact"
 reason = "ROUND26 REFUSAL: one of the four controls is evalf((-4)^(1/2), 40) == 2i exact; the Rust engine refuses it with \"Non-integer exponents are not yet supported.\" The other three controls pass."
 targetPhase = 0
+note = "C# ExactControls_StayExact: sqrt(4), 1/17, (-4)^(1/2) and dft([1,2,3])[0] stay exact with their rational forms."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedArgument_IsInexact#0"
@@ -53186,16 +53426,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::functions_of_a_truncated_value_are_inexact_with_no_rational_form"
 reason = "ROUND26 REFUSAL: evalf(sin(pi(1)*1/6), 40) is an engine refusal (\"sin needs a number or an expression.\") because the symbolic pi(1)*1/6 product is not a numeric leaf the evaluator accepts; the C# case publishes a value with exact=false."
 targetPhase = 0
+note = "C# FunctionOfATruncatedValue: the published Real is exact:false with no numerator/denominator (the 12-case theory; #0 evalf(sin(pi(1)*1/6),40))."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::functions_of_a_truncated_value_are_inexact_with_no_rational_form"
 reason = "ROUND26 REFUSAL: evalf(cos(pi(1)*1/6), 40) is an engine refusal (\"sin needs a number or an expression.\") because the symbolic pi(1)*1/6 product is not a numeric leaf the evaluator accepts; the C# case publishes a value with exact=false."
 targetPhase = 0
+note = "C# FunctionOfATruncatedValue #1: evalf(cos(pi(1)*1/6),40) is inexact with no rational form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#10"
@@ -53209,9 +53453,11 @@ note = "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:11
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#11"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round35_extra_tail::functions_of_a_truncated_value_are_inexact_with_no_rational_form"
 reason = "ROUND26 REFUSAL: the C# row pins that evalf(subs(x + 1, x, pi(30)), 40) is inexact; the Rust engine publishes exact=true with numerator 4141592653589793238462643383279/1000000000000000000000000000000 (measured). Production exactness fix out of scope."
 targetPhase = 0
+note = "C# FunctionOfATruncatedValue #11: evalf(subs(x+1,x,pi(30)),40) is inexact with no rational form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#2"
@@ -53295,9 +53541,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/LiteralRoundTrip_PreservesBothTheDigitsAndTheRoute#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::real_constant_round35::the_real_leaf_preserves_the_digits_and_the_route"
 reason = "ROUND26 REFUSAL: asserts RealLiteral.FromRealExact(value).ToReal() preserves digits and route. The Rust symbolic tower has no RealLiteral carrier (Expr is rational/symbol/operator only)."
 targetPhase = 0
+note = "C# LiteralRoundTrip_Preserves: the digits cross and the inexact route is preserved (the Rust leaf keeps pi(30)'s digits as a Real leaf, while a <=18-place constant reads back as the exact rational the reference boundary gives)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/SymbolicTreeFlag_AndNumericReadBack_Agree#0"

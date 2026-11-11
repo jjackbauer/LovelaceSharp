@@ -9,6 +9,7 @@ use std::cmp::Ordering;
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 
+pub mod assumptions;
 pub mod cancel;
 
 /// An exact rational coefficient.
@@ -132,8 +133,18 @@ impl Rat {
         Rat { num: n, den: d }
     }
 
-    /// Numeric comparison via cross-multiplication.
+    /// Builds a rational from an arbitrary-precision numerator and denominator.
+    pub fn from_parts(num: Int, den: Nat) -> Rat {
+        Rat::new(num, den)
+    }
+
+    /// Numeric comparison via cross-multiplication. Two integral values compare their
+    /// numerators directly: the general path rebuilds both denominators as Ints through their
+    /// decimal rendering, which is the hot spot in the assumption engine's bound reasoning.
     pub fn cmp(&self, other: &Rat) -> Ordering {
+        if self.is_integer() && other.is_integer() {
+            return self.num.cmp(&other.num);
+        }
         let left = self.num.mul(&Int::from_decimal(&other.den.to_decimal()).unwrap_or_else(Int::zero));
         let right = other.num.mul(&Int::from_decimal(&self.den.to_decimal()).unwrap_or_else(Int::zero));
         left.cmp(&right)
@@ -212,12 +223,24 @@ pub enum Expr {
     Div(Box<Expr>, Box<Expr>),
     /// A relation between two expressions.
     Rel(RelOp, Box<Expr>, Box<Expr>),
+    /// A real constant carried as the DECIMAL rendering of the value it denotes. This is the
+    /// reference's RealConstantExpr leaf: a value that crossed into the expression from the
+    /// numeric tier, so it denotes a decimal approximation rather than an exact rational and is
+    /// outside the exact basis by its kind (see is_exact). A decimal is stored as text because
+    /// that is the whole of what the leaf means: its digits are its identity, its rendering and
+    /// its ordering key.
+    Real(String),
 }
 
 impl Expr {
     /// A numeric constant.
     pub fn num(v: i64) -> Expr {
         Expr::Num(Rat::from_i64(v))
+    }
+
+    /// A real constant carried as its decimal rendering (the RealConstant leaf).
+    pub fn real(text: &str) -> Expr {
+        Expr::Real(text.to_string())
     }
 
     /// A rational constant.
@@ -266,7 +289,14 @@ impl Expr {
             .collect();
         terms.sort_by(term_order);
         if !coefficient.is_zero() || terms.is_empty() {
-            terms.push(Expr::Num(coefficient));
+            // Display order keeps the exact constant after the higher-degree symbolic terms
+            // (x - 1, not -1 + x), but BEFORE a Real leaf: both are numeric constants and the
+            // exact one comes first, which is what the reference prints for 1 + pi(30).
+            let first_real = terms.iter().position(|t| matches!(t, Expr::Real(_)));
+            match first_real {
+                Some(index) => terms.insert(index, Expr::Num(coefficient)),
+                None => terms.push(Expr::Num(coefficient)),
+            }
         }
         if terms.len() == 1 {
             return terms.pop().unwrap();
@@ -455,7 +485,7 @@ impl Expr {
     /// True when the expression contains the given symbol.
     pub fn contains(&self, name: &str) -> bool {
         match self {
-            Expr::Num(_) => false,
+            Expr::Num(_) | Expr::Real(_) => false,
             Expr::Sym(s) => s == name,
             Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.contains(name)),
             Expr::Pow(a, b) => a.contains(name) || b.contains(name),
@@ -468,7 +498,7 @@ impl Expr {
     /// True when the expression contains no symbols.
     pub fn is_constant(&self) -> bool {
         match self {
-            Expr::Num(_) => true,
+            Expr::Num(_) | Expr::Real(_) => true,
             Expr::Sym(_) => false,
             Expr::Add(v) | Expr::Mul(v) => v.iter().all(|e| e.is_constant()),
             Expr::Pow(a, b) => a.is_constant() && b.is_constant(),
@@ -509,7 +539,7 @@ impl Expr {
     /// not a claim about algebraicity.
     pub fn has_algebraic_power(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
             Expr::Pow(base, exp) => {
                 matches!(exp.as_ref(), Expr::Num(n) if !n.is_integer())
                     || base.has_algebraic_power()
@@ -527,7 +557,7 @@ impl Expr {
     /// `Constructors.HasPoleRisk`.
     pub fn has_pole_risk(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
             Expr::Pow(base, exp) => match exp.as_ref() {
                 Expr::Num(n) => n.is_negative() || base.has_pole_risk(),
                 _ => true,
@@ -547,7 +577,7 @@ impl Expr {
     /// This is the reference's `Constructors.HasUndefinedRisk`.
     pub fn has_undefined_risk(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
             Expr::Fun(name, args) => {
                 (name == "inf" && args.is_empty()) || args.iter().any(|a| a.has_undefined_risk())
             }
@@ -574,7 +604,7 @@ impl Expr {
     /// saturates instead of wrapping; callers that need a real polynomial reject it.
     pub fn degree_in(&self, name: &str) -> i64 {
         match self {
-            Expr::Num(_) => 0,
+            Expr::Num(_) | Expr::Real(_) => 0,
             Expr::Sym(s) => i64::from(s == name),
             Expr::Add(v) => v.iter().map(|e| e.degree_in(name)).max().unwrap_or(0),
             Expr::Mul(v) => v
@@ -600,6 +630,7 @@ impl Expr {
     pub fn to_string(&self) -> String {
         match self {
             Expr::Num(n) => n.to_string(),
+            Expr::Real(text) => text.clone(),
             Expr::Sym(s) => s.clone(),
             Expr::Add(terms) => {
                 let mut out = String::new();
@@ -912,21 +943,24 @@ pub fn term_order(a: &Expr, b: &Expr) -> Ordering {
 
 fn kind_rank(e: &Expr) -> u8 {
     match e {
+        // The exact numeric constants come first, the Real leaf next (it is a numeric constant
+        // too, but outside the exact basis), then the symbolic nodes.
         Expr::Num(_) => 0,
-        Expr::Sym(_) => 1,
-        Expr::Fun(_, _) => 2,
-        Expr::Pow(_, _) => 3,
-        Expr::Mul(_) => 4,
-        Expr::Add(_) => 5,
-        Expr::Div(_, _) => 3,
-        Expr::Rel(_, _, _) => 6,
+        Expr::Real(_) => 1,
+        Expr::Sym(_) => 2,
+        Expr::Fun(_, _) => 3,
+        Expr::Pow(_, _) => 4,
+        Expr::Mul(_) => 5,
+        Expr::Add(_) => 6,
+        Expr::Div(_, _) => 4,
+        Expr::Rel(_, _, _) => 7,
     }
 }
 
 impl Expr {
     fn degree_in_total(&self) -> i64 {
         match self {
-            Expr::Num(_) => 0,
+            Expr::Num(_) | Expr::Real(_) => 0,
             Expr::Sym(_) => 1,
             Expr::Add(v) => v.iter().map(|e| e.degree_in_total()).max().unwrap_or(0),
             // A product is as deep as its deepest factor: x*exp(x) ranks with exp(x), which is
@@ -1266,7 +1300,7 @@ struct LatexProductShape {
 /// Power before Multiply before Add.
 fn latex_term_rank(e: &Expr) -> u8 {
     match e {
-        Expr::Num(_) => 0,
+        Expr::Num(_) | Expr::Real(_) => 0,
         Expr::Sym(_) => 1,
         Expr::Fun(name, args)
             if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "i" | "inf") =>
@@ -1406,6 +1440,8 @@ fn latex_append_signed(out: &mut String, t: &Expr) {
 fn latex_render(e: &Expr, parent_prec: i32) -> String {
     match e {
         Expr::Num(n) => latex_rational(n),
+        // A real constant renders its decimal digits; they are the value it denotes.
+        Expr::Real(text) => text.clone(),
         Expr::Sym(s) => latex_name(s),
         Expr::Add(terms) => {
             if terms.is_empty() {
@@ -1820,7 +1856,7 @@ pub fn substitute(e: &Expr, var: &str, replacement: &Expr) -> Expr {
     }
     match e {
         Expr::Sym(s) if s == var => replacement.clone(),
-        Expr::Sym(_) | Expr::Num(_) => e.clone(),
+        Expr::Sym(_) | Expr::Num(_) | Expr::Real(_) => e.clone(),
         Expr::Add(v) => {
             let mut acc = Expr::num(0);
             for t in v {
@@ -2050,6 +2086,7 @@ fn collect_all(e: &Expr, out: &mut Vec<String>) {
             collect_all(a, out);
             collect_all(b, out);
         }
+        Expr::Real(_) => {}
         Expr::Num(_) => {}
     }
 }
@@ -2086,7 +2123,7 @@ fn expand_inner(e: &Expr) -> Expr {
         return e.clone();
     }
     match e {
-        Expr::Num(_) | Expr::Sym(_) => e.clone(),
+        Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => e.clone(),
         Expr::Add(terms) => {
             let mut acc = Expr::num(0);
             for t in terms {
@@ -3007,7 +3044,7 @@ pub fn diff(e: &Expr, var: &str) -> Expr {
         return e.clone();
     }
     match e {
-        Expr::Num(_) => Expr::num(0),
+        Expr::Num(_) | Expr::Real(_) => Expr::num(0),
         Expr::Sym(s) => Expr::num(if s == var { 1 } else { 0 }),
         Expr::Add(terms) => {
             let mut acc = Expr::num(0);
@@ -3134,6 +3171,7 @@ impl Expr {
     pub fn canonical(&self) -> String {
         match self {
             Expr::Num(n) => format!("(rat {} {})", n.numerator().to_decimal(), n.denominator().to_decimal()),
+            Expr::Real(text) => format!("(real {text})"),
             Expr::Sym(s) => format!("(sym {})", s),
             Expr::Add(terms) => {
                 // The canonical order is the kernel's total term order (constants first, then by
@@ -3211,7 +3249,7 @@ impl Expr {
     /// The number of nodes in the expression tree (a rational or a symbol is one node).
     pub fn node_count(&self) -> usize {
         match self {
-            Expr::Num(_) | Expr::Sym(_) => 1,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => 1,
             Expr::Add(items) | Expr::Mul(items) => {
                 1 + items.iter().map(|i| i.node_count()).sum::<usize>()
             }
@@ -3253,7 +3291,7 @@ impl Expr {
                 // rootof's defining polynomial binds its own variable: no free symbols.
                 Expr::Fun(name, _) if name == "rootof" => {}
                 Expr::Fun(_, args) => args.iter().for_each(|a| walk(a, out)),
-                Expr::Num(_) => {}
+                Expr::Num(_) | Expr::Real(_) => {}
             }
         }
         walk(self, &mut names);
@@ -3263,6 +3301,7 @@ impl Expr {
     /// True when no leaf denotes an approximation or a transcendental constant.
     pub fn is_exact(&self) -> bool {
         match self {
+            Expr::Real(_) => false,
             Expr::Num(_) | Expr::Sym(_) => true,
             Expr::Add(items) | Expr::Mul(items) => items.iter().all(|i| i.is_exact()),
             Expr::Pow(a, b) | Expr::Div(a, b) | Expr::Rel(_, a, b) => a.is_exact() && b.is_exact(),
@@ -3280,6 +3319,8 @@ impl Expr {
     pub fn domain(&self) -> Dom {
         match self {
             Expr::Num(_) => Dom::Rational,
+            // A real constant is a decimal value the numeric tier handed over.
+            Expr::Real(_) => Dom::Real,
             // An unconstrained symbol ranges over the complex field.
             Expr::Sym(_) => Dom::Complex,
             Expr::Add(items) | Expr::Mul(items) => {
@@ -3446,6 +3487,7 @@ impl Expr {
     pub fn debug_print(&self) -> String {
         match self {
             Expr::Num(n) => format!("rat({})", n.to_string()),
+            Expr::Real(text) => format!("real({text})"),
             Expr::Sym(s) => format!("sym({})", s),
             Expr::Add(terms) => {
                 let mut ordered = terms.clone();
@@ -3817,7 +3859,7 @@ impl CanonicalParser<'_> {
 /// symbol, a named constant, a function application, a power, a product, a sum and a relation.
 fn canonical_rank(e: &Expr) -> u8 {
     match e {
-        Expr::Num(_) => 0,
+        Expr::Num(_) | Expr::Real(_) => 0,
         Expr::Sym(_) => 1,
         Expr::Fun(name, args) if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "inf" | "i") => 2,
         Expr::Fun(..) => 3,
