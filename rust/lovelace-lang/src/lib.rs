@@ -983,7 +983,7 @@ impl Engine {
                 }
                 Ok(Value::Text(out))
             }
-            Expr::Var(name, pos) => match self.vars.get(name) {
+            Expr::Var(name, _pos) => match self.vars.get(name) {
                 Some(v) => Ok(v.clone()),
                 // Mathematical constants, resolved after the variable store so a user
                 // assignment shadows them; `pi` and `e` render at the display precision.
@@ -999,10 +999,11 @@ impl Engine {
                 }
                 None => match self.funcs.get(name) {
                     Some(_) => Ok(Value::Function(name.clone())),
-                    None => Err(LangError::at(
-                        format!("Undefined variable '{}'.", name),
-                        *pos,
-                    )),
+                    // An undefined name is reported at the STATEMENT the evaluator is running,
+                    // not at the symbol: the reference's diagnostics put the failure at the
+                    // statement start (diff(x) -> position 0/column 1; after "a = 1; " -> 7/8),
+                    // and the evaluation loop positions a zero-position error that way.
+                    None => Err(LangError::plain(format!("Undefined variable '{}'.", name))),
                 },
             },
             Expr::Call(name, args, pos) => {
@@ -1881,3 +1882,6 @@ mod round42_differential_classes;
 
 #[cfg(test)]
 mod round43_display_classes;
+
+#[cfg(test)]
+mod round44_parity_classes;

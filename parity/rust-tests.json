@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T20:36:27Z",
+    "generatedAtUtc":  "2026-11-11T20:57:06Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4823,
+                  "passed":  4828,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4823
+                   "tests":  4828
                },
-    "sourcesSha256":  "8f0711bd15b572fa175396849f09f674e11bb68ff8ba05b1261442b2b2420354",
+    "sourcesSha256":  "c7ac898219df638c41f00ad9939e8f54cace2901d670fe9f31e03b47378460ff",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3571,6 +3571,11 @@
                                      "round43_display_classes::round43_products_render_in_canonical_order_and_keep_divided_powers",
                                      "round43_display_classes::round43_setprecision_moves_the_display_cap",
                                      "round43_display_classes::round43_unevaluated_integral_is_the_integral_node_with_its_diagnostics",
+                                     "round44_parity_classes::round44_limit_side_conditions_are_symbolic_relations",
+                                     "round44_parity_classes::round44_numeric_determinants_publish_the_elimination_kind",
+                                     "round44_parity_classes::round44_reshape_element_count_refusal_names_both_counts",
+                                     "round44_parity_classes::round44_undefined_variable_reports_the_statement_position",
+                                     "round44_parity_classes::round44_zero_base_negative_exponent_is_an_argument_refusal",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",

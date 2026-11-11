@@ -538,6 +538,17 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
             };
         if negative {
             match as_real(&value) {
+                // A zero base under a NEGATIVE exponent is the reference's argument refusal
+                // (Integer/Real.Pow throw ArgumentOutOfRangeException("base", "Base cannot be
+                // zero.")), which the runner maps to InvalidArgument/TypeMismatch. The old
+                // reciprocal path reported DivisionByZero/DomainError instead: same refusal,
+                // wrong taxonomy and prose.
+                Some(r) if r.is_zero() => Err(LangError::coded(
+                    "Base cannot be zero. (Parameter 'base')",
+                    0,
+                    "InvalidArgument",
+                    "TypeMismatch",
+                )),
                 Some(r) => match Real::from_i64(1).div(&r, 1000) {
                     Some(inv) => Ok(Value::Real(inv)),
                     None => Err(divide_by_zero()),
@@ -3181,8 +3192,31 @@ pub fn call(
                 ));
             }
             let dims = dims_from(name, &args[1..])?;
-            let shape: Vec<usize> = dims.into_iter().map(|d| d as usize).collect();
             let flat = flatten_values(&args[0])?;
+            // The element-count refusal is the LANGUAGE builtin's, not the array kernel's: the
+            // reference names reshape, argument 2 (dims), both counts, and publishes it as the
+            // caller-side InvalidArgument/TypeMismatch. The kernel's "shape mismatch" escaped as
+            // DomainError/InvalidOperation instead.
+            let mut wanted: u128 = 1;
+            for dimension in &dims {
+                if *dimension == 0 {
+                    wanted = 0;
+                    break;
+                }
+                wanted = wanted.saturating_mul(*dimension as u128);
+            }
+            if wanted != flat.len() as u128 {
+                return Err(LangError::coded(
+                    format!(
+                        "reshape(): argument 2 (dims) describes {wanted} element(s), but the value it reshapes holds {}; the element count must agree.",
+                        flat.len()
+                    ),
+                    pos,
+                    "InvalidArgument",
+                    "TypeMismatch",
+                ));
+            }
+            let shape: Vec<usize> = dims.into_iter().map(|d| d as usize).collect();
             Ok(Value::Array(
                 NdArray::from_vec(shape, flat).map_err(array_error)?,
             ))
@@ -4385,6 +4419,15 @@ fn det(a: &NdArray<Value>) -> Result<Value, LangError> {
     }
     let n = shape[0];
     let m = to_matrix(&Value::Array(a.clone()))?;
+    // A matrix with a symbolic element goes through the kernel's exact determinant; a NUMERIC
+    // matrix goes through TypedArrayOps.Det, Gaussian elimination over the numeric tier. That is
+    // observable in the published KIND, not only the value: det([[8, 6], [3, 8]]) is Real 46
+    // (the elimination divides 3/8), det([[1, 2], [3, 4]]) is Integer -2 (the pivot is 1), and a
+    // singular matrix answers Natural 0. The old exact 2x2/Laplace rule always answered Natural
+    // or Integer, which is the det-kind mismatch class.
+    if !a.iter().any(|v| matches!(v, Value::Symbolic(_))) {
+        return det_numeric(&m);
+    }
     if n == 1 {
         return Ok(m[0][0].clone());
     }
@@ -4411,6 +4454,38 @@ fn det(a: &NdArray<Value>) -> Result<Value, LangError> {
         };
     }
     Ok(acc)
+}
+
+/// Determinant of a NUMERIC square matrix, exactly as TypedArrayOps.Det computes it: Gaussian
+/// elimination over the numeric tier with numeric division, one determinant multiplication per
+/// pivot, and a Natural zero when the pivot column is empty.
+fn det_numeric(m: &[Vec<Value>]) -> Result<Value, LangError> {
+    let n = m.len();
+    let mut a: Vec<Vec<Value>> = m.to_vec();
+    let mut det = Value::Natural(Nat::from_u64(1));
+    for k in 0..n {
+        checkpoint()?;
+        let mut pivot = k;
+        while pivot < n && a[pivot][k].is_zero() {
+            pivot += 1;
+        }
+        if pivot == n {
+            return Ok(Value::Natural(Nat::zero()));
+        }
+        if pivot != k {
+            a.swap(k, pivot);
+            det = neg(&det)?;
+        }
+        det = mul(&det, &a[k][k])?;
+        for i in (k + 1)..n {
+            let factor = div(&a[i][k], &a[k][k], 1000)?;
+            for j in (k + 1)..n {
+                let product = mul(&factor, &a[k][j])?;
+                a[i][j] = sub(&a[i][j], &product)?;
+            }
+        }
+    }
+    Ok(det)
 }
 
 fn inv_matrix(a: &NdArray<Value>) -> Result<Value, LangError> {
@@ -6651,9 +6726,20 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
                 Value::Boolean(false),
                 empty.clone(),
                 inf_text(false),
-                vec![Value::Text(format!("{} < 0", var))],
+                // A side condition is a RELATION node, not prose: the reference publishes
+                // Symbolic relation leaves here (kind Symbolic, canonical (lt (sym x) (rat 0 1))),
+                // and a Text element forced every consumer to parse the condition.
+                vec![Value::Symbolic(Sym::Rel(
+                    lovelace_symbolics::RelOp::Lt,
+                    Box::new(Sym::sym(var)),
+                    Box::new(Sym::num(0)),
+                ))],
                 inf_text(true),
-                vec![Value::Text(format!("{} > 0", var))],
+                vec![Value::Symbolic(Sym::Rel(
+                    lovelace_symbolics::RelOp::Gt,
+                    Box::new(Sym::sym(var)),
+                    Box::new(Sym::num(0)),
+                ))],
                 Vec::new(),
                 Value::Text("Exact".to_string()),
                 Vec::new(),

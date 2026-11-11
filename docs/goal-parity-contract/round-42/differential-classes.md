@@ -311,3 +311,106 @@ mismatch is in one of the four rows above.
 | `rust/lovelace-lang/src/symbolics_round23.rs` | huge-degree sum expectation corrected to the oracle's canonical display order |
 | `rust/lovelace-lang/src/round43_display_classes.rs` | 6 oracle-derived regression tests for the five classes |
 
+
+---
+
+# Round 44 — det kind, limit conditions, error taxonomy and diagnostic position (at e5e4008)
+
+Baseline on the committed tree: generated 190 match / 10 mismatch; replay 1,566 / 192. After four
+classes the same command reports generated **200 / 0** and replayed **1,758 / 0**, new 0: the D4
+differential corpus is fully green on this seed and corpus.
+
+| after | generated match | generated mismatch | replayed match | replayed mismatch | new |
+|---|---|---|---|---|---|
+| baseline (e5e4008) | 190 | 10 | 1,566 | 192 | 0 |
+| det kind | 193 | 7 | 1,637 | 121 | 0 |
+| limit conditions | 195 | 5 | 1,700 | 58 | 0 |
+| reshape + 0^-1 taxonomy | 199 | 1 | 1,741 | 17 | 0 |
+| diagnostics position | 200 | 0 | 1,758 | 0 | 0 |
+
+## 1 — det kind (74: 71 replay + 3 generated)
+
+A numeric determinant goes through the reference's TypedArrayOps.Det — Gaussian elimination over
+the numeric tier — so its KIND follows the divisions, not the exact integer. The port used the
+exact 2x2/Laplace rule. The numeric branch is now elimination with the numeric ops; a matrix with a
+symbolic element keeps the exact determinant.
+
+| probe | before | after = oracle |
+|---|---|---|
+| `det([[8, 6], [3, 8]])` | 46 (Natural) | 46 (Real) |
+| `det([[8, 1], [1, 7]])` | 55 (Natural) | 55 (Real) |
+| `det([[1, 2], [3, 4]])` | -2 (Integer) | -2 (Integer) |
+| `det([[2, 0], [0, 3]])` | 6 (Natural) | 6 (Natural) |
+| `det([[1,2,3],[4,5,6],[7,8,9]])` | 0 (Integer) | 0 (Natural) |
+| `det([[0, 1], [1, 0]])` | -1 (Integer) | -1 (Integer) |
+| symbolic `det([[x, 1], [y, x]])` | x^2 - y | x^2 - y (unchanged) |
+
+## 2 — limit conditions (65: 63 replay + 2 generated)
+
+A one-sided limit's conditions were Text elements (`{"kind":"Text","value":"x < 0"}`). The
+reference publishes Symbolic relation leaves. Measured oracle for
+`x = symbol("x"); limit_full(1/x, x, 0)`:
+
+```
+left_conditions:  {"kind":"Symbolic","pretty":"x < 0","canonical":"(lt (sym x) (rat 0 1))",
+                   "domain":"complex","exact":true,"nodeCount":3,"freeSymbols":["x"]}
+right_conditions: {"kind":"Symbolic","pretty":"x > 0","canonical":"(gt (sym x) (rat 0 1))", ...}
+```
+
+After the fix both sides are those nodes; `conditions` and `diagnostics` stay empty.
+
+## 3 — reshape + 0^-1 taxonomy (45: 41 replay + 4 generated)
+
+- `reshape([1,2,3,4,5,6], 3, 3)` escaped as the array kernel's DomainError/"shape mismatch".
+  The language builtin now refuses with the reference's caller-side error: code
+  `InvalidArgument`, category `TypeMismatch`, and the message
+  `reshape(): argument 2 (dims) describes 9 element(s), but the value it reshapes holds 6; the element count must agree.`
+  (position 0 standalone; 17 after the measured prefix).
+- `0^(-1)` reported DivisionByZero/DomainError/"Cannot divide by zero." The reference's integer
+  and real power throw ArgumentOutOfRangeException("base", "Base cannot be zero."), which the
+  runner maps to `InvalidArgument`/`TypeMismatch`:
+  `Base cannot be zero. (Parameter 'base')` (position 0; 7 after `a = 1; `, measured).
+
+## 4 — diagnostics position (18: 17 replay + 1 generated)
+
+An undefined name was reported at the SYMBOL position; the reference reports the STATEMENT the
+evaluator is running. Measured: `diff(x)` → position 0 / column 1; `a = 1; diff(x)` → position 7 /
+column 8; `a = 1; b = nope + 1` → 7 / 8. The undefined-variable error now carries position 0 and the
+evaluation loop positions it at the statement, exactly as the other runtime refusals are positioned.
+
+## Test expectation corrected (measured, not assumed)
+
+`rust/lovelace-run/src/wire_batch.rs::limit_no_limit_keeps_every_prose_value` asserted the old Text
+shape. The oracle was measured for the exact input
+`x = symbol("x"); limit(1/x, x, 0)` and publishes
+`{"kind":"Symbolic","pretty":"x < 0","canonical":"(lt (sym x) (rat 0 1))", ...}`; the assertion now
+checks that measured shape. No other test expectation changed.
+
+## Gates after round 44
+
+| gate | result |
+|---|---|
+| corpus | `corpus: 214 passed, 0 failed, 214 total` |
+| fixtures | oracle 20/20, rust 20/20, PASS |
+| CLI | `CLI matrix: 16/16`, PASS |
+| clippy | `cargo clippy --workspace --all-targets -- -D warnings` exit 0 |
+| fmt | `cargo fmt --all -- --check` exit 0 |
+| cargo test | 4,828 passed, 0 failed across 19 test binaries (+5 round-44 tests) |
+| gate-manifest | 1 failure: `rust-tests.json is stale`; regeneration is the integrator's step |
+
+## Remaining
+
+None of the measured differential classes: generated 200/200 and replayed 1,758/1,758 on
+`--cases 200 --seed 1`, new 0. The stored corpus still contains the 115 duplicate entries the
+harness skips by design and the artefact regressions added by the poisoned run (left untouched).
+
+## Round-44 files changed
+
+| file | change |
+|---|---|
+| `rust/lovelace-lang/src/builtins.rs` | numeric det elimination; symbolic-relation limit conditions; reshape element-count refusal; zero-base negative-exponent argument refusal |
+| `rust/lovelace-lang/src/lib.rs` | undefined-variable errors positioned at the statement; round-44 test module |
+| `rust/lovelace-run/src/wire_batch.rs` | limit-condition test corrected to the measured oracle shape |
+| `rust/lovelace-lang/src/round44_parity_classes.rs` | 5 oracle-derived regression tests |
+
+

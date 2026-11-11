@@ -430,16 +430,20 @@ fn limit_no_limit_keeps_every_prose_value() {
     let record = limit_record(&r);
     assert_eq!(text(get(record_field(record, "left"), "pretty")), "-inf");
     assert_eq!(text(get(record_field(record, "right"), "pretty")), "inf");
-    let left: Vec<&str> = array(get(record_field(record, "left_conditions"), "elements"))
+    // MEASURED (Lovelace.Run --eval 'x = symbol("x"); limit(1/x, x, 0)' --json --omit-functions):
+    // the condition elements are Symbolic leaves
+    // {"kind":"Symbolic","pretty":"x < 0","canonical":"(lt (sym x) (rat 0 1))",
+    //  "domain":"complex","exact":true,"nodeCount":3,"freeSymbols":["x"]} — not Text.
+    let left: Vec<(&str, &str)> = array(get(record_field(record, "left_conditions"), "elements"))
         .iter()
-        .map(|e| text(get(e, "value")))
+        .map(|e| (text(get(e, "kind")), text(get(e, "pretty"))))
         .collect();
-    assert_eq!(left, vec!["x < 0"]);
-    let right: Vec<&str> = array(get(record_field(record, "right_conditions"), "elements"))
+    assert_eq!(left, vec![("Symbolic", "x < 0")]);
+    let right: Vec<(&str, &str)> = array(get(record_field(record, "right_conditions"), "elements"))
         .iter()
-        .map(|e| text(get(e, "value")))
+        .map(|e| (text(get(e, "kind")), text(get(e, "pretty"))))
         .collect();
-    assert_eq!(right, vec!["x > 0"]);
+    assert_eq!(right, vec![("Symbolic", "x > 0")]);
     assert_eq!(text(get(record_field(record, "value"), "kind")), "Null");
     assert_eq!(
         enum_field(record_field(record, "exactness"), "SolutionExactness"),
