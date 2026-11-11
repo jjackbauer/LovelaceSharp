@@ -44429,16 +44429,20 @@ note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:253 TermOrder_IsAntisymmetric
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionAddScalingTests/Add_MixedAtomsInAnyInsertionOrder_YieldsTheSameCanonicalOrder#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::assumption_add_mixed_atoms_in_any_insertion_order_yields_the_same_canonical_order"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/AssumptionAddScalingTests.cs:140 Lovelace.Symbolics.Tests.AssumptionAddScalingTests.Add_MixedAtomsInAnyInsertionOrder_YieldsTheSameCanonicalOrder. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionAddScalingTests/Add_OrderEqualsHistoricalAppendAndResort_ForEveryInsertionOrder#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::assumption_add_order_equals_historical_append_and_resort_for_every_insertion_order"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/AssumptionAddScalingTests.cs:154 Lovelace.Symbolics.Tests.AssumptionAddScalingTests.Add_OrderEqualsHistoricalAppendAndResort_ForEveryInsertionOrder. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionAddScalingTests/Add_SameAtomTwiceFromDifferentContexts_IsStoredOnce#0"
@@ -44827,9 +44831,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DebugEvalir/Lower_Evaluate_FiveTerm#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::evalir_lowers_optimizes_and_evaluates_a_five_term_polynomial"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/DebugEvalir.cs:12 Lovelace.Symbolics.Tests.DebugEvalir.Lower_Evaluate_FiveTerm. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DebugIntegrate/RationalDenominator_IntegratesWithSelfVerification#0"
@@ -44954,9 +44960,11 @@ note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:155 asserts simp
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/UnsatisfiableTransformation_CarriesADomainErrorDiagnostic#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::unsatisfiable_transformation_carries_a_domain_error_diagnostic"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:190 Lovelace.Symbolics.Tests.DiagnosticContractTests.UnsatisfiableTransformation_CarriesADomainErrorDiagnostic. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Derivatives_Agree#0"
@@ -48071,23 +48079,29 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Numerically#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::cubic_roots_satisfy_polynomial_numerically"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:376 CubicRoots_SatisfyPolynomial_Numerically. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Numerically#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::cubic_roots_satisfy_polynomial_numerically"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:376 CubicRoots_SatisfyPolynomial_Numerically. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Numerically#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::cubic_roots_satisfy_polynomial_numerically"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:376 CubicRoots_SatisfyPolynomial_Numerically. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Symbolically#0"
@@ -48256,9 +48270,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MathIR_HugeExponent_LowersAndEvaluates#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::mathir_huge_exponent_lowers_and_evaluates"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:608 MathIR_HugeExponent_LowersAndEvaluates. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MinusOne_HugeExponent_ParityIsExact#0"
@@ -48272,9 +48288,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/NumericToSymbolicToNumeric_500Digits_RoundTrips#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::numeric_to_symbolic_to_numeric_500_digits_round_trips"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:537 NumericToSymbolicToNumeric_500Digits_RoundTrips. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Or_ReturnsFalse_WhenAllDisjunctsFalse#0"
@@ -48297,9 +48315,11 @@ note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:31 PowerOfSymbolicE
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RationalPower_HugeExponent_IsExact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::rational_power_huge_exponent_is_exact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:512 RationalPower_HugeExponent_IsExact. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RationalRoots_IncludeZero#0"
@@ -48313,23 +48333,29 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RealConstantAdd_Preserves500Digits#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::real_constant_add_preserves_500_digits"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:479 RealConstantAdd_Preserves500Digits. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RealConstantMultiply_PreservesPrecision#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::real_constant_multiply_preserves_precision"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:490 RealConstantMultiply_PreservesPrecision. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RegisteredFunctionArity_IsEnforced#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::registered_function_arity_is_enforced"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:240 RegisteredFunctionArity_IsEnforced. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_CloseRoots_AllFoundAndIndexedStably#0"
@@ -48366,16 +48392,20 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Simplify_ZeroOverX_CancelsWithCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::simplify_zero_over_x_cancels_with_condition"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:69 Simplify_ZeroOverX_CancelsWithCondition. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Solve_QuarticNoRealRoots_DefaultDomain_Unevaluated_RealDomain_Empty#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::solve_quartic_no_real_roots_default_domain_unevaluated_real_domain_empty"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:333 Solve_QuarticNoRealRoots_DefaultDomain_Unevaluated_RealDomain_Empty. Round-38 kernel-hardening repair/curation (docs/goal-parity-contract/round-38/series-kink-hardening.md section 2/3); the Rust test states the same assertion on the language or kernel surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Solve_RationalEquation_HonorsExcludedDenominator#0"
@@ -50647,9 +50677,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Divide_X3Minus1_By_XMinus1#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::polynomial_division_of_x_cubed_minus_one_by_x_minus_one"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/PolynomialsApiTests.cs:43 Lovelace.Symbolics.Tests.PolynomialsApiTests.Divide_X3Minus1_By_XMinus1. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Factor_QuarticWithRationalRoots_FourLinearFactors#0"
@@ -50661,9 +50693,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/FromExpr_RoundTrip_DegreeCoefficientTerms#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::polynomial_coefficients_round_trip_degree_terms_and_coefficients"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/PolynomialsApiTests.cs:19 Lovelace.Symbolics.Tests.PolynomialsApiTests.FromExpr_RoundTrip_DegreeCoefficientTerms. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Gcd_Lcm_AreConsistent#0"
@@ -52799,191 +52833,245 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_NeighbouringShapes_FollowTheSameRule#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_neighbouring_shapes_follow_the_same_rule"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:257 KinkSeries_NeighbouringShapes_FollowTheSameRule. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_NeighbouringShapes_FollowTheSameRule#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_neighbouring_shapes_follow_the_same_rule"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:257 KinkSeries_NeighbouringShapes_FollowTheSameRule. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_NeighbouringShapes_FollowTheSameRule#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_neighbouring_shapes_follow_the_same_rule"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:257 KinkSeries_NeighbouringShapes_FollowTheSameRule. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_NeighbouringShapes_FollowTheSameRule#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_neighbouring_shapes_follow_the_same_rule"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:257 KinkSeries_NeighbouringShapes_FollowTheSameRule. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative#7"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_no_internal_symbol_and_no_unevaluated_derivative"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:220 KinkSeries_PublishesNoInternalSymbolAndNoUnevaluatedDerivative. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun#7"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_publishes_the_sympy_expansion_byte_identically_on_every_run"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:124 KinkSeries_PublishesTheSymPyExpansion_ByteIdenticallyOnEveryRun. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_takes_the_sympy_value_at_the_sample_point"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:172 KinkSeries_TakesTheSymPyValueAtTheSamplePoint. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#7"
@@ -52997,16 +53085,20 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TruncationGap_IsTheDroppedTerm_NotASilentApproximation#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::kink_series_truncation_gap_is_the_dropped_term_not_a_silent_approximation"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:189 KinkSeries_TruncationGap_IsTheDroppedTerm_NotASilentApproximation. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::limit_engine_two_sided_kink_answers_are_unchanged"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:277 LimitEngine_TwoSidedKinkAnswers_AreUnchanged. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#1"
@@ -53020,9 +53112,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_series_kink_hardening::limit_engine_two_sided_kink_answers_are_unchanged"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SeriesKinkDeterminismTests.cs:277 LimitEngine_TwoSidedKinkAnswers_AreUnchanged. Round-38 series-at-kink production repair (docs/goal-parity-contract/round-38/series-kink-hardening.md): the kink expansion is SymPy 1.14.0 right-hand resolution with the published O(...) node; the Rust test asserts the same bytes on the language surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#3"
@@ -53225,9 +53319,11 @@ note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs:70 asserts
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/SystemSolve_NoSolutions_IsACompleteAnswer#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::system_solve_no_solutions_is_a_complete_answer"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs:99 Lovelace.Symbolics.Tests.SolveCompletenessPairingTests.SystemSolve_NoSolutions_IsACompleteAnswer. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/Unevaluated_IsNotComplete#0"
@@ -53735,9 +53831,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/SimplifyFull_UnsatisfiableConditions_SerializesAsAnExplicitMarker#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::simplify_full_unsatisfiable_conditions_serialize_as_an_explicit_marker"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/UnsatisfiablePropagationTests.cs:64 Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests.SimplifyFull_UnsatisfiableConditions_SerializesAsAnExplicitMarker. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementConsistentWithAssumptions_KeepsItsConditions#0"
@@ -54432,9 +54530,11 @@ note = "C# Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 UsageDocumenta
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageDocumentationTests/DocumentedExample_MatchesEngine#75"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round38_remaining::documented_linsolve_example_matches_the_engine"
 reason = "the C# test asserts the documented rendering [-x/x/(x*y), x/(x*y)] for linsolve([[x, 1], [0, y]], [0, 1]); Rust renders [-1/(x*y), x/(x*y)] (canonical shape differs; corpus sym/076)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/UsageDocumentationTests.cs:23 Lovelace.Symbolics.Tests.UsageDocumentationTests.DocumentedExample_MatchesEngine. Round-38 remaining-row probe (docs/goal-parity-contract/round-38/remaining-porting2.md): the Rust test asserts the same value/refusal through the Rust surface."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageDocumentationTests/DocumentedExample_MatchesEngine#76"

@@ -1816,34 +1816,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             };
             let point = as_expr(&args[2]).ok_or_else(|| LangError::plain("series needs a point."))?;
             let order = series_order_argument(&args[3])?;
-            let shifted = if point == Sym::num(0) {
-                f.clone()
-            } else {
-                lovelace_symbolics::substitute(&f, &var, &Sym::add(Sym::sym(&var), point))
-            };
-            let Some(ser) = lovelace_symbolics::series(&shifted, &var, order) else {
-                return Ok(Value::Symbolic(f));
-            };
-            let mut terms: Vec<Sym> = Vec::new();
-            for (e, c) in ser.iter() {
-                if *e >= order || *e < 0 {
-                    continue;
-                }
-                let coefficient = Sym::Num(c.clone());
-                if *e == 0 {
-                    terms.push(coefficient);
-                } else {
-                    terms.push(Sym::mul(coefficient, Sym::pow(Sym::sym(&var), Sym::num(*e))));
-                }
-            }
-            if terms.is_empty() {
-                terms.push(Sym::num(0));
-            }
-            terms.push(Sym::Fun(
-                "O".to_string(),
-                vec![Sym::pow(Sym::sym(&var), Sym::num(order))],
-            ));
-            Ok(Value::Symbolic(Sym::Add(terms)))
+            // The published series is the RIGHT-HAND expansion: a kink (abs(g) at a point where g
+            // vanishes) is resolved by the sign of the argument's leading coefficient before
+            // anything is differentiated, the coefficients are carried as expressions (so a
+            // symbolic leading coefficient publishes sign(a)*a*x), and the tail is the reference's
+            // order node — (order var point degree), displayed O((x - 1)^3).
+            Ok(Value::Symbolic(lovelace_symbolics::series_kink::publish_series(
+                &f, &var, &point, order,
+            )))
         }
         "limit" | "limit_full" | "limit_left" | "limit_right" => {
             if args.len() < 3 {
@@ -2055,6 +2035,21 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let outcome = match lovelace_symbolics::poly_coeffs(&target, &var) {
                 Some(coeffs) => {
                     let base = lovelace_symbolics::solve_polynomial_named(&coeffs, &var);
+                    // A quartic-or-higher factor with NO real root: every root is complex
+                    // algebraic and RootOf is real-only, so the set is UNEVALUATED with every root
+                    // counted as unrepresented — x^4 + 1 is the documented shape, never "no
+                    // solutions" and never a partial set that silently drops all four roots.
+                    if domain != "real" && coeffs.len() > 4 {
+                        if let lovelace_symbolics::SolveOutcome::Partial(roots) = &base {
+                            if roots.is_empty() {
+                                return Ok(unevaluated_unrepresented_result(
+                                    &var,
+                                    domain.as_str(),
+                                    (coeffs.len() - 1) as i64,
+                                ));
+                            }
+                        }
+                    }
                     if domain == "real" {
                         match base {
                             // No real roots were found where the domain demands them.
@@ -2156,9 +2151,33 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 if matches!(e, Sym::Rel(_, _, _)) {
                     return Ok(transform_result(engine, e.clone(), e, Vec::new(), Vec::new(), false));
                 }
-                // A quotient of a numerator by itself: x/x -> 1 with the pole condition. This is
-                // the rat.cancel-x-over-x rule the reference applies to x*x^-1.
+                // A ZERO numerator over a denominator that may vanish: 0/x -> 0 with the
+                // pole condition. This is the reference's rat.cancel-zero-over-x rule; the safe
+                // simplify() keeps 0/x, only the full transform applies it (0/x is undefined at
+                // 0 while 0 is defined).
                 if let Some((num, den)) = quotient_parts(&e) {
+                    if num == Sym::num(0) && !matches!(&den, Sym::Num(n) if !n.is_zero()) {
+                        let condition = Sym::Rel(
+                            lovelace_symbolics::RelOp::Ne,
+                            Box::new(den.clone()),
+                            Box::new(Sym::num(0)),
+                        );
+                        let step = RewriteStepData {
+                            rule_id: "rat.cancel-zero-over-x",
+                            classification: "Conditional",
+                            before: e.clone(),
+                            after: Sym::num(0),
+                            required_conditions: vec![Value::Symbolic(condition.clone())],
+                        };
+                        return Ok(transform_result(
+                            engine,
+                            e.clone(),
+                            Sym::num(0),
+                            vec![Value::Symbolic(condition)],
+                            vec![step],
+                            false,
+                        ));
+                    }
                     if num == den {
                         let condition = Sym::Rel(
                             lovelace_symbolics::RelOp::Ne,
@@ -5629,7 +5648,37 @@ enum Side {
 }
 
 fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
-    use lovelace_symbolics::{Rat, Series};
+    use lovelace_symbolics::Series;
+    // Step 1 of the reference's LimitCore: DIRECT SUBSTITUTION. A value at the point IS the limit
+    // when the function is defined there — limit(abs(x), x, 0) = 0 and limit(sqrt(x), x, 0) = 0 are
+    // the value at 0, not a series coefficient. Only an EXACT value is taken here: 0/0 must not fold
+    // (the numeric evaluator refuses the division, so the series path still decides the
+    // indeterminate shapes) and a transcendental substitution stays on the series path, which is
+    // where the documented answers are computed.
+    if !at_infinity {
+        let substituted = lovelace_symbolics::substitute(f, var, &Sym::num(0));
+        if !substituted.contains(var) {
+            if let Ok(number) = crate::numeric::evaluate(&substituted, 30) {
+                let exact = match &number {
+                    crate::numeric::Num::Exact(value) => Some(value.clone()),
+                    // sqrt(0) crosses the numeric tier as a Real that is EXACTLY zero; the value
+                    // at the point is still 0, and the reference publishes it as one.
+                    crate::numeric::Num::Real(value) if value.is_zero() => {
+                        Some(lovelace_symbolics::Rat::zero())
+                    }
+                    crate::numeric::Num::Complex(value)
+                        if value.re().is_zero() && value.im().is_zero() =>
+                    {
+                        Some(lovelace_symbolics::Rat::zero())
+                    }
+                    _ => None,
+                };
+                if let Some(value) = exact {
+                    return limit_value_record(Value::Symbolic(Sym::Num(value)));
+                }
+            }
+        }
+    }
     let series: Option<Series> = if at_infinity {
         let t = "t";
         let substituted = lovelace_symbolics::substitute(
@@ -7735,6 +7784,43 @@ fn unevaluated_solve_result(var: &str, domain: &str, code: &str, message: &str) 
             (
                 "diagnostics".to_string(),
                 Value::Vector(vec![diagnostic(code, "UnsupportedOperation", message)]),
+            ),
+        ],
+    )
+}
+
+/// An Unevaluated SolveResult whose roots are ALL unrepresented: a polynomial of degree four or
+/// more with no real root has only complex algebraic roots, and the kernel's RootOf is real-only.
+/// The reference reports the SET as unevaluated (never "no solutions") and counts every root as
+/// unrepresented, with the reason string the kernel publishes for this class.
+fn unevaluated_unrepresented_result(var: &str, domain: &str, unrepresented: i64) -> Value {
+    Value::Record(
+        "SolveResult".to_string(),
+        vec![
+            ("status".to_string(), enum_value("SolveStatus", "Unevaluated")),
+            ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
+            ("domain".to_string(), Value::Domain(domain.to_string())),
+            ("complete".to_string(), Value::Boolean(false)),
+            ("completeness".to_string(), enum_value("Completeness", "Unknown")),
+            ("solutions".to_string(), Value::Vector(Vec::new())),
+            ("families".to_string(), Value::Vector(Vec::new())),
+            ("common_conditions".to_string(), Value::Vector(Vec::new())),
+            ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
+            (
+                "unrepresented_count".to_string(),
+                Value::Integer(Int::from_i64(unrepresented)),
+            ),
+            (
+                "unrepresented_reason".to_string(),
+                Value::Text(UNREPRESENTED_ROOTS_REASON.to_string()),
+            ),
+            (
+                "diagnostics".to_string(),
+                Value::Vector(vec![diagnostic(
+                    "solve.unevaluated",
+                    "UnsupportedOperation",
+                    UNREPRESENTED_ROOTS_REASON,
+                )]),
             ),
         ],
     )

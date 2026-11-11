@@ -223,6 +223,12 @@ impl Num {
         {
             return Err(LangError::plain("0 raised to a non-positive power."));
         }
+        // Zero raised to a POSITIVE power is exactly zero at every tier: 0^(1/2) = 0, not a
+        // complex principal branch and not an approximation. The non-positive exponents were
+        // refused above, so what reaches here is positive.
+        if self.is_zero() {
+            return Ok(Num::Exact(Rat::zero()));
+        }
         if let Some(n) = exponent.is_integral().and_then(|i| i.to_decimal().parse::<i64>().ok()) {
             return self.pow_int(n, places);
         }

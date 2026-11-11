@@ -1814,3 +1814,9 @@ mod round36_remaining;
 
 #[cfg(test)]
 mod corpus_and_system_solve_round36;
+
+#[cfg(test)]
+mod round38_remaining;
+
+#[cfg(test)]
+mod round38_series_kink_hardening;

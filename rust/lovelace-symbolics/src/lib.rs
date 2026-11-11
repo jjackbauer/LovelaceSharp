@@ -12,6 +12,7 @@ use lovelace_nat::Nat;
 pub mod assumptions;
 pub mod cancel;
 pub mod groebner;
+pub mod series_kink;
 
 /// An exact rational coefficient.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -634,8 +635,12 @@ impl Expr {
             Expr::Real(text) => text.clone(),
             Expr::Sym(s) => s.clone(),
             Expr::Add(terms) => {
+                // A sum that carries the series O(...) term renders in ascending powers around the
+                // expansion point (the O-term last), exactly as the reference's display order does
+                // (Printing.OrderTermsForDisplay). Every other sum keeps its stored order.
+                let ordered = series_kink::series_display_order(terms);
                 let mut out = String::new();
-                for (i, t) in terms.iter().enumerate() {
+                for (i, t) in ordered.iter().enumerate() {
                     let (text, negative) = signed_text(t);
                     if i == 0 {
                         if negative {
@@ -680,6 +685,23 @@ impl Expr {
                     // The empty-argument case returned above (a Function with no arguments prints
                     // as its name), so args[0] is in range here even for canonical_parse input.
                     return format!("not {}", args[0].to_string());
+                }
+                // The series tail: O(x^3) at zero, O((x - 1)^3) around a nonzero point, O(x) for a
+                // degree-one tail (the reference's OrderShape rule).
+                if name == "order" && args.len() == 3 {
+                    if let Some((var, point, degree)) = series_kink::order_parts(self) {
+                        let zero_point = matches!(point, Expr::Num(n) if n.is_zero());
+                        let base = if zero_point {
+                            var.to_string()
+                        } else {
+                            Expr::sub(var.clone(), point.clone()).to_string()
+                        };
+                        if degree == 1 {
+                            return format!("O({base})");
+                        }
+                        let body = if zero_point { base } else { format!("({base})") };
+                        return format!("O({body}^{degree})");
+                    }
                 }
                 // An algebraic number: the root index is part of the printed value, and the
                 // defining polynomial prints as a polynomial (rootof(x^4 - x^2 - 1, 0)).
@@ -883,6 +905,14 @@ fn power_text(e: &Expr) -> String {
 fn as_power(e: Expr) -> (Expr, Expr) {
     match e {
         Expr::Pow(b, x) => (*b, *x),
+        // A square root IS the half power: sqrt(g)*sqrt(g) must combine to g and i*sqrt(3)
+        // squared must fold to -3, exactly as the reference's Power constructor sees it. The
+        // canonical form already prints a sqrt as (pow G (rat 1 2)); this keeps the product
+        // algebra on the same reading.
+        Expr::Fun(name, args) if name == "sqrt" && args.len() == 1 => (
+            args.into_iter().next().expect("one argument"),
+            Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2))),
+        ),
         other => (other, Expr::num(1)),
     }
 }
@@ -3253,6 +3283,14 @@ impl Expr {
                     ("inf", 0) => "(inf)".to_string(),
                     // A root of a defining polynomial: the polynomial is a bound-variable form,
                     // not a function argument, so it is printed directly rather than as (fn ...).
+                    // The series tail is a BINDING node in the reference's canonical vocabulary:
+                    // its variable, point and degree are operands, not a function call.
+                    ("order", 3) => format!(
+                        "(order {} {} {})",
+                        args[0].canonical(),
+                        args[1].canonical(),
+                        args[2].canonical()
+                    ),
                     ("rootof", 2) => {
                         // The root index is an integer position, printed as one (0, not (rat 0 1)).
                         let index = match &args[1] {
@@ -3901,6 +3939,8 @@ fn canonical_rank(e: &Expr) -> u8 {
         Expr::Num(_) | Expr::Real(_) => 0,
         Expr::Sym(_) => 1,
         Expr::Fun(name, args) if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "inf" | "i") => 2,
+        // The series tail sorts after every computed term: (add (rat 1 1) (sym x) (mul ...) (order ...)).
+        Expr::Fun(name, args) if name == "order" && args.len() == 3 => 8,
         Expr::Fun(..) => 3,
         Expr::Pow(..) => 4,
         Expr::Mul(_) | Expr::Div(..) => 5,
