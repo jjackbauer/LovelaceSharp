@@ -44084,9 +44084,11 @@ note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:19 asserts diff(x^3+2x^2+5x+7
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Diff_ProductAndChain_Work#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::acceptance_diff_product_and_chain_work"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Factor_SquaresDifference_FullyFactors#0"
@@ -44128,16 +44130,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Limit_SinOverX_AtZero_IsOne#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::acceptance_limit_sin_over_x_at_zero_is_one"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Optimize_Lower_Evaluate_RoundTrip#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::acceptance_optimize_lower_evaluate_round_trip"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/PrintParse_RoundTrips#0"
@@ -44149,9 +44155,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Rational_NormalizationAndArithmetic#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::tail_round34::acceptance_rational_normalization_and_arithmetic"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Series_SinOverX_GivesExpectedCoefficients#0"
@@ -44165,9 +44173,11 @@ note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:97 asserts sin(x)/x coefficie
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Simplify_Pythagorean_CollapsesToOne#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::acceptance_simplify_pythagorean_collapses_to_one"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Simplify_SqrtSquare_UnderAssumptions#0"
@@ -44320,9 +44330,11 @@ note = "Round-28: C# Capabilities_ReturnsARecordNamedCapabilitiesResult row; Rus
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/Exactness_SaysWhetherTheSetsAreExhaustiveOrBestEffort#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::capabilities_exactness_says_exhaustive_or_best_effort"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/ExactnessBestEffort_IsBackedByLiveRefusalsTheListDoesNotCarry#0"
@@ -44362,9 +44374,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/UnsupportedOperations_AreRecordsCarryingCodeCategoryAndMessage#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::capabilities_unsupported_operations_are_records"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/CompilationResult_IrText_RoundTrips#0"
@@ -44418,9 +44432,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_ScalarEvaluation#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::compilation_kernel_scalar_evaluation"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_Transcendental_ApproximateTier#0"
@@ -44594,9 +44610,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/BoundedTransformation_CarriesABudgetExceededDiagnostic#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::diagnostic_contract_bounded_transformation_carries_budget_diagnostic"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/CompleteSolveWithoutANote_CarriesAnEmptyDiagnosticsArray#0"
@@ -44851,9 +44869,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:399 asserts simpl
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Language_SolveMultiplicityAndNoSolutions_AreHonest#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_semantic_solve_multiplicity_and_no_solutions_are_honest"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Language_SolvePrincipalBranch_ReturnsAllRoots#0"
@@ -44867,9 +44887,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:362 asserts (x+1)
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Language_SolveQuartic_MixedRoots_IsPartial_NotComplete#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_semantic_solve_quartic_mixed_roots_is_partial_not_complete"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Language_SolveQuartic_ReportsUnevaluatedNote#0"
@@ -45001,9 +45023,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_ExpLog_CarriesFiniteLogCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_semantic_transform_exp_log_carries_finite_log_condition"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_TraceIsOptIn_ButConditionsAlwaysSurvive#0"
@@ -45031,16 +45055,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/CompileFull_ExposesKernelMetadata_AndBatchAcceptsRecord#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_compile_full_exposes_kernel_metadata_and_batch"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/DomainValues_AreFirstClass#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_domain_values_are_first_class"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_AcceptsNestedRowValues#0"
@@ -45114,9 +45142,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:369 Jacobian_An
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/LimitFull_ExposesExistenceAndOneSidedValues#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_limit_full_exposes_existence_and_one_sided_values"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/LinsolveFull_ExposesDetCondition#0"
@@ -45153,30 +45183,38 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SimplifyFull_CarriesConditionsAndSteps#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_simplify_full_carries_conditions_and_steps"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SimplifyFull_ExpLog_CarriesFiniteCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_simplify_full_exp_log_carries_finite_condition"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SolveFull_DomainFieldAndRealOption#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_solve_full_domain_field_and_real_option"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SolveFull_ExposesStatusSolutionsAndConditions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_solve_full_exposes_status_solutions_and_conditions"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SolveFull_FamilyParameterIsSymbolic_AndItsDomainStaysADomain#0"
@@ -45334,9 +45372,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:328 Type_UsesOn
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/Type_UsesOneVocabulary_ForEveryKind#9"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::dx_structured_type_uses_one_vocabulary_for_every_kind"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EnumValueEmissionTests/IntegrationResult_StatusAndExactness_AreEnums#0"
@@ -46183,44 +46223,56 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountOutsideTheBound_IsRefused#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_outside_bound_evalir_zero"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountOutsideTheBound_IsRefused#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_outside_bound_evalir_batch_zero"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountOutsideTheBound_IsRefused#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_outside_bound_evalir_minus_five"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountOutsideTheBound_IsRefused#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_outside_bound_evalir_batch_minus_five"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountWiderThanInt64_IsRefusedAndNamed#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_wider_than_int64_evalir"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ACountWiderThanInt64_IsRefusedAndNamed#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_digit_count_wider_than_int64_evalir_batch"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes#0"
@@ -46257,51 +46309,65 @@ note = "Round-28: C# AnIntegralDigitCount_IsStillHonoured row; Rust lovelace-lan
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralCount_IsNotReportedAsTheIntegralKindCase#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_count_two_point_five"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralCount_IsNotReportedAsTheIntegralKindCase#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_count_two_point_nine"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralCount_IsNotReportedAsTheIntegralKindCase#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_count_zero_point_five"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralCount_IsNotReportedAsTheIntegralKindCase#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_count_one_point_zero_zero_zero_zero_zero_zero_one"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralDigitCount_IsRefusedAndNamed#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_digit_count_evalir"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ANonIntegralDigitCount_IsRefusedAndNamed#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_non_integral_digit_count_evalir_batch"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/ATextDigitCount_IsRefusedAsTheSameArgumentError#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::evalir_text_digit_count_is_refused_as_the_same_argument_error"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/EvalfDigitCountRefusal_IsUnchanged#0"
@@ -46610,9 +46676,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/SqrtOfTwoInTheLanguage_IsARealValue_NotASymbolicRadical#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::exactness_sqrt_of_two_is_a_real_value"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/EvaluateToExpr_ApproximateArgument_ThrowingEvaluatorPropagates#0"
@@ -46638,9 +46706,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/Limit_TwoSidedPole_StillReportsOpposingSides#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::expected_failure_limit_two_sided_pole_reports_opposing_sides"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/TryCompare_ReportsUnorderedInsteadOfThrowing#0"
@@ -47142,9 +47212,11 @@ note = "C# Lovelace.Symbolics.Tests/HyperbolicBuiltinsAndNegativeIntegerPowersTe
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/NegativeSquareRootsAndHalfPowers_NowAnswerExactly_WhileOtherNonIntegerPowersStillThrow#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::hyperbolic_negative_square_roots_and_half_powers_answer_exactly"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/PositiveAndExactIntegerPowers_AreUnchanged#0"
@@ -47158,9 +47230,11 @@ note = "C#: Lovelace.Symbolics.Tests/HyperbolicBuiltinsAndNegativeIntegerPowersT
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/SymbolToTheMinusOne_StaysTheSymbolicReciprocalPower#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::hyperbolic_symbol_to_the_minus_one_stays_symbolic"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/ThreeToTheMinusTwo_IsTheExactValueOfOneNinth#0"
@@ -47246,9 +47320,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/UndeterminedLimit_ClaimsNoExactness_AndDeterminedOnesKeepTheirs#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::indeterminate_undetermined_limit_claims_no_exactness"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/FiniteNamedConstantIdentities_StillFold#0"
@@ -47691,9 +47767,11 @@ note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AbsSquare_NotSimplified_ForComplex#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_abs_square_not_simplified_for_complex"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AbsSquare_Simplified_UnderReal#0"
@@ -47705,9 +47783,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AddDroppingZeroCoefficientOverPole_KeepsDefinedness#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_add_dropping_zero_coefficient_over_pole_keeps_definedness"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Numerically#0"
@@ -47782,9 +47862,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/ExpLog_SafeSimplify_RequiresDefinednessConditions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_exp_log_safe_simplify_requires_definedness_conditions"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/FreeOf_DoesNotTreatPiecewiseAsConstant#0"
@@ -47817,44 +47899,56 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_OneOverX_LeftMinusInf#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_limit_one_over_x_left_minus_inf"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_OneOverX_RightPlusInf#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_limit_one_over_x_right_plus_inf"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_OneOverX_TwoSidedDoesNotExist#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_limit_one_over_x_two_sided_does_not_exist"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_OneOverXSquared_BothSidesPlusInf#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_limit_one_over_x_squared_both_sides_plus_inf"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Limit_SeriesOffset_OneMinusCosOverX_IsZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_limit_series_offset_one_minus_cos_over_x_is_zero"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/LogExp_NotSimplified_Unconstrained#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_log_exp_not_simplified_unconstrained"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/LogExp_Simplified_UnderReal#0"
@@ -47880,9 +47974,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MinusOne_HugeExponent_ParityIsExact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_minus_one_huge_exponent_parity_is_exact"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/NumericToSymbolicToNumeric_500Digits_RoundTrips#0"
@@ -47917,9 +48013,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RationalRoots_IncludeZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::tail_round34::kernel_hardening_rational_roots_include_zero"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RealConstantAdd_Preserves500Digits#0"
@@ -47952,9 +48050,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_MultipleRoot_IsSquareFreeNormalized#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::tail_round34::kernel_hardening_root_of_multiple_root_is_square_free_normalized"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_NoRealRoots_FailsExplicitly#0"
@@ -47966,9 +48066,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Simplify_XOverX_CancelsWithCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_simplify_x_over_x_cancels_with_condition"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Simplify_ZeroOverX_CancelsWithCondition#0"
@@ -47987,16 +48089,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Solve_RationalEquation_HonorsExcludedDenominator#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_solve_rational_equation_honors_excluded_denominator"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/XOverX_IsNotFoldedByConstruction#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_x_over_x_is_not_folded_by_construction"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/YunSquareFree_MultiplicitiesAreCorrect#0"
@@ -48008,9 +48114,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/ZeroPowZero_IsOne_DocumentedConvention#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::kernel_hardening_zero_pow_zero_is_one"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/CanonicalAndPretty_AreUntouchedByTheLatexArm#0"
@@ -49921,9 +50029,11 @@ note = "C#: Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs:53 Determine
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LimitExistenceTriStateTests/KernelUndeterminedSide_HasNoValue#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::limit_existence_undetermined_side_has_no_value"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LimitExistenceTriStateTests/ProvenNonExistence_StillReportsFalseExists#0"
@@ -51570,9 +51680,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:199 ReportedCase_
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ReportedCase_FactoredSquare_HasOnePair#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "C# requires factor(-x^2 - 2*x - 1) to render \"-(x + 1)^2\"; Rust's factor builtin does not factor the polynomial (it renders \"-x^2 - 2*x - 1\"), so the expected string is not what the Rust engine produces and the port would fail. Refused; no production change allowed."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::pretty_parentheses_factored_square_has_one_pair"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ReportedCase_FlatDenominators_DivideOncePerFactor#0"
@@ -52292,16 +52404,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/ConditionalRule_CarriesDeclaredConditions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::rewrite_protocol_conditional_rule_carries_declared_conditions"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/ConditionalRule_DoesNotFireOnUnknown_ButFiresWhenProven#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::rewrite_protocol_conditional_rule_does_not_fire_on_unknown"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/DomainSpecificRule_DeclaresItsCondition#0"
@@ -52537,9 +52653,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TakesTheSymPyValueAtTheSamplePoint#7"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::series_kink_sin_takes_the_value_at_the_sample_point"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/KinkSeries_TruncationGap_IsTheDroppedTerm_NotASilentApproximation#0"
@@ -52558,9 +52676,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::series_kink_limit_engine_one_minus_cos_over_x_squared"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#2"
@@ -52572,9 +52692,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesKinkDeterminismTests/LimitEngine_TwoSidedKinkAnswers_AreUnchanged#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::series_kink_limit_engine_abs_over_x_is_unevaluated"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#0"
@@ -52600,9 +52722,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::series_laurent_sqrt_at_zero_is_unchanged"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#4"
@@ -52780,16 +52904,20 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SuiteIntegrationTests/Symbol_Builtin_Works#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::suite_integration_symbol_builtin_works"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SuiteIntegrationTests2/Apart_ThroughEngine#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::suite_integration_apart_through_engine"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Kernel_AbsenceOfSolutions_IsUnevaluatedWithAStableNote#0"
@@ -52836,23 +52964,29 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_AbsenceOfSolutions_IsUnevaluatedWithADiagnostic#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::system_solve_proof_wire_absence_case_zero"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_AbsenceOfSolutions_IsUnevaluatedWithADiagnostic#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::system_solve_proof_wire_absence_case_one"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_AbsenceOfSolutions_IsUnevaluatedWithADiagnostic#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::system_solve_proof_wire_absence_case_two"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_DerivedContradiction_IsCompleteNoSolutions#0"
@@ -52913,9 +53047,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/LinearSystem_SingleSolution#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::system_solve_linear_system_single_solution"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/NonPolynomial_ReportsNote#0"
@@ -53200,9 +53336,11 @@ note = "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:34
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/ConditionPayload_IsStructuredForEveryReachableAtomKind#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::symbolics_tail_round34::unsatisfiable_propagation_condition_payload_is_structured"
+reason = "Round 34: individually adjudicated Symbolics-tail row; the referenced Rust test asserts the C# assertion (docs/goal-parity-contract/round-34/symbolics-tail.md)."
 targetPhase = 0
+note = "Round 34 Symbolics tail"
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/SimplifyFull_DomainCondition_CarriesADomainValueNotText#0"

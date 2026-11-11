@@ -244,7 +244,11 @@ pub fn div(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
     let result = elementwise(a, b, "div", |x, y| {
         let rx = as_real(x).ok_or_else(|| type_error("/", x, y))?;
         let ry = as_real(y).ok_or_else(|| type_error("/", x, y))?;
-        match rx.div(&ry, precision.max(64)) {
+        // The reference's `Real.Divide` runs at the ambient computation cap, which
+        // `setprecision` moves together with the display cap (`WithPrecision`). A 64-place floor
+        // here made `setprecision(18); 1/19` return the exact period while the reference (and the
+        // class-Real side of LRealPeriodicFastPathTests) truncates it at 18 places.
+        match rx.div(&ry, precision.max(1)) {
             Some(v) => Ok(Value::Real(v)),
             None => Err(divide_by_zero()),
         }

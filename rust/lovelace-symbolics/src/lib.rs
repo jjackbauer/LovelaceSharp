@@ -3937,6 +3937,9 @@ mod complex_closed_forms_round30;
 mod indeterminate_forms_round31;
 
 #[cfg(test)]
+mod tail_round34;
+
+#[cfg(test)]
 mod printing_round16;
 
 #[cfg(test)]

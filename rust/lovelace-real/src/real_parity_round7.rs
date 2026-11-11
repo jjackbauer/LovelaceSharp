@@ -4457,7 +4457,21 @@ fn check_mul_row(p: i64, divisor: &str) {
         let denominator = Nat::from_u64(3).mul(&pow10(n));
         assert_eq!(difference.to_rational(), (Int::from_i64(1), denominator.clone()));
         assert_eq!(difference.to_string(), format!("0.{}(3)", "0".repeat(n)));
-        assert_eq!(difference, fraction_real(Int::from_i64(1), denominator, n + 1));
+
+        // The direct helper re-derives the same exact period once the budget has room for the
+        // digit that closes it (the period spans indices n..=n, so it is discovered on the
+        // iteration after position n + 1).
+        assert_eq!(
+            difference,
+            fraction_real(Int::from_i64(1), denominator.clone(), n + 2)
+        );
+        // At exactly n + 1 places the reference's digit loop reaches the budget BEFORE the
+        // repeated-remainder test, so the direct division is the budgeted TRUNCATION (n zeros and
+        // one 3), inexact and without a period. This is the boundary rule of round 34
+        // (round34_inexact_division::the_reference_truncates_a_period_that_closes_exactly_at_the_cap).
+        let capped = fraction_real(Int::from_i64(1), denominator, n + 1);
+        assert!(!capped.is_exact(), "a cap truncation must not advertise exactness");
+        assert_eq!(capped.to_string(), format!("0.{}3", "0".repeat(n)));
     }
 
     #[test]

@@ -27,6 +27,8 @@ mod round29_real_batch;
 mod round30_real_batch;
 #[cfg(test)]
 mod round31_trig;
+#[cfg(test)]
+mod round34_inexact_division;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///
@@ -461,12 +463,21 @@ impl Real {
 
     /// Builds a real from a rational, detecting the repeating period.
     ///
-    /// The digit budget bounds a NON-terminating expansion only. A rational whose reduced
-    /// denominator has no prime factor other than 2 and 5 expands to a finite decimal: the
-    /// reference treats such a quotient as exact at every budget, so it is always expanded in
-    /// full and never marked inexact. (The previous loop pushed one digit PAST the budget and
-    /// then flagged the value inexact, so an exact terminating quotient longer than the budget
-    /// was published with a guard digit and a false inexactness claim.)
+    /// This is the reference's `Divide` digit loop, including its two accounting rules:
+    ///
+    /// * A terminating expansion is exact at ANY budget (the reference answers it with
+    ///   `TryTerminateExactly` before entering the loop), so it is expanded in full.
+    /// * A quotient below one opens with a run of zeros. Those zeros are SCALE, not digits: they
+    ///   are carried by the exponent and do not consume a stored place. While the run is shorter
+    ///   than the budget it is walked normally; once the run ALONE fills the budget the reference
+    ///   "frees" the accounting, and the budget then bounds the STORED digits instead. Without
+    ///   that rule `sin(1e-100)/cos(1e-100)` spent the whole 30-place budget on the leading zeros
+    ///   and flushed the quotient to zero.
+    ///
+    /// A period that closes exactly AT the cap is never discovered: the reference's `while`
+    /// condition (`position < MaxComputationDecimalPlaces`) is tested before the repeated-remainder
+    /// test that would run on the next iteration. The quotient is then the budgeted truncation,
+    /// inexact, with no period metadata, and `Normalize` drops any trailing fractional zeros.
     pub fn from_fraction(num: &Nat, den: &Nat, max_digits: usize) -> Option<Real> {
         let (q, r) = num.div_rem(den)?;
         let mut int = int_from_nat(&q);
@@ -475,41 +486,54 @@ impl Real {
         }
         let max_digits = max_digits.max(1);
         let terminating = terminates(&r, den);
+        // Stored fractional digits; the opening zero run is NOT stored (it is scale).
         let mut digits: Vec<u8> = Vec::new();
-        let mut truncated = false;
         let mut seen: Vec<(Nat, usize)> = Vec::new();
         let mut rem = r;
         let mut period_start: i64 = -1;
         let mut period_len: i64 = 0;
-        while !rem.is_zero() {
+        let mut leading_zeros = 0usize;
+        let mut position = 0usize;
+        let mut freed = false;
+        let mut skipping_zeros = q.is_zero();
+        loop {
+            if rem.is_zero() {
+                break;
+            }
+            // The reference's `while` condition: a terminating expansion has already been
+            // answered exactly, so only a non-terminating one is bounded -- by decimal POSITION
+            // until the leading zero run alone fills the budget, then by STORED digits.
+            if !terminating {
+                if freed {
+                    if digits.len() >= max_digits {
+                        break;
+                    }
+                } else if position >= max_digits {
+                    break;
+                }
+            }
             if let Some((_, idx)) = seen.iter().find(|(v, _)| *v == rem) {
                 period_start = *idx as i64;
-                period_len = (digits.len() - *idx) as i64;
+                period_len = (position - *idx) as i64;
                 break;
             }
-            seen.push((rem.clone(), digits.len()));
+            seen.push((rem.clone(), position));
             let scaled = rem.mul(&Nat::from_u64(10));
             let (d, nr) = scaled.div_rem(den)?;
-            digits.push(d.to_u64().unwrap_or(0) as u8);
             rem = nr;
-            // A terminating expansion never consumes the budget. A non-terminating one stores
-            // exactly `max_digits` digits (no extra guard digit) and records the truncation.
-            if !terminating && digits.len() >= max_digits {
-                if rem.is_zero() {
-                    break;
+            position += 1;
+            let digit = d.to_u64().unwrap_or(0) as u8;
+            if skipping_zeros && digit == 0 {
+                leading_zeros += 1;
+                if !freed && position >= max_digits {
+                    freed = true;
                 }
-                // The repeating block is observable from the remainder only on the NEXT
-                // iteration. At the budget boundary, decide it here instead of storing a
-                // guard digit just to discover it: the value is exact, the budget is kept.
-                if let Some((_, idx)) = seen.iter().find(|(v, _)| *v == rem) {
-                    period_start = *idx as i64;
-                    period_len = (digits.len() - *idx) as i64;
-                    break;
-                }
-                truncated = true;
-                break;
+                continue;
             }
+            skipping_zeros = false;
+            digits.push(digit);
         }
+        let truncated = period_len == 0 && !rem.is_zero();
         let mut text = String::new();
         for d in &digits {
             text.push((b'0' + *d) as char);
@@ -518,16 +542,25 @@ impl Real {
             text.push('0');
         }
         let mag = Nat::from_decimal(&text)?;
-        // The fractional digits scale the integer part: q * 10^len + digits.
+        // `int * 10^exp` is q `leading_zeros` places along plus the stored digits after them:
+        // q*10^len + digits, at scale 10^-(leading_zeros + len).
         let scale = Nat::from_u64(10).pow(digits.len() as u64);
         int = int_from_nat(&q).mul(&int_from_nat(&scale)).add(&int_from_nat(&mag));
-        Some(Real {
+        let mut value = Real {
             int,
-            exp: -(digits.len() as i64),
+            exp: -((leading_zeros + digits.len()) as i64),
             period_start,
             period_len,
             inexact: truncated,
-        })
+        };
+        // A non-periodic result publishes the reference's normalised form: `Divide` runs
+        // `Normalize` on it, dropping trailing fractional zeros. At a 20-place budget 2*pi/3 is
+        // therefore `2.0943951023931954923`, not `...9230`; a periodic value keeps its stored
+        // block untouched (the reference does not normalize it either).
+        if value.period_len == 0 {
+            value = value.normalized();
+        }
+        Some(value)
     }
 
     /// Addition.
@@ -721,19 +754,18 @@ impl Real {
     }
 }
 
-/// True when `num/den` has a finite decimal expansion: after reducing the fraction, the
-/// denominator has no prime factor other than 2 and 5 (so the digit loop is guaranteed to reach a
-/// zero remainder). Such a quotient is exact at ANY digit budget.
-fn terminates(num: &Nat, den: &Nat) -> bool {
-    // Euclidean gcd of the numerator and denominator.
-    let mut a = num.clone();
-    let mut b = den.clone();
-    while !b.is_zero() {
-        let remainder = a.div_rem(&b).map(|(_, r)| r).unwrap_or_else(Nat::zero);
-        a = b;
-        b = remainder;
-    }
-    let mut d = den.div_rem(&a).map(|(q, _)| q).unwrap_or_else(|| den.clone());
+/// True when `num/den` has a finite decimal expansion **by the reference's rule**: the
+/// DENOMINATOR's only prime factors are 2 and 5. Such a quotient is exact at ANY digit budget.
+///
+/// The reference (`TryTerminateExactly`) does NOT cancel the numerator against the denominator
+/// first. That matters when the two share a factor: `pi(100)/6`, whose stored numerator happens to
+/// be divisible by 3, is mathematically the 101-digit decimal `...4465`, but the reference's
+/// denominator is still 2*3*10^100, so it takes the digit loop, spends the 100-place budget, and
+/// stores the 100-digit truncation `...446` (inexact, no period). Reducing first would publish the
+/// extra digit as exact and break the reference's row. The digit loop still answers exactly when
+/// the remainder reaches zero inside the budget; only the "finish beyond the budget" case differs.
+fn terminates(_num: &Nat, den: &Nat) -> bool {
+    let mut d = den.clone();
     for prime in [2u64, 5u64] {
         loop {
             match d.div_rem(&Nat::from_u64(prime)) {
