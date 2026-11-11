@@ -31184,49 +31184,58 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Value_ToString_GivenNatural_PrefixesKindLabel#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::value_to_string_given_natural_prefixes_kind_label",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Value_ToString_GivenNatural_PrefixesKindLabel (ValueTests.cs:46) asserts new Value(Nat.Parse(\"42\")).ToString() starts with \"Natural:\", contains \"42\", and equals \"Natural: 42\"; rust/lovelace-lang/src/value_widen.rs:276 value_to_string_given_natural_prefixes_kind_label asserts the same three facts. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Widen_GivenIntegerToReal_ReturnsRealValue#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_given_integer_to_real_returns_real_value",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Widen_GivenIntegerToReal_ReturnsRealValue (ValueTests.cs:80) widens Integer -3 to ValueKind.Real and asserts Kind Real and AsReal() == Rl.Parse(\"-3\"); rust/lovelace-lang/src/value_widen.rs:314 widen_given_integer_to_real_returns_real_value asserts the kind and payload Real(\"-3\"). See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Widen_GivenNaturalToInteger_ReturnsIntegerValue#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_given_natural_to_integer_returns_integer_value",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Widen_GivenNaturalToInteger_ReturnsIntegerValue (ValueTests.cs:60) widens Natural 5 to ValueKind.Integer and asserts Kind Integer and AsInteger() == Int.Parse(\"5\"); rust/lovelace-lang/src/value_widen.rs:286 widen_given_natural_to_integer_returns_integer_value asserts the kind and payload 5. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Widen_GivenNaturalToReal_ReturnsRealValue#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_given_natural_to_real_returns_real_value",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Widen_GivenNaturalToReal_ReturnsRealValue (ValueTests.cs:70) widens Natural 5 to ValueKind.Real and asserts Kind Real and AsReal() == Rl.Parse(\"5\"); rust/lovelace-lang/src/value_widen.rs:303 widen_given_natural_to_real_returns_real_value asserts the kind and payload Real(\"5\"). See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Widen_GivenSameKind_ReturnsSameValue#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_given_same_kind_returns_same_value",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Widen_GivenSameKind_ReturnsSameValue (ValueTests.cs:90) widens Natural 7 to ValueKind.Natural and asserts Assert.Same(v, widened); rust enum values have no reference identity, so rust/lovelace-lang/src/value_widen.rs:325 widen_given_same_kind_returns_same_value pins the same kind, an equal value and payload 7 instead. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Widen_GivenWiderToNarrower_ThrowsInvalidOperationException#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_given_wider_to_narrower_throws_invalid_operation_exception",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.Widen_GivenWiderToNarrower_ThrowsInvalidOperationException (ValueTests.cs:99) widens Integer 3 to ValueKind.Natural and expects InvalidOperationException; rust/lovelace-lang/src/value_widen.rs:337 widen_given_wider_to_narrower_throws_invalid_operation_exception asserts Err with message \"Cannot narrow from Integer to Natural.\" and code InvalidOperation. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/WidenPair_GivenNaturalAndInteger_ReturnsBothAsInteger#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_pair_given_natural_and_integer_returns_both_as_integer",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.WidenPair_GivenNaturalAndInteger_ReturnsBothAsInteger (ValueTests.cs:111) widens Natural 5 and Integer 3 together and asserts both Kind Integer; rust/lovelace-lang/src/value_widen.rs:348 widen_pair_given_natural_and_integer_returns_both_as_integer asserts both kinds and pins payloads 5 and 3. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/WidenPair_GivenNaturalAndReal_ReturnsBothAsReal#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_pair_given_natural_and_real_returns_both_as_real",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.WidenPair_GivenNaturalAndReal_ReturnsBothAsReal (ValueTests.cs:123) widens Natural 5 and Real 3.14 together and asserts both Kind Real; rust/lovelace-lang/src/value_widen.rs:366 widen_pair_given_natural_and_real_returns_both_as_real asserts both kinds and pins payloads 5 and 3.14. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/WidenPair_GivenSameKind_ReturnsUnchanged#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Value widen/widen-pair API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::value_widen::tests::widen_pair_given_same_kind_returns_unchanged",
+    "reason": "Round 54 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 54: C# ValueTests.WidenPair_GivenSameKind_ReturnsUnchanged (ValueTests.cs:135) widens Natural 5 and Natural 3 together and asserts both Kind Natural; rust/lovelace-lang/src/value_widen.rs:378 widen_pair_given_same_kind_returns_unchanged asserts both kinds and pins payloads 5 and 3. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AbsSymbolicRoundTripTests/Abs_Of_Symbol_Matches_The_Rewriters_Own_Abs_Node#0": {
     "disposition": "deferred",

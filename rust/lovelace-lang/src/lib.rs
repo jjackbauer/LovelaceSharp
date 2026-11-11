@@ -20,6 +20,7 @@ pub mod numeric;
 pub mod registry;
 pub mod structured;
 pub mod syntax;
+pub mod value_widen;
 
 /// The cooperative cancellation token every long-running kernel polls. Re-exported so a host can
 /// arm a deadline at the same seam the engine does (see `Engine::set_cancel_after`).

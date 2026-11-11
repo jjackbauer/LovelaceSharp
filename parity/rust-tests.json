@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T23:37:44Z",
+    "generatedAtUtc":  "2026-11-11T23:55:24Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4971,
+                  "passed":  4980,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4971
+                   "tests":  4980
                },
-    "sourcesSha256":  "b222e723227e6fdf0fd2238b7cbb243627ebb4b731b3a8921a2a8583f2a2df67",
+    "sourcesSha256":  "085d1b0b0f60f964b6cc09ae5f89316169dbd33a247cc9b57167ec9b683086f2",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -4575,7 +4575,16 @@
                                      "transcendental_round25::evalf_exact_specials_stay_exact_integers",
                                      "transcendental_round25::evalf_functions_match_the_oracle_digit_for_digit",
                                      "transcendental_round25::evalf_reports_the_reference_domain_refusals",
-                                     "transcendental_round25::evalf_transcendental_values_are_inexact_on_the_wire"
+                                     "transcendental_round25::evalf_transcendental_values_are_inexact_on_the_wire",
+                                     "value_widen::tests::value_to_string_given_natural_prefixes_kind_label",
+                                     "value_widen::tests::widen_given_integer_to_real_returns_real_value",
+                                     "value_widen::tests::widen_given_natural_to_integer_returns_integer_value",
+                                     "value_widen::tests::widen_given_natural_to_real_returns_real_value",
+                                     "value_widen::tests::widen_given_same_kind_returns_same_value",
+                                     "value_widen::tests::widen_given_wider_to_narrower_throws_invalid_operation_exception",
+                                     "value_widen::tests::widen_pair_given_natural_and_integer_returns_both_as_integer",
+                                     "value_widen::tests::widen_pair_given_natural_and_real_returns_both_as_real",
+                                     "value_widen::tests::widen_pair_given_same_kind_returns_unchanged"
                                  ]
                    },
                    {
