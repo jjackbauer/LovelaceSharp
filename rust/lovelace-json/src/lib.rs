@@ -49,6 +49,14 @@ impl Json {
         Json::Arr(items.into_iter().map(|s| Json::Str(s.into())).collect())
     }
 
+    /// Builds an array of numbers from integers.
+    pub fn num_array<I>(items: I) -> Json
+    where
+        I: IntoIterator<Item = i64>,
+    {
+        Json::Arr(items.into_iter().map(|n| Json::Num(n.to_string())).collect())
+    }
+
     /// Returns the value for a key when this is an object.
     pub fn get(&self, key: &str) -> Option<&Json> {
         match self {

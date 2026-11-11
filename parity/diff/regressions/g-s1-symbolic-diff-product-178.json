@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-diff-product-178",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); diff(x*cos(x), x)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.canonical",
+      "kind": "value",
+      "expected": "\"(add (fn cos (sym x)) (mul (rat -1 1) (sym x) (fn sin (sym x))))\"",
+      "actual": "\"(add (fn cos (sym x)) (mul (rat -1 1) (mul (sym x) (fn sin (sym x)))))\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.548Z"
+}

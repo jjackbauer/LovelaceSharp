@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-evaluate-406",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); evalf(sin(1), 20)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.exitCode",
+      "kind": "value",
+      "expected": 0,
+      "actual": 1
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.167Z"
+}

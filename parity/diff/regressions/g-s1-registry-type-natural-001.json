@@ -1,0 +1,17 @@
+{
+  "id": "g-s1-registry-type-natural-001",
+  "category": "registry",
+  "script": "type(42)",
+  "args": [],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.elapsedTime",
+      "kind": "missing-key",
+      "expected": "\"<volatile>\"",
+      "actual": null
+    }
+  },
+  "addedAtUtc": "2026-11-10T14:43:58.384Z"
+}

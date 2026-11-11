@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-integrate-465",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); integrate(sin(x), x)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.display",
+      "kind": "value",
+      "expected": "\"-cos(x)\"",
+      "actual": "\"integrate(sin(x), x)\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.238Z"
+}

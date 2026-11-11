@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arithmetic-nested-precedence-288",
+  "category": "arithmetic",
+  "script": "((4 + 17) * 5 - 35) / 5",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.kind",
+      "kind": "value",
+      "expected": "\"Natural\"",
+      "actual": "\"Real\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.020Z"
+}

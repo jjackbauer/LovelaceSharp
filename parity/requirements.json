@@ -1,0 +1,3153 @@
+{
+ "schemaVersion": 1,
+ "contract": "docs/parity/contract-v2.md",
+ "generatedBy": "parity/gen-requirements.mjs",
+ "totals": {
+  "requirements": 262,
+  "byFamily": {
+   "REQ": 10,
+   "RUN": 14,
+   "WIRE": 15,
+   "ECO": 8,
+   "NUM": 10,
+   "REAL": 10,
+   "CPLX": 6,
+   "ARRAY": 10,
+   "LANG": 7,
+   "ENG": 12,
+   "PLUG": 8,
+   "SYM": 14,
+   "MIR": 8,
+   "DSP": 10,
+   "STAT": 4,
+   "CLI": 7,
+   "KNOW": 10,
+   "DESK": 28,
+   "TEST": 13,
+   "DIFF": 10,
+   "PROOF": 4,
+   "GATE": 12,
+   "PERF": 10,
+   "RUST": 10,
+   "HARNESS": 12
+  },
+  "byStatus": {
+   "met": 0,
+   "partial": 0,
+   "unmet": 262,
+   "excluded": 0
+  }
+ },
+ "duplicateMentions": [],
+ "obligations": [
+  {
+   "id": "OBL-001",
+   "text": "214/214 documentation corpus",
+   "phase": 4,
+   "owner": "phase-4",
+   "status": "unmet",
+   "evidence": [],
+   "note": "Corpus is 212/214: sym/071 and sym/076 remain, unapproved (REQ-006)."
+  },
+  {
+   "id": "OBL-002",
+   "text": "100,000-case nightly differential run",
+   "phase": 2,
+   "owner": "phase-2",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "OBL-003",
+   "text": "the twelve property families of §12.4",
+   "phase": 3,
+   "owner": "phase-3",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "OBL-004",
+   "text": "Lovelace.Run.Tests integration tests reproduced or matched",
+   "phase": 1,
+   "owner": "dsh-cycle-8",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "OBL-005",
+   "text": "docs/symbolics/dsh-protocol.md normative alongside the fixtures",
+   "phase": 1,
+   "owner": "dsh-cycle-8",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "OBL-006",
+   "text": "desktop platform decision: Windows-only vs Windows/Linux/macOS",
+   "phase": 6,
+   "owner": "user",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "OBL-007",
+   "text": "zero-dependency strategy as an explicit engineering decision",
+   "phase": 7,
+   "owner": "phase-7",
+   "status": "unmet",
+   "evidence": [],
+   "note": ""
+  }
+ ],
+ "rows": [
+  {
+   "id": "ARRAY-001",
+   "family": "ARRAY",
+   "title": "Preserve scalar, vector, matrix, and higher-rank array distinctions.",
+   "sourceLine": 203,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-002",
+   "family": "ARRAY",
+   "title": "Preserve shape, rank, strides, and element ordering.",
+   "sourceLine": 204,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-003",
+   "family": "ARRAY",
+   "title": "Match indexing, negative/invalid indices, partial indexing, and slicing.",
+   "sourceLine": 205,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-004",
+   "family": "ARRAY",
+   "title": "Implement reshape, transpose, squeeze, expand, flatten, concat, and append.",
+   "sourceLine": 206,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-005",
+   "family": "ARRAY",
+   "title": "Match broadcasting rules and their error messages.",
+   "sourceLine": 207,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-006",
+   "family": "ARRAY",
+   "title": "Match reductions, including axis behavior.",
+   "sourceLine": 208,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-007",
+   "family": "ARRAY",
+   "title": "Preserve typed-field arithmetic without silently falling back to machine floating point.",
+   "sourceLine": 209,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-008",
+   "family": "ARRAY",
+   "title": "Match dot products, matrix multiplication, determinants, inverses, trace, rank, and linear-system solving.",
+   "sourceLine": 210,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-009",
+   "family": "ARRAY",
+   "title": "Test zero-dimensional, empty, singular, non-square, and incompatible-shape cases.",
+   "sourceLine": 211,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ARRAY-010",
+   "family": "ARRAY",
+   "title": "Verify matrix identities on generated exact inputs.",
+   "sourceLine": 212,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-001",
+   "family": "CLI",
+   "title": "Implement the interactive Lovelace REPL.",
+   "sourceLine": 318,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-002",
+   "family": "CLI",
+   "title": "Preserve multiline statement accumulation.",
+   "sourceLine": 319,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-003",
+   "family": "CLI",
+   "title": "Support editing, history, and keyboard navigation.",
+   "sourceLine": 320,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-004",
+   "family": "CLI",
+   "title": "Preserve interactive commands and help.",
+   "sourceLine": 321,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-005",
+   "family": "CLI",
+   "title": "Maintain engine state between commands.",
+   "sourceLine": 322,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-006",
+   "family": "CLI",
+   "title": "Match precision handling and _ result behavior.",
+   "sourceLine": 323,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CLI-007",
+   "family": "CLI",
+   "title": "Match errors, cancellation, and output formatting.",
+   "sourceLine": 324,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CPLX-001",
+   "family": "CPLX",
+   "title": "Match arithmetic and rendering across real and imaginary components.",
+   "sourceLine": 191,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-025"
+   ],
+   "note": "DFT arms and rendering now match the oracle at 25+ digits, including zero-imaginary Complex elements; broader complex arithmetic is not yet differentially clean."
+  },
+  {
+   "id": "CPLX-002",
+   "family": "CPLX",
+   "title": "Preserve arbitrary precision.",
+   "sourceLine": 192,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-025"
+   ],
+   "note": "Arbitrary precision is preserved through the decimal complex transform; the fixed-width optimized representations (CPLX-003) are absent."
+  },
+  {
+   "id": "CPLX-003",
+   "family": "CPLX",
+   "title": "Support the C# fixed-width optimized representations where their observable performance contract matters.",
+   "sourceLine": 193,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CPLX-004",
+   "family": "CPLX",
+   "title": "Promote to arbitrary precision without silently saturating or losing exactness.",
+   "sourceLine": 194,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CPLX-005",
+   "family": "CPLX",
+   "title": "Verify optimized results against arbitrary-precision results.",
+   "sourceLine": 195,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "CPLX-006",
+   "family": "CPLX",
+   "title": "Preserve real-to-complex coercion and domain behavior.",
+   "sourceLine": 196,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-001",
+   "family": "DESK",
+   "title": "Deliver an actual native desktop shell on the agreed supported platforms.",
+   "sourceLine": 346,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-002",
+   "family": "DESK",
+   "title": "Preserve editor, workspace, graph, and logs panes.",
+   "sourceLine": 347,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-003",
+   "family": "DESK",
+   "title": "Preserve the symbolic inspector.",
+   "sourceLine": 348,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-004",
+   "family": "DESK",
+   "title": "Support multiple independent documents and engines.",
+   "sourceLine": 349,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-005",
+   "family": "DESK",
+   "title": "Preserve per-document precision and execution state.",
+   "sourceLine": 350,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-006",
+   "family": "DESK",
+   "title": "Execute scripts asynchronously without blocking input or rendering.",
+   "sourceLine": 351,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-007",
+   "family": "DESK",
+   "title": "Support cancellation with consistent committed-state behavior.",
+   "sourceLine": 352,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-008",
+   "family": "DESK",
+   "title": "Preserve incremental execution and visible statement status.",
+   "sourceLine": 353,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-009",
+   "family": "DESK",
+   "title": "Restore window layout, documents, recent files, and settings.",
+   "sourceLine": 354,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-010",
+   "family": "DESK",
+   "title": "Implement crash recovery for unsaved buffers.",
+   "sourceLine": 355,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-011",
+   "family": "DESK",
+   "title": "Syntax highlighting.",
+   "sourceLine": 359,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-012",
+   "family": "DESK",
+   "title": "Context-aware autocomplete using the live builtin registry.",
+   "sourceLine": 360,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-013",
+   "family": "DESK",
+   "title": "Bracket matching and automatic indentation.",
+   "sourceLine": 361,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-014",
+   "family": "DESK",
+   "title": "Find/replace, go-to-line, and editing shortcuts.",
+   "sourceLine": 362,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-015",
+   "family": "DESK",
+   "title": "Inline diagnostics with accurate source positions.",
+   "sourceLine": 363,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-016",
+   "family": "DESK",
+   "title": "Correct IME, clipboard, and Unicode handling.",
+   "sourceLine": 364,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-017",
+   "family": "DESK",
+   "title": "Per-tab undo/redo and selection preservation.",
+   "sourceLine": 365,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-018",
+   "family": "DESK",
+   "title": "Efficient editing of large scripts.",
+   "sourceLine": 366,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-019",
+   "family": "DESK",
+   "title": "Browse variables with their kinds and structured projections.",
+   "sourceLine": 370,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-020",
+   "family": "DESK",
+   "title": "Browse functions and help metadata.",
+   "sourceLine": 371,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-021",
+   "family": "DESK",
+   "title": "Inspect symbolic expression trees, assumptions, traces, and compiled MathIR.",
+   "sourceLine": 372,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-022",
+   "family": "DESK",
+   "title": "Render SVG plots accurately.",
+   "sourceLine": 373,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-023",
+   "family": "DESK",
+   "title": "Support plot zoom, pan, fit, and export.",
+   "sourceLine": 374,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-024",
+   "family": "DESK",
+   "title": "Provide native open/save dialogs and drag-and-drop.",
+   "sourceLine": 375,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-025",
+   "family": "DESK",
+   "title": "Detect external file modifications.",
+   "sourceLine": 376,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-026",
+   "family": "DESK",
+   "title": "Support native keyboard accessibility and screen readers.",
+   "sourceLine": 377,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-027",
+   "family": "DESK",
+   "title": "Support system font scaling and high-DPI displays.",
+   "sourceLine": 378,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DESK-028",
+   "family": "DESK",
+   "title": "Demonstrate the absence of a localhost HTTP listener and embedded web runtime.",
+   "sourceLine": 379,
+   "status": "unmet",
+   "owner": "phase-6",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DIFF-001",
+   "family": "DIFF",
+   "title": "Share the same generated input across both implementations.",
+   "sourceLine": 417,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "One generated script per case is submitted to both runners with identical argv and stdin."
+  },
+  {
+   "id": "DIFF-002",
+   "family": "DIFF",
+   "title": "Generate valid and invalid syntax, numerical boundaries, arrays, symbolic expressions, and errors.",
+   "sourceLine": 418,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "The generator covers arithmetic, precision, arrays, symbolic, records, errors, syntax and registry cases (observed category table)."
+  },
+  {
+   "id": "DIFF-003",
+   "family": "DIFF",
+   "title": "Vary precision, budgets, plugin sets, and execution modes.",
+   "sourceLine": 419,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "Cases carry args (precision/budgets) and the runner flags are validated against the oracle."
+  },
+  {
+   "id": "DIFF-004",
+   "family": "DIFF",
+   "title": "Compare exact results, kinds, metadata, diagnostics, and envelopes.",
+   "sourceLine": 420,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-016"
+   ],
+   "note": "The comparator is structural over the whole envelope; the selftest proves it detects a flipped value, a dropped key, a changed scalar and a reordered array."
+  },
+  {
+   "id": "DIFF-005",
+   "family": "DIFF",
+   "title": "Ignore only explicitly documented volatile fields.",
+   "sourceLine": 421,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-016"
+   ],
+   "note": "Exactly four volatile keys are normalised (revision, elapsed, elapsedTime, timings); a selftest corruption of any other field is reported."
+  },
+  {
+   "id": "DIFF-006",
+   "family": "DIFF",
+   "title": "Minimize failing inputs automatically.",
+   "sourceLine": 422,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "A delta-debugging minimiser reduces a failing script while the same first difference persists; observed minimised examples in the run report."
+  },
+  {
+   "id": "DIFF-007",
+   "family": "DIFF",
+   "title": "Save reproducible seeds and minimized examples.",
+   "sourceLine": 423,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "Runs are seeded and stored with a manifest; regression files record the script and observed difference."
+  },
+  {
+   "id": "DIFF-008",
+   "family": "DIFF",
+   "title": "Promote every verified mismatch into permanent regression coverage.",
+   "sourceLine": 424,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-020"
+   ],
+   "note": "33 mismatches were promoted to parity/diff/regressions and are replayed at the start of every run."
+  },
+  {
+   "id": "DIFF-009",
+   "family": "DIFF",
+   "title": "Run at least 5,000 comparisons per PR and 100,000 nightly.",
+   "sourceLine": 425,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DIFF-010",
+   "family": "DIFF",
+   "title": "Fail when either oracle cannot execute.",
+   "sourceLine": 426,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-019",
+    "EVD-015"
+   ],
+   "note": "A missing Rust binary and an empty corpus both exit 2; the oracle missing is checked by the same precondition."
+  },
+  {
+   "id": "DSP-001",
+   "family": "DSP",
+   "title": "Preserve all 16 C# DSP builtins and their signatures.",
+   "sourceLine": 293,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-002",
+   "family": "DSP",
+   "title": "Match convolution, DFT, FFT, filtering, and moving average.",
+   "sourceLine": 294,
+   "status": "partial",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [
+    "EVD-025"
+   ],
+   "note": "DFT matches the oracle on the golden case; convolution/FFT/filter/moving-average differential coverage is not established."
+  },
+  {
+   "id": "DSP-003",
+   "family": "DSP",
+   "title": "Match signal constructors, including impulse, step, cosine, exponential, power series, and noise.",
+   "sourceLine": 295,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-004",
+   "family": "DSP",
+   "title": "Match delay, scale, and complex component operations.",
+   "sourceLine": 296,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-005",
+   "family": "DSP",
+   "title": "Preserve argument coercion and argument-position error reporting.",
+   "sourceLine": 297,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-006",
+   "family": "DSP",
+   "title": "Match precision-dependent optimized paths and arbitrary-precision fallbacks.",
+   "sourceLine": 298,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-007",
+   "family": "DSP",
+   "title": "Preserve deterministic seeded noise generation.",
+   "sourceLine": 299,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-008",
+   "family": "DSP",
+   "title": "Preserve cancellation during long operations.",
+   "sourceLine": 300,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-009",
+   "family": "DSP",
+   "title": "Run the original DSP test suite and differential signal-processing benchmarks.",
+   "sourceLine": 301,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "DSP-010",
+   "family": "DSP",
+   "title": "Resolve the documented ambiguity in noise overloads explicitly, without silently changing the frozen C# behavior.",
+   "sourceLine": 302,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ECO-001",
+   "family": "ECO",
+   "title": "Every row must resolve to one or more Rust modules, with tests linked to the corresponding C# capabilities.",
+   "sourceLine": 146,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-010"
+   ],
+   "note": "Every project has a disposition and a Rust path or a reason; test-level linkage is 0%."
+  },
+  {
+   "id": "ECO-002",
+   "family": "ECO",
+   "title": "A complete parity run must prove that all required subsystems are present, even if their APIs have been reorganized.",
+   "sourceLine": 147,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-010"
+   ],
+   "note": "Six projects are explicitly absent and eight partial; presence of all required subsystems is therefore disproved, not proven."
+  },
+  {
+   "id": "ECO-003",
+   "family": "ECO",
+   "title": "Inventory all externally visible C# types and methods, not just language builtins.",
+   "sourceLine": 151,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ECO-004",
+   "family": "ECO",
+   "title": "Identify external consumers: command-line scripts, applications, plugins, automation, and agent harnesses.",
+   "sourceLine": 152,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ECO-005",
+   "family": "ECO",
+   "title": "Preserve the semantics of public operations, including defaults, error conditions, and value conversions.",
+   "sourceLine": 153,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ECO-006",
+   "family": "ECO",
+   "title": "Provide equivalent Rust extension points for the C# abstractions that are intended to survive migration.",
+   "sourceLine": 154,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ECO-007",
+   "family": "ECO",
+   "title": "Explicitly decide whether any .NET consumers require continued compatibility through a C ABI, FFI bridge, or C# wrapper.",
+   "sourceLine": 155,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": "No decision recorded on .NET consumer compatibility (C ABI, FFI bridge or wrapper)."
+  },
+  {
+   "id": "ECO-008",
+   "family": "ECO",
+   "title": "Inventory persisted formats and ensure existing files remain readable or have a verified migration path.",
+   "sourceLine": 156,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": "No inventory of persisted formats (Studio sessions/settings, knowledge graphs, plots) and no migration path."
+  },
+  {
+   "id": "ENG-001",
+   "family": "ENG",
+   "title": "Preserve every published value kind and its widening rules.",
+   "sourceLine": 231,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "Value kinds and widening match across the fixtures; Text comparison still diverges (OBS-013)."
+  },
+  {
+   "id": "ENG-002",
+   "family": "ENG",
+   "title": "Match variables, assignments, scopes, closures, recursion, and function calls.",
+   "sourceLine": 232,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ENG-003",
+   "family": "ENG",
+   "title": "Preserve the _ last-result variable.",
+   "sourceLine": 233,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ENG-004",
+   "family": "ENG",
+   "title": "Match loops, control flow, and statement evaluation order.",
+   "sourceLine": 234,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ENG-005",
+   "family": "ENG",
+   "title": "Preserve per-engine precision and plugin state isolation.",
+   "sourceLine": 235,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-025"
+   ],
+   "note": "Engine precision now follows the plugin budget (30) as the reference does; per-engine isolation across concurrent engines is untested."
+  },
+  {
+   "id": "ENG-006",
+   "family": "ENG",
+   "title": "Implement consistent revision and state-publication semantics.",
+   "sourceLine": 236,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-027"
+   ],
+   "note": "A failed or cancelled run publishes a different committed variable set than the oracle (OQ-013)."
+  },
+  {
+   "id": "ENG-007",
+   "family": "ENG",
+   "title": "Preserve partial execution, failure, and cancellation behavior.",
+   "sourceLine": 237,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ENG-008",
+   "family": "ENG",
+   "title": "Match recursion, allocation, rendering, and evaluation budgets.",
+   "sourceLine": 238,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-034"
+   ],
+   "note": "The documented deepest accepted recursion f(85) overflows the Rust runner stack (exit -1073741571); all 39 Recursion cases stay deferred."
+  },
+  {
+   "id": "ENG-009",
+   "family": "ENG",
+   "title": "Publish per-statement execution status and timing information.",
+   "sourceLine": 239,
+   "status": "met",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "Per-statement status and timing entries are published with the same shape."
+  },
+  {
+   "id": "ENG-010",
+   "family": "ENG",
+   "title": "Produce deterministic output across repeated runs and different thread counts.",
+   "sourceLine": 240,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "ENG-011",
+   "family": "ENG",
+   "title": "Preserve the complete builtin help and capability catalogue.",
+   "sourceLine": 241,
+   "status": "met",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "The capabilities fixture passes: the full builtin help/capability catalogue matches."
+  },
+  {
+   "id": "ENG-012",
+   "family": "ENG",
+   "title": "Test all language behaviors through public engine entry points, not only internal helpers.",
+   "sourceLine": 242,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-001",
+   "family": "GATE",
+   "title": "Change a decimal period boundary.",
+   "sourceLine": 449,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-002",
+   "family": "GATE",
+   "title": "Change a numeric widening rule.",
+   "sourceLine": 450,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-003",
+   "family": "GATE",
+   "title": "Break a Unicode source position.",
+   "sourceLine": 451,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-004",
+   "family": "GATE",
+   "title": "Remove an envelope field.",
+   "sourceLine": 452,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-005",
+   "family": "GATE",
+   "title": "Alter a diagnostic code.",
+   "sourceLine": 453,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-006",
+   "family": "GATE",
+   "title": "Change symbolic canonical ordering.",
+   "sourceLine": 454,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-007",
+   "family": "GATE",
+   "title": "Break final-digit rounding.",
+   "sourceLine": 455,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-008",
+   "family": "GATE",
+   "title": "Duplicate captured print() output.",
+   "sourceLine": 456,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-009",
+   "family": "GATE",
+   "title": "Remove builtin registry metadata.",
+   "sourceLine": 457,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-010",
+   "family": "GATE",
+   "title": "Disable a precision cap.",
+   "sourceLine": 458,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-011",
+   "family": "GATE",
+   "title": "Delete a supposedly ported test.",
+   "sourceLine": 459,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "GATE-012",
+   "family": "GATE",
+   "title": "Run the gate with an empty or incomplete corpus.",
+   "sourceLine": 460,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-015"
+   ],
+   "note": "The empty-corpus case exits 2; the mutation harness that proves it is not yet run."
+  },
+  {
+   "id": "HARNESS-001",
+   "family": "HARNESS",
+   "title": "Immutable top-level objective: the migration's definition of done cannot be narrowed by an implementation agent.",
+   "sourceLine": 498,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-009"
+   ],
+   "note": "The contract document plus the 262-row ledger make a dropped requirement a gate failure."
+  },
+  {
+   "id": "HARNESS-002",
+   "family": "HARNESS",
+   "title": "Coverage-driven planning: select work from unsatisfied parity requirements.",
+   "sourceLine": 499,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "HARNESS-003",
+   "family": "HARNESS",
+   "title": "Independent falsification: every significant implementation claim is checked independently.",
+   "sourceLine": 500,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-006",
+    "EVD-007"
+   ],
+   "note": "The intent audit is independent, and every agent claim was re-run; not every claim was re-derived."
+  },
+  {
+   "id": "HARNESS-004",
+   "family": "HARNESS",
+   "title": "Evidence provenance: claims must include commits, commands, exit codes, and test artifacts.",
+   "sourceLine": 501,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-009"
+   ],
+   "note": "Every journal claim carries a file:line or a command plus its observed output."
+  },
+  {
+   "id": "HARNESS-005",
+   "family": "HARNESS",
+   "title": "Distinguish progress from completion.",
+   "sourceLine": 502,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-008"
+   ],
+   "note": "The scorecard reports coverage and gate state separately from progress claims."
+  },
+  {
+   "id": "HARNESS-006",
+   "family": "HARNESS",
+   "title": "Persistent failures: unresolved differences remain in the ledger across rounds and context compaction.",
+   "sourceLine": 503,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-009"
+   ],
+   "note": "Unresolved differences and unverified paths live as OQ/RISK rows in the journal and as unmet/partial ledger rows."
+  },
+  {
+   "id": "HARNESS-007",
+   "family": "HARNESS",
+   "title": "No fabricated green: missing tools, skipped checks, and unavailable platforms are reported as unverified or failed.",
+   "sourceLine": 504,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-006",
+    "EVD-007"
+   ],
+   "note": "Unavailable checks (C# testhost, doctests temp) are recorded as capabilities, not passes."
+  },
+  {
+   "id": "HARNESS-008",
+   "family": "HARNESS",
+   "title": "Controlled scope changes: changes to a public contract or exclusion policy require user approval.",
+   "sourceLine": 505,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "HARNESS-009",
+   "family": "HARNESS",
+   "title": "Reproducible benchmarking.",
+   "sourceLine": 506,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "HARNESS-010",
+   "family": "HARNESS",
+   "title": "Final release auditor: a dedicated final gate evaluates the entire migration from the frozen source of truth.",
+   "sourceLine": 507,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "HARNESS-011",
+   "family": "HARNESS",
+   "title": "Work preservation: each completed phase produces a reviewable commit or PR, test evidence, and an updated manifest.",
+   "sourceLine": 508,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-009"
+   ],
+   "note": "Work products are on disk and reviewable; no commit has been made yet."
+  },
+  {
+   "id": "HARNESS-012",
+   "family": "HARNESS",
+   "title": "No circular verification: a generated implementation and its generated tests cannot be the only two sources supporting a parity claim.",
+   "sourceLine": 509,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-001",
+   "family": "KNOW",
+   "title": "Port the observation-driven sampling pipeline.",
+   "sourceLine": 328,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-002",
+   "family": "KNOW",
+   "title": "Preserve deterministic seeded generation.",
+   "sourceLine": 329,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-003",
+   "family": "KNOW",
+   "title": "Implement observation canonicalization and behavioral-plane classification.",
+   "sourceLine": 330,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-004",
+   "family": "KNOW",
+   "title": "Implement reduction, convergence, boundaries, and frontiers.",
+   "sourceLine": 331,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-005",
+   "family": "KNOW",
+   "title": "Preserve graph persistence formats.",
+   "sourceLine": 332,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-006",
+   "family": "KNOW",
+   "title": "Implement the config, sample, reduce, converge, query, and help commands.",
+   "sourceLine": 333,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-007",
+   "family": "KNOW",
+   "title": "Match the JSON-over-stdio command protocol and exit codes.",
+   "sourceLine": 334,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-008",
+   "family": "KNOW",
+   "title": "Reproduce the seeded C# graph with seed 20240617.",
+   "sourceLine": 335,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-009",
+   "family": "KNOW",
+   "title": "Verify the Rust knowledge tool against the real Rust runner rather than a mock.",
+   "sourceLine": 336,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "KNOW-010",
+   "family": "KNOW",
+   "title": "Compare graph outputs and convergence metrics against the frozen C# implementation.",
+   "sourceLine": 337,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-001",
+   "family": "LANG",
+   "title": "Match the complete token set, including Unicode edge cases.",
+   "sourceLine": 221,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-002",
+   "family": "LANG",
+   "title": "Match operator precedence and associativity.",
+   "sourceLine": 222,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-035"
+   ],
+   "note": "Unary minus binds tighter than ^ in Rust: -2^2 is 4 where the oracle gives -4. OQ-016."
+  },
+  {
+   "id": "LANG-003",
+   "family": "LANG",
+   "title": "Match literal syntax, string interpolation, ranges, indexing, and slicing.",
+   "sourceLine": 223,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-004",
+   "family": "LANG",
+   "title": "Match whitespace, newline, comment, and escape handling.",
+   "sourceLine": 224,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-005",
+   "family": "LANG",
+   "title": "Preserve source positions in UTF-16 code units.",
+   "sourceLine": 225,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-006",
+   "family": "LANG",
+   "title": "Preserve parse errors, including codes, messages, and locations.",
+   "sourceLine": 226,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "LANG-007",
+   "family": "LANG",
+   "title": "Reject excessive AST/input depth in the same manner as the reference.",
+   "sourceLine": 227,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-001",
+   "family": "MIR",
+   "title": "Support the complete versioned MathIR node set and text format.",
+   "sourceLine": 280,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-002",
+   "family": "MIR",
+   "title": "Match lowering, optimization, type inference, and validation.",
+   "sourceLine": 281,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-003",
+   "family": "MIR",
+   "title": "Preserve common-subexpression handling and emitted ordering where published.",
+   "sourceLine": 282,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-004",
+   "family": "MIR",
+   "title": "Match lower, compile, compile_full, evalir, and evalir_batch.",
+   "sourceLine": 283,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-005",
+   "family": "MIR",
+   "title": "Preserve precision and cancellation behavior during evaluation.",
+   "sourceLine": 284,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-006",
+   "family": "MIR",
+   "title": "Verify direct execution against lowered-then-executed results.",
+   "sourceLine": 285,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-007",
+   "family": "MIR",
+   "title": "Reject malformed or unsupported IR identically.",
+   "sourceLine": 286,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "MIR-008",
+   "family": "MIR",
+   "title": "Add direct MathIR tests, addressing the original C# test-coverage gap.",
+   "sourceLine": 287,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-001",
+   "family": "NUM",
+   "title": "All constructors and parsing forms match C# behavior.",
+   "sourceLine": 162,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-002",
+   "family": "NUM",
+   "title": "Canonical zero representation; no negative zero.",
+   "sourceLine": 163,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-003",
+   "family": "NUM",
+   "title": "Exact addition, subtraction, multiplication, division, and remainder.",
+   "sourceLine": 164,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": "Addition, subtraction and multiplication are exact; the pow and division conventions are not yet parity-complete (see NUM-004/NUM-005)."
+  },
+  {
+   "id": "NUM-004",
+   "family": "NUM",
+   "title": "Signed division uses the same quotient and remainder convention as C#.",
+   "sourceLine": 165,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-005",
+   "family": "NUM",
+   "title": "Underflow, division by zero, invalid input, and overflow of bounded conversions produce equivalent failures.",
+   "sourceLine": 166,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": "Violated: Integer.Pow(0) throws ArgumentOutOfRangeException in the oracle but returns 1 in Rust, and 0^3 throws in the oracle but returns 0 (OBS-010, OQ-009)."
+  },
+  {
+   "id": "NUM-006",
+   "family": "NUM",
+   "title": "Exact power, factorial, and decimal shifting.",
+   "sourceLine": 167,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-007",
+   "family": "NUM",
+   "title": "Decimal parse/format round trips for arbitrarily large values.",
+   "sourceLine": 168,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-008",
+   "family": "NUM",
+   "title": "Identical results regardless of algorithm-selection threshold or worker count.",
+   "sourceLine": 169,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-009",
+   "family": "NUM",
+   "title": "Test every multiplication/division algorithm against an independent arithmetic oracle.",
+   "sourceLine": 170,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "NUM-010",
+   "family": "NUM",
+   "title": "Benchmark algorithm transitions, not merely steady-state performance.",
+   "sourceLine": 171,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-001",
+   "family": "PERF",
+   "title": "Benchmark identical inputs and compare matching output digests.",
+   "sourceLine": 468,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-002",
+   "family": "PERF",
+   "title": "Use warmed executions and account for C# JIT effects.",
+   "sourceLine": 469,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-003",
+   "family": "PERF",
+   "title": "Report distributions rather than a single sample.",
+   "sourceLine": 470,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-004",
+   "family": "PERF",
+   "title": "Benchmark both implementations on the same machine and software environment.",
+   "sourceLine": 471,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-005",
+   "family": "PERF",
+   "title": "Measure arithmetic at small, medium, large, and algorithm-transition sizes.",
+   "sourceLine": 472,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-006",
+   "family": "PERF",
+   "title": "Include the original numeric, DSP, array, precision, and symbolic benchmark families.",
+   "sourceLine": 473,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-007",
+   "family": "PERF",
+   "title": "Profile allocations, peak memory, startup time, and latency.",
+   "sourceLine": 474,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-008",
+   "family": "PERF",
+   "title": "Record all results, inputs, build profiles, and hardware details.",
+   "sourceLine": 475,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-009",
+   "family": "PERF",
+   "title": "Meet the existing migration target of at least 80% of reference throughput, unless a specific deviation is approved.",
+   "sourceLine": 476,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PERF-010",
+   "family": "PERF",
+   "title": "Never replace a correctness failure with a performance-based justification.",
+   "sourceLine": 477,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-001",
+   "family": "PLUG",
+   "title": "Implement the functional equivalent of IModusPlugin and IModusContext.",
+   "sourceLine": 246,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-002",
+   "family": "PLUG",
+   "title": "Preserve explicit per-host plugin loading.",
+   "sourceLine": 247,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-003",
+   "family": "PLUG",
+   "title": "Preserve per-engine plugin state; assumptions from one engine must never leak into another.",
+   "sourceLine": 248,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-004",
+   "family": "PLUG",
+   "title": "Preserve builtin registration metadata: name, category, arity, parameters, signature, description, examples, and related functions.",
+   "sourceLine": 249,
+   "status": "met",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "Builtin registration metadata (name, category, arity, parameters, signature, summary, examples, related) matches in capabilities and the functions array."
+  },
+  {
+   "id": "PLUG-005",
+   "family": "PLUG",
+   "title": "Preserve typed-array field and kernel registration.",
+   "sourceLine": 250,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-006",
+   "family": "PLUG",
+   "title": "Keep value conversions owned by the host/kernel boundary.",
+   "sourceLine": 251,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PLUG-007",
+   "family": "PLUG",
+   "title": "Compare the complete C# and Rust registries automatically.",
+   "sourceLine": 252,
+   "status": "partial",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "The registry is compared through the capabilities fixture and the envelope functions array; a dedicated registry diff tool is not built."
+  },
+  {
+   "id": "PLUG-008",
+   "family": "PLUG",
+   "title": "Verify plugin behavior under multiple concurrently active engines.",
+   "sourceLine": 253,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PROOF-001",
+   "family": "PROOF",
+   "title": "Preserve the pinned Lean project and ensure it builds.",
+   "sourceLine": 438,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PROOF-002",
+   "family": "PROOF",
+   "title": "Map each relevant theorem to Rust implementation-boundary property tests.",
+   "sourceLine": 439,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PROOF-003",
+   "family": "PROOF",
+   "title": "Document the correspondence between the Rust numeric representation and the proof model.",
+   "sourceLine": 440,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "PROOF-004",
+   "family": "PROOF",
+   "title": "Include exhaustive small-domain arithmetic verification in CI.",
+   "sourceLine": 441,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-001",
+   "family": "REAL",
+   "title": "Preserve arbitrary decimal precision and exactness metadata.",
+   "sourceLine": 178,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-002",
+   "family": "REAL",
+   "title": "Preserve repeating-decimal notation, including shortest-period canonicalization.",
+   "sourceLine": 179,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-003",
+   "family": "REAL",
+   "title": "Match exactness propagation through operations and conversions.",
+   "sourceLine": 180,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-004",
+   "family": "REAL",
+   "title": "Preserve rounding, truncation, guard-digit, and computation-cap semantics.",
+   "sourceLine": 181,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-005",
+   "family": "REAL",
+   "title": "Preserve precision changes during execution and their scope.",
+   "sourceLine": 182,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-006",
+   "family": "REAL",
+   "title": "Implement and verify sqrt, pi, powers, and supported transcendental functions.",
+   "sourceLine": 183,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-007",
+   "family": "REAL",
+   "title": "Test precision boundaries at 8, 16, 20, 50, 1,000, and 2,500 decimal places.",
+   "sourceLine": 184,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-008",
+   "family": "REAL",
+   "title": "Preserve the distinction between exact and inexact identity results.",
+   "sourceLine": 185,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REAL-009",
+   "family": "REAL",
+   "title": "Implement normalized rational fractions with positive denominators and coprime numerator/denominator.",
+   "sourceLine": 186,
+   "status": "met",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [
+    "EVD-032"
+   ],
+   "note": "No dedicated Rational type (consolidated into Real, permitted by S1.2), but the projection publishes the correct lowest-terms numerator/denominator for every probed periodic value, including preperiods."
+  },
+  {
+   "id": "REAL-010",
+   "family": "REAL",
+   "title": "Add direct Rational tests, since the C# project lacks a dedicated test suite.",
+   "sourceLine": 187,
+   "status": "unmet",
+   "owner": "phase-3",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-001",
+   "family": "REQ",
+   "title": "Frozen reference: Establish an immutable C# oracle commit or tag. All comparisons must identify its SHA.",
+   "sourceLine": 33,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-004",
+    "EVD-013"
+   ],
+   "note": "Immutable oracle pinned at 1cc28f2; verify script refuses dirty C# sources."
+  },
+  {
+   "id": "REQ-002",
+   "family": "REQ",
+   "title": "Complete inventory: Every C# production project, public capability, test, executable, and relevant artifact must have an explicit Rust disposition.",
+   "sourceLine": 34,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-010",
+    "EVD-025"
+   ],
+   "note": "Projects and tests are inventoried with dispositions; public C# types/methods are not yet inventoried one by one (ECO-003)."
+  },
+  {
+   "id": "REQ-003",
+   "family": "REQ",
+   "title": "Observable equivalence: Compare results at public boundaries; internal algorithms and memory representations may differ.",
+   "sourceLine": 35,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-004",
+   "family": "REQ",
+   "title": "Strict parity: Mathematical equivalence alone is insufficient when the public contract guarantees a specific textual or structured representation.",
+   "sourceLine": 36,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-005",
+   "family": "REQ",
+   "title": "No silent exclusions: Unsupported features must appear in a machine-readable coverage manifest.",
+   "sourceLine": 37,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-009"
+   ],
+   "note": "parity/requirements.json records all 262 IDs plus 7 ID-less obligations with owners and phases."
+  },
+  {
+   "id": "REQ-006",
+   "family": "REQ",
+   "title": "Explicit deviations: Intentional behavioral changes require a documented decision, a reason, affected tests, and the user's approval.",
+   "sourceLine": 38,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-007",
+   "family": "REQ",
+   "title": "Independent verification: Implementation agents cannot be the sole authority validating their own work.",
+   "sourceLine": 39,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-008",
+   "family": "REQ",
+   "title": "Fail-closed gates: Missing tests, missing reference binaries, skipped oracle runs, and unexecuted checks must not count as passes.",
+   "sourceLine": 40,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-015",
+    "EVD-014"
+   ],
+   "note": "Fail-closed guards exist for the oracle and the differential corpus; not every gate is falsified yet."
+  },
+  {
+   "id": "REQ-009",
+   "family": "REQ",
+   "title": "No premature cutover: C# remains the reference implementation until every mandatory gate passes.",
+   "sourceLine": 41,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "REQ-010",
+   "family": "REQ",
+   "title": "Reproducibility: The final state must be reproducible from a clean checkout on CI infrastructure.",
+   "sourceLine": 42,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUN-001",
+   "family": "RUN",
+   "title": "-eval — Evaluate supplied source",
+   "sourceLine": 79,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-002",
+   "family": "RUN",
+   "title": "-file — Evaluate file, preserving source positions",
+   "sourceLine": 80,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-003",
+   "family": "RUN",
+   "title": "-stdin — Accept piped source and BOM handling",
+   "sourceLine": 81,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022",
+    "EVD-012"
+   ],
+   "note": "Piped source works and matches the oracle; BOM handling is a known oracle/spec conflict (OQ-002), so the row pins the oracle behaviour."
+  },
+  {
+   "id": "RUN-004",
+   "family": "RUN",
+   "title": "Bare script path — Equivalent file execution",
+   "sourceLine": 82,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-005",
+   "family": "RUN",
+   "title": "-json, --text — Correct output modes",
+   "sourceLine": 83,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-006",
+   "family": "RUN",
+   "title": "-omit-functions, --omit-variables — Publish empty arrays without changing evaluation",
+   "sourceLine": 84,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-007",
+   "family": "RUN",
+   "title": "-functions [pattern] — Live registry query without evaluating a script",
+   "sourceLine": 85,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-008",
+   "family": "RUN",
+   "title": "-function <name> — Full builtin descriptor lookup",
+   "sourceLine": 86,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-009",
+   "family": "RUN",
+   "title": "-function-limit <n> — Bounded registry results and correct counts",
+   "sourceLine": 87,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-010",
+   "family": "RUN",
+   "title": "-cancel-after <ms> — Deadline, cancellation state, and budget accounting",
+   "sourceLine": 88,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-027"
+   ],
+   "note": "Deadline, cancellation state (budgetMs/exceeded/stopped) and budget accounting match. The envelope-level committed-state difference (_ published for the completed statement) remains open as OQ-013/ENG-006."
+  },
+  {
+   "id": "RUN-011",
+   "family": "RUN",
+   "title": "-print-budget <n> — Structured truncation with accurate metadata",
+   "sourceLine": 89,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": ""
+  },
+  {
+   "id": "RUN-012",
+   "family": "RUN",
+   "title": "-plot-dir, --plot-file — Matching plot placement and naming",
+   "sourceLine": 90,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-027"
+   ],
+   "note": "Plot placement and naming match (result path, plot.path, artifacts kind/path). SVG content parity remains open as OQ-012 / WIRE-015 / DESK-022."
+  },
+  {
+   "id": "RUN-013",
+   "family": "RUN",
+   "title": "-help, -h — Supported help surface",
+   "sourceLine": 91,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "--help matches the oracle observably (exit 0, usage text)."
+  },
+  {
+   "id": "RUN-014",
+   "family": "RUN",
+   "title": "Invalid arguments — Correct diagnostics, stderr, and exit status",
+   "sourceLine": 92,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "Invalid arguments exit 2 with a diagnostic containing the offending argument."
+  },
+  {
+   "id": "RUST-001",
+   "family": "RUST",
+   "title": "cargo fmt --check passes.",
+   "sourceLine": 481,
+   "status": "partial",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [
+    "EVD-023"
+   ],
+   "note": "cargo-fmt is not installed for the pinned stable toolchain; the check could not be performed (unverified, not passed)."
+  },
+  {
+   "id": "RUST-002",
+   "family": "RUST",
+   "title": "Clippy passes with warnings treated as errors.",
+   "sourceLine": 482,
+   "status": "partial",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [
+    "EVD-023"
+   ],
+   "note": "cargo-clippy is not installed for the pinned stable toolchain; the check could not be performed (unverified, not passed)."
+  },
+  {
+   "id": "RUST-003",
+   "family": "RUST",
+   "title": "All tests pass in debug and release profiles.",
+   "sourceLine": 483,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-004",
+   "family": "RUST",
+   "title": "No floating point is used in the exact numeric value path.",
+   "sourceLine": 484,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-005",
+   "family": "RUST",
+   "title": "Every unsafe block is isolated, justified, and reviewed.",
+   "sourceLine": 485,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-006",
+   "family": "RUST",
+   "title": "Dependencies are audited for license and security advisories.",
+   "sourceLine": 486,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-007",
+   "family": "RUST",
+   "title": "Public APIs have usable documentation and examples.",
+   "sourceLine": 487,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-008",
+   "family": "RUST",
+   "title": "Build and test workflows work from a clean checkout.",
+   "sourceLine": 488,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-009",
+   "family": "RUST",
+   "title": "Reproducible release artifacts are produced for every supported target.",
+   "sourceLine": 489,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "RUST-010",
+   "family": "RUST",
+   "title": "CI tests real binaries through their published entry points.",
+   "sourceLine": 490,
+   "status": "unmet",
+   "owner": "phase-7",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "STAT-001",
+   "family": "STAT",
+   "title": "Preserve the plugin's identity and opt-in registration.",
+   "sourceLine": 309,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "STAT-002",
+   "family": "STAT",
+   "title": "Provide equivalent typed-array kernel dispatch.",
+   "sourceLine": 310,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "STAT-003",
+   "family": "STAT",
+   "title": "Preserve exact Real-field addition and active precision.",
+   "sourceLine": 311,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "STAT-004",
+   "family": "STAT",
+   "title": "Test fallback behavior and verify equivalence between the specialized and generic array paths.",
+   "sourceLine": 312,
+   "status": "unmet",
+   "owner": "phase-5",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-001",
+   "family": "SYM",
+   "title": "Preserve expression kinds, domains, assumptions, and exactness.",
+   "sourceLine": 259,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-002",
+   "family": "SYM",
+   "title": "Match canonical ordering and hashing-independent canonicalization.",
+   "sourceLine": 260,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-003",
+   "family": "SYM",
+   "title": "Preserve structural expression identity and interning behavior where observable.",
+   "sourceLine": 261,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-004",
+   "family": "SYM",
+   "title": "Preserve textual and canonical expression formats.",
+   "sourceLine": 262,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-005",
+   "family": "SYM",
+   "title": "Match simplification and rewriting with their applicable conditions.",
+   "sourceLine": 263,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-006",
+   "family": "SYM",
+   "title": "Preserve rewrite budgets, termination, trace ordering, and statuses.",
+   "sourceLine": 264,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-007",
+   "family": "SYM",
+   "title": "Match substitution, expansion, factoring, collection, and cancellation.",
+   "sourceLine": 265,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-008",
+   "family": "SYM",
+   "title": "Match differentiation, integration, limits, and series.",
+   "sourceLine": 266,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-009",
+   "family": "SYM",
+   "title": "Preserve solution sets, conditions, completeness, and domain restrictions.",
+   "sourceLine": 267,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-010",
+   "family": "SYM",
+   "title": "Match polynomial, nonlinear, system, and matrix-solving behaviors.",
+   "sourceLine": 268,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-011",
+   "family": "SYM",
+   "title": "Match assumptions, contradiction detection, and assumption isolation.",
+   "sourceLine": 269,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-012",
+   "family": "SYM",
+   "title": "Preserve all structured rich-result record types and field order.",
+   "sourceLine": 270,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-013",
+   "family": "SYM",
+   "title": "Verify the complete symbolic builtin registry, including metadata.",
+   "sourceLine": 271,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "SYM-014",
+   "family": "SYM",
+   "title": "Retain the existing SymPy differential oracle as an independent correctness check.",
+   "sourceLine": 272,
+   "status": "unmet",
+   "owner": "phase-4",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "TEST-001",
+   "family": "TEST",
+   "title": "Pin a C# oracle SHA/tag.",
+   "sourceLine": 396,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-013"
+   ],
+   "note": "Pinned SHA in parity/oracle.json and verified by build-oracle.ps1 -Verify."
+  },
+  {
+   "id": "TEST-002",
+   "family": "TEST",
+   "title": "Build and execute the C# reference in CI.",
+   "sourceLine": 397,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "TEST-003",
+   "family": "TEST",
+   "title": "Prevent untracked reference changes.",
+   "sourceLine": 398,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-014"
+   ],
+   "note": "Untracked or modified files in the pinned source directories make verification exit 2."
+  },
+  {
+   "id": "TEST-004",
+   "family": "TEST",
+   "title": "Record approved oracle amendments.",
+   "sourceLine": 399,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "TEST-005",
+   "family": "TEST",
+   "title": "Archive oracle binaries or build inputs for reproducibility.",
+   "sourceLine": 400,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-013"
+   ],
+   "note": "oracle-verified.json records the commit and the DLL SHA-256; the binary itself is not archived."
+  },
+  {
+   "id": "TEST-006",
+   "family": "TEST",
+   "title": "Generate parity/census.json from all original C# tests.",
+   "sourceLine": 404,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-007"
+   ],
+   "note": "parity/census.json is generated by a reflection tool: 15 projects, 2105 methods, 6209 cases, deterministic SHA."
+  },
+  {
+   "id": "TEST-007",
+   "family": "TEST",
+   "title": "Maintain parity/manifest.toml mapping every C# test to a Rust equivalent or approved exclusion.",
+   "sourceLine": 405,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-008",
+    "EVD-031",
+    "EVD-034"
+   ],
+   "note": "Every case is dispositioned; 3 074 map to a Rust test (49.51 %); 3 135 remain deferred, so the strict mapping obligation is still open (OQ-014)."
+  },
+  {
+   "id": "TEST-008",
+   "family": "TEST",
+   "title": "Resolve each mapped Rust test to an actual test that ran.",
+   "sourceLine": 406,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-028"
+   ],
+   "note": "The manifest gate resolves all 262 claimed Rust tests against the measured inventory and requires the suite exit code to be 0."
+  },
+  {
+   "id": "TEST-009",
+   "family": "TEST",
+   "title": "Detect missing, duplicate, renamed, or ignored tests.",
+   "sourceLine": 407,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-007"
+   ],
+   "note": "The census and manifest gates reject duplicate ids and orphan rows; rename/ignore detection is not implemented."
+  },
+  {
+   "id": "TEST-010",
+   "family": "TEST",
+   "title": "Require explicit reasons for every exclusion.",
+   "sourceLine": 408,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-008"
+   ],
+   "note": "An exclusion requires a reason and owner=user; no exclusion exists yet, so the rule is unexercised."
+  },
+  {
+   "id": "TEST-011",
+   "family": "TEST",
+   "title": "Disallow weakening assertions while porting tests.",
+   "sourceLine": 409,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "TEST-012",
+   "family": "TEST",
+   "title": "Report coverage separately by subsystem.",
+   "sourceLine": 410,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-028"
+   ],
+   "note": "parity/coverage.md reports cases, ported, deferred and coverage per C# subsystem from the manifest the gate reads."
+  },
+  {
+   "id": "TEST-013",
+   "family": "TEST",
+   "title": "Require the inventory to remain complete when the oracle changes.",
+   "sourceLine": 411,
+   "status": "unmet",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [],
+   "note": ""
+  },
+  {
+   "id": "WIRE-001",
+   "family": "WIRE",
+   "title": "Preserve protocolVersion, symbolicFormatVersion, and mathIrVersion with the same types and values as C#.",
+   "sourceLine": 96,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "protocolVersion/symbolicFormatVersion/mathIrVersion match the oracle in 19 of 20 fixtures."
+  },
+  {
+   "id": "WIRE-002",
+   "family": "WIRE",
+   "title": "Match all success-envelope fields, including result, variables, functions, output, artifacts, revision, and timing data.",
+   "sourceLine": 97,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "Every success-envelope field (result, variables, functions, output, artifacts, revision, timing) is compared structurally on 12 green CLI rows."
+  },
+  {
+   "id": "WIRE-003",
+   "family": "WIRE",
+   "title": "Match all error-envelope fields: code, category, message, recoverable, diagnostics, and applicable resolution information.",
+   "sourceLine": 98,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "Error envelopes match on RUN-002 and fixtures/error_envelope (code, category, message, recoverable, diagnostics)."
+  },
+  {
+   "id": "WIRE-004",
+   "family": "WIRE",
+   "title": "Preserve the distinction between an omitted optional JSON field, an explicit Null structured value, and an empty collection.",
+   "sourceLine": 99,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "fixtures/absent_field passes: omitted field vs Null vs empty collection are distinguished."
+  },
+  {
+   "id": "WIRE-005",
+   "family": "WIRE",
+   "title": "Match nested projections for every supported value kind.",
+   "sourceLine": 100,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-025",
+    "EVD-032"
+   ],
+   "note": "Every value-kind projection in the 20 fixtures matches, and the exact-rational counterexample (1/6) now matches on the wire."
+  },
+  {
+   "id": "WIRE-006",
+   "family": "WIRE",
+   "title": "Preserve declared enum types. SolveStatus.Partial and Completeness.Partial must remain distinguishable.",
+   "sourceLine": 101,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "The record fixtures cross status/completeness/exactness as declared Enum types, so SolveStatus.Partial and Completeness.Partial are distinguishable."
+  },
+  {
+   "id": "WIRE-007",
+   "family": "WIRE",
+   "title": "Preserve field order in typed records and ordering of published variables and functions.",
+   "sourceLine": 102,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "Record fields are an ordered array and match element by element."
+  },
+  {
+   "id": "WIRE-008",
+   "family": "WIRE",
+   "title": "Preserve human display, typed, and machine structured representations independently.",
+   "sourceLine": 103,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "display, typed and structured are compared independently in every fixture."
+  },
+  {
+   "id": "WIRE-009",
+   "family": "WIRE",
+   "title": "Capture print() output in the envelope; stdout must contain exactly one JSON document.",
+   "sourceLine": 104,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "print_purity passes: print output is captured in the envelope and stdout is one JSON document."
+  },
+  {
+   "id": "WIRE-010",
+   "family": "WIRE",
+   "title": "Publish the full timing contract, including structural duration and per-statement timing entries.",
+   "sourceLine": 105,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "elapsedTime and per-statement timings are present with the same shape (values are the declared volatile keys)."
+  },
+  {
+   "id": "WIRE-011",
+   "family": "WIRE",
+   "title": "Preserve the C# runner's exit-code contract: success 0, script failure 1, usage error 2.",
+   "sourceLine": 106,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "Exit codes 0, 1 and 2 are exercised and compared by the CLI gate."
+  },
+  {
+   "id": "WIRE-012",
+   "family": "WIRE",
+   "title": "Preserve UTF-16 positions, including multibyte Unicode, surrogate pairs, BOM, and CRLF handling.",
+   "sourceLine": 107,
+   "status": "met",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "UTF-16 positions/line/column match on fixtures/error_envelope and RUN-002."
+  },
+  {
+   "id": "WIRE-013",
+   "family": "WIRE",
+   "title": "Match the C# serializer's non-ASCII escaping rules where byte compatibility is required.",
+   "sourceLine": 108,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-021"
+   ],
+   "note": "Parsed JSON matches, and a raw probe showed both runners escaping non-ASCII as \\uXXXX; byte-for-byte output is not gated."
+  },
+  {
+   "id": "WIRE-014",
+   "family": "WIRE",
+   "title": "Match structured truncation rules and differentiate depth, node, and precision caps.",
+   "sourceLine": 109,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-022"
+   ],
+   "note": "--print-budget is implemented and matches the oracle on RUN-011; depth and precision caps are not separately exercised."
+  },
+  {
+   "id": "WIRE-015",
+   "family": "WIRE",
+   "title": "Preserve artifact behavior for plots, including failure after a previous plotting statement.",
+   "sourceLine": 110,
+   "status": "partial",
+   "owner": "dsh-cycle-8",
+   "phase": 0,
+   "evidence": [
+    "EVD-027"
+   ],
+   "note": "Artifact kind/path/naming now match; the rendered SVG content does not (OQ-012)."
+  }
+ ]
+}

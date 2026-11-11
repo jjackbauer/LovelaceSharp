@@ -36,6 +36,18 @@ pub struct Token {
     pub pos: usize,
 }
 
+/// The published input-nesting budget (the reference's InputDepth.Max).
+pub const INPUT_DEPTH_MAX: usize = 256;
+
+/// A token's own source text, as the reference's Token.Text publishes it.
+fn token_text(token: &Tok) -> &str {
+    match token {
+        Tok::Num(t) | Tok::Repr(t) | Tok::Str(t) | Tok::Interp(t) | Tok::Ident(t) | Tok::Punct(t) => t,
+        Tok::Semi => ";",
+        Tok::Eof => "",
+    }
+}
+
 /// Binary operators.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BinOp {
@@ -175,13 +187,13 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
             continue;
         }
         if c == '"' {
-            let (text, next) = scan_string(&chars, i + 1)?;
+            let (text, next) = scan_string(&chars, i + 1, pos)?;
             out.push(Token { tok: Tok::Str(text), pos });
             i = next;
             continue;
         }
         if c == '$' && i + 1 < chars.len() && chars[i + 1] == '"' {
-            let (text, next) = scan_string(&chars, i + 2)?;
+            let (text, next) = scan_string(&chars, i + 2, pos)?;
             out.push(Token { tok: Tok::Interp(text), pos });
             i = next;
             continue;
@@ -267,20 +279,18 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
             i += 1;
             continue;
         }
-        return Err(LangError { message: format!("Unexpected character '{}'.", c), position: pos });
+        return Err(LangError::plain(format!(
+            "Unexpected character '{}' at position {}.",
+            c, pos
+        ))
+        .with_position(pos));
     }
     out.push(Token { tok: Tok::Eof, pos: unit });
     Ok(out)
 }
 
-fn scan_string(chars: &[char], mut i: usize) -> Result<(String, usize), LangError> {
+fn scan_string(chars: &[char], mut i: usize, start_pos: usize) -> Result<(String, usize), LangError> {
     let mut text = String::new();
-    let mut start_pos = i;
-    let mut unit = 0usize;
-    for c in &chars[..i] {
-        unit += c.len_utf16();
-    }
-    start_pos = unit;
     while i < chars.len() {
         let c = chars[i];
         if c == '"' {
@@ -295,19 +305,63 @@ fn scan_string(chars: &[char], mut i: usize) -> Result<(String, usize), LangErro
         text.push(c);
         i += 1;
     }
-    Err(LangError { message: "Unterminated string literal.".to_string(), position: start_pos })
+    Err(LangError::coded(
+        format!("Unterminated string literal at position {start_pos}."),
+        start_pos,
+        "InvalidInput",
+        "ParseError",
+    ))
+}
+
+/// The reference's token-kind name for a punctuator, as its Expect publishes it.
+fn punctuation_kind_name(p: &str) -> &'static str {
+    match p {
+        "(" => "LParen",
+        ")" => "RParen",
+        "[" => "LBracket",
+        "]" => "RBracket",
+        "{" => "LBrace",
+        "}" => "RBrace",
+        "," => "Comma",
+        ":" => "Colon",
+        "." => "Dot",
+        "=" => "Equals",
+        ";" => "Semicolon",
+        _ => "Token",
+    }
 }
 
 /// The parser.
 pub struct Parser {
     toks: Vec<Token>,
     i: usize,
+    /// Live descent depth, in the reference's units (one per statement, expression, power or
+    /// consumed prefix sign). Checked on the way DOWN, so the refusal happens before the recursion
+    /// that would exhaust the process stack.
+    depth: usize,
 }
 
 impl Parser {
     /// Builds a parser over a token stream.
     pub fn new(toks: Vec<Token>) -> Parser {
-        Parser { toks, i: 0 }
+        Parser { toks, i: 0, depth: 0 }
+    }
+
+    /// Opens one nesting level, refusing past the published input budget.
+    fn enter(&mut self, stage: &str) -> Result<(), LangError> {
+        self.depth += 1;
+        if self.depth > INPUT_DEPTH_MAX {
+            let depth = self.depth;
+            self.depth -= 1;
+            return Err(LangError::depth(stage, depth, INPUT_DEPTH_MAX, "nesting")
+                .with_position(self.pos()));
+        }
+        Ok(())
+    }
+
+    /// Closes one nesting level.
+    fn leave(&mut self) {
+        self.depth -= 1;
     }
 
     fn peek(&self) -> &Tok {
@@ -340,12 +394,41 @@ impl Parser {
         if self.eat_punct(p) {
             Ok(())
         } else {
-            Err(self.err(&format!("Expected '{}'.", p)))
+            // The reference's Expect publishes the TOKEN KIND it wanted (RParen, LBrace, Comma,
+            // …) and the token it found, not the punctuation glyph. A consumer that compares
+            // envelopes reads the same sentence from both runners.
+            Err(self.err(&format!(
+                "Expected '{}' but found '{}' at position {}.",
+                punctuation_kind_name(p),
+                token_text(self.peek()),
+                self.pos()
+            )))
         }
     }
 
+    /// The separator between two statements is mandatory: a whitespace-only gap is a parse
+    /// error, exactly as it is in the reference. A juxtaposition such as `2x` is therefore a
+    /// refusal, never an implicit product.
+    fn separator_error(&self, terminator: &str) -> LangError {
+        self.err(&format!(
+            "Expected ';' or {} but found '{}' at position {}.",
+            terminator,
+            token_text(self.peek()),
+            self.pos()
+        ))
+    }
+
+    /// The reference's primary-expression refusal for a token that cannot start one.
+    fn unexpected_primary(&self) -> LangError {
+        self.err(&format!(
+            "Unexpected token '{}' at position {}: expected a number, string, identifier, '[', or '('.",
+            token_text(self.peek()),
+            self.pos()
+        ))
+    }
+
     fn err(&self, msg: &str) -> LangError {
-        LangError { message: msg.to_string(), position: self.pos() }
+        LangError::plain(msg).with_position(self.pos())
     }
 
     fn eat_semi(&mut self) {
@@ -360,7 +443,17 @@ impl Parser {
         self.eat_semi();
         while !matches!(self.peek(), Tok::Eof) {
             out.push(self.statement()?);
-            self.eat_semi();
+            if matches!(self.peek(), Tok::Semi) {
+                self.eat_semi();
+            } else if matches!(self.peek(), Tok::Eof) {
+                break;
+            } else if matches!(self.peek(), Tok::Punct(p) if p == "}") {
+                // The reference lets a stray '}' past the separator check and refuses it as a
+                // primary token; the sentence and position are the same either way.
+                return Err(self.unexpected_primary());
+            } else {
+                return Err(self.separator_error("end of input"));
+            }
         }
         Ok(out)
     }
@@ -372,6 +465,13 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Stmt, LangError> {
+        self.enter("statement nesting")?;
+        let result = self.statement_inner();
+        self.leave();
+        result
+    }
+
+    fn statement_inner(&mut self) -> Result<Stmt, LangError> {
         let pos = self.pos();
         if let Tok::Ident(name) = self.peek().clone() {
             match name.as_str() {
@@ -382,6 +482,11 @@ impl Parser {
                     self.expect_punct(")")?;
                     self.eat_semi();
                     let then = self.statement()?;
+                    // The separator after the 'then' branch belongs to the ENCLOSING statement
+                    // list unless an 'else' actually follows it. Consuming it unconditionally
+                    // made `if (c) { … }; next` lose the ';' and refuse `next` at the block
+                    // boundary.
+                    let checkpoint = self.i;
                     self.eat_semi();
                     let mut other = None;
                     if let Tok::Ident(k) = self.peek().clone() {
@@ -390,6 +495,9 @@ impl Parser {
                             self.eat_semi();
                             other = Some(Box::new(self.statement()?));
                         }
+                    }
+                    if other.is_none() {
+                        self.i = checkpoint;
                     }
                     return Ok(Stmt::If(cond, Box::new(then), other));
                 }
@@ -404,13 +512,30 @@ impl Parser {
                 }
                 "for" => {
                     self.bump();
-                    let var = match self.bump() {
-                        Tok::Ident(v) => v,
-                        _ => return Err(self.err("Expected a loop variable name.")),
+                    let var = match self.peek().clone() {
+                        Tok::Ident(v) => {
+                            self.bump();
+                            v
+                        }
+                        _ => {
+                            return Err(self.err(&format!(
+                                "Expected 'Ident' but found '{}' at position {}.",
+                                token_text(self.peek()),
+                                self.pos()
+                            )))
+                        }
                     };
-                    match self.bump() {
-                        Tok::Ident(k) if k == "in" => {}
-                        _ => return Err(self.err("Expected 'in' after the loop variable.")),
+                    match self.peek().clone() {
+                        Tok::Ident(k) if k == "in" => {
+                            self.bump();
+                        }
+                        _ => {
+                            return Err(self.err(&format!(
+                                "Expected 'in' after loop variable but found '{}' at position {}.",
+                                token_text(self.peek()),
+                                self.pos()
+                            )))
+                        }
                     }
                     let range = self.expression()?;
                     self.eat_semi();
@@ -435,17 +560,35 @@ impl Parser {
                 }
                 "func" => {
                     self.bump();
-                    let fname = match self.bump() {
-                        Tok::Ident(n) => n,
-                        _ => return Err(self.err("Expected a function name.")),
+                    let fname = match self.peek().clone() {
+                        Tok::Ident(n) => {
+                            self.bump();
+                            n
+                        }
+                        _ => {
+                            return Err(self.err(&format!(
+                                "Expected function name but found '{}' at position {}.",
+                                token_text(self.peek()),
+                                self.pos()
+                            )))
+                        }
                     };
                     self.expect_punct("(")?;
                     let mut params = Vec::new();
                     if !self.eat_punct(")") {
                         loop {
-                            match self.bump() {
-                                Tok::Ident(p) => params.push(p),
-                                _ => return Err(self.err("Expected a parameter name.")),
+                            match self.peek().clone() {
+                                Tok::Ident(p) => {
+                                    self.bump();
+                                    params.push(p);
+                                }
+                                _ => {
+                                    return Err(self.err(&format!(
+                                        "Expected 'Ident' but found '{}' at position {}.",
+                                        token_text(self.peek()),
+                                        self.pos()
+                                    )))
+                                }
                             }
                             if self.eat_punct(",") {
                                 continue;
@@ -458,7 +601,13 @@ impl Parser {
                         let body = self.expression()?;
                         return Ok(Stmt::Func(fname, params, Box::new(Stmt::Expr(body, pos))));
                     }
-                    self.eat_semi();
+                    if !matches!(self.peek(), Tok::Punct(p) if p == "{") {
+                        return Err(self.err(&format!(
+                            "Expected '{{' or '=' after function signature but found '{}' at position {}.",
+                            token_text(self.peek()),
+                            self.pos()
+                        )));
+                    }
                     let body = self.statement()?;
                     return Ok(Stmt::Func(fname, params, Box::new(body)));
                 }
@@ -479,7 +628,13 @@ impl Parser {
             self.eat_semi();
             while !self.is_block_end() && !matches!(self.peek(), Tok::Eof) {
                 stmts.push(self.statement()?);
-                self.eat_semi();
+                if matches!(self.peek(), Tok::Semi) {
+                    self.eat_semi();
+                } else if !self.is_block_end() {
+                    // A block that runs to end of input is a separator refusal naming the
+                    // missing '}', exactly as the reference's ParseBlock does.
+                    return Err(self.separator_error("'}'"));
+                }
             }
             self.expect_punct("}")?;
             return Ok(Stmt::Block(stmts));
@@ -497,7 +652,10 @@ impl Parser {
 
     /// Parses an expression.
     pub fn expression(&mut self) -> Result<Expr, LangError> {
-        self.comparison()
+        self.enter("expression nesting")?;
+        let result = self.comparison();
+        self.leave();
+        result
     }
 
     fn comparison(&mut self) -> Result<Expr, LangError> {
@@ -559,17 +717,60 @@ impl Parser {
         Ok(left)
     }
 
+    // Power (right-associative), with a leading sign handled at THIS level so the sign binds
+    // looser than '^' (the mathematical convention) but tighter than '..':
+    //     -x^2   == -(x^2)       (-2^2 is -4, not 4)
+    //     x^-2   == x^(-2)       (the exponent may carry its own sign)
+    //     -1..2  == (-1)..2      (a signed range start is not a negation of the range)
+    // This is the reference grammar's ParsePower shape: the sign's operand is a ParseUnary, so a
+    // sign never reaches past the power unless the power is what follows it.
     fn power(&mut self) -> Result<Expr, LangError> {
-        let left = self.range()?;
-        if self.eat_punct("^") {
-            let right = self.power()?;
-            return Ok(Expr::Binary(BinOp::Pow, Box::new(left), Box::new(right)));
+        if matches!(self.peek(), Tok::Punct(p) if p == "-" || p == "+") {
+            let negative = matches!(self.peek(), Tok::Punct(p) if p == "-");
+            self.bump();
+            let operand = self.unary()?;
+            // "-x^2" negates the whole power; "-1..2" signs only the first range element.
+            // A unary plus is the identity: it is consumed at the same grammar position so
+            // "+2^2" still binds the power first and "+1..2" still signs only the start.
+            let signed = if matches!(self.peek(), Tok::Punct(p) if p == "^") {
+                let inner = self.power_tail(operand)?;
+                if negative {
+                    Expr::Neg(Box::new(inner))
+                } else {
+                    inner
+                }
+            } else if negative {
+                Expr::Neg(Box::new(operand))
+            } else {
+                operand
+            };
+            if matches!(self.peek(), Tok::Punct(p) if p == "..") {
+                let ranged = self.range_tail(signed)?;
+                return self.power_tail(ranged);
+            }
+            return Ok(signed);
         }
-        Ok(left)
+        let left = self.range()?;
+        self.power_tail(left)
+    }
+
+    fn power_tail(&mut self, left: Expr) -> Result<Expr, LangError> {
+        if !self.eat_punct("^") {
+            return Ok(left);
+        }
+        // Right-associative; the exponent may itself be signed or a power: x^-2, 2^3^2.
+        self.enter("power nesting")?;
+        let right = self.power();
+        self.leave();
+        Ok(Expr::Binary(BinOp::Pow, Box::new(left), Box::new(right?)))
     }
 
     fn range(&mut self) -> Result<Expr, LangError> {
         let start = self.unary()?;
+        self.range_tail(start)
+    }
+
+    fn range_tail(&mut self, start: Expr) -> Result<Expr, LangError> {
         if !self.eat_punct("..") {
             return Ok(start);
         }
@@ -583,14 +784,26 @@ impl Parser {
 
     fn unary(&mut self) -> Result<Expr, LangError> {
         if self.eat_punct("-") {
-            let inner = self.unary()?;
-            return Ok(Expr::Neg(Box::new(inner)));
+            self.enter("expression nesting")?;
+            let inner = self.unary();
+            self.leave();
+            return Ok(Expr::Neg(Box::new(inner?)));
+        }
+        if self.eat_punct("+") {
+            // Unary plus is the identity; it is still a consumed prefix operator (one nesting
+            // level), exactly as the reference's ParseUnary charges it.
+            self.enter("expression nesting")?;
+            let inner = self.unary();
+            self.leave();
+            return Ok(inner?);
         }
         if let Tok::Ident(k) = self.peek().clone() {
             if k == "not" {
                 self.bump();
-                let inner = self.unary()?;
-                return Ok(Expr::Not(Box::new(inner)));
+                self.enter("expression nesting")?;
+                let inner = self.unary();
+                self.leave();
+                return Ok(Expr::Not(Box::new(inner?)));
             }
         }
         self.postfix()
@@ -600,8 +813,10 @@ impl Parser {
         let mut e = self.primary()?;
         loop {
             if self.eat_punct("(") {
-                let name = match &e {
-                    Expr::Var(n, _) => n.clone(),
+                // The CALL's position is the callee's, not the closing paren's: a diagnostic
+                // about a call points where the call starts.
+                let (name, pos) = match &e {
+                    Expr::Var(n, p) => (n.clone(), *p),
                     _ => return Err(self.err("Only a named function can be called.")),
                 };
                 let mut args = Vec::new();
@@ -615,33 +830,44 @@ impl Parser {
                         break;
                     }
                 }
-                let pos = self.pos();
                 e = Expr::Call(name, args, pos);
                 continue;
             }
             if self.eat_punct("[") {
                 let mut args = Vec::new();
                 loop {
-                    if self.eat_punct(":") {
-                        // A leading colon is the whole axis unless a bound follows.
+                    // One axis: a scalar, or a slice start:stop:step with every part optional.
+                    let mut start = None;
+                    if !self.eat_punct(":") {
+                        start = Some(self.expression()?);
+                        if !self.eat_punct(":") {
+                            args.push(IndexArg::Single(start.take().unwrap()));
+                            if self.eat_punct(",") {
+                                continue;
+                            }
+                            self.expect_punct("]")?;
+                            break;
+                        }
+                    }
+                    let stop = if matches!(self.peek(), Tok::Punct(p) if p == ":" || p == "," || p == "]") {
+                        None
+                    } else {
+                        Some(self.expression()?)
+                    };
+                    let step = if self.eat_punct(":") {
                         if matches!(self.peek(), Tok::Punct(p) if p == "," || p == "]") {
-                            args.push(IndexArg::Full);
+                            None
                         } else {
-                            let b = self.expression()?;
-                            args.push(IndexArg::Slice(None, Some(b), None));
+                            Some(self.expression()?)
                         }
                     } else {
-                        let first = self.expression()?;
-                        if self.eat_punct(":") {
-                            if matches!(self.peek(), Tok::Punct(p) if p == "," || p == "]") {
-                                args.push(IndexArg::Slice(Some(first), None, None));
-                            } else {
-                                let b = self.expression()?;
-                                args.push(IndexArg::Slice(Some(first), Some(b), None));
-                            }
-                        } else {
-                            args.push(IndexArg::Single(first));
-                        }
+                        None
+                    };
+                    // The bare colon(s) mean the whole axis; any bound or step is a slice.
+                    if start.is_none() && stop.is_none() && step.is_none() {
+                        args.push(IndexArg::Full);
+                    } else {
+                        args.push(IndexArg::Slice(start, stop, step));
                     }
                     if self.eat_punct(",") {
                         continue;
@@ -657,12 +883,19 @@ impl Parser {
                 continue;
             }
             if self.eat_punct(".") {
-                match self.bump() {
+                match self.peek().clone() {
                     Tok::Ident(field) => {
+                        self.bump();
                         e = Expr::Member(Box::new(e), field);
                         continue;
                     }
-                    _ => return Err(self.err("Expected a field name after '.'.")),
+                    _ => {
+                        return Err(self.err(&format!(
+                            "Expected 'Ident' but found '{}' at position {}.",
+                            token_text(self.peek()),
+                            self.pos()
+                        )))
+                    }
                 }
             }
             break;
@@ -704,10 +937,12 @@ impl Parser {
                 }
                 Ok(Expr::List(items))
             }
-            other => Err(LangError {
-                message: format!("Unexpected token {:?}.", other),
-                position: pos,
-            }),
+            other => Err(LangError::plain(format!(
+                "Unexpected token '{}' at position {}: expected a number, string, identifier, '[', or '('.",
+                token_text(&other),
+                pos
+            ))
+            .with_position(pos)),
         }
     }
 

@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-unknown-function-010",
+  "category": "errors",
+  "script": "nonexistent_fn(2)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.category",
+      "kind": "value",
+      "expected": "\"UnsupportedOperation\"",
+      "actual": "\"DomainError\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:36.943Z"
+}

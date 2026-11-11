@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-records-inv-full-049",
+  "category": "records",
+  "script": "x = symbol(\"x\"); inv_full([[x, 1], [1, x]])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.display",
+      "kind": "value",
+      "expected": "\"MatrixInverseResult(status: Solved, complete: True, completeness: Complete, inverse: [[x/(x^2 - 1), -1/(x^2 - 1)], [-1/(x^2 - 1), x/(x^2 - 1)]], conditions:...",
+      "actual": "\"MatrixInverseResult(status: Solved, complete: True, completeness: Complete, inverse: [[x/(x^2 - 1), -1/(x^2 - 1)], [-1/(x^2 - 1), x/(x^2 - 1)]], conditions:..."
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.008Z"
+}

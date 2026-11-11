@@ -323,12 +323,7 @@ impl crate::Engine {
             match spec {
                 IndexSpec::Scalar(expression) => {
                     let value = self.eval_expr(env, expression)?;
-                    let index = exact_i64(&value).ok_or_else(|| {
-                        ferr(format!(
-                            "Index must be Natural or Integer, but got '{}'.",
-                            value.kind_name()
-                        ))
-                    })?;
+                    let index = crate::builtins::index_argument(&value).map_err(Flow::Error)?;
                     out.push(EvalSpec::Scalar(index));
                 }
                 IndexSpec::Slice { start, stop, step } => {
@@ -563,12 +558,8 @@ fn index_value(target: &Value, specs: &[EvalSpec]) -> Result<Value, LangError> {
         for (axis, &index) in indices.iter().enumerate() {
             if index < 0 || index as usize >= shape[axis] {
                 return Err(LangError::new(format!(
-                    "Index {index} is out of range for array with shape [{}].",
-                    shape
-                        .iter()
-                        .map(|dim| dim.to_string())
-                        .collect::<Vec<_>>()
-                        .join(", ")
+                    "Index {index} is out of range for dimension {axis} of size {}.",
+                    shape[axis]
                 )));
             }
             coords.push(index as usize);

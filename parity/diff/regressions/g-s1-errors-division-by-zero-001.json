@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-division-by-zero-001",
+  "category": "errors",
+  "script": "58/0",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.code",
+      "kind": "value",
+      "expected": "\"DivisionByZero\"",
+      "actual": "\"EvaluationError\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T14:43:58.382Z"
+}

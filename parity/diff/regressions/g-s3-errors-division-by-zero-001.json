@@ -1,0 +1,19 @@
+{
+  "id": "g-s3-errors-division-by-zero-001",
+  "category": "errors",
+  "script": "32/0",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.code",
+      "kind": "value",
+      "expected": "\"DivisionByZero\"",
+      "actual": "\"InvalidOperation\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T14:48:53.602Z"
+}

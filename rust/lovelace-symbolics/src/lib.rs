@@ -9,6 +9,8 @@ use std::cmp::Ordering;
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 
+pub mod cancel;
+
 /// An exact rational coefficient.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Rat {
@@ -100,7 +102,10 @@ impl Rat {
             return Some(Rat::one());
         }
         if exp < 0 {
-            let base = self.pow_i64(-exp)?;
+            // Negating i64::MIN overflows in debug builds. The reciprocal of base^(2^63) is not
+            // representable as a Rat here, so this is a refusal, not a panic.
+            let positive = exp.checked_neg()?;
+            let base = self.pow_i64(positive)?;
             return Rat::one().div(&base);
         }
         let mut acc = Rat::one();
@@ -303,6 +308,19 @@ impl Expr {
                 combined.push(Expr::pow(base, exp));
             }
         }
+        // A combined power can fold to a NUMBER (i*i = -1, or a numeric power). Fold it into
+        // the coefficient instead of emitting it as a factor: 2*i * 3*i is -6, not 6*-1.
+        let mut folded: Vec<Expr> = Vec::with_capacity(combined.len());
+        for e in combined.drain(..) {
+            match e {
+                Expr::Num(n) => coefficient = coefficient.mul(&n),
+                other => folded.push(other),
+            }
+        }
+        if coefficient.is_zero() {
+            return Expr::num(0);
+        }
+        let mut combined = folded;
         combined.retain(|e| !matches!(e, Expr::Num(n) if n.is_one()));
         combined.sort_by(factor_order);
         if !coefficient.is_one() || combined.is_empty() {
@@ -329,15 +347,47 @@ impl Expr {
                 }
             }
             (Expr::Pow(inner_base, inner_exp), _) => {
-                // (x^a)^b = x^(a*b) when b is an integer.
-                if let Expr::Num(e) = &exp {
+                // (x^a)^b = x^(a*b) only when BOTH exponents are numeric constants: a
+                // symbolic inner exponent (x^y)^2 must never be replaced by x^(2*y), which
+                // loses y. The reference kernel states the same rule on its Power constructor.
+                if let (Expr::Num(e), Expr::Num(inner)) = (&exp, inner_exp.as_ref()) {
                     if e.denominator().to_decimal() == "1" {
+                        let _ = inner;
                         let combined = Expr::mul((**inner_exp).clone(), exp.clone());
                         return Expr::pow((**inner_base).clone(), combined);
                     }
                 }
             }
             _ => {}
+        }
+        // The imaginary unit with an INTEGER exponent folds exactly: i^0 = 1, i^1 = i,
+        // i^2 = -1, i^3 = -i, and the cycle repeats for negative exponents. This is a named
+        // constant (Fun("i", [])), never a user symbol of the same spelling.
+        if let Expr::Fun(name, args) = &base {
+            if name == "i" && args.is_empty() {
+                if let Expr::Num(e) = &exp {
+                    if e.is_integer() {
+                        if let Some(k) = e.to_i64() {
+                            return match k.rem_euclid(4) {
+                                0 => Expr::num(1),
+                                1 => base.clone(),
+                                2 => Expr::num(-1),
+                                _ => Expr::neg(imaginary_unit()),
+                            };
+                        }
+                    }
+                }
+            }
+        }
+        // A NEGATIVE rational base under a half-integer exponent has an exact principal value
+        // (the imaginary branch): (-4)^(1/2) = 2*i, (-4)^(-1/2) = -i/2. Integer exponents were
+        // answered above; every other denominator stays unevaluated.
+        if let (Expr::Num(b), Expr::Num(e)) = (&base, &exp) {
+            if b.is_negative() {
+                if let Some(v) = principal_half_power(b, e) {
+                    return v;
+                }
+            }
         }
         Expr::Pow(Box::new(base), Box::new(exp))
     }
@@ -362,15 +412,16 @@ impl Expr {
         Expr::Rel(op, Box::new(a), Box::new(b))
     }
 
-    /// A square root.
+    /// A square root. A negative exact value has an exact imaginary principal value
+    /// (sqrt(-4) = 2*i, sqrt(-2) = i*sqrt(2)), never a real approximation and never a
+    /// real sign flip: the real-domain contract lives on Real::sqrt, not on this constructor.
     pub fn sqrt(e: Expr) -> Expr {
         if let Expr::Num(n) = &e {
-            if n.denominator().to_decimal() == "1" {
-                if let Some(root) = exact_sqrt(n.numerator().magnitude()) {
-                    let sign = if n.is_negative() { -1 } else { 1 };
-                    return Expr::num(sign * root as i64);
-                }
+            if n.is_negative() {
+                let radical = rational_sqrt(&n.abs());
+                return Expr::mul(imaginary_unit(), radical);
             }
+            return rational_sqrt(n);
         }
         Expr::Fun("sqrt".to_string(), vec![e])
     }
@@ -418,21 +469,52 @@ impl Expr {
         self.contains(name)
     }
 
+    /// True when a power with a NON-INTEGER rational exponent appears anywhere: such a value is
+    /// algebraic over the rationals (2^(1/3), sqrt(2)), so a solver solution carrying one is
+    /// AlgebraicExact, never Exact. Only literal numeric exponents count; a symbolic exponent is
+    /// not a claim about algebraicity.
+    pub fn has_algebraic_power(&self) -> bool {
+        match self {
+            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Pow(base, exp) => {
+                matches!(exp.as_ref(), Expr::Num(n) if !n.is_integer())
+                    || base.has_algebraic_power()
+                    || exp.has_algebraic_power()
+            }
+            Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.has_algebraic_power()),
+            Expr::Fun(_, args) => args.iter().any(|a| a.has_algebraic_power()),
+            Expr::Div(a, b) => a.has_algebraic_power() || b.has_algebraic_power(),
+            Expr::Rel(_, a, b) => a.has_algebraic_power() || b.has_algebraic_power(),
+        }
+    }
+
     /// Total degree in the named symbol (0 when absent).
+    ///
+    /// Every arithmetic step SATURATES: an exponent is a user-sized integer (a Natural can be
+    /// larger than i64), so a polynomial-looking expression can ask for a degree outside i64
+    /// (x^(2^63-1), (x^2 - 1)^(2^63-1)). The degree is a PRINT ORDER / dispatch hint, not a
+    /// value, and no caller may turn the hint into a panic. A negative degree (a quotient) also
+    /// saturates instead of wrapping; callers that need a real polynomial reject it.
     pub fn degree_in(&self, name: &str) -> i64 {
         match self {
             Expr::Num(_) => 0,
             Expr::Sym(s) => i64::from(s == name),
             Expr::Add(v) => v.iter().map(|e| e.degree_in(name)).max().unwrap_or(0),
-            Expr::Mul(v) => v.iter().map(|e| e.degree_in(name)).sum(),
+            Expr::Mul(v) => v
+                .iter()
+                .map(|e| e.degree_in(name))
+                .fold(0i64, |acc, d| acc.saturating_add(d)),
             Expr::Pow(b, e) => match (b.as_ref(), e.as_ref()) {
                 (inner, Expr::Num(n)) if n.denominator().to_decimal() == "1" => {
-                    inner.degree_in(name) * n.numerator().to_decimal().parse::<i64>().unwrap_or(1)
+                    let exponent = n.numerator().to_decimal().parse::<i64>().unwrap_or(
+                        if n.is_negative() { i64::MIN } else { i64::MAX },
+                    );
+                    inner.degree_in(name).saturating_mul(exponent)
                 }
                 (inner, _) => inner.degree_in(name),
             },
             Expr::Fun(_, args) => args.iter().map(|e| e.degree_in(name)).max().unwrap_or(0),
-            Expr::Div(a, b) => a.degree_in(name) - b.degree_in(name),
+            Expr::Div(a, b) => a.degree_in(name).saturating_sub(b.degree_in(name)),
             Expr::Rel(_, a, b) => a.degree_in(name).max(b.degree_in(name)),
         }
     }
@@ -486,7 +568,14 @@ impl Expr {
                     return parts.join(joiner);
                 }
                 if name == "not" {
+                    // The empty-argument case returned above (a Function with no arguments prints
+                    // as its name), so args[0] is in range here even for canonical_parse input.
                     return format!("not {}", args[0].to_string());
+                }
+                // An algebraic number: the root index is part of the printed value, and the
+                // defining polynomial prints as a polynomial (rootof(x^4 - x^2 - 1, 0)).
+                if name == "rootof" && args.len() == 2 {
+                    return format!("rootof({}, {})", args[0].to_string(), args[1].to_string());
                 }
                 let parts: Vec<String> = args.iter().map(|a| a.to_string()).collect();
                 format!("{}({})", name, parts.join(", "))
@@ -572,13 +661,29 @@ fn product_text(e: &Expr) -> String {
 fn power_text(e: &Expr) -> String {
     match e {
         Expr::Pow(base, exp) => {
+            // A power used as a BASE must be parenthesised: x^y^2 right-associates to
+            // x^(y^2), so Pow(Pow(x, y), 2) needs (x^y)^2 to re-parse as itself. A negative or
+            // non-integer numeric base is textually looser than the superscript for the same
+            // reason: -2^x is -(2^x) and 1/2^x is 1/(2^x), not (-2)^x and (1/2)^x.
             let base_text = match base.as_ref() {
-                Expr::Add(_) | Expr::Mul(_) => format!("({})", base.to_string()),
+                Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) => {
+                    format!("({})", base.to_string())
+                }
+                Expr::Num(n) if n.is_negative() || !n.is_integer() => {
+                    format!("({})", n.to_string())
+                }
                 other => other.to_string(),
             };
+            // The exponent's own grouping follows the same table: a power exponent is written
+            // with its parentheses (x^(y^2)), and a rational one would otherwise be read as a
+            // division at the power's level (x^1/2 is (x^1)/2).
             let exp_text = match exp.as_ref() {
-                Expr::Num(n) if n.is_negative() => format!("({})", n.to_string()),
-                Expr::Add(_) | Expr::Mul(_) => format!("({})", exp.to_string()),
+                Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) => {
+                    format!("({})", exp.to_string())
+                }
+                Expr::Num(n) if n.is_negative() || !n.is_integer() => {
+                    format!("({})", n.to_string())
+                }
                 other => other.to_string(),
             };
             format!("{}^{}", base_text, exp_text)
@@ -673,12 +778,17 @@ impl Expr {
             Expr::Mul(v) => v.iter().map(|e| e.degree_in_total()).max().unwrap_or(0),
             Expr::Pow(b, e) => match e.as_ref() {
                 Expr::Num(n) if n.denominator().to_decimal() == "1" => {
-                    b.degree_in_total() * n.numerator().to_decimal().parse::<i64>().unwrap_or(1)
+                    // Same user-sized exponent contract as degree_in: the depth decides term
+                    // ORDER only, so saturation is the correct failure mode, never a panic.
+                    let exponent = n.numerator().to_decimal().parse::<i64>().unwrap_or(
+                        if n.is_negative() { i64::MIN } else { i64::MAX },
+                    );
+                    b.degree_in_total().saturating_mul(exponent)
                 }
                 _ => b.degree_in_total(),
             },
             Expr::Fun(_, args) => args.iter().map(|e| e.degree_in_total()).max().unwrap_or(0),
-            Expr::Div(a, b) => a.degree_in_total() - b.degree_in_total(),
+            Expr::Div(a, b) => a.degree_in_total().saturating_sub(b.degree_in_total()),
             Expr::Rel(_, a, b) => a.degree_in_total().max(b.degree_in_total()),
         }
     }
@@ -701,19 +811,53 @@ fn rational_pow(base: &Rat, exp: &Rat) -> Option<Rat> {
     base.pow_i64(e)
 }
 
-fn exact_sqrt(n: &Nat) -> Option<u64> {
-    let v = n.to_u64()?;
-    let mut r = 0u64;
-    while r * r <= v {
-        if r * r == v {
-            return Some(r);
-        }
-        r += 1;
-        if r > 1_000_000 {
-            return None;
+/// The imaginary unit as the reference represents it: a named constant, not a user symbol, so
+/// i^2 folds and a user symbol literally named i stays an ordinary symbol.
+fn imaginary_unit() -> Expr {
+    Expr::Fun("i".to_string(), Vec::new())
+}
+
+/// The exact square root of a NON-NEGATIVE rational: a rational when both numerator and
+/// denominator are perfect squares, otherwise the radical expression `sqrt(q)`.
+fn rational_sqrt(q: &Rat) -> Expr {
+    if let (Some(n), Some(d)) = (
+        perfect_square(q.numerator().magnitude()),
+        perfect_square(q.denominator()),
+    ) {
+        if let Some(n_int) = Int::from_decimal(&n.to_string()) {
+            return Expr::Num(Rat::new(n_int, Nat::from_u64(d)));
         }
     }
-    None
+    Expr::Fun("sqrt".to_string(), vec![Expr::Num(q.clone())])
+}
+
+/// The principal value of a NEGATIVE rational base raised to a half-integer exponent:
+/// (-a)^(m/2) = a^(m/2)*i^m for a > 0, an exact imaginary multiple of a radical. Mirrors the
+/// reference kernel's PrincipalSquareRootPower: the scale is the exact integer power of a, the
+/// radical folds to a rational for a perfect square, and i^m is i or -i by the parity of (m-1)/2.
+fn principal_half_power(base: &Rat, exponent: &Rat) -> Option<Expr> {
+    if exponent.denominator().to_decimal() != "2" {
+        return None;
+    }
+    let q = base.abs();
+    let m = exponent.numerator();
+    let (k, _) = m
+        .sub(&Int::from_i64(1))
+        .div_rem_signed(&Int::from_i64(2))?;
+    let k_i64 = k.to_decimal().parse::<i64>().ok()?;
+    // A conservative bound: a scale this large is not a documented case and must not hang the
+    // evaluator; the caller then keeps the power unevaluated.
+    if !(-100_000..=100_000).contains(&k_i64) {
+        return None;
+    }
+    let scale = q.pow_i64(k_i64)?;
+    let radical = rational_sqrt(&q);
+    let even = k
+        .div_rem_signed(&Int::from_i64(2))
+        .map(|(_, r)| r.is_zero())
+        .unwrap_or(false);
+    let unit = if even { imaginary_unit() } else { Expr::neg(imaginary_unit()) };
+    Some(Expr::mul(Expr::mul(Expr::Num(scale), radical), unit))
 }
 
 impl From<Rat> for Expr {
@@ -728,10 +872,570 @@ impl std::fmt::Display for Expr {
     }
 }
 
+// ---------------------------------------------------------------------------
+// LaTeX rendering — the SAME expression model and the SAME precedence table as
+// the infix form, a different notation. Every precedence decision goes through
+// latex_prec/latex_delimit and every structural decision (what a fraction is,
+// what a subtracted term is, which powers are radicals) through the helpers the
+// infix arm calls; only the notation is new.
+// ---------------------------------------------------------------------------
+
+const LATEX_OR_PREC: i32 = -1;
+const LATEX_AND_PREC: i32 = 0;
+const LATEX_RELATION_PREC: i32 = 0;
+const LATEX_ADD_PREC: i32 = 1;
+const LATEX_MUL_PREC: i32 = 2;
+const LATEX_POW_PREC: i32 = 3;
+const LATEX_ATOM_PREC: i32 = 4;
+/// The loosest rendering context: a child that LaTeX's own braces already group.
+const LATEX_ROOT_PREC: i32 = 0;
+/// Function arguments are already delimited by a call's parentheses and commas.
+const LATEX_ARG_PREC: i32 = 1;
+/// The magnitude of a subtracted term binds strictly tighter than an additive sum.
+const LATEX_SUBTRAHEND_PREC: i32 = 2;
+
+impl Expr {
+    /// Renders the expression as LaTeX source: the same model, the same precedence table and the
+    /// same structural decisions as the infix form, only the notation differs.
+    pub fn latex(&self) -> String {
+        latex_render(self, LATEX_ROOT_PREC)
+    }
+}
+
+/// The precedence of a node in the ONE table both infix renderings share.
+fn latex_prec(e: &Expr) -> i32 {
+    match e {
+        Expr::Fun(name, _) if name == "or" => LATEX_OR_PREC,
+        Expr::Fun(name, _) if name == "and" => LATEX_AND_PREC,
+        Expr::Rel(_, _, _) => LATEX_RELATION_PREC,
+        Expr::Add(_) => LATEX_ADD_PREC,
+        Expr::Mul(_) | Expr::Div(_, _) => LATEX_MUL_PREC,
+        Expr::Pow(_, _) => LATEX_POW_PREC,
+        _ => LATEX_ATOM_PREC,
+    }
+}
+
+/// The ONE parenthesis decision, applied in LaTeX notation: a node whose own precedence is
+/// `node_prec` is wrapped exactly when the context demands something that binds tighter.
+fn latex_delimit(text: String, parent_prec: i32, node_prec: i32) -> String {
+    if parent_prec > node_prec {
+        format!("\\left({}\\right)", text)
+    } else {
+        text
+    }
+}
+
+/// The precedence of rendered text AS WRITTEN, in the same table the model is classified in.
+/// Only the text's own top level is read: a grouping construct hides everything inside it, a
+/// control word is a single token, and a top-level space is the loosest operator of all.
+fn latex_text_prec(text: &str) -> i32 {
+    let chars: Vec<char> = text.chars().collect();
+    let mut prec = LATEX_ATOM_PREC;
+    let mut depth: i32 = 0;
+    let mut i = 0usize;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '\\' {
+            let mut j = i + 1;
+            if j < chars.len() && chars[j].is_alphabetic() {
+                let start = j;
+                while j < chars.len() && chars[j].is_alphabetic() {
+                    j += 1;
+                }
+                let word: String = chars[start..j].iter().collect();
+                if word == "left" || word == "right" {
+                    if j >= chars.len() {
+                        return LATEX_ADD_PREC;
+                    }
+                    if word == "left" {
+                        depth += 1;
+                    } else if depth == 0 {
+                        return LATEX_ADD_PREC;
+                    } else {
+                        depth -= 1;
+                    }
+                    j += 1;
+                }
+                i = j;
+                continue;
+            }
+            // a control symbol is one literal character (\{ \} \# \% \_ \&), never a group
+            i = j + 1;
+            continue;
+        }
+        if depth == 0 {
+            match c {
+                '+' | '-' | '=' | '<' | '>' | '!' | ',' | ';' | '&' | '|' => {
+                    prec = prec.min(LATEX_ADD_PREC)
+                }
+                '*' | '/' => prec = prec.min(LATEX_MUL_PREC),
+                '^' => prec = prec.min(LATEX_POW_PREC),
+                _ if c.is_whitespace() => prec = prec.min(LATEX_ADD_PREC),
+                _ => {}
+            }
+        }
+        if c == '(' || c == '{' || c == '[' {
+            depth += 1;
+        } else if c == ')' || c == '}' || c == ']' {
+            if depth == 0 {
+                return LATEX_ADD_PREC;
+            }
+            depth -= 1;
+        }
+        i += 1;
+    }
+    if depth == 0 { prec } else { LATEX_ADD_PREC }
+}
+
+/// The ONE operand rule asked of a rendered text: a text used as an operand of the operator that
+/// binds at `operator_prec` is delimited unless it binds strictly tighter. The text matters as
+/// well as the node, because a constant's spelling need not be an atom.
+fn latex_needs_operand_delimiter(operator_prec: i32, operand: &Expr, rendered: &str) -> bool {
+    latex_prec(operand) <= operator_prec || latex_text_prec(rendered) <= operator_prec
+}
+
+fn latex_rational(value: &Rat) -> String {
+    if value.is_integer() {
+        return value.to_string();
+    }
+    let abs = value.abs();
+    let body = format!(
+        "\\frac{{{}}}{{{}}}",
+        abs.numerator().to_decimal(),
+        abs.denominator().to_decimal()
+    );
+    if value.is_negative() { format!("-{}", body) } else { body }
+}
+
+/// The LaTeX spelling of a symbol NAME. A name is opaque: it is rendered as literal characters,
+/// never as structure (x_1 is x\_1, not a subscript), and all ten characters LaTeX gives a meaning
+/// of its own are escaped with the LaTeX2e spellings.
+fn latex_name(name: &str) -> String {
+    if !name
+        .chars()
+        .any(|c| matches!(c, '#' | '$' | '%' | '&' | '_' | '{' | '}' | '~' | '^' | '\\'))
+    {
+        return name.to_string();
+    }
+    let mut out = String::with_capacity(name.len() + 8);
+    for ch in name.chars() {
+        match ch {
+            '#' => out.push_str("\\#"),
+            '$' => out.push_str("\\$"),
+            '%' => out.push_str("\\%"),
+            '&' => out.push_str("\\&"),
+            '_' => out.push_str("\\_"),
+            '{' => out.push_str("\\{"),
+            '}' => out.push_str("\\}"),
+            '~' => out.push_str("\\textasciitilde{}"),
+            '^' => out.push_str("\\textasciicircum{}"),
+            '\\' => out.push_str("\\textbackslash{}"),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// The LaTeX spelling of a function name: the control sequences TeX already defines keep their
+/// spelling, everything else is an \operatorname.
+fn latex_call_name(name: &str) -> String {
+    match name {
+        "sin" | "cos" | "tan" | "sinh" | "cosh" | "tanh" | "exp" | "log" | "min" | "max"
+        | "det" | "lim" => format!("\\{}", name),
+        _ => format!("\\operatorname{{{}}}", name),
+    }
+}
+
+/// The product decomposition both infix renderings use: an optional leading rational coefficient
+/// with its sign split off, the factors that stay in the numerator, and the bases of the factors
+/// raised to -1 (the denominator).
+struct LatexProductShape {
+    coefficient: Option<Rat>,
+    negative: bool,
+    numerators: Vec<Expr>,
+    denominators: Vec<Expr>,
+}
+
+/// The kind rank of the reference kernel's TermOrder, used to put the factors of a product in
+/// the order the reference printer sees: Symbol before NamedConstant before Function before
+/// Power before Multiply before Add.
+fn latex_term_rank(e: &Expr) -> u8 {
+    match e {
+        Expr::Num(_) => 0,
+        Expr::Sym(_) => 1,
+        Expr::Fun(name, args)
+            if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "i" | "inf") =>
+        {
+            2
+        }
+        Expr::Fun(_, _) => 3,
+        Expr::Pow(_, _) => 4,
+        Expr::Mul(_) | Expr::Div(_, _) => 5,
+        Expr::Add(_) => 6,
+        Expr::Rel(_, _, _) => 7,
+    }
+}
+
+fn latex_seq_cmp(a: &[Expr], b: &[Expr]) -> Ordering {
+    for (x, y) in a.iter().zip(b) {
+        let c = latex_term_cmp(x, y);
+        if c != Ordering::Equal {
+            return c;
+        }
+    }
+    a.len().cmp(&b.len())
+}
+
+/// The reference kernel's total order over canonical expressions, to the depth the LaTeX
+/// printer needs: a Power compares its BASE before its exponent, which is what puts y^-1 before
+/// (z*w^-1)^-1 in a denominator sequence.
+fn latex_term_cmp(a: &Expr, b: &Expr) -> Ordering {
+    let ra = latex_term_rank(a);
+    let rb = latex_term_rank(b);
+    if ra != rb {
+        return ra.cmp(&rb);
+    }
+    match (a, b) {
+        (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
+        (Expr::Sym(x), Expr::Sym(y)) => x.cmp(y),
+        (Expr::Fun(nx, ax), Expr::Fun(ny, ay)) => {
+            nx.cmp(ny).then_with(|| latex_seq_cmp(ax, ay))
+        }
+        (Expr::Pow(bx, ex), Expr::Pow(by, ey)) => {
+            latex_term_cmp(bx, by).then_with(|| latex_term_cmp(ex, ey))
+        }
+        (Expr::Mul(xs), Expr::Mul(ys)) => latex_seq_cmp(xs, ys),
+        (Expr::Div(xn, xd), Expr::Div(yn, yd)) => {
+            latex_term_cmp(xn, yn).then_with(|| latex_term_cmp(xd, yd))
+        }
+        (Expr::Add(xs), Expr::Add(ys)) => latex_seq_cmp(xs, ys),
+        (Expr::Rel(ox, lx, rx), Expr::Rel(oy, ly, ry)) => (*ox as u8)
+            .cmp(&(*oy as u8))
+            .then_with(|| latex_term_cmp(lx, ly))
+            .then_with(|| latex_term_cmp(rx, ry)),
+        _ => Ordering::Equal,
+    }
+}
+
+fn latex_shape_product(factors: &[Expr]) -> LatexProductShape {
+    // The reference printer sees the reference kernel's canonical factor order. The Rust product
+    // keeps the same factors, so sorting them by the same total order before shaping makes the
+    // fraction nesting independent of the crate's own factor_order helper.
+    let mut sorted: Vec<Expr> = factors.to_vec();
+    sorted.sort_by(latex_term_cmp);
+    let factors = &sorted[..];
+    let mut coefficient = None;
+    let mut negative = false;
+    let mut first = 0;
+    if let Some(Expr::Num(rc0)) = factors.first() {
+        coefficient = Some(rc0.clone());
+        first = 1;
+        if rc0.is_negative() {
+            negative = true;
+            coefficient = Some(rc0.abs());
+        }
+    }
+    let mut numerators = Vec::new();
+    let mut denominators = Vec::new();
+    for f in &factors[first..] {
+        match f {
+            Expr::Pow(base, exponent)
+                if matches!(exponent.as_ref(), Expr::Num(n) if *n == Rat::from_i64(-1)) =>
+            {
+                denominators.push((**base).clone())
+            }
+            other => numerators.push(other.clone()),
+        }
+    }
+    LatexProductShape { coefficient, negative, numerators, denominators }
+}
+
+/// A negative constant term, as its positive magnitude.
+fn latex_negative_constant(t: &Expr) -> Option<Expr> {
+    match t {
+        Expr::Num(n) if n.is_negative() => Some(Expr::Num(n.abs())),
+        _ => None,
+    }
+}
+
+/// A term that renders as " - <positive-magnitude term>", as that magnitude.
+fn latex_negative_term(t: &Expr) -> Option<Expr> {
+    if let Some(mag) = latex_negative_constant(t) {
+        return Some(mag);
+    }
+    if let Expr::Mul(factors) = t {
+        if let Some(Expr::Num(rc)) = factors.first() {
+            if rc.is_negative() {
+                let rest = &factors[1..];
+                let pos = rc.abs();
+                if pos.is_one() {
+                    return Some(match rest.len() {
+                        0 => Expr::Num(pos),
+                        1 => rest[0].clone(),
+                        _ => Expr::Mul(rest.to_vec()),
+                    });
+                }
+                let mut inner = Vec::with_capacity(rest.len() + 1);
+                inner.push(Expr::Num(pos));
+                inner.extend_from_slice(rest);
+                return Some(Expr::Mul(inner));
+            }
+        }
+    }
+    None
+}
+
+fn latex_append_signed(out: &mut String, t: &Expr) {
+    if let Some(inner) = latex_negative_term(t) {
+        out.push_str(" - ");
+        out.push_str(&latex_render(&inner, LATEX_SUBTRAHEND_PREC));
+    } else {
+        out.push_str(" + ");
+        out.push_str(&latex_render(t, LATEX_ADD_PREC));
+    }
+}
+
+/// LaTeX source for an expression of the same model. Where LaTeX already groups a child by
+/// construction (the braces of \frac, \sqrt and ^{}) the child is rendered at the loosest
+/// precedence and carries no delimiter of its own.
+fn latex_render(e: &Expr, parent_prec: i32) -> String {
+    match e {
+        Expr::Num(n) => latex_rational(n),
+        Expr::Sym(s) => latex_name(s),
+        Expr::Add(terms) => {
+            if terms.is_empty() {
+                return String::new();
+            }
+            let mut out = String::new();
+            if let Some(lead_mag) = latex_negative_constant(&terms[0]) {
+                if terms.len() == 1 {
+                    return latex_delimit(
+                        format!("-{}", latex_render(&lead_mag, LATEX_ADD_PREC)),
+                        parent_prec,
+                        LATEX_ADD_PREC,
+                    );
+                }
+                out.push_str(&latex_render(&terms[1], LATEX_ADD_PREC));
+                for t in &terms[2..] {
+                    latex_append_signed(&mut out, t);
+                }
+                out.push_str(" - ");
+                out.push_str(&latex_render(&lead_mag, LATEX_ADD_PREC));
+            } else {
+                out.push_str(&latex_render(&terms[0], LATEX_ADD_PREC));
+                for t in &terms[1..] {
+                    latex_append_signed(&mut out, t);
+                }
+            }
+            latex_delimit(out, parent_prec, LATEX_ADD_PREC)
+        }
+        Expr::Mul(factors) => {
+            let shape = latex_shape_product(factors);
+            let mut text;
+            if shape.denominators.is_empty() {
+                let body = shape
+                    .numerators
+                    .iter()
+                    .map(|f| latex_render(f, LATEX_MUL_PREC))
+                    .collect::<Vec<_>>()
+                    .join(" \\cdot ");
+                text = match &shape.coefficient {
+                    Some(c0) if !c0.is_one() => {
+                        if shape.numerators.is_empty() {
+                            latex_rational(c0)
+                        } else {
+                            format!("{} \\cdot {}", latex_rational(c0), body)
+                        }
+                    }
+                    _ => {
+                        if shape.numerators.is_empty() {
+                            "1".to_string()
+                        } else {
+                            body
+                        }
+                    }
+                };
+            } else {
+                enum Part {
+                    Literal(String),
+                    Node(Expr),
+                }
+                let mut num_parts: Vec<Part> = Vec::new();
+                let mut den_parts: Vec<Part> = Vec::new();
+                if let Some(c1) = &shape.coefficient {
+                    if !c1.is_one() {
+                        if c1.is_integer() {
+                            num_parts.push(Part::Literal(c1.to_string()));
+                        } else {
+                            num_parts.push(Part::Literal(c1.numerator().to_decimal()));
+                            den_parts.push(Part::Literal(c1.denominator().to_decimal()));
+                        }
+                    }
+                }
+                for f in &shape.numerators {
+                    num_parts.push(Part::Node(f.clone()));
+                }
+                for b in &shape.denominators {
+                    den_parts.push(Part::Node(b.clone()));
+                }
+                // The braces of \frac ARE the delimiter of each side, so a side that is a single
+                // part is rendered at the loosest precedence and carries no \left...\right of its
+                // own; a side of several parts is a text-level \cdot product whose Add factors do
+                // need them.
+                let side = |parts: &[Part], when_empty: &str| -> String {
+                    if parts.is_empty() {
+                        return when_empty.to_string();
+                    }
+                    let prec = if parts.len() > 1 { LATEX_MUL_PREC } else { LATEX_ROOT_PREC };
+                    parts
+                        .iter()
+                        .map(|p| match p {
+                            Part::Literal(s) => s.clone(),
+                            Part::Node(e) => latex_render(e, prec),
+                        })
+                        .collect::<Vec<_>>()
+                        .join(" \\cdot ")
+                };
+                let top = side(&num_parts, "1");
+                let bottoms: Vec<String> = den_parts
+                    .iter()
+                    .map(|p| match p {
+                        Part::Literal(s) => s.clone(),
+                        Part::Node(e) => latex_render(e, LATEX_ROOT_PREC),
+                    })
+                    .collect();
+                // ONE \frac per division, exactly as the infix arm emits one "/" per denominator
+                // factor: a value with two separate denominator factors nests.
+                text = format!("\\frac{{{}}}{{{}}}", top, bottoms[0]);
+                for d in &bottoms[1..] {
+                    text = format!("\\frac{{{}}}{{{}}}", text, d);
+                }
+            }
+            if shape.negative {
+                text = format!("-{}", text);
+            }
+            latex_delimit(text, parent_prec, LATEX_MUL_PREC)
+        }
+        Expr::Pow(base, exponent) => {
+            let half = Rat::new(Int::from_i64(1), Nat::from_u64(2));
+            let minus_half = Rat::new(Int::from_i64(-1), Nat::from_u64(2));
+            if let Expr::Num(n) = exponent.as_ref() {
+                if *n == half {
+                    return latex_delimit(
+                        format!("\\sqrt{{{}}}", latex_render(base, LATEX_ROOT_PREC)),
+                        parent_prec,
+                        LATEX_POW_PREC,
+                    );
+                }
+                if *n == minus_half {
+                    return latex_delimit(
+                        format!(
+                            "\\frac{{1}}{{\\sqrt{{{}}}}}",
+                            latex_render(base, LATEX_ROOT_PREC)
+                        ),
+                        parent_prec,
+                        LATEX_POW_PREC,
+                    );
+                }
+            }
+            let mut b = latex_render(base, LATEX_ROOT_PREC);
+            if latex_needs_operand_delimiter(LATEX_POW_PREC, base, &b) {
+                b = format!("\\left({}\\right)", b);
+            }
+            let ex = latex_render(exponent, LATEX_ROOT_PREC);
+            latex_delimit(
+                format!("{}^{{{}}}", b, ex),
+                parent_prec,
+                LATEX_POW_PREC,
+            )
+        }
+        Expr::Fun(name, args) => match name.as_str() {
+            "sqrt" if args.len() == 1 => latex_delimit(
+                format!("\\sqrt{{{}}}", latex_render(&args[0], LATEX_ROOT_PREC)),
+                parent_prec,
+                LATEX_POW_PREC,
+            ),
+            "abs" if args.len() == 1 => {
+                format!("\\left|{}\\right|", latex_render(&args[0], LATEX_ROOT_PREC))
+            }
+            "and" => latex_delimit(
+                args.iter()
+                    .map(|a| latex_render(a, LATEX_AND_PREC))
+                    .collect::<Vec<_>>()
+                    .join(" \\land "),
+                parent_prec,
+                LATEX_AND_PREC,
+            ),
+            "or" => latex_delimit(
+                args.iter()
+                    .map(|a| latex_render(a, LATEX_OR_PREC))
+                    .collect::<Vec<_>>()
+                    .join(" \\lor "),
+                parent_prec,
+                LATEX_OR_PREC,
+            ),
+            "not" if args.len() == 1 => latex_delimit(
+                format!("\\neg {}", latex_render(&args[0], LATEX_ATOM_PREC)),
+                parent_prec,
+                LATEX_ATOM_PREC,
+            ),
+            "rootof" if args.len() == 2 => format!(
+                "\\operatorname{{rootof}}({}, {})",
+                latex_render(&args[0], LATEX_ARG_PREC),
+                latex_render(&args[1], LATEX_ARG_PREC)
+            ),
+            _ if args.is_empty() => match name.as_str() {
+                "pi" => "\\pi".to_string(),
+                "e" => "e".to_string(),
+                "i" => "i".to_string(),
+                "inf" => "\\infty".to_string(),
+                _ => format!("{}()", latex_call_name(name)),
+            },
+            _ => format!(
+                "{}({})",
+                latex_call_name(name),
+                args.iter()
+                    .map(|a| latex_render(a, LATEX_ARG_PREC))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        },
+        Expr::Div(a, b) => latex_delimit(
+            format!(
+                "\\frac{{{}}}{{{}}}",
+                latex_render(a, LATEX_ROOT_PREC),
+                latex_render(b, LATEX_ROOT_PREC)
+            ),
+            parent_prec,
+            LATEX_MUL_PREC,
+        ),
+        Expr::Rel(op, a, b) => {
+            let symbol = match op {
+                RelOp::Eq => " = ",
+                RelOp::Ne => " \\ne ",
+                RelOp::Lt => " < ",
+                RelOp::Le => " \\le ",
+                RelOp::Gt => " > ",
+                RelOp::Ge => " \\ge ",
+            };
+            format!(
+                "{}{}{}",
+                latex_render(a, LATEX_RELATION_PREC),
+                symbol,
+                latex_render(b, LATEX_RELATION_PREC)
+            )
+        }
+    }
+}
+
+
 /// A truncated series: exponents (which may be negative) mapped to rational coefficients.
 pub type Series = Vec<(i64, Rat)>;
 
 fn series_add(a: &Series, b: &Series) -> Series {
+    if cancel::check() {
+        return a.clone();
+    }
     let mut out = a.clone();
     for (e, c) in b {
         match out.iter_mut().find(|(k, _)| k == e) {
@@ -745,6 +1449,9 @@ fn series_add(a: &Series, b: &Series) -> Series {
 }
 
 fn series_mul(a: &Series, b: &Series, order: i64) -> Series {
+    if cancel::check() {
+        return Vec::new();
+    }
     let mut out: Series = Vec::new();
     for (ea, ca) in a {
         for (eb, cb) in b {
@@ -765,7 +1472,7 @@ fn series_mul(a: &Series, b: &Series, order: i64) -> Series {
 }
 
 fn series_inv(a: &Series, order: i64) -> Option<Series> {
-    if a.is_empty() {
+    if cancel::check() || a.is_empty() {
         return None;
     }
     let (e0, c0) = a[0].clone();
@@ -821,6 +1528,9 @@ fn series_pow(a: &Series, k: i64, order: i64) -> Option<Series> {
 
 /// Expands an expression in powers of one variable around zero.
 pub fn series(e: &Expr, var: &str, order: i64) -> Option<Series> {
+    if cancel::check() {
+        return None;
+    }
     let normalised = strip_div(e);
     series_inner(&normalised, var, order)
 }
@@ -900,6 +1610,9 @@ fn series_inner(e: &Expr, var: &str, order: i64) -> Option<Series> {
 
 /// Substitutes a symbol with an expression, leaving everything else alone.
 pub fn substitute(e: &Expr, var: &str, replacement: &Expr) -> Expr {
+    if cancel::check() {
+        return e.clone();
+    }
     match e {
         Expr::Sym(s) if s == var => replacement.clone(),
         Expr::Sym(_) | Expr::Num(_) => e.clone(),
@@ -970,6 +1683,9 @@ pub fn split_quotient(e: &Expr) -> Option<(Expr, Expr)> {
 }
 
 pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
+    if cancel::check() {
+        return None;
+    }
     let (num_e, den_e) = split_quotient(e)?;
     let nc = poly_coeffs(&num_e, var)?;
     let dc = poly_coeffs(&den_e, var)?;
@@ -977,7 +1693,9 @@ pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
         return None;
     }
     let roots = match solve_polynomial(&dc) {
-        SolveOutcome::Roots(r) => r,
+        // Partial fractions need SIMPLE poles: a repeated root would require every power of the
+        // factor, which this decomposition does not produce.
+        SolveOutcome::Roots(r) if r.iter().all(|root| root.multiplicity == 1) => r,
         _ => return None,
     };
     if roots.len() + 1 != dc.len() {
@@ -986,7 +1704,7 @@ pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
     let deriv: Vec<Rat> = (1..dc.len())
         .map(|i| dc[i].mul(&Rat::from_i64(i as i64)))
         .collect();
-    let mut sorted = roots;
+    let mut sorted: Vec<Rat> = roots.into_iter().map(|root| root.value).collect();
     sorted.sort_by(|a, b| a.cmp(b));
     let mut terms: Vec<Expr> = Vec::new();
     for r in sorted {
@@ -1007,6 +1725,9 @@ pub fn apart(e: &Expr, var: &str) -> Option<Expr> {
 }
 
 pub fn eval_at(e: &Expr, var: &str, x: &Rat) -> Option<Rat> {
+    if cancel::check() {
+        return None;
+    }
     let coeffs = poly_coeffs(e, var)?;
     let mut acc = Rat::zero();
     for c in coeffs.iter().rev() {
@@ -1016,6 +1737,9 @@ pub fn eval_at(e: &Expr, var: &str, x: &Rat) -> Option<Rat> {
 }
 
 pub fn poly_div(num: &[Rat], den: &[Rat]) -> Option<Vec<Rat>> {
+    if cancel::check() {
+        return None;
+    }
     let mut den = den.to_vec();
     while den.len() > 1 && den.last().map(|c| c.is_zero()).unwrap_or(false) {
         den.pop();
@@ -1048,6 +1772,9 @@ pub fn poly_div(num: &[Rat], den: &[Rat]) -> Option<Vec<Rat>> {
 
 /// Cancels a quotient of univariate polynomials when the division is exact.
 pub fn cancel(e: &Expr) -> Option<Expr> {
+    if cancel::check() {
+        return None;
+    }
     let mut var_name: Option<String> = None;
     let mut symbols: Vec<String> = Vec::new();
     collect_all(&e.clone(), &mut symbols);
@@ -1147,6 +1874,12 @@ pub fn expand(e: &Expr) -> Expr {
 }
 
 fn expand_inner(e: &Expr) -> Expr {
+    // A kernel that observed the caller's deadline returns its input and unwinds: the evaluation
+    // discards the value and reports the structured Cancelled refusal, so a partial expansion is
+    // never observable (Lovelace.Symbolics/Algebra/Expand.cs polls the same way).
+    if cancel::check() {
+        return e.clone();
+    }
     match e {
         Expr::Num(_) | Expr::Sym(_) => e.clone(),
         Expr::Add(terms) => {
@@ -1169,7 +1902,10 @@ fn expand_inner(e: &Expr) -> Expr {
                 if n.denominator().to_decimal() == "1" {
                     if let Ok(k) = n.numerator().to_decimal().parse::<u32>() {
                         let mut acc = Expr::num(1);
-                        for _ in 0..k {
+                        for step in 0..k {
+                            if cancel::poll(step as u64) {
+                                return acc;
+                            }
                             acc = distributive_mul(&acc, &b);
                         }
                         return acc;
@@ -1185,6 +1921,9 @@ fn expand_inner(e: &Expr) -> Expr {
 }
 
 fn distributive_mul(a: &Expr, b: &Expr) -> Expr {
+    if cancel::check() {
+        return a.clone();
+    }
     match (a, b) {
         (Expr::Add(xs), _) => {
             let mut acc = Expr::num(0);
@@ -1206,6 +1945,9 @@ fn distributive_mul(a: &Expr, b: &Expr) -> Expr {
 
 /// Groups a sum into powers of one variable: `x*y + x + 2` collected in x is `2 + x*(y + 1)`.
 pub fn collect(e: &Expr, var: &str) -> Expr {
+    if cancel::check() {
+        return e.clone();
+    }
     let expanded = expand(e);
     let mut coefficients: Vec<(i64, Expr)> = Vec::new();
     let terms = match &expanded {
@@ -1214,6 +1956,12 @@ pub fn collect(e: &Expr, var: &str) -> Expr {
     };
     for term in terms {
         let degree = term.degree_in(var);
+        // A term whose degree does not fit the materialization bound is not something collect
+        // can key by a coefficient; publish the expanded expression unchanged (the reference's
+        // collect leaves an unexpandable power alone) instead of synthesizing x^<saturated>.
+        if !degree_within_materialization(degree) {
+            return expanded;
+        }
         let coefficient = divide_out(&term, var, degree);
         if let Some(slot) = coefficients.iter_mut().find(|(d, _)| *d == degree) {
             slot.1 = Expr::add(slot.1.clone(), coefficient);
@@ -1298,9 +2046,39 @@ fn divide_out(term: &Expr, var: &str, degree: i64) -> Expr {
     }
 }
 
+/// The greatest coefficient count `poly_coeffs` will materialize for ONE polynomial. The
+/// degree is user-controlled (it comes from an exponent written in the script), so the vector
+/// length must be bounded before `resize`: 2^16 coefficients is already a 65 537-entry exact
+/// vector, far beyond the degrees the exact solver's Sturm/factorization paths can answer in
+/// bounded time, and a larger request is REFUSED as non-polynomial instead of aborting.
+const MAX_MATERIALIZED_POLYNOMIAL_DEGREE: usize = 1 << 16;
+
+/// True when `degree` fits the materialization bound in either direction. `collect` uses a
+/// signed degree as its key; `poly_coeffs` only accepts non-negative ones.
+fn degree_within_materialization(degree: i64) -> bool {
+    degree.unsigned_abs() <= MAX_MATERIALIZED_POLYNOMIAL_DEGREE as u64
+}
+
+/// The coefficient index for a non-negative degree, or None when the vector would exceed the
+/// materialization bound. Never narrows through `as`: a negative or wider-than-usize degree is
+/// rejected rather than wrapped.
+fn degree_index(degree: i64) -> Option<usize> {
+    if degree < 0 {
+        return None;
+    }
+    let index = usize::try_from(degree).ok()?;
+    if index > MAX_MATERIALIZED_POLYNOMIAL_DEGREE {
+        return None;
+    }
+    Some(index)
+}
+
 /// Extracts polynomial coefficients (index = degree) when the expression is a polynomial in
 /// `var` with rational coefficients.
 pub fn poly_coeffs(e: &Expr, var: &str) -> Option<Vec<Rat>> {
+    if cancel::check() {
+        return None;
+    }
     let expanded = expand(&strip_div(e));
     let terms = match &expanded {
         Expr::Add(ts) => ts.clone(),
@@ -1312,12 +2090,19 @@ pub fn poly_coeffs(e: &Expr, var: &str) -> Option<Vec<Rat>> {
         if degree < 0 {
             return None;
         }
+        // The coefficient vector is indexed by the degree, so a user-sized exponent must be
+        // measured against a bound BEFORE the resize: x^(2^63-1) is not a polynomial this kernel
+        // will materialize, and asking for it must answer "not polynomial here" rather than
+        // aborting on a capacity/allocator failure. None sends the solver to its structured
+        // Unevaluated path.
+        let Some(index) = degree_index(degree) else {
+            return None;
+        };
         let coefficient = divide_out(&term, var, degree);
         let value = match coefficient {
             Expr::Num(n) => n,
             _ => return None,
         };
-        let index = degree as usize;
         if coeffs.len() <= index {
             coeffs.resize(index + 1, Rat::zero());
         }
@@ -1329,11 +2114,29 @@ pub fn poly_coeffs(e: &Expr, var: &str) -> Option<Vec<Rat>> {
     Some(coeffs)
 }
 
+/// One exact rational root of a polynomial, with the multiplicity of that root in the
+/// factorization (1 for a simple root). The reference preserves multiplicity from the square-free
+/// factorization instead of collapsing a repeated root to a single count-1 entry.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Root {
+    /// The root value.
+    pub value: Rat,
+    /// How many times the factor `(x - value)` divides the polynomial.
+    pub multiplicity: u64,
+}
+
+impl Root {
+    /// A simple root (multiplicity 1).
+    pub fn simple(value: Rat) -> Root {
+        Root { value, multiplicity: 1 }
+    }
+}
+
 /// The outcome of solving a polynomial equation.
 #[derive(Clone, Debug)]
 pub enum SolveOutcome {
-    /// Exact rational roots, ascending.
-    Roots(Vec<Rat>),
+    /// Exact rational roots, ascending; a repeated root appears ONCE with its multiplicity.
+    Roots(Vec<Root>),
     /// The equation reduces to a false constant.
     NoSolutions,
     /// The equation has roots, but none inside the requested real domain.
@@ -1348,8 +2151,143 @@ pub enum SolveOutcome {
     Unevaluated,
 }
 
-/// Solves a polynomial equation with rational coefficients by exact root extraction.
+
+/// Trims a coefficient list to its true degree (a constant zero is [0]).
+fn trim_poly(mut p: Vec<Rat>) -> Vec<Rat> {
+    while p.len() > 1 && p.last().map(|c| c.is_zero()).unwrap_or(false) {
+        p.pop();
+    }
+    if p.is_empty() {
+        p.push(Rat::zero());
+    }
+    p
+}
+
+/// The formal derivative of an ascending-coefficient polynomial.
+fn poly_derivative(p: &[Rat]) -> Vec<Rat> {
+    if p.len() <= 1 {
+        return vec![Rat::zero()];
+    }
+    let mut out = Vec::with_capacity(p.len() - 1);
+    for (i, c) in p.iter().enumerate().skip(1) {
+        out.push(c.mul(&Rat::from_i64(i as i64)));
+    }
+    trim_poly(out)
+}
+
+/// The remainder of polynomial long division, ascending coefficients.
+fn poly_remainder(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
+    let mut r = trim_poly(a.to_vec());
+    let divisor = trim_poly(b.to_vec());
+    if divisor.len() == 1 && divisor[0].is_zero() {
+        return r;
+    }
+    let db = divisor.len() - 1;
+    let lead = divisor[db].clone();
+    while r.len() > db + 1 {
+        let dr = r.len() - 1;
+        let factor = match r[dr].div(&lead) {
+            Some(f) => f,
+            None => break,
+        };
+        let shift = dr - db;
+        for i in 0..=db {
+            let subtracted = divisor[i].mul(&factor);
+            r[i + shift] = r[i + shift].add(&subtracted.neg());
+        }
+        r = trim_poly(r);
+    }
+    trim_poly(r)
+}
+
+/// The number of DISTINCT real roots of a rational-coefficient polynomial: Sturm's theorem, so
+/// the count is exact rather than sampled. Used by the degree >= 4 solver to publish RootOf
+/// values for the representable (real) roots and count the rest.
+pub fn real_root_count(coeffs: &[Rat]) -> usize {
+    if cancel::check() {
+        return 0;
+    }
+    let p = trim_poly(coeffs.to_vec());
+    if p.len() <= 1 {
+        return 0;
+    }
+    let mut sequence: Vec<Vec<Rat>> = vec![p.clone(), poly_derivative(&p)];
+    while sequence.len() < 256 {
+        let n = sequence.len();
+        let remainder = poly_remainder(&sequence[n - 2], &sequence[n - 1]);
+        let zero_remainder = remainder.len() == 1 && remainder[0].is_zero();
+        if zero_remainder {
+            break;
+        }
+        let next: Vec<Rat> = remainder.iter().map(|c| c.neg()).collect();
+        let constant = next.len() == 1;
+        sequence.push(trim_poly(next));
+        if constant {
+            break;
+        }
+    }
+    // Sign variations of the (nonzero) leading coefficients at +infinity and -infinity; the
+    // leading term of p at -infinity flips by (-1)^degree.
+    let variations = |at_negative_infinity: bool| -> usize {
+        let mut last: Option<bool> = None; // Some(true) = positive
+        let mut changes = 0usize;
+        for poly in &sequence {
+            if poly.len() == 1 && poly[0].is_zero() {
+                continue;
+            }
+            let lead = poly.last().cloned().unwrap_or_else(Rat::zero);
+            let mut positive = !lead.is_negative();
+            if at_negative_infinity && (poly.len() - 1) % 2 == 1 {
+                positive = !positive;
+            }
+            if let Some(previous) = last {
+                if previous != positive {
+                    changes += 1;
+                }
+            }
+            last = Some(positive);
+        }
+        changes
+    };
+    variations(true).saturating_sub(variations(false))
+}
+
+/// The polynomial expression c0 + c1*x + ... that a RootOf's defining polynomial prints as.
+fn poly_expr(coeffs: &[Rat], var: &str) -> Expr {
+    let mut acc = Expr::num(0);
+    for (i, c) in coeffs.iter().enumerate() {
+        if c.is_zero() {
+            continue;
+        }
+        let term = if i == 0 {
+            Expr::Num(c.clone())
+        } else {
+            Expr::mul(
+                Expr::Num(c.clone()),
+                Expr::pow(Expr::sym(var), Expr::num(i as i64)),
+            )
+        };
+        acc = Expr::add(acc, term);
+    }
+    acc
+}
+
+/// Solves a polynomial equation for the conventional variable x.
 pub fn solve_polynomial(coeffs: &[Rat]) -> SolveOutcome {
+    solve_polynomial_named(coeffs, "x")
+}
+
+/// Solves a polynomial equation with rational coefficients by exact root extraction.
+///
+/// The variable name is only used to spell a RootOf's defining polynomial; the roots themselves
+/// are a property of the coefficients.
+pub fn solve_polynomial_named(coeffs: &[Rat], var: &str) -> SolveOutcome {
+    // A cancelled search has no answer to publish. The evaluation discards this outcome and
+    // reports the structured Cancelled refusal (Lovelace.Symbolics/Solvers/Solve.cs polls the
+    // same point), so "Unevaluated" is never observable from a cancellation.
+    if cancel::check() {
+        return SolveOutcome::Unevaluated;
+    }
     if coeffs.is_empty() {
         return SolveOutcome::Unevaluated;
     }
@@ -1361,35 +2299,48 @@ pub fn solve_polynomial(coeffs: &[Rat]) -> SolveOutcome {
         };
     }
     let mut working = coeffs.to_vec();
-    let mut roots: Vec<Rat> = Vec::new();
-    // Find rational roots until the polynomial is linear or has none.
+    let mut roots: Vec<Root> = Vec::new();
+    // Find rational roots until the polynomial is linear or has none. Each root is divided out
+    // completely and its MULTIPLICITY is recorded: the reference preserves the square-free
+    // factorization's multiplicity instead of collapsing x^2 - 2x + 1 to one count-1 entry.
     loop {
         if working.len() <= 2 {
             break;
         }
+        if cancel::check() {
+            return SolveOutcome::Unevaluated;
+        }
         match find_rational_root(&working) {
             Some(root) => {
-                working = divide_by_root(&working, &root);
-                if !roots.iter().any(|r| r.cmp(&root) == Ordering::Equal) {
-                    roots.push(root);
+                let mut multiplicity = 0u64;
+                while working.len() > 1
+                    && eval_poly(&working, &root).map(|v| v.is_zero()).unwrap_or(false)
+                {
+                    working = divide_by_root(&working, &root);
+                    multiplicity += 1;
                 }
+                if multiplicity == 0 {
+                    break;
+                }
+                add_root(&mut roots, root, multiplicity);
             }
             None => {
                 // A quadratic remainder can still be solved exactly when its discriminant is a
                 // perfect square.
                 if working.len() == 3 {
                     if let Some((a, b)) = quadratic_roots(&working) {
-                        for r in [a, b] {
-                            if !roots.iter().any(|x| x.cmp(&r) == Ordering::Equal) {
-                                roots.push(r);
-                            }
+                        if a.cmp(&b) == Ordering::Equal {
+                            add_root(&mut roots, a, 2);
+                        } else {
+                            add_root(&mut roots, a, 1);
+                            add_root(&mut roots, b, 1);
                         }
                         working = vec![Rat::one()];
                     } else if let Some(complex) = quadratic_complex_roots(&working) {
                         // Complex roots are published first, then the exact ones already found.
                         let mut exprs = complex;
-                        roots.sort_by(|a, b| a.cmp(b));
-                        exprs.extend(roots.iter().map(expr_from_rat));
+                        roots.sort_by(|a, b| a.value.cmp(&b.value));
+                        exprs.extend(roots.iter().map(|r| expr_from_rat(&r.value)));
                         return SolveOutcome::RootExpressions(exprs);
                     }
                 }
@@ -1400,13 +2351,39 @@ pub fn solve_polynomial(coeffs: &[Rat]) -> SolveOutcome {
     // A linear remainder still has an exact root.
     if working.len() == 2 && !working[1].is_zero() {
         if let Some(root) = Rat::zero().add(&working[0].neg()).div(&working[1]) {
-            if !roots.iter().any(|r| r.cmp(&root) == Ordering::Equal) {
-                roots.push(root);
-            }
+            add_root(&mut roots, root, 1);
         }
     }
-    roots.sort_by(|a, b| a.cmp(b));
-    if roots.len() < coeffs.len() - 1 {
+    roots.sort_by(|a, b| a.value.cmp(&b.value));
+    let represented: u64 = roots.iter().map(|r| r.multiplicity).sum();
+    let degree = (coeffs.len() - 1) as u64;
+    // A remaining CUBIC factor with no rational root has an exact radical form (Cardano). The
+    // reference publishes it; refusing silently would lose roots the oracle represents. Domain
+    // filtering happens in the caller, which drops expressions carrying i for a real request.
+    if working.len() == 4 && roots.is_empty() {
+        if let Some(exprs) = cubic_root_expressions(&working) {
+            return SolveOutcome::RootExpressions(exprs);
+        }
+    }
+    // A remaining factor of degree >= 4 has no radical formula here. The reference represents its
+    // real roots as algebraic numbers: RootOf(defining_polynomial, index), one per real root in
+    // ascending order, with the non-real roots counted as unrepresented.
+    if working.len() >= 5 {
+        let remaining_degree = working.len() - 1;
+        let real = real_root_count(&working);
+        if real > 0 || !roots.is_empty() {
+            let defining = poly_expr(&working, var);
+            let mut exprs: Vec<Expr> = roots.iter().map(|r| expr_from_rat(&r.value)).collect();
+            for index in 0..real {
+                exprs.push(Expr::Fun(
+                    "rootof".to_string(),
+                    vec![defining.clone(), Expr::num(index as i64)],
+                ));
+            }
+            return SolveOutcome::RootExpressionsCount(exprs, (remaining_degree - real) as u64);
+        }
+    }
+    if represented < degree {
         // The polynomial is not fully factored with exact methods.
         if roots.is_empty() {
             // A biquadratic may still have exact roots through y = x^2.
@@ -1419,7 +2396,7 @@ pub fn solve_polynomial(coeffs: &[Rat]) -> SolveOutcome {
                 SolveOutcome::Unevaluated
             };
         }
-        return SolveOutcome::Partial(roots);
+        return SolveOutcome::Partial(roots.into_iter().map(|r| r.value).collect());
     }
     if roots.is_empty() {
         if let Some(outcome) = solve_biquadratic(coeffs) {
@@ -1430,35 +2407,56 @@ pub fn solve_polynomial(coeffs: &[Rat]) -> SolveOutcome {
     SolveOutcome::Roots(roots)
 }
 
-fn find_rational_root(coeffs: &[Rat]) -> Option<Rat> {
-    let degree = coeffs.len() - 1;
-    // Scale to integers so the rational root theorem applies.
-    let mut scale = 1u64;
-    for c in coeffs {
-        if let Some(d) = c.denominator().to_u64() {
-            scale = lcm(scale, d.max(1));
-        }
+/// Records a root, merging the multiplicity when the same value is found again.
+fn add_root(roots: &mut Vec<Root>, value: Rat, multiplicity: u64) {
+    if let Some(existing) = roots
+        .iter_mut()
+        .find(|r| r.value.cmp(&value) == Ordering::Equal)
+    {
+        existing.multiplicity += multiplicity;
+    } else {
+        roots.push(Root { value, multiplicity });
     }
-    let ints: Vec<i64> = coeffs
-        .iter()
-        .map(|c| {
-            let n = c.numerator().to_decimal().parse::<i64>().unwrap_or(0);
-            let d = c.denominator().to_decimal().parse::<i64>().unwrap_or(1);
-            n * (scale as i64) / d
-        })
-        .collect();
-    let constant = ints[0];
-    let leading = ints[degree];
+}
+
+fn find_rational_root(coeffs: &[Rat]) -> Option<Rat> {
+    if cancel::check() {
+        return None;
+    }
+    let degree = coeffs.len() - 1;
+    // Scale to integers so the rational root theorem applies. Every step is checked: a
+    // user-sized coefficient (an exact Int of any width) must not wrap through an `as i64`, and
+    // i64::MIN.abs() panics. A coefficient that does not fit this enumeration's i64 arithmetic is
+    // simply not enumerated here; the quadratic/cubic exact branches still get their chance.
+    let mut scale: u64 = 1;
+    for c in coeffs {
+        let d = c.denominator().to_u64()?;
+        scale = lcm(scale, d.max(1))?;
+    }
+    let mut ints: Vec<i64> = Vec::with_capacity(coeffs.len());
+    for c in coeffs {
+        let numerator: i128 = c.numerator().to_decimal().parse().ok()?;
+        let denominator: i128 = c.denominator().to_decimal().parse().ok()?;
+        let scaled = numerator.checked_mul(i128::from(scale))?.checked_div(denominator)?;
+        ints.push(i64::try_from(scaled).ok()?);
+    }
+    // unsigned_abs is defined for i64::MIN, where abs() would panic.
+    let constant = ints[0].unsigned_abs();
+    let leading = ints[degree].unsigned_abs();
     if leading == 0 {
         return None;
     }
-    for p in divisors(constant.abs()) {
-        for q in divisors(leading.abs()) {
+    for p in divisors(constant) {
+        if cancel::check() {
+            return None;
+        }
+        // A divisor beyond i64::MAX has no signed numerator form; skip it rather than wrap it.
+        let Ok(p) = i64::try_from(p) else {
+            continue;
+        };
+        for q in divisors(leading) {
             for sign in [1i64, -1i64] {
-                let candidate = Rat::new(
-                    Int::from_i64(sign * p),
-                    Nat::from_u64(q as u64),
-                );
+                let candidate = Rat::new(Int::from_i64(sign * p), Nat::from_u64(q));
                 if eval_poly(coeffs, &candidate).map(|v| v.is_zero()).unwrap_or(false) {
                     return Some(candidate);
                 }
@@ -1468,13 +2466,17 @@ fn find_rational_root(coeffs: &[Rat]) -> Option<Rat> {
     None
 }
 
-fn divisors(n: i64) -> Vec<i64> {
+fn divisors(n: u64) -> Vec<u64> {
     if n == 0 {
         return vec![1];
     }
     let mut out = Vec::new();
-    let mut d = 1i64;
+    let mut d = 1u64;
+    // d is capped at 100 000, so d * d cannot overflow u64.
     while d * d <= n && d < 100_000 {
+        if cancel::check() {
+            return out;
+        }
         if n % d == 0 {
             out.push(d);
             out.push(n / d);
@@ -1486,11 +2488,13 @@ fn divisors(n: i64) -> Vec<i64> {
     out
 }
 
-fn lcm(a: u64, b: u64) -> u64 {
+/// The least common multiple, or None when it does not fit u64. The caller turns that into a
+/// refusal to enumerate rather than a wrapped scale factor.
+fn lcm(a: u64, b: u64) -> Option<u64> {
     if a == 0 || b == 0 {
-        return 1;
+        return Some(1);
     }
-    (a / gcd_u64(a, b)) * b
+    (a / gcd_u64(a, b)).checked_mul(b)
 }
 
 fn eval_poly(coeffs: &[Rat], x: &Rat) -> Option<Rat> {
@@ -1576,7 +2580,126 @@ fn quadratic_roots(coeffs: &[Rat]) -> Option<(Rat, Rat)> {
     Some((r1, r2))
 }
 
+/// Exact Cardano roots of a depressed cubic `a x^3 + b x^2 + c x + d`.
+///
+/// The reference's `CubicRoots` is the contract: normalize to monic, substitute
+/// `x = t - A/3` to reach `t^3 + P t + Q`, then
+/// - `disc = Q^2/4 + P^3/27 >= 0`: one real branch plus the two omega rotations,
+/// - `disc < 0`: three real roots through the cosine form.
+/// The returned expressions are exact; the CALLER applies the domain filter (a real request drops
+/// the branches carrying `i`).
+fn cubic_root_expressions(coeffs: &[Rat]) -> Option<Vec<Expr>> {
+    if cancel::check() {
+        return None;
+    }
+    if coeffs.len() != 4 {
+        return None;
+    }
+    let a = coeffs[3].clone();
+    if a.is_zero() {
+        return None;
+    }
+    let inv_a = Rat::one().div(&a)?;
+    let aa = coeffs[2].mul(&inv_a);
+    let bb = coeffs[1].mul(&inv_a);
+    let cc = coeffs[0].mul(&inv_a);
+    let three = Rat::from_i64(3);
+    let a3 = aa.div(&three)?;
+    let p = bb.add(&aa.mul(&aa).div(&three)?.neg());
+    let q = Rat::from_i64(2)
+        .mul(&aa)
+        .mul(&aa)
+        .mul(&aa)
+        .div(&Rat::from_i64(27))?
+        .add(&aa.mul(&bb).div(&three)?.neg())
+        .add(&cc);
+    let disc = q
+        .mul(&q)
+        .div(&Rat::from_i64(4))?
+        .add(&p.mul(&p).mul(&p).div(&Rat::from_i64(27))?);
+    let one_third = Rat::new(Int::from_i64(1), Nat::from_u64(3));
+    let minus_one_third = Rat::new(Int::from_i64(-1), Nat::from_u64(3));
+    let mut ts: Vec<Expr> = Vec::new();
+    if !disc.is_negative() {
+        // One real root through Cardano; the other two are the omega rotations. u and v are
+        // branch-coupled by u*v = -P/3, exactly as the reference insists.
+        let half_q = q.neg().div(&Rat::from_i64(2))?;
+        // sqrt, not a half power: the reference printer renders a 1/2 exponent as sqrt(...).
+        let sqrt_d = Expr::sqrt(Expr::Num(disc.clone()));
+        let r1 = Expr::add(Expr::Num(half_q), sqrt_d);
+        let u = Expr::pow(r1.clone(), Expr::Num(one_third));
+        let v = if p.is_zero() {
+            Expr::num(0)
+        } else {
+            Expr::mul(
+                Expr::Num(p.neg().div(&three)?),
+                Expr::pow(r1, Expr::Num(minus_one_third)),
+            )
+        };
+        let omega = Expr::add(
+            Expr::Num(Rat::new(Int::from_i64(-1), Nat::from_u64(2))),
+            Expr::mul(
+                Expr::div(Expr::sqrt(Expr::num(3)), Expr::num(2)),
+                Expr::sym("i"),
+            ),
+        );
+        let omega2 = Expr::sub(
+            Expr::Num(Rat::new(Int::from_i64(-1), Nat::from_u64(2))),
+            Expr::mul(
+                Expr::div(Expr::sqrt(Expr::num(3)), Expr::num(2)),
+                Expr::sym("i"),
+            ),
+        );
+        ts.push(Expr::add(u.clone(), v.clone()));
+        ts.push(Expr::add(
+            Expr::mul(omega.clone(), u.clone()),
+            Expr::mul(omega2.clone(), v.clone()),
+        ));
+        ts.push(Expr::add(Expr::mul(omega2, u), Expr::mul(omega, v)));
+    } else {
+        // Three real roots via the trigonometric form.
+        let m = Expr::mul(
+            Expr::num(2),
+            Expr::sqrt(Expr::Num(p.neg().div(&three)?)),
+        );
+        let inner = Expr::mul(
+            Expr::Num(
+                Rat::from_i64(3)
+                    .mul(&q)
+                    .div(&Rat::from_i64(2).mul(&p))?,
+            ),
+            Expr::sqrt(Expr::Num(Rat::from_i64(-3).div(&p)?)),
+        );
+        let theta = Expr::div(
+            Expr::Fun("acos".to_string(), vec![inner]),
+            Expr::num(3),
+        );
+        let pi = Expr::Fun("pi".to_string(), Vec::new());
+        for k in 0..3i64 {
+            let angle = Expr::add(
+                theta.clone(),
+                Expr::div(Expr::mul(Expr::num(2 * k), pi.clone()), Expr::num(3)),
+            );
+            ts.push(Expr::mul(
+                m.clone(),
+                Expr::Fun("cos".to_string(), vec![angle]),
+            ));
+        }
+    }
+    let shift = Expr::Num(a3.neg());
+    Some(ts.into_iter().map(|t| Expr::add(t, shift.clone())).collect())
+}
+
 fn solve_biquadratic(coeffs: &[Rat]) -> Option<SolveOutcome> {
+    if cancel::check() {
+        return None;
+    }
+    // The biquadratic substitution y = x^2 only exists for a quartic. The caller may hand this
+    // function any degree it could not factor (the crash was a cubic: x^3 - 2 reached
+    // coeffs[4]); refusing a non-quartic is part of the fix, not an optimization.
+    if coeffs.len() != 5 {
+        return None;
+    }
     let a = coeffs[4].clone();
     let b = coeffs[2].clone();
     let c = coeffs[0].clone();
@@ -1653,6 +2776,9 @@ pub fn expr_from_rat(r: &Rat) -> Expr {
 
 /// Differentiates an expression with respect to a symbol.
 pub fn diff(e: &Expr, var: &str) -> Expr {
+    if cancel::check() {
+        return e.clone();
+    }
     match e {
         Expr::Num(_) => Expr::num(0),
         Expr::Sym(s) => Expr::num(if s == var { 1 } else { 0 }),
@@ -1745,6 +2871,819 @@ pub fn strip_div(e: &Expr) -> Expr {
         other => other.clone(),
     }
 }
+
+// ---------------------------------------------------------------------------
+// Wire introspection: canonical form, size, domain, exactness and free symbols.
+// ---------------------------------------------------------------------------
+
+/// The numeric domains, ordered Integer < Rational < Real < Complex so a sum or product
+/// takes the widest operand.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Dom {
+    /// Whole numbers.
+    Integer,
+    /// Exact quotients.
+    Rational,
+    /// Real-valued (irrational or transcendental) expressions.
+    Real,
+    /// Complex-valued expressions.
+    Complex,
+}
+
+impl Dom {
+    /// The lower-case wire name.
+    pub fn name(self) -> &'static str {
+        match self {
+            Dom::Integer => "integer",
+            Dom::Rational => "rational",
+            Dom::Real => "real",
+            Dom::Complex => "complex",
+        }
+    }
+}
+
+impl Expr {
+    /// The canonical S-expression form (the versioned, round-trippable wire encoding).
+    pub fn canonical(&self) -> String {
+        match self {
+            Expr::Num(n) => format!("(rat {} {})", n.numerator().to_decimal(), n.denominator().to_decimal()),
+            Expr::Sym(s) => format!("(sym {})", s),
+            Expr::Add(terms) => {
+                // The canonical order is the kernel's total term order (constants first, then by
+                // node kind), which is NOT the degree order the pretty printer uses.
+                let mut ordered = terms.clone();
+                ordered.sort_by(canonical_order);
+                let parts: Vec<String> = ordered.iter().map(|t| t.canonical()).collect();
+                format!("(add {})", parts.join(" "))
+            }
+            Expr::Mul(factors) => {
+                let mut ordered = factors.clone();
+                ordered.sort_by(canonical_order);
+                let parts: Vec<String> = ordered.iter().map(|f| f.canonical()).collect();
+                format!("(mul {})", parts.join(" "))
+            }
+            Expr::Pow(base, exp) => format!("(pow {} {})", base.canonical(), exp.canonical()),
+            Expr::Div(a, b) => {
+                // A quotient is a product with the reciprocal, which is the canonical shape. The
+                // two factors are emitted in the kernel's canonical order so that parsing the
+                // text back gives a Multiply that re-prints the SAME text: a canonical form whose
+                // operand order depends on which constructor built the value would not round-trip.
+                let reciprocal = Expr::Pow(
+                    Box::new((**b).clone()),
+                    Box::new(Expr::Num(Rat::from_i64(-1))),
+                );
+                if canonical_order(a, &reciprocal) == Ordering::Greater {
+                    format!("(mul {} {})", reciprocal.canonical(), a.canonical())
+                } else {
+                    format!("(mul {} {})", a.canonical(), reciprocal.canonical())
+                }
+            }
+            Expr::Fun(name, args) => {
+                if name == "sqrt" && args.len() == 1 {
+                    return format!("(pow {} (rat 1 2))", args[0].canonical());
+                }
+                match (name.as_str(), args.len()) {
+                    ("pi", 0) => "(pi)".to_string(),
+                    ("e", 0) => "(e)".to_string(),
+                    ("i", 0) => "(i)".to_string(),
+                    ("inf", 0) => "(inf)".to_string(),
+                    // A root of a defining polynomial: the polynomial is a bound-variable form,
+                    // not a function argument, so it is printed directly rather than as (fn ...).
+                    ("rootof", 2) => {
+                        // The root index is an integer position, printed as one (0, not (rat 0 1)).
+                        let index = match &args[1] {
+                            Expr::Num(n) => n.numerator().to_decimal(),
+                            other => other.canonical(),
+                        };
+                        format!("(rootof {} {})", args[0].canonical(), index)
+                    }
+                    _ => {
+                        let parts: Vec<String> = args.iter().map(|a| a.canonical()).collect();
+                        if parts.is_empty() {
+                            format!("(fn {})", name)
+                        } else {
+                            format!("(fn {} {})", name, parts.join(" "))
+                        }
+                    }
+                }
+            }
+            Expr::Rel(op, a, b) => {
+                let tag = match op {
+                    RelOp::Eq => "eq",
+                    RelOp::Ne => "ne",
+                    RelOp::Lt => "lt",
+                    RelOp::Le => "le",
+                    RelOp::Gt => "gt",
+                    RelOp::Ge => "ge",
+                };
+                format!("({} {} {})", tag, a.canonical(), b.canonical())
+            }
+        }
+    }
+
+    /// The number of nodes in the expression tree (a rational or a symbol is one node).
+    pub fn node_count(&self) -> usize {
+        match self {
+            Expr::Num(_) | Expr::Sym(_) => 1,
+            Expr::Add(items) | Expr::Mul(items) => {
+                1 + items.iter().map(|i| i.node_count()).sum::<usize>()
+            }
+            Expr::Pow(a, b) => 1 + a.node_count() + b.node_count(),
+            Expr::Div(a, b) => 1 + a.node_count() + b.node_count(),
+            Expr::Fun(name, args) => {
+                // sqrt is canonically a power, so it carries the power's node count.
+                if name == "sqrt" && args.len() == 1 {
+                    return 1 + args[0].node_count() + 1;
+                }
+                // A RootOf abstracts its defining polynomial into one term per coefficient:
+                // the reference counts it as 1 + the polynomial's term count (x^4-x^2-1 -> 4).
+                if name == "rootof" && args.len() == 2 {
+                    let terms = match &args[0] {
+                        Expr::Add(items) => items.len(),
+                        _ => 1,
+                    };
+                    return 1 + terms;
+                }
+                1 + args.iter().map(|a| a.node_count()).sum::<usize>()
+            }
+            Expr::Rel(_, a, b) => 1 + a.node_count() + b.node_count(),
+        }
+    }
+
+    /// Every free symbol name, sorted.
+    pub fn free_symbols(&self) -> Vec<String> {
+        let mut names: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+        fn walk(e: &Expr, out: &mut std::collections::BTreeSet<String>) {
+            match e {
+                Expr::Sym(s) => {
+                    out.insert(s.clone());
+                }
+                Expr::Add(items) | Expr::Mul(items) => items.iter().for_each(|i| walk(i, out)),
+                Expr::Pow(a, b) | Expr::Div(a, b) | Expr::Rel(_, a, b) => {
+                    walk(a, out);
+                    walk(b, out);
+                }
+                // rootof's defining polynomial binds its own variable: no free symbols.
+                Expr::Fun(name, _) if name == "rootof" => {}
+                Expr::Fun(_, args) => args.iter().for_each(|a| walk(a, out)),
+                Expr::Num(_) => {}
+            }
+        }
+        walk(self, &mut names);
+        names.into_iter().collect()
+    }
+
+    /// True when no leaf denotes an approximation or a transcendental constant.
+    pub fn is_exact(&self) -> bool {
+        match self {
+            Expr::Num(_) | Expr::Sym(_) => true,
+            Expr::Add(items) | Expr::Mul(items) => items.iter().all(|i| i.is_exact()),
+            Expr::Pow(a, b) | Expr::Div(a, b) | Expr::Rel(_, a, b) => a.is_exact() && b.is_exact(),
+            Expr::Fun(name, args) => match (name.as_str(), args.len()) {
+                // The imaginary unit denotes an exact value; pi, e and infinity do not.
+                ("i", 0) => true,
+                ("rootof", 2) => true,
+                ("pi", 0) | ("e", 0) | ("inf", 0) => false,
+                _ => args.iter().all(|a| a.is_exact()),
+            },
+        }
+    }
+
+    /// The structural best-known domain of the expression.
+    pub fn domain(&self) -> Dom {
+        match self {
+            Expr::Num(_) => Dom::Rational,
+            // An unconstrained symbol ranges over the complex field.
+            Expr::Sym(_) => Dom::Complex,
+            Expr::Add(items) | Expr::Mul(items) => {
+                items.iter().map(|i| i.domain()).max().unwrap_or(Dom::Integer)
+            }
+            Expr::Pow(base, exp) => {
+                let bd = base.domain();
+                if let Expr::Num(n) = exp.as_ref() {
+                    if n.denominator().to_decimal() == "1" {
+                        if n.is_negative() {
+                            // A negative integer power is rational-valued where defined.
+                            return match bd {
+                                Dom::Integer | Dom::Rational => Dom::Rational,
+                                other => other,
+                            };
+                        }
+                        return bd;
+                    }
+                }
+                // A non-integer exponent is real only under a provable non-negative base.
+                if bd != Dom::Complex {
+                    if let Some(v) = numeric_rational(base) {
+                        if !v.is_negative() {
+                            return Dom::Real;
+                        }
+                    }
+                }
+                Dom::Complex
+            }
+            Expr::Div(a, b) => a.domain().max(b.domain()),
+            Expr::Rel(..) => Dom::Complex,
+            Expr::Fun(name, args) => match (name.as_str(), args.len()) {
+                ("pi", 0) | ("e", 0) | ("inf", 0) => Dom::Real,
+                ("i", 0) => Dom::Complex,
+                // A RootOf is the i-th REAL root of its defining polynomial.
+                ("rootof", 2) => Dom::Real,
+                ("sqrt", 1) => {
+                    let ad = args[0].domain();
+                    if ad == Dom::Complex {
+                        return Dom::Complex;
+                    }
+                    if let Some(v) = numeric_rational(&args[0]) {
+                        return if v.is_negative() { Dom::Complex } else { Dom::Real };
+                    }
+                    Dom::Real
+                }
+                _ => {
+                    let ad = if args.is_empty() { Dom::Real } else { args[0].domain() };
+                    if name == "abs" || name == "re" || name == "im" {
+                        return Dom::Real;
+                    }
+                    if ad == Dom::Complex {
+                        Dom::Complex
+                    } else {
+                        Dom::Real
+                    }
+                }
+            },
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Print modes, the debug rendering and the canonical-text parser (round 16).
+//
+// The reference surface is "Lovelace.Symbolics.Printing": PrettyPrint(expr, options) dispatches
+// Canonical/Pretty/Debug/Latex, DebugPrint is the structural form agents read, and CanonicalParse
+// turns the S-expression form back into an expression. This section gives the Rust model the same
+// surface, one printer per mode and one parser, so a canonical rendering is round-trippable
+// without going through the infix grammar.
+// ---------------------------------------------------------------------------
+
+/// The four printer modes of the reference "Printing.PrintMode": pretty (the infix display),
+/// canonical (the S-expression wire form), LaTeX, and debug (the kind-annotated structural form).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PrintMode {
+    /// The human-oriented infix form.
+    Pretty,
+    /// The canonical S-expression form.
+    Canonical,
+    /// The LaTeX rendering.
+    Latex,
+    /// The kind-annotated structural form.
+    Debug,
+}
+
+impl PrintMode {
+    /// Every accepted mode name, in the order a refusal lists them.
+    pub const NAMES: [&'static str; 4] = ["pretty", "canonical", "latex", "debug"];
+
+    /// Resolves a mode name. The comparison is ASCII case-insensitive, so "Debug" and "debug"
+    /// name the same mode. There is no fallback: an unknown name is an error, never Pretty.
+    pub fn from_name(name: &str) -> Result<PrintMode, UnknownPrintMode> {
+        for mode in [
+            PrintMode::Pretty,
+            PrintMode::Canonical,
+            PrintMode::Latex,
+            PrintMode::Debug,
+        ] {
+            if name.eq_ignore_ascii_case(mode.name()) {
+                return Ok(mode);
+            }
+        }
+        Err(UnknownPrintMode { name: name.to_string() })
+    }
+
+    /// The mode's documented lower-case name.
+    pub fn name(self) -> &'static str {
+        match self {
+            PrintMode::Pretty => "pretty",
+            PrintMode::Canonical => "canonical",
+            PrintMode::Latex => "latex",
+            PrintMode::Debug => "debug",
+        }
+    }
+}
+
+/// A mode name that PrintMode::from_name does not know.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownPrintMode {
+    /// The name exactly as supplied.
+    pub name: String,
+}
+
+impl std::fmt::Display for UnknownPrintMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "unknown print mode '{}'; expected one of: {}",
+            self.name,
+            PrintMode::NAMES.join(", ")
+        )
+    }
+}
+
+impl std::error::Error for UnknownPrintMode {}
+
+impl Expr {
+    /// Renders the expression through the printer arm named by "mode". The four arms are the
+    /// reference's Printing.PrettyPrint dispatch: Canonical is canonical(), Debug is debug_print(),
+    /// Latex is latex() and Pretty is the display form.
+    pub fn print(&self, mode: PrintMode) -> String {
+        match mode {
+            PrintMode::Pretty => self.to_string(),
+            PrintMode::Canonical => self.canonical(),
+            PrintMode::Latex => self.latex(),
+            PrintMode::Debug => self.debug_print(),
+        }
+    }
+
+    /// print by mode NAME, refusing a name outside PrintMode::NAMES.
+    pub fn print_named(&self, mode: &str) -> Result<String, UnknownPrintMode> {
+        PrintMode::from_name(mode).map(|m| self.print(m))
+    }
+
+    /// The structural, kind-annotated rendering of the reference Printing.DebugPrint: every node
+    /// carries its kind and only call arguments are parenthesised, so a reader never has to infer
+    /// structure from the infix form.
+    ///
+    /// Add and multiply operands are visited in the kernel's canonical order, which is the order
+    /// the reference expression is stored in. The Rust model's own term order is a DISPLAY order
+    /// (degree first); visiting that order would print a shape the reference expression does not
+    /// have.
+    pub fn debug_print(&self) -> String {
+        match self {
+            Expr::Num(n) => format!("rat({})", n.to_string()),
+            Expr::Sym(s) => format!("sym({})", s),
+            Expr::Add(terms) => {
+                let mut ordered = terms.clone();
+                ordered.sort_by(canonical_order);
+                format!(
+                    "add[{}]",
+                    ordered
+                        .iter()
+                        .map(Expr::debug_print)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Expr::Mul(factors) => {
+                let mut ordered = factors.clone();
+                ordered.sort_by(canonical_order);
+                format!(
+                    "mul[{}]",
+                    ordered
+                        .iter()
+                        .map(Expr::debug_print)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Expr::Pow(base, exp) => {
+                format!("pow[{}, {}]", base.debug_print(), exp.debug_print())
+            }
+            Expr::Fun(name, args) => {
+                // The reference's named constants are their own node kind; the Rust model carries
+                // them as zero-argument functions with the documented spellings.
+                if args.is_empty() {
+                    match name.as_str() {
+                        "pi" => return "named(Pi)".to_string(),
+                        "e" => return "named(E)".to_string(),
+                        "i" => return "named(I)".to_string(),
+                        "inf" => return "named(Infinity)".to_string(),
+                        _ => {}
+                    }
+                }
+                // sqrt is a POWER in the canonical form (the reference constructor builds one),
+                // so its debug shape is the power's, not a function call.
+                if name == "sqrt" && args.len() == 1 {
+                    return format!("pow[{}, rat(1/2)]", args[0].debug_print());
+                }
+                // A RootOf's index is an integer POSITION, printed as one, exactly as the
+                // reference prints the RootIndex field.
+                if name == "rootof" && args.len() == 2 {
+                    let index = match &args[1] {
+                        Expr::Num(n) if n.is_integer() => n.numerator().to_decimal(),
+                        other => other.debug_print(),
+                    };
+                    return format!("rootof[{}, {}]", args[0].debug_print(), index);
+                }
+                // The reference has dedicated logic nodes; the Rust model keeps them as
+                // functions, but the debug shape is the reference's.
+                if matches!(name.as_str(), "and" | "or" | "not") {
+                    let body = args
+                        .iter()
+                        .map(Expr::debug_print)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return format!("{}[{}]", name, body);
+                }
+                format!(
+                    "fn:{}({})",
+                    name,
+                    args.iter()
+                        .map(Expr::debug_print)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            // An explicit quotient is the reference's multiply-by-reciprocal shape; its debug form
+            // is the same structure the canonical form prints.
+            Expr::Div(a, b) => {
+                // The same multiply-by-reciprocal shape and the same canonical operand order the
+                // canonical arm uses, so Debug and Canonical never describe different trees.
+                let mut parts = vec![
+                    (**a).clone(),
+                    Expr::Pow(Box::new((**b).clone()), Box::new(Expr::Num(Rat::from_i64(-1)))),
+                ];
+                parts.sort_by(canonical_order);
+                format!(
+                    "mul[{}]",
+                    parts
+                        .iter()
+                        .map(Expr::debug_print)
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+            Expr::Rel(op, a, b) => format!(
+                "rel:{}({}, {})",
+                rel_op_name(*op),
+                a.debug_print(),
+                b.debug_print()
+            ),
+        }
+    }
+}
+
+/// The reference enum spelling of a relation operator, used by the debug form.
+fn rel_op_name(op: RelOp) -> &'static str {
+    match op {
+        RelOp::Eq => "Eq",
+        RelOp::Ne => "Ne",
+        RelOp::Lt => "Lt",
+        RelOp::Le => "Le",
+        RelOp::Gt => "Gt",
+        RelOp::Ge => "Ge",
+    }
+}
+
+/// A canonical-text parse failure: the byte offset and the expectation that failed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CanonicalParseError {
+    /// Byte offset into the input text.
+    pub position: usize,
+    /// What the parser expected and what it found.
+    pub message: String,
+}
+
+impl std::fmt::Display for CanonicalParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} at position {}", self.message, self.position)
+    }
+}
+
+impl std::error::Error for CanonicalParseError {}
+
+/// Parses the canonical S-expression form (the wire encoding Expr::canonical emits) back into an
+/// expression.
+///
+/// The grammar is the tagged prefix language: (rat N D), (sym NAME), (add ...), (mul ...),
+/// (pow A B), (fn NAME ARG...), the relation tags, (rootof POLY INDEX) and the named constants
+/// (pi)/(e)/(i)/(inf). The oracle's (int N) alias is accepted for compatibility; the Rust model
+/// has ONE numeric leaf, so it canonicalises to (rat N 1). Tags the model has no node for
+/// (real/complex literals, derivative, integral, piecewise, logic, order) are refused rather than
+/// guessed.
+///
+/// The round-trip guarantee is over THIS crate's canonical output: for every expression e,
+/// canonical_parse(e.canonical()).unwrap().canonical() == e.canonical().
+pub fn canonical_parse(text: &str) -> Result<Expr, CanonicalParseError> {
+    let tokens = tokenize_canonical(text);
+    let mut parser = CanonicalParser { tokens: &tokens, pos: 0, text_len: text.len() };
+    let expr = parser.parse_node()?;
+    if parser.pos != parser.tokens.len() {
+        return Err(parser.error_at_current("trailing tokens after the expression"));
+    }
+    Ok(expr)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum CanonicalToken {
+    Open(usize),
+    Close(usize),
+    Atom(String, usize),
+}
+
+fn tokenize_canonical(text: &str) -> Vec<CanonicalToken> {
+    let mut tokens = Vec::new();
+    let mut chars = text.char_indices().peekable();
+    while let Some((i, c)) = chars.next() {
+        if c.is_whitespace() {
+            continue;
+        }
+        if c == '(' {
+            tokens.push(CanonicalToken::Open(i));
+            continue;
+        }
+        if c == ')' {
+            tokens.push(CanonicalToken::Close(i));
+            continue;
+        }
+        let start = i;
+        let mut end = i + c.len_utf8();
+        while let Some(&(j, next)) = chars.peek() {
+            if next.is_whitespace() || next == '(' || next == ')' {
+                break;
+            }
+            chars.next();
+            end = j + next.len_utf8();
+        }
+        tokens.push(CanonicalToken::Atom(text[start..end].to_string(), start));
+    }
+    tokens
+}
+
+struct CanonicalParser<'a> {
+    tokens: &'a [CanonicalToken],
+    pos: usize,
+    text_len: usize,
+}
+
+impl CanonicalParser<'_> {
+    fn error(&self, position: usize, message: impl Into<String>) -> CanonicalParseError {
+        CanonicalParseError { position, message: message.into() }
+    }
+
+    fn error_at_current(&self, message: impl Into<String>) -> CanonicalParseError {
+        let position = match self.tokens.get(self.pos) {
+            Some(CanonicalToken::Open(p))
+            | Some(CanonicalToken::Close(p))
+            | Some(CanonicalToken::Atom(_, p)) => *p,
+            None => self.text_len,
+        };
+        self.error(position, message)
+    }
+
+    fn next(&mut self) -> Result<CanonicalToken, CanonicalParseError> {
+        let token = self
+            .tokens
+            .get(self.pos)
+            .cloned()
+            .ok_or_else(|| self.error(self.text_len, "unexpected end of input"))?;
+        self.pos += 1;
+        Ok(token)
+    }
+
+    fn next_atom(&mut self, expectation: &str) -> Result<String, CanonicalParseError> {
+        match self.next()? {
+            CanonicalToken::Atom(text, _) => Ok(text),
+            CanonicalToken::Open(p) => Err(self.error(p, format!("expected {expectation}, got '('"))),
+            CanonicalToken::Close(p) => Err(self.error(p, format!("expected {expectation}, got ')'"))),
+        }
+    }
+
+    fn expect_close(&mut self) -> Result<(), CanonicalParseError> {
+        match self.next()? {
+            CanonicalToken::Close(_) => Ok(()),
+            CanonicalToken::Open(p) => Err(self.error(p, "expected ')', got '('")),
+            CanonicalToken::Atom(text, p) => {
+                Err(self.error(p, format!("expected ')', got '{text}'")))
+            }
+        }
+    }
+
+    fn parse_nodes_until_close(&mut self) -> Result<Vec<Expr>, CanonicalParseError> {
+        let mut nodes = Vec::new();
+        loop {
+            match self.tokens.get(self.pos) {
+                None => {
+                    return Err(self.error(self.text_len, "unexpected end of input; expected ')'"))
+                }
+                Some(CanonicalToken::Close(_)) => {
+                    self.pos += 1;
+                    return Ok(nodes);
+                }
+                Some(_) => nodes.push(self.parse_node()?),
+            }
+        }
+    }
+
+    fn parse_relation(&mut self, op: RelOp, tag: &str) -> Result<Expr, CanonicalParseError> {
+        let left = self.parse_node()?;
+        let right = self.parse_node()?;
+        self.expect_close().map_err(|mut e| {
+            e.message = format!("({tag}) requires exactly two operands: {}", e.message);
+            e
+        })?;
+        Ok(Expr::Rel(op, Box::new(left), Box::new(right)))
+    }
+
+    fn parse_node(&mut self) -> Result<Expr, CanonicalParseError> {
+        match self.next()? {
+            CanonicalToken::Open(_) => {}
+            CanonicalToken::Close(p) => return Err(self.error(p, "expected '(', got ')'")),
+            CanonicalToken::Atom(text, p) => {
+                return Err(self.error(p, format!("expected '(', got '{text}'")))
+            }
+        }
+        let tag_position = match self.tokens.get(self.pos) {
+            Some(CanonicalToken::Atom(_, p)) => *p,
+            _ => return Err(self.error_at_current("expected a tag after '('")),
+        };
+        let tag = self.next_atom("a tag after '('")?;
+        match tag.as_str() {
+            "int" => {
+                let text = self.next_atom("an integer")?;
+                let value = Int::from_decimal(&text).ok_or_else(|| {
+                    self.error(tag_position, format!("(int) needs an integer, got '{text}'"))
+                })?;
+                self.expect_close()?;
+                Ok(Expr::Num(Rat::new(value, Nat::from_u64(1))))
+            }
+            "rat" => {
+                let numerator_text = self.next_atom("a numerator")?;
+                let denominator_text = self.next_atom("a denominator")?;
+                let numerator = Int::from_decimal(&numerator_text).ok_or_else(|| {
+                    self.error(
+                        tag_position,
+                        format!("(rat) needs an integer numerator, got '{numerator_text}'"),
+                    )
+                })?;
+                let denominator = Nat::from_decimal(&denominator_text).ok_or_else(|| {
+                    self.error(
+                        tag_position,
+                        format!(
+                            "(rat) needs a non-negative integer denominator, got '{denominator_text}'"
+                        ),
+                    )
+                })?;
+                if denominator.is_zero() {
+                    return Err(self.error(tag_position, "(rat) denominator must not be zero"));
+                }
+                self.expect_close()?;
+                Ok(Expr::Num(Rat::new(numerator, denominator)))
+            }
+            "sym" => {
+                let name = self.next_atom("a symbol name")?;
+                self.expect_close()?;
+                Ok(Expr::Sym(name))
+            }
+            "pi" | "e" | "i" | "inf" => {
+                self.expect_close()?;
+                Ok(Expr::Fun(tag, Vec::new()))
+            }
+            "add" => Ok(Expr::Add(self.parse_nodes_until_close()?)),
+            "mul" => Ok(Expr::Mul(self.parse_nodes_until_close()?)),
+            "pow" => {
+                let base = self.parse_node()?;
+                let exponent = self.parse_node()?;
+                self.expect_close()?;
+                Ok(Expr::Pow(Box::new(base), Box::new(exponent)))
+            }
+            "fn" => {
+                let name = self.next_atom("a function name")?;
+                let args = self.parse_nodes_until_close()?;
+                Ok(Expr::Fun(name, args))
+            }
+            "eq" => self.parse_relation(RelOp::Eq, "eq"),
+            "ne" => self.parse_relation(RelOp::Ne, "ne"),
+            "lt" => self.parse_relation(RelOp::Lt, "lt"),
+            "le" => self.parse_relation(RelOp::Le, "le"),
+            "gt" => self.parse_relation(RelOp::Gt, "gt"),
+            "ge" => self.parse_relation(RelOp::Ge, "ge"),
+            "rootof" => {
+                let polynomial = self.parse_node()?;
+                let index_text = self.next_atom("a root index")?;
+                let index = Int::from_decimal(&index_text).ok_or_else(|| {
+                    self.error(
+                        tag_position,
+                        format!("(rootof) needs an integer index, got '{index_text}'"),
+                    )
+                })?;
+                self.expect_close()?;
+                Ok(Expr::Fun(
+                    "rootof".to_string(),
+                    vec![polynomial, Expr::Num(Rat::new(index, Nat::from_u64(1)))],
+                ))
+            }
+            "real" | "cplx" => Err(self.error(
+                tag_position,
+                format!(
+                    "the tag '{tag}' denotes a numeric literal this expression model has no leaf for"
+                ),
+            )),
+            "der" | "integ" | "pw" | "and" | "or" | "not" | "order" => Err(self.error(
+                tag_position,
+                format!("the tag '{tag}' is not part of this crate's canonical vocabulary"),
+            )),
+            other => Err(self.error(tag_position, format!("unknown tag '{other}'"))),
+        }
+    }
+}
+
+/// The node kind's rank in the kernel's total term order: a numeric constant sorts first, then a
+/// symbol, a named constant, a function application, a power, a product, a sum and a relation.
+fn canonical_rank(e: &Expr) -> u8 {
+    match e {
+        Expr::Num(_) => 0,
+        Expr::Sym(_) => 1,
+        Expr::Fun(name, args) if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "inf" | "i") => 2,
+        Expr::Fun(..) => 3,
+        Expr::Pow(..) => 4,
+        Expr::Mul(_) | Expr::Div(..) => 5,
+        Expr::Add(_) => 6,
+        Expr::Rel(..) => 7,
+    }
+}
+
+/// The kernel's total order over canonical expressions, used for Add and Multiply operand order.
+pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let (ra, rb) = (canonical_rank(a), canonical_rank(b));
+    if ra != rb {
+        return ra.cmp(&rb);
+    }
+    fn seq(a: &[Expr], b: &[Expr]) -> Ordering {
+        for (x, y) in a.iter().zip(b.iter()) {
+            let c = canonical_order(x, y);
+            if c != Ordering::Equal {
+                return c;
+            }
+        }
+        a.len().cmp(&b.len())
+    }
+    match (a, b) {
+        (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
+        (Expr::Sym(x), Expr::Sym(y)) => x.cmp(y),
+        (Expr::Fun(n1, a1), Expr::Fun(n2, a2)) => n1.cmp(n2).then_with(|| seq(a1, a2)),
+        (Expr::Pow(b1, e1), Expr::Pow(b2, e2)) => {
+            canonical_order(b1, b2).then_with(|| canonical_order(e1, e2))
+        }
+        (Expr::Mul(f1), Expr::Mul(f2)) => seq(f1, f2),
+        (Expr::Div(a1, b1), Expr::Div(a2, b2)) => {
+            canonical_order(a1, a2).then_with(|| canonical_order(b1, b2))
+        }
+        (Expr::Add(t1), Expr::Add(t2)) => seq(t1, t2),
+        (Expr::Rel(o1, l1, r1), Expr::Rel(o2, l2, r2)) => {
+            let rank = |o: &RelOp| match o {
+                RelOp::Eq => 0,
+                RelOp::Ne => 1,
+                RelOp::Lt => 2,
+                RelOp::Le => 3,
+                RelOp::Gt => 4,
+                RelOp::Ge => 5,
+            };
+            rank(o1)
+                .cmp(&rank(o2))
+                .then_with(|| canonical_order(l1, l2))
+                .then_with(|| canonical_order(r1, r2))
+        }
+        _ => Ordering::Equal,
+    }
+}
+
+/// The exact rational value of a numeric expression, when it has one.
+fn numeric_rational(e: &Expr) -> Option<Rat> {
+    match e {
+        Expr::Num(n) => Some(n.clone()),
+        Expr::Mul(items) => {
+            let mut acc = Rat::one();
+            for i in items {
+                acc = acc.mul(&numeric_rational(i)?);
+            }
+            Some(acc)
+        }
+        Expr::Add(items) => {
+            let mut acc = Rat::zero();
+            for i in items {
+                acc = acc.add(&numeric_rational(i)?);
+            }
+            Some(acc)
+        }
+        Expr::Pow(b, e) => {
+            let base = numeric_rational(b)?;
+            if let Expr::Num(n) = e.as_ref() {
+                if n.denominator().to_decimal() == "1" {
+                    let k = n.to_i64()?;
+                    return base.pow_i64(k);
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod panic_sweep_round23;
+
+#[cfg(test)]
+mod printing_round16;
 
 #[cfg(test)]
 mod tests {
@@ -1848,7 +3787,8 @@ mod tests {
         match solve_polynomial(&coeffs) {
             SolveOutcome::Roots(r) => {
                 assert_eq!(r.len(), 1);
-                assert_eq!(r[0].to_string(), "2");
+                assert_eq!(r[0].value.to_string(), "2");
+                assert_eq!(r[0].multiplicity, 1);
             }
             other => panic!("unexpected {other:?}"),
         }
@@ -1866,10 +3806,77 @@ mod tests {
         ];
         match solve_polynomial(&coeffs) {
             SolveOutcome::Roots(r) => {
-                let rendered: Vec<String> = r.iter().map(|x| x.to_string()).collect();
+                let rendered: Vec<String> = r.iter().map(|x| x.value.to_string()).collect();
                 assert_eq!(rendered.join(" "), "-2 -1 1 2");
+                assert!(r.iter().all(|root| root.multiplicity == 1));
             }
             other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn Solve_GivenRepeatedRoot_PreservesMultiplicity() {
+        // x^2 - 2x + 1 = (x - 1)^2: ONE root, multiplicity 2 (the oracle's --eval value).
+        let coeffs = vec![Rat::from_i64(1), Rat::from_i64(-2), Rat::from_i64(1)];
+        match solve_polynomial(&coeffs) {
+            SolveOutcome::Roots(r) => {
+                assert_eq!(r.len(), 1, "repeated root must not be duplicated nor collapsed in count");
+                assert_eq!(r[0].value.to_string(), "1");
+                assert_eq!(r[0].multiplicity, 2);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn Solve_GivenTripleRoot_PreservesMultiplicityThree() {
+        // x^3 - 3x^2 + 3x - 1 = (x - 1)^3.
+        let coeffs = vec![
+            Rat::from_i64(-1),
+            Rat::from_i64(3),
+            Rat::from_i64(-3),
+            Rat::from_i64(1),
+        ];
+        match solve_polynomial(&coeffs) {
+            SolveOutcome::Roots(r) => {
+                assert_eq!(r.len(), 1);
+                assert_eq!(r[0].multiplicity, 3);
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn Solve_GivenCubicWithoutRationalRoot_ReturnsCardanoRoots() {
+        // x^3 - 2: the regression for the index-out-of-bounds panic (the old code reached
+        // coeffs[4] in solve_biquadratic). The reference publishes three exact roots, one of
+        // which is 2^(1/3).
+        let coeffs = vec![Rat::from_i64(-2), Rat::zero(), Rat::zero(), Rat::one()];
+        match solve_polynomial(&coeffs) {
+            SolveOutcome::RootExpressions(exprs) => {
+                assert_eq!(exprs.len(), 3, "a cubic has three roots");
+                assert!(
+                    exprs.iter().any(|e| e.to_string() == "2^(1/3)"),
+                    "no 2^(1/3) among {:?}",
+                    exprs.iter().map(|e| e.to_string()).collect::<Vec<_>>()
+                );
+                assert!(exprs.iter().all(|e| e.is_exact()));
+            }
+            other => panic!("unexpected {other:?}"),
+        }
+    }
+
+    #[test]
+    fn Solve_GivenCubicWithoutRationalRoot_DoesNotPanicForEitherDiscriminantSign() {
+        // x^3 + x + 1 has disc > 0 (one real root); x^3 - 3x + 1 has disc < 0 (three real roots,
+        // the trigonometric branch). Both used to reach coeffs[4] and panic.
+        let one_real = vec![Rat::from_i64(1), Rat::from_i64(1), Rat::zero(), Rat::one()];
+        let three_real = vec![Rat::from_i64(1), Rat::from_i64(-3), Rat::zero(), Rat::one()];
+        for coeffs in [one_real, three_real] {
+            match solve_polynomial(&coeffs) {
+                SolveOutcome::RootExpressions(exprs) => assert_eq!(exprs.len(), 3),
+                other => panic!("unexpected {other:?}"),
+            }
         }
     }
 
@@ -2010,5 +4017,83 @@ mod tests {
     fn Rational_GivenHalf_PrintsFraction() {
         let half = Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2)));
         assert_eq!(s(Expr::neg(half)), "-1/2");
+    }
+
+    #[test]
+    fn Latex_GivenRationalConstant_IsAFraction() {
+        let half = Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2)));
+        assert_eq!(half.latex(), "\\frac{1}{2}");
+        assert_eq!(Expr::neg(half).latex(), "-\\frac{1}{2}");
+        assert_eq!(Expr::num(7).latex(), "7");
+    }
+
+    #[test]
+    fn Latex_GivenPowerAndProduct_UsesTheSharedGrouping() {
+        let x = Expr::sym("x");
+        let y = Expr::sym("y");
+        let z = Expr::sym("z");
+        assert_eq!(
+            Expr::pow(Expr::add(x.clone(), Expr::num(1)), Expr::num(2)).latex(),
+            "\\left(x + 1\\right)^{2}"
+        );
+        assert_eq!(
+            Expr::pow(Expr::pow(x.clone(), y.clone()), Expr::num(2)).latex(),
+            "\\left(x^{y}\\right)^{2}"
+        );
+        assert_eq!(
+            Expr::div(Expr::div(x.clone(), y.clone()), z.clone()).latex(),
+            "\\frac{\\frac{x}{y}}{z}"
+        );
+        assert_eq!(
+            Expr::div(x, Expr::mul(y, z)).latex(),
+            "\\frac{x}{y \\cdot z}"
+        );
+    }
+
+    #[test]
+    fn Latex_GivenSymbolName_EscapesTheTenSpecials() {
+        assert_eq!(Expr::sym("x_1").latex(), "x\\_1");
+        assert_eq!(Expr::sym("a%b").latex(), "a\\%b");
+        assert_eq!(
+            Expr::sym("x_1%&#'{}~^\\").latex(),
+            "x\\_1\\%\\&\\#'\\{\\}\\textasciitilde{}\\textasciicircum{}\\textbackslash{}"
+        );
+    }
+
+    #[test]
+    fn Sqrt_GivenNegativeValue_IsTheExactImaginaryMultiple() {
+        assert_eq!(s(Expr::sqrt(Expr::num(-4))), "2*i");
+        assert_eq!(s(Expr::sqrt(Expr::num(-2))), "i*sqrt(2)");
+        assert_eq!(
+            s(Expr::sqrt(Expr::Num(Rat::new(
+                Int::from_i64(-1),
+                Nat::from_u64(4)
+            )))),
+            "1/2*i"
+        );
+    }
+
+    #[test]
+    fn Pow_GivenNegativeHalfInteger_IsThePrincipalImaginaryValue() {
+        let three_halves = Rat::new(Int::from_i64(3), Nat::from_u64(2));
+        let minus_half = Rat::new(Int::from_i64(-1), Nat::from_u64(2));
+        assert_eq!(
+            s(Expr::pow(Expr::num(-4), Expr::Num(three_halves))),
+            "-8*i"
+        );
+        assert_eq!(
+            s(Expr::pow(Expr::num(-4), Expr::Num(minus_half))),
+            "-1/2*i"
+        );
+    }
+
+    #[test]
+    fn Pow_GivenImaginaryUnit_IntegerPowersFold() {
+        let i = imaginary_unit();
+        assert_eq!(s(Expr::pow(i.clone(), Expr::num(2))), "-1");
+        assert_eq!(s(Expr::pow(i.clone(), Expr::num(3))), "-i");
+        assert_eq!(s(Expr::mul(i.clone(), i)), "-1");
+        // A user symbol spelled i is an ordinary symbol, not the named constant.
+        assert_eq!(s(Expr::pow(Expr::sym("i"), Expr::num(2))), "i^2");
     }
 }

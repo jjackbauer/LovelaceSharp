@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-syntax-comment-slashes-252",
+  "category": "syntax",
+  "script": "// leading comment\n2 + 3",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.diagnostics[0].message",
+      "kind": "value",
+      "expected": "\"Unexpected token '/' at position 0: expected a number, string, identifier, '[', or '('.\"",
+      "actual": "\"Unexpected token Punct(\\\"/\\\").\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.972Z"
+}

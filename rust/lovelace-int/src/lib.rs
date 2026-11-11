@@ -632,6 +632,580 @@ mod tests {
         );
     }
 
+// ------------------------------------------------------------------
+    // Ports of Lovelace.Integer.Tests. Each test reproduces the C# method's
+    // concrete operands and concrete expected value. The C# operators
+    // (+, -, *, /, %, unary -) delegate to the named methods, so the Rust
+    // tests call those methods directly; Rust has no operator overloads.
+    // ------------------------------------------------------------------
+    use core::cmp::Ordering;
+
+    #[test]
+    fn add_GivenTwoPositiveIntegers_ReturnsSeven() {
+        // IntegerAddTests.Add_GivenTwoPositiveIntegers_ReturnsCorrectSum: 3 + 4 == 7.
+        assert_eq!(Int::from_i64(3).add(&Int::from_i64(4)), Int::from_i64(7));
+    }
+
+    #[test]
+    fn add_GivenTwoNegativeIntegers_ReturnsNegativeSeven() {
+        // IntegerAddTests.Add_GivenTwoNegativeIntegers_ReturnsNegativeSum:
+        // -3 + -4 == -7 and the result is negative.
+        let sum = Int::from_i64(-3).add(&Int::from_i64(-4));
+        assert_eq!(sum, Int::from_i64(-7));
+        assert!(sum.is_negative());
+    }
+
+    #[test]
+    fn add_GivenPositiveAndNegativePositiveLarger_ReturnsPositiveSeven() {
+        // IntegerAddTests.Add_GivenPositiveAndNegativeWherePositiveLarger:
+        // 10 + (-3) == 7 and the result is positive.
+        let sum = Int::from_i64(10).add(&Int::from_i64(-3));
+        assert_eq!(sum, Int::from_i64(7));
+        assert_eq!(sum.sign(), 1);
+    }
+
+    #[test]
+    fn add_GivenZeroOnRight_ReturnsOriginal() {
+        // IntegerAddTests.Add_GivenZeroOperandOnRight: 42 + 0 == 42.
+        assert_eq!(Int::from_i64(42).add(&Int::zero()), Int::from_i64(42));
+    }
+
+    #[test]
+    fn add_GivenZeroOnLeft_ReturnsOriginal() {
+        // IntegerAddTests.Add_GivenZeroOperandOnLeft: 0 + (-17) == -17.
+        assert_eq!(Int::zero().add(&Int::from_i64(-17)), Int::from_i64(-17));
+    }
+
+    #[test]
+    fn operator_plus_GivenTwoPositives_ReturnsOneHundredTwentyThree() {
+        // IntegerAddTests.OperatorPlus_GivenTwoPositives: 100 + 23 == 123.
+        assert_eq!(Int::from_i64(100).add(&Int::from_i64(23)), Int::from_i64(123));
+    }
+
+    #[test]
+    fn operator_plus_GivenMixedSigns_ReturnsSeven() {
+        // IntegerAddTests.OperatorPlus_GivenPositiveAndNegative: 10 + (-3) == 7.
+        assert_eq!(Int::from_i64(10).add(&Int::from_i64(-3)), Int::from_i64(7));
+    }
+
+    #[test]
+    fn operator_plus_GivenLargeValues_ExceedsI64Maximum() {
+        // IntegerAddTests.OperatorPlus_GivenLargeValues:
+        // "99999999999999999999" + "1" == "100000000000000000000".
+        let sum = Int::from_decimal("99999999999999999999")
+            .unwrap()
+            .add(&Int::from_i64(1));
+        assert_eq!(sum.to_decimal(), "100000000000000000000");
+    }
+
+    #[test]
+    fn default_GivenNoArguments_IsZeroAndNonNegative() {
+        // IntegerConstructorTests.Constructor_Default_SignIsPositive:
+        // default Integer is zero and not negative.
+        let value = Int::default();
+        assert!(value.is_zero());
+        assert_eq!(value.sign(), 0);
+        assert!(!value.is_negative());
+    }
+
+    #[test]
+    fn from_i64_GivenPositiveValue_SetsSignAndDecimal() {
+        // IntegerConstructorTests.Constructor_GivenPositiveLong:
+        // new Integer(42) renders "42" and is positive.
+        let value = Int::from_i64(42);
+        assert_eq!(value.to_decimal(), "42");
+        assert_eq!(value.sign(), 1);
+    }
+
+    #[test]
+    fn from_decimal_GivenPositiveDigits_ReturnsFortyTwo() {
+        // IntegerConstructorTests.Constructor_GivenPositiveDecimalString: "42" -> 42.
+        assert_eq!(Int::from_decimal("42").unwrap(), Int::from_i64(42));
+    }
+
+    #[test]
+    fn from_decimal_GivenNegativeDigits_ReturnsMinusSeven() {
+        // IntegerConstructorTests.Constructor_GivenNegativeDecimalString:
+        // "-7" renders "-7" and is negative. Also Parse_GivenSpan ("-7" span).
+        let value = Int::from_decimal("-7").unwrap();
+        assert_eq!(value.to_decimal(), "-7");
+        assert!(value.is_negative());
+    }
+
+    #[test]
+    fn from_decimal_GivenZeroLiteral_IsZeroAndNonNegative() {
+        // IntegerConstructorTests.Constructor_GivenZeroString: "0" is zero, not negative.
+        let value = Int::from_decimal("0").unwrap();
+        assert!(value.is_zero());
+        assert!(!value.is_negative());
+    }
+
+    #[test]
+    fn from_decimal_GivenLeadingZeros_StripsThem() {
+        // IntegerConstructorTests.Constructor_GivenStringWithLeadingZeros:
+        // "007" equals 7. Also IntegerParseTests.Parse_GivenLeadingZeros_SkipsThem.
+        assert_eq!(Int::from_decimal("007").unwrap(), Int::from_i64(7));
+    }
+
+    #[test]
+    fn from_decimal_GivenTwoDigitLiteral_ReturnsNinetyNine() {
+        // IntegerConstructorTests.Constructor_GivenPositiveSpan: "99" -> "99", positive.
+        let value = Int::from_decimal("99").unwrap();
+        assert_eq!(value.to_decimal(), "99");
+        assert_eq!(value.sign(), 1);
+    }
+
+    #[test]
+    fn from_decimal_GivenNegativeThreeLiteral_ReturnsMinusThree() {
+        // IntegerConstructorTests.Constructor_GivenNegativeSpan: "-3" -> "-3", negative.
+        let value = Int::from_decimal("-3").unwrap();
+        assert_eq!(value.to_decimal(), "-3");
+        assert!(value.is_negative());
+    }
+
+    #[test]
+    fn from_decimal_GivenThirtyDigitLiteral_RoundTrips() {
+        // IntegerConstructorTests.Constructor_GivenArbitraryPrecisionString and
+        // IntegerParseTests.Parse_GivenArbitraryPrecisionString assert the same
+        // 30-digit literal round-trips through ToString.
+        let literal = "123456789012345678901234567890";
+        assert_eq!(Int::from_decimal(literal).unwrap().to_decimal(), literal);
+    }
+
+    #[test]
+    fn from_decimal_GivenNegativeThirtyDigitLiteral_RoundTrips() {
+        // IntegerParseTests.Parse_GivenNegativeArbitraryPrecisionString.
+        let literal = "-123456789012345678901234567890";
+        assert_eq!(Int::from_decimal(literal).unwrap().to_decimal(), literal);
+    }
+
+    #[test]
+    fn from_decimal_GivenMinusFortyTwo_ReturnsMinusFortyTwo() {
+        // IntegerParseTests.Parse_GivenLeadingMinus: "-42" -> -42.
+        assert_eq!(Int::from_decimal("-42").unwrap(), Int::from_i64(-42));
+    }
+
+    #[test]
+    fn div_rem_signed_GivenTenOverThree_ReturnsThreeAndOne() {
+        // IntegerDivideTests.DivRem_GivenPositiveDividendAndDivisor (10/3 -> 3 r 1),
+        // DivisionOperator_GivenPositives (10/3 == 3) and ModulusOperator_GivenPositives
+        // (10%3 == 1) all describe the same concrete quotient and remainder.
+        let (quotient, remainder) = Int::from_i64(10)
+            .div_rem_signed(&Int::from_i64(3))
+            .unwrap();
+        assert_eq!(quotient, Int::from_i64(3));
+        assert_eq!(remainder, Int::from_i64(1));
+    }
+
+    #[test]
+    fn div_rem_signed_GivenNegativeTenOverThree_YieldsNegativeThreeAndMagnitudeOne() {
+        // IntegerDivideTests.DivRem_GivenNegativeDividend_QuotientIsNegative,
+        // DivRem_GivenNegativeDividend_ReturnsCorrectMagnitudes and
+        // DivisionOperator_GivenNegativeDividend all use -10 / 3.
+        let (quotient, remainder) = Int::from_i64(-10)
+            .div_rem_signed(&Int::from_i64(3))
+            .unwrap();
+        assert!(quotient.is_negative());
+        assert_eq!(quotient.magnitude().to_decimal(), "3");
+        assert_eq!(remainder.magnitude().to_decimal(), "1");
+    }
+
+    #[test]
+    fn div_rem_signed_GivenBothNegative_ReturnsPositiveThreeAndMagnitudeOne() {
+        // IntegerDivideTests.DivRem_GivenBothNegative_QuotientIsPositive,
+        // DivRem_GivenBothNegative_ReturnsCorrectMagnitudes and
+        // DivisionOperator_GivenBothNegative all use -10 / -3.
+        let (quotient, remainder) = Int::from_i64(-10)
+            .div_rem_signed(&Int::from_i64(-3))
+            .unwrap();
+        assert_eq!(quotient, Int::from_i64(3));
+        assert_eq!(remainder.magnitude().to_decimal(), "1");
+    }
+
+    #[test]
+    fn div_rem_signed_GivenExactDivision_ReturnsZeroRemainder() {
+        // IntegerDivideTests.DivRem_GivenExactDivision_RemainderIsZero (12/4) and
+        // ModulusOperator_GivenExactDivision (12%4 == 0).
+        let (quotient, remainder) = Int::from_i64(12)
+            .div_rem_signed(&Int::from_i64(4))
+            .unwrap();
+        assert_eq!(quotient, Int::from_i64(3));
+        assert!(remainder.is_zero());
+    }
+
+    #[test]
+    fn div_rem_signed_GivenHundredOverSeven_ReturnsRemainderTwo() {
+        // IntegerDivideTests.ModulusOperator_GivenLargeDividend: 100 % 7 == 2.
+        let (_, remainder) = Int::from_i64(100)
+            .div_rem_signed(&Int::from_i64(7))
+            .unwrap();
+        assert_eq!(remainder, Int::from_i64(2));
+    }
+
+    #[test]
+    fn equality_GivenSameValue_IsEqual() {
+        // IntegerEqualityTests.Equals_GivenSameValue_ReturnsTrue: two 42s are equal.
+        assert_eq!(Int::from_i64(42), Int::from_i64(42));
+    }
+
+    #[test]
+    fn equality_GivenTwoZeros_IsEqual() {
+        // IntegerEqualityTests.Equals_GivenTwoZeros_ReturnsTrue.
+        assert_eq!(Int::from_i64(0), Int::from_i64(0));
+    }
+
+    #[test]
+    fn equality_GivenSameMagnitudeDifferentSign_IsNotEqual() {
+        // IntegerEqualityTests.Equals_GivenSameMagnitudeDifferentSign: 42 != -42.
+        assert_ne!(Int::from_i64(42), Int::from_i64(-42));
+    }
+
+    #[test]
+    fn cmp_GivenPositiveAndNegative_OrdersBothWays() {
+        // IntegerEqualityTests.CompareTo_GivenPositiveGreaterThanNegative (1 vs -1),
+        // GreaterThanOperator_GivenPositiveVsNegative and
+        // LessThanOperator_GivenNegativeVsPositive all use the pair 1 and -1.
+        assert_eq!(
+            Int::from_i64(1).cmp(&Int::from_i64(-1)),
+            Ordering::Greater
+        );
+        assert!(Int::from_i64(1) > Int::from_i64(-1));
+        assert_eq!(Int::from_i64(-1).cmp(&Int::from_i64(1)), Ordering::Less);
+        assert!(Int::from_i64(-1) < Int::from_i64(1));
+    }
+
+    #[test]
+    fn cmp_GivenEqualValues_ReportsZero() {
+        // IntegerEqualityTests.CompareTo_GivenEqualValues: 5.CompareTo(5) == 0.
+        assert_eq!(Int::from_i64(5).cmp(&Int::from_i64(5)), Ordering::Equal);
+    }
+
+    #[test]
+    fn cmp_GivenTwoNegatives_OrdersByMagnitude() {
+        // IntegerEqualityTests.CompareTo_GivenTwoNegatives: -10 < -3.
+        assert!(Int::from_i64(-10) < Int::from_i64(-3));
+    }
+
+    #[test]
+    fn relational_operators_GivenConcreteOperands_MatchCSharp() {
+        // IntegerEqualityTests.LessThanOperator_GivenSameSign (3 < 5),
+        // GreaterThanOrEqual_GivenEqualValues (3 >= 3),
+        // LessThanOrEqual_GivenSmallerValue (-5 <= -4), and
+        // GreaterThanOrEqual_GivenLargerValue (10 >= 5).
+        assert!(Int::from_i64(3) < Int::from_i64(5));
+        assert!(Int::from_i64(3) >= Int::from_i64(3));
+        assert!(Int::from_i64(-5) <= Int::from_i64(-4));
+        assert!(Int::from_i64(10) >= Int::from_i64(5));
+    }
+
+    #[test]
+    fn factorial_GivenFive_ReturnsOneHundredTwenty() {
+        // IntegerFactorialTests.Factorial_GivenPositiveInteger_ReturnsCorrectValue.
+        assert_eq!(Int::factorial(5), Int::from_i64(120));
+    }
+
+    #[test]
+    fn factorial_GivenOne_ReturnsOne() {
+        // IntegerFactorialTests.Factorial_GivenOne_ReturnsOne.
+        assert_eq!(Int::factorial(1), Int::from_i64(1));
+    }
+
+    #[test]
+    fn mul_GivenTwoPositives_ReturnsTwelve() {
+        // IntegerMultiplyTests.Multiply_GivenTwoPositives: 3 * 4 == 12, positive.
+        let product = Int::from_i64(3).mul(&Int::from_i64(4));
+        assert_eq!(product, Int::from_i64(12));
+        assert_eq!(product.sign(), 1);
+    }
+
+    #[test]
+    fn mul_GivenPositiveAndNegative_ReturnsMinusTwelve() {
+        // IntegerMultiplyTests.Multiply_GivenPositiveAndNegative (3 * -4) and
+        // Multiply_GivenNegativeAndPositive (-3 * 4) both expect -12, negative.
+        let left = Int::from_i64(3).mul(&Int::from_i64(-4));
+        assert_eq!(left, Int::from_i64(-12));
+        assert!(left.is_negative());
+        let right = Int::from_i64(-3).mul(&Int::from_i64(4));
+        assert_eq!(right, Int::from_i64(-12));
+        assert!(right.is_negative());
+    }
+
+    #[test]
+    fn mul_GivenTwoNegatives_ReturnsTwelve() {
+        // IntegerMultiplyTests.Multiply_GivenTwoNegatives: -3 * -4 == 12, positive.
+        let product = Int::from_i64(-3).mul(&Int::from_i64(-4));
+        assert_eq!(product, Int::from_i64(12));
+        assert_eq!(product.sign(), 1);
+    }
+
+    #[test]
+    fn mul_GivenZeroOperandCases_ReturnsNonNegativeZero() {
+        // IntegerMultiplyTests.Multiply_GivenZeroOperand rows (0,7), (7,0), (0,0);
+        // each product is zero and not negative.
+        for (left, right) in [(0_i64, 7_i64), (7, 0), (0, 0)] {
+            let product = Int::from_i64(left).mul(&Int::from_i64(right));
+            assert!(product.is_zero());
+            assert!(!product.is_negative());
+        }
+    }
+
+    #[test]
+    fn mul_GivenOneOperand_ReturnsOriginalValue() {
+        // IntegerMultiplyTests.Multiply_GivenOne rows 42, -7 and 0, both operand orders.
+        for value in [42_i64, -7, 0] {
+            let original = Int::from_i64(value);
+            assert_eq!(original.mul(&Int::from_i64(1)), original);
+            assert_eq!(Int::from_i64(1).mul(&original), original);
+        }
+    }
+
+    #[test]
+    fn mul_GivenBillionSquared_ReturnsExactProduct() {
+        // IntegerMultiplyTests.Multiply_GivenLargeValues:
+        // 1_000_000_000 * 1_000_000_000 == "1000000000000000000".
+        let product = Int::from_i64(1_000_000_000).mul(&Int::from_i64(1_000_000_000));
+        assert_eq!(product, Int::from_decimal("1000000000000000000").unwrap());
+    }
+
+    #[test]
+    fn mul_GivenLargeNegativeAndPositive_ReturnsNegativeProduct() {
+        // IntegerMultiplyTests.Multiply_GivenLargeNegativeAndPositive:
+        // -1_000_000 * 1_000_000 == "-1000000000000", negative.
+        let product = Int::from_i64(-1_000_000).mul(&Int::from_i64(1_000_000));
+        assert_eq!(product, Int::from_decimal("-1000000000000").unwrap());
+        assert!(product.is_negative());
+    }
+
+    #[test]
+    fn negate_GivenPositiveFive_ReturnsMinusFive() {
+        // IntegerNegationTests.Negate_GivenPositiveValue: 5.Negate() is negative "-5".
+        let value = Int::from_i64(5).negate();
+        assert!(value.is_negative());
+        assert_eq!(value.to_decimal(), "-5");
+    }
+
+    #[test]
+    fn negate_GivenNegativeFive_ReturnsFive() {
+        // IntegerNegationTests.Negate_GivenNegativeValue: -5.Negate() is positive "5".
+        let value = Int::from_i64(-5).negate();
+        assert_eq!(value.sign(), 1);
+        assert_eq!(value.to_decimal(), "5");
+    }
+
+    #[test]
+    fn negate_GivenZero_ReturnsNonNegativeZero() {
+        // IntegerNegationTests.UnaryMinus_GivenZero: -0 is zero and not negative.
+        let value = Int::zero().negate();
+        assert!(value.is_zero());
+        assert!(!value.is_negative());
+    }
+
+    #[test]
+    fn negate_GivenValueTwice_ReturnsOriginal() {
+        // IntegerNegationTests.Negate_IsItsOwnInverse: 42 and -99 are fixed points.
+        for value in [42_i64, -99] {
+            assert_eq!(Int::from_i64(value).negate().negate(), Int::from_i64(value));
+        }
+    }
+
+    #[test]
+    fn negate_GivenThree_ReturnsMinusThree() {
+        // IntegerNegationTests.UnaryMinus_GivenPositive: -3.
+        assert_eq!(Int::from_i64(3).negate(), Int::from_i64(-3));
+    }
+
+    #[test]
+    fn negate_GivenMinusSeven_ReturnsSeven() {
+        // IntegerNegationTests.UnaryMinus_GivenNegative: 7.
+        assert_eq!(Int::from_i64(-7).negate(), Int::from_i64(7));
+    }
+
+    #[test]
+    fn from_decimal_GivenNegativeNinetyNine_ReturnsMinusNinetyNine() {
+        // IntegerParseTests.TryParse_GivenValidInput: "-99" parses to -99.
+        assert_eq!(Int::from_decimal("-99").unwrap(), Int::from_i64(-99));
+    }
+
+    #[test]
+    fn from_decimal_GivenNonDigitAlpha_ReturnsNone() {
+        // IntegerParseTests.TryParse_GivenInvalidInput: "abc" is rejected.
+        assert!(Int::from_decimal("abc").is_none());
+    }
+
+    #[test]
+    fn pow_GivenTwoToTen_ReturnsOneThousandTwentyFour() {
+        // IntegerPowTests.Pow_GivenPositiveBaseAndPositiveExponent: 2^10 == 1024.
+        assert_eq!(Int::from_i64(2).pow(10), Int::from_i64(1024));
+    }
+
+    #[test]
+    fn pow_GivenNegativeTwoToFour_ReturnsSixteen() {
+        // IntegerPowTests.Pow_GivenNegativeBaseAndEvenExponent: (-2)^4 == 16, positive.
+        let value = Int::from_i64(-2).pow(4);
+        assert_eq!(value, Int::from_i64(16));
+        assert_eq!(value.sign(), 1);
+    }
+
+    #[test]
+    fn pow_GivenNegativeTwoToThree_ReturnsMinusEight() {
+        // IntegerPowTests.Pow_GivenNegativeBaseAndOddExponent: (-2)^3 == -8, negative.
+        let value = Int::from_i64(-2).pow(3);
+        assert_eq!(value, Int::from_i64(-8));
+        assert!(value.is_negative());
+    }
+
+    #[test]
+    fn is_zero_GivenDefault_IsTrue() {
+        // IntegerPredicateTests.IsZero_GivenDefaultInstance_ReturnsTrue.
+        assert!(Int::default().is_zero());
+    }
+
+    #[test]
+    fn is_zero_GivenOne_IsFalse() {
+        // IntegerPredicateTests.IsZero_GivenNonZeroValue_ReturnsFalse.
+        assert!(!Int::from_i64(1).is_zero());
+    }
+
+    #[test]
+    fn is_zero_GivenMinusFive_IsFalse() {
+        // IntegerPredicateTests.IsZero_GivenNegativeNonZeroValue_ReturnsFalse.
+        assert!(!Int::from_i64(-5).is_zero());
+    }
+
+    #[test]
+    fn is_positive_GivenFive_HasSignOne() {
+        // IntegerPredicateTests.IsPositive_GivenPositiveValue_ReturnsTrue.
+        assert_eq!(Int::from_i64(5).sign(), 1);
+    }
+
+    #[test]
+    fn is_positive_GivenMinusFive_IsNegative() {
+        // IntegerPredicateTests.IsPositive_GivenNegativeValue_ReturnsFalse.
+        assert_eq!(Int::from_i64(-5).sign(), -1);
+        assert!(Int::from_i64(-5).is_negative());
+    }
+
+    #[test]
+    fn is_positive_GivenZero_IsNonNegative() {
+        // IntegerPredicateTests.IsPositive_GivenZero_ReturnsTrue: C# treats zero as
+        // positive; Rust's equivalent is a non-negative sign of 0.
+        assert_eq!(Int::from_i64(0).sign(), 0);
+        assert!(!Int::from_i64(0).is_negative());
+    }
+
+    #[test]
+    fn is_negative_GivenMinusOne_IsTrue() {
+        // IntegerPredicateTests.IsNegative_GivenNegativeValue_ReturnsTrue.
+        assert!(Int::from_i64(-1).is_negative());
+    }
+
+    #[test]
+    fn is_negative_GivenThree_IsFalse() {
+        // IntegerPredicateTests.IsNegative_GivenPositiveValue_ReturnsFalse.
+        assert!(!Int::from_i64(3).is_negative());
+    }
+
+    #[test]
+    fn is_negative_GivenZero_IsFalse() {
+        // IntegerPredicateTests.IsNegative_GivenZero_ReturnsFalse.
+        assert!(!Int::from_i64(0).is_negative());
+    }
+
+    #[test]
+    fn sign_GivenTenMinusTenAndZero_ReturnsExpectedSigns() {
+        // IntegerPredicateTests.Sign_GivenPositive (10 -> 1), Sign_GivenNegative
+        // (-10 -> -1), Sign_GivenZero (0 -> 0).
+        assert_eq!(Int::from_i64(10).sign(), 1);
+        assert_eq!(Int::from_i64(-10).sign(), -1);
+        assert_eq!(Int::from_i64(0).sign(), 0);
+    }
+
+    #[test]
+    fn sub_GivenTenMinusThree_ReturnsSeven() {
+        // IntegerSubtractTests.Subtract_GivenPositiveFromLargerPositive: 10-3 == 7, positive.
+        let difference = Int::from_i64(10).sub(&Int::from_i64(3));
+        assert_eq!(difference, Int::from_i64(7));
+        assert_eq!(difference.sign(), 1);
+    }
+
+    #[test]
+    fn sub_GivenThreeMinusNegativeFour_ReturnsSeven() {
+        // IntegerSubtractTests.Subtract_GivenNegativeFromPositive: 3-(-4) == 7, positive.
+        let difference = Int::from_i64(3).sub(&Int::from_i64(-4));
+        assert_eq!(difference, Int::from_i64(7));
+        assert_eq!(difference.sign(), 1);
+    }
+
+    #[test]
+    fn sub_GivenNegativeThreeMinusNegativeFour_ReturnsOne() {
+        // IntegerSubtractTests.Subtract_GivenNegativeFromNegative: -3-(-4) == 1, positive.
+        let difference = Int::from_i64(-3).sub(&Int::from_i64(-4));
+        assert_eq!(difference, Int::from_i64(1));
+        assert_eq!(difference.sign(), 1);
+    }
+
+    #[test]
+    fn sub_GivenNegativeThreeMinusFour_ReturnsNegativeSeven() {
+        // IntegerSubtractTests.Subtract_GivenPositiveFromNegative: -3-4 == -7, negative.
+        let difference = Int::from_i64(-3).sub(&Int::from_i64(4));
+        assert_eq!(difference, Int::from_i64(-7));
+        assert!(difference.is_negative());
+    }
+
+    #[test]
+    fn sub_GivenEqualPositiveValues_ReturnsZero() {
+        // IntegerSubtractTests.Subtract_GivenEqualValues: 42-42 == 0.
+        let value = Int::from_i64(42);
+        assert!(value.sub(&value).is_zero());
+    }
+
+    #[test]
+    fn sub_GivenEqualNegativeValues_ReturnsZero() {
+        // IntegerSubtractTests.Subtract_GivenEqualNegativeValues: -99-(-99) == 0.
+        let value = Int::from_i64(-99);
+        assert!(value.sub(&value).is_zero());
+    }
+
+    #[test]
+    fn sub_GivenZeroSubtrahend_ReturnsOriginal() {
+        // IntegerSubtractTests.Subtract_GivenZeroSubtrahend: 17-0 == 17.
+        let value = Int::from_i64(17);
+        assert_eq!(value.sub(&Int::zero()), value);
+    }
+
+    #[test]
+    fn sub_GivenNegativeSeventeenMinusZero_ReturnsOriginal() {
+        // IntegerSubtractTests.Subtract_GivenNegativeZeroSubtrahend: -17-0 == -17.
+        let value = Int::from_i64(-17);
+        assert_eq!(value.sub(&Int::zero()), value);
+    }
+
+    #[test]
+    fn sub_GivenZeroMinusFive_ReturnsMinusFive() {
+        // IntegerSubtractTests.Subtract_GivenZeroMinuend: 0-5 == -5.
+        assert_eq!(Int::zero().sub(&Int::from_i64(5)), Int::from_i64(-5));
+    }
+
+    #[test]
+    fn sub_GivenLargeValues_ReturnsOne() {
+        // IntegerSubtractTests.Subtract_GivenLargeValues:
+        // 1_000_000_000 - 999_999_999 == 1.
+        let difference = Int::from_i64(1_000_000_000).sub(&Int::from_i64(999_999_999));
+        assert_eq!(difference, Int::from_i64(1));
+    }
+
+    #[test]
+    fn to_decimal_GivenPositiveValue_ReturnsDigitsWithoutSign() {
+        // IntegerToStringTests.ToString_GivenPositiveValue: 123 -> "123".
+        assert_eq!(Int::from_i64(123).to_decimal(), "123");
+    }
+
+    #[test]
+    fn to_decimal_GivenNegativeValue_PrependsMinus() {
+        // IntegerToStringTests.ToString_GivenNegativeValue: -123 -> "-123".
+        assert_eq!(Int::from_i64(-123).to_decimal(), "-123");
+    }
+
     #[test]
     fn sign_GivenPositiveNegativeAndZero_ReturnsExpectedSigns() {
         assert_eq!(Int::from_i64(9).sign(), 1);

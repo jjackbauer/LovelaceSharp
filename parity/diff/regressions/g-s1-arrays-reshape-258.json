@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arrays-reshape-258",
+  "category": "arrays",
+  "script": "reshape([1, 2, 3, 4, 5, 6], 2, 2)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.category",
+      "kind": "value",
+      "expected": "\"TypeMismatch\"",
+      "actual": "\"DomainError\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.979Z"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-parse-error-196",
+  "category": "errors",
+  "script": "1 +",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.diagnostics[0].message",
+      "kind": "value",
+      "expected": "\"Unexpected token '' at position 3: expected a number, string, identifier, '[', or '('.\"",
+      "actual": "\"Unexpected token Eof.\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.618Z"
+}

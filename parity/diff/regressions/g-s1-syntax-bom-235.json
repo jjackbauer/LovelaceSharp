@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-syntax-bom-235",
+  "category": "syntax",
+  "script": "﻿2 + 3",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.exitCode",
+      "kind": "value",
+      "expected": 0,
+      "actual": 1
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.945Z"
+}

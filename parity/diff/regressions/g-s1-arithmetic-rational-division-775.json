@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arithmetic-rational-division-775",
+  "category": "arithmetic",
+  "script": "63/85",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.denominator",
+      "kind": "value",
+      "expected": "\"85\"",
+      "actual": "\"170\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.454Z"
+}

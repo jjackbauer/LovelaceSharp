@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-limit-766",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); limit((1 + 1/x)^x, x, inf)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.display",
+      "kind": "value",
+      "expected": "\"LimitResult(status: Value, exists: True, value: e, left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: AlgebraicExact, di...",
+      "actual": "\"LimitResult(status: Unevaluated, exists: , value: , left: , left_conditions: [], right: , right_conditions: [], conditions: [], exactness: None, diagnostics..."
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.449Z"
+}

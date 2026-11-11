@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arrays-empty-vector-740",
+  "category": "arrays",
+  "script": "sum([])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.exitCode",
+      "kind": "value",
+      "expected": 0,
+      "actual": 1
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.440Z"
+}

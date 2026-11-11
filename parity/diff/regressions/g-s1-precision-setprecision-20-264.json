@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-precision-setprecision-20-264",
+  "category": "precision",
+  "script": "setprecision(20); pi()",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.exact",
+      "kind": "value",
+      "expected": "false",
+      "actual": "true"
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.987Z"
+}

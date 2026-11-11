@@ -77,3 +77,9 @@ SymBench.*-report.*
 rust/target/
 .toolchain/
 *.pdb
+
+# Parity harness scratch and run artifacts (regenerable; the run corpus is 100+ MB)
+parity/.tmp/
+parity/diff/runs/
+parity/build/
+

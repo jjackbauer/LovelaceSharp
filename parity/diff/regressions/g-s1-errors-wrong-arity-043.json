@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-wrong-arity-043",
+  "category": "errors",
+  "script": "diff(x)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.diagnostics[0].column",
+      "kind": "value",
+      "expected": "1",
+      "actual": "6"
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.001Z"
+}

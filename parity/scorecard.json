@@ -1,0 +1,99 @@
+﻿{
+    "schemaVersion":  1,
+    "oracle":  "1cc28f255eca6029849f880949fc7be1d40ab8af",
+    "startedAtUtc":  "2026-11-10T17:26:17Z",
+    "finishedAtUtc":  "2026-11-10T17:30:54Z",
+    "host":  "RICARDO-PC",
+    "dotnet":  "10.0.103",
+    "cargo":  "cargo 1.99.1 (5f94df478 2026-08-27)",
+    "differentialCases":  5000,
+    "totals":  {
+                   "pass":  5,
+                   "fail":  4,
+                   "skipped":  0,
+                   "dimensions":  9
+               },
+    "dimensions":  [
+                       {
+                           "id":  "D1",
+                           "title":  "Oracle frozen and reproducible",
+                           "status":  "PASS",
+                           "exitCode":  0,
+                           "seconds":  0.9,
+                           "command":  "build-oracle.ps1 -Verify",
+                           "summary":  "oracle: dll sha256=f292249fbd8d8a20e60e48942992a141f6315c84e14f291ecb53b453fde4a74a"
+                       },
+                       {
+                           "id":  "D2",
+                           "title":  "C# test census complete",
+                           "status":  "PASS",
+                           "exitCode":  0,
+                           "seconds":  0.1,
+                           "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\tools\\gate-census.mjs",
+                           "summary":  "PASS: 2105 methods / 6209 cases across 15 projects (18 methods vs the 2,087 reference)."
+                       },
+                       {
+                           "id":  "D3",
+                           "title":  "Census manifest, project ledger, requirement ledger",
+                           "status":  "PASS",
+                           "exitCode":  0,
+                           "seconds":  0.3,
+                           "command":  "gate-manifest + gate-projects + gate-requirements",
+                           "summary":  "gate-manifest.mjs: PASS (structural): 6209 test cases dispositioned; 3074 claim Rust coverage (49.51%). | gate-projects.mjs: PASS: 19 C# projects dispositioned (4 port, 1 consolidated, 8 partial, 6 absent). | gate-requirements.mjs: PASS: 262 requirements accounted for; 48 met, 28 partial, 186 unmet."
+                       },
+                       {
+                           "id":  "D4",
+                           "title":  "Differential (5000 cases)",
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  167.2,
+                           "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\diff\\run.mjs --cases 5000 --seed 1 --no-minimize --concurrency 10",
+                           "summary":  "harness exit: 1"
+                       },
+                       {
+                           "id":  "D5",
+                           "title":  "20 protocol golden fixtures",
+                           "status":  "PASS",
+                           "exitCode":  0,
+                           "seconds":  5,
+                           "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\tools\\gate-fixtures.mjs",
+                           "summary":  "PASS: oracle 20/20, rust 20/20"
+                       },
+                       {
+                           "id":  "D6",
+                           "title":  "RUN-001..014 CLI surface",
+                           "status":  "PASS",
+                           "exitCode":  0,
+                           "seconds":  2.7,
+                           "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\tools\\gate-cli.mjs",
+                           "summary":  "PASS: every RUN-001..RUN-014 row behaves like the oracle"
+                       },
+                       {
+                           "id":  "D7",
+                           "title":  "Gate falsification (GATE-001..012)",
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  92.9,
+                           "command":  "mutate.ps1",
+                           "summary":  "mutations: 5/7 detected; 6 reverted trees pass"
+                       },
+                       {
+                           "id":  "D9",
+                           "title":  "214-example documentation corpus",
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  6.7,
+                           "command":  "cargo run --release -p lovelace-corpus",
+                           "summary":  "corpus: 212 passed, 2 failed, 214 total"
+                       },
+                       {
+                           "id":  "D10",
+                           "title":  "fmt --check and clippy -D warnings",
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  1.2,
+                           "command":  "cargo fmt --check; cargo clippy -D warnings",
+                           "summary":  "UNAVAILABLE: rustfmt and/or clippy are not installed for the pinned toolchain; the check was not performed"
+                       }
+                   ]
+}

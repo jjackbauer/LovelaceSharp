@@ -1406,4 +1406,86 @@ mod tests {
             assert!(!as_trait_object.to_string().is_empty());
         }
     }
+
+    // ------------------------------------------------------------------
+    // Ports of Lovelace.Array.Tests/NdArrayTests.cs.
+    //
+    // The C# helpers are `Arr(shape, data)` / `Arr(shape)`; the Rust fixture for the
+    // same value is `arr(shape, data)`. C# array operations throw on invalid input,
+    // while Rust returns ArrayError, so each rejection test asserts the concrete error
+    // variant produced for the same inputs.
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn FromVec_GivenCubeShapeAndEightValues_ExposesShapeRankNumelStrides() {
+        // C# NdArrayTests.GivenShapeData_ExposesShapeRankNumelStrides (line 30-38):
+        // shape {2,2,2}, data 1..8, rank 3, numel 8, strides {8,4,2,1}.
+        let a = arr(vec![2, 2, 2], (1..=8).collect());
+        assert_eq!(a.shape(), &[2, 2, 2]);
+        assert_eq!(a.rank(), 3);
+        assert_eq!(a.numel(), 8);
+        assert_eq!(a.strides(), vec![8, 4, 2, 1]);
+    }
+
+    #[test]
+    fn FromVec_GivenTwoByTwoShapeAndThreeValues_ReturnsShapeMismatch() {
+        // C# NdArrayTests.GivenMismatchedData_Throws (line 40-44): shape {2,2} with
+        // three values throws ArgumentException.
+        let error = NdArray::from_vec(vec![2, 2], vec![1, 2, 3]).unwrap_err();
+        assert_eq!(error, ArrayError::ShapeMismatch);
+    }
+
+    #[test]
+    fn Get_GivenTwoByTwoArray_ReturnsFullIndexElements() {
+        // C# NdArrayTests.Get_FullIndex_ReturnsElement (line 46-52): Get({1,1}) == 4,
+        // Get({0,1}) == 2.
+        let a = arr(vec![2, 2], vec![1, 2, 3, 4]);
+        assert_eq!(a.get(&[1, 1]), Some(&4));
+        assert_eq!(a.get(&[0, 1]), Some(&2));
+    }
+
+    #[test]
+    fn Get_GivenFirstAxisOutOfRange_ReturnsNone() {
+        // C# NdArrayTests.Get_OutOfRange_Throws (line 54-59): Get({2,0}) throws
+        // InvalidOperationException; Rust reports the same rejection as None.
+        let a = arr(vec![2, 2], vec![1, 2, 3, 4]);
+        assert_eq!(a.get(&[2, 0]), None);
+    }
+
+    #[test]
+    fn IndexPartial_GivenCubeFirstAxis_ReturnsLowerRankSubArray() {
+        // C# NdArrayTests.Slice_PartialIndex_ReturnsLowerRank (line 61-68): Slice({1})
+        // on shape {2,2,2} has shape {2,2} and data {5,6,7,8}. Rust's partial indexer
+        // is the equivalent operation.
+        let a = arr(vec![2, 2, 2], (1..=8).collect());
+        let sub = a.index_partial(&[1]).unwrap();
+        assert_eq!(sub.shape(), &[2, 2]);
+        assert_eq!(sub.as_slice(), &[5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn Reshape_GivenTwoByThreeToTwoByTwo_ReturnsShapeMismatch() {
+        // C# NdArrayTests.Reshape_Mismatch_Throws (line 79-84): reshaping shape {2,3}
+        // with six elements to {2,2} throws ArgumentException.
+        let a = arr(vec![2, 3], (1..=6).collect());
+        assert_eq!(a.reshape(vec![2, 2]).unwrap_err(), ArrayError::ShapeMismatch);
+    }
+
+    #[test]
+    fn TransposeAxes_GivenCubePermutation_ReordersToExpectedData() {
+        // C# NdArrayTests.Transpose_ExplicitPermutation (line 95-102): transpose with
+        // permutation {2,0,1} of data 1..8 yields {1,3,5,7,2,4,6,8}.
+        let a = arr(vec![2, 2, 2], (1..=8).collect());
+        let t = a.transpose_axes(&[2, 0, 1]).unwrap();
+        assert_eq!(t.shape(), &[2, 2, 2]);
+        assert_eq!(t.as_slice(), &[1, 3, 5, 7, 2, 4, 6, 8]);
+    }
+
+    #[test]
+    fn Squeeze_GivenOneTwoOneThree_RemovesSingletonDimensions() {
+        // C# NdArrayTests.Squeeze_RemovesSingletonDims (line 104-110): shape
+        // {1,2,1,3} squeezes to {2,3}.
+        let a = arr(vec![1, 2, 1, 3], (1..=6).collect());
+        assert_eq!(a.squeeze().shape(), &[2, 3]);
+    }
 }

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "note": "Each mutation must be detected by the named gate, and the gate must be GREEN before the mutation (otherwise detection proves nothing). Source mutations are single-occurrence anchors; the harness reapplies the original text and re-runs the gate. A gate name may carry a case filter (fixtures:error_envelope, cli:RUN-014).",
+  "mutations": [
+    {
+      "id": "GATE-003",
+      "kind": "source",
+      "title": "a Unicode-aware source position is off by one column",
+      "target": "rust/lovelace-run/src/main.rs",
+      "find": "let upto = units.len().min(position);",
+      "replace": "let upto = units.len().min(position + 1);",
+      "gate": "fixtures:error_envelope"
+    },
+    {
+      "id": "GATE-004",
+      "kind": "source",
+      "title": "an envelope field is renamed away",
+      "target": "rust/lovelace-run/src/main.rs",
+      "find": "(\"protocolVersion\", Json::Num(PROTOCOL_VERSION.to_string())),",
+      "replace": "(\"protocolVersionMoved\", Json::Num(PROTOCOL_VERSION.to_string())),",
+      "gate": "fixtures:symbolic"
+    },
+    {
+      "id": "GATE-005",
+      "kind": "source",
+      "title": "a diagnostic code is replaced",
+      "target": "rust/lovelace-run/src/main.rs",
+      "find": "fields.push((\"code\", Json::Str(err.code.to_string())));",
+      "replace": "fields.push((\"code\", Json::Str(\"EvalError\".to_string())));",
+      "gate": "fixtures:error_envelope"
+    },
+    {
+      "id": "GATE-006",
+      "kind": "source",
+      "title": "symbolic canonical ordering is reversed",
+      "target": "rust/lovelace-symbolics/src/lib.rs",
+      "find": "terms.sort_by(term_order);",
+      "replace": "terms.sort_by(|a, b| term_order(b, a));",
+      "gate": "fixtures:symbolic"
+    },
+    {
+      "id": "GATE-008",
+      "kind": "source",
+      "title": "captured print output is duplicated",
+      "target": "rust/lovelace-run/src/main.rs",
+      "find": "    let output = engine.take_output();\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\"variables\",",
+      "replace": "    let mut output = engine.take_output();\n    output.extend(output.clone());\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\"variables\",",
+      "gate": "fixtures:print_purity"
+    },
+    {
+      "id": "GATE-011",
+      "kind": "file",
+      "title": "a supposedly ported test disappears from the measured inventory",
+      "target": "parity/rust-tests.json",
+      "find": "tests::add_GivenOpposites_ReturnsNonNegativeZero",
+      "replace": "tests::add_GivenOpposites_ReturnsNonNegativeZero_REMOVED",
+      "gate": "manifest"
+    },
+    {
+      "id": "GATE-012",
+      "kind": "invoke",
+      "title": "an empty differential corpus is a harness failure",
+      "gate": "diff-empty"
+    }
+  ]
+}

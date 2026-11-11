@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-symbolic-refusal-016",
+  "category": "errors",
+  "script": "linsolve([[1, 2], [3, 4]], [1, 2])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.exitCode",
+      "kind": "value",
+      "expected": 1,
+      "actual": 0
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:36.954Z"
+}

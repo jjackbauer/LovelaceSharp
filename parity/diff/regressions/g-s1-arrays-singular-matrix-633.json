@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arrays-singular-matrix-633",
+  "category": "arrays",
+  "script": "det([[1, 2, 3], [4, 5, 6], [7, 8, 9]])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.kind",
+      "kind": "value",
+      "expected": "\"Natural\"",
+      "actual": "\"Integer\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.383Z"
+}

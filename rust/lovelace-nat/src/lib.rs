@@ -1127,6 +1127,704 @@ mod tests {
         assert!(larger > smaller);
     }
 
+    // ------------------------------------------------------------------
+    // Ports of Lovelace.Natural.Tests. Each test reproduces the C# method's
+    // concrete operands and concrete expected value. Rust has no operator
+    // overloads, so the C# operators are exercised through the named methods
+    // they delegate to, and a C# exception is represented by the Option/None
+    // that Rust returns for the same rejected input.
+    // ------------------------------------------------------------------
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+
+    #[test]
+    fn add_GivenOneTwentyThreeAndFourHundredFiftySix_Returns579() {
+        // NaturalAddTests.Add_GivenTwoPositiveNumbers_ReturnsCorrectSum: 123 + 456 == "579".
+        let sum = Nat::from_u64(123).add(&Nat::from_u64(456));
+        assert_eq!(sum.to_decimal(), "579");
+    }
+
+    #[test]
+    fn add_GivenZeroOnLeft_ReturnsOther() {
+        // NaturalAddTests.Add_GivenZeroAndN_ReturnsN: 0 + 42 == "42".
+        assert_eq!(
+            Nat::zero().add(&Nat::from_u64(42)).to_decimal(),
+            "42"
+        );
+    }
+
+    #[test]
+    fn add_GivenZeroOnRight_ReturnsOther() {
+        // NaturalAddTests.Add_GivenNAndZero_ReturnsN: 42 + 0 == "42".
+        assert_eq!(
+            Nat::from_u64(42).add(&Nat::zero()).to_decimal(),
+            "42"
+        );
+    }
+
+    #[test]
+    fn add_GivenCarryPropagationCases_ProduceExpectedSums() {
+        // NaturalAddTests.Add_GivenCarryPropagation theory rows:
+        // (9,1)=="10", (99,1)=="100", (999,1)=="1000", (999,999)=="1998".
+        let cases = [
+            (9_u64, 1_u64, "10"),
+            (99, 1, "100"),
+            (999, 1, "1000"),
+            (999, 999, "1998"),
+        ];
+        for (left, right, expected) in cases {
+            assert_eq!(
+                Nat::from_u64(left).add(&Nat::from_u64(right)).to_decimal(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn add_GivenSingleDigitCarry_ReturnsEighteen() {
+        // NaturalAddTests.Add_GivenSingleDigitCarry: 9 + 9 == "18".
+        assert_eq!(
+            Nat::from_u64(9).add(&Nat::from_u64(9)).to_decimal(),
+            "18"
+        );
+    }
+
+    #[test]
+    fn add_GivenUlongMaxPlusItself_ExceedsU64() {
+        // NaturalAddTests.Add_GivenLargeNumbers: ulong.MaxValue * 2 ==
+        // "36893488147419103230".
+        let max = Nat::from_u64(u64::MAX);
+        assert_eq!(max.add(&max).to_decimal(), "36893488147419103230");
+    }
+
+    #[test]
+    fn add_GivenUlongMaxPlusOne_ReturnsPowerOfTwoTo64() {
+        // NaturalAddTests.Add_GivenUlongMaxPlusOne and
+        // NaturalBinaryLimbTests.Add_GivenCarryAcrossLimbBoundary both assert
+        // (2^64 - 1) + 1 == 2^64 == "18446744073709551616".
+        let sum = Nat::from_u64(u64::MAX).add(&Nat::from_u64(1));
+        assert_eq!(sum.to_decimal(), "18446744073709551616");
+    }
+
+    #[test]
+    fn add_GivenValues_IsCommutative() {
+        // NaturalAddTests.Add_IsCommutative theory rows (123,456), (1,999), (0,12345).
+        for (a, b) in [(123_u64, 456_u64), (1, 999), (0, 12345)] {
+            let left = Nat::from_u64(a).add(&Nat::from_u64(b));
+            let right = Nat::from_u64(b).add(&Nat::from_u64(a));
+            assert_eq!(left.to_decimal(), right.to_decimal());
+        }
+    }
+
+    #[test]
+    fn add_GivenThreeValues_IsAssociative() {
+        // NaturalAddTests.Add_IsAssociative theory rows:
+        // (1,2,3), (100,200,300), (999,1,1000).
+        for (a, b, c) in [(1_u64, 2_u64, 3_u64), (100, 200, 300), (999, 1, 1000)] {
+            let na = Nat::from_u64(a);
+            let nb = Nat::from_u64(b);
+            let nc = Nat::from_u64(c);
+            assert_eq!(
+                na.add(&nb).add(&nc).to_decimal(),
+                na.add(&nb.add(&nc)).to_decimal()
+            );
+        }
+    }
+
+    #[test]
+    fn add_GivenResults_StartWithNonZeroDigit() {
+        // NaturalAddTests.Add_GivenResult_HasNoLeadingZeros theory rows:
+        // (5,5), (100,900), (999,1) must not start with '0'.
+        for (a, b) in [(5_u64, 5_u64), (100, 900), (999, 1)] {
+            let text = Nat::from_u64(a).add(&Nat::from_u64(b)).to_decimal();
+            assert!(!text.starts_with('0'), "result {text} has a leading zero");
+        }
+    }
+
+    #[test]
+    fn sub_GivenTenMinusThree_ReturnsSeven() {
+        // NaturalSubtractTests.Subtract_GivenLargerMinusSmallerNumber: 10 - 3 == "7".
+        assert_eq!(
+            Nat::from_u64(10)
+                .sub(&Nat::from_u64(3))
+                .unwrap()
+                .to_decimal(),
+            "7"
+        );
+    }
+
+    #[test]
+    fn sub_GivenEqualFive_ReturnsZero() {
+        // NaturalSubtractTests.Subtract_GivenEqualNumbers: 5 - 5 is zero.
+        let value = Nat::from_u64(5).sub(&Nat::from_u64(5)).unwrap();
+        assert!(value.is_zero());
+    }
+
+    #[test]
+    fn sub_GivenFortyTwoMinusZero_ReturnsFortyTwo() {
+        // NaturalSubtractTests.Subtract_GivenSubtractZero_ReturnsSelf: 42 - 0 == "42".
+        assert_eq!(
+            Nat::from_u64(42)
+                .sub(&Nat::zero())
+                .unwrap()
+                .to_decimal(),
+            "42"
+        );
+    }
+
+    #[test]
+    fn sub_GivenBorrowPropagationCases_ProduceExpectedDifferences() {
+        // NaturalSubtractTests.Subtract_GivenBorrowPropagation rows:
+        // (1000,1)=="999", (1000,100)=="900", (1000,999)=="1".
+        let cases = [
+            (1000_u64, 1_u64, "999"),
+            (1000, 100, "900"),
+            (1000, 999, "1"),
+        ];
+        for (left, right, expected) in cases {
+            assert_eq!(
+                Nat::from_u64(left)
+                    .sub(&Nat::from_u64(right))
+                    .unwrap()
+                    .to_decimal(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn sub_GivenThreeMinusTen_ReturnsNone() {
+        // NaturalSubtractTests.Subtract_GivenSmallerMinusLarger: 3 - 10 throws
+        // InvalidOperationException; Rust reports the same rejection as None.
+        assert!(Nat::from_u64(3).sub(&Nat::from_u64(10)).is_none());
+    }
+
+    #[test]
+    fn sub_GivenZeroMinusOne_ReturnsNone() {
+        // NaturalSubtractTests.Subtract_GivenZeroMinusNonZero: 0 - 1 is rejected.
+        assert!(Nat::zero().sub(&Nat::from_u64(1)).is_none());
+    }
+
+    #[test]
+    fn sub_GivenUlongMaxMinusOne_ReturnsUlongMaxMinusOne() {
+        // NaturalSubtractTests.Subtract_GivenLargeNumbers:
+        // 18446744073709551615 - 1 == "18446744073709551614".
+        let difference = Nat::from_u64(u64::MAX).sub(&Nat::from_u64(1)).unwrap();
+        assert_eq!(difference.to_decimal(), "18446744073709551614");
+    }
+
+    #[test]
+    fn sub_GivenHundredMinusNinetyNine_ReturnsOne() {
+        // NaturalSubtractTests.Subtract_GivenResult_HasNoLeadingZeros:
+        // 100 - 99 == "1".
+        assert_eq!(
+            Nat::from_u64(100)
+                .sub(&Nat::from_u64(99))
+                .unwrap()
+                .to_decimal(),
+            "1"
+        );
+    }
+
+    #[test]
+    fn sub_GivenPowerOfTwoTo64MinusOne_ReturnsUlongMax() {
+        // NaturalBinaryLimbTests.Sub_GivenBorrowAcrossLimbBoundary:
+        // 2^64 - 1 == 18446744073709551615.
+        let power = Nat::from_decimal("18446744073709551616").unwrap();
+        let difference = power.sub(&Nat::from_u64(1)).unwrap();
+        assert_eq!(difference, Nat::from_u64(u64::MAX));
+        assert_eq!(difference.to_decimal(), "18446744073709551615");
+    }
+
+    #[test]
+    fn mul_GivenTwelveAndThirtyFour_ReturnsFourHundredEight() {
+        // NaturalMultiplyTests.Multiply_GivenTwoPositiveNumbers: 12 * 34 == "408".
+        assert_eq!(
+            Nat::from_u64(12).mul(&Nat::from_u64(34)).to_decimal(),
+            "408"
+        );
+    }
+
+    #[test]
+    fn mul_GivenZeroOperandCases_ReturnsZero() {
+        // NaturalMultiplyTests.Multiply_GivenZeroAndN (0 * 987) and
+        // Multiply_GivenNAndZero (987 * 0) both produce zero.
+        assert!(Nat::zero().mul(&Nat::from_u64(987)).is_zero());
+        assert!(Nat::from_u64(987).mul(&Nat::zero()).is_zero());
+    }
+
+    #[test]
+    fn mul_GivenOneOperand_ReturnsOriginal() {
+        // NaturalMultiplyTests.Multiply_GivenOneAndN (1 * 123456789) and
+        // Multiply_GivenNAndOne (987654321 * 1).
+        assert_eq!(
+            Nat::from_u64(1).mul(&Nat::from_u64(123_456_789)).to_decimal(),
+            "123456789"
+        );
+        assert_eq!(
+            Nat::from_u64(987_654_321).mul(&Nat::from_u64(1)).to_decimal(),
+            "987654321"
+        );
+    }
+
+    #[test]
+    fn mul_GivenNineTimesNine_ReturnsEightyOne() {
+        // NaturalMultiplyTests.Multiply_GivenCarryAcrossAllDigits: 9 * 9 == "81".
+        assert_eq!(
+            Nat::from_u64(9).mul(&Nat::from_u64(9)).to_decimal(),
+            "81"
+        );
+    }
+
+    #[test]
+    fn mul_GivenNinesAndPowersCases_ProduceExpectedProducts() {
+        // NaturalMultiplyTests.Multiply_GivenPowersAndNinesVariants rows:
+        // (99,99)=="9801", (999,999)=="998001", (1000,1000)=="1000000".
+        let cases = [
+            (99_u64, 99_u64, "9801"),
+            (999, 999, "998001"),
+            (1000, 1000, "1000000"),
+        ];
+        for (left, right, expected) in cases {
+            assert_eq!(
+                Nat::from_u64(left).mul(&Nat::from_u64(right)).to_decimal(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn mul_GivenValues_IsCommutative() {
+        // NaturalMultiplyTests.Multiply_IsCommutative rows: (3,7), (12,34), (100,999).
+        for (a, b) in [(3_u64, 7_u64), (12, 34), (100, 999)] {
+            assert_eq!(
+                Nat::from_u64(a).mul(&Nat::from_u64(b)).to_decimal(),
+                Nat::from_u64(b).mul(&Nat::from_u64(a)).to_decimal()
+            );
+        }
+    }
+
+    #[test]
+    fn mul_GivenUlongMaxTimesTwo_ExceedsU64() {
+        // NaturalMultiplyTests.Multiply_GivenLargeNumbers:
+        // 18446744073709551615 * 2 == "36893488147419103230".
+        assert_eq!(
+            Nat::from_u64(u64::MAX).mul(&Nat::from_u64(2)).to_decimal(),
+            "36893488147419103230"
+        );
+    }
+
+    #[test]
+    fn mul_GivenTenBillionSquared_ReturnsTwentyOneDigitProduct() {
+        // NaturalMultiplyTests.Multiply_GivenTwoLargeNumbers:
+        // 10_000_000_000^2 == "100000000000000000000".
+        let ten_billion = Nat::from_u64(10_000_000_000);
+        assert_eq!(
+            ten_billion.mul(&ten_billion).to_decimal(),
+            "100000000000000000000"
+        );
+    }
+
+    #[test]
+    fn mul_GivenTenTimesTen_ReturnsOneHundred() {
+        // NaturalMultiplyTests.Multiply_GivenResult_HasNoLeadingZeros: 10 * 10 == "100".
+        assert_eq!(
+            Nat::from_u64(10).mul(&Nat::from_u64(10)).to_decimal(),
+            "100"
+        );
+    }
+
+    #[test]
+    fn mul_GivenTwentyFiveTimesFour_ReturnsOneHundred() {
+        // NaturalMultiplyTests.Multiply_GivenMultiDigitCarryChain: 25 * 4 == "100".
+        assert_eq!(
+            Nat::from_u64(25).mul(&Nat::from_u64(4)).to_decimal(),
+            "100"
+        );
+    }
+
+    #[test]
+    fn mul_GivenHundredTrillionTimesTwo_ReturnsTwoHundredTrillion() {
+        // NaturalMultiplyTests.Multiply_GivenFifteenDigitOperand:
+        // 100000000000000 * 2 == "200000000000000".
+        let value = Nat::from_decimal("100000000000000").unwrap();
+        assert_eq!(
+            value.mul(&Nat::from_u64(2)).to_decimal(),
+            "200000000000000"
+        );
+    }
+
+    #[test]
+    fn mul_GivenFifteenNinesSquared_ReturnsThirtyDigitProduct() {
+        // NaturalMultiplyTests.Multiply_GivenTwoFifteenDigitNumbers:
+        // (10^15 - 1)^2 == "999999999999998000000000000001".
+        let value = Nat::from_decimal("999999999999999").unwrap();
+        assert_eq!(
+            value.mul(&value).to_decimal(),
+            "999999999999998000000000000001"
+        );
+    }
+
+    #[test]
+    fn mul_GivenHundredFiftyDigitPowersOfTen_ReturnsThreeHundredDigitResult() {
+        // NaturalMultiplyTests.Multiply_GivenHundredFiftyDigitPowersOfTen:
+        // 10^150 * 10^150 == 10^300 ("1" followed by 300 zeros).
+        let power = format!("1{}", "0".repeat(150));
+        let value = Nat::from_decimal(&power).unwrap();
+        let expected = format!("1{}", "0".repeat(300));
+        assert_eq!(value.mul(&value).to_decimal(), expected);
+        assert_eq!(expected.len(), 301);
+    }
+
+    #[test]
+    fn mul_GivenLimbBoundarySquared_ReturnsExactSquare() {
+        // NaturalBinaryLimbTests.Mul_GivenLimbOverflow: (2^64 - 1)^2 ==
+        // 340282366920938463426481119284349108225.
+        let max = Nat::from_u64(u64::MAX);
+        assert_eq!(
+            max.mul(&max).to_decimal(),
+            "340282366920938463426481119284349108225"
+        );
+    }
+
+    #[test]
+    fn div_rem_GivenTwelveByFour_ReturnsThreeAndZero() {
+        // NaturalDivideTests.DivRem_GivenExactDivision (12/4 -> 3 r 0) and
+        // OperatorModulo_GivenExactDivision (12 % 4 == 0).
+        let (quotient, remainder) = Nat::from_u64(12).div_rem(&Nat::from_u64(4)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(3));
+        assert!(remainder.is_zero());
+    }
+
+    #[test]
+    fn div_rem_GivenThirteenByFour_ReturnsThreeAndOne() {
+        // NaturalDivideTests.DivRem_GivenNonExactDivision (13/4 -> 3 r 1) and
+        // OperatorModulo_GivenNonExactDivision (13 % 4 == 1).
+        let (quotient, remainder) = Nat::from_u64(13).div_rem(&Nat::from_u64(4)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(3));
+        assert_eq!(remainder, Nat::from_u64(1));
+    }
+
+    #[test]
+    fn div_rem_GivenThreeByTen_ReturnsZeroAndThree() {
+        // NaturalDivideTests.DivRem_GivenDividendSmallerThanDivisor (3/10 -> 0 r 3)
+        // and OperatorModulo_GivenDividendSmallerThanDivisor (3 % 10 == 3).
+        let (quotient, remainder) = Nat::from_u64(3).div_rem(&Nat::from_u64(10)).unwrap();
+        assert!(quotient.is_zero());
+        assert_eq!(remainder, Nat::from_u64(3));
+    }
+
+    #[test]
+    fn div_rem_GivenTwelveThousandThreeHundredFortyFiveByOne_ReturnsSelf() {
+        // NaturalDivideTests.DivRem_GivenDivisorOne: 12345 / 1 -> 12345 r 0.
+        let (quotient, remainder) = Nat::from_u64(12_345).div_rem(&Nat::from_u64(1)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(12_345));
+        assert!(remainder.is_zero());
+    }
+
+    #[test]
+    fn div_rem_GivenNinetyNineByNinetyNine_ReturnsOneAndZero() {
+        // NaturalDivideTests.DivRem_GivenEqualOperands: 99 / 99 -> 1 r 0.
+        let (quotient, remainder) = Nat::from_u64(99).div_rem(&Nat::from_u64(99)).unwrap();
+        assert!(quotient.is_one());
+        assert!(remainder.is_zero());
+    }
+
+    #[test]
+    fn div_rem_GivenFiveByZero_ReturnsNone() {
+        // NaturalDivideTests.DivRem_GivenDivisorZero (5 / 0) and
+        // OperatorDivide_GivenDivisorZero (5 / 0) both throw DivideByZeroException;
+        // Rust reports the same rejection as None.
+        assert!(Nat::from_u64(5).div_rem(&Nat::zero()).is_none());
+    }
+
+    #[test]
+    fn div_rem_GivenVariousInputs_MatchesCSharp() {
+        // NaturalDivideTests.DivRem_GivenVariousInputs rows:
+        // (100,3)->(33,1), (1000,7)->(142,6), (999,9)->(111,0), (0,5)->(0,0).
+        let cases = [
+            (100_u64, 3_u64, 33_u64, 1_u64),
+            (1000, 7, 142, 6),
+            (999, 9, 111, 0),
+            (0, 5, 0, 0),
+        ];
+        for (dividend, divisor, expected_quotient, expected_remainder) in cases {
+            let (quotient, remainder) = Nat::from_u64(dividend)
+                .div_rem(&Nat::from_u64(divisor))
+                .unwrap();
+            assert_eq!(quotient, Nat::from_u64(expected_quotient));
+            assert_eq!(remainder, Nat::from_u64(expected_remainder));
+        }
+    }
+
+    #[test]
+    fn div_rem_GivenTwentyByFour_ReturnsFive() {
+        // NaturalDivideTests.OperatorDivide_GivenExactDivision: 20 / 4 == 5.
+        let (quotient, _) = Nat::from_u64(20).div_rem(&Nat::from_u64(4)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(5));
+    }
+
+    #[test]
+    fn div_rem_GivenSeventeenByThree_ReturnsFive() {
+        // NaturalDivideTests.OperatorDivide_GivenNonExactDivision: 17 / 3 == 5.
+        let (quotient, _) = Nat::from_u64(17).div_rem(&Nat::from_u64(3)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(5));
+    }
+
+    #[test]
+    fn div_rem_GivenUlongMaxBySeven_ReturnsExpectedQuotientAndOne() {
+        // NaturalDivideTests.DivRem_GivenUlongMaxValueDividend:
+        // 18446744073709551615 / 7 == 2635249153387078802 remainder 1.
+        let (quotient, remainder) = Nat::from_u64(u64::MAX).div_rem(&Nat::from_u64(7)).unwrap();
+        assert_eq!(quotient, Nat::from_u64(2_635_249_153_387_078_802));
+        assert_eq!(remainder, Nat::from_u64(1));
+    }
+
+    #[test]
+    fn div_rem_GivenProductByPrime_ReturnsOriginalAndZero() {
+        // NaturalDivideTests.DivRem_GivenProductAsDividend:
+        // (1_000_000_000 * 999_999_937) / 999_999_937 == 1_000_000_000 r 0.
+        let a = Nat::from_u64(1_000_000_000);
+        let b = Nat::from_u64(999_999_937);
+        let product = a.mul(&b);
+        let (quotient, remainder) = product.div_rem(&b).unwrap();
+        assert_eq!(quotient, a);
+        assert!(remainder.is_zero());
+    }
+
+    #[test]
+    fn factorial_GivenFive_ReturnsOneHundredTwenty() {
+        // NaturalFactorialTests.Factorial_GivenSmallValue: 5! == 120.
+        assert_eq!(Nat::factorial(5), Nat::from_u64(120));
+    }
+
+    #[test]
+    fn factorial_GivenTen_ReturnsThreeMillionSixHundredTwentyEightThousandEightHundred() {
+        // NaturalFactorialTests.Factorial_Given10: 10! == "3628800".
+        assert_eq!(Nat::factorial(10).to_decimal(), "3628800");
+    }
+
+    #[test]
+    fn factorial_GivenTwentyOne_ReturnsBeyondUlongMax() {
+        // NaturalFactorialTests.Factorial_GivenLargeValue: 21! == "51090942171709440000".
+        assert_eq!(Nat::factorial(21).to_decimal(), "51090942171709440000");
+    }
+
+    #[test]
+    fn pow_GivenSevenToZero_ReturnsOne() {
+        // NaturalPowTests.Pow_GivenExponentZero: 7^0 == 1.
+        assert_eq!(Nat::from_u64(7).pow(0), Nat::from_u64(1));
+    }
+
+    #[test]
+    fn pow_GivenThirteenToOne_ReturnsThirteen() {
+        // NaturalPowTests.Pow_GivenExponentOne: 13^1 == 13.
+        assert_eq!(Nat::from_u64(13).pow(1), Nat::from_u64(13));
+    }
+
+    #[test]
+    fn pow_GivenTwoToTen_ReturnsOneThousandTwentyFour() {
+        // NaturalPowTests.Pow_GivenKnownValue: 2^10 == 1024.
+        assert_eq!(Nat::from_u64(2).pow(10), Nat::from_u64(1024));
+    }
+
+    #[test]
+    fn pow_GivenZeroToFive_ReturnsZero() {
+        // NaturalPowTests.Pow_GivenBaseZeroAndNonZeroExponent: 0^5 == 0.
+        assert!(Nat::zero().pow(5).is_zero());
+    }
+
+    #[test]
+    fn pow_GivenTwoToSixtyFour_ReturnsPowerOfTwoBeyondU64() {
+        // NaturalPowTests.Pow_GivenLargeExponent: 2^64 == "18446744073709551616".
+        assert_eq!(Nat::from_u64(2).pow(64).to_decimal(), "18446744073709551616");
+    }
+
+    #[test]
+    fn pow_GivenThreeToSeven_ReturnsTwoThousandOneHundredEightySeven() {
+        // NaturalPowTests.Pow_GivenOddExponent: 3^7 == 2187.
+        assert_eq!(Nat::from_u64(3).pow(7), Nat::from_u64(2187));
+    }
+
+    #[test]
+    fn pow_GivenOneToFifty_ReturnsOne() {
+        // NaturalPowTests.Pow_GivenBaseOneAndAnyExponent: 1^50 == 1.
+        assert_eq!(Nat::from_u64(1).pow(50), Nat::from_u64(1));
+    }
+
+    #[test]
+    fn from_u64_GivenTwelveThousandThreeHundredFortyFive_Returns12345() {
+        // NaturalConstructorTests.Constructor_GivenUlong_StoresCorrectDigitSequence.
+        assert_eq!(Nat::from_u64(12_345).to_decimal(), "12345");
+    }
+
+    #[test]
+    fn from_u64_GivenSmallValues_RoundTrip() {
+        // NaturalConstructorTests.Constructor_GivenUlong_ToStringRoundTrips rows:
+        // 1, 9, 10, 100, 999, 1000. Also covers Parse_GivenSingleDigit ("9") and
+        // TryParse_GivenValidString ("999").
+        let cases = [
+            (1_u64, "1"),
+            (9, "9"),
+            (10, "10"),
+            (100, "100"),
+            (999, "999"),
+            (1000, "1000"),
+        ];
+        for (value, expected) in cases {
+            assert_eq!(Nat::from_u64(value).to_decimal(), expected);
+        }
+    }
+
+    #[test]
+    fn from_u64_GivenIntRangeValues_RoundTrip() {
+        // NaturalConstructorTests.Constructor_GivenPositiveInt_MatchesExpectedString
+        // rows 1, 42, int.MaxValue, and Constructor_GivenPositiveInt_StoresCorrectValue.
+        let cases = [(1_u64, "1"), (42, "42"), (2_147_483_647, "2147483647")];
+        for (value, expected) in cases {
+            assert_eq!(Nat::from_u64(value).to_decimal(), expected);
+        }
+    }
+
+    #[test]
+    fn from_decimal_GivenTwelveThousandThreeHundredFortyFive_Returns12345() {
+        // NaturalConstructorTests.Constructor_GivenValidString (and the span overload)
+        // and NaturalParseTests.Parse_GivenValidDecimalString all parse "12345".
+        let value = Nat::from_decimal("12345").unwrap();
+        assert_eq!(value, Nat::from_u64(12_345));
+        assert_eq!(value.to_decimal(), "12345");
+    }
+
+    #[test]
+    fn from_decimal_GivenZeroLiteral_IsZero() {
+        // NaturalConstructorTests.Constructor_GivenStringZero,
+        // Constructor_GivenSpanZero and NaturalParseTests.Parse_GivenZeroString
+        // (also TryParse_GivenZeroString).
+        let value = Nat::from_decimal("0").unwrap();
+        assert!(value.is_zero());
+        assert_eq!(value.to_decimal(), "0");
+    }
+
+    #[test]
+    fn from_decimal_GivenDoubleOhSeven_CanonicalizesToSeven() {
+        // NaturalConstructorTests.Constructor_GivenStringWithLeadingZeros,
+        // NaturalDecimalCacheTests.ParseToString_GivenLeadingZeros, and
+        // NaturalParseTests.Parse_GivenLeadingZeros all parse "007" as "7".
+        let value = Nat::from_decimal("007").unwrap();
+        assert_eq!(value, Nat::from_u64(7));
+        assert_eq!(value.to_decimal(), "7");
+    }
+
+    #[test]
+    fn from_decimal_GivenUlongMaxLiteral_EqualsFromU64Max() {
+        // NaturalParseTests.Parse_GivenLargeNumber: "18446744073709551615" == ulong.MaxValue.
+        let value = Nat::from_decimal("18446744073709551615").unwrap();
+        assert_eq!(value, Nat::from_u64(u64::MAX));
+    }
+
+    #[test]
+    fn from_decimal_GivenPowerOfTwoTo64Literal_RoundTrips() {
+        // NaturalConstructorTests.Constructor_GivenStringLargeNumber and
+        // NaturalParseTests.Parse_GivenNumberBeyondUlongMax use
+        // "18446744073709551616" (ulong.MaxValue + 1).
+        let literal = "18446744073709551616";
+        assert_eq!(Nat::from_decimal(literal).unwrap().to_decimal(), literal);
+    }
+
+    #[test]
+    fn from_decimal_GivenWhitespace_ReturnsNone() {
+        // NaturalParseTests.Parse_GivenWhitespaceString: "   " throws FormatException.
+        assert!(Nat::from_decimal("   ").is_none());
+    }
+
+    #[test]
+    fn from_decimal_GivenAlpha_ReturnsNone() {
+        // NaturalParseTests.TryParse_GivenInvalidString: "abc" is rejected.
+        assert!(Nat::from_decimal("abc").is_none());
+    }
+
+    #[test]
+    fn from_decimal_GivenSingleDigit_ReturnsNine() {
+        // NaturalParseTests.Parse_GivenSingleDigit: "9" parses to Natural(9).
+        let value = Nat::from_decimal("9").unwrap();
+        assert_eq!(value, Nat::from_u64(9));
+        assert_eq!(value.to_decimal(), "9");
+    }
+
+    #[test]
+    fn from_decimal_GivenThreeDigitLiteral_ReturnsNineHundredNinetyNine() {
+        // NaturalParseTests.TryParse_GivenValidString: "999" parses to Natural(999).
+        let value = Nat::from_decimal("999").unwrap();
+        assert_eq!(value, Nat::from_u64(999));
+        assert_eq!(value.to_decimal(), "999");
+    }
+
+    #[test]
+    fn from_decimal_GivenFiveRoundTripLiterals_ReturnsOriginal() {
+        // NaturalParseTests.Parse_GivenRoundTrip rows: "1", "42", "12345",
+        // "9999999999999999999", "18446744073709551615".
+        let literals = [
+            "1",
+            "42",
+            "12345",
+            "9999999999999999999",
+            "18446744073709551615",
+        ];
+        for literal in literals {
+            assert_eq!(Nat::from_decimal(literal).unwrap().to_decimal(), literal);
+        }
+    }
+
+    #[test]
+    fn clone_GivenNonZero_PreservesValue() {
+        // NaturalConstructorTests.CopyConstructor_GivenNonZero_ProducesEqualValue.
+        let original = Nat::from_u64(98_765);
+        let copy = original.clone();
+        assert_eq!(copy.to_decimal(), "98765");
+        assert_eq!(copy, original);
+    }
+
+    #[test]
+    fn clone_GivenZero_IsZero() {
+        // NaturalConstructorTests.CopyConstructor_GivenZero_ProducesZero.
+        let copy = Nat::zero().clone();
+        assert!(copy.is_zero());
+    }
+
+    #[test]
+    fn clone_GivenValue_IsIndependent() {
+        // NaturalConstructorTests.CopyConstructor_ProducesIndependentInstance:
+        // rebinding the copy to 99999 leaves the original at 12345.
+        let original = Nat::from_u64(12_345);
+        let copy = original.clone();
+        let rebound = Nat::from_u64(99_999);
+        assert_eq!(original.to_decimal(), "12345");
+        assert_eq!(copy.to_decimal(), "12345");
+        assert_eq!(rebound.to_decimal(), "99999");
+    }
+
+    #[test]
+    fn hash_GivenEquivalentDecimalLiterals_IsEqual() {
+        // NaturalDecimalCacheTests.GetHashCode_GivenEqualValues_AreEqual:
+        // "000123456789" and "123456789" are equal and hash equal.
+        let padded = Nat::from_decimal("000123456789").unwrap();
+        let canonical = Nat::from_decimal("123456789").unwrap();
+        assert_eq!(padded, canonical);
+        let mut first = DefaultHasher::new();
+        padded.hash(&mut first);
+        let mut second = DefaultHasher::new();
+        canonical.hash(&mut second);
+        assert_eq!(first.finish(), second.finish());
+    }
+
+    #[test]
+    fn mul_pow10_GivenSeven_AppendsSevenZeros() {
+        // NaturalBinaryLimbTests.ShiftLeftDecimal_GivenK:
+        // "123456789" shifted by 7 == "1234567890000000".
+        let value = Nat::from_decimal("123456789").unwrap();
+        assert_eq!(value.mul_pow10(7).to_decimal(), "1234567890000000");
+    }
+
     #[test]
     fn parse_then_format_GivenLargeLiteral_RoundTrips() {
         let literal = "314159265358979323846264338327950288419716939937510";

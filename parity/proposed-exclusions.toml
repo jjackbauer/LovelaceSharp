@@ -1,0 +1,154 @@
+# Proposed exclusions for the manifest, grouped by C# project with no Rust equivalent.
+# STATUS: pending-user-approval. This file is INERT: parity/gen-manifest.mjs does not read it, so
+# no row becomes an approved exclusion until the user approves and the rows are applied with
+# owner = "user", status = "approved" (TEST-010 / REQ-006).
+
+schemaVersion = 1
+status = "pending-user-approval"
+oracle = "1cc28f255eca6029849f880949fc7be1d40ab8af"
+
+[[group]]
+project = "Lovelace.Abstractions.Tests"
+cases = 53
+reason = "No plugin-contract / field-abstraction / kernel-registration crate exists in the Rust workspace (Lovelace.Abstractions is dispositioned absent in parity/projects.toml)."
+ids = [
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/ArrayValue_TypeIsExposedAsBase#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/AsContiguous_MaterializesPackedCopy#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/AsSpan_OnContiguous_ReturnsFullBuffer#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/AsSpan_OnNonContiguous_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/BufferLengthMismatch_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/EmptyShape_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/GetElement_Coordinates_MatchesFlat#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/GetElement_Flat_IsRowMajorOrder#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/GetElement_OutOfRange_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/NegativeDimension_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/NonContiguousView_IsNotContiguous_AndMapsCorrectly#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/PackedConstruction_ComputesCanonicalStrides#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/RankOne_IsSupported#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/Reshape_Contiguous_ReturnsZeroCopyView#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/Reshape_NonContiguous_Materializes#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/Transpose_ReturnsZeroCopyView#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/ViewOutsideBuffer_Throws#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.DenseArrayTests/ZeroLengthDimension_IsSupported#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#1",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#2",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#3",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#4",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Integer_TryGetExactInt64_HandlesBothEndsOfTheRange#5",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#1",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#2",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#3",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#4",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Natural_TryGetExactInt64_AnswersOnlyForValuesTheTypeCanCarry#5",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_ThroughAnIntegerTypedReference_IsStillNotAnInteger#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_AnswersTheValuesIntegrality#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#1",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#10",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#2",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#3",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#4",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#5",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#6",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#7",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#8",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Real_TryGetExactInt64_PublishesNoFloor#9",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Refusal_IsAnArgumentException_SoTheExistingWireTaxonomyApplies#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Refusal_SpeaksTheDocumentedArgumentGrammar#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_NeverPublishesAValueTheCallerDidNotWrite#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_RefusesAKindItCannotReadAtAll#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_RefusesANonIntegralRealInsteadOfFlooringIt#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_RefusesAWiderThanInt64IntegerWithoutARawConversionError#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_RefusesAnOutOfBoundsIntegerAndNamesTheBoundAndTheValue#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.ExactIntegerArgumentTests/Require_ReturnsTheExactValueTheCallerWrote#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.MetadataTests/DType_WideningLattice_IsOrdered#0",
+  "Lovelace.Abstractions.Tests/Lovelace.Abstractions.Tests.MetadataTests/Precision_ComparesByValue#0",
+]
+
+[[group]]
+project = "Lovelace.Console.Tests"
+cases = 15
+reason = "No interactive REPL crate exists (Lovelace.Console is dispositioned absent)."
+ids = [
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Constructors_KeepTheDefaultInteractiveConsolePath#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/EndOfInput_TerminatesWithBye#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Error_IsRenderedAndTheSessionKeepsAcceptingInput#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Exit_TerminatesTheLoopWithoutReadingFurtherInput#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Funcs_Symbolics_ListsTheSymbolicsCategory#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Help_Overview_ListsNonEmptyCategories#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Help_Solve_ShowsSignatureAndSummary#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Matrix_RendersAsNestedBrackets#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/MultiLineFunctionBlock_AccumulatesUntilBracesBalance#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Print_GoesToTheInjectedWriter#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Quit_AlsoTerminatesTheLoop#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/SetDisplay_TightensRenderedPrecision#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/SetPrettyUnicode_ChangesGlyphs_AndAsciiRestoresThem#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/SyntaxError_PrintsCaretUnderTheErrorPosition#0",
+  "Lovelace.Console.Tests/Lovelace.Console.Tests.ReplOutputTests/Vars_ListsVariableAfterDefiningVariableAndFunction#0",
+]
+
+[[group]]
+project = "Lovelace.Knowledge.Tests"
+cases = 28
+reason = "No sampling / reduction / convergence / behavioural-graph module exists (Lovelace.Knowledge is dispositioned absent)."
+ids = [
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.DeterminismTests/GraphStore_RoundTrip_PreservesGraph#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.DeterminismTests/Proposal_BuildsSweeps_Deterministically#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.DeterminismTests/RandomSamples_DifferentSeed_DifferentScripts#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.DeterminismTests/RandomSamples_SameSeed_SameScripts#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/Add_PeriodicThirds_GivesTwoThirds#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/Compare_PeriodicVsDecimal#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/Format_OneSeventh_ShortestPeriod#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/Parse_Periodic_IsExactFraction#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/Parse_Sixth_IsOneOverSix#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#1",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#10",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#2",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#3",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#4",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#5",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#6",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#7",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#8",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ExactNumberTests/RoundTrips_CanonicalLiteral#9",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ObservationTests/Canonicalize_Error_KeepsMessageOnly#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ObservationTests/Canonicalize_SuccessReal_KeepsKindAndTyped#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ObservationTests/PlaneSigma_Boolean_IsTagged#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ObservationTests/PlaneSigma_Real_IsSingleClass#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ReducerTests/Cluster_SameSigma_SharesOnePlane#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ReducerTests/Detect_DivisionByZero_EqualityGuard#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ReducerTests/Detect_NaturalSubtractionUnderflow_ThresholdGuard#0",
+  "Lovelace.Knowledge.Tests/Lovelace.Knowledge.Tests.ReducerTests/Detect_UnresolvedBoundary_MarksFrontier#0",
+]
+
+[[group]]
+project = "Lovelace.Studio.Tests"
+cases = 22
+reason = "No Studio-equivalent desktop session/HTTP layer exists; the Rust desktop is a native shell with different internals (Lovelace.Studio is partial)."
+ids = [
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Clear_GivenVariables_EmptiesWorkspace#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/DeleteVariable_GivenExistingName_RemovesItAndReturnsUpdatedState#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_DependentOnChangedVariable_Recomputes#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenError_ReturnsDiagnosticWithLineAndColumn#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenMultiLineScript_ReturnsPerLineTimings#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenPrintAndPlot_ReturnsLogsAndPlotSvg#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenPrintStatement_ReturnsOutputScopedToThatLine#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenSampleScript_ReturnsFunctionVariablesAndPlot#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenScript_ReturnsElapsedTime#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_GivenScript_ReturnsResultAndUpdatedVariables#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_MidScriptEdit_RecomputesOnlyDependents#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_PrintStatement_AlwaysRecomputes#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Evaluate_RepeatedScript_ReusesAllStatements#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Precision_GivenTwoSessions_IsIndependent#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/Sessions_GivenTwoSessions_HaveIndependentVariables#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.EngineHostTests/State_GivenVariablesAndFunctions_ReturnsSnapshotMatchingEngine#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.StructuredPayloadTests/Evaluate_GivenSolveFull_CarriesStructuredSolveResultWithTypeNameAndSolutionsShape#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.StructuredPayloadTests/InspectSymbolic_GivenExpression_CarriesStructuredFormOfInspectedValue#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.StructuredPayloadTests/SetFormat_GivenUnicode_EngineRendersUnicodeAndStateReportsIt#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.SymbolicInspectTests/Inspect_GivenNonSymbolicValue_ReportsDiagnostic#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.SymbolicInspectTests/Inspect_GivenSymbolicExpression_ReturnsAllSurfaces#0",
+  "Lovelace.Studio.Tests/Lovelace.Studio.Tests.SymbolicInspectTests/Inspect_TraceAndAssumptions_Surfaces#0",
+]

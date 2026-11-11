@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-registry-assumptions-013",
+  "category": "registry",
+  "script": "x = symbol(\"x\"); assume(x > 3); assumptions()",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.fields[1].value.elements[0].canonical",
+      "kind": "missing-key",
+      "expected": "\"(gt (sym x) (rat 3 1))\"",
+      "actual": null
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:36.949Z"
+}

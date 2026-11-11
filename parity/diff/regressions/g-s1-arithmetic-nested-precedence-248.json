@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arithmetic-nested-precedence-248",
+  "category": "arithmetic",
+  "script": "((7 + 18) * 9 - 33) / 2",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.kind",
+      "kind": "value",
+      "expected": "\"Natural\"",
+      "actual": "\"Real\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.963Z"
+}

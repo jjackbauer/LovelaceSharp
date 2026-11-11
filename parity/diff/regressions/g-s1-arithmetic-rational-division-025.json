@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arithmetic-rational-division-025",
+  "category": "arithmetic",
+  "script": "23/26",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.denominator",
+      "kind": "value",
+      "expected": "\"26\"",
+      "actual": "\"65\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:36.969Z"
+}

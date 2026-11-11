@@ -1,0 +1,137 @@
+# Every C# production project in the frozen solution, with its Rust disposition.
+# ECO-001 / ECO-002. The gate (parity/gate-projects.ps1) extracts the project list from
+# docs/parity/contract-v2.md section 4 and requires one row per project here; a row with status
+# "absent" must carry a reason and a target phase, so an omission can never be silent.
+
+schemaVersion = 1
+oracle = "1cc28f255eca6029849f880949fc7be1d40ab8af"
+
+[[project]]
+name = "Lovelace.Representation"
+status = "consolidated"
+rust = ["rust/lovelace-nat/src/lib.rs", "rust/lovelace-int/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Digit storage is consolidated into the base-10^9 limb Nat; representation invariants are held by lovelace-nat. Per-API coverage is not yet mapped test by test."
+
+[[project]]
+name = "Lovelace.Natural"
+status = "port"
+rust = ["rust/lovelace-nat/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Add/sub/mul/div_rem/pow/factorial, parse and format; 100! exact in tests."
+
+[[project]]
+name = "Lovelace.Integer"
+status = "port"
+rust = ["rust/lovelace-int/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Sign plus Nat magnitude; no negative zero; truncating div_rem."
+
+[[project]]
+name = "Lovelace.Rational"
+status = "partial"
+rust = ["rust/lovelace-real/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "No dedicated normalized-fraction type; rationals are exact Reals. REAL-009 (coprime normalized fractions) is an open gap."
+
+[[project]]
+name = "Lovelace.Real"
+status = "port"
+rust = ["rust/lovelace-real/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Exact periodic decimals, sqrt, pi. Exactness provenance and clamp notices are not yet published on the wire, so REAL-001/REAL-004 are only partly met."
+
+[[project]]
+name = "Lovelace.Complex"
+status = "partial"
+rust = ["rust/lovelace-lang/src/value.rs"]
+evidence = ["OBS-003"]
+note = "Arbitrary-precision parts exist; the fixed-width optimized representations and the promotion contract (CPLX-003/004/005) are absent."
+
+[[project]]
+name = "Lovelace.Array"
+status = "port"
+rust = ["rust/lovelace-array/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Shape/strides/indexing/slicing/reshape/transpose/reductions; typed-field kernel registration is absent (PLUG-005)."
+
+[[project]]
+name = "Lovelace.Abstractions"
+status = "absent"
+rust = []
+reason = "No plugin contract, field abstraction, or kernel registration exists in the Rust workspace; the engine grows one enum of builtins instead."
+phase = 5
+
+[[project]]
+name = "Lovelace.Statistics"
+status = "absent"
+rust = []
+reason = "The opt-in Real elementwise-addition kernel has no Rust equivalent (STAT-001..004 unmet)."
+phase = 5
+
+[[project]]
+name = "Lovelace.Suite"
+status = "partial"
+rust = ["rust/lovelace-lang/src/lib.rs", "rust/lovelace-run/src/main.rs"]
+evidence = ["EVD-002"]
+note = "Language, engine, builtins, plotting exist; statement timing, revision semantics, and the structured envelope are incomplete (ENG-006/009, WIRE-002)."
+
+[[project]]
+name = "Lovelace.Symbolics"
+status = "partial"
+rust = ["rust/lovelace-symbolics/src/lib.rs"]
+evidence = ["EVD-005"]
+note = "Canonical expressions, calculus, solving, assumptions; the corpus gate is 212/214 (sym/071, sym/076 outstanding)."
+
+[[project]]
+name = "Lovelace.MathIR"
+status = "partial"
+rust = ["rust/lovelace-lang/src/builtins.rs"]
+note = "lower/compile/compile_full/evalir/evalir_batch exist as builtins; there is no separate versioned IR crate and MIR-001/MIR-007 are unverified."
+
+[[project]]
+name = "Lovelace.Dsp"
+status = "partial"
+rust = ["rust/lovelace-lang/src/builtins.rs"]
+note = "fft, dft, conv, filter, conj, re, im are present; the remaining signal constructors and DSP-009/DSP-010 are unverified."
+
+[[project]]
+name = "Lovelace.Console"
+status = "absent"
+rust = []
+reason = "No interactive REPL crate exists (CLI-001..007 unmet)."
+phase = 5
+
+[[project]]
+name = "Lovelace.Run"
+status = "partial"
+rust = ["rust/lovelace-run/src/main.rs"]
+evidence = ["EVD-002"]
+note = "A runner exists but is protocol-incompatible: 0/20 golden fixtures pass and 6 of the 14 CLI flags are unimplemented."
+
+[[project]]
+name = "Lovelace.Knowledge"
+status = "absent"
+rust = []
+reason = "No sampling, reduction, convergence, or behavioural-graph module exists (KNOW-001..010 unmet)."
+phase = 5
+
+[[project]]
+name = "Lovelace.Knowledge.Run"
+status = "absent"
+rust = []
+reason = "No MGIR command-line interface or JSON-over-stdio protocol exists."
+phase = 5
+
+[[project]]
+name = "Lovelace.Studio"
+status = "partial"
+rust = ["rust/lovelace-desktop/src/app.rs", "rust/lovelace-desktop/src/win32/shell.rs"]
+note = "A Win32 native shell exists (no HTTP listener). Platform breadth, widget tests, screenshots and accessibility (DESK-001..028) are unmet; the Windows-only scope question is OQ-001."
+
+[[project]]
+name = "Lovelace.Proofs"
+status = "absent"
+rust = []
+reason = "The Lean project exists in the C# tree but no Rust theorem mapping or property correspondence has been established (PROOF-001..004 unmet)."
+phase = 7

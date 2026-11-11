@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-syntax-unicode-identifier-206",
+  "category": "syntax",
+  "script": "résultat = 2; résultat",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.exitCode",
+      "kind": "value",
+      "expected": 1,
+      "actual": 0
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.904Z"
+}

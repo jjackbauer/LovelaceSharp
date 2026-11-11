@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-parse-error-132",
+  "category": "errors",
+  "script": "@",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.diagnostics[0].message",
+      "kind": "value",
+      "expected": "\"Unexpected character '@' at position 0.\"",
+      "actual": "\"Unexpected character '@'.\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.339Z"
+}

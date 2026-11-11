@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-series-677",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); series(sin(x)/x, x, 0, 6)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.canonical",
+      "kind": "value",
+      "expected": "\"(add (rat 1 1) (mul (rat -1 6) (pow (sym x) (rat 2 1))) (mul (rat 1 120) (pow (sym x) (rat 4 1))) (order (sym x) (rat 0 1) (rat 6 1)))\"",
+      "actual": "\"(add (rat 1 1) (fn O (pow (sym x) (rat 6 1))) (mul (rat -1 6) (pow (sym x) (rat 2 1))) (mul (rat 1 120) (pow (sym x) (rat 4 1))))\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.409Z"
+}

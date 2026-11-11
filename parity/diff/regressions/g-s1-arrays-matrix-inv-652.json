@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-arrays-matrix-inv-652",
+  "category": "arrays",
+  "script": "inv([[1, 2], [4, 6]])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.elements[0].kind",
+      "kind": "value",
+      "expected": "\"Integer\"",
+      "actual": "\"Real\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.395Z"
+}

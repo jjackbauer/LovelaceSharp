@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-limit-271",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); limit(1/x, x, 0)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.fields[4].value.elements[0].canonical",
+      "kind": "missing-key",
+      "expected": "\"(lt (sym x) (rat 0 1))\"",
+      "actual": null
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.995Z"
+}

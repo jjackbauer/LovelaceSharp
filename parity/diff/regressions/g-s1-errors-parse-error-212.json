@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-errors-parse-error-212",
+  "category": "errors",
+  "script": "2 ** 3",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.diagnostics[0].message",
+      "kind": "value",
+      "expected": "\"Unexpected token '*' at position 3: expected a number, string, identifier, '[', or '('.\"",
+      "actual": "\"Unexpected token Punct(\\\"*\\\").\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:37.911Z"
+}

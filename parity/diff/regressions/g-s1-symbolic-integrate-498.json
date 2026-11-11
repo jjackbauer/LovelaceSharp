@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-integrate-498",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); integrate(x*exp(x), x)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.display",
+      "kind": "value",
+      "expected": "\"exp(x)*(x - 1)\"",
+      "actual": "\"integrate(x*exp(x), x)\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.274Z"
+}

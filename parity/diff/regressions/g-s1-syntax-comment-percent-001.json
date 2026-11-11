@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-syntax-comment-percent-001",
+  "category": "syntax",
+  "script": "% leading comment\n2 + 3",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 1,
+    "rustExit": 1,
+    "firstDifference": {
+      "path": "$.category",
+      "kind": "value",
+      "expected": "\"ParseError\"",
+      "actual": "\"DomainError\""
+    }
+  },
+  "addedAtUtc": "2026-11-10T14:43:58.383Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "g-s1-records-print-budget-423",
+  "category": "records",
+  "script": "x = symbol(\"x\"); diff(x^3 + 2*x^2 + 5*x + 7, x)",
+  "args": [
+    "--omit-functions",
+    "--print-budget",
+    "5"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.budget",
+      "kind": "missing-key",
+      "expected": "5",
+      "actual": null
+    }
+  },
+  "addedAtUtc": "2026-11-10T15:42:38.188Z"
+}
