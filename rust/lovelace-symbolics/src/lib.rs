@@ -11,6 +11,7 @@ use lovelace_nat::Nat;
 
 pub mod assumptions;
 pub mod cancel;
+pub mod groebner;
 
 /// An exact rational coefficient.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2606,6 +2607,17 @@ pub fn solve_polynomial_named(coeffs: &[Rat], var: &str) -> SolveOutcome {
                         roots.sort_by(|a, b| a.value.cmp(&b.value));
                         exprs.extend(roots.iter().map(|r| expr_from_rat(&r.value)));
                         return SolveOutcome::RootExpressions(exprs);
+                    } else if let Some(radical) = quadratic_radical_roots(&working) {
+                        // A positive, non-square discriminant is an exact algebraic value the
+                        // reference publishes as a radical (x^2 - 2 -> -1/2*sqrt(8) and
+                        // 1/2*sqrt(8)); the kernel used to answer Unevaluated here, which left
+                        // every nonlinear system that eliminated to such a quadratic unsolved.
+                        let mut exprs = radical;
+                        roots.sort_by(|a, b| a.value.cmp(&b.value));
+                        exprs.extend(roots.iter().map(|r| expr_from_rat(&r.value)));
+                        // The reference orders non-rational solutions by canonical print.
+                        exprs.sort_by_key(|e| e.to_string());
+                        return SolveOutcome::RootExpressions(exprs);
                     }
                 }
                 break;
@@ -2821,6 +2833,33 @@ fn quadratic_complex_roots(coeffs: &[Rat]) -> Option<Vec<Expr>> {
         Expr::add(Expr::neg(i_root), minus_b),
     );
     Some(vec![plus, minus])
+}
+
+/// Quadratic roots when the discriminant is positive and not a perfect square: the exact
+/// radical pair the reference publishes. Coefficients are canonical (the Groebner basis and the
+/// factor path hand this function a monic quadratic), so `1/2*sqrt(8)` keeps the reference's
+/// own form instead of being simplified to `sqrt(2)`.
+fn quadratic_radical_roots(coeffs: &[Rat]) -> Option<Vec<Expr>> {
+    if coeffs.len() != 3 {
+        return None;
+    }
+    let a = coeffs[2].clone();
+    let b = coeffs[1].clone();
+    let c = coeffs[0].clone();
+    if a.is_zero() {
+        return None;
+    }
+    let disc = b.mul(&b).add(&c.mul(&a).mul(&Rat::from_i64(-4)));
+    if disc.is_negative() || disc.is_zero() {
+        return None;
+    }
+    let sqrt_disc = Expr::sqrt(Expr::Num(disc));
+    let two_a = Expr::Num(a.mul(&Rat::from_i64(2)));
+    let neg_b: Expr = Expr::Num(b.neg());
+    Some(vec![
+        Expr::div(Expr::add(neg_b.clone(), sqrt_disc.clone()), two_a.clone()),
+        Expr::div(Expr::sub(neg_b, sqrt_disc), two_a),
+    ])
 }
 
 fn quadratic_roots(coeffs: &[Rat]) -> Option<(Rat, Rat)> {
@@ -3980,6 +4019,8 @@ mod indeterminate_forms_round31;
 
 #[cfg(test)]
 mod tail_round34;
+#[cfg(test)]
+mod round36_exactness;
 
 #[cfg(test)]
 mod printing_round16;

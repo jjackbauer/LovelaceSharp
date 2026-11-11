@@ -29,6 +29,10 @@ mod round30_real_batch;
 mod round31_trig;
 #[cfg(test)]
 mod round34_inexact_division;
+#[cfg(test)]
+mod round36_precbench;
+#[cfg(test)]
+mod round36_ambient;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///
@@ -113,6 +117,16 @@ impl Real {
     /// Builds a real from an `i64`.
     pub fn from_i64(value: i64) -> Real {
         Real::from_int(&Int::from_i64(value))
+    }
+
+    /// Index of the first repeating fractional digit, or -1 when the expansion terminates.
+    pub fn period_start(&self) -> i64 {
+        self.period_start
+    }
+
+    /// Length of the repeating block, or 0 when the expansion terminates.
+    pub fn period_length(&self) -> i64 {
+        self.period_len
     }
 
     /// True when the value was produced without dropping a digit.
@@ -354,6 +368,29 @@ impl Real {
             }
         }
         out
+    }
+
+    /// Truncates a terminating value to at most `digits` fractional places, mirroring the
+    /// reference's DISPLAY cap (`Real.DisplayDecimalPlaces`), which bounds how many digits a
+    /// non-periodic value publishes. A periodic value is returned unchanged: the reference renders
+    /// its repeating block in full and applies the display limit only to a finite expansion.
+    pub fn truncated_frac(&self, digits: usize) -> Real {
+        if self.period_len > 0 || self.exp >= -(digits as i64) {
+            return self.clone();
+        }
+        let drop = (-self.exp - digits as i64) as u64;
+        let ten = Nat::from_u64(10).pow(drop);
+        let Some((q, _)) = self.int.div_rem(&ten) else {
+            return self.clone();
+        };
+        Real {
+            int: q,
+            exp: -(digits as i64),
+            period_start: -1,
+            period_len: 0,
+            inexact: self.inexact,
+        }
+        .normalized()
     }
 
     /// Renders exactly `digits` fractional digits, expanding a repeating block and

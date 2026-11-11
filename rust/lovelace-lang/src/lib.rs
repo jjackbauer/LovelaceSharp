@@ -1809,3 +1809,8 @@ mod suite_tail_round35;
 
 #[cfg(test)]
 mod round35_extra_tail;
+#[cfg(test)]
+mod round36_remaining;
+
+#[cfg(test)]
+mod corpus_and_system_solve_round36;

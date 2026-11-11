@@ -69,8 +69,25 @@ fn term_ordering_with_a_huge_degree_does_not_overflow() {
 
 #[test]
 fn solve_full_with_a_coefficient_at_i64_min_returns_instead_of_panicking() {
+    // The coefficient is far outside i64, so the point is that the solver RETURNS a well-formed
+    // record instead of overflowing. Its positive discriminant now takes the exact-radical path
+    // (x^2 + x - 9223372036854775808 has the two algebraic roots below); before that path existed
+    // the same input returned Unevaluated, which was honest but less complete than the reference.
     let rendered = display("x = symbol(\"x\"); solve_full(x^2 + x - 9223372036854775808 == 0, x)");
-    assert!(rendered.starts_with("SolveResult(status: Unevaluated"), "{rendered}");
+    assert!(rendered.starts_with("SolveResult(status: Solved"), "{rendered}");
+    assert_eq!(
+        rendered.matches("Solution(value: 1/2*").count(),
+        2,
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("Solution(value: 1/2*(-sqrt(36893488147419103233) - 1)"),
+        "{rendered}"
+    );
+    assert!(
+        rendered.contains("Solution(value: 1/2*(sqrt(36893488147419103233) - 1)"),
+        "{rendered}"
+    );
 }
 
 #[test]

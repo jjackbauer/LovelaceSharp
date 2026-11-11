@@ -45,9 +45,12 @@ fn a_polynomial_with_the_i64_min_coefficient_does_not_panic_in_root_search() {
     // the language as -9223372036854775808.
     let coeffs = vec![Rat::from_i64(i64::MIN), Rat::from_i64(1), Rat::from_i64(1)];
     let outcome = solve_polynomial(&coeffs);
+    // The constant is far below i64, but the polynomial has a positive discriminant, so the
+    // exact-radical path answers two algebraic roots instead of failing. What this row pins is
+    // that the root SEARCH returns rather than panicking in i64::MIN.abs().
     assert!(
-        matches!(outcome, SolveOutcome::Unevaluated),
-        "a degree-2 polynomial with this constant has no rational root"
+        matches!(&outcome, SolveOutcome::RootExpressions(roots) if roots.len() == 2),
+        "a degree-2 polynomial with this constant must return its two exact roots, got {outcome:?}"
     );
 }
 

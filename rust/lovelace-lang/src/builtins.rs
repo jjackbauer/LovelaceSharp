@@ -5,6 +5,7 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_symbolics::assumptions::{Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate};
+use lovelace_symbolics::groebner::{groebner_basis, MonomialOrder, Polynomial};
 use lovelace_symbolics::Expr as Sym;
 
 use crate::registry;
@@ -258,8 +259,18 @@ pub fn div(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
         // `setprecision` moves together with the display cap (`WithPrecision`). A 64-place floor
         // here made `setprecision(18); 1/19` return the exact period while the reference (and the
         // class-Real side of LRealPeriodicFastPathTests) truncates it at 18 places.
-        match rx.div(&ry, precision.max(1)) {
-            Some(v) => Ok(Value::Real(v)),
+        let places = precision.max(1);
+        match rx.div(&ry, places) {
+            Some(v) => {
+                // The reference's digit loop stops at the computation cap, but its freed
+                // leading-zero walk can still discover a period whose block ends past the cap.
+                // The round-13 language contract publishes that quotient as the truncation it
+                // is (1/(3*10^n) at n == places): keep its value and period metadata, and say
+                // the expansion did not fit. A period that ends before the cap stays exact.
+                let beyond = v.period_length() > 0
+                    && v.period_start() + v.period_length() > places as i64;
+                Ok(Value::Real(if beyond { v.mark_inexact() } else { v }))
+            }
             None => Err(divide_by_zero()),
         }
     })?;
@@ -2242,20 +2253,24 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             if unsatisfiable {
                 return Ok(no_solutions_system());
             }
+            if equations.is_empty() {
+                return Ok(unevaluated_system_result(NO_EQUATIONS_NOTE));
+            }
             if identity_only {
                 let var = mutation_vars.first().cloned().unwrap_or_else(|| "x".to_string());
                 return Ok(unevaluated_system_result(&format!(
                     "system-solve.elimination-incomplete: no equation of this branch determines {var}, so the values of {var} are not enumerated here."
                 )));
             }
-            let Some(solutions) = solve_system_impl(&equations, &mutation_vars) else {
-                // A well-shaped system this solver does not enumerate is the reference's honest
+            match solve_system_impl(&equations, &mutation_vars) {
+                SystemOutcome::Solutions(solutions) => {
+                    Ok(system_result_with_assumptions(engine, &mutation_vars, solutions))
+                }
+                SystemOutcome::NoSolutions => Ok(no_solutions_system()),
+                // A well-shaped system this solver cannot decide is the reference's honest
                 // Unevaluated record, not an internal-sounding "no solver" error.
-                return Ok(unevaluated_system_result(
-                    "system-solve.non-polynomial: only polynomial systems are supported in v1.",
-                ));
-            };
-            Ok(system_result_with_assumptions(engine, &mutation_vars, solutions))
+                SystemOutcome::Unevaluated(message) => Ok(unevaluated_system_result(&message)),
+            }
         }
         "lower" => {
             if args.len() < 2 {
@@ -2351,29 +2366,51 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 }
                 return Ok(matrix_no_solutions("MatrixSolveResult", "solutions"));
             }
+            // The reference solves a linear system by fraction-free (Bareiss) elimination and
+            // back-substitution, NOT by Cramer's rule. The difference is observable in the
+            // symbolic shape: Cramer simplifies -x/x/(x*y) to -1/(x*y), while the reference's
+            // back-substitution keeps the intermediate x/x (the corpus sym/076 rendering).
+            let symbolic = a
+                .iter()
+                .any(|v| !matches!(as_expr(v), Some(Sym::Num(_))))
+                || rhs.iter().any(|v| !matches!(as_expr(v), Some(Sym::Num(_))));
             let mut entries: Vec<Value> = Vec::with_capacity(n);
-            for col in 0..n {
-                // Cramer rule: replace the column with the right-hand side and take its determinant.
-                let mut replaced: Vec<Value> = Vec::with_capacity(n * n);
+            if symbolic {
+                let mut matrix: Vec<Vec<Sym>> = Vec::with_capacity(n);
                 for r in 0..n {
+                    let mut row = Vec::with_capacity(n);
                     for c in 0..n {
-                        if c == col {
-                            replaced.push(rhs[r].clone());
-                        } else if let Some(v) = a.get(&[r, c]) {
-                            replaced.push(v.clone());
+                        row.push(
+                            a.get(&[r, c])
+                                .and_then(as_expr)
+                                .ok_or_else(|| LangError::plain("linsolve needs a symbolic matrix."))?,
+                        );
+                    }
+                    matrix.push(row);
+                }
+                let right: Vec<Sym> = rhs
+                    .iter()
+                    .map(|v| as_expr(v).ok_or_else(|| LangError::plain("linsolve needs a symbolic right-hand side.")))
+                    .collect::<Result<_, _>>()?;
+                let solved = solve_bareiss(&matrix, &right)
+                    .ok_or_else(|| LangError::plain("System is singular or underdetermined."))?;
+                entries.extend(solved.into_iter().map(Value::Symbolic));
+            } else {
+                for col in 0..n {
+                    // Cramer rule: replace the column with the right-hand side and take its determinant.
+                    let mut replaced: Vec<Value> = Vec::with_capacity(n * n);
+                    for r in 0..n {
+                        for c in 0..n {
+                            if c == col {
+                                replaced.push(rhs[r].clone());
+                            } else if let Some(v) = a.get(&[r, c]) {
+                                replaced.push(v.clone());
+                            }
                         }
                     }
-                }
-                let minor = NdArray::from_vec(vec![n, n], replaced).map_err(array_error)?;
-                let numerator = det(&minor)?;
-                match (as_expr(&numerator), as_expr(&determinant)) {
-                    (Some(x), Some(y))
-                        if matches!(numerator, Value::Symbolic(_))
-                            || matches!(determinant, Value::Symbolic(_)) =>
-                    {
-                        entries.push(Value::Symbolic(Sym::Div(Box::new(x), Box::new(y))));
-                    }
-                    _ => entries.push(div(&numerator, &determinant, 1000)?),
+                    let minor = NdArray::from_vec(vec![n, n], replaced).map_err(array_error)?;
+                    let numerator = det(&minor)?;
+                    entries.push(div(&numerator, &determinant, 1000)?);
                 }
             }
             let condition = Sym::Rel(
@@ -4688,7 +4725,7 @@ fn dsp_exponential(engine: &Engine, args: &[Value]) -> Result<Value, LangError> 
     let mut out = Vec::with_capacity(n);
     for k in 0..n {
         let z = (base.0.mul(&dsp_real(k as i64)), base.1.mul(&dsp_real(k as i64)));
-        let sample = dsp_complex_exp(&z, digits);
+        let sample = dsp_complex_exp(&z, digits, engine.display_precision());
         out.push(dsp_complex(sample.0, sample.1));
     }
     Ok(Value::Vector(out))
@@ -4713,7 +4750,7 @@ fn dsp_cosine(engine: &Engine, args: &[Value]) -> Result<Value, LangError> {
             .mul(&frequency)
             .mul(&dsp_real(k as i64))
             .add(&phase);
-        let cos = dsp_real_cos(&angle, digits, digits);
+        let cos = dsp_real_cos(&angle, digits, digits, engine.display_precision());
         out.push(dsp_complex(cos, Real::zero()));
     }
     Ok(Value::Vector(out))
@@ -5145,9 +5182,9 @@ fn dsp_cos_taylor(x: &Real, guard: usize) -> Real {
     sum
 }
 
-fn dsp_real_cos(value: &Real, digits: usize, ambient: usize) -> Real {
+fn dsp_real_cos(value: &Real, digits: usize, ambient: usize, publish: usize) -> Real {
     if value.cmp(&Real::zero()) == std::cmp::Ordering::Less {
-        return dsp_real_cos(&value.neg(), digits, ambient);
+        return dsp_real_cos(&value.neg(), digits, ambient, publish);
     }
     let ambient_pi = Real::pi(ambient);
     let ambient_two_pi = ambient_pi.mul(&dsp_real(2));
@@ -5186,13 +5223,16 @@ fn dsp_real_cos(value: &Real, digits: usize, ambient: usize) -> Real {
     } else {
         dsp_cos_taylor(&x, guard)
     };
-    let cos = cos.mark_inexact();
+    // The reference's Real.ToString publishes a non-periodic value at the display cap
+    // (Real.DisplayDecimalPlaces); the language's typed rendering has no separate display step,
+    // so the transcendental result is published here at the same width.
+    let cos = cos.mark_inexact().truncated_frac(publish);
     if negate { cos.neg() } else { cos }
 }
 
-fn dsp_real_sin(value: &Real, digits: usize) -> Real {
+fn dsp_real_sin(value: &Real, digits: usize, publish: usize) -> Real {
     if value.cmp(&Real::zero()) == std::cmp::Ordering::Less {
-        return dsp_real_sin(&value.neg(), digits).neg();
+        return dsp_real_sin(&value.neg(), digits, publish).neg();
     }
     let ambient = digits;
     let ambient_pi = Real::pi(ambient);
@@ -5226,18 +5266,18 @@ fn dsp_real_sin(value: &Real, digits: usize) -> Real {
         x = two_pi.sub(&x);
         negative = true;
     }
-    let sin = dsp_sin_taylor(&x, guard).mark_inexact();
+    let sin = dsp_sin_taylor(&x, guard).mark_inexact().truncated_frac(publish);
     if negative { sin.neg() } else { sin }
 }
 
 /// Complex.Exp: e^z = e^re * (cos(im) + i*sin(im)).
-fn dsp_complex_exp(z: &(Real, Real), digits: usize) -> (Real, Real) {
+fn dsp_complex_exp(z: &(Real, Real), digits: usize, publish: usize) -> (Real, Real) {
     let exponential = dsp_real_exp(&z.0, digits);
     if z.1.is_zero() {
         return (exponential, Real::zero());
     }
-    let cos = dsp_real_cos(&z.1, digits, digits);
-    let sin = dsp_real_sin(&z.1, digits);
+    let cos = dsp_real_cos(&z.1, digits, digits, publish);
+    let sin = dsp_real_sin(&z.1, digits, publish);
     (exponential.mul(&cos), exponential.mul(&sin))
 }
 
@@ -6673,6 +6713,72 @@ fn horner_form(e: &Sym, var: &str) -> Option<Sym> {
 
 /// Solves a small system by splitting on a product equation and substituting each factor.
 
+/// Fraction-free (Bareiss) linear solve over exact symbolic expressions: forward elimination
+/// with the previous pivot as divisor, then back-substitution. This is the reference's
+/// `SymbolicMatrix.SolveCore`; its intermediate quotients are part of the published shape
+/// (sym/076), so it is not interchangeable with Cramer's rule even though both are exact.
+fn solve_bareiss(matrix: &[Vec<Sym>], rhs: &[Sym]) -> Option<Vec<Sym>> {
+    let n = matrix.len();
+    if rhs.len() != n || matrix.iter().any(|row| row.len() != n) {
+        return None;
+    }
+    let mut m: Vec<Vec<Sym>> = Vec::with_capacity(n);
+    for r in 0..n {
+        let mut row = matrix[r].clone();
+        row.push(rhs[r].clone());
+        m.push(row);
+    }
+    let mut prev = Sym::num(1);
+    for k in 0..n {
+        // The first row whose pivot entry is not a provable zero, exactly as the reference
+        // selects it: no magnitude heuristic, no partial pivoting.
+        let pivot = (k..n).find(|i| !matches!(m[*i][k], Sym::Num(ref r) if r.is_zero()))?;
+        if pivot != k {
+            m.swap(k, pivot);
+        }
+        for i in (k + 1)..n {
+            for j in (k + 1)..=n {
+                let left = Sym::mul(m[i][j].clone(), m[k][k].clone());
+                let right = Sym::mul(m[i][k].clone(), m[k][j].clone());
+                let numerator = Sym::sub(left, right);
+                m[i][j] = exact_divide(&numerator, &prev);
+            }
+            m[i][k] = Sym::num(0);
+        }
+        prev = m[k][k].clone();
+    }
+    let mut solution = vec![Sym::num(0); n];
+    for i in (0..n).rev() {
+        let mut acc = m[i][n].clone();
+        for j in (i + 1)..n {
+            let term = Sym::mul(m[i][j].clone(), solution[j].clone());
+            // Adding to a literal zero would wrap the term in an extra product and change the
+            // published division shape; the reference's Add(0, t) is t.
+            acc = if acc == Sym::num(0) {
+                Sym::neg(term)
+            } else {
+                Sym::sub(acc, term)
+            };
+        }
+        solution[i] = exact_divide(&acc, &m[i][i]);
+    }
+    Some(solution)
+}
+
+/// Exact division when the divisor is a unit; otherwise the rational quotient is the
+/// value-correct fallback the reference uses too (its polynomial division is an optimization).
+fn exact_divide(a: &Sym, b: &Sym) -> Sym {
+    if *b == Sym::num(1) {
+        return a.clone();
+    }
+    if let (Sym::Num(x), Sym::Num(y)) = (a, b) {
+        if let Some(q) = x.div(y) {
+            return Sym::Num(q);
+        }
+    }
+    Sym::div(a.clone(), b.clone())
+}
+
 /// Solves a square LINEAR system by exact Gaussian elimination over the rationals.
 ///
 /// The coefficient extraction is structural, not a guess: substituting every variable with zero
@@ -6761,152 +6867,494 @@ fn solve_linear_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(St
         .collect()])
 }
 
-fn solve_system_impl(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(String, Sym)>>> {
-    if lovelace_symbolics::cancel::check() {
-        return None;
-    }
-    if let Some(solutions) = solve_linear_system(equations, vars) {
-        return Some(solutions);
-    }
-    if equations.len() != 2 || vars.len() != 2 {
-        return None;
-    }
-    for split_index in 0..2 {
-        let split = &equations[split_index];
-        let other = &equations[1 - split_index];
-        let factors = match split {
-            Sym::Mul(f) => f.clone(),
-            _ => continue,
-        };
-        // Only a product of plain variables gives a clean case split.
-        let names: Vec<String> = factors
-            .iter()
-            .filter_map(|f| match f {
-                Sym::Sym(n) => Some(n.clone()),
-                _ => None,
-            })
-            .collect();
-        if names.len() != factors.len() || names.is_empty() {
-            continue;
-        }
-        let mut out: Vec<Vec<(String, Sym)>> = Vec::new();
-        for name in names {
-            let rest: Vec<&String> = vars.iter().filter(|v| **v != name).collect();
-            let target = *rest.first()?;
-            let substituted = lovelace_symbolics::substitute(other, &name, &Sym::num(0));
-            let coeffs = lovelace_symbolics::poly_coeffs(&substituted, target)?;
-            let roots = match lovelace_symbolics::solve_polynomial(&coeffs) {
-                lovelace_symbolics::SolveOutcome::Roots(r) => r
-                    .into_iter()
-                    .flat_map(|root| {
-                        std::iter::repeat(lovelace_symbolics::expr_from_rat(&root.value))
-                            .take(root.multiplicity as usize)
-                    })
-                    .collect::<Vec<_>>(),
-                lovelace_symbolics::SolveOutcome::RootExpressions(e) => e,
-                _ => return None,
-            };
-            for root in roots {
-                out.push(vec![(name.clone(), Sym::num(0)), (target.clone(), root)]);
-            }
-        }
-        if !out.is_empty() {
-            return Some(out);
-        }
-    }
-    solve_triangular_system(equations, vars)
+/// The outcome of a polynomial-system solve, before the wire record is built.
+enum SystemOutcome {
+    /// At least one verified solution assignment.
+    Solutions(Vec<Vec<(String, Sym)>>),
+    /// The elimination DERIVED a contradiction: an empty set proved, no note needed.
+    NoSolutions,
+    /// The branch search stopped without a proof; the string starts with `system-solve.`.
+    Unevaluated(String),
 }
 
-/// Solves a TRIANGULAR system — each equation, once the already-assigned variables are
-/// substituted, is univariate in exactly one remaining variable — by enumerating every root and
-/// recursing. This is the reference's elimination order for shapes such as
-/// `[x == 1, y^2 == 4]` (x = 1, then y = ±2), which no linear path can read.
-fn solve_triangular_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Vec<(String, Sym)>>> {
-    fn recurse(
-        equations: &[Sym],
-        vars: &[String],
-        assigned: &mut Vec<(String, Sym)>,
-        out: &mut Vec<Vec<(String, Sym)>>,
-    ) -> Option<()> {
-        if lovelace_symbolics::cancel::check() {
-            return None;
+struct SystemSolveState {
+    solutions: Vec<Vec<(String, Sym)>>,
+    contradictions: usize,
+    unproved: usize,
+    first_reason: Option<String>,
+    truncated: bool,
+}
+
+impl SystemSolveState {
+    fn new() -> SystemSolveState {
+        SystemSolveState {
+            solutions: Vec::new(),
+            contradictions: 0,
+            unproved: 0,
+            first_reason: None,
+            truncated: false,
         }
-        let mut unresolved: Vec<Sym> = Vec::new();
+    }
+
+    /// Records a branch abandoned without a proof, keeping the first stable reason.
+    fn abandon(&mut self, reason: String) {
+        self.unproved += 1;
+        if self.first_reason.is_none() {
+            self.first_reason = Some(reason);
+        }
+    }
+}
+
+const MAX_SYSTEM_SOLUTIONS: usize = 128;
+const NO_EQUATIONS_NOTE: &str = "system-solve.no-equations: the system has no equations, so every assignment of the variables is a solution; the solution set is not enumerable here.";
+const NON_POLYNOMIAL_NOTE: &str =
+    "system-solve.non-polynomial: only polynomial systems are supported in v1.";
+
+/// Solves a polynomial system by Lex Gröbner elimination into a triangular system, exactly as
+/// the reference's `SystemSolvers`: only a DERIVED contradiction makes the result NoSolutions;
+/// every abandoned branch keeps the answer Unevaluated with its stable note.
+fn solve_system_impl(equations: &[Sym], vars: &[String]) -> SystemOutcome {
+    if equations.is_empty() {
+        return SystemOutcome::Unevaluated(NO_EQUATIONS_NOTE.to_string());
+    }
+    // The polynomiality gate runs on the whole system before any elimination, as the reference
+    // does: a non-polynomial equation names its own refusal instead of a branch reason.
+    if equations
+        .iter()
+        .any(|equation| Polynomial::from_expr(equation, vars).is_none())
+    {
+        return SystemOutcome::Unevaluated(NON_POLYNOMIAL_NOTE.to_string());
+    }
+    if vars.is_empty() {
         for equation in equations {
-            let mut current = equation.clone();
-            for (name, value) in assigned.iter() {
-                current = lovelace_symbolics::substitute(&current, name, value);
-            }
-            match &current {
-                Sym::Num(value) => {
-                    if !value.is_zero() {
-                        return None;
-                    }
+            match Polynomial::from_expr(equation, vars) {
+                Some(p) if p.is_zero() => {}
+                Some(_) => return SystemOutcome::NoSolutions,
+                None => {
+                    return SystemOutcome::Unevaluated(
+                        "system-solve.elimination-incomplete: a remaining equation is not a numeric constant, so this branch is not decided.".to_string(),
+                    )
                 }
-                _ => unresolved.push(current),
             }
         }
-        if assigned.len() == vars.len() {
-            if unresolved.is_empty() {
-                out.push(assigned.clone());
-                return Some(());
-            }
-            return None;
-        }
-        for name in vars.iter() {
-            if assigned.iter().any(|(existing, _)| existing == name) {
-                continue;
-            }
-            for equation in &unresolved {
-                let unassigned: Vec<String> = equation
-                    .free_symbols()
-                    .into_iter()
-                    .filter(|symbol| {
-                        vars.contains(symbol)
-                            && !assigned.iter().any(|(existing, _)| existing == symbol)
-                    })
-                    .collect();
-                if unassigned.len() != 1 || &unassigned[0] != name {
-                    continue;
-                }
-                let Some(coefficients) = lovelace_symbolics::poly_coeffs(equation, name) else {
-                    continue;
-                };
-                let roots: Vec<Sym> = match lovelace_symbolics::solve_polynomial_named(&coefficients, name) {
-                    lovelace_symbolics::SolveOutcome::Roots(roots) => roots
-                        .into_iter()
-                        .map(|root| lovelace_symbolics::expr_from_rat(&root.value))
-                        .collect(),
-                    lovelace_symbolics::SolveOutcome::RootExpressions(expressions) => expressions,
-                    _ => continue,
-                };
-                if roots.is_empty() {
-                    return None;
-                }
-                let mut any = false;
-                for root in roots {
-                    assigned.push((name.clone(), root));
-                    let mark = out.len();
-                    if recurse(equations, vars, assigned, out).is_some() {
-                        any = true;
-                    } else {
-                        out.truncate(mark);
-                    }
-                    assigned.pop();
-                }
-                return if any { Some(()) } else { None };
-            }
-        }
-        None
+        return SystemOutcome::Solutions(vec![Vec::new()]);
     }
-    let mut out: Vec<Vec<(String, Sym)>> = Vec::new();
-    let mut assigned: Vec<(String, Sym)> = Vec::new();
-    recurse(equations, vars, &mut assigned, &mut out)?;
-    if out.is_empty() {
-        None
-    } else {
-        Some(out)
+    let mut state = SystemSolveState::new();
+    solve_system_recursive(equations, vars, &mut Vec::new(), &mut state);
+    if !state.solutions.is_empty() {
+        return SystemOutcome::Solutions(state.solutions);
     }
+    if state.contradictions > 0 && state.unproved == 0 && !state.truncated {
+        return SystemOutcome::NoSolutions;
+    }
+    SystemOutcome::Unevaluated(
+        state
+            .first_reason
+            .unwrap_or_else(|| "system-solve.elimination-incomplete: the system was not decided.".to_string()),
+    )
+}
+
+fn solve_system_recursive(
+    equations: &[Sym],
+    vars: &[String],
+    partial: &mut Vec<(String, Sym)>,
+    state: &mut SystemSolveState,
+) {
+    if state.solutions.len() >= MAX_SYSTEM_SOLUTIONS {
+        state.truncated = true;
+        return;
+    }
+    if vars.is_empty() {
+        for equation in equations {
+            match Polynomial::from_expr(equation, vars) {
+                Some(p) if p.is_zero() => {}
+                Some(_) => {
+                    state.contradictions += 1;
+                    return;
+                }
+                None => {
+                    state.abandon(
+                        "system-solve.elimination-incomplete: a remaining equation is not a numeric constant, so this branch is not decided.".to_string(),
+                    );
+                    return;
+                }
+            }
+        }
+        state.solutions.push(partial.clone());
+        return;
+    }
+    if vars.len() == 1 {
+        solve_last_variable(equations, &vars[0], partial, state);
+        return;
+    }
+    let Some(polys) = polynomial_system(equations, vars) else {
+        state.abandon(
+            "system-solve.elimination-incomplete: the system stopped being a polynomial system after substitution, so this branch is not decided.".to_string(),
+        );
+        return;
+    };
+    let basis = groebner_basis(&polys, MonomialOrder::Lex);
+    let eliminated_variables = &vars[..vars.len() - 1];
+    let mut eliminated: Vec<&Polynomial> = basis
+        .iter()
+        .filter(|p| !p.is_zero() && p.is_free_of(eliminated_variables))
+        .collect();
+    eliminated.sort_by_key(|p| p.total_degree());
+    let Some(univariate) = eliminated.first() else {
+        let last = &vars[vars.len() - 1];
+        state.abandon(format!(
+            "system-solve.elimination-incomplete: the Gröbner basis has no polynomial in {last} alone, so the values of {last} are not enumerated here."
+        ));
+        return;
+    };
+    let last = &vars[vars.len() - 1];
+    if univariate.total_degree() <= 0 {
+        state.contradictions += 1;
+        return;
+    }
+    let Some(coefficients) = lovelace_symbolics::poly_coeffs(&univariate.to_expr(), last) else {
+        state.abandon(format!(
+            "system-solve.elimination-incomplete: the elimination polynomial in {last} is not convertible, so this branch is not decided."
+        ));
+        return;
+    };
+    let outcome = lovelace_symbolics::solve_polynomial_named(&coefficients, last);
+    let (roots, partial_roots) = roots_of(outcome);
+    if roots.is_empty() {
+        state.abandon(format!(
+            "system-solve.univariate-incomplete: the elimination polynomial in {last} has no representable root, so this branch is not decided."
+        ));
+        return;
+    }
+    if partial_roots {
+        state.abandon(format!(
+            "system-solve.univariate-incomplete: the roots of the elimination polynomial in {last} are only partially representable."
+        ));
+    }
+    for root in roots {
+        if state.solutions.len() >= MAX_SYSTEM_SOLUTIONS {
+            state.truncated = true;
+            return;
+        }
+        let substituted: Vec<Sym> = equations
+            .iter()
+            .map(|equation| lovelace_symbolics::substitute(equation, last, &root))
+            .collect();
+        partial.push((last.clone(), root));
+        solve_system_recursive(&substituted, &vars[..vars.len() - 1], partial, state);
+        partial.pop();
+    }
+}
+
+/// The roots an outcome carries, plus whether the outcome admitted missing roots.
+fn roots_of(outcome: lovelace_symbolics::SolveOutcome) -> (Vec<Sym>, bool) {
+    use lovelace_symbolics::SolveOutcome;
+    match outcome {
+        SolveOutcome::Roots(roots) => (
+            roots
+                .into_iter()
+                .map(|r| lovelace_symbolics::expr_from_rat(&r.value))
+                .collect(),
+            false,
+        ),
+        SolveOutcome::RootExpressions(expressions) => (expressions, false),
+        SolveOutcome::RootExpressionsCount(expressions, missing) => (expressions, missing > 0),
+        SolveOutcome::Partial(roots) => (
+            roots
+                .into_iter()
+                .map(|r| lovelace_symbolics::expr_from_rat(&r))
+                .collect(),
+            true,
+        ),
+        SolveOutcome::NoSolutions | SolveOutcome::NoRealSolutions | SolveOutcome::Unevaluated => {
+            (Vec::new(), true)
+        }
+    }
+}
+
+fn polynomial_system(equations: &[Sym], vars: &[String]) -> Option<Vec<Polynomial>> {
+    equations
+        .iter()
+        .map(|equation| Polynomial::from_expr(equation, vars))
+        .collect()
+}
+
+/// How a candidate assignment fared against the equations it must satisfy.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CandidateVerdict {
+    Accepted,
+    Refuted,
+    Unchecked,
+}
+
+/// One variable left: an equation that restricts it must have a COMPLETE representable root set;
+/// an equation whose coefficients are not rational (a radical introduced by back-substitution)
+/// still determines the value when its leading coefficient is provably nonzero.
+fn solve_last_variable(
+    equations: &[Sym],
+    x: &str,
+    partial: &mut Vec<(String, Sym)>,
+    state: &mut SystemSolveState,
+) {
+    let mut isolated: Option<(usize, Polynomial)> = None;
+    for (index, equation) in equations.iter().enumerate() {
+        let Some(candidate) = Polynomial::from_expr(equation, &[x.to_string()]) else {
+            continue;
+        };
+        if candidate.is_zero() {
+            continue;
+        }
+        isolated = Some((index, candidate));
+        break;
+    }
+    if let Some((index, polynomial)) = isolated {
+        if polynomial.total_degree() <= 0 {
+            state.contradictions += 1;
+            return;
+        }
+        let Some(coefficients) = lovelace_symbolics::poly_coeffs(&polynomial.to_expr(), x) else {
+            state.abandon(format!(
+                "system-solve.univariate-incomplete: the equation that determines {x} has no representable root."
+            ));
+            return;
+        };
+        let outcome = lovelace_symbolics::solve_polynomial_named(&coefficients, x);
+        let (roots, partial_roots) = roots_of(outcome);
+        if roots.is_empty() {
+            state.abandon(format!(
+                "system-solve.univariate-incomplete: the equation that determines {x} has no representable root."
+            ));
+            return;
+        }
+        let others: Vec<Sym> = equations
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != index)
+            .map(|(_, equation)| equation.clone())
+            .collect();
+        let mut accepted = 0usize;
+        let mut undecided = 0usize;
+        for root in roots {
+            match judge_candidate(&root, &others, x) {
+                CandidateVerdict::Accepted => {
+                    let mut assignment = partial.clone();
+                    assignment.push((x.to_string(), root));
+                    state.solutions.push(assignment);
+                    accepted += 1;
+                }
+                CandidateVerdict::Refuted => {}
+                CandidateVerdict::Unchecked => undecided += 1,
+            }
+            if state.solutions.len() >= MAX_SYSTEM_SOLUTIONS {
+                state.truncated = true;
+                return;
+            }
+        }
+        if accepted > 0 {
+            if partial_roots {
+                state.abandon(format!(
+                    "system-solve.univariate-incomplete: the equation that determines {x} has roots this kernel cannot represent."
+                ));
+            }
+            return;
+        }
+        if !partial_roots && undecided == 0 {
+            // Every root of the restricting equation is refuted by the others: a proof.
+            state.contradictions += 1;
+            return;
+        }
+        state.abandon(if undecided > 0 {
+            format!(
+                "system-solve.candidate-undecided: no candidate for {x} could be checked against the other equations."
+            )
+        } else {
+            format!(
+                "system-solve.univariate-incomplete: the roots of {x} are only partially representable, so an empty result here is not a proof."
+            )
+        });
+        return;
+    }
+
+    // An equation c1*x + c0 = 0 whose coefficients are not rational constants. The radicals a
+    // triangular elimination introduces live here; a provably nonzero c1 pins exactly one value.
+    for (index, equation) in equations.iter().enumerate() {
+        let Some(coefficients) = expression_coefficients(equation, x) else {
+            continue;
+        };
+        if coefficients.len() > 2 {
+            continue;
+        }
+        let c0 = coefficients[0].clone();
+        if coefficients.len() == 1 {
+            if provably_nonzero_constant(&c0) {
+                state.contradictions += 1;
+                return;
+            }
+            continue;
+        }
+        let c1 = coefficients[1].clone();
+        if !provably_nonzero_constant(&c1) {
+            continue;
+        }
+        let root = Sym::div(Sym::neg(c0), c1);
+        let others: Vec<Sym> = equations
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != index)
+            .map(|(_, equation)| equation.clone())
+            .collect();
+        match judge_candidate(&root, &others, x) {
+            CandidateVerdict::Accepted => {
+                let mut assignment = partial.clone();
+                assignment.push((x.to_string(), root));
+                state.solutions.push(assignment);
+            }
+            CandidateVerdict::Refuted => state.contradictions += 1,
+            CandidateVerdict::Unchecked => state.abandon(format!(
+                "system-solve.candidate-undecided: the only candidate for {x} could not be checked against the other equations."
+            )),
+        }
+        return;
+    }
+
+    state.abandon(format!(
+        "system-solve.elimination-incomplete: no equation of this branch determines {x}, so the values of {x} are not enumerated here."
+    ));
+}
+
+/// Splits an expression into coefficients of `var` as expressions (the reference's
+/// `Algebra.TryCoefficients`): terms that mention the variable must be non-negative integer
+/// powers of it; every other factor becomes part of the coefficient.
+fn expression_coefficients(expression: &Sym, var: &str) -> Option<Vec<Sym>> {
+    fn add(a: &[Sym], b: &[Sym]) -> Vec<Sym> {
+        let mut out = vec![Sym::num(0); a.len().max(b.len())];
+        for (i, slot) in out.iter_mut().enumerate() {
+            *slot = Sym::add(
+                a.get(i).cloned().unwrap_or_else(|| Sym::num(0)),
+                b.get(i).cloned().unwrap_or_else(|| Sym::num(0)),
+            );
+        }
+        trim_coefficients(out)
+    }
+    fn multiply(a: &[Sym], b: &[Sym]) -> Vec<Sym> {
+        let mut out = vec![Sym::num(0); a.len() + b.len().saturating_sub(1)];
+        for (i, left) in a.iter().enumerate() {
+            for (j, right) in b.iter().enumerate() {
+                out[i + j] = Sym::add(out[i + j].clone(), Sym::mul(left.clone(), right.clone()));
+            }
+        }
+        trim_coefficients(out)
+    }
+    fn trim_coefficients(mut coefficients: Vec<Sym>) -> Vec<Sym> {
+        while coefficients.len() > 1
+            && matches!(coefficients.last(), Some(Sym::Num(n)) if n.is_zero())
+        {
+            coefficients.pop();
+        }
+        coefficients
+    }
+    match expression {
+        Sym::Num(_) | Sym::Real(_) => Some(vec![expression.clone()]),
+        Sym::Sym(name) if name == var => Some(vec![Sym::num(0), Sym::num(1)]),
+        Sym::Sym(_) => Some(vec![expression.clone()]),
+        Sym::Add(items) => {
+            let mut coefficients = vec![Sym::num(0)];
+            for item in items {
+                let term = expression_coefficients(item, var)?;
+                coefficients = add(&coefficients, &term);
+            }
+            Some(trim_coefficients(coefficients))
+        }
+        Sym::Mul(items) => {
+            let mut coefficients = vec![Sym::num(1)];
+            for item in items {
+                let factor = expression_coefficients(item, var)?;
+                coefficients = multiply(&coefficients, &factor);
+            }
+            Some(trim_coefficients(coefficients))
+        }
+        Sym::Pow(base, exponent) => {
+            if !expression.contains(var) {
+                return Some(vec![expression.clone()]);
+            }
+            let Sym::Num(power) = exponent.as_ref() else {
+                return None;
+            };
+            if !power.is_integer() || power.is_negative() {
+                return None;
+            }
+            let degree = power.to_i64()?;
+            if !(0..=8).contains(&degree) {
+                return None;
+            }
+            let Sym::Sym(name) = base.as_ref() else {
+                return None;
+            };
+            if name != var {
+                return None;
+            }
+            let mut coefficients = vec![Sym::num(0); degree as usize + 1];
+            coefficients[degree as usize] = Sym::num(1);
+            Some(coefficients)
+        }
+        Sym::Fun(..) | Sym::Div(..) | Sym::Rel(..) => {
+            if expression.contains(var) {
+                None
+            } else {
+                Some(vec![expression.clone()])
+            }
+        }
+    }
+}
+
+/// True only for a PROVABLY nonzero rational constant (a literal, or a rational after
+/// expansion). A radical is deliberately not decided by rounding.
+fn provably_nonzero_constant(expression: &Sym) -> bool {
+    match expression {
+        Sym::Num(n) => !n.is_zero(),
+        _ => match lovelace_symbolics::expand(expression) {
+            Sym::Num(n) => !n.is_zero(),
+            _ => false,
+        },
+    }
+}
+
+/// The system path's residual gate: Accepted only when every equation is provably zero at the
+/// candidate, Refuted when an equation is provably nonzero, Unchecked when the evidence is
+/// missing. That distinction separates a proof of emptiness from a search that merely stopped.
+fn judge_candidate(value: &Sym, equations: &[Sym], x: &str) -> CandidateVerdict {
+    let mut verdict = CandidateVerdict::Accepted;
+    for equation in equations {
+        let residual = lovelace_symbolics::substitute(equation, x, value);
+        if matches!(&residual, Sym::Num(n) if n.is_zero()) {
+            continue;
+        }
+        if matches!(&residual, Sym::Num(n) if !n.is_zero()) {
+            return CandidateVerdict::Refuted;
+        }
+        let expanded = lovelace_symbolics::expand(&residual);
+        if matches!(&expanded, Sym::Num(n) if n.is_zero()) {
+            continue;
+        }
+        if matches!(&expanded, Sym::Num(n) if !n.is_zero()) {
+            return CandidateVerdict::Refuted;
+        }
+        match numeric_residual_is_zero(&expanded) {
+            Some(true) => continue,
+            Some(false) => return CandidateVerdict::Refuted,
+            None => verdict = CandidateVerdict::Unchecked,
+        }
+    }
+    verdict
+}
+
+/// Evaluates a variable-free residual at 40 places and compares its magnitude with the
+/// reference's 1e-24 tolerance. None means the expression is not numerically decidable.
+fn numeric_residual_is_zero(expression: &Sym) -> Option<bool> {
+    let value = crate::numeric::evaluate(expression, 40).ok()?;
+    let real = value.to_real(40)?;
+    let tolerance = Real::from_str("0.000000000000000000000001")?;
+    Some(real.abs().cmp(&tolerance) == std::cmp::Ordering::Less)
 }
 
 /// NoSolutions over the session's domain: every assignment the elimination verified is refuted by
@@ -7112,6 +7560,15 @@ fn polynomial_is_integral(e: &Sym) -> bool {
     }
 }
 
+/// Emits a fresh Constant node over the deduplicated constant table. Literal nodes are never
+/// cached: the reference's lowering adds one node per literal occurrence, so two occurrences of
+/// the same value share a const entry but not a node (see the PowInt exponent path).
+fn emit_constant_node(value: &lovelace_symbolics::Rat, constants: &mut Vec<String>, nodes: &mut Vec<String>) -> usize {
+    let ci = constant_index(value, constants);
+    nodes.push(format!("Constant 0 {}", ci));
+    nodes.len() - 1
+}
+
 fn constant_index(value: &lovelace_symbolics::Rat, constants: &mut Vec<String>) -> usize {
     let text = format!(
         "(rat {} {})",
@@ -7164,7 +7621,12 @@ fn emit_ir(
         Sym::Pow(base, exp) => match exp.as_ref() {
             Sym::Num(n) if n.denominator().to_decimal() == "1" => {
                 let child = emit_ir(base, params, constants, nodes, cache);
-                let exponent = emit_ir(exp, params, constants, nodes, cache);
+                // The reference's PowInt exponent is emitted as a FRESH Constant node on every
+                // occurrence (Lowering.Emit calls AddConstant, which never consults the node
+                // cache): the constant TABLE dedupes by value, but the node does not. A literal
+                // that appears both as an exponent and as a coefficient therefore names two
+                // distinct nodes over one const entry, which is the published sym/071 listing.
+                let exponent = emit_constant_node(n, constants, nodes);
                 nodes.push(format!("PowInt 0 {},{}", child, exponent));
                 nodes.len() - 1
             }

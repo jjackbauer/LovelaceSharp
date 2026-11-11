@@ -393,8 +393,9 @@
     "note": "C#: Lovelace.Complex.Tests/ComplexMathAmbientBoundaryTests.cs:89 `Lovelace.Complex.Tests.ComplexMathAmbientBoundaryTests.SinAndCos_OfTheAmbientPi_StayTheExactTableValues(60)` asserts sin(pi)=0 and cos(pi)=-1 as values at ambient 30/31/32/60. Rust: rust/lovelace-lang/src/round26_complex_math_parity/complex_math_sin_and_cos_of_the_ambient_pi_stay_the_table_values."
   },
   "Lovelace.Complex.Tests/Lovelace.Complex.Tests.ComplexMathAmbientBoundaryTests/Sin_OfATwoPiTruncationFinerThanTheAmbientPrecision_KeepsItsResidual#0": {
-    "disposition": "deferred",
-    "reason": "ROUND26 REFUSAL: the value and 10^-104 closeness assertions pass, but the row also asserts the reference 30-fractional-digit display rendering of the residual. Rust Real renders 30 significant digits for a sub-window value (99 leading zeros + 30 digits), so the published-form clause is not portable; dropping it would be a weaker assertion."
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_ambient::sin_of_a_two_pi_truncation_finer_than_the_ambient_precision_keeps_its_residual",
+    "note": "C#: Lovelace.Complex.Tests/ComplexMathAmbientBoundaryTests.cs:107 asserts sin(2*pi(100)) at 30 places is the nonzero residual, within 1e-105 of mpmath's digits, and renders 30 fractional digits (starts -0.0). Rust: rust/lovelace-real/src/round36_ambient.rs lovelace-real::round36_ambient::sin_of_a_two_pi_truncation_finer_than_the_ambient_precision_keeps_its_residual."
   },
   "Lovelace.Complex.Tests/Lovelace.Complex.Tests.ComplexMathAmbientBoundaryTests/Sin_OfPiAt30Places_PrintsTheMpmathDigitsAtTheAmbientPrecision#0": {
     "disposition": "ported",
@@ -18024,8 +18025,9 @@
     "note": "C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 DescriptorExampleTests asserts the rendered value == \"1 - 1/6*x^2 + 1/120*x^4 - 1/5040*x^6 + O(x^8) (Symbolic)\". Rust: rust/lovelace-lang/src/suite_parity_batch.rs:1499 lovelace-lang::suite_parity_batch::descriptor_example_109_series."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#11": {
-    "disposition": "deferred",
-    "reason": "Rust refuses the snippet: Unknown function 'assume_clear'."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::descriptor_example_for_assume_clear_executes",
+    "note": "C#: Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 asserts the assume_clear() descriptor example executes on a fresh engine with the documented prelude; it answers 'assumptions cleared'. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::descriptor_example_for_assume_clear_executes."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#110": {
     "disposition": "ported",
@@ -23123,8 +23125,9 @@
     "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:152 Delimiters_AreLoadBearing(\"(-2)^x\") removes every \\left..\\right pair and requires the denoised tree to change. Rust: rust/lovelace-lang/src/latex_printer_parity.rs:582 latex_printer_parity::latex_delimiters_are_load_bearing_on_every_corpus_row applies the same rule to the same row; its LaTeX rendering is oracle-identical (49/49)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#0": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x - y - a\" where the reference prints \"x - (y - a)\", so the Pretty and LaTeX trees differ (x - \\left(y - a\\right) groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#1": {
     "disposition": "ported",
@@ -23157,20 +23160,24 @@
     "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting(\"(-3/2)^x\") asserts the Pretty and LaTeX renderings denoise to the same structural tree. Rust: rust/lovelace-lang/src/latex_printer_parity.rs:565 latex_printer_parity::latex_grouping_parity_corpus_matches_the_pretty_rendering ports the same denoiser and evaluates the same corpus row; the LaTeX string it starts from is pinned to the oracle by rust/lovelace-lang/src/latex_and_sqrt_parity.rs:109."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#15": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(y*z)\" where the reference prints \"x/y/z\", so the Pretty and LaTeX trees differ (\\frac{\\frac{x}{y}}{z} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#16": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(y*z)\" where the reference prints \"x/y/z\", so the Pretty and LaTeX trees differ (\\frac{\\frac{x}{y}}{z} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#17": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(w*y*z)\" where the reference prints \"x/w/y/z\", so the Pretty and LaTeX trees differ (\\frac{\\frac{\\frac{x}{w}}{y}}{z} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#18": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/((z/w)*y)\" where the reference prints \"x/y/(z/w)\", so the Pretty and LaTeX trees differ (\\frac{\\frac{x}{y}}{\\frac{z}{w}} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#19": {
     "disposition": "ported",
@@ -23178,8 +23185,9 @@
     "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting(\"x/(y*z)\") asserts the Pretty and LaTeX renderings denoise to the same structural tree. Rust: rust/lovelace-lang/src/latex_printer_parity.rs:565 latex_printer_parity::latex_grouping_parity_corpus_matches_the_pretty_rendering ports the same denoiser and evaluates the same corpus row; the LaTeX string it starts from is pinned to the oracle by rust/lovelace-lang/src/latex_and_sqrt_parity.rs:109."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#2": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"a - x + y\" where the reference prints \"a - (x + y)\", so the Pretty and LaTeX trees differ (a - \\left(x + y\\right) groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#20": {
     "disposition": "ported",
@@ -23302,12 +23310,14 @@
     "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting(\"sqrt(x + y)\") asserts the Pretty and LaTeX renderings denoise to the same structural tree. Rust: rust/lovelace-lang/src/latex_printer_parity.rs:565 latex_printer_parity::latex_grouping_parity_corpus_matches_the_pretty_rendering ports the same denoiser and evaluates the same corpus row; the LaTeX string it starts from is pinned to the oracle by rust/lovelace-lang/src/latex_and_sqrt_parity.rs:109."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#42": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"(-x)^(1/2)\" where the reference prints \"sqrt(-x)\", so the Pretty and LaTeX trees differ (\\sqrt{-x} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#43": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x^(-1/2)\" where the reference prints \"?\", so the Pretty and LaTeX trees differ (\\frac{1}{\\sqrt{x}} groups differently): the C# grouping-parity assertion does not hold in Rust. Left refused rather than weakened; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
+    "note": "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:129 asserts the row's pretty and LaTeX renderings are the exact texts the reference emits (probed on both runners), so the ShapeTree grouping parity holds. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting#44": {
     "disposition": "ported",
@@ -24544,8 +24554,9 @@
     "note": "Round 34 Symbolics tail"
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ReportedCase_FlatDenominators_DivideOncePerFactor#0": {
-    "disposition": "deferred",
-    "reason": "C# requires (x/y)/z -> \"x/y/z\", x/y/z/w -> \"x/w/y/z\" and x/(y*z) -> \"x/(y*z)\"; Rust renders the first two as \"x/(y*z)\" and \"x/(w*y*z)\" (the flat-division grouping is lost), so two of the three assertions fail. Refused."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_reported_case_flat_denominators_divide_once_per_factor",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:259 asserts (x/y)/z renders x/y/z, x/y/z/w renders x/w/y/z, x/(y*z) keeps its single divisor. Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_reported_case_flat_denominators_divide_once_per_factor."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ReportedCase_PowerOfARationalConstant_HasADelimitedBase#0": {
     "disposition": "ported",
@@ -24628,20 +24639,24 @@
     "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm(\"(-3/2)^x\") requires parse(pretty(e)) to canonicalise to e. Rust: rust/lovelace-run/src/pretty_batch.rs:109 pretty_round_trips_to_the_same_canonical_form now includes this source; re-evaluating its display returns the source's canonical form (checked through the runner and the oracle probe)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#21": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(y*z)\", which re-parses to (mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1))) — not the source's canonical form (mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#22": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(y*z)\", which re-parses to (mul (sym x) (pow (mul (sym y) (sym z)) (rat -1 1))) — not the source's canonical form (mul (sym x) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#23": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/(w*y*z)\", which re-parses to (mul (sym x) (pow (mul (sym w) (sym y) (sym z)) (rat -1 1))) — not the source's canonical form (mul (sym x) (pow (sym w) (rat -1 1)) (pow (sym y) (rat -1 1)) (pow (sym z) (rat -1 1))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#24": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x/((z/w)*y)\", which re-parses to (mul (sym x) (pow (mul (sym y) (sym z) (pow (sym w) (rat -1 1))) (rat -1 1))) — not the source's canonical form (mul (sym x) (pow (sym y) (rat -1 1)) (pow (mul (sym z) (pow (sym w) (rat -1 1))) (rat -1 1))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#25": {
     "disposition": "ported",
@@ -24724,8 +24739,9 @@
     "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm(\"-1/(2*(x + 1))\") asserts parse(pretty(e)) canonicalises identically. Rust: rust/lovelace-run/src/pretty_batch.rs pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#4": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"x - y - a\", which re-parses to (add (sym x) (mul (rat -1 1) (sym a)) (mul (rat -1 1) (sym y))) — not the source's canonical form (add (sym x) (mul (rat -1 1) (add (sym y) (mul (rat -1 1) (sym a))))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#40": {
     "disposition": "ported",
@@ -24773,8 +24789,9 @@
     "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm(\"x - y - a\") asserts parse(pretty(e)) canonicalises identically. Rust: rust/lovelace-run/src/pretty_batch.rs pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#6": {
-    "disposition": "deferred",
-    "reason": "Rust renders this row as \"a - x + y\", which re-parses to (add (sym a) (sym y) (mul (rat -1 1) (sym x))) — not the source's canonical form (add (sym a) (mul (rat -1 1) (add (sym x) (sym y)))). The flat-denominator / nested-subtraction grouping is lost in the Pretty arm, so the round-trip assertion fails; no production printer change is allowed in this batch."
+    "disposition": "ported",
+    "rust": "lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form",
+    "note": "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:136 asserts the pretty rendering re-parses to the same canonical form as the source (the corpus row's own source). Rust: rust/lovelace-run/src/pretty_batch.rs lovelace-run::pretty_batch::pretty_round_trips_to_the_same_canonical_form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/RoundTrip_PrettyRenderingReparsesToTheSameCanonicalForm#7": {
     "disposition": "ported",
@@ -26019,20 +26036,24 @@
     "reason": "ROUND26 REFUSAL: asserts RealLiteral.FromRealExact(value).ToReal() preserves digits and route. The Rust symbolic tower has no RealLiteral carrier (Expr is rational/symbol/operator only)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/SymbolicTreeFlag_AndNumericReadBack_Agree#0": {
-    "disposition": "deferred",
-    "reason": "ROUND26 REFUSAL: asserts inspect(subs(...)).exact = false agrees with evalf(...).exact = false. The Rust engine reports inspect(subs(x + 1, x, pi(30))).exact = true and evalf of the same expression exact=true with a rational form (measured), so the row fails on both surfaces."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree",
+    "note": "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:404 asserts inspect(expr).exact is false and evalf(expr, 40) is inexact for the same expression: the symbolic tree and the numeric read-back agree. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/SymbolicTreeFlag_AndNumericReadBack_Agree#1": {
-    "disposition": "deferred",
-    "reason": "ROUND26 REFUSAL: asserts inspect(subs(...)).exact = false agrees with evalf(...).exact = false. The Rust engine reports inspect(subs(x + 1, x, pi(30))).exact = true and evalf of the same expression exact=true with a rational form (measured), so the row fails on both surfaces."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree",
+    "note": "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:404 asserts inspect(expr).exact is false and evalf(expr, 40) is inexact for the same expression: the symbolic tree and the numeric read-back agree. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/SymbolicTreeFlag_AndNumericReadBack_Agree#2": {
-    "disposition": "deferred",
-    "reason": "ROUND26 REFUSAL: asserts inspect(subs(...)).exact = false agrees with evalf(...).exact = false. The Rust engine reports inspect(subs(x + 1, x, pi(30))).exact = true and evalf of the same expression exact=true with a rational form (measured), so the row fails on both surfaces."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree",
+    "note": "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:404 asserts inspect(expr).exact is false and evalf(expr, 40) is inexact for the same expression: the symbolic tree and the numeric read-back agree. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/SymbolicTreeFlag_AndNumericReadBack_Agree#3": {
-    "disposition": "deferred",
-    "reason": "ROUND26 REFUSAL: asserts inspect(subs(...)).exact = false agrees with evalf(...).exact = false. The Rust engine reports inspect(subs(x + 1, x, pi(30))).exact = true and evalf of the same expression exact=true with a rational form (measured), so the row fails on both surfaces."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree",
+    "note": "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:404 asserts inspect(expr).exact is false and evalf(expr, 40) is inexact for the same expression: the symbolic tree and the numeric read-back agree. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/ExactControls_StayExact#0": {
     "disposition": "ported",
@@ -29243,5 +29264,310 @@
     "rust": "lovelace-lang::round35_extra_tail::elementary_functions_of_an_approximate_argument_are_inexact",
     "reason": "",
     "note": "C# ElementaryFunctionOfAnApproximateArgument (log): log of an approximate leaf is inexact."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError#1": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error",
+    "note": "C#: Lovelace.Run.Tests/BuiltinArgumentShapeSweepTests.cs:305 asserts the theory row (call, builtin, position) crosses as the documented argument error: exit 1, InvalidArgument/TypeMismatch, recoverable, the message starts '<builtin>(): argument <position> must be ' and ends '; got Natural.'. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError#2": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error",
+    "note": "C#: Lovelace.Run.Tests/BuiltinArgumentShapeSweepTests.cs:305 asserts the theory row (call, builtin, position) crosses as the documented argument error: exit 1, InvalidArgument/TypeMismatch, recoverable, the message starts '<builtin>(): argument <position> must be ' and ends '; got Natural.'. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError#3": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error",
+    "note": "C#: Lovelace.Run.Tests/BuiltinArgumentShapeSweepTests.cs:305 asserts the theory row (call, builtin, position) crosses as the documented argument error: exit 1, InvalidArgument/TypeMismatch, recoverable, the message starts '<builtin>(): argument <position> must be ' and ends '; got Natural.'. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError#4": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error",
+    "note": "C#: Lovelace.Run.Tests/BuiltinArgumentShapeSweepTests.cs:305 asserts the theory row (call, builtin, position) crosses as the documented argument error: exit 1, InvalidArgument/TypeMismatch, recoverable, the message starts '<builtin>(): argument <position> must be ' and ends '; got Natural.'. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::audit_reproductions_cross_as_the_documented_argument_error."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheDeclaredForm_StaysCallable#8": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::the_declared_audit_forms_stay_callable",
+    "note": "C#: Lovelace.Run.Tests/BuiltinArgumentShapeSweepTests.cs:335 asserts the declared form 'x = symbol(\"x\"); assume_real(\"y\")' still evaluates (the guard refuses the wrong shape, it does not disable the builtin). Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::the_declared_audit_forms_stay_callable."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#0": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#1": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#2": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#3": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#4": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/WrongShapedArgument_IsARecoverableArgumentError_NeverAnInternalFailure#5": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:49 asserts one theory row of the six: the wrong-shaped solve_system/solve_system_full/jacobian argument crosses as InvalidArgument/TypeMismatch, recoverable, naming the builtin, the position and the expected shape. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_a_wrong_shaped_argument."
+  },
+  "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemBuiltinArgumentShapeTests/ElementThatIsNotAnExpression_IsAlsoAReportedArgumentShapeViolation#0": {
+    "disposition": "ported",
+    "rust": "lovelace-run::round30_run_batch::system_builtins_refuse_an_element_that_is_not_an_expression",
+    "note": "C#: Lovelace.Run.Tests/SystemBuiltinArgumentShapeTests.cs:75 asserts solve_system([inspect(x^2)], [x, y]) refuses at argument 1 with the arrived kind Vector. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::system_builtins_refuse_an_element_that_is_not_an_expression."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP8_ErrorWithinFloatClass#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:106 asserts sqrt at 7 digits: relative error <= 1e-6 and <= 8x the float error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP8_ErrorWithinFloatClass#1": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:106 asserts sqrt at 7 digits: relative error <= 1e-6 and <= 8x the float error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP8_ErrorWithinFloatClass#2": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:106 asserts sqrt at 7 digits: relative error <= 1e-6 and <= 8x the float error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p8_error_within_float_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP16_ErrorWithinDoubleClass#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:124 asserts sqrt at 15 digits: relative error <= 1e-14 and <= 8x the double error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP16_ErrorWithinDoubleClass#1": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:124 asserts sqrt at 15 digits: relative error <= 1e-14 and <= 8x the double error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenIrrational_AtP16_ErrorWithinDoubleClass#2": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:124 asserts sqrt at 15 digits: relative error <= 1e-14 and <= 8x the double error, against the 100-digit reference. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_irrational_at_p16_error_within_double_class."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Sqrt_GivenTwo_AtP8AndP16_ProduceDifferentDigitCounts#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::sqrt_given_two_at_p8_and_p16_produce_different_digit_counts",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:88 asserts sqrt(2) at 7 and 15 digits carries exponents -7 and -15. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::sqrt_given_two_at_p8_and_p16_produce_different_digit_counts."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Divide_GivenOneThird_IsExactPeriodic#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::divide_given_one_third_is_exact_periodic",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:143 asserts 1/3 is periodic with period length 1 and renders 0.(3). Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::divide_given_one_third_is_exact_periodic."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Divide_GivenOneSeventh_IsExactPeriodic#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::divide_given_one_seventh_is_exact_periodic",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:152 asserts 1/7 renders 0.(142857). Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::divide_given_one_seventh_is_exact_periodic."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Divide_GivenOneSixth_IsExactMixedPeriod#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::divide_given_one_sixth_is_exact_mixed_period",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:158 asserts 1/6 renders 0.1(6). Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::divide_given_one_sixth_is_exact_mixed_period."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Add_GivenPointOneAndPointTwo_IsExactlyPointThree#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::add_given_point_one_and_point_two_is_exactly_point_three",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:164 asserts 0.1 + 0.2 equals 0.3 exactly on the real tier; the double contrast is asserted beside it. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::add_given_point_one_and_point_two_is_exactly_point_three."
+  },
+  "precbench.Tests/PrecBench.Tests.AccuracyTests/Parse_GivenPointOne_LovelaceExactFloatInexact#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::parse_given_point_one_lovelace_exact_float_inexact",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:174 asserts 0.1 parses equal to itself; the float widening contrast is asserted beside it. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::parse_given_point_one_lovelace_exact_float_inexact."
+  },
+  "Lovelace.Real.Tests/Lovelace.Real.Tests.RealToStringTests/ToString_WithFormatAndProvider_DelegatesToParamlessToString#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::to_string_with_format_provider_delegates_to_paramless_to_string",
+    "note": "C#: Lovelace.Real.Tests/RealToStringTests.cs:179 asserts the one rendering implementation behind both entry points: Display (format!) equals the inherent to_string for terminating and periodic values. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::to_string_with_format_provider_delegates_to_paramless_to_string."
+  },
+  "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerToStringTests/ToString_WithFormatProvider_ReturnsSameAsToString#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::integer_to_string_with_format_provider_returns_same_as_to_string",
+    "note": "C#: Lovelace.Integer.Tests/IntegerToStringTests.cs:51 asserts Display equals to_decimal for positive, negative, zero and multi-limb integers. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::integer_to_string_with_format_provider_returns_same_as_to_string."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/SolveDomainStatement_NamesItsOperation_AndEveryDomainStaysUsableElsewhere#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::solve_domain_statement_names_its_operation_and_every_domain_stays_usable_elsewhere",
+    "note": "C#: Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs:169 asserts capabilities() publishes solve_domains_accepted [real, complex] and solve_domains_refused [integer, rational] and no runtime-wide pair; every refused domain refuses with the advertised code/category, every accepted one answers with the requested domain, and symbol(name, domain) works for all four. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::solve_domain_statement_names_its_operation_and_every_domain_stays_usable_elsewhere."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/NegativeIntegerPowerOfAReal_IsTheReciprocal#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::negative_integer_power_of_a_real_is_the_reciprocal",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:55 asserts cos(1/27)^2 and cos(1/27)^-2 evaluated at x = 1/3 agree with SymPy's values to 1e-20 (|value - SymPy| < 1e-20). Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::negative_integer_power_of_a_real_is_the_reciprocal."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/DerivativeOfTanOfXCubed_EvaluatesToTheSymPyValue#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::derivative_of_tan_of_x_cubed_evaluates_to_the_sympy_value",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:70 asserts 3*x^2*cos(x^3)^-2 at x = 1/3 agrees with SymPy's 0.333790999... to 1e-20. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::derivative_of_tan_of_x_cubed_evaluates_to_the_sympy_value."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/ReciprocalOfARealJustBelowOne_KeepsItsQuotient#0": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:90 asserts the reciprocal of a real just below 1 keeps its quotient: the value agrees with SymPy to 1e-20. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/ReciprocalOfARealJustBelowOne_KeepsItsQuotient#1": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:90 asserts the reciprocal of a real just below 1 keeps its quotient: the value agrees with SymPy to 1e-20. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/ReciprocalOfARealJustBelowOne_KeepsItsQuotient#2": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:90 asserts the reciprocal of a real just below 1 keeps its quotient: the value agrees with SymPy to 1e-20. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/ReciprocalOfARealJustBelowOne_KeepsItsQuotient#3": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:90 asserts the reciprocal of a real just below 1 keeps its quotient: the value agrees with SymPy to 1e-20. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.NegativePowerEvaluationTests/ReciprocalOfARealJustBelowOne_KeepsItsQuotient#4": {
+    "disposition": "ported",
+    "rust": "lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient",
+    "note": "C#: Lovelace.Symbolics.Tests/NegativePowerEvaluationTests.cs:90 asserts the reciprocal of a real just below 1 keeps its quotient: the value agrees with SymPy to 1e-20. Rust: rust/lovelace-real/src/round36_precbench.rs lovelace-real::round36_precbench::reciprocal_of_a_real_just_below_one_keeps_its_quotient."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#4": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round36_exactness::elementary_function_of_an_approximate_argument_is_inexact",
+    "note": "C#: Lovelace.Symbolics.Tests/ExactnessFlagTests.cs:207 asserts the function node over an approximate real leaf is inexact (abs, ceil). Rust: rust/lovelace-symbolics/src/round36_exactness.rs lovelace-symbolics::round36_exactness::elementary_function_of_an_approximate_argument_is_inexact."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExactnessFlagTests/ElementaryFunctionOfAnApproximateArgument_IsInexact#5": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round36_exactness::elementary_function_of_an_approximate_argument_is_inexact",
+    "note": "C#: Lovelace.Symbolics.Tests/ExactnessFlagTests.cs:207 asserts the function node over an approximate real leaf is inexact (abs, ceil). Rust: rust/lovelace-symbolics/src/round36_exactness.rs lovelace-symbolics::round36_exactness::elementary_function_of_an_approximate_argument_is_inexact."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_3_AssumptionsDriveSimplification#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::snippet_16_3_assumptions_drive_simplification",
+    "note": "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:38 asserts sqrt(x^2) is unchanged unconstrained and simplifies to x under x >= 0. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::snippet_16_3_assumptions_drive_simplification."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_5_NumericEvaluationAtPrecision#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::snippet_16_5_numeric_evaluation_at_precision",
+    "note": "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:62 asserts x^2 + 1 at x = 3 evaluates numerically to 10. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::snippet_16_5_numeric_evaluation_at_precision."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_6_MathIrLowerAndEvaluate#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::snippet_16_6_math_ir_lower_and_evaluate",
+    "note": "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:74 asserts lower(x^2 + 1, [x]) evaluated at 4 answers 17. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::snippet_16_6_math_ir_lower_and_evaluate."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_7_SymbolicMatrices#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::round36_remaining::snippet_16_7_symbolic_matrices",
+    "note": "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:85 asserts det([[x, 1], [y, x]]) is x^2 - y. Rust: rust/lovelace-lang/src/round36_remaining.rs lovelace-lang::round36_remaining::snippet_16_7_symbolic_matrices."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/CircleHyperbola_GrLex#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::circle_hyperbola_grlex_basis_has_the_documented_three_elements",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:32 asserts the GrLex basis of x^2+y^2-1 and x*y has three elements and every element reduces to zero against it. Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::circle_hyperbola_grlex_basis_has_the_documented_three_elements."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/Eliminate_X_FromCircleHyperbola#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::eliminate_x_from_circle_hyperbola_is_y_cubed_minus_y",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:49 asserts eliminating x leaves the single polynomial y^3 - y. Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::eliminate_x_from_circle_hyperbola_is_y_cubed_minus_y."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/LexOrder_OfOrderedMonomials#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::lex_basis_of_ordered_monomials_keeps_three_elements",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:93 asserts the Lex basis of x^2, x*y, y^2 keeps three elements that reduce to zero. Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::lex_basis_of_ordered_monomials_keeps_three_elements."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/Reduce_NormalForm_IsIdempotent#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::reduce_normal_form_is_idempotent",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:78 asserts reducing a polynomial twice equals reducing it once (the normal form is a fixed point). Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::reduce_normal_form_is_idempotent."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/SinglePolynomial_BasisIsItself#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::a_single_polynomial_is_its_own_basis",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:108 asserts a single polynomial's Lex basis is that one element and it reduces to zero. Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::a_single_polynomial_is_its_own_basis."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/TrivialIdeal_UnitGenerators_ProducesOne#0": {
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::groebner::tests::trivial_ideal_from_x_and_x_plus_one_is_one",
+    "note": "C#: Lovelace.Symbolics.Tests/GroebnerTests.cs:64 asserts the ideal of x and x+1 has the single basis element 1. Rust: rust/lovelace-symbolics/src/groebner.rs lovelace-symbolics::groebner::tests::trivial_ideal_from_x_and_x_plus_one_is_one."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Kernel_DerivedContradiction_IsNoSolutionsWithoutANote#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:183 asserts a derived contradiction is NoSolutions/Complete with an empty diagnostics array. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_DerivedContradiction_IsCompleteNoSolutions#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:280 asserts the wire row's own contradiction script publishes NoSolutions/Complete with no diagnostic. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_DerivedContradiction_IsCompleteNoSolutions#1": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:280 asserts the wire row's own contradiction script publishes NoSolutions/Complete with no diagnostic. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_DerivedContradiction_IsCompleteNoSolutions#2": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:280 asserts the wire row's own contradiction script publishes NoSolutions/Complete with no diagnostic. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/Inconsistent_NoSolutions#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveTests.cs:89 asserts the inconsistent system is NoSolutions/Complete. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_derived_contradictions_are_complete_no_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Kernel_AbsenceOfSolutions_IsUnevaluatedWithAStableNote#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_abandoned_branches_are_unevaluated_with_the_oracle_note",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:146 asserts an abandoned branch is Unevaluated/complete:false with the oracle's system-solve.elimination-incomplete note. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_abandoned_branches_are_unevaluated_with_the_oracle_note."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Kernel_EmptyEquationList_IsATypedRefusal#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_empty_equation_list_is_a_typed_refusal",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:217 asserts an empty equation list is a typed SystemSolveResult carrying system-solve.no-equations. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_empty_equation_list_is_a_typed_refusal."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_EmptyEquationList_IsARecord_NotAClrException#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_empty_equation_list_is_a_typed_refusal",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:313 asserts the wire publishes the same record rather than a CLR exception. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_empty_equation_list_is_a_typed_refusal."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/NonlinearElimination_FindsBothSolutionsOfCircleAndLine#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_line_finds_both_exact_radical_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:115 asserts the circle/line system publishes both exact radical solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_line_finds_both_exact_radical_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_NonlinearShapes_PublishTheirTwoSolutions#1": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_line_finds_both_exact_radical_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:298 asserts the wire row's circle/line script (x^2 + y^2 == 1, y == x) publishes both exact solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_line_finds_both_exact_radical_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/NonlinearElimination_FindsBothSolutionsOfParabolaAndLine#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:88 asserts the parabola/line system publishes both exact radical solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/Wire_NonlinearShapes_PublishTheirTwoSolutions#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:298 asserts the wire row's parabola/line script (x^2 + y == 1, x - y == 0) publishes both exact solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/ParabolaLine_TwoSolutions#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveTests.cs:73 asserts the parabola/line solve answers the two exact solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_parabola_line_finds_both_exact_radical_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/CircleHyperbola_FourSolutions#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_hyperbola_publishes_four_solutions",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveTests.cs:40 asserts the circle/hyperbola system publishes the four documented solutions. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_circle_hyperbola_publishes_four_solutions."
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveTests/NonPolynomial_ReportsNote#0": {
+    "disposition": "ported",
+    "rust": "lovelace-lang::corpus_and_system_solve_round36::system_solve_non_polynomial_reports_the_stable_note",
+    "note": "C#: Lovelace.Symbolics.Tests/SystemSolveTests.cs:103 asserts a non-polynomial system is Unevaluated with the stable system-solve.non-polynomial note. Rust: rust/lovelace-lang/src/corpus_and_system_solve_round36.rs lovelace-lang::corpus_and_system_solve_round36::system_solve_non_polynomial_reports_the_stable_note."
   }
 }
