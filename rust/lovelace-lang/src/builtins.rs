@@ -2809,6 +2809,16 @@ pub fn call(
                 None => Ok(Value::Symbolic(e)),
             }
         }
+        "cancel_full" => {
+            // The structured form of cancel: the reduced value PLUS the nonzero conditions
+            // removing a common factor requires, as the reference's CancelResult record.
+            // Publishing the bare value would silently drop the definedness delta.
+            arity(1)?;
+            let e = as_expr(&args[0])
+                .ok_or_else(|| LangError::plain("cancel_full needs an expression."))?;
+            checkpoint()?;
+            Ok(cancel_full_result(&e))
+        }
         "assumptions" => {
             // The SAME atom projection every other condition array uses, next to the human
             // rendering: the set is a structured value, never a string a caller has to parse.
@@ -3114,6 +3124,8 @@ pub fn call(
             }
             Ok(Value::Vector(out))
         }
+        "filter" => dsp_filter(engine, &args),
+        "scale" => dsp_scale(&args),
         "movingavg" => dsp_movingavg(engine, &args),
         "delay" => dsp_delay(&args),
         "impulse" => dsp_impulse(&args),
@@ -3236,6 +3248,23 @@ pub fn call(
             arity(1)?;
             let shape = shape_of(&args[0])
                 .ok_or_else(|| LangError::plain("rank needs a vector or an array."))?;
+            Ok(Value::Natural(Nat::from_u64(shape.len() as u64)))
+        }
+        "ndims" => {
+            // The reference's array-value read: a vector is rank 1, an array is its own rank,
+            // and a scalar is the typed shape refusal, never an unknown function.
+            arity(1)?;
+            let shape = shape_of(&args[0]).ok_or_else(|| {
+                LangError::coded(
+                    format!(
+                        "ndims(): argument 1 must be an array or vector; got {}.",
+                        args[0].kind_name()
+                    ),
+                    pos,
+                    "InvalidArgument",
+                    "TypeMismatch",
+                )
+            })?;
             Ok(Value::Natural(Nat::from_u64(shape.len() as u64)))
         }
         "numel" => {
@@ -5393,6 +5422,154 @@ fn dsp_powerseries(engine: &Engine, args: &[Value]) -> Result<Value, LangError> 
         let scaled = dsp_complex_mul(&k, &power);
         let sample = dsp_complex_mul(&scaled, &(dsp_real(index as i64), Real::zero()));
         out.push(dsp_complex(sample.0, sample.1));
+    }
+    Ok(Value::Vector(out))
+}
+
+/// Complex addition, mirroring Lovelace.Complex's exact component arithmetic.
+fn dsp_complex_add(a: &(Real, Real), b: &(Real, Real)) -> (Real, Real) {
+    (a.0.add(&b.0), a.1.add(&b.1))
+}
+
+/// Complex subtraction, mirroring Lovelace.Complex's exact component arithmetic.
+fn dsp_complex_sub(a: &(Real, Real), b: &(Real, Real)) -> (Real, Real) {
+    (a.0.sub(&b.0), a.1.sub(&b.1))
+}
+
+/// Complex multiplication with the exact (arbitrary-precision) path's arithmetic. The reference's
+/// fixed-width fast path is value-preserving and falls back here, so no provenance is invented.
+fn dsp_complex_product(a: &(Real, Real), b: &(Real, Real)) -> (Real, Real) {
+    (
+        a.0.mul(&b.0).sub(&a.1.mul(&b.1)),
+        a.0.mul(&b.1).add(&a.1.mul(&b.0)),
+    )
+}
+
+/// Complex division a / b = a · (1/b), with 1/b = conj(b) / |b|² exactly as Complex.Reciprocal.
+fn dsp_complex_quotient(
+    a: &(Real, Real),
+    b: &(Real, Real),
+    precision: usize,
+) -> Result<(Real, Real), LangError> {
+    let magnitude_squared = b.0.mul(&b.0).add(&b.1.mul(&b.1));
+    let inverse = Real::from_i64(1)
+        .div(&magnitude_squared, precision)
+        .ok_or_else(divide_by_zero)?;
+    let reciprocal = (b.0.mul(&inverse), b.1.neg().mul(&inverse));
+    Ok(dsp_complex_product(a, &reciprocal))
+}
+
+/// filter(a, b, x): DspMath.Filter's direct-form difference equation with zero initial state
+/// (y[n] = (Σ b[j]·x[n−j] − Σ a[j]·y[n−j]) / a[0]), or — with a scalar third argument — the
+/// impulse response of that length (DspMath.ImpulseResponse). The coefficients are complex.
+fn dsp_filter(engine: &Engine, args: &[Value]) -> Result<Value, LangError> {
+    dsp_arity("filter", args.len(), 3, 3)?;
+    let a = dsp_to_complex_array(&args[0])?;
+    let b = dsp_to_complex_array(&args[1])?;
+    if a.is_empty() {
+        return Err(LangError::coded(
+            "The denominator coefficient vector 'a' must not be empty. (Parameter 'a')",
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    let precision = engine.dsp_precision();
+    let zero = (Real::zero(), Real::zero());
+    match &args[2] {
+        // filter(a, b, x): the input sequence drives the equation, one output per sample.
+        Value::Vector(_) | Value::Array(_) => {
+            let input = dsp_to_complex_array(&args[2])?;
+            let mut input_history = vec![zero; b.len()];
+            let mut output_history = vec![(Real::zero(), Real::zero()); a.len()];
+            let mut out = Vec::with_capacity(input.len());
+            for (n, sample) in input.iter().enumerate() {
+                poll(n as u64)?;
+                for j in (1..input_history.len()).rev() {
+                    input_history[j] = input_history[j - 1].clone();
+                }
+                if let Some(first) = input_history.first_mut() {
+                    *first = sample.clone();
+                }
+                let mut accumulator = (Real::zero(), Real::zero());
+                for j in 1..a.len() {
+                    let term = dsp_complex_product(&a[j], &output_history[j - 1]);
+                    accumulator = dsp_complex_sub(&accumulator, &term);
+                }
+                for j in 0..b.len() {
+                    let term = dsp_complex_product(&b[j], &input_history[j]);
+                    accumulator = dsp_complex_add(&accumulator, &term);
+                }
+                let value = dsp_complex_quotient(&accumulator, &a[0], precision)?;
+                out.push(dsp_complex(value.0.clone(), value.1.clone()));
+                for j in (1..output_history.len()).rev() {
+                    output_history[j] = output_history[j - 1].clone();
+                }
+                if let Some(first) = output_history.first_mut() {
+                    *first = value;
+                }
+            }
+            Ok(Value::Vector(out))
+        }
+        // filter(a, b, n): the impulse response, a length read through the count contract.
+        other => {
+            let count = dsp_integer(other, "filter", "x", 3, DspIntBounds::NonNegative)?;
+            let count = dsp_sample_count(count)?;
+            let mut input_history = vec![(Real::zero(), Real::zero()); b.len()];
+            let mut output_history = vec![(Real::zero(), Real::zero()); a.len()];
+            if let Some(first) = input_history.first_mut() {
+                *first = (Real::from_i64(1), Real::zero());
+            }
+            let mut out = Vec::with_capacity(count);
+            for n in 0..count {
+                poll(n as u64)?;
+                let mut accumulator = (Real::zero(), Real::zero());
+                for j in 1..a.len() {
+                    let term = dsp_complex_product(&a[j], &output_history[j - 1]);
+                    accumulator = dsp_complex_sub(&accumulator, &term);
+                }
+                for j in 0..b.len() {
+                    let term = dsp_complex_product(&b[j], &input_history[j]);
+                    accumulator = dsp_complex_add(&accumulator, &term);
+                }
+                let value = dsp_complex_quotient(&accumulator, &a[0], precision)?;
+                out.push(dsp_complex(value.0.clone(), value.1.clone()));
+                for j in (1..output_history.len()).rev() {
+                    output_history[j] = output_history[j - 1].clone();
+                }
+                if let Some(first) = output_history.first_mut() {
+                    *first = value;
+                }
+                for j in (1..input_history.len()).rev() {
+                    input_history[j] = input_history[j - 1].clone();
+                }
+                if let Some(first) = input_history.first_mut() {
+                    *first = (Real::zero(), Real::zero());
+                }
+            }
+            Ok(Value::Vector(out))
+        }
+    }
+}
+
+/// scale(x, c): Signal.Sample(Scalar(c, Sequence(x)), 0, len−1) — every sample multiplied by the
+/// complex scalar. An empty signal is the reference's own sample-range refusal.
+fn dsp_scale(args: &[Value]) -> Result<Value, LangError> {
+    dsp_arity("scale", args.len(), 2, 2)?;
+    let values = dsp_to_complex_array(&args[0])?;
+    let factor = dsp_to_complex(&args[1])?;
+    if values.is_empty() {
+        return Err(LangError::coded(
+            "end must be ≥ begin. (Parameter 'end')",
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    let mut out = Vec::with_capacity(values.len());
+    for value in &values {
+        let product = dsp_complex_product(value, &factor);
+        out.push(dsp_complex(product.0, product.1));
     }
     Ok(Value::Vector(out))
 }
@@ -10334,6 +10511,407 @@ fn transform_result(
             ("diagnostics".to_string(), Value::Vector(diagnostics)),
         ],
     )
+}
+
+/// The CancelResult record cancel_full publishes: the status (Exact/Conditional), the input, the
+/// reduced expression, whether the reduction changed it, and the nonzero conditions the removed
+/// common factors require. The reduction is per additive term, exactly as the reference's
+/// CancelWithConditions walks the canonical sum.
+fn cancel_full_result(original: &Sym) -> Value {
+    let symbols = original.free_symbols();
+    // Every symbol is a polynomial variable, exactly as the reference's CollectSymbols feeds
+    // TryFromExpr; a constant expression is exact and unchanged.
+    let (expression, conditions) = if symbols.is_empty() {
+        (original.clone(), Vec::new())
+    } else {
+        let variables = &symbols;
+        let terms = match original {
+            Sym::Add(terms) => terms.clone(),
+            single => vec![single.clone()],
+        };
+        let mut results: Vec<Sym> = Vec::with_capacity(terms.len());
+        let mut conditions: Vec<Value> = Vec::new();
+        for term in terms {
+            // Every refusal below keeps the ORIGINAL term: a term that cannot be read as a
+            // rational function, or whose common factor is 1, is exact and unchanged. Dropping
+            // its denominator here would silently rewrite (x^2 + 1)/(x - 1) to x^2 + 1.
+            let unchanged = term.clone();
+            let (numerator, denominator) = split_rational_term(term);
+            let numerator_polynomial = sparse_polynomial(&numerator, variables);
+            let denominator_polynomial = sparse_polynomial(&denominator, variables);
+            let (Some(numerator_polynomial), Some(denominator_polynomial)) =
+                (numerator_polynomial, denominator_polynomial)
+            else {
+                results.push(unchanged);
+                continue;
+            };
+            let common = sparse_gcd(&numerator_polynomial, &denominator_polynomial);
+            if common.is_empty() || sparse_is_one(&common) {
+                results.push(unchanged);
+                continue;
+            }
+            let (Some(reduced_numerator), Some(reduced_denominator)) = (
+                sparse_exact_quotient(&numerator_polynomial, &common),
+                sparse_exact_quotient(&denominator_polynomial, &common),
+            ) else {
+                results.push(unchanged);
+                continue;
+            };
+            let numerator_expression = sparse_to_expr(&reduced_numerator, variables);
+            let reduced = if sparse_is_one(&reduced_denominator) {
+                numerator_expression
+            } else {
+                Sym::div(
+                    numerator_expression,
+                    sparse_to_expr(&reduced_denominator, variables),
+                )
+            };
+            results.push(reduced);
+            // The removed factor is exactly the condition: the input is undefined where it
+            // vanishes, while the reduced form may be defined there.
+            let factor = sparse_to_expr(&common, variables);
+            let condition = Sym::Rel(
+                lovelace_symbolics::RelOp::Ne,
+                Box::new(factor),
+                Box::new(Sym::num(0)),
+            );
+            if !conditions
+                .iter()
+                .any(|existing| matches!(existing, Value::Symbolic(value) if *value == condition))
+            {
+                conditions.push(Value::Symbolic(condition));
+            }
+        }
+        let expression = if results.len() == 1 {
+            results.remove(0)
+        } else {
+            results.into_iter().fold(Sym::num(0), Sym::add)
+        };
+        (expression, conditions)
+    };
+    let changed = expression != *original;
+    let status = if conditions.is_empty() {
+        "Exact"
+    } else {
+        "Conditional"
+    };
+    Value::Record(
+        "CancelResult".to_string(),
+        vec![
+            ("status".to_string(), enum_value("CancelStatus", status)),
+            ("original".to_string(), Value::Symbolic(original.clone())),
+            ("expression".to_string(), Value::Symbolic(expression)),
+            ("changed".to_string(), Value::Boolean(changed)),
+            ("conditions".to_string(), Value::Vector(conditions)),
+        ],
+    )
+}
+
+/// Splits one canonical product into its numerator and its positive-power denominator: a power
+/// with a negative exponent is a denominator factor, everything else is a numerator factor.
+fn split_rational_term(term: Sym) -> (Sym, Sym) {
+    fn negative_power(factor: &Sym) -> Option<(Sym, lovelace_symbolics::Rat)> {
+        let Sym::Pow(base, exponent) = factor else {
+            return None;
+        };
+        let Sym::Num(value) = exponent.as_ref() else {
+            return None;
+        };
+        if value.is_negative() {
+            Some(((**base).clone(), value.neg()))
+        } else {
+            None
+        }
+    }
+    let Sym::Mul(factors) = term else {
+        return match negative_power(&term) {
+            Some((base, exponent)) => (Sym::num(1), Sym::pow(base, Sym::Num(exponent))),
+            None => (term, Sym::num(1)),
+        };
+    };
+    let mut numerator: Vec<Sym> = Vec::new();
+    let mut denominator: Vec<Sym> = Vec::new();
+    for factor in factors {
+        match negative_power(&factor) {
+            Some((base, exponent)) => denominator.push(Sym::pow(base, Sym::Num(exponent))),
+            None => numerator.push(factor),
+        }
+    }
+    let numerator = match numerator.len() {
+        0 => Sym::num(1),
+        1 => numerator.remove(0),
+        _ => Sym::Mul(numerator),
+    };
+    let denominator = match denominator.len() {
+        0 => Sym::num(1),
+        1 => denominator.remove(0),
+        _ => Sym::Mul(denominator),
+    };
+    (numerator, denominator)
+}
+
+/// One term of a sparse multivariate polynomial: exponents by variable position, coefficient.
+type SparseTerm = (Vec<u32>, lovelace_symbolics::Rat);
+/// A sparse multivariate polynomial over Q, as the reference's Polynomial stores it.
+type SparsePolynomial = Vec<SparseTerm>;
+
+/// Parses one numerator or denominator as a polynomial over the input's symbols. The reference
+/// expands once when the direct parse refuses (a power of a sum is value-preserving to expand),
+/// which is what makes cancel_full((x-1)^2/(x-1)) reducible.
+fn sparse_polynomial(expression: &Sym, variables: &[String]) -> Option<SparsePolynomial> {
+    let parsed = lovelace_symbolics::groebner::Polynomial::from_expr(expression, variables)
+        .or_else(|| {
+            let expanded = lovelace_symbolics::expand(expression);
+            if expanded == *expression {
+                None
+            } else {
+                lovelace_symbolics::groebner::Polynomial::from_expr(&expanded, variables)
+            }
+        })?;
+    Some(
+        parsed
+            .terms()
+            .iter()
+            .map(|(monomial, coefficient)| {
+                (
+                    (0..variables.len())
+                        .map(|index| monomial.exponent(index))
+                        .collect(),
+                    coefficient.clone(),
+                )
+            })
+            .collect(),
+    )
+}
+
+/// Adds one term, combining equal monomials and dropping a zero coefficient.
+fn sparse_add_term(
+    polynomial: &mut SparsePolynomial,
+    exponents: Vec<u32>,
+    coefficient: lovelace_symbolics::Rat,
+) {
+    if coefficient.is_zero() {
+        return;
+    }
+    if let Some(index) = polynomial
+        .iter()
+        .position(|(existing, _)| *existing == exponents)
+    {
+        let sum = polynomial[index].1.add(&coefficient);
+        if sum.is_zero() {
+            polynomial.remove(index);
+        } else {
+            polynomial[index].1 = sum;
+        }
+        return;
+    }
+    polynomial.push((exponents, coefficient));
+}
+
+/// Lexicographic monomial comparison (the reference's MonomialOrder.Lex).
+fn sparse_compare_exponents(left: &[u32], right: &[u32]) -> std::cmp::Ordering {
+    let width = left.len().max(right.len());
+    for index in 0..width {
+        let comparison = left
+            .get(index)
+            .copied()
+            .unwrap_or(0)
+            .cmp(&right.get(index).copied().unwrap_or(0));
+        if comparison != std::cmp::Ordering::Equal {
+            return comparison;
+        }
+    }
+    std::cmp::Ordering::Equal
+}
+
+fn sparse_leading_term(polynomial: &SparsePolynomial) -> Option<&SparseTerm> {
+    polynomial
+        .iter()
+        .max_by(|left, right| sparse_compare_exponents(&left.0, &right.0))
+}
+
+/// True when every exponent of the divisor monomial is at most the dividend's.
+fn sparse_monomial_divides(dividend: &[u32], divisor: &[u32]) -> bool {
+    let width = dividend.len().max(divisor.len());
+    (0..width).all(|index| {
+        dividend.get(index).copied().unwrap_or(0) >= divisor.get(index).copied().unwrap_or(0)
+    })
+}
+
+/// The monomial quotient (the caller has already checked divisibility).
+fn sparse_monomial_quotient(dividend: &[u32], divisor: &[u32]) -> Vec<u32> {
+    let width = dividend.len().max(divisor.len());
+    (0..width)
+        .map(|index| {
+            dividend.get(index).copied().unwrap_or(0) - divisor.get(index).copied().unwrap_or(0)
+        })
+        .collect()
+}
+
+/// Multiplies every term of a polynomial by one monomial coefficient.
+fn sparse_multiply_term(
+    polynomial: &SparsePolynomial,
+    exponents: &[u32],
+    coefficient: &lovelace_symbolics::Rat,
+) -> SparsePolynomial {
+    let mut result = SparsePolynomial::new();
+    for (term_exponents, term_coefficient) in polynomial {
+        let width = term_exponents.len().max(exponents.len());
+        let mut product = vec![0u32; width];
+        for index in 0..width {
+            product[index] = term_exponents.get(index).copied().unwrap_or(0)
+                + exponents.get(index).copied().unwrap_or(0);
+        }
+        sparse_add_term(&mut result, product, term_coefficient.mul(coefficient));
+    }
+    result
+}
+
+fn sparse_subtract(left: &SparsePolynomial, right: &SparsePolynomial) -> SparsePolynomial {
+    let mut result = left.clone();
+    for (exponents, coefficient) in right {
+        sparse_add_term(&mut result, exponents.clone(), coefficient.neg());
+    }
+    result
+}
+
+fn sparse_is_one(polynomial: &SparsePolynomial) -> bool {
+    polynomial.len() == 1
+        && polynomial[0].0.iter().all(|exponent| *exponent == 0)
+        && polynomial[0].1.is_one()
+}
+
+/// Makes a polynomial monic (leading coefficient 1), the normalization the reference's Euclidean
+/// GCD applies to every remainder so the reported common factor is canonical.
+fn sparse_monic(polynomial: &SparsePolynomial) -> SparsePolynomial {
+    let mut polynomial = polynomial.clone();
+    let Some((_, leading)) = sparse_leading_term(&polynomial).cloned() else {
+        return polynomial;
+    };
+    if leading.is_one() {
+        return polynomial;
+    }
+    for (_, coefficient) in polynomial.iter_mut() {
+        *coefficient = coefficient
+            .div(&leading)
+            .expect("a monic normalization divides by its nonzero leading coefficient");
+    }
+    polynomial
+}
+
+/// The reference's multivariate long division (Polynomial.DivRem under Lex). A leading term the
+/// divisor's leading monomial does not divide moves to the remainder; everything else is reduced.
+fn sparse_div_rem(
+    dividend: &SparsePolynomial,
+    divisor: &SparsePolynomial,
+) -> Option<(SparsePolynomial, SparsePolynomial)> {
+    if divisor.is_empty() {
+        return None;
+    }
+    let mut quotient = SparsePolynomial::new();
+    let mut remainder = SparsePolynomial::new();
+    let mut working = dividend.clone();
+    while !working.is_empty() {
+        let (leading_exponents, leading_coefficient) = sparse_leading_term(&working)
+            .expect("a non-empty polynomial has a leading term")
+            .clone();
+        let (divisor_exponents, divisor_coefficient) = sparse_leading_term(divisor)
+            .expect("a non-empty divisor has a leading term")
+            .clone();
+        if sparse_monomial_divides(&leading_exponents, &divisor_exponents) {
+            let quotient_exponents =
+                sparse_monomial_quotient(&leading_exponents, &divisor_exponents);
+            let quotient_coefficient = leading_coefficient.div(&divisor_coefficient)?;
+            sparse_add_term(
+                &mut quotient,
+                quotient_exponents.clone(),
+                quotient_coefficient.clone(),
+            );
+            let subtrahend =
+                sparse_multiply_term(divisor, &quotient_exponents, &quotient_coefficient);
+            working = sparse_subtract(&working, &subtrahend);
+        } else {
+            sparse_add_term(
+                &mut remainder,
+                leading_exponents.clone(),
+                leading_coefficient.clone(),
+            );
+            sparse_add_term(&mut working, leading_exponents, leading_coefficient.neg());
+        }
+    }
+    Some((quotient, remainder))
+}
+
+/// Euclidean GCD over Q, normalized to a monic polynomial.
+///
+/// A multivariate remainder sequence can cycle when the polynomials are relatively prime (the
+/// reference's own loop does: cancel_full(y/x) never returns there). A repeated state means the
+/// GCD is a unit, so the answer is 1; the step cap is the same conservative answer for a sequence
+/// that neither converges nor repeats within a bounded number of reductions.
+fn sparse_gcd(left: &SparsePolynomial, right: &SparsePolynomial) -> SparsePolynomial {
+    let width = left
+        .iter()
+        .chain(right.iter())
+        .map(|(exponents, _)| exponents.len())
+        .max()
+        .unwrap_or(0);
+    let unit = || vec![(vec![0u32; width], lovelace_symbolics::Rat::one())];
+    let mut left = sparse_monic(left);
+    let mut right = sparse_monic(right);
+    let mut history: Vec<(SparsePolynomial, SparsePolynomial)> = Vec::new();
+    let mut steps = 0usize;
+    while !right.is_empty() {
+        if steps >= 10_000
+            || history
+                .iter()
+                .any(|(seen_left, seen_right)| *seen_left == left && *seen_right == right)
+        {
+            return unit();
+        }
+        history.push((left.clone(), right.clone()));
+        let (_, remainder) =
+            sparse_div_rem(&left, &right).expect("a nonzero divisor always divides");
+        left = right;
+        right = sparse_monic(&remainder);
+        steps += 1;
+    }
+    left
+}
+
+/// Exact polynomial division: the quotient when the remainder is zero (a common factor always
+/// divides), None otherwise.
+fn sparse_exact_quotient(
+    dividend: &SparsePolynomial,
+    divisor: &SparsePolynomial,
+) -> Option<SparsePolynomial> {
+    let (quotient, remainder) = sparse_div_rem(dividend, divisor)?;
+    if remainder.is_empty() {
+        Some(quotient)
+    } else {
+        None
+    }
+}
+
+/// Renders a sparse polynomial back to the canonical expression the record publishes.
+fn sparse_to_expr(polynomial: &SparsePolynomial, variables: &[String]) -> Sym {
+    let mut accumulator = Sym::num(0);
+    for (exponents, coefficient) in polynomial {
+        let mut term = Sym::Num(coefficient.clone());
+        for (index, variable) in variables.iter().enumerate() {
+            let exponent = exponents.get(index).copied().unwrap_or(0);
+            if exponent == 0 {
+                continue;
+            }
+            let power = if exponent == 1 {
+                Sym::sym(variable)
+            } else {
+                Sym::pow(Sym::sym(variable), Sym::num(exponent as i64))
+            };
+            term = Sym::mul(term, power);
+        }
+        accumulator = Sym::add(accumulator, term);
+    }
+    accumulator
 }
 
 /// True when the engine's assumptions plus the rewrite's conditions have a model. Conditions are

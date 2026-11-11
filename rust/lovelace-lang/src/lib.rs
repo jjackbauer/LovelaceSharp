@@ -1811,6 +1811,9 @@ mod dsp_round20;
 mod dsp_round21;
 
 #[cfg(test)]
+mod dispatcher_guard_round51;
+
+#[cfg(test)]
 mod panic_sweep_round22;
 
 #[cfg(test)]

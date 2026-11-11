@@ -18018,14 +18018,16 @@
     "note": "C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 DescriptorExampleTests asserts the rendered value == \"[[1, 2], [3, 4]] (Array)\". Rust: rust/lovelace-lang/src/suite_parity_batch.rs:1493 lovelace-lang::suite_parity_batch::descriptor_example_106_reshape."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#107": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"scale([1, 2, 3], 2)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'scale'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"scale([1, 2, 3], 2)\" for \"scale\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"[2, 4, 6] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#108": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"scale([1, 2, 3], 0.5)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'scale'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"scale([1, 2, 3], 0.5)\" for \"scale\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"[0.5, 1, 1.5] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 6."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#109": {
     "disposition": "ported",
@@ -18243,14 +18245,16 @@
     "note": "C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 DescriptorExampleTests asserts the rendered value == \"x + 1 (Symbolic)\". Rust: rust/lovelace-lang/src/suite_parity_batch.rs:1685 lovelace-lang::suite_parity_batch::descriptor_example_020_cancel."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#21": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"cancel_full(x/x)\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'cancel_full'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"cancel_full(x/x)\" for \"cancel_full\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"CancelResult(status: Conditional, original: x/x, expression: 1, changed: True, conditions: [x != 0]) (CancelResult)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 1."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#22": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"cancel_full((x^2 - 1)/(x - 1))\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'cancel_full'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"cancel_full((x^2 - 1)/(x - 1))\" for \"cancel_full\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"CancelResult(status: Conditional, original: (x^2 - 1)/(x - 1), expression: x + 1, changed: True, conditions: [x - 1 != 0]) (CancelResult)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 2."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#23": {
     "disposition": "ported",
@@ -18418,9 +18422,10 @@
     "note": "C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 DescriptorExampleTests asserts the rendered value == \"[1, -1i, -1, 1i] (Vector)\". Rust: rust/lovelace-lang/src/suite_parity_batch.rs:1835 lovelace-lang::suite_parity_batch::descriptor_example_052_fft."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#53": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"filter([1], [1], [1, 2, 3])\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'filter'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"filter([1], [1], [1, 2, 3])\" for \"filter\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"[1, 2, 3] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 3."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#54": {
     "disposition": "ported",
@@ -18598,9 +18603,10 @@
     "note": "C#: DescriptorExampleTests.cs:104 Example_Executes(\"movingavg\", \"movingavg([1, 2, 3], 2)\") must execute on a fresh prelude-primed engine. Rust: descriptor_example_movingavg_executes runs the same snippet after the same prelude."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#86": {
-    "disposition": "deferred",
-    "reason": "Round 50 STILL-DIFFERENT: the published descriptor example \"ndims([[1, 2], [3, 4]])\" exits 0 in the oracle and 1 in Rust, whose message is \"Unknown function 'ndims'. Did you mean ...\" — the builtin is registered (--functions publishes it) but has no working dispatcher arm. Measured through both runners after the prelude x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"). See docs/goal-parity-contract/round-50/resweep.md.",
-    "note": "Round 50 re-adjudication: previously UNRUNNABLE (no corpus API); the corpus is now enumerable from the oracle own published functions[].examples, so the row is measured on the wire."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DescriptorExampleTests.Example_Executes (DescriptorExampleTests.cs:104) evaluates the published descriptor example \"ndims([[1, 2], [3, 4]])\" for \"ndims\" after HelpService.ExamplePreludeSource and requires it to execute (it exited 1 with Unknown function before round 51); rust/lovelace-lang/src/dispatcher_guard_round51.rs the_four_gap_builtins_run_their_published_examples asserts the exact typed result \"2 (Natural)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DescriptorExampleTests/Example_Executes#87": {
     "disposition": "ported",
@@ -30459,14 +30465,16 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/Filter_GivenFir_MatchesConvolution#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: 3-argument filter has no working dispatcher arm; the FIR prefix-equality probe cannot run",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::filter_signal_and_impulse_forms_match_the_reference_arithmetic",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DspTests.Filter_GivenFir_MatchesConvolution (DspTests.cs:140) filters a=[1], b=[1,2,3], x=[1,1,1,1] and asserts the result equals the Convolve(x,b) prefix; rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts filter([1], [1, 2, 3], [1, 1, 1, 1]) == \"[1, 3, 6, 6] (Vector)\", the four-sample prefix of conv([1,1,1,1],[1,2,3]). See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 7."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/Filter_GivenIir_MatchesImpulseResponseConvolution#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: 3-argument filter has no working dispatcher arm; the IIR impulse-response probe cannot run",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::filter_signal_and_impulse_forms_match_the_reference_arithmetic",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DspTests.Filter_GivenIir_MatchesImpulseResponseConvolution (DspTests.cs:156) filters a=[1,-0.5], b=[1], x=[1,1,1,1] and asserts the Convolve(x, ImpulseResponse(a,b,len)) prefix; rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts filter([1, -0.5], [1], [1, 1, 1, 1]) == \"[1, 1.5, 1.75, 1.875] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 8."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/ImpulseResponse_GivenFirstOrderIir_MatchesHandComputed#0": {
     "disposition": "deferred",
@@ -30729,14 +30737,16 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/Filter_GivenLength_ReturnsImpulseResponse#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: filter([1,-0.5],[1],4) exits 1 in Rust vs 0 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::filter_signal_and_impulse_forms_match_the_reference_arithmetic",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DspPluginTests.Filter_GivenLength_ReturnsImpulseResponse (DspPluginTests.cs:145) asserts the typed result of filter([1, -0.5], [1], 4); rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts the identical \"[1, 0.5, 0.25, 0.125] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 9."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/Filter_GivenSignal_MatchesConvolution#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: filter([1,-0.5],[1],[1,1,1,1]) exits 1 in Rust vs 0 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::filter_signal_and_impulse_forms_match_the_reference_arithmetic",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# DspPluginTests.Filter_GivenSignal_MatchesConvolution (DspPluginTests.cs:117) compares the direct filter([1, -0.5], [1], [1, 1, 1, 1]) prefix with conv([1,1,1,1], filter([1,-0.5],[1],4)); rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts the same \"[1, 1.5, 1.75, 1.875] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 10."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/PluginBuiltin_GivenCoreNameCollision_Throws#0": {
     "disposition": "deferred",
@@ -31829,9 +31839,10 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelFull_ReportsTheConditionsTheBareValueCannotCarry#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'cancel': $.exitCode: cancel_full(x/x) exits 1 in Rust vs 0 in the oracle; cancel_full has no working dispatcher arm",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dispatcher_guard_round51::cancel_full_publishes_the_conditions_the_bare_value_cannot_carry",
+    "reason": "Round 52 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 52: C# MetamorphicSetClosureTests.CancelFull_ReportsTheConditionsTheBareValueCannotCarry (MetamorphicSetClosureTests.cs:556) asserts the CancelResult fields for cancel_full(x/x) (Conditional, original x/x, expression 1, changed true, conditions [x != 0]), the unchanged Exact result for (x^2+1)/(x-1) with empty conditions, (x-1)^2/(x-1) expression x - 1 with condition [x - 1 != 0], and record field access; rust/lovelace-lang/src/dispatcher_guard_round51.rs cancel_full_publishes_the_conditions_the_bare_value_cannot_carry asserts the same record fields and typed displays. See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 11."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelWithConditions_BuildsTheSameConditionAtomsAsTheRewritePath#0": {
     "disposition": "deferred",

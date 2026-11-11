@@ -56,7 +56,10 @@ fn a_completed_script_records_its_elapsed_time() {
     };
     assert!(value >= 0.0, "elapsed must not be negative: {value}");
     let unit = text(get(elapsed_time, "unit"));
-    assert!(!unit.trim().is_empty(), "elapsedTime.unit must not be empty");
+    assert!(
+        !unit.trim().is_empty(),
+        "elapsedTime.unit must not be empty"
+    );
 
     let display = text(get(&r.env, "elapsed"));
     assert!(
@@ -91,10 +94,20 @@ fn assert_hyperbolic_descriptor(name: &str, inverse: &str, example: &str) {
 
     // "help contains <name>(x)" is the declared parameter list; it must be exactly the one the
     // rendered help shows.
-    let parameters: Vec<&str> = array(get(descriptor, "parameters")).iter().map(text).collect();
-    assert_eq!(parameters, vec!["x"], "{name}: help would not render {name}(x)");
+    let parameters: Vec<&str> = array(get(descriptor, "parameters"))
+        .iter()
+        .map(text)
+        .collect();
+    assert_eq!(
+        parameters,
+        vec!["x"],
+        "{name}: help would not render {name}(x)"
+    );
 
-    let examples: Vec<&str> = array(get(descriptor, "examples")).iter().map(text).collect();
+    let examples: Vec<&str> = array(get(descriptor, "examples"))
+        .iter()
+        .map(text)
+        .collect();
     assert!(
         examples.contains(&example),
         "{name}: the help text must carry the example '{example}', got {examples:?}"
