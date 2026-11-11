@@ -450,3 +450,12 @@
 - **Implications**: A falsified claim is not a permanent refusal; it is a measured gap that can later be fixed and mapped. The journal keeps both entries so the history is not rewritten.
 - **Confidence**: High
 - **Related**: VAL-003, REAL-002
+
+### OQ-018: A three-test discrepancy between the inventory and a workspace listing
+
+- **Question**: gen-rust-tests reports tests=4720 / passed=4720 (per-crate listings summed and suite result lines), while cargo test --workspace -- --list counts 4,717 entries now. Doctests are 0. The cause is not determined.
+- **Needed evidence**: one more inventory run and a per-binary comparison to find the three extra counted tests; it may be a transient during a concurrent edit that has since settled.
+- **Impact**: none of the 5,621 mappings is affected (the gate resolves every claimed test against the inventory and passes with failures []), but the count should be explained before it is cited again.
+- **Priority**: P2
+- **Raised by**: orchestrator, round 14
+- **Related**: TEST-008, gate-manifest
