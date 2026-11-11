@@ -4128,9 +4128,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalBinaryLimbTests.cs:18 asserts (2^64 - 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalBinaryLimbTests/DivRem_GivenLargeOperands_ProducesCorrectQuotientAndRemainder#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::div_rem_given_large_operands_produces_correct_quotient_and_remainder"
+reason = "Ported: 2000-digit / 1200-digit DivRem equals BigInteger's quotient and remainder (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalBinaryLimbTests.cs DivRem_GivenLargeOperands_ProducesCorrectQuotientAndRemainder asserts 2000-digit / 1200-digit DivRem equals BigInteger's quotient and remainder. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::div_rem_given_large_operands_produces_correct_quotient_and_remainder."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalBinaryLimbTests/Mul_GivenLimbOverflow_ProducesCorrectResult#0"
@@ -4144,9 +4146,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalBinaryLimbTests.cs:34 asserts (2^64 - 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalBinaryLimbTests/RoundTrip_GivenRandomLargeValues_ParseToStringIdentity#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::round_trip_given_random_large_values_parse_to_string_identity"
+reason = "Ported: 30 random values up to 20,000 digits parse/format identically (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalBinaryLimbTests.cs RoundTrip_GivenRandomLargeValues_ParseToStringIdentity asserts 30 random values up to 20,000 digits parse/format identically. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::round_trip_given_random_large_values_parse_to_string_identity."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalBinaryLimbTests/ShiftLeftDecimal_GivenK_AppendsKDecimalZeros#0"
@@ -4205,9 +4209,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalConstructorTests.cs:75 asserts new Nat
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalConstructorTests/Constructor_GivenNegativeInt_ThrowsArgumentOutOfRangeException#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::constructor_given_negative_int_throws_argument_out_of_range_exception"
+reason = "Ported: Natural(-1) is refused (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalConstructorTests.cs Constructor_GivenNegativeInt_ThrowsArgumentOutOfRangeException asserts Natural(-1) is refused. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::constructor_given_negative_int_throws_argument_out_of_range_exception."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalConstructorTests/Constructor_GivenNonDigitSpan_ThrowsFormatException#0"
@@ -4428,9 +4434,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalConstructorTests.cs:118 asserts the or
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ArithmeticResult_ToString_CachesAfterFirstCall#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::arithmetic_result_to_string_caches_after_first_call"
+reason = "Ported: an arithmetic result's ToString is computed once, cached, and correct (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs ArithmeticResult_ToString_CachesAfterFirstCall asserts an arithmetic result's ToString is computed once, cached, and correct. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::arithmetic_result_to_string_caches_after_first_call."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ConcurrentArithmeticOnLazyParsedValue_MatchesBigInteger#0"
@@ -4444,23 +4452,29 @@ note = "C# NaturalDecimalCacheTests.ConcurrentArithmeticOnLazyParsedValue: 64 th
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ConcurrentParseToString_GivenManyValues_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::concurrent_parse_to_string_given_many_values_matches_expected"
+reason = "Ported: 200 values parsed and formatted in parallel equal their canonical strings (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs ConcurrentParseToString_GivenManyValues_MatchesBigInteger asserts 200 values parsed and formatted in parallel equal their canonical strings. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::concurrent_parse_to_string_given_many_values_matches_expected."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ConcurrentToString_GivenSharedValue_ReturnsConsistentString#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::concurrent_to_string_given_shared_value_returns_consistent_string"
+reason = "Ported: parallel ToString calls on one value return the shared cached string (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs ConcurrentToString_GivenSharedValue_ReturnsConsistentString asserts parallel ToString calls on one value return the shared cached string. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::concurrent_to_string_given_shared_value_returns_consistent_string."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/CopyConstructor_SharesCachedStringButIndependentLimbs#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::copy_constructor_shares_cached_string_but_independent_limbs"
+reason = "Ported: a copy shares the cached string and is independent of the original (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs CopyConstructor_SharesCachedStringButIndependentLimbs asserts a copy shares the cached string and is independent of the original. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::copy_constructor_shares_cached_string_but_independent_limbs."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/GetHashCode_GivenEqualValues_AreEqual#0"
@@ -4483,16 +4497,20 @@ note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs:19 asserts \"007\
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/RoundTrip_GivenRandomLargeValues_ParseToStringIdentity#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::round_trip_given_random_large_values_parse_to_string_identity_decimal_cache"
+reason = "Ported: 20 random values up to 20,000 digits round-trip through the cache (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs RoundTrip_GivenRandomLargeValues_ParseToStringIdentity asserts 20 random values up to 20,000 digits round-trip through the cache. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::round_trip_given_random_large_values_parse_to_string_identity_decimal_cache."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDecimalCacheTests/ToString_GivenParsedValue_IsStableAcrossRepeatedCalls#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::to_string_given_parsed_value_is_stable_across_repeated_calls"
+reason = "Ported: repeated ToString calls on a parsed value return the same string (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalDecimalCacheTests.cs ToString_GivenParsedValue_IsStableAcrossRepeatedCalls asserts repeated ToString calls on a parsed value return the same string. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::to_string_given_parsed_value_is_stable_across_repeated_calls."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalDivideTests/DivRem_GivenDividendSmallerThanDivisor_ReturnsZeroQuotient#0"
@@ -5019,9 +5037,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalParseTests.cs:72 asserts \"12a3\" is r
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalParseTests/Parse_GivenNullString_ThrowsFormatException#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::parse_given_null_string_throws_format_exception"
+reason = "Ported: a missing string input is refused (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalParseTests.cs Parse_GivenNullString_ThrowsFormatException asserts a missing string input is refused. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::parse_given_null_string_throws_format_exception. Rust has no null string; from_decimal_opt/from_str_opt(None) is the same missing input."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalParseTests/Parse_GivenNumberBeyondUlongMax_ReturnsCorrectNatural#0"
@@ -5134,9 +5154,11 @@ note = "C#: Lovelace.Natural.Tests/NaturalParseTests.cs:115 asserts \"abc\" is r
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalParseTests/TryParse_GivenNullString_ReturnsFalse#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::try_parse_given_null_string_returns_false"
+reason = "Ported: TryParse of a missing string returns false (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalParseTests.cs TryParse_GivenNullString_ReturnsFalse asserts TryParse of a missing string returns false. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::try_parse_given_null_string_returns_false. Rust has no null string; from_decimal_opt/from_str_opt(None) is the same missing input."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalParseTests/TryParse_GivenValidString_ReturnsTrueAndCorrectValue#0"
@@ -5231,37 +5253,47 @@ note = "C# CrossCheck_GivenAdversarialCarryPatterns: all 25 fixed pairs, add/mul
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference"
+reason = "Ported: random +, -, *, DivRem and Pow across five size tiers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs CrossCheck_GivenRandomOperands_MatchesBigInteger asserts random +, -, *, DivRem and Pow across five size tiers. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#1"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference"
+reason = "Ported: random +, -, *, DivRem and Pow across five size tiers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs CrossCheck_GivenRandomOperands_MatchesBigInteger asserts random +, -, *, DivRem and Pow across five size tiers. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#2"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference"
+reason = "Ported: random +, -, *, DivRem and Pow across five size tiers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs CrossCheck_GivenRandomOperands_MatchesBigInteger asserts random +, -, *, DivRem and Pow across five size tiers. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#3"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference"
+reason = "Ported: random +, -, *, DivRem and Pow across five size tiers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs CrossCheck_GivenRandomOperands_MatchesBigInteger asserts random +, -, *, DivRem and Pow across five size tiers. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/CrossCheck_GivenRandomOperands_MatchesBigInteger#4"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference"
+reason = "Ported: random +, -, *, DivRem and Pow across five size tiers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs CrossCheck_GivenRandomOperands_MatchesBigInteger asserts random +, -, *, DivRem and Pow across five size tiers. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::cross_check_given_random_operands_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/DivRem_GivenOverflowAlignment_MatchesBigInteger#0"
@@ -5275,9 +5307,11 @@ note = "C# DivRem_GivenOverflowAlignment: quotient and remainder of the fixed op
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/DivRem_GivenPowerOfTenDivisor_MatchesBigInteger#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::div_rem_given_power_of_ten_divisor_matches_reference"
+reason = "Ported: DivRem by 10^k reads quotient/remainder off the decimal prefix/suffix (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalRandomizedCrossCheckTests.cs DivRem_GivenPowerOfTenDivisor_MatchesBigInteger asserts DivRem by 10^k reads quotient/remainder off the decimal prefix/suffix. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::div_rem_given_power_of_ten_divisor_matches_reference. BigInteger is replaced by exact algebraic identities (and a u128 reference on the single-digit tier)."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalRandomizedCrossCheckTests/Factorial_GivenN_MatchesBigInteger#0"
@@ -5327,163 +5361,209 @@ note = "C# NaturalRandomizedCrossCheckTests.Factorial 5 InlineData rows: 0!, 1!,
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/DisplayDigits_AfterMultipleSets_ReturnsLastValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::display_digits_after_multiple_sets_returns_last_value"
+reason = "Ported: DisplayDigits returns the last of several writes (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs DisplayDigits_AfterMultipleSets_ReturnsLastValue asserts DisplayDigits returns the last of several writes. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::display_digits_after_multiple_sets_returns_last_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/DisplayDigits_AfterSet_ReturnsSetValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::display_digits_after_set_returns_set_value"
+reason = "Ported: DisplayDigits returns the value set (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs DisplayDigits_AfterSet_ReturnsSetValue asserts DisplayDigits returns the value set. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::display_digits_after_set_returns_set_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/DisplayDigits_ConcurrentReadWrite_NeverReturnsTornValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::display_digits_concurrent_read_write_never_returns_torn_value"
+reason = "Ported: concurrent DisplayDigits reads never observe a torn 64-bit value (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs DisplayDigits_ConcurrentReadWrite_NeverReturnsTornValue asserts concurrent DisplayDigits reads never observe a torn 64-bit value. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::display_digits_concurrent_read_write_never_returns_torn_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/DisplayDigits_DefaultValue_IsMinusOne#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::display_digits_default_value_is_minus_one"
+reason = "Ported: DisplayDigits defaults to -1 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs DisplayDigits_DefaultValue_IsMinusOne asserts DisplayDigits defaults to -1. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::display_digits_default_value_is_minus_one."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/Precision_AfterMultipleSets_ReturnsLastValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::precision_after_multiple_sets_returns_last_value"
+reason = "Ported: Precision returns the last of several writes (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs Precision_AfterMultipleSets_ReturnsLastValue asserts Precision returns the last of several writes. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::precision_after_multiple_sets_returns_last_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/Precision_AfterSet_ReturnsSetValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::precision_after_set_returns_set_value"
+reason = "Ported: Precision returns the value set (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs Precision_AfterSet_ReturnsSetValue asserts Precision returns the value set. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::precision_after_set_returns_set_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/Precision_ConcurrentReadWrite_NeverReturnsTornValue#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::precision_concurrent_read_write_never_returns_torn_value"
+reason = "Ported: concurrent Precision reads never observe a torn 64-bit value (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs Precision_ConcurrentReadWrite_NeverReturnsTornValue asserts concurrent Precision reads never observe a torn 64-bit value. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::precision_concurrent_read_write_never_returns_torn_value."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStaticPropertyTests/Precision_DefaultValue_IsMinusOne#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::precision_default_value_is_minus_one"
+reason = "Ported: Precision defaults to -1 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStaticPropertyTests.cs Precision_DefaultValue_IsMinusOne asserts Precision defaults to -1. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::precision_default_value_is_minus_one."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIAdditionOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_iadditionoperators"
+reason = "Ported: Natural implements IAdditionOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIAdditionOperators asserts Natural implements IAdditionOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_iadditionoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIComparable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_icomparable"
+reason = "Ported: Natural implements IComparable<Natural> (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIComparable asserts Natural implements IComparable<Natural>. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_icomparable. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIComparisonOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_icomparisonoperators"
+reason = "Ported: Natural implements IComparisonOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIComparisonOperators asserts Natural implements IComparisonOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_icomparisonoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIDecrementOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_idecrementoperators"
+reason = "Ported: Natural implements IDecrementOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIDecrementOperators asserts Natural implements IDecrementOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_idecrementoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIDivisionOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_idivisionoperators"
+reason = "Ported: Natural implements IDivisionOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIDivisionOperators asserts Natural implements IDivisionOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_idivisionoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIEquatable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_iequatable"
+reason = "Ported: Natural implements IEquatable<Natural> (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIEquatable asserts Natural implements IEquatable<Natural>. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_iequatable. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIIncrementOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_iincrementoperators"
+reason = "Ported: Natural implements IIncrementOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIIncrementOperators asserts Natural implements IIncrementOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_iincrementoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIModulusOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_imodulusoperators"
+reason = "Ported: Natural implements IModulusOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIModulusOperators asserts Natural implements IModulusOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_imodulusoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIMultiplyOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_imultiplyoperators"
+reason = "Ported: Natural implements IMultiplyOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIMultiplyOperators asserts Natural implements IMultiplyOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_imultiplyoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsINumber#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_inumber"
+reason = "Ported: Natural implements INumber<Natural> (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsINumber asserts Natural implements INumber<Natural>. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_inumber. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsIParsable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_iparsable"
+reason = "Ported: Natural implements IParsable<Natural> (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsIParsable asserts Natural implements IParsable<Natural>. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_iparsable. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsISpanFormattable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_ispanformattable"
+reason = "Ported: Natural implements ISpanFormattable (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsISpanFormattable asserts Natural implements ISpanFormattable. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_ispanformattable. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsISpanParsable#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_ispanparsable"
+reason = "Ported: Natural implements ISpanParsable<Natural> (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsISpanParsable asserts Natural implements ISpanParsable<Natural>. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_ispanparsable. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_ImplementsISubtractionOperators#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_implements_isubtractionoperators"
+reason = "Ported: Natural implements ISubtractionOperators (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_ImplementsISubtractionOperators asserts Natural implements ISubtractionOperators. Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_implements_isubtractionoperators. Rust has no CLR interface assignability: the compile-time trait bound or the trait method is the equivalent capability witness."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalStructureTests/Natural_TypeName_IsNatural#0"
 project = "Lovelace.Natural.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-nat::round39_natural_api::natural_type_name_is_natural"
+reason = "Ported: the public type is named Natural (Rust canonical name Nat, alias Natural) (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Natural.Tests/NaturalStructureTests.cs Natural_TypeName_IsNatural asserts the public type is named Natural (Rust canonical name Nat, alias Natural). Rust: rust/lovelace-nat/src/round39_natural_api.rs lovelace-nat::round39_natural_api::natural_type_name_is_natural. Rust's canonical type name is Nat; the Natural alias preserves the reference spelling, and the test pins both."
 
 [[test]]
 id = "Lovelace.Natural.Tests/Lovelace.Natural.Tests.NaturalSubtractTests/DecrementPostfix_GivenValue_ReturnsPreviousValue#0"
@@ -22075,30 +22155,38 @@ note = "C#: Lovelace.Real.Tests/RealAddTests.cs:46 Add_GivenZeroAndValue_Returns
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAsyncLocalTests/Pi_GivenConcurrentTasksWithDifferentLocalPrecisions_PrecisionDoesNotLeakAcrossTasks#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_given_concurrent_tasks_with_different_local_precisions_precision_does_not_leak_across_tasks"
+reason = "Ported: sibling tasks with different local precisions each observe only their own value (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAsyncLocalTests.cs Pi_GivenConcurrentTasksWithDifferentLocalPrecisions_PrecisionDoesNotLeakAcrossTasks asserts sibling tasks with different local precisions each observe only their own value. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_given_concurrent_tasks_with_different_local_precisions_precision_does_not_leak_across_tasks. Rust threads do not capture AsyncLocal state; the additive precision_snapshot/with_precision_values seam is the explicit equivalent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAsyncLocalTests/Pi_GivenNestedPrecisionScopes_OuterScopeRestoredAfterInnerDisposes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_given_nested_precision_scopes_outer_scope_restored_after_inner_disposes"
+reason = "Ported: nested precision scopes restore LIFO back to the outer value and then the global default (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAsyncLocalTests.cs Pi_GivenNestedPrecisionScopes_OuterScopeRestoredAfterInnerDisposes asserts nested precision scopes restore LIFO back to the outer value and then the global default. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_given_nested_precision_scopes_outer_scope_restored_after_inner_disposes. Rust threads do not capture AsyncLocal state; the additive precision_snapshot/with_precision_values seam is the explicit equivalent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAsyncLocalTests/Pi_StaticDisplayDecimalPlaces_ConcurrentReadsMutationsAreAtomic#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_static_display_decimal_places_concurrent_reads_mutations_are_atomic"
+reason = "Ported: 60 concurrent reads/writes of DisplayDecimalPlaces observe only written values (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAsyncLocalTests.cs Pi_StaticDisplayDecimalPlaces_ConcurrentReadsMutationsAreAtomic asserts 60 concurrent reads/writes of DisplayDecimalPlaces observe only written values. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_static_display_decimal_places_concurrent_reads_mutations_are_atomic. Rust threads do not capture AsyncLocal state; the additive precision_snapshot/with_precision_values seam is the explicit equivalent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAsyncLocalTests/Sqrt_GivenBatchWithCallerLocalPrecision_EachChildTaskInheritsCallerPrecision#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_batch_with_caller_local_precision_each_child_task_inherits_caller_precision"
+reason = "Ported: child tasks spawned inside a scoped precision observe the caller's precision (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAsyncLocalTests.cs Sqrt_GivenBatchWithCallerLocalPrecision_EachChildTaskInheritsCallerPrecision asserts child tasks spawned inside a scoped precision observe the caller's precision. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_batch_with_caller_local_precision_each_child_task_inherits_caller_precision. Rust threads do not capture AsyncLocal state; the additive precision_snapshot/with_precision_values seam is the explicit equivalent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Assign_GivenOtherReal_CopiesAllFields#0"
@@ -22130,9 +22218,11 @@ note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs:153 Lovelace.Real.Tests.
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDecimal_RoundTripEqualsStringConstructor#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::constructor_given_decimal_round_trip_equals_string_constructor"
+reason = "Ported: Real(1.2345678901234567890m) equals the string constructor (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs Constructor_GivenDecimal_RoundTripEqualsStringConstructor asserts Real(1.2345678901234567890m) equals the string constructor. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::constructor_given_decimal_round_trip_equals_string_constructor. Real::from_f64 / from_decimal_scaled is the additive Rust constructor that preserves the parsed digits and exponent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDecimalMaxValue_ParsesWithoutThrow#0"
@@ -22155,16 +22245,20 @@ note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs:20 Lovelace.Real.Tests.R
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDouble_StoresCorrectDigitsAndExponent#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::constructor_given_double_stores_correct_digits_and_exponent"
+reason = "Ported: Real(3.14) equals new Real(\"3.14\") (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs Constructor_GivenDouble_StoresCorrectDigitsAndExponent asserts Real(3.14) equals new Real(\"3.14\"). Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::constructor_given_double_stores_correct_digits_and_exponent. Real::from_f64 / from_decimal_scaled is the additive Rust constructor that preserves the parsed digits and exponent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenDoubleZero_ProducesZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::constructor_given_double_zero_produces_zero"
+reason = "Ported: Real(0.0) is zero (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs Constructor_GivenDoubleZero_ProducesZero asserts Real(0.0) is zero. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::constructor_given_double_zero_produces_zero. Real::from_f64 / from_decimal_scaled is the additive Rust constructor that preserves the parsed digits and exponent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenInteger_ExponentIsZero#0"
@@ -22187,9 +22281,11 @@ note = "C# RealConstructorTests decimal rows (3): decimal.MaxValue round-trips, 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenNegativeDouble_IsNegative#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::constructor_given_negative_double_is_negative"
+reason = "Ported: Real(-1.5) is negative (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs Constructor_GivenNegativeDouble_IsNegative asserts Real(-1.5) is negative. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::constructor_given_negative_double_is_negative. Real::from_f64 / from_decimal_scaled is the additive Rust constructor that preserves the parsed digits and exponent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenNegativeInteger_IsNegativeAndExponentZero#0"
@@ -22203,9 +22299,11 @@ note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs:118 Lovelace.Real.Tests.
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenPositiveDecimal_ParsesCorrectly#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::constructor_given_positive_decimal_parses_correctly"
+reason = "Ported: Real(1.5m) equals new Real(\"1.5\") (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealConstructorTests.cs Constructor_GivenPositiveDecimal_ParsesCorrectly asserts Real(1.5m) equals new Real(\"1.5\"). Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::constructor_given_positive_decimal_parses_correctly. Real::from_f64 / from_decimal_scaled is the additive Rust constructor that preserves the parsed digits and exponent."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealConstructorTests/Constructor_GivenReadOnlySpanDecimalString_ParsesCorrectly#0"
@@ -22408,16 +22506,20 @@ note = "C# Lovelace.Real.Tests/RealDivideLeadingZeroRunTests.cs Divide_GivenLead
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideLeadingZeroRunTests/Divide_GivenLeadingZeroRunLongerThanTheBudget_KeepsTheValueAndItsScale#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::divide_given_leading_zero_run_longer_than_the_budget_keeps_the_value_and_its_scale"
+reason = "Ported: 1/(3*10^1000) keeps its digits, exponent, period metadata, exactness and rendering (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealDivideLeadingZeroRunTests.cs Divide_GivenLeadingZeroRunLongerThanTheBudget_KeepsTheValueAndItsScale asserts 1/(3*10^1000) keeps its digits, exponent, period metadata, exactness and rendering. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::divide_given_leading_zero_run_longer_than_the_budget_keeps_the_value_and_its_scale."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideLeadingZeroRunTests/Divide_GivenLeadingZeroRunLongerThanTheBudget_KeepsTheValueAndItsScale#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::divide_given_leading_zero_run_longer_than_the_budget_keeps_the_value_and_its_scale"
+reason = "Ported: 1/(7*10^5000) keeps its digits, exponent, period metadata, exactness and rendering (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealDivideLeadingZeroRunTests.cs Divide_GivenLeadingZeroRunLongerThanTheBudget_KeepsTheValueAndItsScale asserts 1/(7*10^5000) keeps its digits, exponent, period metadata, exactness and rendering. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::divide_given_leading_zero_run_longer_than_the_budget_keeps_the_value_and_its_scale."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideLeadingZeroRunTests/Divide_GivenQuotientInsideTheBudget_StillReportsTheExactPeriod#0"
@@ -22431,9 +22533,11 @@ note = "C#: Lovelace.Real.Tests/RealDivideLeadingZeroRunTests.cs:115 Lovelace.Re
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideLeadingZeroRunTests/Divide_GivenQuotientTheBudgetCannotHold_IsInexactAndKeepsItsScale#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::divide_given_quotient_the_budget_cannot_hold_is_inexact_and_keeps_its_scale"
+reason = "Ported: 1/(1009*10^1000) at a 20-digit budget is inexact, non-periodic, and keeps its scale (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealDivideLeadingZeroRunTests.cs Divide_GivenQuotientTheBudgetCannotHold_IsInexactAndKeepsItsScale asserts 1/(1009*10^1000) at a 20-digit budget is inexact, non-periodic, and keeps its scale. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::divide_given_quotient_the_budget_cannot_hold_is_inexact_and_keeps_its_scale."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideTests/Divide_GivenBothNegative_ReturnsPositiveQuotient#0"
@@ -26758,9 +26862,11 @@ note = "C#: Lovelace.Real.Tests/RealParseTests.cs:94 TryParse_GivenInvalidString
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealParseTests/TryParse_GivenNullString_ReturnsFalse#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::try_parse_given_null_string_returns_false"
+reason = "Ported: TryParse(null) returns false (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealParseTests.cs TryParse_GivenNullString_ReturnsFalse asserts TryParse(null) returns false. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::try_parse_given_null_string_returns_false. Rust has no null string; from_decimal_opt/from_str_opt(None) is the same missing input."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealParseTests/TryParse_GivenPeriodicNotation_ReturnsTrueAndPeriodicResult#0"
@@ -26828,23 +26934,29 @@ note = "C#: Lovelace.Real.Tests/RealPeriodicIntegerValuePropertyTests.cs:95 Peri
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiSegmentTests/PiSegment_GivenFullRangeTenDigits_ProducesPiMatchingCurrentSerial#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_segment_given_full_range_ten_digits_produces_pi_matching_current_serial"
+reason = "Ported: PiSegment(0,5) equals the serial Chudnovsky Q and T (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPiSegmentTests.cs PiSegment_GivenFullRangeTenDigits_ProducesPiMatchingCurrentSerial asserts PiSegment(0,5) equals the serial Chudnovsky Q and T. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_segment_given_full_range_ten_digits_produces_pi_matching_current_serial."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiSegmentTests/PiSegment_GivenMidpointSplit_MergedTMatchesFullRangeT#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_segment_given_midpoint_split_merged_t_matches_full_range_t"
+reason = "Ported: the BSP merge identity T(a,b)=T(a,m)Q(m,b)+P(a,m)T(m,b) holds (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPiSegmentTests.cs PiSegment_GivenMidpointSplit_MergedTMatchesFullRangeT asserts the BSP merge identity T(a,b)=T(a,m)Q(m,b)+P(a,m)T(m,b) holds. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_segment_given_midpoint_split_merged_t_matches_full_range_t."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiSegmentTests/PiSegment_GivenSingleTermRange_MatchesManualTermOneComputation#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_segment_given_single_term_range_matches_manual_term_one_computation"
+reason = "Ported: PiSegment(1,2) returns the manual P/Q/T term values (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPiSegmentTests.cs PiSegment_GivenSingleTermRange_MatchesManualTermOneComputation asserts PiSegment(1,2) returns the manual P/Q/T term values. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_segment_given_single_term_range_matches_manual_term_one_computation."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenAnyValidDigitCount_ResultIsNotPeriodic#0"
@@ -26885,9 +26997,11 @@ note = "C#: Lovelace.Real.Tests/RealPiTests.cs:104 Pi_GivenDigits_ResultExponent
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenDigitsExceedingMaxComputationDecimalPlaces_ThrowsArgumentOutOfRangeException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_given_digits_exceeding_max_computation_decimal_places_throws_argument_out_of_range_exception"
+reason = "Ported: PiTo(11) under a 10-place cap is refused; 0 and -1 are refused; 10 is accepted (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPiTests.cs Pi_GivenDigitsExceedingMaxComputationDecimalPlaces_ThrowsArgumentOutOfRangeException asserts PiTo(11) under a 10-place cap is refused; 0 and -1 are refused; 10 is accepted. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_given_digits_exceeding_max_computation_decimal_places_throws_argument_out_of_range_exception."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiTests/Pi_GivenFiftyDigits_MatchesKnownReference#0"
@@ -26946,9 +27060,11 @@ note = "C#: Lovelace.Real.Tests/RealPiAsyncTests.cs:44 PiToAsync_GivenConcurrent
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiToAsyncTests/PiToAsync_GivenInvalidDigits_PropagatesArgumentOutOfRangeException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pi_to_async_given_invalid_digits_propagates_argument_out_of_range_exception"
+reason = "Ported: a worker computing PiTo(0) propagates the refusal through join (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPiAsyncTests.cs PiToAsync_GivenInvalidDigits_PropagatesArgumentOutOfRangeException asserts a worker computing PiTo(0) propagates the refusal through join. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pi_to_async_given_invalid_digits_propagates_argument_out_of_range_exception. Rust has no async surface; the worker thread that joins pi_checked is the equivalent propagation through the awaited call."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPiToAsyncTests/PiToAsync_GivenOneDigit_ReturnsCorrectValue#0"
@@ -27007,9 +27123,11 @@ note = "C#: Lovelace.Real.Tests/RealPowTests.cs:12 Pow_GivenPositiveIntegerExpon
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPowZeroBaseTests/Pow_NonZeroBaseNegativeExponent_KeepsItsExistingRefusal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pow_nonzero_base_negative_exponent_keeps_its_existing_refusal"
+reason = "Ported: 2^-3 keeps the reference's not-implemented refusal (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPowZeroBaseTests.cs Pow_NonZeroBaseNegativeExponent_KeepsItsExistingRefusal asserts 2^-3 keeps the reference's not-implemented refusal. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pow_nonzero_base_negative_exponent_keeps_its_existing_refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPowZeroBaseTests/Pow_ZeroBaseNegativeExponent_Refuses#0"
@@ -27059,9 +27177,11 @@ note = "C#: Lovelace.Real.Tests/RealPowZeroBaseTests.cs:42 Pow_ZeroBaseNegativeR
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPowZeroBaseTests/Pow_ZeroBaseNegativeRealExponent_RefusesWithTheIntegerPathsRefusal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pow_zero_base_negative_real_exponent_refuses_with_the_integer_paths_refusal"
+reason = "Ported: 0^-1 refuses with the integer path's message and parameter name (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPowZeroBaseTests.cs Pow_ZeroBaseNegativeRealExponent_RefusesWithTheIntegerPathsRefusal asserts 0^-1 refuses with the integer path's message and parameter name. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pow_zero_base_negative_real_exponent_refuses_with_the_integer_paths_refusal."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPowZeroBaseTests/Pow_ZeroBasePositiveExponent_IsStillZero#0"
@@ -27093,30 +27213,38 @@ note = "C#: Lovelace.Real.Tests/RealPowZeroBaseTests.cs:72 Pow_ZeroBasePositiveE
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPowZeroBaseTests/Pow_ZeroBasePositiveFractionalExponent_IsStillZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::pow_zero_base_positive_exponent_is_still_zero"
+reason = "Ported: 0^0.5 is still zero (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPowZeroBaseTests.cs Pow_ZeroBasePositiveFractionalExponent_IsStillZero asserts 0^0.5 is still zero. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::pow_zero_base_positive_exponent_is_still_zero."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/DisplayDecimalPlaces_AfterSetting_ReturnsNewValue#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::display_decimal_places_after_setting_returns_new_value"
+reason = "Ported: DisplayDecimalPlaces returns the value set (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs DisplayDecimalPlaces_AfterSetting_ReturnsNewValue asserts DisplayDecimalPlaces returns the value set. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::display_decimal_places_after_setting_returns_new_value."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/DisplayDecimalPlaces_DefaultValue_IsOneHundred#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::display_decimal_places_default_value_is_one_hundred"
+reason = "Ported: DisplayDecimalPlaces defaults to 100 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs DisplayDecimalPlaces_DefaultValue_IsOneHundred asserts DisplayDecimalPlaces defaults to 100. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::display_decimal_places_default_value_is_one_hundred."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/Exponent_AfterSetting_ReturnsNewValue#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::exponent_after_setting_returns_new_value"
+reason = "Ported: Exponent returns the value set (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs Exponent_AfterSetting_ReturnsNewValue asserts Exponent returns the value set. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::exponent_after_setting_returns_new_value."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/Exponent_GivenDefaultReal_IsZero#0"
@@ -27157,16 +27285,20 @@ note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs:26 IsZero_GivenDefaultRea
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/MaxComputationDecimalPlaces_AfterSetting_ReturnsNewValue#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::max_computation_decimal_places_after_setting_returns_new_value"
+reason = "Ported: MaxComputationDecimalPlaces returns the value set (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs MaxComputationDecimalPlaces_AfterSetting_ReturnsNewValue asserts MaxComputationDecimalPlaces returns the value set. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::max_computation_decimal_places_after_setting_returns_new_value."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/MaxComputationDecimalPlaces_DefaultValue_IsOneThousand#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::max_computation_decimal_places_default_value_is_one_thousand"
+reason = "Ported: MaxComputationDecimalPlaces defaults to 1000 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs MaxComputationDecimalPlaces_DefaultValue_IsOneThousand asserts MaxComputationDecimalPlaces defaults to 1000. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::max_computation_decimal_places_default_value_is_one_thousand."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/PeriodLength_GivenDefaultReal_IsZero#0"
@@ -27180,9 +27312,11 @@ note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs:81 Lovelace.Real.Tests.Re
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/PeriodStart_GivenDefaultReal_IsZero#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::period_start_given_default_real_is_zero"
+reason = "Ported: a default Real reports PeriodStart 0 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealPropertiesTests.cs PeriodStart_GivenDefaultReal_IsZero asserts a default Real reports PeriodStart 0. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::period_start_given_default_real_is_zero. Rust's period_start() keeps the -1 no-period sentinel; period_start_or_zero() is the reference-compatible accessor."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealPropertiesTests/ToString_GivenDefaultReal_ReturnsZeroString#0"
@@ -27205,9 +27339,11 @@ note = "C#: Lovelace.Real.Tests/RealSqrtAsyncTests.cs:41 SqrtAsync_GivenConcurre
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtAsyncTests/SqrtAsync_GivenNegativeInput_PropagatesArithmeticException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_async_given_negative_input_propagates_arithmetic_exception"
+reason = "Ported: a worker computing sqrt(-1) propagates the arithmetic refusal through join (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtAsyncTests.cs SqrtAsync_GivenNegativeInput_PropagatesArithmeticException asserts a worker computing sqrt(-1) propagates the arithmetic refusal through join. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_async_given_negative_input_propagates_arithmetic_exception. Rust has no async surface; the worker thread that joins sqrt_checked is the equivalent propagation through the awaited call."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtAsyncTests/SqrtAsync_GivenPerfectSquareFour_ReturnsExactlyTwo#0"
@@ -27221,37 +27357,47 @@ note = "C#: Lovelace.Real.Tests/RealSqrtAsyncTests.cs:17 SqrtAsync_GivenPerfectS
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtBatchTests/Sqrt_GivenBatchContainingNegativeValue_PropagatesArithmeticException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_batch_containing_negative_value_propagates_arithmetic_exception"
+reason = "Ported: a batch containing -1 refuses as a whole (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtBatchTests.cs Sqrt_GivenBatchContainingNegativeValue_PropagatesArithmeticException asserts a batch containing -1 refuses as a whole. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_batch_containing_negative_value_propagates_arithmetic_exception."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtBatchTests/Sqrt_GivenBatchMixedIrrationals_MatchesElementwiseSerial#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_batch_mixed_irrationals_matches_elementwise_serial"
+reason = "Ported: a batch of 2,3,5 equals the elementwise serial roots (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtBatchTests.cs Sqrt_GivenBatchMixedIrrationals_MatchesElementwiseSerial asserts a batch of 2,3,5 equals the elementwise serial roots. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_batch_mixed_irrationals_matches_elementwise_serial."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtBatchTests/Sqrt_GivenBatchPerfectSquares_ReturnsExactRoots#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_batch_perfect_squares_returns_exact_roots"
+reason = "Ported: a batch of 4,9,16,25 returns the exact roots 2,3,4,5 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtBatchTests.cs Sqrt_GivenBatchPerfectSquares_ReturnsExactRoots asserts a batch of 4,9,16,25 returns the exact roots 2,3,4,5. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_batch_perfect_squares_returns_exact_roots."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtBatchTests/Sqrt_GivenBatchSingleElement_ReturnsArrayOfOneMatchingSerial#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_batch_single_element_returns_array_of_one_matching_serial"
+reason = "Ported: a one-element batch returns one value equal to the serial root (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtBatchTests.cs Sqrt_GivenBatchSingleElement_ReturnsArrayOfOneMatchingSerial asserts a one-element batch returns one value equal to the serial root. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_batch_single_element_returns_array_of_one_matching_serial."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtBatchTests/Sqrt_GivenEmptyBatch_ReturnsEmptyArray#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_empty_batch_returns_empty_array"
+reason = "Ported: an empty batch returns an empty array (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtBatchTests.cs Sqrt_GivenEmptyBatch_ReturnsEmptyArray asserts an empty batch returns an empty array. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_empty_batch_returns_empty_array."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtPeriodicTests/Sqrt_GivenFourNinthsAsPeriodic_ReturnsExactlyTwoThirds#0"
@@ -27355,9 +27501,11 @@ note = "C#: Lovelace.Real.Tests/RealSqrtTests.cs:302 Sqrt_GivenIrrational_Result
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtTests/Sqrt_GivenNegativeInput_ThrowsArithmeticException#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::sqrt_given_negative_input_throws_arithmetic_exception"
+reason = "Ported: sqrt(-1) refuses with the arithmetic error (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealSqrtTests.cs Sqrt_GivenNegativeInput_ThrowsArithmeticException asserts sqrt(-1) refuses with the arithmetic error. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::sqrt_given_negative_input_throws_arithmetic_exception."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealSqrtTests/Sqrt_GivenOne_ReturnsOne#0"
@@ -27632,9 +27780,11 @@ note = "C#: Lovelace.Real.Tests/RealToStringTests.cs:57 asserts new Real(\"-1.5\
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealToStringTests/ToString_GivenNonPeriodicValue_TruncatesAtDisplayDecimalPlaces#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::to_string_given_non_periodic_value_truncates_at_display_decimal_places"
+reason = "Ported: a non-periodic value renders at most DisplayDecimalPlaces fractional digits, here 1.12345 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealToStringTests.cs ToString_GivenNonPeriodicValue_TruncatesAtDisplayDecimalPlaces asserts a non-periodic value renders at most DisplayDecimalPlaces fractional digits, here 1.12345. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::to_string_given_non_periodic_value_truncates_at_display_decimal_places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealToStringTests/ToString_GivenPeriodLongerThanStoredDigits_DoesNotThrow#0"
@@ -27765,16 +27915,20 @@ note = "C#: Lovelace.Real.Tests/RealToStringTests.cs:179 asserts the one renderi
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealToStringTests/TryFormat_GivenInsufficientBuffer_ReturnsFalse#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::try_format_given_insufficient_buffer_returns_false"
+reason = "Ported: TryFormat into an empty buffer returns false and writes nothing (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealToStringTests.cs TryFormat_GivenInsufficientBuffer_ReturnsFalse asserts TryFormat into an empty buffer returns false and writes nothing. Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::try_format_given_insufficient_buffer_returns_false."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealToStringTests/TryFormat_GivenSufficientBuffer_ReturnsTrueAndWritesCorrectly#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-real::round39_real_tests::try_format_given_sufficient_buffer_returns_true_and_writes_correctly"
+reason = "Ported: TryFormat into a sufficient buffer returns true and writes exactly ToString() (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealToStringTests.cs TryFormat_GivenSufficientBuffer_ReturnsTrueAndWritesCorrectly asserts TryFormat into a sufficient buffer returns true and writes exactly ToString(). Rust: rust/lovelace-real/src/round39_real_tests.rs lovelace-real::round39_real_tests::try_format_given_sufficient_buffer_returns_true_and_writes_correctly."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigCertifiedPrefixTests/ArgumentAwareWidth_AppliesAtEveryMagnitude#0"
@@ -44320,9 +44474,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Integrate_Table_AllVerify#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::integration_table_rows_are_exact_and_verify"
+reason = "Ported: the seven table entries integrate to the reference antiderivatives and verify (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs Integrate_Table_AllVerify asserts the seven table entries integrate to the reference antiderivatives and verify. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::integration_table_rows_are_exact_and_verify. The seven antiderivatives are asserted exactly and integrate_full().verified is checked for the five entries the row drives; the record's method label (table vs linearity) is not part of the row."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Interning_EqualStructureSharesReference#0"
@@ -44840,9 +44996,11 @@ note = "C#: Lovelace.Symbolics.Tests/DebugEvalir.cs:12 Lovelace.Symbolics.Tests.
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DebugIntegrate/RationalDenominator_IntegratesWithSelfVerification#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::integration_table_rows_are_exact_and_verify"
+reason = "Ported: 1/(x^2-1) integrates to the table antiderivative instead of the unevaluated fallback (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/DebugIntegrate.cs RationalDenominator_IntegratesWithSelfVerification asserts 1/(x^2-1) integrates to the table antiderivative instead of the unevaluated fallback. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::integration_table_rows_are_exact_and_verify. The exact antiderivative is asserted, which is stronger than the row's not-the-fallback check."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/BoundedTransformation_CarriesABudgetExceededDiagnostic#0"
@@ -45254,9 +45412,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:189 asserts solve
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Solve_QuarticWithRealRoots_DefaultDomain_KeepsRootOfRoots#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::solve_quartic_with_real_roots_keeps_the_exact_radicals"
+reason = "Ported: x^4-5x^2 solves Exactly with 3 solutions: -sqrt(20)/2, sqrt(20)/2, 0 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs Solve_QuarticWithRealRoots_DefaultDomain_KeepsRootOfRoots asserts x^4-5x^2 solves Exactly with 3 solutions: -sqrt(20)/2, sqrt(20)/2, 0. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::solve_quartic_with_real_roots_keeps_the_exact_radicals. The expression-root carrier has no multiplicity channel; the row asserts the count (3) and the exact radicals, both of which the test pins."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_BudgetExceeded_IsReported#0"
@@ -47539,58 +47699,74 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/DeterminedLimits_KeepExactlyTheirPreviousAnswers#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::determined_limits_keep_their_answers"
+reason = "Ported: sin(x)/x, 1/x's two-sided pole, the ratio at infinity, x^2+1 at 2 and x log x keep their answers (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs DeterminedLimits_KeepExactlyTheirPreviousAnswers asserts sin(x)/x, 1/x's two-sided pole, the ratio at infinity, x^2+1 at 2 and x log x keep their answers. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::determined_limits_keep_their_answers. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/Family_AnswersEveryExactExponent#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form"
+reason = "Ported: e^3, e at -inf, e^(3/2) and the e^a template are answered exactly (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs Family_AnswersEveryExactExponent asserts e^3, e at -inf, e^(3/2) and the e^a template are answered exactly. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/IndeterminateShapes_AreRefused_NeverAnsweredWithTheValueAtThePoint#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_shapes_stay_unevaluated_with_a_reason"
+reason = "Ported: four indeterminate shapes stay Unevaluated with a diagnostic instead of the value at the point (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs IndeterminateShapes_AreRefused_NeverAnsweredWithTheValueAtThePoint asserts four indeterminate shapes stay Unevaluated with a diagnostic instead of the value at the point. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_shapes_stay_unevaluated_with_a_reason. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/Probe_LimitOfOnePlusOneOverXToTheX_IsE#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form"
+reason = "Ported: limit((1+1/x)^x,x,inf) is the exact e (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs Probe_LimitOfOnePlusOneOverXToTheX_IsE asserts limit((1+1/x)^x,x,inf) is the exact e. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/Probe_LimitOfOnePlusTwoOverXToTheX_IsESquared#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form"
+reason = "Ported: limit((1+2/x)^x,x,inf) is the exact e^2 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs Probe_LimitOfOnePlusTwoOverXToTheX_IsESquared asserts limit((1+2/x)^x,x,inf) is the exact e^2. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/Probe_LimitOfOnePlusXToTheOneOverX_IsE#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form"
+reason = "Ported: limit((1+x)^(1/x),x,0) is the exact e (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs Probe_LimitOfOnePlusXToTheOneOverX_IsE asserts limit((1+x)^(1/x),x,0) is the exact e. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/Probes_CrossTheWireAsExactClosedForms#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form"
+reason = "Ported: the first probe crosses the wire with status Value and exactness AlgebraicExact (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs Probes_CrossTheWireAsExactClosedForms asserts the first probe crosses the wire with status Value and exactness AlgebraicExact. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::indeterminate_exponential_limits_answer_the_exact_closed_form. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/SubstitutionShapedLimits_StillAnswerImmediately#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::determined_limits_keep_their_answers"
+reason = "Ported: the substitution-shaped limits (x^2+1, (1+x)^2, 2^x, x^x) still answer immediately (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateExponentialLimitTests.cs SubstitutionShapedLimits_StillAnswerImmediately asserts the substitution-shaped limits (x^2+1, (1+x)^2, 2^x, x^x) still answer immediately. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::determined_limits_keep_their_answers. The short-form builtin publishes the LimitResult record; the expected display text is the oracle's own exact closed form."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateExponentialLimitTests/UndeterminedLimit_ClaimsNoExactness_AndDeterminedOnesKeepTheirs#0"
@@ -48106,37 +48282,47 @@ note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:376 CubicRoots_Sati
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Symbolically#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::cubic_roots_satisfy_polynomial_symbolically"
+reason = "Ported: every Cardano root of x^3-1 expanded back into the cubic is exactly zero (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs CubicRoots_SatisfyPolynomial_Symbolically asserts every Cardano root of x^3-1 expanded back into the cubic is exactly zero. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::cubic_roots_satisfy_polynomial_symbolically."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/CubicRoots_SatisfyPolynomial_Symbolically#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::cubic_roots_satisfy_polynomial_symbolically"
+reason = "Ported: every root of x^3-x expanded back into the cubic is exactly zero (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs CubicRoots_SatisfyPolynomial_Symbolically asserts every root of x^3-x expanded back into the cubic is exactly zero. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::cubic_roots_satisfy_polynomial_symbolically."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Diff_Abs_CarriesNonzeroCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::diff_abs_carries_nonzero_condition"
+reason = "Ported: diff(abs(x),x) is a piecewise with one != branch carrying diff(abs(x),x) otherwise (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs Diff_Abs_CarriesNonzeroCondition asserts diff(abs(x),x) is a piecewise with one != branch carrying diff(abs(x),x) otherwise. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::diff_abs_carries_nonzero_condition."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Diff_Floor_IsUnevaluatedDerivative_NotZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::diff_floor_is_unevaluated_derivative_not_zero"
+reason = "Ported: diff(floor(x),x) is an unevaluated derivative, never zero (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs Diff_Floor_IsUnevaluatedDerivative_NotZero asserts diff(floor(x),x) is an unevaluated derivative, never zero. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::diff_floor_is_unevaluated_derivative_not_zero."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Diff_Piecewise_DifferentiatesBranches#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::diff_piecewise_differentiates_branches"
+reason = "Ported: piecewise branches differentiate to 2x / otherwise -2x with guards carried (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs Diff_Piecewise_DifferentiatesBranches asserts piecewise branches differentiate to 2x / otherwise -2x with guards carried. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::diff_piecewise_differentiates_branches."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/DomainPredicates_AreRealGuarded#0"
@@ -48168,16 +48354,20 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/FreeOf_DoesNotTreatPiecewiseAsConstant#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::free_of_does_not_treat_piecewise_as_constant"
+reason = "Ported: a symbol in a branch or guard is not free; y^2 stays free of x (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs FreeOf_DoesNotTreatPiecewiseAsConstant asserts a symbol in a branch or guard is not free; y^2 stays free of x. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::free_of_does_not_treat_piecewise_as_constant."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/HugeExponent_CompactForm_RoundTrips#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::huge_exponent_compact_form_round_trips"
+reason = "Ported: 15e1000000000 prints compactly and parses back to the same pair (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs HugeExponent_CompactForm_RoundTrips asserts 15e1000000000 prints compactly and parses back to the same pair. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::huge_exponent_compact_form_round_trips."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Integer_DoesNotImply_EvenOddNonZero#0"
@@ -48263,9 +48453,11 @@ note = "C# LogExp_Simplified_UnderReal: log(exp(x)) -> x under real x, unchanged
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MathIR_Deserialize_RejectsOldVersion#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::round39_residue::mathir_old_version_is_rejected_with_the_reference_message"
+reason = "Ported: MathIR version 1 is refused with ParseError and the reference message quoting the version (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs MathIR_Deserialize_RejectsOldVersion asserts MathIR version 1 is refused with ParseError and the reference message quoting the version. Rust: rust/lovelace-lang/src/round39_residue.rs lovelace-lang::round39_residue::mathir_old_version_is_rejected_with_the_reference_message. The refusal is asserted with the same code, category and verbatim message instead of a CLR FormatException type."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/MathIR_HugeExponent_LowersAndEvaluates#0"
@@ -48360,9 +48552,11 @@ note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs:240 RegisteredFunct
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_CloseRoots_AllFoundAndIndexedStably#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::rootof_close_roots_all_found_and_indexed_stably"
+reason = "Ported: x(x-1/1000)(x-1) counts 3 roots and each RootOf index isolates 0, 0.001, 1 (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs RootOf_CloseRoots_AllFoundAndIndexedStably asserts x(x-1/1000)(x-1) counts 3 roots and each RootOf index isolates 0, 0.001, 1. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::rootof_close_roots_all_found_and_indexed_stably."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_MultipleRoot_IsSquareFreeNormalized#0"
@@ -48376,9 +48570,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/RootOf_NoRealRoots_FailsExplicitly#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::rootof_no_real_roots_fails_explicitly"
+reason = "Ported: N(RootOf(x^2+1,0)) refuses explicitly instead of returning a complex value (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs RootOf_NoRealRoots_FailsExplicitly asserts N(RootOf(x^2+1,0)) refuses explicitly instead of returning a complex value. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::rootof_no_real_roots_fails_explicitly."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/Simplify_XOverX_CancelsWithCondition#0"
@@ -48428,9 +48624,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/YunSquareFree_MultiplicitiesAreCorrect#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::round39_residue::yun_square_free_multiplicities_are_correct"
+reason = "Ported: x^2(x-1) factors to (x-1) once and x twice (see note)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/KernelHardeningTests.cs YunSquareFree_MultiplicitiesAreCorrect asserts x^2(x-1) factors to (x-1) once and x twice. Rust: rust/lovelace-symbolics/src/round39_residue.rs lovelace-symbolics::round39_residue::yun_square_free_multiplicities_are_correct."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/ZeroPowZero_IsOne_DocumentedConvention#0"
