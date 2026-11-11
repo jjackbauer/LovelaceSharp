@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T20:57:06Z",
+    "generatedAtUtc":  "2026-11-11T21:34:18Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4828,
+                  "passed":  4843,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4828
+                   "tests":  4843
                },
-    "sourcesSha256":  "c7ac898219df638c41f00ad9939e8f54cace2901d670fe9f31e03b47378460ff",
+    "sourcesSha256":  "98c6f971e7ec6f41b7c48548ba359709ef60b72c6b9c6a3990bc2581d986c6a0",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -4742,6 +4742,21 @@
                                      "round35_run_batch::limit_short_form_refusals_carry_the_diagnostic",
                                      "round35_run_batch::real_process_stdout_is_one_json_document_and_print_stays_in_output",
                                      "round35_run_batch::unknown_function_text_surface_carries_the_same_answer",
+                                     "round45_final_sweep::capture_state_reports_the_array_kind",
+                                     "round45_final_sweep::diff_of_abs_symbolic_carries_the_nonzero_guard",
+                                     "round45_final_sweep::documented_example_61_matches_the_engine",
+                                     "round45_final_sweep::documented_example_70_matches_the_engine",
+                                     "round45_final_sweep::documented_example_71_matches_the_engine",
+                                     "round45_final_sweep::documented_example_73_matches_the_engine",
+                                     "round45_final_sweep::documented_example_99_matches_the_engine",
+                                     "round45_final_sweep::hessian_computes_a_symmetric_matrix",
+                                     "round45_final_sweep::integration_refusal_is_typed_structured_and_class_level",
+                                     "round45_final_sweep::inv_full_exposes_the_determinant_condition",
+                                     "round45_final_sweep::series_of_a_removable_denominator_is_unchanged",
+                                     "round45_final_sweep::solve_full_unevaluated_is_not_complete",
+                                     "round45_final_sweep::solve_quartic_reports_the_unevaluated_diagnostic",
+                                     "round45_final_sweep::truncated_quotient_at_the_budget_is_not_certified_exact",
+                                     "round45_final_sweep::zero_to_the_minus_one_is_a_typed_recoverable_error_that_names_the_base",
                                      "suite_batch::run_tokenizer_string_refusal_carries_the_parse_error_category",
                                      "suite_batch::suite_break_outside_a_loop_reports_an_error",
                                      "suite_batch::suite_divide_by_zero_reports_divide_by_zero",
