@@ -13,6 +13,7 @@
 pub mod builtins;
 pub mod complex;
 pub mod complex_math;
+pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
 pub mod numeric;
@@ -1892,3 +1893,8 @@ mod round46_token_kind;
 
 #[cfg(test)]
 mod falsification_round46;
+
+/// Round-48 fixed-point DSP parity: the ten `FixedDspTests` census rows, mirrored over the
+/// additive [`fixed_dsp`] kernels.
+#[cfg(test)]
+mod fixed_dsp_tests;

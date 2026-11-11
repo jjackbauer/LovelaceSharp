@@ -689,7 +689,7 @@ fn trig_integer_digits(value: &Real) -> i64 {
 
 /// The decimal place count the kernel must compute at for THIS argument: the request plus the
 /// integer digits the reduction's cancellation spends (never below the ambient request).
-fn trig_reduction_places(value: &Real, digits: usize) -> usize {
+pub(crate) fn trig_reduction_places(value: &Real, digits: usize) -> usize {
     let required = digits as i64 + 10 + trig_integer_digits(value);
     if required > digits as i64 {
         required as usize
@@ -700,7 +700,7 @@ fn trig_reduction_places(value: &Real, digits: usize) -> usize {
 
 /// The places pi must carry for a reduction that measures the angle: the argument's own fractional
 /// places plus the request plus the guard, or the working width.
-fn trig_pi_places(value: &Real, digits: usize, working: usize) -> usize {
+pub(crate) fn trig_pi_places(value: &Real, digits: usize, working: usize) -> usize {
     let argument_places = if value.period_len > 0 {
         0
     } else if value.exp < 0 {
@@ -716,13 +716,13 @@ fn trig_pi_places(value: &Real, digits: usize, working: usize) -> usize {
     }
 }
 
-fn truncate_toward_zero(value: &Real) -> Real {
+pub(crate) fn truncate_toward_zero(value: &Real) -> Real {
     Real::from_str(&value.to_decimal_fixed(0)).unwrap_or_else(Real::zero)
 }
 
 /// The integer part of left / right (truncated toward zero) with one integer division: the
 /// reference's WholeQuotient, the reason a ~1.6e99 turn count never narrows through an i64.
-fn whole_quotient(left: &Real, right: &Real) -> Real {
+pub(crate) fn whole_quotient(left: &Real, right: &Real) -> Real {
     if left.period_len > 0 || right.period_len > 0 {
         let quotient = left
             .div(right, Real::DEFAULT_COMPUTATION_DECIMAL_PLACES)
@@ -756,7 +756,7 @@ fn whole_quotient(left: &Real, right: &Real) -> Real {
 }
 
 /// Reduces value into [0, 2*pi) with the integer quotient.
-fn reduce_to_two_pi_whole(value: &Real, two_pi: &Real) -> Real {
+pub(crate) fn reduce_to_two_pi_whole(value: &Real, two_pi: &Real) -> Real {
     if value.cmp(&Real::zero()) != Ordering::Less && value.cmp(two_pi) == Ordering::Less {
         return value.clone();
     }
@@ -843,7 +843,7 @@ pub(crate) fn special_angle_candidate(pi: &Real, num: u64, den: u64) -> Real {
 }
 
 /// The 16 exact sin/cos pairs of the special-angle table (multiples of pi/6 and pi/4 in [0, 2*pi)).
-fn special_angle_table(places: usize) -> [(u64, u64, Real, Real); 16] {
+pub(crate) fn special_angle_table(places: usize) -> [(u64, u64, Real, Real); 16] {
     let half = Real::from_str("0.5").unwrap_or_else(Real::zero);
     let neg_half = Real::from_str("-0.5").unwrap_or_else(Real::zero);
     let neg_one = Real::from_i64(-1);
@@ -877,7 +877,7 @@ fn special_angle_table(places: usize) -> [(u64, u64, Real, Real); 16] {
 
 /// The reference's TrySpecialAngle: the exact sin/cos when x is one of the 16 table angles, else
 /// None. The comparison is against pi at the CALLER's scale, which is what makes sin(pi) exactly 0.
-fn try_special_angle(x: &Real, pi: &Real, places: usize) -> Option<(Real, Real)> {
+pub(crate) fn try_special_angle(x: &Real, pi: &Real, places: usize) -> Option<(Real, Real)> {
     let table = special_angle_table(places);
     for (num, den, sin, cos) in table {
         let angle = if num == 0 {
@@ -897,12 +897,12 @@ fn try_special_angle(x: &Real, pi: &Real, places: usize) -> Option<(Real, Real)>
 }
 
 /// |value| < 10^-(guard+1), the series' termination threshold and the cosine's cancellation test.
-fn below_decimal_guard(value: &Real, guard: usize) -> bool {
+pub(crate) fn below_decimal_guard(value: &Real, guard: usize) -> bool {
     value.abs().cmp(&ten_to_the_neg_places(guard + 1)) == Ordering::Less
 }
 
 /// sin(r) at guard places: the reference's SinTaylor (threshold 10^-(guard+1)).
-fn sin_taylor_guarded(r: &Real, guard: usize) -> Real {
+pub(crate) fn sin_taylor_guarded(r: &Real, guard: usize) -> Real {
     let x2 = r.mul(r);
     let mut term = r.clone();
     let mut sum = r.clone();
@@ -918,7 +918,7 @@ fn sin_taylor_guarded(r: &Real, guard: usize) -> Real {
 }
 
 /// cos(r) at guard places: the reference's CosTaylor (threshold 10^-(guard+1)).
-fn cos_taylor_guarded(r: &Real, guard: usize) -> Real {
+pub(crate) fn cos_taylor_guarded(r: &Real, guard: usize) -> Real {
     let x2 = r.mul(r);
     let mut term = Real::from_i64(1);
     let mut sum = Real::from_i64(1);

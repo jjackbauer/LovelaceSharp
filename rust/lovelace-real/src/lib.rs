@@ -42,10 +42,13 @@ pub fn with_display_decimal_places<T>(places: usize, f: impl FnOnce() -> T) -> T
     f()
 }
 
+pub mod fast_path;
 pub mod lreal;
 pub mod round39_api;
 pub mod transcendental;
 
+#[cfg(test)]
+mod fast_path_tests;
 #[cfg(test)]
 mod lreal_tests;
 #[cfg(test)]

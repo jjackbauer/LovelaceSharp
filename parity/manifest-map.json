@@ -25990,9 +25990,9 @@
     "reason": "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/ArgumentReduction_IntegerQuotient_MatchesTheDividedForm#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::argument_reduction_integer_quotient_matches_the_divided_form",
+    "note": "Round 48: C# RealTrigFastPathTests.ArgumentReduction_IntegerQuotient_MatchesTheDividedForm expects WholeQuotient to equal Truncate(value/twoPi) in exponent and digits; rust/lovelace-real/src/fast_path_tests.rs argument_reduction_integer_quotient_matches_the_divided_form asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/Cos_AtDefaultPrecision_StaysInteractive#0": {
     "disposition": "deferred",
@@ -26000,44 +26000,44 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/HalfOf_MatchesTheDividedForm_ForPiShapedValues#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::half_of_matches_the_divided_form_for_pi_shaped_values",
+    "note": "Round 48: C# RealTrigFastPathTests.HalfOf_MatchesTheDividedForm_ForPiShapedValues expects HalfOf(pi) and the general cases to equal public division; rust/lovelace-real/src/fast_path_tests.rs half_of_matches_the_divided_form_for_pi_shaped_values asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/NonSpecialAngles_AreNotCapturedByTheTable#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::non_special_angles_are_not_captured_by_the_table",
+    "note": "Round 48: C# RealTrigFastPathTests.NonSpecialAngles_AreNotCapturedByTheTable expects non-special and one-ulp-below angles to miss; rust/lovelace-real/src/fast_path_tests.rs non_special_angles_are_not_captured_by_the_table asserts the same misses. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/Normalize_BinaryStrip_MatchesTheDigitStringStrip#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::normalize_binary_strip_matches_the_digit_string_strip",
+    "note": "Round 48: C# RealTrigFastPathTests.Normalize_BinaryStrip_MatchesTheDigitStringStrip expects the binary strip to equal the digit-string strip on 14 literals; rust/lovelace-real/src/fast_path_tests.rs normalize_binary_strip_matches_the_digit_string_strip asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/Normalize_BinaryStrip_MatchesTheDigitStringStrip_ForLongZeroRuns#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::normalize_binary_strip_matches_the_digit_string_strip_for_long_zero_runs",
+    "note": "Round 48: C# RealTrigFastPathTests.Normalize_BinaryStrip_MatchesTheDigitStringStrip_ForLongZeroRuns expects the galloping strip to equal the digit-string strip across zeros 0..2000 and caps; rust/lovelace-real/src/fast_path_tests.rs normalize_binary_strip_matches_the_digit_string_strip_for_long_zero_runs asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/SeriesTermination_IntegerTest_MatchesTheThresholdComparison#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::series_termination_integer_test_matches_the_threshold_comparison",
+    "note": "Round 48: C# RealTrigFastPathTests.SeriesTermination_IntegerTest_MatchesTheThresholdComparison expects the guard verdict to equal Abs(term) < 10^-61; rust/lovelace-real/src/fast_path_tests.rs series_termination_integer_test_matches_the_threshold_comparison asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/SeriesTermination_IntegerTest_TracksTheCarriedPowerAcrossManyTerms#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::series_termination_integer_test_tracks_the_carried_power_across_many_terms",
+    "note": "Round 48: C# RealTrigFastPathTests.SeriesTermination_IntegerTest_TracksTheCarriedPowerAcrossManyTerms expects the carried ten-power guard to track 20+ cosine terms and end at CosTaylor(0.5,200); rust/lovelace-real/src/fast_path_tests.rs series_termination_integer_test_tracks_the_carried_power_across_many_terms asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/SpecialAngles_BuiltTheOriginalWay_StillHitTheTableExactly#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::special_angles_built_the_original_way_still_hit_the_table_exactly",
+    "note": "Round 48: C# RealTrigFastPathTests.SpecialAngles_BuiltTheOriginalWay_StillHitTheTableExactly expects all 16 public constructed table angles to hit exactly; rust/lovelace-real/src/fast_path_tests.rs special_angles_built_the_original_way_still_hit_the_table_exactly asserts the same values. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/ToInteger_BinaryShift_MatchesTheDigitPadding#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::fast_path_tests::to_integer_binary_shift_matches_the_digit_padding",
+    "note": "Round 48: C# RealTrigFastPathTests.ToInteger_BinaryShift_MatchesTheDigitPadding expects the binary magnitude shift to equal parsing digits padded with zeros; rust/lovelace-real/src/fast_path_tests.rs to_integer_binary_shift_matches_the_digit_padding asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalfWorkingPrecisionHonoursRequestedDecimalsTests/ValuesBelowTheComputationCap_StayInexact#0": {
     "disposition": "deferred",
@@ -30499,54 +30499,54 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve128_Given123SelfConvolution_MatchesDspMath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::convolve128_given_123_self_convolution_matches_dsp_math",
+    "note": "Round 48: C# FixedDspTests.Convolve128_Given123SelfConvolution_MatchesDspMath expects the same [1,4,10,12,9] over the 38-digit width; rust/lovelace-lang/src/fixed_dsp_tests.rs convolve128_given_123_self_convolution_matches_dsp_math asserts the same. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve128_GivenWideOperands_ThrowsPromoteException#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::convolve128_given_wide_operands_throws_promote_exception",
+    "note": "Round 48: C# FixedDspTests.Convolve128_GivenWideOperands_ThrowsPromoteException expects 38 nines squared to promote; rust/lovelace-lang/src/fixed_dsp_tests.rs convolve128_given_wide_operands_throws_promote_exception asserts the same Promote. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve64_Given123SelfConvolution_MatchesDspMath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::convolve64_given_123_self_convolution_matches_dsp_math",
+    "note": "Round 48: C# FixedDspTests.Convolve64_Given123SelfConvolution_MatchesDspMath expects [1,2,3] * [1,2,3] = [1,4,10,12,9] matching DspMath; rust/lovelace-lang/src/fixed_dsp_tests.rs convolve64_given_123_self_convolution_matches_dsp_math asserts the same. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve64_GivenTwoOnes_ProducesTriangle#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::convolve64_given_two_ones_produces_triangle",
+    "note": "Round 48: C# FixedDspTests.Convolve64_GivenTwoOnes_ProducesTriangle expects [1,1] * [1,1] = [1,2,1]; rust/lovelace-lang/src/fixed_dsp_tests.rs convolve64_given_two_ones_produces_triangle asserts the same fixed-point values. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve64_GivenWideOperands_ThrowsPromoteException#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::convolve64_given_wide_operands_throws_promote_exception",
+    "note": "Round 48: C# FixedDspTests.Convolve64_GivenWideOperands_ThrowsPromoteException expects 19 nines squared to promote; rust/lovelace-lang/src/fixed_dsp_tests.rs convolve64_given_wide_operands_throws_promote_exception asserts the same Promote. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/ImpulseResponse128_GivenFir_MatchesTaps#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::impulse_response128_given_fir_matches_taps",
+    "note": "Round 48: C# FixedDspTests.ImpulseResponse128_GivenFir_MatchesTaps expects the same taps over the 38-digit width; rust/lovelace-lang/src/fixed_dsp_tests.rs impulse_response128_given_fir_matches_taps asserts the same. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/ImpulseResponse64_GivenFir_MatchesTaps#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::impulse_response64_given_fir_matches_taps",
+    "note": "Round 48: C# FixedDspTests.ImpulseResponse64_GivenFir_MatchesTaps expects a=[1], b=[1,2,3], n=5 -> [1,2,3,0,0]; rust/lovelace-lang/src/fixed_dsp_tests.rs impulse_response64_given_fir_matches_taps asserts the same taps. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/MovingAverage128_GivenPowerOfTwoWindow_MatchesDspMath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::moving_average128_given_power_of_two_window_matches_dsp_math",
+    "note": "Round 48: C# FixedDspTests.MovingAverage128_GivenPowerOfTwoWindow_MatchesDspMath expects the same averages over the 38-digit width; rust/lovelace-lang/src/fixed_dsp_tests.rs moving_average128_given_power_of_two_window_matches_dsp_math asserts the same. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/MovingAverage64_GivenNonPositiveWindow_ThrowsArgumentOutOfRange#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::moving_average64_given_non_positive_window_throws_argument_out_of_range",
+    "note": "Round 48: C# FixedDspTests.MovingAverage64_GivenNonPositiveWindow_ThrowsArgumentOutOfRange expects windows 0 and -3 to throw ArgumentOutOfRangeException; rust/lovelace-lang/src/fixed_dsp_tests.rs moving_average64_given_non_positive_window_throws_argument_out_of_range asserts the same WindowNotPositive guard. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/MovingAverage64_GivenPowerOfTwoWindow_MatchesDspMath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing fixed-point Cplx64/Cplx128 Convolve/ImpulseResponse/MovingAverage API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::fixed_dsp_tests::moving_average64_given_power_of_two_window_matches_dsp_math",
+    "note": "Round 48: C# FixedDspTests.MovingAverage64_GivenPowerOfTwoWindow_MatchesDspMath expects window 4 over i%7 samples to match DspMath; rust/lovelace-lang/src/fixed_dsp_tests.rs moving_average64_given_power_of_two_window_matches_dsp_math asserts the same values. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenInt_DelegatesToLongOverload#0": {
     "disposition": "deferred",
@@ -30874,49 +30874,49 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/DiagnosticSchema_DeclaresTheSixFrozenFields#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::diagnostic_schema_declares_the_six_frozen_fields",
+    "note": "Round 48: C# RecordSchemaTests.DiagnosticSchema_DeclaresTheSixFrozenFields asserts Diagnostic declares exactly the six frozen fields and their kinds; rust/lovelace-run/src/record_schema_batch.rs diagnostic_schema_declares_the_six_frozen_fields asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/EveryProducedRecord_ConformsToItsDeclaredSchema#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::every_produced_record_conforms_to_its_declared_schema",
+    "note": "Round 48: C# RecordSchemaTests.EveryProducedRecord_ConformsToItsDeclaredSchema runs the corpus and validates every produced record against the registry; rust/lovelace-run/src/record_schema_batch.rs every_produced_record_conforms_to_its_declared_schema does the same and sees all 17 structural names. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/SingularMatrix_IsACompleteNoSolutions_CarryingAStructuredDiagnostic#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::singular_matrix_inv_full_is_a_complete_no_solutions_carrying_a_structured_diagnostic",
+    "note": "Round 48: C# RecordSchemaTests.SingularMatrix_IsACompleteNoSolutions_CarryingAStructuredDiagnostic #0 (inv_full) expects a complete NoSolutions result with one structured matrix.singular diagnostic; rust/lovelace-run/src/record_schema_batch.rs singular_matrix_inv_full_is_a_complete_no_solutions_carrying_a_structured_diagnostic asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/SingularMatrix_IsACompleteNoSolutions_CarryingAStructuredDiagnostic#1": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::singular_matrix_linsolve_full_is_a_complete_no_solutions_carrying_a_structured_diagnostic",
+    "note": "Round 48: C# RecordSchemaTests.SingularMatrix_IsACompleteNoSolutions_CarryingAStructuredDiagnostic #1 (linsolve_full) expects a complete NoSolutions result with one structured matrix.singular diagnostic; rust/lovelace-run/src/record_schema_batch.rs singular_matrix_linsolve_full_is_a_complete_no_solutions_carrying_a_structured_diagnostic asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/SolvedMatrix_IsComplete_WithAnEmptyDiagnosticsArray#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::solved_matrix_inv_full_is_complete_with_an_empty_diagnostics_array",
+    "note": "Round 48: C# RecordSchemaTests.SolvedMatrix_IsComplete_WithAnEmptyDiagnosticsArray #0 (inv_full) expects a complete Solved result with an empty diagnostics array; rust/lovelace-run/src/record_schema_batch.rs solved_matrix_inv_full_is_complete_with_an_empty_diagnostics_array asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/SolvedMatrix_IsComplete_WithAnEmptyDiagnosticsArray#1": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::solved_matrix_linsolve_full_is_complete_with_an_empty_diagnostics_array",
+    "note": "Round 48: C# RecordSchemaTests.SolvedMatrix_IsComplete_WithAnEmptyDiagnosticsArray #1 (linsolve_full) expects a complete Solved result with an empty diagnostics array; rust/lovelace-run/src/record_schema_batch.rs solved_matrix_linsolve_full_is_complete_with_an_empty_diagnostics_array asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/SolverSchemas_DeclareTheStructuralKinds#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::solver_schemas_declare_the_structural_kinds",
+    "note": "Round 48: C# RecordSchemaTests.SolverSchemas_DeclareTheStructuralKinds asserts the solver schemas' field names and kinds; rust/lovelace-run/src/record_schema_batch.rs solver_schemas_declare_the_structural_kinds asserts the same registry rows. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/UnknownRecordType_IsReportedAsUnknown_NotAsConforming#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::unknown_record_type_is_reported_as_unknown_not_as_conforming",
+    "note": "Round 48: C# RecordSchemaTests.UnknownRecordType_IsReportedAsUnknown_NotAsConforming expects an unregistered type to be unknown, not conforming; rust/lovelace-run/src/record_schema_batch.rs unknown_record_type_is_reported_as_unknown_not_as_conforming asserts the same. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/Validate_ReportsMissingAndUndeclaredFields#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordSchemas.For/Validate record-schema registry; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::record_schema_batch::validate_reports_missing_and_undeclared_fields",
+    "note": "Round 48: C# RecordSchemaTests.Validate_ReportsMissingAndUndeclaredFields checks Validate's missing-declared and undeclared-field violations; rust/lovelace-run/src/record_schema_batch.rs validate_reports_missing_and_undeclared_fields asserts the same wording and order. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordValueTests/MemberAccess_OnNonRecord_ExplainsRequirement#0": {
     "disposition": "deferred",

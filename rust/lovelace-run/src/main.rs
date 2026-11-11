@@ -1081,6 +1081,11 @@ fn decode_utf32(bytes: &[u8], little_endian: bool) -> Result<String, String> {
     Ok(text)
 }
 
+// The record-schema registry is an additive surface: the wire envelope is unchanged, so only the
+// record_schema_batch ports consume it today. Kept outside cfg(test) so it is production code.
+#[allow(dead_code)]
+mod schemas;
+
 #[cfg(test)]
 mod parity_batch;
 
@@ -1134,6 +1139,9 @@ mod round35_run_batch;
 
 #[cfg(test)]
 mod round45_final_sweep;
+
+#[cfg(test)]
+mod record_schema_batch;
 
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
