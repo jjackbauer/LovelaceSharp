@@ -13,14 +13,14 @@ census case resolves to a Rust test that exists in the measured inventory and wh
 | Lovelace.Integer.Tests | 148 | 114 | 34 | 0 | 77.03 % | port |
 | Lovelace.Knowledge.Tests | 28 | 0 | 0 | 28 | 0.00 % | absent |
 | Lovelace.Natural.Tests | 195 | 131 | 64 | 0 | 67.18 % | port |
-| Lovelace.Real.Tests | 2537 | 2358 | 179 | 0 | 92.94 % | port |
+| Lovelace.Real.Tests | 2537 | 2461 | 76 | 0 | 97.00 % | port |
 | Lovelace.Representation.Tests | 91 | 0 | 91 | 0 | 0.00 % | consolidated |
-| Lovelace.Run.Tests | 751 | 684 | 67 | 0 | 91.08 % | partial |
+| Lovelace.Run.Tests | 751 | 718 | 33 | 0 | 95.61 % | partial |
 | Lovelace.Studio.Tests | 22 | 0 | 0 | 22 | 0.00 % | partial |
-| Lovelace.Suite.Tests | 929 | 794 | 135 | 0 | 85.47 % | partial |
-| Lovelace.Symbolics.Tests | 1226 | 725 | 501 | 0 | 59.14 % | partial |
+| Lovelace.Suite.Tests | 929 | 796 | 133 | 0 | 85.68 % | partial |
+| Lovelace.Symbolics.Tests | 1226 | 726 | 500 | 0 | 59.22 % | partial |
 | precbench.Tests | 13 | 0 | 13 | 0 | 0.00 % | — |
-| **TOTAL** | **6209** | **4975** | **1116** | **118** | **80.13 %** | |
+| **TOTAL** | **6209** | **5115** | **976** | **118** | **82.38 %** | |
 
 Proposed exclusions awaiting approval: parity/proposed-exclusions.toml (118 cases in four
 projects with no Rust crate). They are NOT counted above: an exclusion the user has not

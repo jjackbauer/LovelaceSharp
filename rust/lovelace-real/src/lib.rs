@@ -23,6 +23,8 @@ mod lreal_tests;
 mod round26_trig_parity;
 #[cfg(test)]
 mod round29_real_batch;
+#[cfg(test)]
+mod round30_real_batch;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///
@@ -7437,6 +7439,101 @@ mod real_parity_batch {
         let one_over_twenty_one = third.mul(&r("1").div(&r("7"), 1000).unwrap());
         assert_eq!(one_over_twenty_one.to_string(), "0.(047619)");
         assert_eq!(one_over_twenty_one.to_rational(), (Int::from_i64(1), Nat::from_u64(21)));
+    }
+
+    // RealAddPeriodicExactTests.cs:91,126 — the nine add and nine subtract corpus rows at
+    // q = 19, s = 17 (census #582-#584, #606-#608, #630-#632). The exact-fraction fix makes each
+    // row denote the exact rational AND compare equal to the Real built from that fraction; the
+    // same two assertions the generated corpus rows already carry.
+
+    #[test]
+    fn add_p1_q19_r1_s17() {
+        check_add_row(1, 19, 1, 17);
+    }
+
+    #[test]
+    fn add_p1_q19_rm1_s17() {
+        check_add_row(1, 19, -1, 17);
+    }
+
+    #[test]
+    fn add_p1_q19_r5_s17() {
+        check_add_row(1, 19, 5, 17);
+    }
+
+    #[test]
+    fn add_p2_q19_r1_s17() {
+        check_add_row(2, 19, 1, 17);
+    }
+
+    #[test]
+    fn add_p2_q19_rm1_s17() {
+        check_add_row(2, 19, -1, 17);
+    }
+
+    #[test]
+    fn add_p2_q19_r5_s17() {
+        check_add_row(2, 19, 5, 17);
+    }
+
+    #[test]
+    fn add_pm5_q19_r1_s17() {
+        check_add_row(-5, 19, 1, 17);
+    }
+
+    #[test]
+    fn add_pm5_q19_rm1_s17() {
+        check_add_row(-5, 19, -1, 17);
+    }
+
+    #[test]
+    fn add_pm5_q19_r5_s17() {
+        check_add_row(-5, 19, 5, 17);
+    }
+
+    #[test]
+    fn sub_p1_q19_r1_s17() {
+        check_sub_row(1, 19, 1, 17);
+    }
+
+    #[test]
+    fn sub_p1_q19_rm1_s17() {
+        check_sub_row(1, 19, -1, 17);
+    }
+
+    #[test]
+    fn sub_p1_q19_r5_s17() {
+        check_sub_row(1, 19, 5, 17);
+    }
+
+    #[test]
+    fn sub_p2_q19_r1_s17() {
+        check_sub_row(2, 19, 1, 17);
+    }
+
+    #[test]
+    fn sub_p2_q19_rm1_s17() {
+        check_sub_row(2, 19, -1, 17);
+    }
+
+    #[test]
+    fn sub_p2_q19_r5_s17() {
+        check_sub_row(2, 19, 5, 17);
+    }
+
+    #[test]
+    fn sub_pm5_q19_r1_s17() {
+        check_sub_row(-5, 19, 1, 17);
+    }
+
+    #[test]
+    fn sub_pm5_q19_rm1_s17() {
+        check_sub_row(-5, 19, -1, 17);
+    }
+
+    #[test]
+    fn sub_pm5_q19_r5_s17() {
+        check_sub_row(-5, 19, 5, 17);
     }
 
     #[test]

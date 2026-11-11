@@ -37,6 +37,10 @@ const ROUND_TRIP: &[&str] = &[
     // the negative/rational power bases, whose display now re-parses to the same canonical form
     "(-x)^(1/2)", "(-1)^x", "(-2)^x", "(-1/2)^x", "(-1.5)^x", "(-3)^(-x)",
     "(1/2)^x", "(2/3)^x", "(-3/2)^x", "(1/2)*x + 1/3",
+    // nested subtraction and flat denominators: the display divided once per denominator factor
+    // and kept the subtrahend's sum delimited, so these now re-parse to the same value
+    "x - (y - a)", "a - (x + y)",
+    "(x/y)/z", "x/y/z", "x/y/z/w", "(x/y)/(z/w)",
 ];
 
 /// The sources whose Rust display is minimal: no doubled parenthesis pair.
@@ -174,6 +178,45 @@ fn assert_delimited_base(rendering: &str, expected_base: &str) {
     assert_eq!(basis, expected_base);
     assert!(basis.starts_with('('), "the base {basis} is not a delimited group");
     assert_eq!(matching_close(basis, 0), Some(basis.len() - 1), "the group IS the whole base");
+}
+
+/// ReportedCase_FactoredSquare_HasOnePair — the factoriser emits -(x + 1)^2, one pair around the
+/// sum and none around the negative coefficient.
+#[test]
+fn pretty_reported_case_factored_square_has_one_pair() {
+    assert_eq!(build_display("factor(-x^2 - 2*x - 1)"), "-(x + 1)^2");
+}
+
+/// ReportedCase_FlatDenominators_DivideOncePerFactor — the number of divisions in the rendering
+/// equals the number of denominator factors in the value: x/(y*z) is ONE divisor (the product), so
+/// it keeps its single slash and its pair; two separate denominator factors divide twice.
+#[test]
+fn pretty_reported_case_flat_denominators_divide_once_per_factor() {
+    assert_eq!(build_display("(x/y)/z"), "x/y/z");
+    assert_eq!(build_display("x/y/z"), "x/y/z");
+    assert_eq!(build_display("x/y/z/w"), "x/w/y/z");
+    assert_eq!(build_display("x/(y*z)"), "x/(y*z)");
+    assert_eq!(build_display("(x/y)/(z/w)"), "x/y/(z/w)");
+}
+
+/// LatexPrinterTests.GroupingParity_LatexAndPrettyHaveTheSameStructuralNesting for the eight rows
+/// the pretty grouping fix unblocked: both renderings carry the same structural nesting, which for
+/// these precedence-sensitive shapes is pinned by the exact texts the reference emits.
+#[test]
+fn latex_grouping_rows_carry_the_same_nesting_as_pretty() {
+    for (source, pretty, latex) in [
+        ("x - (y - a)", "x - (y - a)", "x - \\left(y - a\\right)"),
+        ("a - (x + y)", "a - (x + y)", "a - \\left(x + y\\right)"),
+        ("(x/y)/z", "x/y/z", "\\frac{\\frac{x}{y}}{z}"),
+        ("x/y/z", "x/y/z", "\\frac{\\frac{x}{y}}{z}"),
+        ("x/y/z/w", "x/w/y/z", "\\frac{\\frac{\\frac{x}{w}}{y}}{z}"),
+        ("(x/y)/(z/w)", "x/y/(z/w)", "\\frac{\\frac{x}{y}}{\\frac{z}{w}}"),
+        ("(-x)^(1/2)", "sqrt(-x)", "\\sqrt{-x}"),
+        ("x^(-1/2)", "1/sqrt(x)", "\\frac{1}{\\sqrt{x}}"),
+    ] {
+        assert_eq!(build_display(source), pretty, "{source}: pretty");
+        assert_eq!(build_display(&format!("latex({source})")), latex, "{source}: latex");
+    }
 }
 
 #[test]

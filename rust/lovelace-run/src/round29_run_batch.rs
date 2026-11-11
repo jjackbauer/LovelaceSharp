@@ -155,6 +155,7 @@ fn inspect(value_source: &str) -> RunResult {
 fn inspection_answers_exactness_as_a_boolean_for_every_numeric_kind() {
     for (source, expected, kind) in [
         ("sqrt(2)", "false", "Real"),
+        ("(-4)^(1/2)", "true", "Symbolic"),
         ("dft([1, 2, 3])[0]", "true", "Complex"),
         ("dft([1, 2, 3])[1]", "false", "Complex"),
     ] {

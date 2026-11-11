@@ -1051,6 +1051,9 @@ mod round28_run_batch;
 #[cfg(test)]
 mod round29_run_batch;
 
+#[cfg(test)]
+mod round30_run_batch;
+
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
     let text = format!("{:.3}", ms);

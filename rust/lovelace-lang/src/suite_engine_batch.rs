@@ -513,3 +513,15 @@ fn factorial_given_real_factorial_throws_descriptive_error() {
     assert_eq!(err.code, "InvalidOperation");
     assert!(err.message.contains("Real"), "message does not name Real: {}", err.message);
 }
+
+// ---------------------------------------------------------------------------
+// DspPluginTests.Dft_GivenLength_MatchesPaddedSignal
+// ---------------------------------------------------------------------------
+
+/// DspPluginTests.cs:133 asserts dft([1, 2, 3], 4) renders exactly like dft([1, 2, 3, 0]).
+/// The round-29 integer-argument fix made the optional length pad the signal, so the two calls
+/// are the same transform now.
+#[test]
+fn dft_given_length_matches_padded_signal() {
+    assert_eq!(typed("dft([1, 2, 3], 4)"), typed("dft([1, 2, 3, 0])"));
+}

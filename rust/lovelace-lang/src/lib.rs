@@ -6,6 +6,7 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod builtins;
+pub mod help;
 pub mod complex;
 pub mod complex_math;
 pub mod numeric;
@@ -1735,4 +1736,7 @@ mod round27_batch;
 
 #[cfg(test)]
 mod round28_batch;
+
+#[cfg(test)]
+mod round30_batch;
 mod symbolics_round23;

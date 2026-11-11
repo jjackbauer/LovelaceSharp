@@ -257,7 +257,7 @@ macro_rules! matrix_rows {
         #[test]
         fn every_passing_matrix_row_is_exercised() {
             let count: usize = MATRIX.iter().map(|(_, _, _, cells)| cells.len()).sum();
-            assert_eq!(count, 260, "the matrix table lost cells");
+            assert_eq!(count, 272, "the matrix table lost cells");
         }
     };
 }
@@ -431,6 +431,10 @@ const MATRIX: &[(&str, &str, &str, &[(&str, i8)])] = &[
     ]),
     ("concat", "axis", "concat([1, 2], [3, 4], {0})", &[
         ("0", 1),
+        ("2.5", 0),
+        ("0.5", 0),
+        ("2.9999", 0),
+        ("(5/2)", 0),
         ("2.0", -1),
         ("0", -1),
         ("-1", -1),
@@ -530,6 +534,10 @@ const MATRIX: &[(&str, &str, &str, &[(&str, i8)])] = &[
     ]),
     ("dft", "n", "dft([1, 2, 3, 4], {0})", &[
         ("4", 1),
+        ("2.5", 0),
+        ("0.5", 0),
+        ("2.9999", 0),
+        ("(5/2)", 0),
         ("2.0", -1),
         ("0", -1),
         ("-1", -1),
@@ -615,6 +623,10 @@ const MATRIX: &[(&str, &str, &str, &[(&str, i8)])] = &[
         ("1", 1),
         ("2", 1),
         ("3", 1),
+        ("2.5", 0),
+        ("0.5", 0),
+        ("2.9999", 0),
+        ("(5/2)", 0),
         ("2.0", -1),
         ("0", -1),
         ("-1", -1),

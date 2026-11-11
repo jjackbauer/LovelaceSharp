@@ -448,6 +448,18 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
             return Ok(v);
         }
     }
+    // The reference's ONE exact complex fallback in the numeric power path (NumericOps.PowerReal):
+    // an exact negative base under the PRINCIPAL square root has the closed form
+    // (-a)^(1/2) = i*sqrt(a), so it is routed to the kernel's Power constructor. Every other
+    // non-integer exponent keeps the typed refusal below.
+    if let (Some(b), Some(e)) = (as_expr(base), as_expr(exp)) {
+        if matches!(&b, Sym::Num(n) if n.is_negative())
+            && matches!(&e, Sym::Num(n)
+                if n.numerator().to_decimal() == "1" && n.denominator().to_decimal() == "2")
+        {
+            return Ok(Value::Symbolic(Sym::pow(b, e)));
+        }
+    }
     let e = as_int(exp).ok_or_else(|| {
         // A non-integer exponent is not a domain failure: the runtime does not offer the
         // operation, and the caller can rewrite it with an exact exponent.
@@ -1238,9 +1250,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             if args.is_empty() {
                 return Err(LangError::plain("symbol needs a name."));
             }
+            // The name is a Text value; coercing a number to its display spelling invented a
+            // symbol out of a caller's shape mistake (symbol(1) answered 1), so a non-Text
+            // argument is the documented argument error.
             let name = match &args[0] {
                 Value::Text(t) => t.clone(),
-                other => other.display(),
+                other => {
+                    return Err(shape_failure("symbol", 1, "a text name such as \"x\"", other))
+                }
             };
             Ok(Value::Symbolic(Sym::sym(&name)))
         }
@@ -1261,16 +1278,18 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "jacobian" => {
             arity(2)?;
-            let funcs = flatten_values(&args[0])?;
-            let vars = flatten_values(&args[1])?;
+            const FUNCS: &str = "a list of expressions, e.g. [x*y, x + y]";
+            const VARS: &str = "a list of parameter symbols, e.g. [x, y]";
+            let funcs = argument_list(name, 1, FUNCS, &args[0])?;
+            let vars = argument_list(name, 2, VARS, &args[1])?;
             let mut rows: Vec<Value> = Vec::new();
             for f in &funcs {
-                let fe = as_expr(f).ok_or_else(|| LangError::plain("jacobian needs expressions."))?;
+                let fe = as_expr(f).ok_or_else(|| shape_failure(name, 1, FUNCS, &args[0]))?;
                 let mut row: Vec<Value> = Vec::new();
                 for v in &vars {
                     let name = match v {
                         Value::Symbolic(Sym::Sym(n)) => n.clone(),
-                        _ => return Err(LangError::plain("jacobian needs variables.")),
+                        _ => return Err(shape_failure("jacobian", 2, VARS, &args[1])),
                     };
                     row.push(Value::Symbolic(lovelace_symbolics::diff(&fe, &name)));
                 }
@@ -1995,7 +2014,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                             lovelace_symbolics::SolveOutcome::RootExpressions(exprs) => {
                                 let real: Vec<_> = exprs
                                     .into_iter()
-                                    .filter(|e| !e.contains_sym("i"))
+                                    .filter(|e| !e.has_imaginary_unit())
                                     .collect();
                                 if real.is_empty() {
                                     lovelace_symbolics::SolveOutcome::NoRealSolutions
@@ -2142,7 +2161,10 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             }
             // A relation folded to a Boolean is still an equation: false is a contradiction
             // (the complete empty set), true imposes nothing and is carried as 0.
-            let raw_equations = flatten_values(&args[0])?;
+            const EQUATIONS: &str =
+                "a list of equations, e.g. [x + y == 2, x - y == 0]";
+            const VARS: &str = "a list of parameter symbols, e.g. [x, y]";
+            let raw_equations = argument_list(name, 1, EQUATIONS, &args[0])?;
             let mut unsatisfiable = false;
             let mut identity_only = true;
             let equations: Vec<Sym> = raw_equations
@@ -2157,7 +2179,7 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     other => {
                         identity_only = false;
                         let e = as_expr(other)
-                            .ok_or_else(|| LangError::plain("solve_system needs equations."))?;
+                            .ok_or_else(|| shape_failure(name, 1, EQUATIONS, &args[0]))?;
                         Ok(match e {
                             Sym::Rel(lovelace_symbolics::RelOp::Eq, l, r) => Sym::sub(*l, *r),
                             other => other,
@@ -2165,11 +2187,11 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     }
                 })
                 .collect::<Result<_, LangError>>()?;
-            let mutation_vars: Vec<String> = flatten_values(&args[1])?
+            let mutation_vars: Vec<String> = argument_list(name, 2, VARS, &args[1])?
                 .iter()
                 .map(|v| match v {
                     Value::Symbolic(Sym::Sym(n)) => Ok(n.clone()),
-                    _ => Err(LangError::plain("solve_system needs variable symbols.")),
+                    _ => Err(shape_failure(name, 2, VARS, &args[1])),
                 })
                 .collect::<Result<_, LangError>>()?;
             if unsatisfiable {
@@ -2443,8 +2465,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "assume_real" | "assume_integer" => {
             arity(1)?;
-            let symbolic = as_expr(&args[0])
-                .ok_or_else(|| LangError::plain(format!("{name} needs a symbolic variable.")))?;
+            // A Text name resolves to the symbol of that name, exactly as the reference's
+            // assume_real("y") does; the variable itself is the argument's value.
+            let symbolic = match &args[0] {
+                Value::Text(name) => Sym::sym(name),
+                other => as_expr(other)
+                    .ok_or_else(|| LangError::plain(format!("{name} needs a symbolic variable.")))?,
+            };
             if let Sym::Sym(variable) = &symbolic {
                 let domain = if name == "assume_real" { "real" } else { "integer" };
                 engine.record_domain_assumption(variable, domain);
@@ -2533,7 +2560,9 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                     engine.record_assumption_atom(rel);
                     Ok(Value::Symbolic(rel.clone()))
                 }
-                other => Ok(other.clone()),
+                // A wrong-SHAPED argument is the documented argument error, never a silent
+                // accept: assume(1) asserts nothing and used to answer 1 as if it had.
+                other => Err(shape_failure("assume", 1, "a relation such as x > 5", other)),
             }
         }
         "pi" | "e" => {
@@ -2735,11 +2764,41 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             Ok(Value::Vector(flat))
         }
         "transpose" => {
-            arity(1)?;
+            // The descriptor declares the optional perm, so the accepted count is 1..=2; the first
+            // position is guarded for SHAPE before the perm is read (transpose(1, 1) names
+            // argument 1 rather than an arity or a perm failure).
+            if args.is_empty() || args.len() > 2 {
+                let (message, signature) = arity_failure(name, args.len());
+                let mut error = LangError::coded(message, pos, "InvalidArgument", "TypeMismatch");
+                if let Some(signature) = signature {
+                    error = error.with_signature(signature);
+                }
+                return Err(error);
+            }
             match &args[0] {
-                Value::Array(a) => Ok(Value::Array(a.transpose())),
+                Value::Array(a) => {
+                    if args.len() == 2 {
+                        const PERM: &str = "a list of axis positions";
+                        let positions = argument_list(name, 2, PERM, &args[1])?;
+                        let mut axes: Vec<usize> = Vec::with_capacity(positions.len());
+                        for position in &positions {
+                            let text = as_int(position)
+                                .map(|i| i.to_decimal())
+                                .ok_or_else(|| shape_failure(name, 2, PERM, &args[1]))?;
+                            let axis = text.parse::<usize>().map_err(|_| {
+                                shape_failure(name, 2, PERM, &args[1])
+                            })?;
+                            axes.push(axis);
+                        }
+                        return a
+                            .transpose_axes(&axes)
+                            .map(Value::Array)
+                            .map_err(|err| LangError::plain(err.to_string()));
+                    }
+                    Ok(Value::Array(a.transpose()))
+                }
                 Value::Vector(_) => Ok(args[0].clone()),
-                other => Err(LangError::plain(format!("transpose needs an array, but got '{}'.", other.kind_name()))),
+                other => Err(shape_failure(name, 1, "an array or vector", other)),
             }
         }
         "squeeze" => {
@@ -2822,6 +2881,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
         }
         "matmul" => {
             arity(2)?;
+            // Both positions are array/vector operands; a scalar is the documented argument-shape
+            // refusal naming the position, not the internal "Expected a matrix" sentence.
+            if !matches!(&args[0], Value::Vector(_) | Value::Array(_)) {
+                return Err(shape_failure(name, 1, "an array or vector", &args[0]));
+            }
+            if !matches!(&args[1], Value::Vector(_) | Value::Array(_)) {
+                return Err(shape_failure(name, 2, "an array or vector", &args[1]));
+            }
             matmul(&args[0], &args[1])
         }
         "det" => {
@@ -3137,6 +3204,23 @@ fn arity_failure(name: &str, actual: usize) -> (String, Option<ErrorSignature>) 
     let mut signature = declared_signature(name).unwrap_or_default();
     signature.actual = Some(actual);
     (format!("{name}(): expected {expected}; got {actual}."), Some(signature))
+}
+
+/// Reads a position that must be a LIST (a vector or an array). A scalar where a list is required
+/// is the documented argument-shape refusal, not a fallback that treats the scalar as a one-element
+/// list: solve_system(x + y == 2, x - y == 0) is the call form a caller reaches for, and the answer
+/// names the position and the shape it expected.
+fn argument_list(
+    name: &str,
+    position: usize,
+    expected: &str,
+    value: &Value,
+) -> Result<Vec<Value>, LangError> {
+    match value {
+        Value::Vector(items) => Ok(items.clone()),
+        Value::Array(array) => Ok(array.iter().cloned().collect()),
+        other => Err(shape_failure(name, position, expected, other)),
+    }
 }
 
 /// A call-site SHAPE refusal: the 1-based argument position, what it requires and what arrived,
@@ -5450,11 +5534,17 @@ fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
     };
     let empty = Value::Void;
     if ser.is_empty() {
-        let diag = diagnostic(
-            "limit.unevaluated",
-            "UnsupportedOperation",
-            "coefficient does not evaluate at the point",
-        );
+        // The reference distinguishes the two reasons a series cannot decide the limit: a leading
+        // coefficient that is still symbolic (a/x at 0), and a coefficient that exists but does not
+        // evaluate at the point (sin(x) at infinity).
+        let mut symbols = Vec::new();
+        collect_all_symbols(f, &mut symbols);
+        let message = if symbols.iter().any(|symbol| symbol != var) {
+            "leading coefficient is symbolic"
+        } else {
+            "coefficient does not evaluate at the point"
+        };
+        let diag = diagnostic("limit.unevaluated", "UnsupportedOperation", message);
         return limit_record(
             "Unevaluated", empty.clone(), empty.clone(), empty.clone(), Vec::new(), empty.clone(), Vec::new(), Vec::new(), Value::Text("None".to_string()), vec![diag],
         );
@@ -6437,7 +6527,7 @@ fn power_branch_outcome(
             SolveOutcome::Partial(roots) if roots.is_empty() => SolveOutcome::NoRealSolutions,
             SolveOutcome::Unevaluated => SolveOutcome::NoRealSolutions,
             SolveOutcome::RootExpressions(exprs) => {
-                let real: Vec<_> = exprs.into_iter().filter(|e| !e.contains_sym("i")).collect();
+                let real: Vec<_> = exprs.into_iter().filter(|e| !e.has_imaginary_unit()).collect();
                 if real.is_empty() {
                     SolveOutcome::NoRealSolutions
                 } else {
@@ -6521,13 +6611,14 @@ fn no_solutions_under_assumptions(var: &str, domain: &str) -> Value {
 /// factors are not complex (the shapes `i`, `-i` and `i*sqrt(2)` take).
 fn provably_non_real(value: &Sym) -> bool {
     fn is_i(e: &Sym) -> bool {
-        matches!(e, Sym::Sym(name) if name == "i")
+        matches!(e, Sym::Sym(name) if name == "i") || matches!(e, Sym::Fun(name, args) if name == "i" && args.is_empty())
     }
     match value {
         Sym::Sym(name) => name == "i",
+        Sym::Fun(name, args) => name == "i" && args.is_empty(),
         Sym::Mul(factors) => {
             factors.iter().filter(|factor| is_i(factor)).count() == 1
-                && factors.iter().filter(|factor| factor.contains_sym("i")).count() == 1
+                && factors.iter().filter(|factor| factor.has_imaginary_unit()).count() == 1
         }
         _ => false,
     }
@@ -6815,7 +6906,7 @@ fn solve_result(
                     // only from rationals and symbols is Exact.
                     let algebraic = e.contains_fun("sqrt")
                         || e.contains_fun("rootof")
-                        || e.contains_sym("i")
+                        || e.has_imaginary_unit()
                         // A radical that is NOT a sqrt is still algebraic: Cardano's cube roots
                         // (2^(1/3)) carry a non-integer power, not a sqrt call. The trigonometric
                         // cubic branch (2*cos(...acos...)) is algebraic too; a plain elementary

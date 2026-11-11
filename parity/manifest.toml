@@ -5509,590 +5509,758 @@ note = "C#: Lovelace.Natural.Tests/NaturalSubtractTests.cs:66 asserts 0 - 1 is r
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:39 Lovelace.Real.Tests.LReal128Tests.Add_GivenPair_MatchesReal(\"1\", \"2\") compares (LReal128.Parse(a) + LReal128.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:39 Lovelace.Real.Tests.LReal128Tests.Add_GivenPair_MatchesReal(\"0.1\", \"0.2\") compares (LReal128.Parse(a) + LReal128.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:39 Lovelace.Real.Tests.LReal128Tests.Add_GivenPair_MatchesReal(\"3.14\", \"2.71\") compares (LReal128.Parse(a) + LReal128.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:39 Lovelace.Real.Tests.LReal128Tests.Add_GivenPair_MatchesReal(\"9999999999999999999\", \"0.000000001\") compares (LReal128.Parse(a) + LReal128.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_Periodic_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_periodic_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:59 Lovelace.Real.Tests.LReal128Tests.Add_Periodic_MatchesReal() repeats the fact twice: 1/3+1/3 and 1/3+1/6 render like Real. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_periodic_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Add_Tenths_IsExact#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_add_tenths_is_exact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:74 Lovelace.Real.Tests.LReal128Tests.Add_Tenths_IsExact() requires 0.1 + 0.2 to render exactly \"0.3\". Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_add_tenths_is_exact drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:55 Lovelace.Real.Tests.LReal128Tests.Divide_GivenPair_MatchesReal(\"1\", \"3\") compares (LReal128.Parse(a) / LReal128.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:55 Lovelace.Real.Tests.LReal128Tests.Divide_GivenPair_MatchesReal(\"1\", \"7\") compares (LReal128.Parse(a) / LReal128.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:55 Lovelace.Real.Tests.LReal128Tests.Divide_GivenPair_MatchesReal(\"1\", \"29\") compares (LReal128.Parse(a) / LReal128.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:55 Lovelace.Real.Tests.LReal128Tests.Divide_GivenPair_MatchesReal(\"1\", \"17\") compares (LReal128.Parse(a) / LReal128.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_GivenPair_MatchesReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:55 Lovelace.Real.Tests.LReal128Tests.Divide_GivenPair_MatchesReal(\"100\", \"13\") compares (LReal128.Parse(a) / LReal128.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Divide_LongPeriod_Promotes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_divide_long_period_promotes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:70 Lovelace.Real.Tests.LReal128Tests.Divide_LongPeriod_Promotes() requires 1/97 (96-digit period > 38) to throw LRealPromoteException. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_divide_long_period_promotes drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Multiply_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:46 Lovelace.Real.Tests.LReal128Tests.Multiply_GivenPair_MatchesReal(\"2.345678901234567\", \"1.234567890123456\") compares (LReal128.Parse(a) * LReal128.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Multiply_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:46 Lovelace.Real.Tests.LReal128Tests.Multiply_GivenPair_MatchesReal(\"0.1\", \"0.2\") compares (LReal128.Parse(a) * LReal128.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Multiply_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:46 Lovelace.Real.Tests.LReal128Tests.Multiply_GivenPair_MatchesReal(\"1234567890123456789\", \"9876543210987654321\") compares (LReal128.Parse(a) * LReal128.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Multiply_Overflow_Promotes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_multiply_overflow_promotes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:66 Lovelace.Real.Tests.LReal128Tests.Multiply_Overflow_Promotes() requires 30-digit * 30-digit to throw LRealPromoteException instead of rounding. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_multiply_overflow_promotes drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"1\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"-42\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"3.14\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.5\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#5"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.10\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#6"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"12345678901234567890123456789012345678\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#7"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.(3)\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#8"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.1(6)\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal128Tests/Parse_GivenValue_RoundTripsLikeReal#9"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal128Tests.cs:31 Lovelace.Real.Tests.LReal128Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.(142857)\") compares LReal128.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal128_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"1\", \"2\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"0.5\", \"0.25\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"0.1\", \"0.2\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"1.5\", \"2.25\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"10\", \"100\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_GivenPair_MatchesReal#5"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:67 Lovelace.Real.Tests.LReal64Tests.Add_GivenPair_MatchesReal(\"3.14\", \"2.71\") compares (LReal64.Parse(a) + LReal64.Parse(b)).ToString() with Real.Parse(a) + Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_Overflow_Promotes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_overflow_promotes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:125 Lovelace.Real.Tests.LReal64Tests.Add_Overflow_Promotes() requires 19-digit + fraction to throw LRealPromoteException instead of rounding. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_overflow_promotes drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_Periodic_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_periodic_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:103 Lovelace.Real.Tests.LReal64Tests.Add_Periodic_MatchesReal() repeats the fact three times: 1/3+1/3, 1/3+1/6 and 1/3*2 all render like Real. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_periodic_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Add_Tenths_IsExact#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_add_tenths_is_exact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:113 Lovelace.Real.Tests.LReal64Tests.Add_Tenths_IsExact() requires 0.1 + 0.2 to render exactly \"0.3\". Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_add_tenths_is_exact drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Compare_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_compare_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:146 Lovelace.Real.Tests.LReal64Tests.Compare_MatchesReal(\"0.1\", \"0.2\") requires sign(CompareTo) equality with Real for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_compare_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Compare_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_compare_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:146 Lovelace.Real.Tests.LReal64Tests.Compare_MatchesReal(\"0.(3)\", \"0.33333\") requires sign(CompareTo) equality with Real for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_compare_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Compare_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_compare_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:146 Lovelace.Real.Tests.LReal64Tests.Compare_MatchesReal(\"0.1(6)\", \"0.16666\") requires sign(CompareTo) equality with Real for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_compare_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Compare_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_compare_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:146 Lovelace.Real.Tests.LReal64Tests.Compare_MatchesReal(\"-1\", \"1\") requires sign(CompareTo) equality with Real for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_compare_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Compare_MatchesReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_compare_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:146 Lovelace.Real.Tests.LReal64Tests.Compare_MatchesReal(\"3.14\", \"3.14159\") requires sign(CompareTo) equality with Real for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_compare_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"1\", \"3\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"1\", \"7\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#10"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"100\", \"13\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"1\", \"6\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"1\", \"9\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"2\", \"3\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#5"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"3\", \"7\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#6"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"7\", \"12\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#7"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"10\", \"11\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#8"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"1\", \"17\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_GivenPair_MatchesReal#9"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:99 Lovelace.Real.Tests.LReal64Tests.Divide_GivenPair_MatchesReal(\"3\", \"16\") compares (LReal64.Parse(a) / LReal64.Parse(b)).ToString() with Real.Parse(a) / Real.Parse(b) at 1000 computation places for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Divide_LongPeriod_Promotes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_divide_long_period_promotes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:122 Lovelace.Real.Tests.LReal64Tests.Divide_LongPeriod_Promotes() requires 1/97 (96-digit period) to throw LRealPromoteException instead of rounding. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_divide_long_period_promotes drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Multiply_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:84 Lovelace.Real.Tests.LReal64Tests.Multiply_GivenPair_MatchesReal(\"2\", \"3\") compares (LReal64.Parse(a) * LReal64.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Multiply_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:84 Lovelace.Real.Tests.LReal64Tests.Multiply_GivenPair_MatchesReal(\"0.1\", \"0.2\") compares (LReal64.Parse(a) * LReal64.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Multiply_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:84 Lovelace.Real.Tests.LReal64Tests.Multiply_GivenPair_MatchesReal(\"1.5\", \"2.0\") compares (LReal64.Parse(a) * LReal64.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Multiply_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_multiply_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:84 Lovelace.Real.Tests.LReal64Tests.Multiply_GivenPair_MatchesReal(\"12345678\", \"87654321\") compares (LReal64.Parse(a) * LReal64.Parse(b)).ToString() with Real.Parse(a) * Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_multiply_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Multiply_Overflow_Promotes#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_multiply_overflow_promotes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:129 Lovelace.Real.Tests.LReal64Tests.Multiply_Overflow_Promotes() requires 16-digit * 16-digit to throw LRealPromoteException instead of rounding. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_multiply_overflow_promotes drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"1\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#10"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"100\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#11"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"100.0\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#12"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.10\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#13"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"1234567890123456789\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#14"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.1234567890123456789\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#15"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"-0.0001\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#16"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.(3)\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#17"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.1(6)\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#18"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.(142857)\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#19"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"1.(3)\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"-1\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#20"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.(9)\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"42\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"-42\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#5"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"3.14\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#6"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.5\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#7"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"0.05\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#8"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"1.5\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_GivenValue_RoundTripsLikeReal#9"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:53 Lovelace.Real.Tests.LReal64Tests.Parse_GivenValue_RoundTripsLikeReal(\"10.5\") compares LReal64.Parse(literal).ToString() with Real.Parse(literal).ToString() for the same literal. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_round_trips_like_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Parse_TooManyDigits_Fails#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_parse_too_many_digits_fails"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:133 Lovelace.Real.Tests.LReal64Tests.Parse_TooManyDigits_Fails() requires TryParse(\"12345678901234567890123\") to be false (23 digits). Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_parse_too_many_digits_fails drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Subtract_GivenPair_MatchesReal#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_subtract_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:76 Lovelace.Real.Tests.LReal64Tests.Subtract_GivenPair_MatchesReal(\"1\", \"2\") compares (LReal64.Parse(a) - LReal64.Parse(b)).ToString() with Real.Parse(a) - Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_subtract_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Subtract_GivenPair_MatchesReal#1"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_subtract_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:76 Lovelace.Real.Tests.LReal64Tests.Subtract_GivenPair_MatchesReal(\"3\", \"5\") compares (LReal64.Parse(a) - LReal64.Parse(b)).ToString() with Real.Parse(a) - Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_subtract_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Subtract_GivenPair_MatchesReal#2"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_subtract_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:76 Lovelace.Real.Tests.LReal64Tests.Subtract_GivenPair_MatchesReal(\"0.5\", \"0.25\") compares (LReal64.Parse(a) - LReal64.Parse(b)).ToString() with Real.Parse(a) - Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_subtract_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Subtract_GivenPair_MatchesReal#3"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_subtract_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:76 Lovelace.Real.Tests.LReal64Tests.Subtract_GivenPair_MatchesReal(\"0.3\", \"0.1\") compares (LReal64.Parse(a) - LReal64.Parse(b)).ToString() with Real.Parse(a) - Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_subtract_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.LReal64Tests/Subtract_GivenPair_MatchesReal#4"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::lreal_tests::lreal64_subtract_matches_real"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/LReal64Tests.cs:76 Lovelace.Real.Tests.LReal64Tests.Subtract_GivenPair_MatchesReal(\"10\", \"3\") compares (LReal64.Parse(a) - LReal64.Parse(b)).ToString() with Real.Parse(a) - Real.Parse(b) for the same pair. Rust: rust/lovelace-real/src/lreal_tests.rs lovelace-real::lreal_tests::lreal64_subtract_matches_real drives the same literals and repeats that assertion, naming the literal on failure."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#0"
@@ -10930,23 +11098,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:91 row (p,q,r,s)=(1
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#582"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p1_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(1, 19, 1, 17) asserts (1/19) + (1/17) denotes exactly (1*17 + 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p1_q19_r1_s17 calls check_add_row(1, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#583"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p1_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(1, 19, -1, 17) asserts (1/19) + (-1/17) denotes exactly (1*17 + -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p1_q19_rm1_s17 calls check_add_row(1, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#584"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p1_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(1, 19, 5, 17) asserts (1/19) + (5/17) denotes exactly (1*17 + 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p1_q19_r5_s17 calls check_add_row(1, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#585"
@@ -11167,23 +11341,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:91 row (p,q,r,s)=(2
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#606"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p2_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(2, 19, 1, 17) asserts (2/19) + (1/17) denotes exactly (2*17 + 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p2_q19_r1_s17 calls check_add_row(2, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#607"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p2_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(2, 19, -1, 17) asserts (2/19) + (-1/17) denotes exactly (2*17 + -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p2_q19_rm1_s17 calls check_add_row(2, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#608"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_p2_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(2, 19, 5, 17) asserts (2/19) + (5/17) denotes exactly (2*17 + 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_p2_q19_r5_s17 calls check_add_row(2, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#609"
@@ -11404,23 +11584,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:91 row (p,q,r,s)=(-
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#630"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_pm5_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(-5, 19, 1, 17) asserts (-5/19) + (1/17) denotes exactly (-5*17 + 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_pm5_q19_r1_s17 calls check_add_row(-5, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#631"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_pm5_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(-5, 19, -1, 17) asserts (-5/19) + (-1/17) denotes exactly (-5*17 + -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_pm5_q19_rm1_s17 calls check_add_row(-5, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#632"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::add_pm5_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:90 Lovelace.Real.Tests.RealAddPeriodicExactTests.Add_ExactRationalPair_Property_DenotesTheExactRationalSum(-5, 19, 5, 17) asserts (-5/19) + (5/17) denotes exactly (-5*17 + 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::add_pm5_q19_r5_s17 calls check_add_row(-5, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Add_ExactRationalPair_Property_DenotesTheExactRationalSum#633"
@@ -18688,23 +18874,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:126 row (p,q,r,s)=(
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#582"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p1_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(1, 19, 1, 17) asserts (1/19) - (1/17) denotes exactly (1*17 - 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p1_q19_r1_s17 calls check_sub_row(1, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#583"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p1_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(1, 19, -1, 17) asserts (1/19) - (-1/17) denotes exactly (1*17 - -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p1_q19_rm1_s17 calls check_sub_row(1, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#584"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p1_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(1, 19, 5, 17) asserts (1/19) - (5/17) denotes exactly (1*17 - 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p1_q19_r5_s17 calls check_sub_row(1, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#585"
@@ -18925,23 +19117,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:126 row (p,q,r,s)=(
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#606"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p2_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(2, 19, 1, 17) asserts (2/19) - (1/17) denotes exactly (2*17 - 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p2_q19_r1_s17 calls check_sub_row(2, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#607"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p2_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(2, 19, -1, 17) asserts (2/19) - (-1/17) denotes exactly (2*17 - -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p2_q19_rm1_s17 calls check_sub_row(2, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#608"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_p2_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(2, 19, 5, 17) asserts (2/19) - (5/17) denotes exactly (2*17 - 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_p2_q19_r5_s17 calls check_sub_row(2, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#609"
@@ -19162,23 +19360,29 @@ note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:126 row (p,q,r,s)=(
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#630"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_pm5_q19_r1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(-5, 19, 1, 17) asserts (-5/19) - (1/17) denotes exactly (-5*17 - 1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_pm5_q19_r1_s17 calls check_sub_row(-5, 19, 1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#631"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_pm5_q19_rm1_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(-5, 19, -1, 17) asserts (-5/19) - (-1/17) denotes exactly (-5*17 - -1*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_pm5_q19_rm1_s17 calls check_sub_row(-5, 19, -1, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#632"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::real_parity_batch::sub_pm5_q19_r5_s17"
 reason = "DIGIT_BUDGET: the preperiod conversion fix makes to_fraction correct, but Real::add/sub multiply the exact fraction through fraction_real with max(input fractional digits)+40 places; the exact result period is longer (1/19 + 1/17 = 36/323 has a 144-digit period; 58 places are allowed), so the stored result is a truncated decimal and the C# exact-rational assertion still differs. C# runs at 1000 computation places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealAddPeriodicExactTests.cs:125 Lovelace.Real.Tests.RealAddPeriodicExactTests.Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference(-5, 19, 5, 17) asserts (-5/19) - (5/17) denotes exactly (-5*17 - 5*19)/(19*17) in lowest terms AND compares equal to the Real built from that fraction, at the pinned 1000/100 precision. Rust: rust/lovelace-real/src/lib.rs real_parity_batch::sub_pm5_q19_r5_s17 calls check_sub_row(-5, 19, 5, 17), which asserts the exact rational and the Real-level equality with the same fraction."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealAddPeriodicExactTests/Subtract_ExactRationalPair_Property_DenotesTheExactRationalDifference#633"
@@ -22048,9 +22252,11 @@ note = "C#: Lovelace.Real.Tests/RealDivideExactnessPropertyTests.cs:68 asserts t
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideExactnessPropertyTests/DivisionAndItsMultiplicationTwin_AgreeOnValueAndExactness#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::round30_real_batch::division_and_its_multiplication_twin_agree_on_value_and_exactness"
 reason = "DIGIT_BUDGET: the preperiod conversion is fixed, but Real::mul uses max(input fractional digits)+40 places for the product's period; for (1/7)/(23/1)=1/161 the product period is 66 digits while the twin path allows 62, so 1/7*(1/23) is the truncated twin and the C# equality in the 10x10 family cannot hold. C# runs at 1000 places. Refused, not weakened; changing the arithmetic budget would change display and is out of scope."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealDivideExactnessPropertyTests.cs:32 DivisionAndItsMultiplicationTwin_AgreeOnValueAndExactness iterates the 10-value family {1,2,3,5,6,7,11,13,17,23} over (a,b,c,d) and asserts (a/b)/(c/d) == (a/b)*(d/c) == (a*d)/(b*c), equal exactness, quotient exact, quotient*(c/d) == a/b and quotient == (a/b)*(d/c) for all 10,000 combinations. Rust: rust/lovelace-real/src/round30_real_batch.rs lovelace-real::round30_real_batch::division_and_its_multiplication_twin_agree_on_value_and_exactness repeats the whole loop and every assertion. The round-29 exact-fraction fix moved the periodic mul path onto the exact fraction, so the twin is no longer the truncated 1/7 * 1/23."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealDivideExactnessPropertyTests/QuotientsThatCannotBeRepresented_StayInexact#0"
@@ -30184,51 +30390,65 @@ note = "C# asserts inspect(v).exact is a Boolean with the true value for 1, 1/3 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_AnswersExactnessAsABoolean#3"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:35 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_AnswersExactnessAsABoolean(\"sqrt(2)\", false) asserts inspect(v).exact is a Boolean with the C# value. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind runs v = value; i = inspect(v) and asserts the record type, exact kind Boolean and exact value for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_AnswersExactnessAsABoolean#4"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:35 Inspect_AnswersExactnessAsABoolean(\"(-4)^(1/2)\", true) asserts inspect((-4)^(1/2)).exact is a Boolean true (the symbolic exactness is unchanged by the record round). Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind now drives the same source and asserts the record type Symbolic, exact kind Boolean and value \"true\". The kernel now answers (-4)^(1/2) as the exact symbolic 2*i; the earlier ledger refusal (evaluation refused) no longer holds."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_AnswersExactnessAsABoolean#5"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:35 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_AnswersExactnessAsABoolean(\"dft([1, 2, 3])[0]\", true) asserts inspect(v).exact is a Boolean with the C# value. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind runs v = value; i = inspect(v) and asserts the record type, exact kind Boolean and exact value for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_AnswersExactnessAsABoolean#6"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:35 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_AnswersExactnessAsABoolean(\"dft([1, 2, 3])[1]\", false) asserts inspect(v).exact is a Boolean with the C# value. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_answers_exactness_as_a_boolean_for_every_numeric_kind runs v = value; i = inspect(v) and asserts the record type, exact kind Boolean and exact value for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_KeepsNullWhereExactnessDoesNotApply#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:99 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_KeepsNullWhereExactnessDoesNotApply(\"\\\"hi\\\"\") asserts inspect(v).exact is {\"kind\":\"Null\"} where exactness does not apply. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply runs the same scripts and asserts the exact field kind Null for Text/Boolean/Vector."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_KeepsNullWhereExactnessDoesNotApply#1"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:99 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_KeepsNullWhereExactnessDoesNotApply(\"is_even(4)\") asserts inspect(v).exact is {\"kind\":\"Null\"} where exactness does not apply. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply runs the same scripts and asserts the exact field kind Null for Text/Boolean/Vector."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/Inspect_KeepsNullWhereExactnessDoesNotApply#2"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:99 Lovelace.Run.Tests.InspectionExactnessTests.Inspect_KeepsNullWhereExactnessDoesNotApply(\"[1, 2]\") asserts inspect(v).exact is {\"kind\":\"Null\"} where exactness does not apply. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_keeps_null_where_exactness_does_not_apply runs the same scripts and asserts the exact field kind Null for Text/Boolean/Vector."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/InspectExact_AgreesWithTheValuesOwnExactFlag#0"
@@ -30251,9 +30471,11 @@ note = "C# asserts the inspection record and the value form agree for 1/3, 1/(10
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/InspectExact_AgreesWithTheValuesOwnExactFlag#2"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:57 Lovelace.Run.Tests.InspectionExactnessTests.InspectExact_AgreesWithTheValuesOwnExactFlag(\"sqrt(2)\") asserts the inspection record and the value's own exact flag agree. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag runs the same scripts and asserts record.exact.value == value.exact for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/InspectExact_AgreesWithTheValuesOwnExactFlag#3"
@@ -30267,23 +30489,29 @@ note = "C# asserts the inspection record and the value form agree for 1/3, 1/(10
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/InspectExact_AgreesWithTheValuesOwnExactFlag#4"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:57 Lovelace.Run.Tests.InspectionExactnessTests.InspectExact_AgreesWithTheValuesOwnExactFlag(\"dft([1, 2, 3])[0]\") asserts the inspection record and the value's own exact flag agree. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag runs the same scripts and asserts record.exact.value == value.exact for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/InspectExact_AgreesWithTheValuesOwnExactFlag#5"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:57 Lovelace.Run.Tests.InspectionExactnessTests.InspectExact_AgreesWithTheValuesOwnExactFlag(\"dft([1, 2, 3])[1]\") asserts the inspection record and the value's own exact flag agree. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_exact_agrees_with_the_values_own_exact_flag runs the same scripts and asserts record.exact.value == value.exact for sqrt(2)/dft[0]/dft[1]."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.InspectionExactnessTests/TruncatedQuotientAtTheBudget_IsNotExactInEitherSurface#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::inspection_truncated_quotient_at_the_budget_is_not_exact"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/InspectionExactnessTests.cs:76 Lovelace.Run.Tests.InspectionExactnessTests.TruncatedQuotientAtTheBudget_IsNotExactInEitherSurface() asserts setprecision(18); v = 1/1009 publishes exact=false in both surfaces. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::inspection_truncated_quotient_at_the_budget_is_not_exact runs the same script and asserts the value's own exact false and the record exact Boolean false."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#0"
@@ -30468,30 +30696,38 @@ note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 EveryBo
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#116"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_concat_axis"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"concat\", \"axis\", \"2.5\", 3, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"concat()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_concat_axis drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#117"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_concat_axis"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"concat\", \"axis\", \"0.5\", 3, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"concat()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_concat_axis drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#118"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_concat_axis"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"concat\", \"axis\", \"2.9999\", 3, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"concat()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_concat_axis drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#119"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_concat_axis"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"concat\", \"axis\", \"(5/2)\", 3, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"concat()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_concat_axis drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#12"
@@ -31459,30 +31695,38 @@ note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 EveryBo
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#216"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_dft_n"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"dft\", \"n\", \"2.5\", 2, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"dft()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_dft_n drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#217"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_dft_n"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"dft\", \"n\", \"0.5\", 2, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"dft()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_dft_n drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#218"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_dft_n"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"dft\", \"n\", \"2.9999\", 2, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"dft()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_dft_n drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#219"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_dft_n"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"dft\", \"n\", \"(5/2)\", 2, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"dft()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_dft_n drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#22"
@@ -32369,16 +32613,20 @@ note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 EveryBo
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#308"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_range_bound"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"range\", \"bound\", \"2.5\", 1, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"range()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_range_bound drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#309"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_range_bound"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"range\", \"bound\", \"0.5\", 1, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"range()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_range_bound drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#31"
@@ -32392,16 +32640,20 @@ note = "Round-28: C# EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal row; 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#310"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_range_bound"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"range\", \"bound\", \"2.9999\", 1, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"range()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_range_bound drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#311"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::parity_batch::matrix_range_bound"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:391 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal(\"range\", \"bound\", \"(5/2)\", 1, false) asserts the cell is a recoverable InvalidArgument/TypeMismatch refusal that exits 1, starts with \"range()\", carries no raw framework text (mustAccept=false). Rust: rust/lovelace-run/src/parity_batch.rs lovelace-run::parity_batch::matrix_range_bound drives the same template and literal through matrix_case, which repeats that whole accept/refuse contract; round 30 added the four fractional literals to the matrix row (the round-29 production fix made them refuse)."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryBoundaryCell_LandsOnTheExactValueOrANamedRefusal#312"
@@ -33153,9 +33405,11 @@ note = "Round-28: C# EveryInventoryTemplate_ReachesTheArgumentItNames row; Rust 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#11"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"concat\", \"axis\") drives the template with the Text sentinel and requires a typed refusal that starts with \"concat()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#12"
@@ -33250,9 +33504,11 @@ note = "C#: IntegerArgumentBoundaryMatrixTests.cs:331 boundary cells for delay:k
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#21"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"dft\", \"n\") drives the template with the Text sentinel and requires a typed refusal that starts with \"dft()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#22"
@@ -33338,9 +33594,11 @@ note = "Round-28: C# EveryInventoryTemplate_ReachesTheArgumentItNames row; Rust 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#30"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"range\", \"bound\") drives the template with the Text sentinel and requires a typed refusal that starts with \"range()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#4"
@@ -33354,30 +33612,38 @@ note = "Round-28: C# EveryInventoryTemplate_ReachesTheArgumentItNames row; Rust 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#5"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"sum\", \"axis\") drives the template with the Text sentinel and requires a typed refusal that starts with \"sum()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#6"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"prod\", \"axis\") drives the template with the Text sentinel and requires a typed refusal that starts with \"prod()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#7"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"min\", \"axis\") drives the template with the Text sentinel and requires a typed refusal that starts with \"min()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#8"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/IntegerArgumentBoundaryMatrixTests.cs:286 Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests.EveryInventoryTemplate_ReachesTheArgumentItNames(\"max\", \"axis\") drives the template with the Text sentinel and requires a typed refusal that starts with \"max()\" and contains the argument anchor the C# row names: \"(axis)\" for sum/prod/min/max/concat, \"(n)\" for dft, or \"'bound'\" for range. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::integer_boundary_inventory_templates_reach_the_argument_they_name drives the same seven templates and asserts the same builtin prefix and argument anchor."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.IntegerArgumentBoundaryMatrixTests/EveryInventoryTemplate_ReachesTheArgumentItNames#9"
@@ -34464,23 +34730,29 @@ note = "C#: Lovelace.Run.Tests/RegistryQueryTests.cs:173 TheEnvelope_StillCarrie
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SolveEmptySetTests/Solve_OfAProvablyFalseEquation_AnswersTheEmptySet_NotADomainError#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round30_run_batch::solve_of_a_provably_false_equation_publishes_the_solve_result_record"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/SolveEmptySetTests.cs:32 Lovelace.Run.Tests.SolveEmptySetTests.Solve_OfAProvablyFalseEquation_AnswersTheEmptySet_NotADomainError() asserts exit 0, kind Record/type SolveResult, status NoSolutions, complete true, >=1 diagnostic with code solve.no-solutions and the exact \"the equation reduces to a nonzero constant.\" message. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::solve_of_a_provably_false_equation_publishes_the_solve_result_record repeats every one of those assertions on the runner envelope."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SolveEmptySetTests/SolveFull_OfAProvablyFalseEquation_ReportsNoSolutionsComplete#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round30_run_batch::solve_full_of_a_provably_false_equation_publishes_no_solutions_complete"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/SolveEmptySetTests.cs:57 Lovelace.Run.Tests.SolveEmptySetTests.SolveFull_OfAProvablyFalseEquation_ReportsNoSolutionsComplete() asserts kind Record/type SolveResult, status Enum SolveStatus NoSolutions, complete true, completeness Enum Completeness Complete, solutions shape[0]=0, >=1 diagnostic with category Enum ErrorCategory NoSolution and code solve.no-solutions. Rust: rust/lovelace-run/src/round30_run_batch.rs lovelace-run::round30_run_batch::solve_full_of_a_provably_false_equation_publishes_no_solutions_complete repeats every one of those assertions on the runner envelope."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SolveEmptySetTests/SolveSystem_OfAProvablyFalseEquation_AnswersTheEmptySet#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::solve_system_of_a_folded_false_equation_answers_the_empty_set"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/SolveEmptySetTests.cs:90 Lovelace.Run.Tests.SolveEmptySetTests.SolveSystem_OfAProvablyFalseEquation_AnswersTheEmptySet() asserts status NoSolutions, complete true and completeness Complete for solve_system([0 == 1], [x, y]). Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::solve_system_of_a_folded_false_equation_answers_the_empty_set repeats every one of those assertions on the runner envelope."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SolveEmptySetTests/TheFoldedBooleanIsUnchangedOutsideTheSymbolicChannel#0"
@@ -34926,9 +35198,11 @@ note = "C#: Lovelace.Run.Tests/SystemSolveRecordTests.cs:92 SolveSystem_StatusCo
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemSolveRecordTests/SolveSystem_StatusCompleteAndCompleteness_AreTheDocumentedRow#2"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round29_run_batch::solve_system_of_a_non_polynomial_system_is_an_unevaluated_record"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Run.Tests/SystemSolveRecordTests.cs:92 Lovelace.Run.Tests.SystemSolveRecordTests.SolveSystem_StatusCompleteAndCompleteness_AreTheDocumentedRow(\"solve_system([sin(x) == 0], [x])\", \"Unevaluated\", \"false\", \"Unknown\") asserts the sin(x) row publishes Unevaluated/false/Unknown and a Completeness enum. Rust: rust/lovelace-run/src/round29_run_batch.rs lovelace-run::round29_run_batch::solve_system_of_a_non_polynomial_system_is_an_unevaluated_record repeats every one of those assertions on the runner envelope."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.SystemSolveRecordTests/TheTwoSystemCallForms_PublishTheSameRecordShape#0"
@@ -37330,9 +37604,11 @@ note = "C#: DspPluginTests.cs:204 delay(...,99999999999999999999) names the Int6
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/Dft_GivenLength_MatchesPaddedSignal#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::suite_engine_batch::dft_given_length_matches_padded_signal"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Suite.Tests/DspPluginTests.cs:133 Dft_GivenLength_MatchesPaddedSignal asserts ValueFormatter.FormatTyped(dft([1, 2, 3, 0])) == ValueFormatter.FormatTyped(dft([1, 2, 3], 4)): the optional length pads the signal. Rust: rust/lovelace-lang/src/suite_engine_batch.rs lovelace-lang::suite_engine_batch::dft_given_length_matches_padded_signal evaluates both calls through the same Engine and asserts their typed renderings are equal. The round-29 dft integer-argument fix made the length pad the samples; before it, the argument was ignored and the 4-point call was a different transform."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/DspPlugin_GivenUnregisteredEngine_ThrowsUnknownFunction#0"
@@ -41958,9 +42234,11 @@ note = "C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:182 StructuredRe
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuredRealExactnessTests/FixedWidthTruncation_IsNotPublishedAsAnExactReal#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round30_batch::fixed_width_truncation_is_not_published_as_an_exact_real"
 reason = "the fact exercises LReal64 (fixed-width tier) directly; this crate has no LReal64 type."
 targetPhase = 0
+note = "C#: Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:196 FixedWidthTruncation_IsNotPublishedAsAnExactReal asserts LReal64.Parse(\"0.(0588235294117647)\") * LReal64.Parse(\"17\") != LReal64.One (the product is the truncated 0.999...985) and that StructuredProjection.ToStructured(new Value(product.ToReal())).Exact != true. Rust: rust/lovelace-lang/src/round30_batch.rs lovelace-lang::round30_batch::fixed_width_truncation_is_not_published_as_an_exact_real performs the same parse/multiply, asserts the product is not one, and projects Value::Real(product.to_real()) through structured::project_value, asserting the exact flag is not Boolean true. The round-29 fixed-width tier (with inexact provenance on to_real) is what unblocks the row."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuredRealExactnessTests/PeriodicQuotient_IsCertifiedExactWithItsFraction#0"
@@ -44566,9 +44844,11 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/Inspect_ArrayShapeRankAndElementDomain_AreStructural#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::dx_batch::dx_inspect_array_shape_rank_and_element_domain_are_structural"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:349 Lovelace.Symbolics.Tests.DxStructuredResultsTests.Inspect_ArrayShapeRankAndElementDomain_AreStructural() asserts inspect([[x, 1], [2, 3]]) has type Array, shape \"[2, 2] (Vector)\", rank \"2\" and element_domain Domain complex. Rust: rust/lovelace-run/src/dx_batch.rs lovelace-run::dx_batch::dx_inspect_array_shape_rank_and_element_domain_are_structural drives the same script and asserts the record type, shape array elements/type, rank and element_domain. The round-29 inspect-record rebuild publishes this structural metadata, so the row is mappable now."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/Inspect_ReportsTheAssumptionsThatConstrainTheFreeSymbols#0"

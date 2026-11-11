@@ -225,7 +225,10 @@ fn nested_power_renderings_round_trip_through_the_parser() {
         ("(-x)^2", "(-x)^2 (Symbolic)"),
         ("(-2)^x", "(-2)^x (Symbolic)"),
         ("(1/2)^x", "(1/2)^x (Symbolic)"),
-        ("x^(1/2)", "x^(1/2) (Symbolic)"),
+        // The reference's pretty arm renders a 1/2 exponent as the radical: oracle
+        // "x^(1/2)" -> "sqrt(x) (Symbolic)". The canonical form is unchanged, so the
+        // re-parse assertion below still holds.
+        ("x^(1/2)", "sqrt(x) (Symbolic)"),
     ];
     for (source, expected) in cases {
         assert_eq!(display(source), *expected, "{source}");

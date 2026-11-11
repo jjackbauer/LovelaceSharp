@@ -322,3 +322,34 @@ fn exactness_elementary_function_of_an_exact_argument_is_exact() {
         assert_eq!(text(get(value, "value")), "true", "{name}(x) must be exact");
     }
 }
+
+/// DxStructuredResultsTests.cs:349 — inspect([[x, 1], [2, 3]]) publishes the ARRAY's own
+/// structural metadata: type Array, shape [2, 2] as a Vector, rank 2, element_domain complex.
+/// (The record rebuild that made scalars report their own kind also made this row reachable.)
+#[test]
+fn dx_inspect_array_shape_rank_and_element_domain_are_structural() {
+    let r = eval("x = symbol(\"x\"); inspect([[x, 1], [2, 3]])");
+    assert_eq!(r.exit, 0);
+    let value = structured(&r);
+    assert_eq!(text(get(record_field(value, "type"), "value")), "Array");
+
+    let shape = record_field(value, "shape");
+    assert_eq!(text(get(shape, "kind")), "Array");
+    assert_eq!(text(get(shape, "type")), "Vector");
+    assert_eq!(array(get(shape, "shape")).iter().map(number).collect::<Vec<_>>(), vec![2]);
+    let elements = array(get(shape, "elements"));
+    assert_eq!(elements.len(), 2);
+    for element in elements {
+        assert_eq!(text(get(element, "value")), "2", "shape element");
+    }
+    assert!(
+        text(get(get(&r.env, "result"), "display")).contains("shape: [2, 2]"),
+        "the record renders the shape as [2, 2]"
+    );
+
+    assert_eq!(text(get(record_field(value, "rank"), "value")), "2", "array rank");
+
+    let domain = record_field(value, "element_domain");
+    assert_eq!(text(get(domain, "kind")), "Domain");
+    assert_eq!(text(get(domain, "domain")), "complex");
+}

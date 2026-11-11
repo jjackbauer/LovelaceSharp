@@ -389,6 +389,23 @@ impl Expr {
                 }
             }
         }
+        // A rational base with a positive UNIT-fraction exponent folds when the root is exact:
+        // 4^(1/2) = 2, 1/4^(1/2) = 1/2 and (-8)^(1/3) = -2 (the reference's odd-denominator
+        // real-root shortcut). An inexact root (2^(1/2), (-8)^(2/3)) and every non-unit fraction
+        // still stay a power. This runs AFTER the negative-base half power, so an even denominator
+        // over a negative base is never answered by the real-root shortcut.
+        if let (Expr::Num(b), Expr::Num(e)) = (&base, &exp) {
+            if !e.is_negative()
+                && e.denominator().to_decimal() != "1"
+                && e.numerator().to_decimal() == "1"
+            {
+                if let Some(n) = e.denominator().to_u64() {
+                    if let Some(root) = rational_root(b, n) {
+                        return Expr::Num(root);
+                    }
+                }
+            }
+        }
         Expr::Pow(Box::new(base), Box::new(exp))
     }
 
@@ -467,6 +484,14 @@ impl Expr {
     /// True when the named symbol appears anywhere.
     pub fn contains_sym(&self, name: &str) -> bool {
         self.contains(name)
+    }
+
+    /// True when the value carries the imaginary unit: the NAMED CONSTANT `i` (the reference's
+    /// node, and what this crate's constructors build) or a user symbol spelled `i` (the spelling
+    /// the solver used before the named constant was adopted). The real-domain filter and the
+    /// exactness classifier must see BOTH, or a complex root crosses as a real one.
+    pub fn has_imaginary_unit(&self) -> bool {
+        self.contains_fun("i") || self.contains_sym("i")
     }
 
     /// True when a power with a NON-INTEGER rational exponent appears anywhere: such a value is
@@ -614,7 +639,15 @@ fn signed_text(e: &Expr) -> (String, bool) {
                         1 => rest[0].clone(),
                         _ => Expr::Mul(rest),
                     };
-                    return (inner.to_string(), true);
+                    // The right operand of a minus binds tighter than a sum, so a magnitude that
+                    // IS a sum keeps its parentheses: x - (y - a) must never render as x - y - a,
+                    // which denotes a different expression.
+                    let text = inner.to_string();
+                    let text = match &inner {
+                        Expr::Add(_) | Expr::Rel(..) => format!("({text})"),
+                        _ => text,
+                    };
+                    return (text, true);
                 }
             }
             (e.to_string(), false)
@@ -624,49 +657,121 @@ fn signed_text(e: &Expr) -> (String, bool) {
 }
 
 fn product_text(e: &Expr) -> String {
+    // The reference's ONE product decomposition (Printing.ShapeProduct): an optional leading
+    // rational coefficient with its sign split off, the factors that stay in the numerator, and
+    // the bases of the factors raised to EXACTLY -1 (the denominators). A factor raised to -2 is
+    // a numerator power (x*y^-2), not a second division.
     let factors = match e {
         Expr::Mul(f) => f.clone(),
         other => vec![other.clone()],
     };
-    let mut numerator: Vec<String> = Vec::new();
-    let mut denominator: Vec<String> = Vec::new();
-    for f in &factors {
-        match f {
-            Expr::Pow(base, exp) => match exp.as_ref() {
-                Expr::Num(n) if n.is_negative() => {
-                    let positive = Expr::pow((**base).clone(), Expr::Num(n.abs()));
-                    let needs_parens = matches!(positive, Expr::Mul(_) | Expr::Add(_));
-                    let text = positive.to_string();
-                    denominator.push(if needs_parens { format!("({})", text) } else { text });
-                }
-                _ => numerator.push(f.to_string()),
-            },
-            Expr::Num(n) if n.is_one() && factors.len() > 1 => {}
-            Expr::Add(_) => numerator.push(format!("({})", f.to_string())),
-            other => numerator.push(other.to_string()),
+    let mut coefficient = Rat::one();
+    let mut negative = false;
+    let mut first = 0;
+    if let Some(Expr::Num(n)) = factors.first() {
+        coefficient = n.clone();
+        first = 1;
+        if coefficient.is_negative() {
+            negative = true;
+            coefficient = coefficient.abs();
         }
     }
-    let top = if numerator.is_empty() { "1".to_string() } else { numerator.join("*") };
-    if denominator.is_empty() {
-        return top;
+    let minus_one = Rat::from_i64(-1);
+    let mut numerators: Vec<Expr> = Vec::new();
+    let mut denominators: Vec<Expr> = Vec::new();
+    for f in &factors[first..] {
+        match f {
+            Expr::Pow(base, exp) if matches!(exp.as_ref(), Expr::Num(n) if *n == minus_one) => {
+                denominators.push((**base).clone())
+            }
+            other => numerators.push(other.clone()),
+        }
     }
-    let bottom = if denominator.len() == 1 {
-        denominator[0].clone()
-    } else {
-        format!("({})", denominator.join("*"))
-    };
-    format!("{}/{}", top, bottom)
+    // The numerator side, with a sum delimited: (x + y)*z, never x + y*z.
+    let mut numerator_parts: Vec<String> = Vec::new();
+    for f in &numerators {
+        match f {
+            Expr::Add(_) => numerator_parts.push(format!("({})", f.to_string())),
+            other => numerator_parts.push(other.to_string()),
+        }
+    }
+    // With no divisor the coefficient stays ONE text, its own denominator included:
+    // (1/2)*i renders 1/2*i, not 1*i/2.
+    if denominators.is_empty() {
+        let body = numerator_parts.join("*");
+        let mut text = if coefficient.is_one() {
+            if body.is_empty() { "1".to_string() } else { body }
+        } else if body.is_empty() {
+            coefficient.to_string()
+        } else {
+            format!("{}*{}", coefficient.to_string(), body)
+        };
+        if negative {
+            text = format!("-{text}");
+        }
+        return text;
+    }
+    // A rational coefficient folds into the numerator side instead of producing a num*coef/den
+    // chain; its denominator is one of the divisors (-1/2/(x + 1)).
+    let mut parts: Vec<String> = Vec::new();
+    let mut divisor_texts: Vec<String> = Vec::new();
+    if !coefficient.is_one() {
+        parts.push(coefficient.numerator().to_decimal());
+        if !coefficient.is_integer() {
+            divisor_texts.push(coefficient.denominator().to_decimal());
+        }
+    }
+    parts.extend(numerator_parts);
+    // The reference's factors are stored in the kernel's canonical order; this model's product
+    // keeps a DISPLAY order, so the denominator bases are put back in canonical order before they
+    // are rendered (y before (z/w) in x/y/(z/w); w, y, z in x/w/y/z).
+    denominators.sort_by(canonical_order);
+    for b in &denominators {
+        // The ONE operand rule the reference applies to a divisor: a divisor binds at the
+        // division's precedence, so a product (x/(y*z)), a sum and a quotient are delimited while a
+        // power (x/y^2) and a symbol are not.
+        let text = b.to_string();
+        let needs_delimiter = matches!(b, Expr::Add(_) | Expr::Mul(_) | Expr::Div(_, _))
+            || matches!(b, Expr::Num(n) if n.is_negative() || !n.is_integer());
+        divisor_texts.push(if needs_delimiter { format!("({text})") } else { text });
+    }
+    // ONE division per denominator factor: a value with y and z as two separate denominator
+    // factors divides twice (x/y/z); a single divisor that IS the product y*z divides once and
+    // carries the pair (x/(y*z)). Writing both as x/(y*z) is what let the two values share one
+    // text, and the text meant the other one.
+    let mut text = if parts.is_empty() { "1".to_string() } else { parts.join("*") };
+    for divisor in divisor_texts {
+        text.push('/');
+        text.push_str(&divisor);
+    }
+    if negative {
+        text = format!("-{text}");
+    }
+    text
 }
 
 fn power_text(e: &Expr) -> String {
     match e {
         Expr::Pow(base, exp) => {
+            // Radical rendering (human form only): x^(1/2) is sqrt(x) and x^(-1/2) is
+            // 1/sqrt(x). A parens pair around the call's argument already delimits the base.
+            if let Expr::Num(n) = exp.as_ref() {
+                if n.denominator().to_decimal() == "2" {
+                    if n.numerator().to_decimal() == "1" {
+                        return format!("sqrt({})", base.to_string());
+                    }
+                    if n.numerator().to_decimal() == "-1" {
+                        return format!("1/sqrt({})", base.to_string());
+                    }
+                }
+            }
             // A power used as a BASE must be parenthesised: x^y^2 right-associates to
             // x^(y^2), so Pow(Pow(x, y), 2) needs (x^y)^2 to re-parse as itself. A negative or
             // non-integer numeric base is textually looser than the superscript for the same
-            // reason: -2^x is -(2^x) and 1/2^x is 1/(2^x), not (-2)^x and (1/2)^x.
+            // reason: -2^x is -(2^x) and 1/2^x is 1/(2^x), not (-2)^x and (1/2)^x; a quotient
+            // base (x/y)^2 is a division at the power's level too.
             let base_text = match base.as_ref() {
-                Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) => {
+                Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) | Expr::Div(_, _) => {
                     format!("({})", base.to_string())
                 }
                 Expr::Num(n) if n.is_negative() || !n.is_integer() => {
@@ -674,16 +779,15 @@ fn power_text(e: &Expr) -> String {
                 }
                 other => other.to_string(),
             };
-            // The exponent's own grouping follows the same table: a power exponent is written
-            // with its parentheses (x^(y^2)), and a rational one would otherwise be read as a
-            // division at the power's level (x^1/2 is (x^1)/2).
+            // The exponent's own grouping: a power exponent keeps its parentheses (x^(y^2)) and a
+            // NON-INTEGER rational would otherwise be read as a division at the power's level
+            // (x^(1/2)). A NEGATIVE INTEGER exponent needs none: the parser's power tail accepts
+            // a signed exponent, so x^-2 is exactly x^(-2).
             let exp_text = match exp.as_ref() {
                 Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) => {
                     format!("({})", exp.to_string())
                 }
-                Expr::Num(n) if n.is_negative() || !n.is_integer() => {
-                    format!("({})", n.to_string())
-                }
+                Expr::Num(n) if !n.is_integer() => format!("({})", n.to_string()),
                 other => other.to_string(),
             };
             format!("{}^{}", base_text, exp_text)
@@ -829,6 +933,55 @@ fn rational_sqrt(q: &Rat) -> Expr {
         }
     }
     Expr::Fun("sqrt".to_string(), vec![Expr::Num(q.clone())])
+}
+
+/// An exact n-th root of a non-negative u128, when one exists: the integer root test the
+/// reference's RationalRoot performs before its unit-fraction power folds to a rational.
+fn exact_root_u128(value: u128, n: u32) -> Option<u128> {
+    if n == 0 {
+        return None;
+    }
+    if value <= 1 {
+        return Some(value);
+    }
+    // Binary search on [1, value]; checked_pow stops the search at the first overflow, which is
+    // already past the root.
+    let (mut low, mut high) = (1u128, value);
+    while low <= high {
+        let mid = low + (high - low) / 2;
+        match mid.checked_pow(n) {
+            Some(power) if power == value => return Some(mid),
+            Some(power) if power < value => low = mid + 1,
+            _ => high = mid - 1,
+        }
+    }
+    None
+}
+
+/// The exact rational n-th root of q, when q is a perfect n-th power: 4 -> 2, 1/4 -> 1/2,
+/// -8 -> -2 (an odd n only; an even n of a negative value has no real root and is left alone).
+fn rational_root(q: &Rat, n: u64) -> Option<Rat> {
+    if !(2..=1024).contains(&n) {
+        return None;
+    }
+    let numerator = q.numerator().magnitude().to_u64()? as u128;
+    let denominator = q.denominator().to_u64()? as u128;
+    let root_numerator = exact_root_u128(numerator, n as u32)?;
+    let root_denominator = exact_root_u128(denominator, n as u32)?;
+    if root_denominator == 0 {
+        return None;
+    }
+    let signed_numerator = if q.is_negative() {
+        if n % 2 == 0 {
+            return None;
+        }
+        format!("-{root_numerator}")
+    } else {
+        root_numerator.to_string()
+    };
+    let num = Int::from_decimal(&signed_numerator)?;
+    let den = Nat::from_decimal(&root_denominator.to_string())?;
+    Some(Rat::new(num, den))
 }
 
 /// The principal value of a NEGATIVE rational base raised to a half-integer exponent:
@@ -2543,7 +2696,7 @@ fn quadratic_complex_roots(coeffs: &[Rat]) -> Option<Vec<Expr>> {
         (Some(n), Some(d)) if d == 1 => Expr::num(n as i64),
         _ => Expr::sqrt(Expr::Num(mag.clone())),
     };
-    let i_root = Expr::mul(Expr::sym("i"), root_expr);
+    let i_root = Expr::mul(imaginary_unit(), root_expr);
     let two_a = a.mul(&Rat::from_i64(2));
     // Roots are (i*sqrt(|d|) - b) / (2a) and (-i*sqrt(|d|) - b) / (2a).
     let factor = Rat::one().div(&two_a)?;
@@ -2640,14 +2793,14 @@ fn cubic_root_expressions(coeffs: &[Rat]) -> Option<Vec<Expr>> {
             Expr::Num(Rat::new(Int::from_i64(-1), Nat::from_u64(2))),
             Expr::mul(
                 Expr::div(Expr::sqrt(Expr::num(3)), Expr::num(2)),
-                Expr::sym("i"),
+                imaginary_unit(),
             ),
         );
         let omega2 = Expr::sub(
             Expr::Num(Rat::new(Int::from_i64(-1), Nat::from_u64(2))),
             Expr::mul(
                 Expr::div(Expr::sqrt(Expr::num(3)), Expr::num(2)),
-                Expr::sym("i"),
+                imaginary_unit(),
             ),
         );
         ts.push(Expr::add(u.clone(), v.clone()));
@@ -3681,6 +3834,9 @@ fn numeric_rational(e: &Expr) -> Option<Rat> {
 
 #[cfg(test)]
 mod panic_sweep_round23;
+
+#[cfg(test)]
+mod complex_closed_forms_round30;
 
 #[cfg(test)]
 mod printing_round16;
