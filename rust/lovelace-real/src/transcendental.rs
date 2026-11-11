@@ -354,7 +354,10 @@ impl Real {
             return with_two_argument_provenance(branch, y, x);
         }
         let work = digits + GUARD_DIGITS;
-        let at = y.div(x, work).unwrap_or_else(Real::zero).atan(digits);
+        // The reference's Atan2 divides with DivideTruncate (a fixed-point truncation), not
+        // with the ambient period-preserving division: a periodic quotient such as -0.(3) is
+        // not a value the atan series may be handed, and the reference never hands it one.
+        let at = div_truncate(y, x, work).atan(digits);
         let result = if !x.int.is_negative() {
             at
         } else if y.int.is_negative() {

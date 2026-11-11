@@ -14,6 +14,7 @@ pub mod builtins;
 pub mod complex;
 pub mod complex_math;
 pub mod help;
+pub mod lexer;
 pub mod numeric;
 pub mod registry;
 pub mod structured;
@@ -1885,3 +1886,9 @@ mod round43_display_classes;
 
 #[cfg(test)]
 mod round44_parity_classes;
+
+#[cfg(test)]
+mod round46_token_kind;
+
+#[cfg(test)]
+mod falsification_round46;

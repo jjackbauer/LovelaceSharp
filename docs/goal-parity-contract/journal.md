@@ -459,3 +459,11 @@
 - **Priority**: P2
 - **Raised by**: orchestrator, round 14
 - **Related**: TEST-008, gate-manifest
+
+### DEC-002: Keep the disclosed Real::atan2 change (div_truncate)
+
+- **Question**: the falsification lane changed Real::atan2 to use div_truncate like C# ComplexMath.Atan2, outside its module, because atan mis-evaluated the periodic quotient -0.(3) and three gate rows reported false counterexamples. Keep or revert?
+- **Evidence**: orchestrator probes against the pinned oracle - atan(1/3), atan(-1/3), atan(0.5), atan(-2), evalf(atan(1/3),20), atan2(1,3), atan2(-1,-3), atan2(1,-3), evalf(atan2(1,3),20) all render identically on both runners (the probe's DIFF markers are line-ending artefacts; the compared strings are equal). Gates with the change: suite 4,926 green, corpus 214/214, fixtures 20/20, CLI 16/16, clippy/fmt clean, differential 200/200 + 1758 replay clean.
+- **Decision**: KEEP. It is a parity fix toward the reference, disclosed rather than smuggled, and it is covered by existing atan/atan2 tests.
+- **Confidence**: High
+- **Related**: OBS-031, round-46/falsification-api.md

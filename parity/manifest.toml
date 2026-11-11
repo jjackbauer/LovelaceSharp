@@ -44037,162 +44037,182 @@ note = "C#: Lovelace.Suite.Tests/TokenTests.cs:21 Lovelace.Suite.Tests.TokenTest
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_00_number_literal"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (NumberLiteral, 0) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(0, (int)TokenKind.NumberLiteral); rust/lovelace-lang/src/round46_token_kind.rs:34 token_kind_given_all_values_has_expected_ordinal_00_number_literal asserts TokenKind::NumberLiteral as i32 == 0. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#1"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_01_identifier"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Identifier, 1) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(1, (int)TokenKind.Identifier); rust/lovelace-lang/src/round46_token_kind.rs:39 token_kind_given_all_values_has_expected_ordinal_01_identifier asserts TokenKind::Identifier as i32 == 1. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#10"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_10_double_equals"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (DoubleEquals, 10) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(10, (int)TokenKind.DoubleEquals); rust/lovelace-lang/src/round46_token_kind.rs:84 token_kind_given_all_values_has_expected_ordinal_10_double_equals asserts TokenKind::DoubleEquals as i32 == 10. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#11"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_11_bang_equals"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (BangEquals, 11) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(11, (int)TokenKind.BangEquals); rust/lovelace-lang/src/round46_token_kind.rs:89 token_kind_given_all_values_has_expected_ordinal_11_bang_equals asserts TokenKind::BangEquals as i32 == 11. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#12"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_12_greater"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Greater, 12) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(12, (int)TokenKind.Greater); rust/lovelace-lang/src/round46_token_kind.rs:94 token_kind_given_all_values_has_expected_ordinal_12_greater asserts TokenKind::Greater as i32 == 12. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#13"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_13_less"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Less, 13) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(13, (int)TokenKind.Less); rust/lovelace-lang/src/round46_token_kind.rs:99 token_kind_given_all_values_has_expected_ordinal_13_less asserts TokenKind::Less as i32 == 13. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#14"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_14_greater_equals"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (GreaterEquals, 14) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(14, (int)TokenKind.GreaterEquals); rust/lovelace-lang/src/round46_token_kind.rs:104 token_kind_given_all_values_has_expected_ordinal_14_greater_equals asserts TokenKind::GreaterEquals as i32 == 14. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#15"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_15_less_equals"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (LessEquals, 15) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(15, (int)TokenKind.LessEquals); rust/lovelace-lang/src/round46_token_kind.rs:109 token_kind_given_all_values_has_expected_ordinal_15_less_equals asserts TokenKind::LessEquals as i32 == 15. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#16"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_16_l_paren"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (LParen, 16) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(16, (int)TokenKind.LParen); rust/lovelace-lang/src/round46_token_kind.rs:114 token_kind_given_all_values_has_expected_ordinal_16_l_paren asserts TokenKind::LParen as i32 == 16. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#17"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_17_r_paren"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (RParen, 17) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(17, (int)TokenKind.RParen); rust/lovelace-lang/src/round46_token_kind.rs:119 token_kind_given_all_values_has_expected_ordinal_17_r_paren asserts TokenKind::RParen as i32 == 17. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#18"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_18_comma"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Comma, 18) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(18, (int)TokenKind.Comma); rust/lovelace-lang/src/round46_token_kind.rs:124 token_kind_given_all_values_has_expected_ordinal_18_comma asserts TokenKind::Comma as i32 == 18. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#19"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_19_eof"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Eof, 19) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(19, (int)TokenKind.Eof); rust/lovelace-lang/src/round46_token_kind.rs:129 token_kind_given_all_values_has_expected_ordinal_19_eof asserts TokenKind::Eof as i32 == 19. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#2"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_02_plus"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Plus, 2) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(2, (int)TokenKind.Plus); rust/lovelace-lang/src/round46_token_kind.rs:44 token_kind_given_all_values_has_expected_ordinal_02_plus asserts TokenKind::Plus as i32 == 2. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#3"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_03_minus"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Minus, 3) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(3, (int)TokenKind.Minus); rust/lovelace-lang/src/round46_token_kind.rs:49 token_kind_given_all_values_has_expected_ordinal_03_minus asserts TokenKind::Minus as i32 == 3. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#4"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_04_star"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Star, 4) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(4, (int)TokenKind.Star); rust/lovelace-lang/src/round46_token_kind.rs:54 token_kind_given_all_values_has_expected_ordinal_04_star asserts TokenKind::Star as i32 == 4. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#5"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_05_slash"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Slash, 5) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(5, (int)TokenKind.Slash); rust/lovelace-lang/src/round46_token_kind.rs:59 token_kind_given_all_values_has_expected_ordinal_05_slash asserts TokenKind::Slash as i32 == 5. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#6"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_06_percent"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Percent, 6) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(6, (int)TokenKind.Percent); rust/lovelace-lang/src/round46_token_kind.rs:64 token_kind_given_all_values_has_expected_ordinal_06_percent asserts TokenKind::Percent as i32 == 6. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#7"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_07_caret"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Caret, 7) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(7, (int)TokenKind.Caret); rust/lovelace-lang/src/round46_token_kind.rs:69 token_kind_given_all_values_has_expected_ordinal_07_caret asserts TokenKind::Caret as i32 == 7. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#8"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_08_bang"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Bang, 8) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(8, (int)TokenKind.Bang); rust/lovelace-lang/src/round46_token_kind.rs:74 token_kind_given_all_values_has_expected_ordinal_08_bang asserts TokenKind::Bang as i32 == 8. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TokenTests/TokenKind_GivenAllValues_HasExpectedOrdinal#9"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round46_token_kind::token_kind_given_all_values_has_expected_ordinal_09_equals"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing compiled lexer TokenKind enum (syntax::Tok has 8 variants; token.rs is dead); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: the C# [InlineData] pair (Equals, 9) in TokenTests.TokenKind_GivenAllValues_HasExpectedOrdinal asserts Assert.Equal(9, (int)TokenKind.Equals); rust/lovelace-lang/src/round46_token_kind.rs:79 token_kind_given_all_values_has_expected_ordinal_09_equals asserts TokenKind::Equals as i32 == 9. See docs/goal-parity-contract/round-46/token-kind-api.md §4."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TypedArrayPromotionTests/ElementwiseAdd_MixedKinds_PromotesToReal#0"
@@ -47407,258 +47427,290 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Classifier_NamesEachClass_AndNeverFoldsADefectIntoOne#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::classifier_names_each_class_and_never_folds_a_defect_into_one"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Classifier_NamesEachClass_AndNeverFoldsADefectIntoOne (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:238 classifier_names_each_class_and_never_folds_a_defect_into_one asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/FalsificationFingerprintChild#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::falsification_fingerprint_child"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.FalsificationFingerprintChild (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:436 falsification_fingerprint_child asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/FrozenBattery_IsAPrefixOfWhatTheSubstrateOffers_InItsOwnOrder#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::frozen_battery_is_a_prefix_of_what_the_substrate_offers_in_its_own_order"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.FrozenBattery_IsAPrefixOfWhatTheSubstrateOffers_InItsOwnOrder (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:173 frozen_battery_is_a_prefix_of_what_the_substrate_offers_in_its_own_order asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Generator_BracketsAKnownBoundary_TheNaturalSubtractionWidening#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::generator_brackets_a_known_boundary_the_natural_subtraction_widening"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Generator_BracketsAKnownBoundary_TheNaturalSubtractionWidening (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:442 generator_brackets_a_known_boundary_the_natural_subtraction_widening asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Generator_BracketsANonIntegralBoundary_AndEveryPointIsStrictlyInside#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::generator_brackets_a_non_integral_boundary_and_every_point_is_strictly_inside"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Generator_BracketsANonIntegralBoundary_AndEveryPointIsStrictlyInside (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:491 generator_brackets_a_non_integral_boundary_and_every_point_is_strictly_inside asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Generator_BroadPhaseSequenceIsStableUnderTheSameSeed_AndMovesWithIt#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::generator_broad_phase_sequence_is_stable_under_the_same_seed_and_moves_with_it"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Generator_BroadPhaseSequenceIsStableUnderTheSameSeed_AndMovesWithIt (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:541 generator_broad_phase_sequence_is_stable_under_the_same_seed_and_moves_with_it asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Hypothesis_BoundaryBiasBeatsUniform_OnAPlantedDefect#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::hypothesis_boundary_bias_beats_uniform_on_a_planted_defect"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Hypothesis_BoundaryBiasBeatsUniform_OnAPlantedDefect (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:744 hypothesis_boundary_bias_beats_uniform_on_a_planted_defect asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Loop_IsDeterministic_AcrossProcesses#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::loop_is_deterministic_across_processes"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Loop_IsDeterministic_AcrossProcesses (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:426 loop_is_deterministic_across_processes asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Loop_IsDeterministic_SameSeedProducesAByteIdenticalReport#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::loop_is_deterministic_same_seed_produces_a_byte_identical_report"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Loop_IsDeterministic_SameSeedProducesAByteIdenticalReport (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:386 loop_is_deterministic_same_seed_produces_a_byte_identical_report asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/PlantedDefect_IsFalsified_AndTheReportNamesTheRegionAndTheInput#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::planted_defect_is_falsified_and_the_report_names_the_region_and_the_input"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.PlantedDefect_IsFalsified_AndTheReportNamesTheRegionAndTheInput (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:570 planted_defect_is_falsified_and_the_report_names_the_region_and_the_input asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/ProbeRecord_RoundTripsThroughItsDeterministicTextForm#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::probe_record_round_trips_through_its_deterministic_text_form"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.ProbeRecord_RoundTripsThroughItsDeterministicTextForm (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:341 probe_record_round_trips_through_its_deterministic_text_form asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/RegistryLoop_ClassifiesEveryShippedRule_AndFindsNoDefect#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::registry_loop_classifies_every_shipped_rule_and_finds_no_defect"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.RegistryLoop_ClassifiesEveryShippedRule_AndFindsNoDefect (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:587 registry_loop_classifies_every_shipped_rule_and_finds_no_defect asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Tolerance_IsAParameter_TheSameValuesDecideDifferentlyUnderDifferentTolerances#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::loop_api::tolerance_is_a_parameter_the_same_values_decide_differently_under_different_tolerances"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification loop API (ObservationClassifier, FalsificationProbeSet, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# Falsification.FalsificationLoopTests.Tolerance_IsAParameter_TheSameValuesDecideDifferentlyUnderDifferentTolerances (Falsification/FalsificationLoopTests.cs); rust/lovelace-lang/src/falsification_round46/tests/loop_api.rs:308 tolerance_is_a_parameter_the_same_values_decide_differently_under_different_tolerances asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/AssumptionBoundary_GuardFlipsExactlyAtZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::assumption_boundary_guard_flips_exactly_at_zero"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.AssumptionBoundary_GuardFlipsExactlyAtZero (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:187 assumption_boundary_guard_flips_exactly_at_zero asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/ComplexExclusion_EveryRealOnlyRuleHasAnObservedComplexCounterexample#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::complex_exclusion_every_real_only_rule_has_an_observed_complex_counterexample"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.ComplexExclusion_EveryRealOnlyRuleHasAnObservedComplexCounterexample (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:261 complex_exclusion_every_real_only_rule_has_an_observed_complex_counterexample asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/ComplexExclusion_LogExp_IsStoppedByRealness_NotByUndefinedness#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::complex_exclusion_log_exp_is_stopped_by_realness_not_by_undefinedness"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.ComplexExclusion_LogExp_IsStoppedByRealness_NotByUndefinedness (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:334 complex_exclusion_log_exp_is_stopped_by_realness_not_by_undefinedness asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/ComplexTreatment_PartitionsTheRegistry_WithExplicitCounts#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::complex_treatment_partitions_the_registry_with_explicit_counts"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.ComplexTreatment_PartitionsTheRegistry_WithExplicitCounts (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:195 complex_treatment_partitions_the_registry_with_explicit_counts asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/Gate_Fails_WhenARuleThrows#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::gate_fails_when_a_rule_throws"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.Gate_Fails_WhenARuleThrows (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:45 gate_fails_when_a_rule_throws asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/Gate_ReportsFalsification_WhenARuleIsWrong#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::gate_reports_falsification_when_a_rule_is_wrong"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.Gate_ReportsFalsification_WhenARuleIsWrong (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:76 gate_reports_falsification_when_a_rule_is_wrong asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/Gate_StillFalsifies_AComplexOnlyWrongRule#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::gate_still_falsifies_a_complex_only_wrong_rule"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.Gate_StillFalsifies_AComplexOnlyWrongRule (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:100 gate_still_falsifies_a_complex_only_wrong_rule asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/RegistryGate_EveryRegisteredRuleIsSampled_OnEveryRegion#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::registry_gate_every_registered_rule_is_sampled_on_every_region"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.RegistryGate_EveryRegisteredRuleIsSampled_OnEveryRegion (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:8 registry_gate_every_registered_rule_is_sampled_on_every_region asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationGateTests/Sampling_IsASuperset_OfTheOriginalPoints_AndEveryProbeIsDocumented#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::gate_api::sampling_is_a_superset_of_the_original_points_and_every_probe_is_documented"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification registry gate API (RegistryFalsificationGate, GateReport); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationGateTests.Sampling_IsASuperset_OfTheOriginalPoints_AndEveryProbeIsDocumented (FalsificationGateTests.cs); rust/lovelace-lang/src/falsification_round46/tests/gate_api.rs:127 sampling_is_a_superset_of_the_original_points_and_every_probe_is_documented asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/AbsNeg_Universal#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::abs_neg_universal"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.AbsNeg_Universal (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:78 abs_neg_universal asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/AbsSquare_IsNotUniversal_OverComplex#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::abs_square_is_not_universal_over_complex"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.AbsSquare_IsNotUniversal_OverComplex (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:60 abs_square_is_not_universal_over_complex asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/AbsSquare_Real#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::abs_square_real"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.AbsSquare_Real (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:53 abs_square_real asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/CancelXOverX_NonZeroPoints#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::cancel_x_over_x_non_zero_points"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.CancelXOverX_NonZeroPoints (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:85 cancel_x_over_x_non_zero_points asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/CancelZeroOverX_NonZeroPoints#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::cancel_zero_over_x_non_zero_points"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.CancelZeroOverX_NonZeroPoints (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:95 cancel_zero_over_x_non_zero_points asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/ExpLog_Universal_OnPositivePoints#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::exp_log_universal_on_positive_points"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.ExpLog_Universal_OnPositivePoints (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:37 exp_log_universal_on_positive_points asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/LogExp_Real#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::log_exp_real"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.LogExp_Real (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:47 log_exp_real asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/SqrtSquare_NonNegative#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::sqrt_square_non_negative"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.SqrtSquare_NonNegative (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:20 sqrt_square_non_negative asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/SqrtSquare_Real#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::sqrt_square_real"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.SqrtSquare_Real (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:30 sqrt_square_real asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FalsificationTests/TrigPythagorean_Universal#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::falsification_round46::tests::probe_api::trig_pythagorean_universal"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing falsification probe API (FuzzIdentity, Evaluation regression harness); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 46: direct mirror of C# FalsificationTests.TrigPythagorean_Universal (FalsificationTests.cs); rust/lovelace-lang/src/falsification_round46/tests/probe_api.rs:6 trig_pythagorean_universal asserts the same contract. See docs/goal-parity-contract/round-46/falsification-api.md §3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.GroebnerTests/CircleHyperbola_GrLex#0"
