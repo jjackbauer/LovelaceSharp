@@ -414,3 +414,99 @@ fn exp_over_complexes_is_an_imageset_not_one_value() {
     assert_eq!(solution_values(&real), vec!["log(c)"]);
     assert!(array_items(record_field(&real, "families")).is_empty());
 }
+
+// ---------------------------------------------------------------------------
+// The two rows whose C# assertion is the KERNEL contract, restated with the
+// numeric side the reference checks (the 40-digit residual)
+// ---------------------------------------------------------------------------
+
+/// `Kernel_ExpSymbolic_Complex_EveryFamilyMemberSolves`: the kernel-level record is Solved /
+/// Complete with the family as its whole answer, every member solves exp(x) = 3 for the same k
+/// values the C# row uses, and k = 0 and k = 1 are DIFFERENT solutions (the C# row asserts this
+/// numerically with `NumOps.IsZero(one - zero)`, so the Rust analogue evaluates the difference at
+/// the same 40 digits through the same residual predicate).
+#[test]
+fn kernel_exp_symbolic_complex_every_family_member_solves_in_a_complete_set() {
+    let result = solve("x = symbol(\"x\"); c = symbol(\"c\"); solve_full(exp(x) == c, x)");
+
+    assert_eq!(enum_name(record_field(&result, "status")), "Solved");
+    assert_eq!(
+        enum_name(record_field(&result, "completeness")),
+        "Complete"
+    );
+    assert!(boolean(record_field(&result, "complete")));
+    assert!(array_items(record_field(&result, "solutions")).is_empty());
+
+    let families = array_items(record_field(&result, "families"));
+    assert_eq!(families.len(), 1);
+    let family = &families[0];
+    assert_eq!(
+        domain_name(record_field(family, "parameter_domain")),
+        "integer"
+    );
+    let template = symbolic(record_field(family, "template")).clone();
+    let parameter = symbolic(record_field(family, "parameter")).to_string();
+    assert!(!mentions_x(&template), "a family template must not contain x");
+
+    // For a concrete c = 3, every member of the family is a solution of exp(x) - 3 = 0 ...
+    let equation = Sym::sub(
+        Sym::Fun("exp".to_string(), vec![Sym::sym("x")]),
+        Sym::num(3),
+    );
+    let mut members: Vec<Sym> = Vec::new();
+    for k in [-3i64, -1, 0, 1, 4] {
+        let member = substitute(&template, &parameter, &Sym::num(k));
+        let member = substitute(&member, "c", &Sym::num(3));
+        assert_eq!(
+            crate::builtins::residual_is_zero(&equation, "x", &member),
+            Some(true),
+            "k = {k} gives {member}, which does not solve exp(x) = 3"
+        );
+        members.push(member);
+    }
+
+    // ... and k = 0 and k = 1 are DIFFERENT solutions, so a one-element set omits the rest.
+    let zero = &members[2];
+    let one = &members[3];
+    let difference = Sym::sub(one.clone(), zero.clone());
+    assert_eq!(
+        crate::builtins::residual_is_zero(&Sym::sym("x"), "x", &difference),
+        Some(false),
+        "the family's k = 0 and k = 1 members must be distinct solutions (their difference is \
+         {difference}, evaluated as zero)"
+    );
+}
+
+/// `RealDomain_ExpKeepsTheSingleSolution`: the real domain keeps the one solution of exp(x) = 5,
+/// which satisfies the original equation at 40 digits; a negative right-hand side and zero both
+/// stay NoSolutions with no family and no leaked complex period.
+#[test]
+fn real_domain_exp_keeps_the_single_solution_that_satisfies_the_equation() {
+    let positive = solve("x = symbol(\"x\"); solve_full(exp(x) == 5, x, real)");
+    assert_eq!(enum_name(record_field(&positive, "status")), "Solved");
+    assert_eq!(
+        enum_name(record_field(&positive, "completeness")),
+        "Complete"
+    );
+    let solutions = array_items(record_field(&positive, "solutions"));
+    assert_eq!(solutions.len(), 1);
+    assert!(array_items(record_field(&positive, "families")).is_empty());
+    let value = symbolic(record_field(&solutions[0], "value"));
+    let equation = Sym::sub(
+        Sym::Fun("exp".to_string(), vec![Sym::sym("x")]),
+        Sym::num(5),
+    );
+    assert_eq!(
+        crate::builtins::residual_is_zero(&equation, "x", value),
+        Some(true),
+        "the represented value {value} does not solve exp(x) = 5"
+    );
+
+    let negative = solve("x = symbol(\"x\"); solve_full(exp(x) == -5, x, real)");
+    assert_eq!(enum_name(record_field(&negative, "status")), "NoSolutions");
+    assert!(array_items(record_field(&negative, "families")).is_empty());
+
+    let zero = solve("x = symbol(\"x\"); solve_full(exp(x) == 0, x, real)");
+    assert_eq!(enum_name(record_field(&zero, "status")), "NoSolutions");
+    assert!(array_items(record_field(&zero, "families")).is_empty());
+}

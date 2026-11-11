@@ -1,14 +1,25 @@
 //! Round 31: the Real trigonometric kernel rows the round-26 audit deferred.
 //!
-//! Two C# families, 12 deferred rows:
+//! C# families and rows:
 //! - RealTrigPrecisionOracleTests.TheRequestedFractionalDigitsAreCorrect #5/#6/#7 (30 places),
 //!   #13/#14/#15 (50 places) and #21/#22/#23 (100 places): sin(10^20), sin(10^100) and
 //!   cos(10^100). The oracle is mpmath at 4000 dps; the digits below are the reference
 //!   Real.Sin/Cos publication for exactly those requests (measured by driving the pinned C#
 //!   assembly, Lovelace.Real/bin/Release/net10.0, through the same calls the C# test makes).
 //! - RealTrigPiResolutionPropertyTests.SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues
-//!   #0/#1/#2 (20/50/100 places): every one of the 16 special angles is exactly the table value,
-//!   with the table value's own exactness flag.
+//!   #0/#1/#2 (20/50/100 places): every one of the 16 special angles is exactly the table value.
+//!   The test below pins the table against the candidate value the reference Divide produces for
+//!   pi*num/den. It does NOT go through the public Rust pi.mul(num).div(den, places): Rust's
+//!   Real::div detects the repeating period one place earlier than the reference at the ambient
+//!   cap, so the public-arithmetic angle is an exact periodic value where the reference stores the
+//!   truncation, and sin/cos of it fall through the table to the series. Those three rows are
+//!   recorded as REFUSALS in docs/goal-parity-contract/round-33/circular-porting.md, not mapped.
+//! - The two RealTrigCertifiedPrefixTests rows and the one RealTrigSymmetryTests row the round-26
+//!   sweep left are the adjacent rows the same Real.Sin/Cos port unblocks; they are at the bottom.
+//!
+//! The nine huge-magnitude goldens were measured from the pinned C# Real.Sin/Cos. Two of them
+//! (sin(10^100) and cos(10^100) at 30 places) are the mpmath prefixes the C# certified-prefix
+//! comments record; the rest extend those same verified publications.
 
 use crate::Real;
 
@@ -172,6 +183,7 @@ fn exact_multiples_of_the_ambient_pi_keep_their_exact_table_values() {
     }
 }
 
+
 /// The negative-angle control of the same table (RealTrigSymmetryTests): the odd/even symmetry is
 /// exact, so a negated special angle keeps its table value.
 #[test]
@@ -195,4 +207,123 @@ fn negative_special_angles_keep_their_exact_values() {
         .div(&Real::from_i64(2), places + 5)
         .expect("sqrt(3)/2");
     assert_eq!(angle.neg().cos(places), sqrt3_half);
+}
+
+// ---------------------------------------------------------------------------
+// RealTrigCertifiedPrefixTests (the two rows the round-26 sweep left; both are
+// unblocked by the same Real.Sin/Cos port as the twelve above)
+// ---------------------------------------------------------------------------
+
+/// `Sin_And_Cos_OfTenToTheHundred_PublishTheDigitsTheyClaim`: the extreme certified-prefix row.
+/// The C# test runs under `WithPrecision(30, 30)` and compares the published fractional digits
+/// with mpmath at 4000 dps; the two 30-digit prefixes below are the ones its comments record.
+#[test]
+fn sin_and_cos_of_ten_to_the_hundred_publish_the_digits_they_claim() {
+    let hundred = Real::from_str(&format!("1{}", "0".repeat(100))).expect("10^100");
+
+    let sin = fractional(&hundred.sin(30));
+    assert!(
+        sin.len() >= 30,
+        "sin(10^100) published {} fractional digits, need at least 30",
+        sin.len()
+    );
+    assert!(
+        sin.starts_with(SIN_1E100_30),
+        "sin(10^100) is not the true expansion\n  got      {sin}\n  expected {SIN_1E100_30}"
+    );
+
+    let cos = fractional(&hundred.cos(30));
+    assert!(
+        cos.len() >= 30,
+        "cos(10^100) published {} fractional digits, need at least 30",
+        cos.len()
+    );
+    assert!(
+        cos.starts_with(COS_1E100_30),
+        "cos(10^100) is not the true expansion\n  got      {cos}\n  expected {COS_1E100_30}"
+    );
+}
+
+/// `SpecialAngles_AreStillExactAtEveryPrecision`: the controls the certified-prefix contract
+/// leaves untouched. The C# test runs under `WithPrecision(60, 40)`; both `Real.Sin`/`Real.Cos`
+/// and the divisions read the COMPUTATION places (60), so the Rust analogue is an explicit 60.
+#[test]
+fn special_angles_are_still_exact_at_every_precision() {
+    let places = 60usize;
+    let pi = Real::pi(places);
+    let two = Real::from_i64(2);
+    let six = Real::from_i64(6);
+    let pi_over_six = pi.div(&six, places).expect("pi/6");
+
+    assert_eq!(
+        Real::from_str("0.5").expect("0.5"),
+        pi_over_six.sin(places),
+        "sin(pi/6) must be exactly 1/2"
+    );
+    assert_eq!(
+        Real::from_str("-0.5").expect("-0.5"),
+        pi_over_six.neg().sin(places),
+        "sin(-pi/6) must be exactly -1/2"
+    );
+    assert_eq!(
+        Real::from_i64(1),
+        pi.div(&two, places).expect("pi/2").sin(places),
+        "sin(pi/2) must be exactly 1"
+    );
+    assert_eq!(Real::zero(), pi.sin(places), "sin(pi) must be exactly 0");
+    assert_eq!(
+        Real::from_i64(-1),
+        pi.cos(places),
+        "cos(pi) must be exactly -1"
+    );
+    let sqrt3_half = Real::from_i64(3)
+        .sqrt(places)
+        .div(&two, places)
+        .expect("sqrt(3)/2");
+    assert_eq!(
+        sqrt3_half,
+        pi_over_six.cos(places),
+        "cos(pi/6) must be exactly sqrt(3)/2"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RealTrigSymmetryTests (the one row the round-26 sweep left)
+// ---------------------------------------------------------------------------
+
+/// `Sin_GivenNegativeSpecialAngles_KeepsTheirExactValues`: the four equalities the C# row states,
+/// under its own `WithPrecision(60, 40)` computation width.
+#[test]
+fn sin_of_negative_special_angles_keeps_their_exact_values() {
+    let places = 60usize;
+    let pi = Real::pi(places);
+    let two = Real::from_i64(2);
+    let four = Real::from_i64(4);
+    let six = Real::from_i64(6);
+
+    // sin(-pi/6) is exactly -1/2: the value the failing Dsp test pinned.
+    assert_eq!(
+        Real::from_str("-0.5").expect("-0.5"),
+        pi.div(&six, places).expect("pi/6").neg().sin(places)
+    );
+    // sin(-pi/4) is exactly -sqrt(2)/2.
+    let sqrt2_half = Real::from_i64(2)
+        .sqrt(places)
+        .div(&two, places)
+        .expect("sqrt(2)/2");
+    assert_eq!(
+        sqrt2_half.neg(),
+        pi.div(&four, places).expect("pi/4").neg().sin(places)
+    );
+    // cos(-pi/6) is exactly sqrt(3)/2.
+    let sqrt3_half = Real::from_i64(3)
+        .sqrt(places)
+        .div(&two, places)
+        .expect("sqrt(3)/2");
+    assert_eq!(
+        sqrt3_half,
+        pi.div(&six, places).expect("pi/6").neg().cos(places)
+    );
+    // cos(-pi) is exactly -1.
+    assert_eq!(Real::from_i64(-1), pi.neg().cos(places));
 }

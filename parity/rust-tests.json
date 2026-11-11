@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T13:24:27Z",
+    "generatedAtUtc":  "2026-11-11T13:44:38Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4471,
+                  "passed":  4489,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4471
+                   "tests":  4489
                },
-    "sourcesSha256":  "f755c1b51b024d6f2a67c02c658d228270ed7412f63c27a5142aebbb6a1711a3",
+    "sourcesSha256":  "81645fb9869ddd15cbed08ae98053d05d207021c0de0bf70703ecff6b1549275",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -2780,6 +2780,9 @@
                                      "round31_trig::exact_multiples_of_the_ambient_pi_keep_their_exact_table_values",
                                      "round31_trig::negative_special_angles_keep_their_exact_values",
                                      "round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude",
+                                     "round31_trig::sin_and_cos_of_ten_to_the_hundred_publish_the_digits_they_claim",
+                                     "round31_trig::sin_of_negative_special_angles_keeps_their_exact_values",
+                                     "round31_trig::special_angles_are_still_exact_at_every_precision",
                                      "tests::Add_GivenTwoTenthsAndTwoTenths_IsExact",
                                      "tests::Add_GivenTwoThirds_ProducesRepeatingSixth",
                                      "tests::Cmp_GivenDifferentScales_OrdersNumerically",
@@ -2979,7 +2982,9 @@
                                      "circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set",
                                      "circular_family_round31::exp_over_complexes_is_an_imageset_not_one_value",
                                      "circular_family_round31::kernel_exp_symbolic_complex_every_family_member_solves",
+                                     "circular_family_round31::kernel_exp_symbolic_complex_every_family_member_solves_in_a_complete_set",
                                      "circular_family_round31::real_domain_exp_keeps_the_single_solution",
+                                     "circular_family_round31::real_domain_exp_keeps_the_single_solution_that_satisfies_the_equation",
                                      "circular_family_round31::real_domain_exp_symbolic_keeps_its_behaviour_and_never_carries_the_complex_period",
                                      "circular_family_round31::solve_full_exp_numeric_complex_is_not_the_principal_value_alone",
                                      "circular_family_round31::solve_full_exp_symbolic_complex_represents_the_whole_family",
@@ -3113,6 +3118,15 @@
                                      "help::tests::funcs_falls_back_to_name_search",
                                      "help::tests::funcs_lists_every_builtin_under_a_category",
                                      "help::tests::signature_distinguishes_optional_parameters",
+                                     "inverse_branch_round33::candidate_with_an_undecidable_residual_is_kept",
+                                     "inverse_branch_round33::every_represented_solution_satisfies_the_original_equation",
+                                     "inverse_branch_round33::kernel_sqrt_plus_two_is_not_solved_and_represents_nothing",
+                                     "inverse_branch_round33::polynomial_solve_stays_solved_and_complete_with_two_solutions",
+                                     "inverse_branch_round33::solve_full_sqrt_plus_two_does_not_claim_a_complete_solution_set",
+                                     "inverse_branch_round33::sqrt_minus_two_keeps_its_genuine_root",
+                                     "inverse_branch_round33::the_extraneous_candidate_four_is_not_represented",
+                                     "inverse_branch_round33::unity_root_branch_with_only_extraneous_candidates_is_not_a_complete_claim",
+                                     "inverse_branch_round33::unity_root_branches_are_kept_when_they_are_genuine",
                                      "latex_and_sqrt_parity::latex_documented_escapes_are_the_single_characters",
                                      "latex_and_sqrt_parity::latex_known_renderings_match_the_oracle_exactly",
                                      "latex_and_sqrt_parity::latex_precedence_corpus_matches_the_oracle_exactly",
@@ -3173,6 +3187,10 @@
                                      "printing_round17::run_printbudgettotalitytests_small_value_over_a_small_budget",
                                      "printing_round17::usageexamples_snippet_16_1_context_symbols_and_construction",
                                      "registry::round28_tests::edit_distance_is_the_structural_metric",
+                                     "relations_families_round33::sin_family_members_satisfy_the_equation_numerically",
+                                     "relations_families_round33::solve_cos_half_returns_two_families",
+                                     "relations_families_round33::solve_exp_zero_is_empty",
+                                     "relations_families_round33::solve_sin_beyond_range_is_empty_over_the_reals_and_unevaluated_over_the_complexes",
                                      "robustness_round13::round13_exact_terminating_quotients_are_exact_with_no_guard_digit",
                                      "robustness_round13::round13_expanded_repeated_root_reports_its_multiplicity",
                                      "robustness_round13::round13_factored_power_matches_the_oracles_inverse_branch",

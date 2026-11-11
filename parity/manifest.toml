@@ -27709,9 +27709,11 @@ note = "C#: Lovelace.Real.Tests/RealTrigCertifiedPrefixTests.cs:189 `Lovelace.Re
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigCertifiedPrefixTests/Sin_And_Cos_OfTenToTheHundred_PublishTheDigitsTheyClaim#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; for an argument of 10^100 the quotient (~1.6e99) overflows, trunc_to_long falls back to 0 and the kernel returns a value outside [-1,1] (measured sin(10^100) = 0.945509... at 30 places; the oracle is -0.372376...). Production fix out of scope."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::sin_and_cos_of_ten_to_the_hundred_publish_the_digits_they_claim"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigCertifiedPrefixTests.cs:115 (scope 30/30) asserts sin(10^100) and cos(10^100) publish the mpmath 30-digit prefixes 372376123661276688262086695553 and 928081905074655343456194643776. Rust: rust/lovelace-real/src/round31_trig.rs:210 asserts the same two prefixes and the published width."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigCertifiedPrefixTests/Sin_OfOne_AtFiftyPlaces_PublishesFiftyCorrectDigits#0"
@@ -27779,9 +27781,11 @@ note = "C#: Lovelace.Real.Tests/RealTrigCertifiedPrefixTests.cs:208 `Lovelace.Re
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigCertifiedPrefixTests/SpecialAngles_AreStillExactAtEveryPrecision#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the Rust kernel has no special-angle table. sin(pi/6) is 0.5 but sin(pi/2) is 0.999... and cos(pi/6) is one unit in the last place off the exact table value with a different exactness flag. The C# assertion is exact equality; a weaker assertion is a refusal."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::special_angles_are_still_exact_at_every_precision"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigCertifiedPrefixTests.cs:145 (scope 60/40) asserts sin(pi/6) = 1/2, sin(-pi/6) = -1/2, sin(pi/2) = 1, sin(pi) = 0, cos(pi) = -1 and cos(pi/6) = sqrt(3)/2 exactly. Rust: rust/lovelace-real/src/round31_trig.rs:240 asserts the same six equalities at 60 computation places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/ArgumentReduction_IntegerQuotient_MatchesTheDividedForm#0"
@@ -27911,22 +27915,25 @@ note = "C#: Lovelace.Real.Tests/RealTrigPiResolutionPropertyTests.cs:93 `Lovelac
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#0"
 project = "Lovelace.Real.Tests"
 disposition = "deferred"
-reason = "ROUND26 REFUSAL: asserts exact equality (and equal exactness provenance) with the special-angle table at 20/50/100 places; the Rust kernel has no special-angle table, so sin(pi/2) is 0.999... and many table values are one ulp off. A tolerance port would be weaker."
+reason = "ROUND33 REFUSAL: the C# row builds each angle with the public arithmetic (angle = pi * num / den under WithPrecision(places, places)) and asserts Real.Sin(angle)/Real.Cos(angle) equal the table value exactly at 20/50/100 places. The Rust Real::div detects the repeating period one place earlier than the reference Divide at the ambient cap, so pi*num/den is the exact periodic quotient where the reference stores the truncated decimal; e.g. at 20 places 5*pi/3 is 5.2359877559829887307(6) in Rust vs 5.23598775598298873076 in C#, and sin of it falls through the special-angle table to the Taylor series (non-exact). The table itself is correct for the reference candidate value (rust/lovelace-real/src/round31_trig.rs:132), but that is a different input from the one the C# row evaluates, so the row is not claimed."
 targetPhase = 0
+note = "Measured with the pinned C# assembly (rust/target/tmp/cstrigprobe) and the Rust Real kernel; the root cause is Real::div period detection at the budget boundary, outside this round's test-only scope."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#1"
 project = "Lovelace.Real.Tests"
 disposition = "deferred"
-reason = "ROUND26 REFUSAL: asserts exact equality (and equal exactness provenance) with the special-angle table at 20/50/100 places; the Rust kernel has no special-angle table, so sin(pi/2) is 0.999... and many table values are one ulp off. A tolerance port would be weaker."
+reason = "ROUND33 REFUSAL: same cause as #0; at 50 places Rust produces the exact periodic 1.0471975511965977461542144610931676280657231331250(3) for pi/3 (and analogous values for 2*pi/3 and 5*pi/3) where the C# Divide stores the 50-digit truncation, so Sin(pi*num/den) is not the exact table value through the public arithmetic. See #0 for the full measurement."
 targetPhase = 0
+note = "Same production gap (Real::div period detection at the ambient cap); candidate-based table coverage is at rust/lovelace-real/src/round31_trig.rs:132 and is not claimed for this row."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_ExactMultiplesOfTheAmbientPi_KeepTheirExactTableValues#2"
 project = "Lovelace.Real.Tests"
 disposition = "deferred"
-reason = "ROUND26 REFUSAL: asserts exact equality (and equal exactness provenance) with the special-angle table at 20/50/100 places; the Rust kernel has no special-angle table, so sin(pi/2) is 0.999... and many table values are one ulp off. A tolerance port would be weaker."
+reason = "ROUND33 REFUSAL: same cause as #0/#1 at 100 places; the public-arithmetic angle differs from the reference Divide value at the ambient cap, so the C# assertion (Sin(pi*num/den) equals the table value) does not hold in Rust and a candidate-based test would assert a different input."
 targetPhase = 0
+note = "Same production gap; recorded rather than mapped to a weaker assertion."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPiResolutionPropertyTests/SinAndCos_RationalMultiplesOfPiTruncatedAtDPlaces_StayOnTheExactAngle#0"
@@ -28012,23 +28019,29 @@ note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:83 `Lovelace.Rea
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#13"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e20_50, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#14"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e100_50, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#15"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Cos_1e100_50, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#16"
@@ -28087,23 +28100,29 @@ note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:83 `Lovelace.Rea
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#21"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e20_100, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#22"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e100_100, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#23"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Cos_1e100_100, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#3"
@@ -28126,23 +28145,29 @@ note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:83 `Lovelace.Rea
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#5"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e20_30, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#6"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Sin_1e100_30, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#7"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: the range reduction converts the turn count to i64; the ~1.6e19 (10^20) / ~1.6e99 (10^100) quotient overflows and the kernel returns a value outside [-1,1] instead of the mpmath digits."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::requested_fractional_digits_are_correct_at_every_huge_magnitude"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigPrecisionOracleTests.cs:82 (battery case Cos_1e100_30, lines 51-62) asserts the published fractional digits of the case cover the requested 30/50/100 mpmath-true digits. Rust: rust/lovelace-real/src/round31_trig.rs:53 asserts the same publication starts with the measured true expansion for sin(10^20), sin(10^100) and cos(10^100) at 30, 50 and 100 places."
 
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigPrecisionOracleTests/TheRequestedFractionalDigitsAreCorrect#8"
@@ -28183,9 +28208,11 @@ note = "C#: Lovelace.Real.Tests/RealTrigSymmetryTests.cs:43 `Lovelace.Real.Tests
 [[test]]
 id = "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigSymmetryTests/Sin_GivenNegativeSpecialAngles_KeepsTheirExactValues#0"
 project = "Lovelace.Real.Tests"
-disposition = "deferred"
-reason = "ROUND26 REFUSAL: asserts sin(-pi/6) == -0.5, sin(-pi/4) == -sqrt(2)/2 and cos(-pi/6) == sqrt(3)/2 exactly; the Rust kernel has no special-angle table and returns nearby inexact values."
+disposition = "ported"
+rust = "lovelace-real::round31_trig::sin_of_negative_special_angles_keeps_their_exact_values"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Real.Tests/RealTrigSymmetryTests.cs:60 (scope 60/40) asserts sin(-pi/6) = -1/2, sin(-pi/4) = -sqrt(2)/2, cos(-pi/6) = sqrt(3)/2 and cos(-pi) = -1 exactly. Rust: rust/lovelace-real/src/round31_trig.rs:286 asserts the same four equalities."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_CrossCopyConcurrent_NeitherDeadlocksNorThrows#0"
@@ -47226,79 +47253,101 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/FiniteNamedConstantIdentities_StillFold#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::finite_named_constant_identities_still_fold"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:123 asserts pi - pi = 0, 0*pi = 0 and e - e = 0 still fold. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:109 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/IndeterminateDifferenceEmbeddedInSum_DoesNotResurrectZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::indeterminate_difference_embedded_in_sum_does_not_resurrect_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:93 asserts (inf - inf) + 1 is not a definite 0 and infinity survives. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:85 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/InfinityMinusInfinity_IsNotDefiniteZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::infinity_minus_infinity_is_not_definite_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:45 asserts inf - inf is not a definite 0, infinity survives, and the pretty form is 0*inf. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:46 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/InfinityPlusOne_StaysUnevaluated#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::infinity_plus_one_stays_unevaluated"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:71 asserts inf + 1 is not a definite 0 and infinity survives. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:64 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/NestedInfinityDifference_IsNotDefiniteZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::nested_infinity_difference_is_not_definite_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:81 asserts (inf + x) - (inf + x) is not a definite 0. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:72 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/Sibling_InfinityOverInfinity_StaysUnevaluated#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::sibling_infinity_over_infinity_stays_unevaluated"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:137 asserts inf/inf is neither 0 nor 1. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:121 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/Sibling_InfinityToTheZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::sibling_infinity_to_the_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:155 asserts inf^0 is preserved as 1 by convention. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:134 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/Sibling_ZeroOverZero_IsNotDefiniteZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::sibling_zero_over_zero_is_not_definite_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:147 asserts 0/0 is not a definite 0. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:128 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/SymbolMinusItself_StillFoldsToZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::symbol_minus_itself_still_folds_to_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:107 asserts x - x still folds to 0. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:97 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/ZeroTimesInfinity_IsNotDefiniteZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::zero_times_infinity_is_not_definite_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:59 asserts 0*inf is not a definite 0, infinity survives, and the pretty form is 0*inf. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:56 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IndeterminateFormTests/ZeroTimesSymbol_StillFoldsToZero#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-symbolics::indeterminate_forms_round31::zero_times_symbol_still_folds_to_zero"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/IndeterminateFormTests.cs:115 asserts 0*x still folds to 0. Rust: rust/lovelace-symbolics/src/indeterminate_forms_round31.rs:103 asserts the same fact on the same constructor."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/AcceptanceControls_NothingElseMoves#0"
@@ -47312,128 +47361,163 @@ note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:320 asse
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:261 (row #0 of the theory at :278) asserts solve_full(exp(x) == x, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:262 (row #1 of the theory at :278) asserts solve_full(log(x) == x, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:263 (row #2 of the theory at :278) asserts solve_full(x - log(x) == 0, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:264 (row #3 of the theory at :278) asserts solve_full(x - sin(x) == 0, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:265 (row #4 of the theory at :278) asserts solve_full(x - cos(x) == 0, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:266 (row #5 of the theory at :278) asserts solve_full(x*exp(x) == 1, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:267 (row #6 of the theory at :278) asserts solve_full(x + exp(x) == 0, x) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#7"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:268 (row #7 of the theory at :278) asserts solve_full(exp(x) == x, x, real) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#8"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:269 (row #8 of the theory at :278) asserts solve_full(log(x) == x, x, real) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/CircularCandidates_AreNotRepresentedAndAreNotACompleteSet#9"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::circular_candidates_are_not_represented_and_are_not_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:270 (row #9 of the theory at :278) asserts solve_full(x + exp(x) == 0, x, real) is not Solved and not NoSolutions, is not complete, and publishes no solution value or family template whose canonical form contains (sym x). Rust: rust/lovelace-lang/src/circular_family_round31.rs:283 iterates the same ten theory rows, asserting the same four facts for each."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/Kernel_ExpSymbolic_Complex_EveryFamilyMemberSolves#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::kernel_exp_symbolic_complex_every_family_member_solves_in_a_complete_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:117 asserts exp(x) = c over the complex field is Solved/Complete with no finite solutions, one integer-parameter family whose template does not mention x, every family member solves exp(x) = 3 for k = -3, -1, 0, 1, 4 at 40 digits, and the k = 0 and k = 1 members are numerically distinct. Rust: rust/lovelace-lang/src/circular_family_round31.rs:429 asserts the same record facts, the same five k values through builtins::residual_is_zero, and the numeric distinctness of the two members through the same 40-digit residual predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/RealDomain_ExpKeepsTheSingleSolution#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::real_domain_exp_keeps_the_single_solution_that_satisfies_the_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:189 asserts solve_full(exp(x) == 5, x, real) is Solved/Complete with one solution that satisfies exp(x) - 5 at 40 digits, while exp(x) = -5 and exp(x) = 0 are NoSolutions with no family. Rust: rust/lovelace-lang/src/circular_family_round31.rs:484 asserts the same three records and the same 40-digit residual for the represented value."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/RealDomain_ExpSymbolic_KeepsItsBehaviour_AndNeverCarriesTheComplexPeriod#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::real_domain_exp_symbolic_keeps_its_behaviour_and_never_carries_the_complex_period"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:208 asserts solve_full(exp(x) == c, x, real) reports domain real, status Solved, exactly one solution and no family (the complex period 2*pi*i never leaks into the reals). Rust: rust/lovelace-lang/src/circular_family_round31.rs:219 asserts the same four facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/SolveFull_ExpNumeric_Complex_IsNotThePrincipalValueAlone#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::solve_full_exp_numeric_complex_is_not_the_principal_value_alone"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:161 asserts solve_full(exp(x) == 5, x) is Solved/complete with no finite solutions, one integer-parameter family whose template does not mention x. Rust: rust/lovelace-lang/src/circular_family_round31.rs:169 asserts the same, plus the template log(5) + 2*k*pi*i."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/SolveFull_ExpSymbolic_Complex_RepresentsTheWholeFamily#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::solve_full_exp_symbolic_complex_represents_the_whole_family"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:88 asserts solve_full(exp(x) == c, x) is Solved/Complete/ParametricExact with no finite solutions, one integer-parameter family and the single condition c != 0. Rust: rust/lovelace-lang/src/circular_family_round31.rs:111 asserts the same, plus the template log(c) + 2*k*pi*i."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/SympyOracle_ExpOverComplexes_IsAnImageSet_AndTheTemplateMatchesIt#0"
 project = "Lovelace.Symbolics.Tests"
 disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+reason = "ROUND33 REFUSAL: the C# row requires a live SymPy oracle (solveset(exp(x) - c, x, Complexes) must print an ImageSet over the Integers with the 2*_n*pi period, and sympy.simplify must return 0 for the family residual and for k in -3..3). The Rust workspace has no SymPy bridge, so any Rust test can only assert the shape the oracle measured (an integer-parameter family with period 2*pi*i), not the oracle call itself; that is a weaker assertion. Rust: rust/lovelace-lang/src/circular_family_round31.rs:396 exp_over_complexes_is_an_imageset_not_one_value pins the shape and is NOT claimed for this row."
 targetPhase = 0
+note = "Kept deferred; the kernel-side family facts are covered by the other InfiniteFamilyCompleteness rows."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/TheLegitimateInverseBranch_StillRepresentsItsValues#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::the_legitimate_inverse_branch_still_represents_its_values"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:302 asserts sqrt(x) = x is Solved/Complete with two values, neither mentioning x, and each satisfying sqrt(x) - x. Rust: rust/lovelace-lang/src/circular_family_round31.rs:330 asserts the same, plus the exact values 0 and 1."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/TheOtherInverses_KeepTheirOwnHonestAnswer#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::circular_family_round31::the_other_inverses_keep_their_own_honest_answer"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:229 asserts sin(x) = 1/2 has two integer families, cos(x) = 1/2 has two, tan(x) = 1 has one, and log(x) = c is Solved/Complete with the single value of the principal branch and no family. Rust: rust/lovelace-lang/src/circular_family_round31.rs:239 asserts the same, plus the published templates."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.IntegerIntervalContradictionTests/Integer_NonEmptyInterval_IsAccepted#0"
@@ -47473,107 +47557,136 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/CandidateWithAnUndecidableResidual_IsKept#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::candidate_with_an_undecidable_residual_is_kept"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:268 asserts exp(x) = y with free y is Solved with one family, no finite solutions, the principal member log(y), and that the family member at k = 2, y = 7 solves exp(x) = 7 at 40 digits. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:338 asserts the same four facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :177) asserts sqrt(x) - 2 is Solved with 1 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :178) asserts cbrt(x) - 3 (x^(1/3)) is Solved with 1 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :179) asserts exp(x) - 3 is Solved with 1 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :180) asserts log(x) - 2 is Solved with 1 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#4"
 project = "Lovelace.Symbolics.Tests"
 disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+reason = "ROUND33 REFUSAL: the C# row asserts sqrt(x^2 + 1) - 2 is Solved with two solutions. The Rust solver returns Unevaluated for that shape (the nested inverse sqrt(u) = 2 -> u = 4 -> x^2 = 3 is not reached), measured with rust/lovelace-lang/src/inverse_branch_round33.rs:197, which runs the other six rows of the theory and records this one as the gap. The C# assertion cannot be reproduced without a production change."
 targetPhase = 0
+note = "Nested-inverse gap, out of the round's test-only scope."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :182) asserts x^2 - 4 is Solved with 2 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::every_represented_solution_satisfies_the_original_equation"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 (InlineData at :183) asserts x^3 - 8 is Solved with 3 represented solution(s), each satisfying the original equation (or, for exp(x) - 3, one family whose members at k = -2, 0, 1, 3 satisfy it). Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:197 runs the same six supported cases and asserts the same count and the same residuals through the kernel predicate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/Kernel_SqrtPlusTwo_IsNotSolvedAndRepresentsNothing#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::kernel_sqrt_plus_two_is_not_solved_and_represents_nothing"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:115 asserts the kernel result is Unevaluated, not Complete, with no solutions and no families. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:150 asserts the same four facts on the solve_full record."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/PolynomialSolve_StaysSolvedAndCompleteWithTwoSolutions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::polynomial_solve_stays_solved_and_complete_with_two_solutions"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:300 asserts solve_full(x^2 - 4 == 0, x) is Solved, complete, completeness Complete and represented_count 2. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:373 asserts the same four facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/SolveFull_SqrtPlusTwo_DoesNotClaimACompleteSolutionSet#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::solve_full_sqrt_plus_two_does_not_claim_a_complete_solution_set"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:91 asserts solve_full(sqrt(x) + 2 == 0, x) is not Solved, is not complete, has completeness Unknown, represented_count 0, and a solve.unevaluated diagnostic with a non-empty message. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:123 asserts the same six facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/SqrtMinusTwo_KeepsItsGenuineRoot#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::sqrt_minus_two_keeps_its_genuine_root"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:153 asserts solve_full(sqrt(x) - 2 == 0, x) is Solved/complete with represented_count 1 and the genuine root 4. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:179 asserts the same four facts, including the exact value 4."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/TheExtraneousCandidateFour_IsNotRepresented#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::the_extraneous_candidate_four_is_not_represented"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:131 asserts no represented value is x = 4 and that x = 4 really fails sqrt(x) + 2. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:162 asserts no solution value is 4 and the same non-solution fact through residual_is_zero."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/UnityRootBranches_AreKeptWhenTheyAreGenuine#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::unity_root_branches_are_kept_when_they_are_genuine"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:229 asserts (sqrt(x) - 2)^2 = 1 is Solved with two solutions, each satisfying the original equation. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:299 asserts the same two facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/UnityRootBranchWithOnlyExtraneousCandidates_IsNotACompleteClaim#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::inverse_branch_round33::unity_root_branch_with_only_extraneous_candidates_is_not_a_complete_claim"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:247 asserts (sqrt(x) + 1)^2 = 0 is not Solved and represents no solution. Rust: rust/lovelace-lang/src/inverse_branch_round33.rs:327 asserts the same two facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.KernelHardeningTests/AbsSquare_NotSimplified_ForComplex#0"
@@ -52086,44 +52199,56 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/SinFamily_MembersSatisfyEquation_Numerically#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::sin_family_members_satisfy_the_equation_numerically"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:183 (InlineData k = 0 at :180) asserts the k = 0 member of the sin(x) = 0 family satisfies sin(member) within 10^-19 at 50 digits. Rust: rust/lovelace-lang/src/relations_families_round33.rs:87 substitutes the same member of the k*pi family and asserts the residual at the kernel 40-digit/10^-24 budget."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/SinFamily_MembersSatisfyEquation_Numerically#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::sin_family_members_satisfy_the_equation_numerically"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:183 (InlineData k = 1 at :181) asserts the k = 1 member of the sin(x) = 0 family satisfies sin(member) within 10^-19 at 50 digits. Rust: rust/lovelace-lang/src/relations_families_round33.rs:87 substitutes the same member of the k*pi family and asserts the residual at the kernel 40-digit/10^-24 budget."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/SinFamily_MembersSatisfyEquation_Numerically#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::sin_family_members_satisfy_the_equation_numerically"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:183 (InlineData k = 2 at :182) asserts the k = 2 member of the sin(x) = 0 family satisfies sin(member) within 10^-19 at 50 digits. Rust: rust/lovelace-lang/src/relations_families_round33.rs:87 substitutes the same member of the k*pi family and asserts the residual at the kernel 40-digit/10^-24 budget."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Solve_CosHalf_ReturnsTwoFamilies#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::solve_cos_half_returns_two_families"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:146 asserts cos(x) = 1/2 returns two families. Rust: rust/lovelace-lang/src/relations_families_round33.rs:115 asserts the same two families."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Solve_ExpZero_Empty#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::solve_exp_zero_is_empty"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:171 asserts exp(x) = 0 is an Empty solution set. Rust: rust/lovelace-lang/src/relations_families_round33.rs:124 asserts the NoSolutions record with no family, no solution and a non-empty reason diagnostic."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Solve_SinBeyondRange_EmptyWithNote#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "No Rust test has been mapped to this capability yet."
+disposition = "ported"
+rust = "lovelace-lang::relations_families_round33::solve_sin_beyond_range_is_empty_over_the_reals_and_unevaluated_over_the_complexes"
+reason = "Round 33 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/RelationsAndFamiliesTests.cs:155 asserts sin(x) = 2 is NoSolutions with a note over the reals and Unevaluated with a note over the complexes. Rust: rust/lovelace-lang/src/relations_families_round33.rs:138 asserts the same two statuses and that each carries a non-empty reason diagnostic."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Solve_SinZero_EngineDisplaysFamily#0"

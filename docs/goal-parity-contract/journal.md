@@ -434,3 +434,11 @@
 - **Priority**: P2 (no test is blocked; the CLI row now uses a class both cancel)
 - **Raised by**: orchestrator, round 18
 - **Related**: OBS-030, RUN-010
+
+### VAL-003: The round-31 trig claim is falsified by round-33's measurement
+
+- **Target**: round-31 report's claim that all 12 real-trig rows are exact against the pinned C# Real.Sin
+- **Method**: the round-33 porting agent attempted to map the three RealTrigPiResolution SinAndCos_ExactMultiplesOfTheAmbientPi rows and measured both sides: C# pi*5/3 at 20 places is 5.23598775598298873076 (a stored truncation), Rust prints 5.2359877559829887307(6) because Real::div detects the repeating period one place earlier. The same holds for pi/3 at 50 places.
+- **Result**: Falsified (for those three rows). The round-31 report over-claimed; the rows are correctly refused rather than mapped, and the failure is a Real division period-detection difference, not a trig difference.
+- **Conclusion**: 37 of the 41 core ids were mapped, 3 trig rows refused with evidence, 1 needs a live SymPy bridge, 1 is Unevaluated in the kernel. The over-claim is recorded here and the ledger row for RealTrigPiResolution must not count as fixed.
+- **Related**: OBS-030 pattern (a prior agent's claim contradicted by a later measurement), REAL-002
