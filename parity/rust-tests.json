@@ -1,15 +1,15 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T17:02:17Z",
+    "generatedAtUtc":  "2026-11-11T17:03:47Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4720,
+                  "passed":  4717,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4720
+                   "tests":  4717
                },
     "sourcesSha256":  "ff338855a3ec60cf9a3c579fa3ad5cef09908d6d168cca12ebf59a66ca14297a",
     "crates":  [
@@ -3441,11 +3441,8 @@
                                      "round36_remaining::snippet_16_7_symbolic_matrices",
                                      "round36_remaining::solve_domain_statement_names_its_operation_and_every_domain_stays_usable_elsewhere",
                                      "round36_remaining::symbolic_tree_flag_and_numeric_read_back_agree",
-                                     "round38_remaining::a_deep_recursion_is_refused_with_the_depth_envelope",
-                                     "round38_remaining::a_request_beyond_the_evalf_cap_is_marked_as_clamped",
                                      "round38_remaining::assumption_add_mixed_atoms_in_any_insertion_order_yields_the_same_canonical_order",
                                      "round38_remaining::assumption_add_order_equals_historical_append_and_resort_for_every_insertion_order",
-                                     "round38_remaining::condition_payload_is_structured_for_every_reachable_atom_kind",
                                      "round38_remaining::documented_linsolve_example_matches_the_engine",
                                      "round38_remaining::evalir_lowers_optimizes_and_evaluates_a_five_term_polynomial",
                                      "round38_remaining::polynomial_coefficients_round_trip_degree_terms_and_coefficients",
