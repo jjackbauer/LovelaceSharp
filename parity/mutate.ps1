@@ -42,9 +42,35 @@ function Run-Gate($name) {
     'census'     { & (Join-Path $PSScriptRoot 'gate-census.ps1') *> $null; return $LASTEXITCODE }
     'manifest'   { & (Join-Path $PSScriptRoot 'gate-manifest.ps1') *> $null; return $LASTEXITCODE }
     'projects'   { & (Join-Path $PSScriptRoot 'gate-projects.ps1') *> $null; return $LASTEXITCODE }
-    'corpus'     { if ($gateFilter) { & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus -- $gateFilter *> $null } else { & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus *> $null }; return $LASTEXITCODE }
+    'corpus'     {
+      if ($gateFilter) {
+        $output = & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus -- $gateFilter 2>&1
+        $code = $LASTEXITCODE
+        if ($code -eq 0) {
+          $passed = 0
+          foreach ($line in $output) { if ($line -match 'corpus:\s*(\d+) passed') { $passed = [int]$Matches[1] } }
+          if ($passed -eq 0) { [Console]::Error.WriteLine("gate filter '$gateFilter' matched no corpus examples"); return 2 }
+        }
+        return $code
+      }
+      & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus *> $null
+      return $LASTEXITCODE
+    }
     'diff-empty' { Push-Location $repo; & node (Join-Path $repo 'parity\diff\run.mjs') --cases 0 *> $null; $c = $LASTEXITCODE; Pop-Location; return $c }
-    'cargo-test' { if ($gateFilter) { & cargo test --manifest-path $cargoManifest --workspace $gateFilter *> $null } else { & cargo test --manifest-path $cargoManifest --workspace *> $null }; return $LASTEXITCODE }
+    'cargo-test' {
+      if ($gateFilter) {
+        $output = & cargo test --manifest-path $cargoManifest --workspace $gateFilter 2>&1
+        $code = $LASTEXITCODE
+        if ($code -eq 0) {
+          $passed = 0
+          foreach ($line in $output) { if ($line -match '(\d+) passed') { $passed += [int]$Matches[1] } }
+          if ($passed -eq 0) { [Console]::Error.WriteLine("gate filter '$gateFilter' matched no tests"); return 2 }
+        }
+        return $code
+      }
+      & cargo test --manifest-path $cargoManifest --workspace *> $null
+      return $LASTEXITCODE
+    }
     default      { throw "unknown gate '$name'" }
   }
   } finally {
@@ -91,7 +117,10 @@ foreach ($m in $selected) {
 
   $target = Join-Path $repo $m.target
   if (-not (Test-Path $target)) { $row.detail = 'target missing: ' + $m.target; $results += $row; continue }
-  $original = [System.IO.File]::ReadAllText($target)
+  # Keep the original BYTES: a text round-trip can silently rewrite a BOM or a line ending,
+  # which would leave the reverted tree byte-different even though the gate still passes.
+  $originalBytes = [System.IO.File]::ReadAllBytes($target)
+  $original = [System.Text.Encoding]::UTF8.GetString($originalBytes)
   $count = ([regex]::Matches($original, [regex]::Escape($m.find))).Count
   if ($count -ne 1) {
     $row.detail = ('anchor occurs ' + $count + ' times (need exactly 1): ' + $m.find)
@@ -108,7 +137,7 @@ foreach ($m in $selected) {
   } catch {
     $row.detail = 'exception: ' + $_.Exception.Message
   } finally {
-    [System.IO.File]::WriteAllText($target, $original)
+    [System.IO.File]::WriteAllBytes($target, $originalBytes)
     if ($m.kind -eq 'source') { Build-Release }
     $restoreCode = Run-Gate $m.gate
     $row.restored = ($restoreCode -eq 0)

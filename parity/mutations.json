@@ -15,9 +15,9 @@
       "id": "GATE-002",
       "kind": "source",
       "title": "mixed numeric operands narrow to the smaller kind instead of widening",
-      "target": "rust/lovelace-lang/src/value.rs",
-      "find": "let target = a.max(b);",
-      "replace": "let target = a.min(b);",
+      "target": "rust/lovelace-lang/src/builtins.rs",
+      "find": "let target = ra.max(rb);",
+      "replace": "let target = ra.min(rb);",
       "gate": "corpus:lang/020"
     },
     {
@@ -59,10 +59,10 @@
     {
       "id": "GATE-007",
       "kind": "source",
-      "title": "the final published digit is rounded up unconditionally instead of truncated",
-      "target": "rust/lovelace-real/src/transcendental.rs",
-      "find": "    let mag = Nat::from_decimal(keep).unwrap_or_else(Nat::zero);",
-      "replace": "    let mag = Nat::from_decimal(keep).unwrap_or_else(Nat::zero);\n    let mag = mag.add(&Nat::from_u64(1));",
+      "title": "the final digit of a fixed decimal is incremented instead of truncated",
+      "target": "rust/lovelace-real/src/lib.rs",
+      "find": "        let frac: String = frac.chars().take(digits).collect();",
+      "replace": "        let mut frac: String = frac.chars().take(digits).collect();\n        if let Some(last) = frac.pop() {\n            let digit = last.to_digit(10).unwrap_or(0);\n            frac.push(char::from_digit((digit + 1) % 10, 10).unwrap_or('0'));\n        }",
       "gate": "corpus:sym/080"
     },
     {
