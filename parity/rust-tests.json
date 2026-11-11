@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T19:12:06Z",
+    "generatedAtUtc":  "2026-11-11T19:59:30Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4808,
+                  "passed":  4817,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4808
+                   "tests":  4817
                },
-    "sourcesSha256":  "51b828e31092a46e8eb0519d82ace114b7c1a81949b1dad9095cf568de37e0f6",
+    "sourcesSha256":  "75336b78b607a37a928b4cbfdebf0adf99a399dfec6b44bd7176da86c22adc4a",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3338,6 +3338,7 @@
                                      "printing_round17::printbudgettests_node_budget_reports_reason_count_budget_and_partial_result",
                                      "printing_round17::printbudgettokenboundarytests_a_rendering_that_is_one_long_token_retains_nothing",
                                      "printing_round17::printbudgettokenboundarytests_canonical_form_of_the_same_value_ends_at_a_boundary",
+                                     "printing_round17::round42_print_budget_uses_the_kernel_character_allowance_first",
                                      "printing_round17::run_printbudgettokenboundarytests_identifier_longer_than_the_projections_allowance",
                                      "printing_round17::run_printbudgettotalitytests_every_node_count_over_budget_6_rows",
                                      "printing_round17::run_printbudgettotalitytests_small_value_over_a_small_budget",
@@ -3556,6 +3557,14 @@
                                      "round39_residue::integration_table_rows_are_exact_and_verify",
                                      "round39_residue::mathir_old_version_is_rejected_with_the_reference_message",
                                      "round39_residue::solve_quartic_with_real_roots_keeps_the_exact_radicals",
+                                     "round42_differential_classes::round42_hash_comment_is_a_parse_error_at_the_hash",
+                                     "round42_differential_classes::round42_inv_full_carries_the_nonzero_determinant_condition",
+                                     "round42_differential_classes::round42_linsolve_full_solutions_are_the_flat_solution_vector",
+                                     "round42_differential_classes::round42_non_ascii_identifier_is_refused_in_code_units",
+                                     "round42_differential_classes::round42_numeric_inverse_kinds_follow_the_numeric_operations",
+                                     "round42_differential_classes::round42_numeric_linsolve_is_refused_as_a_symbolic_matrix_builtin",
+                                     "round42_differential_classes::round42_singular_numeric_inverse_names_the_full_refusal",
+                                     "round42_differential_classes::round42_symbolic_inverse_elements_are_products_over_the_determinant",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",

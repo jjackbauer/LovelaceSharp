@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-symbolic-diff-polynomial-023",
+  "category": "symbolic",
+  "script": "x = symbol(\"x\"); diff(x^5 + 6*x^2 + 9*x + 8, x)",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.canonical",
+      "kind": "value",
+      "expected": "\"(add (rat 9 1) (mul (rat 5 1) (pow (sym x) (rat 4 1))) (mul (rat 12 1) (sym x)))\"",
+      "actual": "\"(add (mul (pow (sym x) (rat 4 1)) (rat 5 1)) (mul (sym x) (rat 12 1)) (rat 9 1))\""
+    }
+  },
+  "addedAtUtc": "2026-11-11T19:20:20.292Z"
+}

@@ -538,6 +538,21 @@ fn printbudgettests_canonical_mode_honours_the_same_budget() {
     assert_eq!(json_text(&outcome, "truncationReason"), "node-budget");
 }
 
+/// Round 42: the reference abbreviates a LONG rendering at the kernel character allowance
+/// max(48, 6 x budget) FIRST and only then applies the suite projection's proportional cut.
+/// Using the proportional rule alone moved every established cut point (77 stored regressions).
+#[test]
+fn round42_print_budget_uses_the_kernel_character_allowance_first() {
+    let value = script_value("x = symbol(\"x\"); diff(x^3 + 2*x^2 + 5*x + 7, x)");
+    let structured = projection(&value, Some(5));
+    assert_eq!(
+        json_text(&structured, "canonical"),
+        "(add (rat 5 1) (mul (rat 3 1) (pow (sym x) (rat  …"
+    );
+    assert_eq!(json_text(&structured, "pretty"), "3*x^2 + …");
+    assert_eq!(json_number(&structured, "budget"), 5);
+}
+
 /// `PrintBudgetTests.Abbreviation_NeverSplitsAToken`
 /// (Lovelace.Symbolics.Tests/PrintBudgetTests.cs:94).
 #[test]

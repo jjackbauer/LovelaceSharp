@@ -1873,3 +1873,6 @@ mod round38_series_kink_hardening;
 
 #[cfg(test)]
 mod round39_residue;
+
+#[cfg(test)]
+mod round42_differential_classes;

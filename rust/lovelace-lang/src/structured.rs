@@ -166,7 +166,19 @@ fn truncate(full: &str, budget: Option<usize>, node_count: usize) -> (String, bo
     if node_count <= max_nodes || full.is_empty() {
         return (full.to_string(), false);
     }
-    let allowed = ((full.len() as u128 * max_nodes as u128) / node_count as u128).max(1) as usize;
+    // TWO allowances, in the reference's order. The kernel printer abbreviates only when the
+    // rendering is longer than max(48, 6 x budget) CHARACTERS; when it does, that character
+    // allowance is the cut. The suite projection then makes the node budget TOTAL for the short
+    // renderings the kernel leaves whole: a proportional cut (full x budget / nodes) that is
+    // always a strict prefix. Using only the proportional rule moved every long rendering's cut
+    // point, which is the print-budget mismatch class (77 stored regressions).
+    let chars = full.chars().count();
+    let character_allowance = max_nodes.saturating_mul(6).max(48);
+    let allowed = if chars > character_allowance {
+        character_allowance
+    } else {
+        ((chars as u128 * max_nodes as u128) / node_count as u128).max(1) as usize
+    };
     let cut = cut_at_token_boundary(full, allowed);
     if cut == 0 {
         ("…".to_string(), true)

@@ -188,12 +188,10 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
             i += 1;
             continue;
         }
-        if c == '#' {
-            while i < chars.len() && chars[i] != '\n' {
-                i += 1;
-            }
-            continue;
-        }
+        // The reference language has NO comment syntax: the tokenizer has no comment branch and
+        // '#' is simply not a token, so a comment attempt is a ParseError naming the character
+        // (Unexpected character '#' at position N). A permissive comment branch here would accept
+        // a script the oracle refuses and answer a different exit code, which is a wire difference.
         if c == '"' {
             let (text, next) = scan_string(&chars, i + 1, pos)?;
             out.push(Token {
@@ -284,9 +282,13 @@ pub fn tokenize(src: &str) -> Result<Vec<Token>, LangError> {
             });
             continue;
         }
-        if c.is_alphabetic() || c == '_' {
+        // Identifiers are ASCII: the reference tokenizer accepts [A-Za-z_] and then
+        // [A-Za-z0-9_], so a non-ASCII letter is an Unexpected-character ParseError (position in
+        // UTF-16 code units, which is what the diagnostic carries). Unicode is still allowed
+        // inside string literals; only the identifier alphabet is ASCII.
+        if c.is_ascii_alphabetic() || c == '_' {
             let mut text = String::new();
-            while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
+            while i < chars.len() && (chars[i].is_ascii_alphanumeric() || chars[i] == '_') {
                 text.push(chars[i]);
                 i += 1;
             }

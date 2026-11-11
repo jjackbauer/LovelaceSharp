@@ -1,0 +1,19 @@
+{
+  "id": "g-s1-records-optimize-full-006",
+  "category": "records",
+  "script": "x = symbol(\"x\"); optimize_full(x^5 + 3*x^4 + 3*x^3 + x^2 + x + 1, [x])",
+  "args": [
+    "--omit-functions"
+  ],
+  "observed": {
+    "oracleExit": 0,
+    "rustExit": 0,
+    "firstDifference": {
+      "path": "$.result.structured.fields[0].value.canonical",
+      "kind": "value",
+      "expected": "\"(add (rat 1 1) (sym x) (pow (sym x) (rat 2 1)) (pow (sym x) (rat 5 1)) (mul (rat 3 1) (pow (sym x) (rat 3 1))) (mul (rat 3 1) (pow (sym x) (rat 4 1))))\"",
+      "actual": "\"(add (mul (pow (sym x) (rat 3 1)) (rat 3 1)) (mul (pow (sym x) (rat 4 1)) (rat 3 1)) (pow (sym x) (rat 2 1)) (pow (sym x) (rat 5 1)) (sym x) (rat 1 1))\""
+    }
+  },
+  "addedAtUtc": "2026-11-11T19:20:20.283Z"
+}

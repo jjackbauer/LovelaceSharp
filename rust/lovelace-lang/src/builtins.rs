@@ -1,6 +1,6 @@
 //! Operators, indexing, ranges and the builtin function library.
 
-use lovelace_array::{ArrayError, NdArray};
+use lovelace_array::{ArrayError, Field, NdArray};
 use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
@@ -2575,6 +2575,25 @@ pub fn call(
                     "linsolve needs a right-hand side of the right length.",
                 ));
             }
+            // The reference's linsolve/linsolve_full are SYMBOLIC-matrix builtins: a matrix of
+            // numeric values is refused outright (InvalidOperation/DomainError) rather than
+            // solved numerically. A single symbolic entry makes the matrix symbolic, and the
+            // numeric right-hand side is then fine. Solving the numeric case (the old behaviour)
+            // answered ok with a vector where the oracle refused, which is an exit-code mismatch.
+            let symbolic_matrix = a.iter().any(|v| matches!(v, Value::Symbolic(_)));
+            if !symbolic_matrix {
+                let message = if name == "linsolve" {
+                    "linsolve() requires a symbolic matrix A."
+                } else {
+                    "linsolve_full() requires a symbolic matrix A."
+                };
+                return Err(LangError::coded(
+                    message,
+                    pos,
+                    "InvalidOperation",
+                    "DomainError",
+                ));
+            }
             let determinant = det(a)?;
             // A singular coefficient matrix has no solution vector at all: the record says so
             // structurally, with the diagnostic the reference publishes.
@@ -2651,10 +2670,10 @@ pub fn call(
                         "completeness".to_string(),
                         enum_value("Completeness", "Complete"),
                     ),
-                    (
-                        "solutions".to_string(),
-                        Value::Vector(vec![Value::Vector(entries)]),
-                    ),
+                    // The MatrixSolveResult's solutions field is the FLAT solution vector
+                    // (shape [n]), not a one-element array holding it: the reference publishes
+                    // solutions: [(...), (...)]. The nested shape appended a rank.
+                    ("solutions".to_string(), Value::Vector(entries)),
                     (
                         "conditions".to_string(),
                         Value::Vector(vec![Value::Symbolic(condition)]),
@@ -2668,11 +2687,22 @@ pub fn call(
             let Value::Array(a) = &args[0] else {
                 return Err(LangError::plain("inv_full needs a matrix."));
             };
+            if !a.iter().any(|v| matches!(v, Value::Symbolic(_))) {
+                return Err(LangError::plain("inv_full() requires a symbolic matrix."));
+            }
             let d = det(a)?;
             if as_expr(&d).map(|e| e == Sym::num(0)).unwrap_or(false) {
                 return Ok(matrix_no_solutions("MatrixInverseResult", "inverse"));
             }
             let inverse = inv_matrix(a)?;
+            // The adjugate-over-determinant inverse is valid under det(A) != 0; the reference
+            // carries that condition in the record (ConditionExprs projects the NonZero property
+            // to the relation det != 0). An empty conditions array claimed an unconditional answer.
+            let condition = Sym::Rel(
+                lovelace_symbolics::RelOp::Ne,
+                Box::new(as_expr(&d).unwrap_or_else(|| Sym::num(0))),
+                Box::new(Sym::num(0)),
+            );
             Ok(Value::Record(
                 "MatrixInverseResult".to_string(),
                 vec![
@@ -2683,7 +2713,10 @@ pub fn call(
                         enum_value("Completeness", "Complete"),
                     ),
                     ("inverse".to_string(), inverse),
-                    ("conditions".to_string(), Value::Vector(Vec::new())),
+                    (
+                        "conditions".to_string(),
+                        Value::Vector(vec![Value::Symbolic(condition)]),
+                    ),
                     ("diagnostics".to_string(), Value::Vector(Vec::new())),
                 ],
             ))
@@ -4345,11 +4378,22 @@ fn inv_matrix(a: &NdArray<Value>) -> Result<Value, LangError> {
     }
     let n = shape[0];
     let m = to_matrix(&Value::Array(a.clone()))?;
+    // The reference has TWO inverse paths. A numeric matrix goes through TypedArrayOps.Inverse:
+    // Gauss-Jordan over the NUMERIC tier, so the result's KINDS follow the numeric operations
+    // (a pivot of 3 makes every entry it touches Real; a pivot of 1 keeps Natural/Integer). The
+    // old cofactor/det quotient computed the right values with the wrong kinds.
+    if !a.iter().any(|v| matches!(v, Value::Symbolic(_))) {
+        return inv_matrix_numeric(&m);
+    }
+    // A symbolic matrix goes through the kernel's adjugate-over-determinant: Divide(a, b) is
+    // Multiply(a, Power(b, -1)) in the reference, so the element is a PRODUCT node (node count
+    // 2 higher than a Div node) even though the display renders it as a quotient.
     let d = det(a)?;
-    if let Some(dr) = as_real(&d) {
-        if dr.is_zero() {
-            return Err(LangError::plain("Matrix is singular."));
-        }
+    let Some(dx) = as_expr(&d) else {
+        return Err(LangError::plain("inv needs a square matrix."));
+    };
+    if dx == Sym::num(0) {
+        return Err(LangError::plain("Matrix is singular (det = 0)."));
     }
     let mut out = Vec::with_capacity(n * n);
     for r in 0..n {
@@ -4374,15 +4418,76 @@ fn inv_matrix(a: &NdArray<Value>) -> Result<Value, LangError> {
             } else {
                 neg(&minor_det)?
             };
-            // Symbolic entries keep an explicit quotient: the reference publishes 0/(x*y)
-            // rather than collapsing it to zero.
-            if matches!(cofactor, Value::Symbolic(_)) || matches!(d, Value::Symbolic(_)) {
-                if let (Some(cx), Some(dx)) = (as_expr(&cofactor), as_expr(&d)) {
-                    out.push(Value::Symbolic(Sym::Div(Box::new(cx), Box::new(dx))));
-                    continue;
-                }
+            let Some(cx) = as_expr(&cofactor) else {
+                return Err(LangError::plain("inv needs a square matrix."));
+            };
+            // Zero over the determinant is NOT folded: the reference keeps the product so that
+            // 0/(x*y) stays visible (the quotient is undefined where the determinant vanishes),
+            // and the canonical form is the same (mul (rat 0 1) (pow ... -1)).
+            out.push(Value::Symbolic(Sym::mul(
+                cx,
+                Sym::pow(dx.clone(), Sym::num(-1)),
+            )));
+        }
+    }
+    Ok(Value::Array(
+        NdArray::from_vec(vec![n, n], out).map_err(array_error)?,
+    ))
+}
+
+/// Inverse of a NUMERIC square matrix: Gauss-Jordan over the augmented [A | I], using the
+/// numeric tier's own operations so the published kinds are the reference's (the determinant
+/// is not consulted: the singular case is a missing pivot, exactly as in TypedArrayOps.Inverse).
+fn inv_matrix_numeric(m: &[Vec<Value>]) -> Result<Value, LangError> {
+    let n = m.len();
+    let mut a: Vec<Vec<Value>> = Vec::with_capacity(n);
+    for r in 0..n {
+        let mut row: Vec<Value> = Vec::with_capacity(2 * n);
+        row.extend(m[r].iter().cloned());
+        for c in 0..n {
+            row.push(if r == c {
+                Value::Natural(Nat::from_u64(1))
+            } else {
+                Value::Natural(Nat::zero())
+            });
+        }
+        a.push(row);
+    }
+    for k in 0..n {
+        let mut pivot = k;
+        while pivot < n && a[pivot][k].is_zero() {
+            pivot += 1;
+        }
+        if pivot == n {
+            return Err(LangError::plain(
+                "Matrix is singular and cannot be inverted.",
+            ));
+        }
+        if pivot != k {
+            a.swap(k, pivot);
+        }
+        let divisor = a[k][k].clone();
+        for j in 0..2 * n {
+            a[k][j] = div(&a[k][j].clone(), &divisor, 1000)?;
+        }
+        for i in 0..n {
+            if i == k {
+                continue;
             }
-            out.push(div(&cofactor, &d, 1000)?);
+            let factor = a[i][k].clone();
+            if factor.is_zero() {
+                continue;
+            }
+            for j in 0..2 * n {
+                let product = mul(&factor, &a[k][j].clone())?;
+                a[i][j] = sub(&a[i][j].clone(), &product)?;
+            }
+        }
+    }
+    let mut out: Vec<Value> = Vec::with_capacity(n * n);
+    for r in 0..n {
+        for c in 0..n {
+            out.push(a[r][n + c].clone());
         }
     }
     Ok(Value::Array(
