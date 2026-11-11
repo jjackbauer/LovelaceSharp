@@ -1519,6 +1519,13 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
             let digits = evalir_digits(name, &args[2])?;
             let expr = match &args[0] {
                 Value::Text(text) if text.starts_with("#!mathir") => {
+                    // The reference gates the VERSION before reading any node: everything after
+                    // "#!mathir " must start with the supported version, and the refusal quotes
+                    // that whole tail verbatim (Unsupported MathIR format version '1\nparam x\n'
+                    // (expected 2).).
+                    if let Some(error) = ir_version_error(text, pos) {
+                        return Err(error);
+                    }
                     match parse_ir_text(text) {
                         Some(e) => e,
                         None => return Err(LangError::plain("evalir could not read that IR text.")),
@@ -1839,9 +1846,14 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 "limit_right" => Side::Right,
                 _ => Side::Both,
             };
+            // +infinity and -infinity are the same POINT for the series substitution x = 1/t
+            // (the reference takes the two-sided limit at the point); -inf arrives here as the
+            // negated infinity node, never as a finite point.
             let at_infinity = matches!(&args[2], Value::Text(t) if t == "inf")
-                || matches!(&args[2], Value::Symbolic(Sym::Fun(f, a)) if f == "inf" && a.is_empty());
-            Ok(limit_result(&f, &var, at_infinity, side))
+                || matches!(&args[2], Value::Symbolic(Sym::Fun(f, a)) if f == "inf" && a.is_empty())
+                || matches!(&args[2], Value::Symbolic(s) if is_negated_infinity(s));
+            let point = as_expr(&args[2]).unwrap_or_else(|| Sym::num(0));
+            Ok(limit_result(&f, &var, &point, at_infinity, side))
         }
         "solve" | "solve_full" => {
             if args.len() < 2 {
@@ -5532,6 +5544,36 @@ fn integrate_simple_fraction(term: &Sym, var: &str) -> Option<Sym> {
     integrate_basic(term, var)
 }
 
+/// The linear decomposition of `u` in `var`: Some((a, b)) when u = a*var + b with `a` free of
+/// the variable. None for any higher degree (exp(x^2) is not a table entry) and for a coefficient
+/// that still mentions the variable.
+fn linear_parts(u: &Sym, var: &str) -> Option<(Sym, Sym)> {
+    let terms = match u {
+        Sym::Add(ts) => ts.clone(),
+        single => vec![single.clone()],
+    };
+    let mut coefficient: Option<Sym> = None;
+    let mut constant = Sym::num(0);
+    for t in terms {
+        match t.degree_in(var) {
+            0 => constant = Sym::add(constant, t),
+            1 => {
+                let part = divide_var(&t, var)?;
+                coefficient = Some(match coefficient {
+                    Some(existing) => Sym::add(existing, part),
+                    None => part,
+                });
+            }
+            _ => return None,
+        }
+    }
+    let a = coefficient?;
+    if a.contains(var) || a == Sym::num(0) {
+        return None;
+    }
+    Some((a, constant))
+}
+
 /// Integrates the shapes the documentation exercises: powers, constant multiples and the
 /// chain-rule case 2*x*f(x^2).
 fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
@@ -5578,9 +5620,27 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
             }
         }
     }
-    // var
+    // x integrates to x^2/2: the power rule at n = 1. The previous form multiplied the power by
+    // the coefficient ZERO, so every term linear in the variable vanished from the antiderivative
+    // (integrate(3*x^2 + 2*x + 1) answered x^3 + x instead of x^3 + x^2 + x).
     if *e == Sym::sym(var) {
-        return Some(Sym::mul(Sym::num(1), Sym::mul(Sym::pow(Sym::sym(var), Sym::num(2)), Sym::num(0))).clone());
+        let half = Sym::pow(Sym::num(2), Sym::num(-1));
+        return Some(Sym::mul(Sym::pow(Sym::sym(var), Sym::num(2)), half));
+    }
+    // sin, cos and exp of a LINEAR argument: the antiderivative is the same head over the same
+    // argument, scaled by 1/a. This is the table's exp(3x) -> exp(3x)/3, sin(x) -> -cos(x) and
+    // cos(x) -> sin(x) rows; a non-linear argument (exp(x^2)) still reaches the refusal.
+    if let Sym::Fun(name, args) = e {
+        if args.len() == 1 && matches!(name.as_str(), "sin" | "cos" | "exp") {
+            if let Some((a, _b)) = linear_parts(&args[0], var) {
+                let antiderivative = match name.as_str() {
+                    "sin" => Sym::neg(Sym::Fun("cos".to_string(), vec![args[0].clone()])),
+                    "cos" => Sym::Fun("sin".to_string(), vec![args[0].clone()]),
+                    _ => Sym::Fun("exp".to_string(), vec![args[0].clone()]),
+                };
+                return Some(Sym::mul(antiderivative, Sym::pow(a, Sym::num(-1))));
+            }
+        }
     }
     // coefficient * f
     if let Sym::Mul(factors) = e {
@@ -5596,6 +5656,30 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
         if rest.len() == 1 {
             let inner = integrate_basic(&rest[0], var)?;
             return Some(Sym::mul(constant, inner));
+        }
+    }
+    // x * exp(a*x + b): integration by parts, exp(u) * (x/a - 1/a^2). This is the table's
+    // x*exp(x) -> exp(x)*(x - 1) row.
+    if let Sym::Mul(factors) = e {
+        if factors.len() == 2 {
+            for (first, second) in [
+                (factors[0].clone(), factors[1].clone()),
+                (factors[1].clone(), factors[0].clone()),
+            ] {
+                if first != Sym::sym(var) {
+                    continue;
+                }
+                if let Sym::Fun(name, args) = &second {
+                    if name == "exp" && args.len() == 1 {
+                        if let Some((a, _b)) = linear_parts(&args[0], var) {
+                            let inverse = Sym::pow(a.clone(), Sym::num(-1));
+                            let square = Sym::pow(a, Sym::num(-2));
+                            let body = Sym::sub(Sym::mul(Sym::sym(var), inverse), square);
+                            return Some(Sym::mul(second.clone(), body));
+                        }
+                    }
+                }
+            }
         }
     }
     // Chain-rule case: c * x * f(x^2) with c = 2 integrates to F(x^2).
@@ -5647,7 +5731,263 @@ enum Side {
     Both,
 }
 
-fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
+/// True when every subterm of `e` has a value at the point: no denominator and no negative
+/// power vanishes there. (2^(1/x))^x is the case that matters - the numeric tier would fold the
+/// substituted (2^(1/0))^0 to 1, and 1 is not a value the expression has near the point.
+fn substitution_is_defined(e: &Sym, var: &str, point: &Sym) -> bool {
+    match e {
+        Sym::Div(top, bottom) => {
+            substitution_is_defined(top, var, point)
+                && substitution_is_defined(bottom, var, point)
+                && !vanishes_at(bottom, var, point)
+        }
+        Sym::Pow(base, exp) => {
+            let negative_exponent = matches!(exp.as_ref(), Sym::Num(n) if n.is_negative());
+            substitution_is_defined(base, var, point)
+                && substitution_is_defined(exp, var, point)
+                && !(negative_exponent && vanishes_at(base, var, point))
+        }
+        Sym::Add(items) | Sym::Mul(items) => {
+            items.iter().all(|t| substitution_is_defined(t, var, point))
+        }
+        Sym::Fun(_, args) => args.iter().all(|t| substitution_is_defined(t, var, point)),
+        Sym::Rel(_, a, b) => {
+            substitution_is_defined(a, var, point) && substitution_is_defined(b, var, point)
+        }
+        _ => true,
+    }
+}
+
+/// True when the expression is EXACTLY zero at the point.
+fn vanishes_at(e: &Sym, var: &str, point: &Sym) -> bool {
+    let substituted = lovelace_symbolics::substitute(e, var, point);
+    if substituted.contains(var) || has_undefined_subterm(&substituted) {
+        return false;
+    }
+    matches!(
+        crate::numeric::evaluate(&substituted, 30),
+        Ok(crate::numeric::Num::Exact(value)) if value.is_zero()
+    )
+}
+
+/// True when a substituted expression carries a term with NO value at the point: an infinity
+/// node, or a negative power of a zero base (1/0). The direct-substitution step must not read a
+/// value off such a tree.
+fn has_undefined_subterm(e: &Sym) -> bool {
+    match e {
+        Sym::Fun(name, args) => name == "inf" || args.iter().any(has_undefined_subterm),
+        Sym::Pow(base, exp) => {
+            let zero_base = matches!(base.as_ref(), Sym::Num(n) if n.is_zero());
+            let negative_exponent = matches!(exp.as_ref(), Sym::Num(n) if n.is_negative());
+            (zero_base && negative_exponent)
+                || has_undefined_subterm(base)
+                || has_undefined_subterm(exp)
+        }
+        Sym::Add(items) | Sym::Mul(items) => items.iter().any(has_undefined_subterm),
+        Sym::Div(a, b) => has_undefined_subterm(a) || has_undefined_subterm(b),
+        Sym::Rel(_, a, b) => has_undefined_subterm(a) || has_undefined_subterm(b),
+        _ => false,
+    }
+}
+
+/// True when the expression is the negated infinity node (-inf), the point `limit(f, x, -inf)`
+/// names.
+fn is_negated_infinity(e: &Sym) -> bool {
+    let infinity = Sym::Fun("inf".to_string(), Vec::new());
+    match e {
+        // -inf is the product -1*inf; a sum of the infinity node is not this point.
+        Sym::Mul(factors) => factors.iter().any(|f| *f == infinity),
+        Sym::Fun(name, args) => name == "inf" && args.is_empty(),
+        _ => *e == infinity,
+    }
+}
+
+/// The exact FINITE limit of an expression at the point, or None when there is no finite exact
+/// limit (a pole, an oscillation, or a shape the series cannot decide). Used by the
+/// indeterminate-exponential rule, never published on its own.
+fn limit_at(f: &Sym, var: &str, at_infinity: bool) -> Option<Sym> {
+    // A constant is its own limit; this is what keeps a parameter exact in (1 + x)^(a/x) -> e^a.
+    if !f.contains(var) {
+        return Some(f.clone());
+    }
+    if !at_infinity {
+        let substituted = lovelace_symbolics::substitute(f, var, &Sym::num(0));
+        if !substituted.contains(var) {
+            if let Ok(crate::numeric::Num::Exact(value)) = crate::numeric::evaluate(&substituted, 30) {
+                return Some(Sym::Num(value));
+            }
+        }
+    }
+    let series = if at_infinity {
+        let substituted = lovelace_symbolics::substitute(
+            f,
+            var,
+            &Sym::pow(Sym::sym("t"), Sym::num(-1)),
+        );
+        lovelace_symbolics::series(&substituted, "t", 6)
+    } else {
+        lovelace_symbolics::series(f, var, 6)
+    };
+    let ser = series?;
+    let (min_exp, coeff) = ser.first()?.clone();
+    if min_exp > 0 {
+        return Some(Sym::num(0));
+    }
+    if min_exp == 0 {
+        return Some(Sym::Num(coeff));
+    }
+    None
+}
+
+/// Cancels one factor of `var` against one reciprocal `var^-1` in a product, and returns the
+/// remaining product. Only used for a limit cofactor, where the cancellation is what the limit
+/// needs (never a rewrite the kernel would publish as an identity).
+fn cancel_var_reciprocal(e: &Sym, var: &str) -> Option<Sym> {
+    let factors = match e {
+        Sym::Mul(f) => f.clone(),
+        _ => return None,
+    };
+    let symbol = Sym::sym(var);
+    let reciprocal = Sym::pow(symbol.clone(), Sym::num(-1));
+    let mut rest: Vec<Sym> = Vec::new();
+    let mut has_reciprocal = false;
+    let mut has_symbol = false;
+    for f in factors {
+        if f == reciprocal {
+            has_reciprocal = true;
+            continue;
+        }
+        if f == symbol && !has_symbol {
+            has_symbol = true;
+            continue;
+        }
+        rest.push(f);
+    }
+    if !has_reciprocal || !has_symbol {
+        return None;
+    }
+    let mut acc = Sym::num(1);
+    for f in rest {
+        acc = Sym::mul(acc, f);
+    }
+    Some(acc)
+}
+
+/// True when the expression is undecided at the point in EVERY sense: no finite value and no
+/// pole. A base that grows without bound is not undecided (x + 1 at infinity), while 2^(1/x)
+/// oscillates between 0 and +infinity next to zero and has no limit at all.
+fn limit_is_undecided(f: &Sym, var: &str, at_infinity: bool) -> bool {
+    if limit_at(f, var, at_infinity).is_some() {
+        return false;
+    }
+    let series = if at_infinity {
+        let substituted = lovelace_symbolics::substitute(
+            f,
+            var,
+            &Sym::pow(Sym::sym("t"), Sym::num(-1)),
+        );
+        lovelace_symbolics::series(&substituted, "t", 6)
+    } else {
+        lovelace_symbolics::series(f, var, 6)
+    };
+    match series {
+        Some(entries) => entries.is_empty(),
+        None => true,
+    }
+}
+
+/// The limit of the indeterminate exponential shape `(1 + u)^v`, or None when the expression is
+/// not that shape. The answer is exp(lim v*u); a cofactor with no finite limit is the typed
+/// Unevaluated the reference publishes for `limit((1 + 1/x)^(x^2), x, inf)`.
+fn exponential_family_limit(
+    base: &Sym,
+    exponent: &Sym,
+    var: &str,
+    at_infinity: bool,
+) -> Option<Value> {
+    // The exponent must tend to +-infinity; a finite exponent is not this family (and a finite
+    // power is decided by substitution or by the series).
+    if limit_at(exponent, var, at_infinity).is_some() {
+        return None;
+    }
+    // The base must tend to ONE: u = base - 1 tends to zero. A power whose base tends somewhere
+    // else has NO value at the point either, and the reference names that shape explicitly:
+    // limit((2 + x)^(1/x), x, 0) is not e^(lim u*v).
+    let offset = Sym::sub(base.clone(), Sym::num(1));
+    let offset_limit = match limit_at(&offset, var, at_infinity) {
+        Some(value) => value,
+        None => return None,
+    };
+    if offset_limit != Sym::num(0) {
+        let diag = diagnostic(
+            "limit.unevaluated",
+            "UnsupportedOperation",
+            "an exponent has no value at the point and the base does not substitute to 1, so the limit is not e^(lim u*v)",
+        );
+        return Some(limit_record(
+            "Unevaluated",
+            Value::Void,
+            Value::Void,
+            Value::Void,
+            Vec::new(),
+            Value::Void,
+            Vec::new(),
+            Vec::new(),
+            Value::Text("None".to_string()),
+            vec![diag],
+        ));
+    }
+    let product = Sym::mul(exponent.clone(), offset.clone());
+    // The cofactor is a RATIO (x * a/x -> a) and the product algebra deliberately keeps x*x^-1
+    // (cancelling needs a nonzero assumption). The limit only needs the cancelled form, so try
+    // the exact quotient cancellation first and the reciprocal-pair cancellation after it.
+    let cancelled = lovelace_symbolics::cancel(&product)
+        .or_else(|| cancel_var_reciprocal(&product, var));
+    let cofactor = match &cancelled {
+        Some(simplified) => limit_at(simplified, var, at_infinity),
+        None => limit_at(&product, var, at_infinity),
+    };
+    match cofactor {
+        Some(value) => {
+            let answer = Sym::pow(Sym::Fun("e".to_string(), Vec::new()), value);
+            // A closed form that is not a rational constant is ALGEBRAICALLY exact, not plain
+            // exact: the reference publishes AlgebraicExact for e, e^2 and e^(3/2).
+            Some(limit_record(
+                "Value",
+                Value::Boolean(true),
+                Value::Symbolic(answer),
+                Value::Void,
+                Vec::new(),
+                Value::Void,
+                Vec::new(),
+                Vec::new(),
+                Value::Text("AlgebraicExact".to_string()),
+                Vec::new(),
+            ))
+        }
+        None => {
+            let diag = diagnostic(
+                "limit.unevaluated",
+                "UnsupportedOperation",
+                "the indeterminate factor's cofactor has no limit at the point",
+            );
+            Some(limit_record(
+                "Unevaluated",
+                Value::Void,
+                Value::Void,
+                Value::Void,
+                Vec::new(),
+                Value::Void,
+                Vec::new(),
+                Vec::new(),
+                Value::Text("None".to_string()),
+                vec![diag],
+            ))
+        }
+    }
+}
+
+fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) -> Value {
     use lovelace_symbolics::Series;
     // Step 1 of the reference's LimitCore: DIRECT SUBSTITUTION. A value at the point IS the limit
     // when the function is defined there — limit(abs(x), x, 0) = 0 and limit(sqrt(x), x, 0) = 0 are
@@ -5656,8 +5996,14 @@ fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
     // indeterminate shapes) and a transcendental substitution stays on the series path, which is
     // where the documented answers are computed.
     if !at_infinity {
-        let substituted = lovelace_symbolics::substitute(f, var, &Sym::num(0));
-        if !substituted.contains(var) {
+        let substituted = lovelace_symbolics::substitute(f, var, point);
+        // A substitution that leaves an undefined subterm (1/0, an infinity node) is not a
+        // VALUE at the point: (2^(1/x))^x substitutes to (2^(1/0))^0, which the numeric tier
+        // would fold to 1, and 1 is not the limit of an expression that has none.
+        if !substituted.contains(var)
+            && substitution_is_defined(f, var, point)
+            && !has_undefined_subterm(&substituted)
+        {
             if let Ok(number) = crate::numeric::evaluate(&substituted, 30) {
                 let exact = match &number {
                     crate::numeric::Num::Exact(value) => Some(value.clone()),
@@ -5679,6 +6025,47 @@ fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
             }
         }
     }
+    // Everything below expands AROUND the point: shifting the variable by the point makes the
+    // expansion point zero again (x -> point + x), which is what the series engine takes. For the
+    // origin the shift is the identity, so the documented answers are unchanged, and a limit at a
+    // finite point is the limit of the shifted expression at zero (limit(x^2 + 1, x, 2) = 5).
+    let shifted = if at_infinity {
+        f.clone()
+    } else {
+        lovelace_symbolics::substitute(f, var, &Sym::add(point.clone(), Sym::sym(var)))
+    };
+    // THE INDETERMINATE EXPONENTIAL FAMILY: (1 + u)^v with u -> 0 and v -> +-infinity. The value
+    // at the point does not exist, so substitution is not a proof here - but the limit IS
+    // exp(lim v*u): (1 + 1/x)^x -> e, (1 + 2/x)^x -> e^2, (1 + 3/x)^(x/2) -> e^(3/2), and a
+    // parameter stays exact ((1 + x)^(a/x) -> e^a). The shape is refused when the cofactor v*u has
+    // no finite limit ((1 + 1/x)^(x^2) -> +oo).
+    if let Sym::Pow(base, exponent) = &shifted {
+        if let Some(value) = exponential_family_limit(base, exponent, var, at_infinity) {
+            return value;
+        }
+        // A POWER whose BASE has no limit at the point has no limit either: 2^(1/x) oscillates
+        // between 0 and +infinity next to 0, so (2^(1/x))^x has no value there. The reference
+        // refuses; the series must not decide a shape whose base does not converge.
+        if limit_is_undecided(base, var, at_infinity) {
+            let diag = diagnostic(
+                "limit.unevaluated",
+                "UnsupportedOperation",
+                "coefficient does not evaluate at the point",
+            );
+            return limit_record(
+                "Unevaluated",
+                Value::Void,
+                Value::Void,
+                Value::Void,
+                Vec::new(),
+                Value::Void,
+                Vec::new(),
+                Vec::new(),
+                Value::Text("None".to_string()),
+                vec![diag],
+            );
+        }
+    }
     let series: Option<Series> = if at_infinity {
         let t = "t";
         let substituted = lovelace_symbolics::substitute(
@@ -5688,7 +6075,7 @@ fn limit_result(f: &Sym, var: &str, at_infinity: bool, side: Side) -> Value {
         );
         lovelace_symbolics::series(&substituted, t, 8)
     } else {
-        lovelace_symbolics::series(f, var, 8)
+        lovelace_symbolics::series(&shifted, var, 8)
     };
     let ser: Series = match series {
         Some(s) => s,
@@ -6650,6 +7037,23 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
     set_field(&mut fields, "unrepresented_reason", Value::Text(reason));
     Value::Record(name, fields)
 }
+/// The MathIR format-version gate. The supported version is 2; the refusal quotes everything
+/// after the "#!mathir " prefix, which is exactly what the reference's IrProgram.Deserialize
+/// reports (`Unsupported MathIR format version '<tail>' (expected 2).`) as a ParseError.
+fn ir_version_error(text: &str, pos: usize) -> Option<LangError> {
+    let rest = text.strip_prefix("#!mathir")?;
+    let tail = rest.strip_prefix(' ').unwrap_or(rest);
+    if tail.starts_with('2') {
+        return None;
+    }
+    Some(LangError::coded(
+        format!("Unsupported MathIR format version '{tail}' (expected 2)."),
+        pos,
+        "InvalidInput",
+        "ParseError",
+    ))
+}
+
 /// Reads back the MathIR text emitted by lower: constants, parameters and one node per line.
 fn parse_ir_text(text: &str) -> Option<Sym> {
     let mut constants: Vec<Sym> = Vec::new();

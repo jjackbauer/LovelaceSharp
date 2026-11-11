@@ -9,9 +9,50 @@ pub mod digit_store;
 pub(crate) mod newton;
 pub(crate) mod ntt;
 
+#[cfg(test)]
+mod round39_natural_api;
+
 pub use digit_store::{DigitStore, DigitStoreError};
 
 use std::cmp::Ordering;
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, RemAssign, Sub, SubAssign,
+};
+use std::str::FromStr;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicI64, Ordering as AtomicOrdering};
+
+/// The reference's type name, kept as an alias for source compatibility with
+/// `Lovelace.Natural.Natural`. Rust's canonical name for the type is [`Nat`].
+pub type Natural = Nat;
+
+/// The additive Rust equivalent of the reference's `INumber<Natural>` identity surface.
+///
+/// C# binds these through a generic interface; Rust has no interface inheritance, so the
+/// equivalent is a trait. Only the members the reference's tests exercise are required here:
+/// the additive/multiplicative identities, the zero predicate, and the radix.
+pub trait Number: Sized + Eq + Ord {
+    /// The additive identity.
+    fn zero() -> Self;
+    /// The multiplicative identity.
+    fn one() -> Self;
+    /// True when this is the additive identity.
+    fn is_zero(&self) -> bool;
+    /// The radix the decimal rendering uses (10, the reference's `Natural.Radix`).
+    fn radix() -> u32 {
+        10
+    }
+}
+
+/// The reference's `Natural.DisplayDigits` global: the maximum number of digits to display,
+/// with -1 meaning no limit. Rust arithmetic does not consult this ambient setting (values are
+/// rendered in full); the static exists so a host or test that configures the reference surface
+/// can observe the same value. Reads and writes are atomic, as in the reference.
+static DISPLAY_DIGITS: AtomicI64 = AtomicI64::new(-1);
+
+/// The reference's `Natural.Precision` global: the arithmetic precision hint, with -1 meaning
+/// "unset". Like `DISPLAY_DIGITS` this is configuration only on the Rust side.
+static PRECISION: AtomicI64 = AtomicI64::new(-1);
 
 /// The largest power of ten that fits in a u64: 10^19.
 const DEC_CHUNK: u64 = 10_000_000_000_000_000_000;
@@ -81,25 +122,28 @@ const KARATSUBA_THRESHOLD: usize = 32;
 pub struct Nat {
     /// Little-endian base-2^64 limbs; no trailing zero limb. Absent until materialised.
     limbs_cache: std::sync::OnceLock<Vec<u64>>,
-    /// The decimal rendering. Absent until rendered.
-    decimal: std::sync::OnceLock<String>,
+    /// The decimal rendering. Absent until rendered; `Arc<str>` so a clone shares the cached
+    /// allocation exactly as the reference's copy constructor shares its immutable string.
+    decimal: std::sync::OnceLock<Arc<str>>,
 }
 
 impl Clone for Nat {
     fn clone(&self) -> Nat {
-        // Copy the limbs when they exist, otherwise carry the decimal form forward. The rendering
-        // is deliberately not carried when limbs exist, so a clone measures a cold conversion.
+        // Copy the limbs when they exist and share the cached rendering when it exists, exactly
+        // as the reference's copy constructor clones the limb array and shares the immutable
+        // decimal string. A value with neither form (only zero) carries "0".
         let out = Nat::default();
-        match (self.limbs_cache.get(), self.decimal.get()) {
-            (Some(limbs), _) => {
-                let _ = out.limbs_cache.set(limbs.clone());
+        if let Some(limbs) = self.limbs_cache.get() {
+            let _ = out.limbs_cache.set(limbs.clone());
+        }
+        match self.decimal.get() {
+            Some(text) => {
+                let _ = out.decimal.set(Arc::clone(text));
             }
-            (None, Some(text)) => {
-                let _ = out.decimal.set(text.clone());
+            None if self.limbs_cache.get().is_none() => {
+                let _ = out.decimal.set(Arc::from("0"));
             }
-            (None, None) => {
-                let _ = out.decimal.set("0".to_string());
-            }
+            None => {}
         }
         out
     }
@@ -167,6 +211,161 @@ impl Nat {
         }
     }
 
+    /// Builds a value from a non-negative signed integer.
+    ///
+    /// This is the Rust equivalent of the reference's `Natural(int)` constructor: a negative
+    /// value is refused, as the reference throws `ArgumentOutOfRangeException`. The refusal is
+    /// reported as `None` so nothing panics.
+    pub fn from_i64(value: i64) -> Option<Nat> {
+        if value < 0 {
+            None
+        } else {
+            Some(Nat::from_u64(value as u64))
+        }
+    }
+
+    /// Parses an optional decimal digit string. `None` is a missing input (the reference's
+    /// `Parse(null)` throws and `TryParse(null)` answers false); either way the parse fails.
+    pub fn from_decimal_opt(text: Option<&str>) -> Option<Nat> {
+        text.and_then(Nat::from_decimal)
+    }
+
+    /// Parses a byte span of ASCII decimal digits, the Rust equivalent of the reference's
+    /// `ISpanParsable` char-span overload (which accepts the same grammar).
+    pub fn from_ascii(bytes: &[u8]) -> Option<Nat> {
+        std::str::from_utf8(bytes).ok().and_then(Nat::from_decimal)
+    }
+
+    /// The reference's `TryGetExactInt64`: the value when it fits in a signed 64-bit integer.
+    pub fn try_get_exact_i64(&self) -> Option<i64> {
+        match self.limbs().len() {
+            0 => Some(0),
+            1 if self.limbs()[0] <= i64::MAX as u64 => Some(self.limbs()[0] as i64),
+            _ => None,
+        }
+    }
+
+    /// The value as an `i64`, when it fits.
+    pub fn to_i64(&self) -> Option<i64> {
+        self.try_get_exact_i64()
+    }
+
+    /// The number of base-2^64 limbs in the canonical representation (zero has none).
+    pub fn limb_count(&self) -> usize {
+        self.limbs().len()
+    }
+
+    /// The position of the highest set bit plus one; zero has a bit length of zero.
+    pub fn bit_length(&self) -> u64 {
+        let limbs = self.limbs();
+        match limbs.last() {
+            None => 0,
+            Some(top) => (limbs.len() as u64 - 1) * 64 + (64 - top.leading_zeros() as u64),
+        }
+    }
+
+    /// A copy of the little-endian base-2^64 limbs, the representation the reference calls
+    /// `GetLimbs`. This is a structural query, never part of a value's identity.
+    pub fn to_limbs(&self) -> Vec<u64> {
+        self.limbs().to_vec()
+    }
+
+    /// The number of decimal digits in the canonical rendering (zero has one).
+    pub fn decimal_digit_count(&self) -> usize {
+        self.as_decimal_str().len()
+    }
+
+    /// The reference's `ShiftLeftDecimal(k)`: multiplies by ten raised to `k`, which appends
+    /// `k` decimal zeros to the canonical rendering.
+    pub fn shift_left_decimal(&self, k: usize) -> Nat {
+        self.mul_pow10(k)
+    }
+
+    /// The cached canonical decimal rendering as a borrowed slice.
+    ///
+    /// Repeated calls on the same value return the same allocation, which is the observable
+    /// property behind the reference's `Assert.Same(first, second)` cache tests.
+    pub fn as_decimal_str(&self) -> &str {
+        if let Some(text) = self.decimal.get() {
+            return text;
+        }
+        let limbs = self.limbs().to_vec();
+        let text = render_decimal(&limbs);
+        self.decimal.get_or_init(|| Arc::from(text))
+    }
+
+    /// Writes the canonical decimal rendering as ASCII bytes into `out`.
+    ///
+    /// Returns the number of bytes written, or `None` when the buffer is too small. This is the
+    /// Rust equivalent of the reference's `ISpanFormattable.TryFormat` (which also reports
+    /// `false` and writes nothing when the destination cannot hold the text).
+    pub fn write_decimal(&self, out: &mut [u8]) -> Option<usize> {
+        let text = self.as_decimal_str();
+        if out.len() < text.len() {
+            return None;
+        }
+        out[..text.len()].copy_from_slice(text.as_bytes());
+        Some(text.len())
+    }
+
+    /// The greatest common divisor, by Euclid's algorithm.
+    pub fn gcd(&self, other: &Nat) -> Nat {
+        let mut a = self.clone();
+        let mut b = other.clone();
+        while !b.is_zero() {
+            let remainder = a.div_rem(&b).expect("nonzero divisor").1;
+            a = b;
+            b = remainder;
+        }
+        a
+    }
+
+    /// The least common multiple; zero when either operand is zero.
+    pub fn lcm(&self, other: &Nat) -> Nat {
+        if self.is_zero() || other.is_zero() {
+            return Nat::zero();
+        }
+        let gcd = self.gcd(other);
+        self.div_rem(&gcd).expect("nonzero gcd").0.mul(other)
+    }
+
+    /// Increments in place, the Rust equivalent of the reference's `++` operator.
+    pub fn increment(&mut self) {
+        *self = self.add_small(1);
+    }
+
+    /// Decrements in place; `false` when the value is zero (the reference's `--` on zero
+    /// throws rather than wrapping).
+    pub fn decrement(&mut self) -> bool {
+        match self.sub(&Nat::from_u64(1)) {
+            Some(value) => {
+                *self = value;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The reference's `Natural.DisplayDigits` global; -1 means no limit.
+    pub fn display_digits() -> i64 {
+        DISPLAY_DIGITS.load(AtomicOrdering::SeqCst)
+    }
+
+    /// Sets the reference's `Natural.DisplayDigits` global.
+    pub fn set_display_digits(value: i64) {
+        DISPLAY_DIGITS.store(value, AtomicOrdering::SeqCst);
+    }
+
+    /// The reference's `Natural.Precision` global; -1 means unset.
+    pub fn precision() -> i64 {
+        PRECISION.load(AtomicOrdering::SeqCst)
+    }
+
+    /// Sets the reference's `Natural.Precision` global.
+    pub fn set_precision(value: i64) {
+        PRECISION.store(value, AtomicOrdering::SeqCst);
+    }
+
     /// Parses a decimal digit string. The digits are canonicalised and stored; limbs are
     /// materialised only when arithmetic needs them.
     pub fn from_decimal(text: &str) -> Option<Nat> {
@@ -193,18 +392,13 @@ impl Nat {
             Some(index) => trimmed[index..].to_string(),
             None => "0".to_string(),
         };
-        let _ = out.decimal.set(canonical);
+        let _ = out.decimal.set(Arc::from(canonical));
         Some(out)
     }
 
     /// Renders the value as decimal digits, memoising the result.
     pub fn to_decimal(&self) -> String {
-        if let Some(text) = self.decimal.get() {
-            return text.clone();
-        }
-        let limbs = self.limbs().to_vec();
-        let text = render_decimal(&limbs);
-        self.decimal.get_or_init(|| text.clone()).clone()
+        self.as_decimal_str().to_string()
     }
 
     /// Renders by repeated division by 10^19; only used for small values.
@@ -794,7 +988,191 @@ impl Ord for Nat {
 
 impl std::fmt::Display for Nat {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.to_decimal())
+        f.write_str(&self.as_decimal_str())
+    }
+}
+
+/// The error returned when a decimal string is not a canonical natural-number literal.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParseNatError;
+
+impl std::fmt::Display for ParseNatError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("not a non-negative decimal digit string")
+    }
+}
+
+impl std::error::Error for ParseNatError {}
+
+/// The error returned when a negative signed integer is converted to a natural number.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct NegativeNatural;
+
+impl std::fmt::Display for NegativeNatural {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("a natural number cannot be negative")
+    }
+}
+
+impl std::error::Error for NegativeNatural {}
+
+/// The Rust equivalent of the reference's `IParsable<Natural>`: `Natural.Parse` throws a
+/// `FormatException` on malformed input; Rust returns `Err` with the same refusal.
+impl FromStr for Nat {
+    type Err = ParseNatError;
+
+    fn from_str(text: &str) -> Result<Self, Self::Err> {
+        Nat::from_decimal(text).ok_or(ParseNatError)
+    }
+}
+
+/// The Rust equivalent of the reference's implicit `ulong` constructor.
+impl From<u64> for Nat {
+    fn from(value: u64) -> Nat {
+        Nat::from_u64(value)
+    }
+}
+
+/// The Rust equivalent of the reference's `Natural(int)` constructor: negative values are
+/// refused exactly as the reference's `ArgumentOutOfRangeException` path refuses them.
+impl TryFrom<i64> for Nat {
+    type Error = NegativeNatural;
+
+    fn try_from(value: i64) -> Result<Self, Self::Error> {
+        Nat::from_i64(value).ok_or(NegativeNatural)
+    }
+}
+
+impl Number for Nat {
+    fn zero() -> Nat {
+        Nat::zero()
+    }
+
+    fn one() -> Nat {
+        Nat::from_u64(1)
+    }
+
+    fn is_zero(&self) -> bool {
+        Nat::is_zero(self)
+    }
+}
+
+// Operator traits are implemented for references only. A by-value `impl Add for Nat` would be
+// selected ahead of the existing inherent `Nat::add(&self, &Nat)` for calls such as
+// `a.add(&b)` (method resolution prefers a receiver that needs no autoref), silently moving
+// the operand. Reference implementations keep the operators additive and leave every existing
+// call site's resolution unchanged.
+impl<'a, 'b> Add<&'b Nat> for &'a Nat {
+    type Output = Nat;
+
+    fn add(self, rhs: &'b Nat) -> Nat {
+        Nat::add(self, rhs)
+    }
+}
+
+impl<'a, 'b> Sub<&'b Nat> for &'a Nat {
+    type Output = Nat;
+
+    fn sub(self, rhs: &'b Nat) -> Nat {
+        Nat::sub(self, rhs).expect("natural subtraction underflow")
+    }
+}
+
+impl<'a, 'b> Mul<&'b Nat> for &'a Nat {
+    type Output = Nat;
+
+    fn mul(self, rhs: &'b Nat) -> Nat {
+        Nat::mul(self, rhs)
+    }
+}
+
+impl<'a, 'b> Div<&'b Nat> for &'a Nat {
+    type Output = Nat;
+
+    fn div(self, rhs: &'b Nat) -> Nat {
+        Nat::div_rem(self, rhs).expect("division by zero").0
+    }
+}
+
+impl<'a, 'b> Rem<&'b Nat> for &'a Nat {
+    type Output = Nat;
+
+    fn rem(self, rhs: &'b Nat) -> Nat {
+        Nat::div_rem(self, rhs).expect("division by zero").1
+    }
+}
+
+impl AddAssign for Nat {
+    fn add_assign(&mut self, rhs: Nat) {
+        *self = Nat::add(self, &rhs);
+    }
+}
+
+impl AddAssign<&Nat> for Nat {
+    fn add_assign(&mut self, rhs: &Nat) {
+        *self = Nat::add(self, rhs);
+    }
+}
+
+/// The reference's `IIncrementOperators` `++`: adding one.
+impl AddAssign<u64> for Nat {
+    fn add_assign(&mut self, rhs: u64) {
+        *self = Nat::add(self, &Nat::from_u64(rhs));
+    }
+}
+
+impl SubAssign for Nat {
+    fn sub_assign(&mut self, rhs: Nat) {
+        *self = Nat::sub(self, &rhs).expect("natural subtraction underflow");
+    }
+}
+
+impl SubAssign<&Nat> for Nat {
+    fn sub_assign(&mut self, rhs: &Nat) {
+        *self = Nat::sub(self, rhs).expect("natural subtraction underflow");
+    }
+}
+
+/// The reference's `IDecrementOperators` `--`: subtracting one (and refusing below zero).
+impl SubAssign<u64> for Nat {
+    fn sub_assign(&mut self, rhs: u64) {
+        *self = Nat::sub(self, &Nat::from_u64(rhs)).expect("natural subtraction underflow");
+    }
+}
+
+impl MulAssign for Nat {
+    fn mul_assign(&mut self, rhs: Nat) {
+        *self = Nat::mul(self, &rhs);
+    }
+}
+
+impl MulAssign<&Nat> for Nat {
+    fn mul_assign(&mut self, rhs: &Nat) {
+        *self = Nat::mul(self, rhs);
+    }
+}
+
+impl DivAssign for Nat {
+    fn div_assign(&mut self, rhs: Nat) {
+        *self = Nat::div_rem(self, &rhs).expect("division by zero").0;
+    }
+}
+
+impl DivAssign<&Nat> for Nat {
+    fn div_assign(&mut self, rhs: &Nat) {
+        *self = Nat::div_rem(self, rhs).expect("division by zero").0;
+    }
+}
+
+impl RemAssign for Nat {
+    fn rem_assign(&mut self, rhs: Nat) {
+        *self = Nat::div_rem(self, &rhs).expect("division by zero").1;
+    }
+}
+
+impl RemAssign<&Nat> for Nat {
+    fn rem_assign(&mut self, rhs: &Nat) {
+        *self = Nat::div_rem(self, rhs).expect("division by zero").1;
     }
 }
 

@@ -1,7 +1,25 @@
 {
   "schemaVersion": 1,
-  "note": "Each mutation must be detected by the named gate, and the gate must be GREEN before the mutation (otherwise detection proves nothing). Source mutations are single-occurrence anchors; the harness reapplies the original text and re-runs the gate. A gate name may carry a case filter (fixtures:error_envelope, cli:RUN-014).",
+  "note": "The twelve contract faults GATE-001..012. Each mutation must be detected by the named gate, and a source/file gate must be GREEN before the mutation (otherwise detection proves nothing): such a mutation is reported NOT VALIDATED, never detected. Source mutations are single-occurrence anchors; the harness reapplies the original text and re-runs the gate. A gate name may carry a case filter: fixtures:error_envelope, cli:RUN-014, corpus:lang/016, cargo-test:<test-name>. An invoke mutation IS the fault (an empty differential corpus); there is no tree to mutate or restore.",
   "mutations": [
+    {
+      "id": "GATE-001",
+      "kind": "source",
+      "title": "a decimal period that closes exactly at the computation cap is not truncated (period boundary shifted by one)",
+      "target": "rust/lovelace-real/src/lib.rs",
+      "find": "} else if position >= max_digits {",
+      "replace": "} else if position > max_digits {",
+      "gate": "cargo-test:the_reference_truncates_a_period_that_closes_exactly_at_the_cap"
+    },
+    {
+      "id": "GATE-002",
+      "kind": "source",
+      "title": "mixed numeric operands narrow to the smaller kind instead of widening",
+      "target": "rust/lovelace-lang/src/value.rs",
+      "find": "let target = a.max(b);",
+      "replace": "let target = a.min(b);",
+      "gate": "corpus:lang/020"
+    },
     {
       "id": "GATE-003",
       "kind": "source",
@@ -34,18 +52,45 @@
       "kind": "source",
       "title": "symbolic canonical ordering is reversed",
       "target": "rust/lovelace-symbolics/src/lib.rs",
-      "find": "terms.sort_by(term_order);",
-      "replace": "terms.sort_by(|a, b| term_order(b, a));",
+      "find": "    let (ra, rb) = (canonical_rank(a), canonical_rank(b));\n    if ra != rb {\n        return ra.cmp(&rb);\n    }",
+      "replace": "    let (ra, rb) = (canonical_rank(a), canonical_rank(b));\n    if ra != rb {\n        return rb.cmp(&ra);\n    }",
       "gate": "fixtures:symbolic"
+    },
+    {
+      "id": "GATE-007",
+      "kind": "source",
+      "title": "the final published digit is rounded up unconditionally instead of truncated",
+      "target": "rust/lovelace-real/src/transcendental.rs",
+      "find": "    let mag = Nat::from_decimal(keep).unwrap_or_else(Nat::zero);",
+      "replace": "    let mag = Nat::from_decimal(keep).unwrap_or_else(Nat::zero);\n    let mag = mag.add(&Nat::from_u64(1));",
+      "gate": "corpus:sym/080"
     },
     {
       "id": "GATE-008",
       "kind": "source",
       "title": "captured print output is duplicated",
       "target": "rust/lovelace-run/src/main.rs",
-      "find": "    let output = engine.take_output();\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\"variables\",",
-      "replace": "    let mut output = engine.take_output();\n    output.extend(output.clone());\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\"variables\",",
+      "find": "    let output = engine.take_output();\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\n        \"variables\",",
+      "replace": "    let mut output = engine.take_output();\n    output.extend(output.clone());\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\n        \"variables\",",
       "gate": "fixtures:print_purity"
+    },
+    {
+      "id": "GATE-009",
+      "kind": "source",
+      "title": "a builtin registry descriptor loses its summary metadata",
+      "target": "rust/lovelace-lang/src/registry.rs",
+      "find": "        name: \"abs\",\n        parameters: &[\"x\"],\n        min_arity: 1,\n        parameter_count: 1,\n        variadic: false,\n        plugin: None,\n        category: \"Numerics\",\n        summary: Some(\"Absolute value (magnitude for complex values).\"),",
+      "replace": "        name: \"abs\",\n        parameters: &[\"x\"],\n        min_arity: 1,\n        parameter_count: 1,\n        variadic: false,\n        plugin: None,\n        category: \"Numerics\",\n        summary: None,",
+      "gate": "cli:RUN-008"
+    },
+    {
+      "id": "GATE-010",
+      "kind": "source",
+      "title": "the evalf decimal-place computation cap is disabled",
+      "target": "rust/lovelace-lang/src/builtins.rs",
+      "find": "    // The builtin's own computation cap: a request above 1000 publishes at most 1000 decimal\n    // places (see clamp_evalf_result for the wire notice).\n    let places = digits.min(1000);",
+      "replace": "    // The evalf decimal-place cap is deliberately disabled for the GATE-010 fault.\n    let places = digits;",
+      "gate": "cargo-test:the_smallest_over_cap_request_is_marked_too"
     },
     {
       "id": "GATE-011",

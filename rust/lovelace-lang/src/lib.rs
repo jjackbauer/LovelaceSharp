@@ -1820,3 +1820,6 @@ mod round38_remaining;
 
 #[cfg(test)]
 mod round38_series_kink_hardening;
+
+#[cfg(test)]
+mod round39_residue;

@@ -7,8 +7,11 @@
     source  - a single-occurrence text replacement in a Rust source file, followed by a release build
     file    - a text replacement in a ledger/data file (no rebuild)
     invoke  - a command that must exit non-zero on its own (e.g. an empty corpus)
+  A gate name may carry a case filter: "fixtures:error_envelope", "corpus:lang/016",
+  "cli:RUN-014", or "cargo-test:<test-name>".
   Every mutation is reverted. The script re-verifies the reverted tree still passes the target gate
-  at the end, so a failed restore cannot masquerade as a detected mutation.
+  at the end, so a failed restore cannot masquerade as a detected mutation. A mutation whose gate is
+  already red is reported as NOT VALIDATED, never as detected.
 .PARAMETER Only
   Run only the named mutation id (e.g. GATE-004).
 #>
@@ -28,7 +31,8 @@ function Run-Gate($name) {
   # trust the exit code. A gate name may carry a case filter: "fixtures:error_envelope".
   $gateName = $name
   $gateFilter = ''
-  if ($name.Contains(':')) { $gateName = $name.Split(':')[0]; $gateFilter = $name.Split(':')[1] }
+  $separator = $name.IndexOf(':')
+  if ($separator -ge 0) { $gateName = $name.Substring(0, $separator); $gateFilter = $name.Substring($separator + 1) }
   $previous = $ErrorActionPreference
   $ErrorActionPreference = 'Continue'
   try {
@@ -38,9 +42,9 @@ function Run-Gate($name) {
     'census'     { & (Join-Path $PSScriptRoot 'gate-census.ps1') *> $null; return $LASTEXITCODE }
     'manifest'   { & (Join-Path $PSScriptRoot 'gate-manifest.ps1') *> $null; return $LASTEXITCODE }
     'projects'   { & (Join-Path $PSScriptRoot 'gate-projects.ps1') *> $null; return $LASTEXITCODE }
-    'corpus'     { & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus *> $null; return $LASTEXITCODE }
+    'corpus'     { if ($gateFilter) { & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus -- $gateFilter *> $null } else { & cargo run --release --manifest-path $cargoManifest -p lovelace-corpus *> $null }; return $LASTEXITCODE }
     'diff-empty' { Push-Location $repo; & node (Join-Path $repo 'parity\diff\run.mjs') --cases 0 *> $null; $c = $LASTEXITCODE; Pop-Location; return $c }
-    'cargo-test' { & cargo test --manifest-path $cargoManifest --workspace *> $null; return $LASTEXITCODE }
+    'cargo-test' { if ($gateFilter) { & cargo test --manifest-path $cargoManifest --workspace $gateFilter *> $null } else { & cargo test --manifest-path $cargoManifest --workspace *> $null }; return $LASTEXITCODE }
     default      { throw "unknown gate '$name'" }
   }
   } finally {

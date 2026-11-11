@@ -15,8 +15,11 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 
 pub mod lreal;
+pub mod round39_api;
 pub mod transcendental;
 
+#[cfg(test)]
+mod round39_real_tests;
 #[cfg(test)]
 mod lreal_tests;
 #[cfg(test)]

@@ -12,6 +12,7 @@ use lovelace_nat::Nat;
 pub mod assumptions;
 pub mod cancel;
 pub mod groebner;
+pub mod real_literal;
 pub mod series_kink;
 
 /// An exact rational coefficient.
@@ -470,6 +471,71 @@ impl Expr {
         Expr::Rel(op, Box::new(a), Box::new(b))
     }
 
+    /// A piecewise expression: one or more (guard, value) branches plus the otherwise value.
+    /// The node is the reference's PiecewiseExpr - the calculus needs it because a derivative at
+    /// a kink (abs, floor) is only a branch of a piecewise answer, never a smooth value.
+    pub fn piecewise(branches: Vec<(Expr, Expr)>, otherwise: Expr) -> Expr {
+        let mut args: Vec<Expr> = Vec::with_capacity(2 * branches.len() + 1);
+        for (guard, value) in branches {
+            args.push(guard);
+            args.push(value);
+        }
+        args.push(otherwise);
+        Expr::Fun("piecewise".to_string(), args)
+    }
+
+    /// An UNEVALUATED derivative of the body with respect to the named variables (the
+    /// reference's DerivativeExpr). It is the honest answer where no closed form exists:
+    /// d floor(x)/dx is never the smooth 0.
+    pub fn derivative(body: Expr, vars: Vec<String>) -> Expr {
+        let mut args: Vec<Expr> = Vec::with_capacity(vars.len() + 1);
+        args.push(body);
+        for v in vars {
+            args.push(Expr::sym(&v));
+        }
+        Expr::Fun("derivative".to_string(), args)
+    }
+
+    /// The branches and otherwise value of a piecewise node.
+    pub fn as_piecewise(&self) -> Option<(Vec<(Expr, Expr)>, Expr)> {
+        let Expr::Fun(name, args) = self else {
+            return None;
+        };
+        if name != "piecewise" || args.len() < 3 || args.len() % 2 == 0 {
+            return None;
+        }
+        let mut branches = Vec::with_capacity(args.len() / 2);
+        for pair in args[..args.len() - 1].chunks(2) {
+            branches.push((pair[0].clone(), pair[1].clone()));
+        }
+        Some((branches, args[args.len() - 1].clone()))
+    }
+
+    /// The body and differentiation variables of a derivative node.
+    pub fn as_derivative(&self) -> Option<(Expr, Vec<String>)> {
+        let Expr::Fun(name, args) = self else {
+            return None;
+        };
+        if name != "derivative" || args.len() < 2 {
+            return None;
+        }
+        let mut vars = Vec::with_capacity(args.len() - 1);
+        for a in &args[1..] {
+            match a {
+                Expr::Sym(s) => vars.push(s.clone()),
+                _ => return None,
+            }
+        }
+        Some((args[0].clone(), vars))
+    }
+
+    /// True when the expression is free of `name` - the reference's Calculus.FreeOf. It walks
+    /// EVERY operand, including a piecewise's guards and an unevaluated derivative's body, so a
+    /// piecewise is never mistaken for a constant.
+    pub fn free_of(&self, name: &str) -> bool {
+        !self.contains(name)
+    }
+
     /// A square root. A negative exact value has an exact imaginary principal value
     /// (sqrt(-4) = 2*i, sqrt(-2) = i*sqrt(2)), never a real approximation and never a
     /// real sign flip: the real-domain contract lives on Real::sqrt, not on this constructor.
@@ -491,6 +557,12 @@ impl Expr {
             Expr::Sym(s) => s == name,
             Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.contains(name)),
             Expr::Pow(a, b) => a.contains(name) || b.contains(name),
+            // A derivative's bound variables are not occurrences of the symbol: only its body
+            // is (free_of(diff(y^2, x), x) is true).
+            Expr::Fun(fname, _) if fname == "derivative" => match self.as_derivative() {
+                Some((body, _)) => body.contains(name),
+                None => false,
+            },
             Expr::Fun(_, args) => args.iter().any(|e| e.contains(name)),
             Expr::Div(a, b) => a.contains(name) || b.contains(name),
             Expr::Rel(_, a, b) => a.contains(name) || b.contains(name),
@@ -707,6 +779,24 @@ impl Expr {
                 // defining polynomial prints as a polynomial (rootof(x^4 - x^2 - 1, 0)).
                 if name == "rootof" && args.len() == 2 {
                     return format!("rootof({}, {})", args[0].to_string(), args[1].to_string());
+                }
+                // A piecewise prints each branch as "value if guard" and the otherwise value
+                // last: piecewise(sign(x) if x != 0, diff(abs(x), x)).
+                if name == "piecewise" {
+                    if let Some((branches, otherwise)) = self.as_piecewise() {
+                        let mut parts: Vec<String> = branches
+                            .iter()
+                            .map(|(guard, value)| format!("{} if {}", value.to_string(), guard.to_string()))
+                            .collect();
+                        parts.push(otherwise.to_string());
+                        return format!("piecewise({})", parts.join(", "));
+                    }
+                }
+                // An unevaluated derivative prints as the diff call it denotes.
+                if name == "derivative" {
+                    if let Some((body, vars)) = self.as_derivative() {
+                        return format!("diff({}, {})", body.to_string(), vars.join(", "));
+                    }
                 }
                 let parts: Vec<String> = args.iter().map(|a| a.to_string()).collect();
                 format!("{}({})", name, parts.join(", "))
@@ -943,7 +1033,18 @@ fn scale(e: Expr, coef: &Rat) -> Expr {
     if coef.is_one() {
         return e;
     }
-    Expr::Mul(vec![Expr::Num(coef.clone()), e])
+    match e {
+        // A coefficient over a product JOINS the product's factors: nesting a second Mul inside
+        // the first makes the inner product an atomic base, so the product algebra never combines
+        // it ((i*sqrt(3))^2 stays a power of a product instead of folding to -3, and
+        // expand(subs(x^3 - 1, x, cardano_root)) never reaches 0). The reference's Add scales a
+        // term through its Multiply constructor, which is flat for the same reason.
+        Expr::Mul(mut factors) => {
+            factors.insert(0, Expr::Num(coef.clone()));
+            Expr::Mul(factors)
+        }
+        other => Expr::Mul(vec![Expr::Num(coef.clone()), other]),
+    }
 }
 
 /// Orders the factors inside a product: constants, then symbols, then functions and powers;
@@ -2479,7 +2580,15 @@ fn poly_remainder(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
     }
     let db = divisor.len() - 1;
     let lead = divisor[db].clone();
-    while r.len() > db + 1 {
+    // The step runs while the remainder's degree is STILL at least the divisor's: a remainder of
+    // EQUAL degree has to have its leading term cancelled too, or the Euclid loop in poly_gcd
+    // swaps two same-degree polynomials forever (x^3 - x^2 against x^2 is exactly that shape).
+    // A CONSTANT divisor (db = 0) would keep the loop alive after the remainder reached zero,
+    // since a trimmed vector is never empty, so the zero remainder ends it explicitly.
+    while r.len() >= db + 1 {
+        if r.len() == 1 && r[0].is_zero() {
+            break;
+        }
         let dr = r.len() - 1;
         let factor = match r[dr].div(&lead) {
             Some(f) => f,
@@ -2516,7 +2625,7 @@ pub fn real_root_count(coeffs: &[Rat]) -> usize {
         }
         let next: Vec<Rat> = remainder.iter().map(|c| c.neg()).collect();
         let constant = next.len() == 1;
-        sequence.push(trim_poly(next));
+        sequence.push(poly_normalize_positive(&next));
         if constant {
             break;
         }
@@ -2545,6 +2654,452 @@ pub fn real_root_count(coeffs: &[Rat]) -> usize {
         changes
     };
     variations(true).saturating_sub(variations(false))
+}
+
+// ---------------------------------------------------------------------------
+// Yun's square-free decomposition and the numeric evaluation of a RootOf.
+//
+// Both are kernel surfaces the reference publishes and this crate lacked: a square-free
+// factorization with multiplicities, and `Roots.N(RootOf(p, i), digits)` - the i-th REAL root
+// of a defining polynomial, isolated by Sturm counts and refined by bisection in EXACT rational
+// arithmetic (so the digits are the requested ones, never a float cast of them).
+// ---------------------------------------------------------------------------
+
+/// The reduced form of a rational. `Rat::new` only cancels a common factor when both parts fit
+/// u64, and an exact polynomial remainder chain routinely leaves a common factor much wider than
+/// that: without this the square-free part of a degree-3 polynomial carries 70-digit numerators
+/// and denominators whose value is 1.
+fn rat_reduce(r: &Rat) -> Rat {
+    if r.numerator().is_zero() {
+        return Rat::zero();
+    }
+    let numerator = r.numerator().magnitude();
+    let denominator = r.denominator();
+    let (common, _) = match gcd_int(numerator, denominator) {
+        Some(pair) => pair,
+        None => return r.clone(),
+    };
+    if common.is_zero() || common.to_decimal() == "1" {
+        return r.clone();
+    }
+    let (num, _) = match r.numerator().div_rem(&common) {
+        Some(pair) => pair,
+        None => return r.clone(),
+    };
+    let (den, _) = match denominator.div_rem(&common) {
+        Some(pair) => pair,
+        None => return r.clone(),
+    };
+    Rat::from_parts(num, den)
+}
+
+/// The monic normalization of a coefficient vector (the leading coefficient becomes one).
+fn poly_monic(p: &[Rat]) -> Vec<Rat> {
+    let trimmed = trim_poly(p.to_vec());
+    let lead = match trimmed.last() {
+        Some(c) if !c.is_zero() => c.clone(),
+        _ => return trimmed,
+    };
+    let mut out: Vec<Rat> = Vec::with_capacity(trimmed.len());
+    for c in &trimmed {
+        match c.div(&lead) {
+            Some(v) => out.push(rat_reduce(&v)),
+            None => return trimmed,
+        }
+    }
+    out
+}
+
+/// The greatest common divisor of two rational-coefficient polynomials, monic. A zero operand
+/// gives the other (monic); both zero gives one.
+fn poly_gcd(a: &[Rat], b: &[Rat]) -> Vec<Rat> {
+    let mut a = trim_poly(a.to_vec());
+    let mut b = trim_poly(b.to_vec());
+    for _ in 0..256 {
+        if b.len() == 1 && b[0].is_zero() {
+            return poly_monic(&a);
+        }
+        let remainder = poly_normalize_positive(&poly_remainder(&a, &b));
+        a = b;
+        b = remainder;
+    }
+    poly_monic(&a)
+}
+
+/// Exact division: None when the divisor does not divide the dividend.
+fn poly_div_exact(num: &[Rat], den: &[Rat]) -> Option<Vec<Rat>> {
+    let quotient = poly_div(num, den)?;
+    let remainder = poly_remainder(num, den);
+    if remainder.len() == 1 && remainder[0].is_zero() {
+        Some(trim_poly(quotient))
+    } else {
+        None
+    }
+}
+
+/// Yun's square-free decomposition of a univariate polynomial with rational coefficients.
+///
+/// Each returned pair is (factor coefficient vector, multiplicity), with the factors pairwise
+/// coprime and their product equal to the input. `x^3 - x^2 = x^2*(x - 1)` decomposes into
+/// `(x - 1, 1)` then `(x, 2)` - the order the reference's factor list is built in.
+pub fn square_free_univariate(coeffs: &[Rat]) -> Vec<(Vec<Rat>, u64)> {
+    if cancel::check() {
+        return Vec::new();
+    }
+    let p = trim_poly(coeffs.to_vec());
+    if p.len() <= 1 {
+        return Vec::new();
+    }
+    let derivative = poly_derivative(&p);
+    let mut g = poly_gcd(&p, &derivative);
+    let mut w = match poly_div_exact(&p, &g) {
+        Some(v) => v,
+        None => return Vec::new(),
+    };
+    let mut out: Vec<(Vec<Rat>, u64)> = Vec::new();
+    let mut multiplicity: u64 = 1;
+    while w.len() > 1 {
+        if cancel::check() {
+            return out;
+        }
+        let y = poly_gcd(&w, &g);
+        let z = match poly_div_exact(&w, &y) {
+            Some(v) => v,
+            None => return out,
+        };
+        if z.len() > 1 {
+            out.push((z, multiplicity));
+        }
+        if y.len() > 1 {
+            g = match poly_div_exact(&g, &y) {
+                Some(v) => v,
+                None => return out,
+            };
+        } else {
+            g = vec![Rat::one()];
+        }
+        w = y;
+        multiplicity += 1;
+        if multiplicity > 64 {
+            break;
+        }
+    }
+    out
+}
+
+/// Why a RootOf index has no value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RootOfError {
+    /// The defining polynomial has no real root at all.
+    NoRealRoots,
+    /// The requested index is past the number of DISTINCT real roots.
+    IndexOutOfRange {
+        /// The index the caller asked for.
+        index: usize,
+        /// The number of distinct real roots the polynomial has.
+        count: usize,
+    },
+    /// The isolator could not separate the roots; a measured refusal, never an approximation.
+    NotIsolated,
+}
+
+impl RootOfError {
+    /// The refusal text the caller publishes.
+    pub fn message(&self) -> String {
+        match self {
+            RootOfError::NoRealRoots => {
+                "rootof: the defining polynomial has no real root.".to_string()
+            }
+            RootOfError::IndexOutOfRange { index, count } => format!(
+                "rootof: index {index} is out of range; the polynomial has {count} real root(s)."
+            ),
+            RootOfError::NotIsolated => {
+                "rootof: the real roots could not be isolated.".to_string()
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for RootOfError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message())
+    }
+}
+
+/// Normalizes a polynomial by the ABSOLUTE VALUE of its leading coefficient. Multiplication by a
+/// positive constant leaves every sign variation (and therefore every Sturm count) unchanged,
+/// while keeping the coefficients bounded: without it the remainder chain of a degree-3
+/// polynomial reaches thousand-digit coefficients after a few steps.
+fn poly_normalize_positive(p: &[Rat]) -> Vec<Rat> {
+    let trimmed = trim_poly(p.to_vec());
+    let lead = match trimmed.last() {
+        Some(c) if !c.is_zero() => c.abs(),
+        _ => return trimmed,
+    };
+    let mut out: Vec<Rat> = Vec::with_capacity(trimmed.len());
+    for c in &trimmed {
+        match c.div(&lead) {
+            Some(v) => out.push(rat_reduce(&v)),
+            None => return trimmed,
+        }
+    }
+    out
+}
+
+/// The Sturm sequence of a square-free polynomial: p, p', -rem(p, p'), ... The sequence ends at
+/// the last nonzero remainder, so its sign variations count the DISTINCT real roots.
+fn sturm_sequence(p: &[Rat]) -> Vec<Vec<Rat>> {
+    let square_free = trim_poly(p.to_vec());
+    let mut sequence: Vec<Vec<Rat>> = vec![
+        poly_normalize_positive(&square_free),
+        poly_normalize_positive(&poly_derivative(&square_free)),
+    ];
+    while sequence.len() < 256 {
+        let n = sequence.len();
+        let remainder = poly_remainder(&sequence[n - 2], &sequence[n - 1]);
+        if remainder.len() == 1 && remainder[0].is_zero() {
+            break;
+        }
+        let next: Vec<Rat> = remainder.iter().map(|c| c.neg()).collect();
+        let constant = next.len() == 1;
+        sequence.push(poly_normalize_positive(&next));
+        if constant {
+            break;
+        }
+    }
+    sequence
+}
+
+/// A polynomial with integer coefficients: the coefficient vector cleared of denominators by a
+/// positive common multiple, plus that multiple. None when the multiple is wider than the
+/// materialization bound, so a pathological input is a refusal rather than a hang.
+fn integer_coefficients(p: &[Rat]) -> Option<(Vec<Int>, Int)> {
+    let mut multiple = Int::from_i64(1);
+    for c in p {
+        let denominator = Int::from_decimal(&c.denominator().to_decimal())?;
+        multiple = lcm_int(&multiple, &denominator)?;
+        if multiple.to_decimal().len() > 40 {
+            return None;
+        }
+    }
+    let mut out: Vec<Int> = Vec::with_capacity(p.len());
+    for c in p {
+        let numerator = c.numerator().mul(&multiple);
+        let (quotient, _) = numerator.div_rem(c.denominator())?;
+        out.push(quotient);
+    }
+    Some((out, multiple))
+}
+
+/// The least common multiple of two positive integers, or None when it does not fit the bound.
+fn lcm_int(a: &Int, b: &Int) -> Option<Int> {
+    if a.is_zero() || b.is_zero() {
+        return Some(Int::from_i64(1));
+    }
+    let (g, _) = gcd_int(a.magnitude(), b.magnitude())?;
+    let (divided, _) = a.div_rem(&g)?;
+    Some(divided.mul(b))
+}
+
+/// The greatest common divisor of two magnitudes.
+fn gcd_int(a: &Nat, b: &Nat) -> Option<(Nat, Nat)> {
+    let mut left = a.clone();
+    let mut right = b.clone();
+    for _ in 0..4096 {
+        if right.is_zero() {
+            return Some((left, Nat::from_u64(0)));
+        }
+        let (_, remainder) = left.div_rem(&right)?;
+        left = right;
+        right = remainder;
+    }
+    None
+}
+
+/// The sign of `poly(X / scale)` in EXACT integer arithmetic: every coefficient is cleared of its
+/// denominator, the substitution multiplies through by `scale^degree`, and the resulting integer
+/// is only ever compared against zero. This keeps the isolation free of the rational
+/// denominator growth that would make a 40-digit bisection quadratic in the digit count.
+fn scaled_sign(poly: &[Rat], x: &Int, scale: &Int) -> Option<Ordering> {
+    let (coefficients, _multiple) = integer_coefficients(poly)?;
+    let degree = coefficients.len() - 1;
+    let mut powers: Vec<Int> = Vec::with_capacity(degree + 1);
+    powers.push(Int::from_i64(1));
+    for _ in 0..degree {
+        let last = powers.last()?.mul(scale);
+        powers.push(last);
+    }
+    let mut acc = coefficients[degree].clone();
+    for i in (0..degree).rev() {
+        acc = acc.mul(x).add(&coefficients[i].mul(&powers[degree - i]));
+    }
+    Some(acc.cmp(&Int::zero()))
+}
+
+/// The number of sign variations of the Sturm sequence evaluated at `X / scale`. A zero
+/// evaluation is skipped, which is the standard convention at a root of the polynomial.
+fn scaled_variations(sequence: &[Vec<Rat>], x: &Int, scale: &Int) -> Option<usize> {
+    let mut last: Option<Ordering> = None;
+    let mut changes = 0usize;
+    for poly in sequence {
+        let sign = scaled_sign(poly, x, scale)?;
+        if sign == Ordering::Equal {
+            continue;
+        }
+        if let Some(previous) = last {
+            if previous != sign {
+                changes += 1;
+            }
+        }
+        last = Some(sign);
+    }
+    Some(changes)
+}
+
+/// Separates every real root of a square-free polynomial into an interval of width at most one
+/// SCALED unit, in ascending order. All arithmetic is integer: a bisection point is the integer
+/// midpoint of the scaled endpoints, so the work is linear in the digit count, never quadratic.
+fn isolate_scaled(
+    sequence: &[Vec<Rat>],
+    lo: &Int,
+    hi: &Int,
+    scale: &Int,
+    depth: usize,
+    out: &mut Vec<(Int, Int)>,
+) -> Option<()> {
+    if out.len() > 64 || depth > 1200 {
+        return Some(());
+    }
+    let below = scaled_variations(sequence, lo, scale)?;
+    let above = scaled_variations(sequence, hi, scale)?;
+    let inside = below.saturating_sub(above);
+    if inside == 0 {
+        return Some(());
+    }
+    // The interval is narrower than one scaled unit: it isolates exactly one root.
+    if inside == 1 && hi.sub(lo).cmp(&Int::from_i64(1)) != Ordering::Greater {
+        out.push((lo.clone(), hi.clone()));
+        return Some(());
+    }
+    let (mid, _) = lo.add(hi).div_rem(&Nat::from_u64(2))?;
+    if mid.cmp(lo) != Ordering::Greater || mid.cmp(hi) != Ordering::Less {
+        if inside == 1 {
+            out.push((lo.clone(), hi.clone()));
+        }
+        return Some(());
+    }
+    isolate_scaled(sequence, lo, &mid, scale, depth + 1, out)?;
+    isolate_scaled(sequence, &mid, hi, scale, depth + 1, out)?;
+    Some(())
+}
+
+/// The `index`-th real root (ascending, 0-based, distinct roots) of a rational-coefficient
+/// polynomial, as an exact rational accurate to about 40 digits: the reference's
+/// `Roots.N(RootOf(p, i), digits)` surface.
+pub fn nth_real_root(coeffs: &[Rat], index: usize) -> Result<Rat, RootOfError> {
+    nth_real_root_digits(coeffs, index, 40)
+}
+
+/// `nth_real_root` with an explicit digit target.
+pub fn nth_real_root_digits(
+    coeffs: &[Rat],
+    index: usize,
+    digits: usize,
+) -> Result<Rat, RootOfError> {
+    if cancel::check() {
+        return Err(RootOfError::NotIsolated);
+    }
+    let p = trim_poly(coeffs.to_vec());
+    if p.len() <= 1 {
+        return Err(RootOfError::NoRealRoots);
+    }
+    // A repeated root is ONE real root of the value: isolate the square-free part, or the count
+    // and the index would both be about the multiplicity rather than the root.
+    let derivative = poly_derivative(&p);
+    let common = poly_gcd(&p, &derivative);
+    // Divide out the common factor and NORMALIZE: the exact quotient of two polynomials whose
+    // gcd carries a large constant content has large coefficients, and the isolation below is
+    // only polynomial in their width. A positive normalization leaves every sign unchanged.
+    let quotient = poly_div_exact(&p, &common).unwrap_or_else(|| p.clone());
+    let reduced: Vec<Rat> = quotient.iter().map(rat_reduce).collect();
+    let square_free = poly_normalize_positive(&reduced);
+    let count = real_root_count(&square_free);
+    if count == 0 {
+        return Err(RootOfError::NoRealRoots);
+    }
+    if index >= count {
+        return Err(RootOfError::IndexOutOfRange { index, count });
+    }
+    let sequence = sturm_sequence(&square_free);
+    // Cauchy's bound: every real root lies inside [-B, B] with B = 1 + max |a_i / a_n|, which
+    // the scaled interval below rounds up to the next whole unit.
+    let lead = square_free.last().map(|c| c.abs()).unwrap_or_else(Rat::one);
+    let mut bound = Rat::one();
+    for c in &square_free[..square_free.len() - 1] {
+        if lead.is_zero() {
+            break;
+        }
+        if let Some(candidate) = c.abs().div(&lead).map(|v| v.add(&Rat::one())) {
+            if candidate.cmp(&bound) == Ordering::Greater {
+                bound = candidate;
+            }
+        }
+    }
+    let mut scale_text = String::from("1");
+    for _ in 0..(digits.min(60) + 5) {
+        scale_text.push('0');
+    }
+    let scale = Int::from_decimal(&scale_text).ok_or(RootOfError::NotIsolated)?;
+    let (bound_number, _) = bound
+        .numerator()
+        .mul(&scale)
+        .div_rem(bound.denominator())
+        .ok_or(RootOfError::NotIsolated)?;
+    let magnitude = Int::from_decimal(&bound_number.magnitude().to_decimal())
+        .ok_or(RootOfError::NotIsolated)?;
+    let radius = magnitude.add(&Int::from_i64(1));
+    let mut intervals: Vec<(Int, Int)> = Vec::new();
+    isolate_scaled(
+        &sequence,
+        &radius.negate(),
+        &radius,
+        &scale,
+        0,
+        &mut intervals,
+    )
+    .ok_or(RootOfError::NotIsolated)?;
+    if intervals.len() != count {
+        return Err(RootOfError::NotIsolated);
+    }
+    let (lo, hi) = intervals.swap_remove(index);
+    let (middle, _) = lo.add(&hi).div_rem(&Nat::from_u64(2)).ok_or(RootOfError::NotIsolated)?;
+    let denominator = Nat::from_decimal(&scale_text).ok_or(RootOfError::NotIsolated)?;
+    Ok(Rat::from_parts(middle, denominator))
+}
+
+/// The numeric value of a `rootof(p, index)` node to the requested number of digits - the
+/// reference's `Roots.N` over the node the solver publishes.
+pub fn evalf_rootof(e: &Expr, digits: usize) -> Result<Rat, RootOfError> {
+    let Expr::Fun(name, args) = e else {
+        return Err(RootOfError::NotIsolated);
+    };
+    if name != "rootof" || args.len() != 2 {
+        return Err(RootOfError::NotIsolated);
+    }
+    let var = args[0]
+        .free_symbols()
+        .into_iter()
+        .next()
+        .ok_or(RootOfError::NotIsolated)?;
+    let coeffs = poly_coeffs(&args[0], &var).ok_or(RootOfError::NotIsolated)?;
+    let index = match &args[1] {
+        Expr::Num(n) => match n.to_i64() {
+            Some(v) if v >= 0 => v as usize,
+            _ => return Err(RootOfError::NotIsolated),
+        },
+        _ => return Err(RootOfError::NotIsolated),
+    };
+    nth_real_root_digits(&coeffs, index, digits)
 }
 
 /// The polynomial expression c0 + c1*x + ... that a RootOf's defining polynomial prints as.
@@ -2645,8 +3200,10 @@ pub fn solve_polynomial_named(coeffs: &[Rat], var: &str) -> SolveOutcome {
                         let mut exprs = radical;
                         roots.sort_by(|a, b| a.value.cmp(&b.value));
                         exprs.extend(roots.iter().map(|r| expr_from_rat(&r.value)));
-                        // The reference orders non-rational solutions by canonical print.
-                        exprs.sort_by_key(|e| e.to_string());
+                        // The reference orders non-rational solutions by canonical print, which
+                        // is the kernel's own total order: -1/2*sqrt(20), then 1/2*sqrt(20),
+                        // then the exact 0 (the display order would put 0 between them).
+                        exprs.sort_by_key(|e| e.canonical());
                         return SolveOutcome::RootExpressions(exprs);
                     }
                 }
@@ -2751,6 +3308,13 @@ fn find_rational_root(coeffs: &[Rat]) -> Option<Rat> {
     let leading = ints[degree].unsigned_abs();
     if leading == 0 {
         return None;
+    }
+    // A zero constant term means x divides the polynomial, so 0 is a root. The rational-root
+    // theorem cannot see it: its p/q enumeration runs over the divisors of a0 = 0. Extracting the
+    // zero root HERE is what turns x^4 - 5*x^2 into the exact pair +-1/2*sqrt(20) (the remaining
+    // quadratic) instead of three RootOf values.
+    if constant == 0 {
+        return Some(Rat::zero());
     }
     for p in divisors(constant) {
         if cancel::check() {
@@ -3153,6 +3717,43 @@ pub fn diff(e: &Expr, var: &str) -> Expr {
             Expr::num(0)
         }
         Expr::Fun(name, args) => {
+            // A piecewise differentiates BRANCH BY BRANCH; the guards are conditions, not
+            // functions of the differentiation variable, so they are carried unchanged.
+            if name == "piecewise" {
+                if let Some((branches, otherwise)) = e.as_piecewise() {
+                    let differentiated: Vec<(Expr, Expr)> = branches
+                        .into_iter()
+                        .map(|(guard, value)| (guard, diff(&value, var)))
+                        .collect();
+                    return Expr::piecewise(differentiated, diff(&otherwise, var));
+                }
+                return Expr::num(0);
+            }
+            // d abs(u)/dx carries the NONZERO condition and, at the kink, the unevaluated
+            // derivative: piecewise(sign(u)*u' if u != 0, diff(abs(u), x)). Stating it as 0
+            // would claim abs is smooth at the origin.
+            if name == "abs" && args.len() == 1 {
+                let u = &args[0];
+                let guard = Expr::relation(RelOp::Ne, u.clone(), Expr::num(0));
+                let slope = Expr::mul(
+                    Expr::Fun("sign".to_string(), vec![u.clone()]),
+                    diff(u, var),
+                );
+                return Expr::piecewise(
+                    vec![(guard, slope)],
+                    Expr::derivative(e.clone(), vec![var.to_string()]),
+                );
+            }
+            // d floor(u)/dx has NO closed form: it is an unevaluated derivative, never 0.
+            if name == "floor" && args.len() == 1 {
+                return Expr::derivative(e.clone(), vec![var.to_string()]);
+            }
+            // Differentiating an unevaluated derivative raises its order.
+            if let Some((body, vars)) = e.as_derivative() {
+                let mut vars = vars;
+                vars.push(var.to_string());
+                return Expr::derivative(body, vars);
+            }
             if args.len() != 1 {
                 return Expr::num(0);
             }
@@ -3299,6 +3900,31 @@ impl Expr {
                         };
                         format!("(rootof {} {})", args[0].canonical(), index)
                     }
+                    // A piecewise is a BINDING node: its guards and values are operands, not a
+                    // function call, and the reference publishes (pw ((guard value)) otherwise).
+                    ("piecewise", _) => {
+                        if let Some((branches, otherwise)) = self.as_piecewise() {
+                            let pairs: Vec<String> = branches
+                                .iter()
+                                .map(|(guard, value)| {
+                                    format!("({} {})", guard.canonical(), value.canonical())
+                                })
+                                .collect();
+                            // The reference emits each branch as its own (guard value) operand:
+                            // (pw ((ne (sym x) (rat 0 1)) (fn sign (sym x))) (der (x) ...)).
+                            format!("(pw {} {})", pairs.join(" "), otherwise.canonical())
+                        } else {
+                            format!("(fn {})", name)
+                        }
+                    }
+                    // An unevaluated derivative binds its variables: (der (x) (fn abs (sym x))).
+                    ("derivative", _) => {
+                        if let Some((body, vars)) = self.as_derivative() {
+                            format!("(der ({}) {})", vars.join(" "), body.canonical())
+                        } else {
+                            format!("(fn {})", name)
+                        }
+                    }
                     _ => {
                         let parts: Vec<String> = args.iter().map(|a| a.canonical()).collect();
                         if parts.is_empty() {
@@ -3346,6 +3972,22 @@ impl Expr {
                     };
                     return 1 + terms;
                 }
+                // A piecewise counts one node per branch pair plus the otherwise value; a
+                // derivative counts its body and one node per bound variable.
+                if name == "piecewise" {
+                    if let Some((branches, otherwise)) = self.as_piecewise() {
+                        let branch_nodes: usize = branches
+                            .iter()
+                            .map(|(guard, value)| guard.node_count() + value.node_count())
+                            .sum();
+                        return 1 + branch_nodes + otherwise.node_count();
+                    }
+                }
+                if name == "derivative" {
+                    if let Some((body, vars)) = self.as_derivative() {
+                        return 1 + body.node_count() + vars.len();
+                    }
+                }
                 1 + args.iter().map(|a| a.node_count()).sum::<usize>()
             }
             Expr::Rel(_, a, b) => 1 + a.node_count() + b.node_count(),
@@ -3367,6 +4009,12 @@ impl Expr {
                 }
                 // rootof's defining polynomial binds its own variable: no free symbols.
                 Expr::Fun(name, _) if name == "rootof" => {}
+                // A derivative binds the variables it differentiates by; its body is free.
+                Expr::Fun(name, _) if name == "derivative" => {
+                    if let Some((body, _)) = e.as_derivative() {
+                        walk(&body, out);
+                    }
+                }
                 Expr::Fun(_, args) => args.iter().for_each(|a| walk(a, out)),
                 Expr::Num(_) | Expr::Real(_) => {}
             }
@@ -3434,6 +4082,20 @@ impl Expr {
                 ("i", 0) => Dom::Complex,
                 // A RootOf is the i-th REAL root of its defining polynomial.
                 ("rootof", 2) => Dom::Real,
+                // A piecewise takes the widest domain over its values, guards included: the
+                // branch values are the expression's possible values.
+                ("piecewise", _) => match self.as_piecewise() {
+                    Some((branches, otherwise)) => branches
+                        .iter()
+                        .map(|(guard, value)| guard.domain().max(value.domain()))
+                        .fold(otherwise.domain(), |acc: Dom, d| acc.max(d)),
+                    None => Dom::Complex,
+                },
+                // An unevaluated derivative of a real-valued body is real.
+                ("derivative", _) => match self.as_derivative() {
+                    Some((body, _)) => body.domain(),
+                    None => Dom::Complex,
+                },
                 ("sqrt", 1) => {
                     let ad = args[0].domain();
                     if ad == Dom::Complex {
@@ -4061,6 +4723,9 @@ mod indeterminate_forms_round31;
 mod tail_round34;
 #[cfg(test)]
 mod round36_exactness;
+
+#[cfg(test)]
+mod round39_residue;
 
 #[cfg(test)]
 mod printing_round16;
