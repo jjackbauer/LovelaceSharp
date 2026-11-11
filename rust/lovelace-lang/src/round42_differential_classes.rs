@@ -72,7 +72,7 @@ fn round42_numeric_linsolve_is_refused_as_a_symbolic_matrix_builtin() {
     // one symbolic entry makes the matrix symbolic; the numeric solve still works
     assert_eq!(
         display("x = symbol(\"x\"); linsolve([[1, 2], [3, x]], [1, 2])"),
-        "[2/(x - 6) + 1, -1/(x - 6)]"
+        "[1 + 2/(x - 6), -1/(x - 6)]"
     );
 }
 
@@ -167,7 +167,7 @@ fn round42_linsolve_full_solutions_are_the_flat_solution_vector() {
         2,
         "the solution vector has one entry per unknown"
     );
-    assert_eq!(solutions[0].display(), "(-(4*x - 5)/(x^2 - 1) + 5)/x");
+    assert_eq!(solutions[0].display(), "(5 - (4*x - 5)/(x^2 - 1))/x");
     let Value::Vector(conditions) = field(&value, "conditions") else {
         panic!("conditions must be a vector");
     };

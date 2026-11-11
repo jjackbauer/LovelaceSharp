@@ -61,10 +61,13 @@ fn collect_of_a_huge_power_of_a_sum_returns_the_unchanged_expression() {
 #[test]
 fn term_ordering_with_a_huge_degree_does_not_overflow() {
     let rendered = display("x = symbol(\"x\"); (x^2 - 1)^9223372036854775807 + 1");
-    assert_eq!(rendered, "(x^2 - 1)^9223372036854775807 + 1");
+    // The oracle's Printing.OrderTermsForDisplay keeps CANONICAL order here: a power of a sum is
+    // not a single-symbol monomial, so the numeric constant sorts first regardless of the sum's
+    // written order (measured: Lovelace.Run answers "1 + (x^2 - 1)^…" for both spellings).
+    assert_eq!(rendered, "1 + (x^2 - 1)^9223372036854775807");
     assert_eq!(
         display("x = symbol(\"x\"); 1 + (x^2 - 1)^9223372036854775807"),
-        "(x^2 - 1)^9223372036854775807 + 1"
+        "1 + (x^2 - 1)^9223372036854775807"
     );
 }
 

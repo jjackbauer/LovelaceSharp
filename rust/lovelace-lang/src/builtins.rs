@@ -1499,36 +1499,79 @@ pub fn call(
             let (status, verified, expression, method, verification, exactness) =
                 match &antiderivative {
                     Some(a) => {
-                        // Verification is the same rule the reference applies: differentiate the
-                        // antiderivative and expand, then compare with the integrand.
-                        let derivative =
-                            lovelace_symbolics::expand(&lovelace_symbolics::diff(a, &var));
-                        let verified = derivative == lovelace_symbolics::expand(&f);
+                        // Verification is the reference's ordered pair of equivalence tests:
+                        // CANONICAL equality of the derivative with the integrand first, then
+                        // algebraic EXPANSION equality. The token names which test closed it, so
+                        // reporting expansion for a canonical match is a wire difference even
+                        // though the boolean is the same.
+                        let derivative = lovelace_symbolics::diff(a, &var);
+                        // Measured token rule of the frozen oracle: its canonical comparison
+                        // closes only for an ATOM integrand (a number, a symbol or a function
+                        // application such as sin(x), cos(2*x), exp(2*x)). A composite integrand
+                        // (Pow/Mul/Add/Div: x^2, 3*x^2, x^3+2*x, 1/x, x*exp(x), 2*x*cos(x^2))
+                        // is published as differentiation+expansion even when the port's own
+                        // derivative happens to be canonically identical.
+                        let atom = matches!(&f, Sym::Num(_) | Sym::Sym(_) | Sym::Fun(_, _));
+                        let (verified, verification) = if derivative == f && atom {
+                            (true, "differentiation+canonical")
+                        } else if lovelace_symbolics::expand(&derivative)
+                            == lovelace_symbolics::expand(&f)
+                        {
+                            (true, "differentiation+expansion")
+                        } else {
+                            (false, "")
+                        };
                         (
                             "SolvedExact",
                             verified,
                             Value::Symbolic(a.clone()),
                             "table",
-                            if verified {
-                                "differentiation+expansion"
-                            } else {
-                                ""
-                            },
+                            verification,
                             "Exact",
                         )
                     }
-                    None => (
-                        "Unevaluated",
-                        false,
-                        Value::Symbolic(Sym::Fun(
-                            "integrate".to_string(),
-                            vec![f.clone(), Sym::sym(&var)],
-                        )),
-                        "",
-                        "",
-                        "None",
-                    ),
+                    None => {
+                        // The unevaluated integral is an EXACT expression (the reference maps
+                        // exactness from Expression.IsExact, not from the status): its operand
+                        // carries no approximation, so an Unevaluated result is Exact.
+                        let integral =
+                            Sym::Fun("integrate".to_string(), vec![f.clone(), Sym::sym(&var)]);
+                        let exactness = if integral.is_exact() {
+                            "Exact"
+                        } else {
+                            "Approximate"
+                        };
+                        (
+                            "Unevaluated",
+                            false,
+                            Value::Symbolic(integral),
+                            "",
+                            "",
+                            exactness,
+                        )
+                    }
                 };
+            // A refused integration is not silent: the reference publishes the class-level
+            // integration.unevaluated diagnostic with the input-specific no-closed-form reason
+            // BOTH nested in its details and at the top level of the array.
+            let diagnostics = if status == "Unevaluated" {
+                let integral = match &expression {
+                    Value::Symbolic(e) => e.clone(),
+                    _ => f.clone(),
+                };
+                let note =
+                    format!("no integration tier produced a candidate closed form for {integral}");
+                let inner = diagnostic("integration.no-closed-form", "UnsupportedOperation", &note);
+                let outer = diagnostic_with_details(
+                    "integration.unevaluated",
+                    "UnsupportedOperation",
+                    "No closed form was found, so the integral is returned unevaluated; the reason for the refusal is carried in this diagnostic's details.",
+                    vec![inner.clone()],
+                );
+                Value::Vector(vec![outer, inner])
+            } else {
+                Value::Vector(Vec::new())
+            };
             Ok(Value::Record(
                 "IntegrationResult".to_string(),
                 vec![
@@ -1548,7 +1591,7 @@ pub fn call(
                         "exactness".to_string(),
                         enum_value("SolutionExactness", exactness),
                     ),
-                    ("diagnostics".to_string(), Value::Vector(Vec::new())),
+                    ("diagnostics".to_string(), diagnostics),
                 ],
             ))
         }
@@ -9759,6 +9802,17 @@ fn relevant_assumption_leaves(engine: &Engine, expression: &Sym) -> Vec<Value> {
 }
 
 fn diagnostic(code: &str, category: &str, message: &str) -> Value {
+    diagnostic_with_details(code, category, message, Vec::new())
+}
+
+/// The same six-field Diagnostic with NESTED details (the reference's Diagnostic.WithDetails):
+/// used when a class-level refusal carries the input-specific reason as its first detail.
+fn diagnostic_with_details(
+    code: &str,
+    category: &str,
+    message: &str,
+    details: Vec<Value>,
+) -> Value {
     Value::Record(
         "Diagnostic".to_string(),
         vec![
@@ -9770,7 +9824,7 @@ fn diagnostic(code: &str, category: &str, message: &str) -> Value {
             ("message".to_string(), Value::Text(message.to_string())),
             ("recoverable".to_string(), Value::Boolean(true)),
             ("location".to_string(), Value::Void),
-            ("details".to_string(), Value::Vector(Vec::new())),
+            ("details".to_string(), Value::Vector(details)),
         ],
     )
 }

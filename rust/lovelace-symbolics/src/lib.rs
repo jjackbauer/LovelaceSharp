@@ -378,25 +378,74 @@ impl Expr {
         if coefficient.is_zero() && !any_undefined_risk {
             return Expr::num(0);
         }
-        // Combine powers of the same base: x^2 * x^3 = x^5.
-        let mut combined: Vec<Expr> = Vec::new();
+        // Combine powers of the same base with the reference's DEFINEDNESS-preserving split
+        // (Constructors.MultiplyImpl): nonnegative and negative INTEGER exponents accumulate
+        // separately per base, and a positive and a negative exponent merge ONLY when the
+        // combined exponent stays negative (the pole set is unchanged). x^2 * x^-1 therefore
+        // stays a product of two powers instead of cancelling to x, which would define the
+        // product at 0 where x^-1 is undefined. A power with a non-integer exponent is a BARE
+        // factor over that power (its own exponent counts 1).
+        let mut powers: Vec<(Expr, Rat, Rat)> = Vec::new();
         for factor in rest {
-            let (base, exp) = as_power(factor);
-            if let Some(slot) = combined
-                .iter_mut()
-                .find(|e| as_power((*e).clone()).0 == base)
-            {
-                let (_, slot_exp) = as_power(slot.clone());
-                let summed = Expr::add(slot_exp.clone(), exp.clone());
-                // x * x^-1 is left alone: cancelling to 1 needs a nonzero assumption.
-                if summed == Expr::num(0) {
-                    combined.push(Expr::pow(base, exp));
-                    continue;
-                }
-                *slot = Expr::pow(base.clone(), summed);
-                let _ = slot_exp;
-            } else {
-                combined.push(Expr::pow(base, exp));
+            // A sqrt IS the half power (the reference's Function constructor maps sqrt to a
+            // Power), so sqrt(g)*sqrt(g) still combines to g rather than staying a function
+            // application; the half exponent is non-integer, so it is a bare factor here.
+            let factor = match factor {
+                Expr::Fun(name, args) if name == "sqrt" && args.len() == 1 => Expr::Pow(
+                    Box::new(args.into_iter().next().expect("one argument")),
+                    Box::new(Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2)))),
+                ),
+                other => other,
+            };
+            match factor {
+                Expr::Pow(base, exponent) => match exponent.as_ref() {
+                    Expr::Num(n) if n.is_integer() => {
+                        let slot = match powers.iter_mut().find(|(b, _, _)| *b == *base) {
+                            Some(slot) => slot,
+                            None => {
+                                powers.push(((*base).clone(), Rat::zero(), Rat::zero()));
+                                powers.last_mut().expect("just pushed")
+                            }
+                        };
+                        if n.is_negative() {
+                            slot.2 = slot.2.add(n);
+                        } else {
+                            slot.1 = slot.1.add(n);
+                        }
+                    }
+                    _ => {
+                        let whole = Expr::Pow(base, exponent);
+                        match powers.iter_mut().find(|(b, _, _)| *b == whole) {
+                            Some(slot) => slot.1 = slot.1.add(&Rat::one()),
+                            None => powers.push((whole, Rat::one(), Rat::zero())),
+                        }
+                    }
+                },
+                other => match powers.iter_mut().find(|(b, _, _)| *b == other) {
+                    Some(slot) => slot.1 = slot.1.add(&Rat::one()),
+                    None => powers.push((other, Rat::one(), Rat::zero())),
+                },
+            }
+        }
+        let mut combined: Vec<Expr> = Vec::new();
+        for (base, positive, negative) in powers {
+            if positive.is_zero() && negative.is_zero() {
+                continue;
+            }
+            let sum = positive.add(&negative);
+            if !positive.is_zero() && negative.is_negative() && sum.is_negative() {
+                combined.push(Expr::pow(base, Expr::Num(sum)));
+                continue;
+            }
+            if !positive.is_zero() {
+                combined.push(if positive.is_one() {
+                    base.clone()
+                } else {
+                    Expr::pow(base.clone(), Expr::Num(positive))
+                });
+            }
+            if !negative.is_zero() {
+                combined.push(Expr::pow(base, Expr::Num(negative)));
             }
         }
         // A combined power can fold to a NUMBER (i*i = -1, or a numeric power). Fold it into
@@ -761,10 +810,40 @@ impl Expr {
             Expr::Real(text) => text.clone(),
             Expr::Sym(s) => s.clone(),
             Expr::Add(terms) => {
-                // A sum that carries the series O(...) term renders in ascending powers around the
-                // expansion point (the O-term last), exactly as the reference's display order does
-                // (Printing.OrderTermsForDisplay). Every other sum keeps its stored order.
-                let ordered = series_kink::series_display_order(terms);
+                // Printing.OrderTermsForDisplay: a sum carrying the series O(...) term renders in
+                // ascending powers around the expansion point (the O-term last); a single-symbol
+                // polynomial renders in descending degree; EVERY other sum renders in the kernel's
+                // canonical order. The stored term order is a degree order, so it is only right for
+                // the polynomial case - a quotient such as 5 - (4*x - 5)/(x^2 - 1) must not be
+                // re-ordered to put the constant last.
+                let ordered = display_term_order(terms);
+                // A NEGATIVE leading constant renders last as a subtraction (x - 1, never -1 + x).
+                if let Some(Expr::Num(lead)) = ordered.first() {
+                    if lead.is_negative() {
+                        let magnitude = lead.abs();
+                        if ordered.len() == 1 {
+                            return format!("-{magnitude}");
+                        }
+                        let mut out = String::new();
+                        let (text, negative) = signed_text(&ordered[1]);
+                        if negative {
+                            out.push('-');
+                        }
+                        out.push_str(&text);
+                        for t in &ordered[2..] {
+                            let (text, negative) = signed_text(t);
+                            if negative {
+                                out.push_str(" - ");
+                            } else {
+                                out.push_str(" + ");
+                            }
+                            out.push_str(&text);
+                        }
+                        out.push_str(" - ");
+                        out.push_str(&magnitude.to_string());
+                        return out;
+                    }
+                }
                 let mut out = String::new();
                 for (i, t) in ordered.iter().enumerate() {
                     let (text, negative) = signed_text(t);
@@ -784,9 +863,20 @@ impl Expr {
                 out
             }
             Expr::Mul(factors) => {
-                if let Some(Expr::Num(n)) = factors.first() {
+                // The reference stores a product's factors in the kernel's canonical order and
+                // its printer renders that order. Builders that append factors directly (factor()
+                // is one) can leave the stored order different from the canonical one, so the
+                // DISPLAY sorts exactly as canonical() does: x*(x - 1)*(x + 1), not (x - 1)*x*...
+                let mut ordered = factors.clone();
+                ordered.sort_by(canonical_order);
+                let display = if ordered.len() == 1 {
+                    ordered[0].clone()
+                } else {
+                    Expr::Mul(ordered.clone())
+                };
+                if let Some(Expr::Num(n)) = ordered.first() {
                     if n.is_negative() {
-                        let mut rest = factors.clone();
+                        let mut rest = ordered.clone();
                         rest[0] = Expr::Num(n.abs());
                         let inner = if rest.len() == 1 {
                             rest[0].clone()
@@ -796,7 +886,7 @@ impl Expr {
                         return format!("-{}", product_text(&inner));
                     }
                 }
-                product_text(self)
+                product_text(&display)
             }
             Expr::Pow(_, _) => power_text(self),
             Expr::Fun(name, args) => {
@@ -879,10 +969,113 @@ impl Expr {
     }
 }
 
+/// The degree of a SINGLE-SYMBOL monomial, or None when the term is not one. This is the
+/// reference's Printing.TryMonomial: a symbol, a power of a symbol with a rational exponent, or a
+/// product of those and numeric constants (a negative exponent counts, so x^-1 is a monomial).
+fn monomial_degree(e: &Expr) -> Option<(String, Rat)> {
+    match e {
+        Expr::Sym(s) => Some((s.clone(), Rat::one())),
+        Expr::Pow(base, exp) => match (base.as_ref(), exp.as_ref()) {
+            (Expr::Sym(s), Expr::Num(n)) => Some((s.clone(), n.clone())),
+            _ => None,
+        },
+        Expr::Mul(factors) => {
+            let mut symbol: Option<String> = None;
+            let mut total = Rat::zero();
+            for factor in factors {
+                match factor {
+                    Expr::Num(_) | Expr::Real(_) => {}
+                    Expr::Sym(s) => {
+                        if let Some(found) = &symbol {
+                            if found != s {
+                                return None;
+                            }
+                        } else {
+                            symbol = Some(s.clone());
+                        }
+                        total = total.add(&Rat::one());
+                    }
+                    Expr::Pow(base, exp) => {
+                        let (Expr::Sym(s), Expr::Num(n)) = (base.as_ref(), exp.as_ref()) else {
+                            return None;
+                        };
+                        if let Some(found) = &symbol {
+                            if found != s {
+                                return None;
+                            }
+                        } else {
+                            symbol = Some(s.clone());
+                        }
+                        total = total.add(n);
+                    }
+                    _ => return None,
+                }
+            }
+            symbol.map(|s| (s, total))
+        }
+        _ => None,
+    }
+}
+
+/// Printing.OrderTermsForDisplay, exactly: series order first, then the single-symbol polynomial
+/// order (descending degree, canonical tie-break), then canonical order for everything else.
+fn display_term_order(terms: &[Expr]) -> Vec<Expr> {
+    let canonical = || {
+        let mut ordered = terms.to_vec();
+        ordered.sort_by(canonical_order);
+        ordered
+    };
+    if terms.is_empty() || terms.len() > 64 {
+        return terms.to_vec();
+    }
+    if terms
+        .iter()
+        .any(|t| matches!(t, Expr::Fun(name, args) if name == "order" && args.len() == 3))
+    {
+        return series_kink::series_display_order(terms);
+    }
+    let mut symbol: Option<String> = None;
+    for term in terms {
+        if matches!(term, Expr::Num(_) | Expr::Real(_)) {
+            continue;
+        }
+        let Some((found, _)) = monomial_degree(term) else {
+            return canonical();
+        };
+        match &symbol {
+            None => symbol = Some(found),
+            Some(existing) if existing != &found => return canonical(),
+            _ => {}
+        }
+    }
+    let Some(symbol) = symbol else {
+        return canonical();
+    };
+    let degree = |term: &Expr| {
+        monomial_degree(term)
+            .filter(|(s, _)| s == &symbol)
+            .map(|(_, d)| d)
+            .unwrap_or_else(Rat::zero)
+    };
+    let mut ordered = terms.to_vec();
+    ordered.sort_by(|a, b| {
+        degree(b)
+            .cmp(&degree(a))
+            .then_with(|| canonical_order(a, b))
+    });
+    ordered
+}
+
 fn signed_text(e: &Expr) -> (String, bool) {
     match e {
         Expr::Num(n) if n.is_negative() => (n.abs().to_string(), true),
         Expr::Mul(factors) => {
+            // The sign-carrying coefficient is the canonically FIRST factor (the display sorts a
+            // product's factors); reading the stored order could miss a coefficient that a direct
+            // builder appended last and print " + -2*x" instead of " - 2*x".
+            let mut ordered = factors.clone();
+            ordered.sort_by(canonical_order);
+            let factors = &ordered;
             if let Some(Expr::Num(n)) = factors.first() {
                 if n.is_negative() {
                     let mut rest: Vec<Expr> = Vec::with_capacity(factors.len());
@@ -1063,21 +1256,6 @@ fn power_text(e: &Expr) -> String {
             format!("{}^{}", base_text, exp_text)
         }
         other => other.to_string(),
-    }
-}
-
-fn as_power(e: Expr) -> (Expr, Expr) {
-    match e {
-        Expr::Pow(b, x) => (*b, *x),
-        // A square root IS the half power: sqrt(g)*sqrt(g) must combine to g and i*sqrt(3)
-        // squared must fold to -3, exactly as the reference's Power constructor sees it. The
-        // canonical form already prints a sqrt as (pow G (rat 1 2)); this keeps the product
-        // algebra on the same reading.
-        Expr::Fun(name, args) if name == "sqrt" && args.len() == 1 => (
-            args.into_iter().next().expect("one argument"),
-            Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2))),
-        ),
-        other => (other, Expr::num(1)),
     }
 }
 
@@ -3982,6 +4160,25 @@ impl Expr {
                 if name == "sqrt" && args.len() == 1 {
                     return format!("(pow {} (rat 1 2))", args[0].canonical());
                 }
+                // An unevaluated integral is a BINDING node in the reference's canonical
+                // vocabulary: (integ (x) operand), with the bound variables as bare names and
+                // NOT counted as operand nodes.
+                if name == "integrate" && args.len() >= 2 {
+                    let variables: Option<Vec<String>> = args[1..]
+                        .iter()
+                        .map(|a| match a {
+                            Expr::Sym(s) => Some(s.clone()),
+                            _ => None,
+                        })
+                        .collect();
+                    if let Some(variables) = variables {
+                        return format!(
+                            "(integ ({}) {})",
+                            variables.join(" "),
+                            args[0].canonical()
+                        );
+                    }
+                }
                 match (name.as_str(), args.len()) {
                     ("pi", 0) => "(pi)".to_string(),
                     ("e", 0) => "(e)".to_string(),
@@ -4076,6 +4273,14 @@ impl Expr {
                         _ => 1,
                     };
                     return 1 + terms;
+                }
+                // An integral counts its operand only; the bound variables are binding syntax,
+                // not operand nodes (the reference's Exprs.Integral: 1 + operand.NodeCount).
+                if name == "integrate"
+                    && args.len() >= 2
+                    && args[1..].iter().all(|a| matches!(a, Expr::Sym(_)))
+                {
+                    return 1 + args[0].node_count();
                 }
                 // A piecewise counts one node per branch pair plus the otherwise value; a
                 // derivative counts its body and one node per bound variable.
@@ -4710,13 +4915,49 @@ impl CanonicalParser<'_> {
                     vec![polynomial, Expr::Num(Rat::new(index, Nat::from_u64(1)))],
                 ))
             }
+            "integ" => {
+                // (integ (x) OPERAND): bound variables are bare names in one parenthesised list.
+                match self.next()? {
+                    CanonicalToken::Open(_) => {}
+                    CanonicalToken::Close(p) => {
+                        return Err(self.error(p, "expected '(' before the bound variables"))
+                    }
+                    CanonicalToken::Atom(text, p) => {
+                        return Err(self.error(
+                            p,
+                            format!("expected '(' before the bound variables, got '{text}'"),
+                        ))
+                    }
+                }
+                let mut variables: Vec<Expr> = Vec::new();
+                loop {
+                    match self.next()? {
+                        CanonicalToken::Atom(name, _) => variables.push(Expr::sym(&name)),
+                        CanonicalToken::Close(_) => break,
+                        CanonicalToken::Open(p) => {
+                            return Err(self.error(p, "expected a bound variable name, got '('"))
+                        }
+                    }
+                }
+                if variables.is_empty() {
+                    return Err(self.error(
+                        tag_position,
+                        "(integ) needs at least one bound variable",
+                    ));
+                }
+                let operand = self.parse_node()?;
+                self.expect_close()?;
+                let mut args = vec![operand];
+                args.extend(variables);
+                Ok(Expr::Fun("integrate".to_string(), args))
+            }
             "real" | "cplx" => Err(self.error(
                 tag_position,
                 format!(
                     "the tag '{tag}' denotes a numeric literal this expression model has no leaf for"
                 ),
             )),
-            "der" | "integ" | "pw" | "and" | "or" | "not" | "order" => Err(self.error(
+            "der" | "pw" | "and" | "or" | "not" | "order" => Err(self.error(
                 tag_position,
                 format!("the tag '{tag}' is not part of this crate's canonical vocabulary"),
             )),

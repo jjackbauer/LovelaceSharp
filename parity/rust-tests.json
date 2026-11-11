@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T19:59:30Z",
+    "generatedAtUtc":  "2026-11-11T20:36:27Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4817,
+                  "passed":  4823,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4817
+                   "tests":  4823
                },
-    "sourcesSha256":  "75336b78b607a37a928b4cbfdebf0adf99a399dfec6b44bd7176da86c22adc4a",
+    "sourcesSha256":  "8f0711bd15b572fa175396849f09f674e11bb68ff8ba05b1261442b2b2420354",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3565,6 +3565,12 @@
                                      "round42_differential_classes::round42_numeric_linsolve_is_refused_as_a_symbolic_matrix_builtin",
                                      "round42_differential_classes::round42_singular_numeric_inverse_names_the_full_refusal",
                                      "round42_differential_classes::round42_symbolic_inverse_elements_are_products_over_the_determinant",
+                                     "round43_display_classes::round43_default_real_display_is_capped_at_one_hundred_places",
+                                     "round43_display_classes::round43_integration_verification_reports_the_equivalence_test",
+                                     "round43_display_classes::round43_linsolve_sums_render_in_canonical_order",
+                                     "round43_display_classes::round43_products_render_in_canonical_order_and_keep_divided_powers",
+                                     "round43_display_classes::round43_setprecision_moves_the_display_cap",
+                                     "round43_display_classes::round43_unevaluated_integral_is_the_integral_node_with_its_diagnostics",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",

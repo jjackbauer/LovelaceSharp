@@ -173,10 +173,9 @@ fn canonical_parse_refuses_malformed_text_with_a_position() {
         ("(rat 1 -2)", "non-negative integer denominator"),
         ("(pow (sym x))", "expected '('"),
         ("(real 1.5)", "numeric literal"),
-        (
-            "(integ (x) (sym x))",
-            "not part of this crate's canonical vocabulary",
-        ),
+        // (integ ...) is now part of the vocabulary (the reference's binding node), so the
+        // refusal is the grammar violation, not the tag.
+        ("(integ () (sym x))", "at least one bound variable"),
         (
             "(order (sym x) (rat 0 1) (rat 1 1))",
             "not part of this crate's canonical vocabulary",

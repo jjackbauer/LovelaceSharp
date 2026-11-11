@@ -633,14 +633,16 @@ impl Engine {
         std::mem::take(&mut self.output)
     }
 
-    /// Renders a value in display form.
+    /// Renders a value in display form at the engine's DISPLAY precision (the reference's
+    /// Real.DisplayDecimalPlaces: 100 until setprecision moves it). The scope covers the whole
+    /// nested rendering, so a Real inside an array or record is capped too.
     pub fn format(&self, value: &Value) -> String {
-        value.display()
+        lovelace_real::with_display_decimal_places(self.display_precision(), || value.display())
     }
 
-    /// Renders a value with its kind.
+    /// Renders a value with its kind, under the same display-precision scope.
     pub fn format_typed(&self, value: &Value) -> String {
-        value.typed()
+        lovelace_real::with_display_decimal_places(self.display_precision(), || value.typed())
     }
 
     /// Global variables as (name, typed rendering), sorted by name.
@@ -1876,3 +1878,6 @@ mod round39_residue;
 
 #[cfg(test)]
 mod round42_differential_classes;
+
+#[cfg(test)]
+mod round43_display_classes;

@@ -9,10 +9,38 @@
 //! `sqrt`/`pi` fast. Arithmetic involving a repeating value converts to an exact rational first,
 //! so `1/3 + 1/3` is `0.(6)` and not `0.6`.
 
+use std::cell::Cell;
 use std::cmp::Ordering;
 
 use lovelace_int::Int;
 use lovelace_nat::Nat;
+
+// The DISPLAY digit cap (the reference's Real.DisplayDecimalPlaces, default 100): how many
+// fractional digits a non-periodic value publishes. Library code defaults to NO cap so internal
+// arithmetic and exact-value conversions keep every computed digit; the language engine scopes
+// its display precision around the wire projection, which is where the reference applies it.
+thread_local! {
+    static DISPLAY_DECIMAL_PLACES: Cell<usize> = const { Cell::new(usize::MAX) };
+}
+
+/// The fractional-digit cap in force on this thread.
+pub fn display_decimal_places() -> usize {
+    DISPLAY_DECIMAL_PLACES.with(Cell::get)
+}
+
+/// Runs a closure with the display cap set to the given fractional digits, restoring the previous
+/// cap afterwards (the reference's AsyncLocal Real.DisplayDecimalPlaces scope).
+pub fn with_display_decimal_places<T>(places: usize, f: impl FnOnce() -> T) -> T {
+    struct Restore(usize);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            DISPLAY_DECIMAL_PLACES.with(|slot| slot.set(self.0));
+        }
+    }
+    let previous = DISPLAY_DECIMAL_PLACES.with(|slot| slot.replace(places));
+    let _restore = Restore(previous);
+    f()
+}
 
 pub mod lreal;
 pub mod round39_api;
@@ -389,9 +417,15 @@ impl Real {
         } else {
             // The stored scale IS the display scale: values are normalised when they are
             // computed, so a fixed-precision value such as pi(50) keeps its trailing zero.
+            // A non-periodic value is truncated at the active display cap (the reference's
+            // Real.DisplayDecimalPlaces); a periodic one is always rendered in full above.
             if !fp.is_empty() {
-                out.push('.');
-                out.push_str(fp);
+                let cap = display_decimal_places();
+                let visible = &fp[..fp.len().min(cap)];
+                if !visible.is_empty() {
+                    out.push('.');
+                    out.push_str(visible);
+                }
             }
         }
         out

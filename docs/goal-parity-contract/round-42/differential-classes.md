@@ -185,3 +185,129 @@ touch; the one failure is that staleness, not a manifest row.
 
 No test was weakened, skipped or deleted. The regression corpus and its untracked files were left
 untouched.
+
+
+---
+
+# Round 43 — display package (at a115403)
+
+Baseline on the committed clean tree: generated 179 match / 21 mismatch; replay 1,263 / 495 on the
+1,758 replayed regressions. Each class was fixed, then measured with the same command, seed and
+corpus; "new" is the harness's count of regressions whose id+script+args did not mismatch before.
+
+| after | generated match | generated mismatch | replayed match | replayed mismatch | new |
+|---|---|---|---|---|---|
+| baseline (a115403) | 179 | 21 | 1,263 | 495 | 0 |
+| linsolve term order | 184 | 16 | 1,402 | 356 | 0 |
+| Real display cap (norm) | 186 | 14 | 1,464 | 294 | 0 |
+| integrate (unevaluated + verification token) | 187 | 13 | 1,515 | 243 | 0 |
+| factor product order | 188 | 12 | 1,542 | 216 | 0 |
+| diff x^2/x power split | 190 | 10 | 1,566 | 192 | 0 |
+
+Net: +11 generated matches, +303 replayed matches; 314 fewer mismatches; no new regression.
+
+## 1 — linsolve term order (144: 78 linsolve-full + 66 linsolve-symbolic)
+
+The port rendered every sum in its stored degree order. The reference's
+`Printing.OrderTermsForDisplay` is: series order when an O(...) term is present; descending degree
+for a single-symbol polynomial; **canonical order otherwise**. A quotient sum such as
+`5 - (4*x - 5)/(x^2 - 1)` is not a monomial, so the constant stays first. A negative leading
+constant is rendered last as a subtraction (x - 1, never -1 + x).
+
+Probe `x = symbol("x"); linsolve([[x, 1], [1, x]], [5, 4])`:
+
+| | display |
+|---|---|
+| before | `[(-(4*x - 5)/(x^2 - 1) + 5)/x, (4*x - 5)/(x^2 - 1)]` |
+| after = oracle | `[(5 - (4*x - 5)/(x^2 - 1))/x, (4*x - 5)/(x^2 - 1)]` |
+
+`linsolve_full` publishes the same solutions and now agrees too. The existing Rust test that
+asserted `(x^2 - 1)^N + 1` was corrected to the oracle's `1 + (x^2 - 1)^N` (the sum is not a
+monomial).
+
+## 2 — Real display cap (64: arrays/shape-norm)
+
+The reference's `Real.DisplayDecimalPlaces` (100 by default, moved by setprecision) truncates a
+non-periodic rendering; the port printed every computed digit. The cap is now a scoped display
+setting in `lovelace-real`, applied by `Engine::format`/`format_typed`. It deliberately does NOT
+apply to the structured `value` field: the oracle publishes the full 1,000-digit value there while
+its `display` shows 100 digits (measured on `evalf(1/3, 1001)`).
+
+| probe | before | after = oracle |
+|---|---|---|
+| `norm([7, 1, 1])` display | 1,001 chars | 102 chars (100 fractional digits) |
+| `sqrt(51)` display | 1,001 chars | 102 chars |
+| `evalf(1/3, 1001)` display / structured value | 1,002 / 1,002 | 102 / 1,002 |
+| `setprecision(1000); sqrt(2)` | — | 1,002 chars (cap follows setprecision) |
+| `1/3` | `0.(3)` | `0.(3)` (periodic values are never capped) |
+
+## 3 — integrate unevaluated + verification token (52: 51 replay + 1 generated)
+
+Two causes in one record family:
+
+- An unevaluated integral is the reference's BINDING node `(integ (x) operand)`, counted as
+  1 + operand nodes, exact, with two diagnostics: `integration.unevaluated` carrying the
+  input-specific `integration.no-closed-form` in `details` AND at the top level. The port
+  published `(fn integrate operand x)` (one node too many), `exactness: None` and an empty
+  diagnostics array. The canonical parser now accepts `(integ (x) body)` so the canonical form
+  round-trips.
+- The solved cases published `differentiation+expansion` for every integral. The oracle's token
+  is `differentiation+canonical` for an ATOM integrand (number, symbol, function application:
+  sin(x), cos(2*x), exp(2*x)) and `differentiation+expansion` for a composite one (x^2, 3*x^2,
+  1/x, x*exp(x), 2*x*cos(x^2), x^3+2*x) — measured over 15 integrands.
+
+Probe `x = symbol("x"); integrate_full(exp(-x^2), x)`: display, expression canonical
+`(integ (x) (fn exp ...))`, nodeCount 7, `exactness: Exact` and both diagnostics now equal the
+oracle. `integrate_full(sin(x), x)`: `verification_method: differentiation+canonical`.
+
+## 4 — factor product order (28: 27 replay + 1 generated)
+
+The reference stores a product's factors in canonical order and prints that order; direct builders
+(factor()) left a different stored order. The display now sorts product factors with the same
+comparator canonical() uses. `factor(x^3 - x)`: before `(x - 1)*x*(x + 1)`, after = oracle
+`x*(x - 1)*(x + 1)`.
+
+## 5 — diff x^2/x power split (26: 24 replay + 2 generated)
+
+The port combined same-base powers unconditionally, so `x^2 * x^-1` became `x` — defining the
+product at 0 where x^-1 is undefined. The product now follows the reference's definedness-preserving
+split: nonnegative and negative integer exponents accumulate separately, and merge only when the
+combined exponent stays negative. `diff(x^2*log(x), x)`: before `x + 2*x*log(x)`, after = oracle
+`2*x*log(x) + x^2/x`. `x^2*x^-3` still merges to `x^-1`; `simplify(x/x)` stays `x/x`.
+
+## Gates after the display package
+
+| gate | result |
+|---|---|
+| corpus | `corpus: 214 passed, 0 failed, 214 total` |
+| fixtures | oracle 20/20, rust 20/20, PASS |
+| CLI | `CLI matrix: 16/16`, PASS |
+| clippy | `cargo clippy --workspace --all-targets -- -D warnings` exit 0 |
+| fmt | `cargo fmt --all -- --check` exit 0 |
+| cargo test | 4,823 passed, 0 failed across the workspace (19 test binaries; +6 round-43 tests) |
+| gate-manifest | 1 failure: `rust-tests.json is stale`; regeneration is the integrator's step |
+
+## Remaining after the display package (192 replay, 10 generated)
+
+| class | replay | generated | note |
+|---|---|---|---|
+| det kind | 71 | 3 | det must use numeric elimination (46 Real, singular 0 Natural) |
+| limit conditions | 63 | 2 | conditions are Text elements instead of symbolic relations |
+| reshape / 0^-1 taxonomy | 41 | 4 | TypeMismatch/InvalidArgument and the exact refusal prose |
+| diagnostics position | 17 | 1 | evaluation errors report the call position instead of 0/column 1 |
+
+The whole display family is therefore closed at the measured classes: every remaining replay
+mismatch is in one of the four rows above.
+
+## Round-43 files changed
+
+| file | change |
+|---|---|
+| `rust/lovelace-symbolics/src/lib.rs` | OrderTermsForDisplay (series/polynomial/canonical + negative leading constant); canonical product order in display and signed text; integrate binding node canonical/node count; `(integ (x) body)` parser; definedness-preserving power merge; sqrt factor normalization |
+| `rust/lovelace-real/src/lib.rs` | scoped `DisplayDecimalPlaces` thread-local and its application in render |
+| `rust/lovelace-lang/src/lib.rs` | Engine::format/format_typed under the display-precision scope; module registration |
+| `rust/lovelace-lang/src/builtins.rs` | unevaluated integral exactness + two diagnostics; verification token rule |
+| `rust/lovelace-symbolics/src/printing_round16.rs` | the `(integ ...)` refusal row becomes a grammar-violation row (the tag is vocabulary now) |
+| `rust/lovelace-lang/src/symbolics_round23.rs` | huge-degree sum expectation corrected to the oracle's canonical display order |
+| `rust/lovelace-lang/src/round43_display_classes.rs` | 6 oracle-derived regression tests for the five classes |
+
