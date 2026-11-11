@@ -1739,4 +1739,8 @@ mod round28_batch;
 
 #[cfg(test)]
 mod round30_batch;
+
+#[cfg(test)]
+mod circular_family_round31;
+
 mod symbolics_round23;

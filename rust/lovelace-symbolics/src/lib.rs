@@ -255,7 +255,11 @@ impl Expr {
                 collected.push((rest, coef));
             }
         }
-        collected.retain(|(_, c)| !c.is_zero());
+        // A zero coefficient over a remainder that is not a defined, finite value must not
+        // vanish: dropping it would define 0*inf (and inf - inf, whose coefficient is zero over
+        // the remainder inf) as the definite value 0. The reference's Constructors.Add keeps it
+        // and prints the canonical indeterminate product (Constructors.HasUndefinedRisk).
+        collected.retain(|(rest, c)| !c.is_zero() || rest.has_undefined_risk());
         let mut terms: Vec<Expr> = collected
             .into_iter()
             .map(|(rest, coef)| scale(rest, &coef))
@@ -279,6 +283,11 @@ impl Expr {
                 other => factors.push(other),
             }
         }
+        // A zero factor over a remainder that is not a defined, finite value must stay visible:
+        // 0*inf is indeterminate, and 0/x is undefined at 0 while 0 is defined. The reference's
+        // Constructors.Multiply keeps the zero coefficient in exactly this case
+        // (Constructors.HasUndefinedRisk) and folds to 0 otherwise.
+        let any_undefined_risk = factors.iter().any(|f| f.has_undefined_risk());
         let mut coefficient = Rat::one();
         let mut rest: Vec<Expr> = Vec::new();
         for f in factors {
@@ -287,7 +296,7 @@ impl Expr {
                 other => rest.push(other),
             }
         }
-        if coefficient.is_zero() {
+        if coefficient.is_zero() && !any_undefined_risk {
             return Expr::num(0);
         }
         // Combine powers of the same base: x^2 * x^3 = x^5.
@@ -317,7 +326,7 @@ impl Expr {
                 other => folded.push(other),
             }
         }
-        if coefficient.is_zero() {
+        if coefficient.is_zero() && !any_undefined_risk {
             return Expr::num(0);
         }
         let mut combined = folded;
@@ -510,6 +519,49 @@ impl Expr {
             Expr::Fun(_, args) => args.iter().any(|a| a.has_algebraic_power()),
             Expr::Div(a, b) => a.has_algebraic_power() || b.has_algebraic_power(),
             Expr::Rel(_, a, b) => a.has_algebraic_power() || b.has_algebraic_power(),
+        }
+    }
+
+    /// True when a power anywhere in the expression may be undefined because of a negative
+    /// exponent (or an exponent that is not a provably nonnegative rational). The reference's
+    /// `Constructors.HasPoleRisk`.
+    pub fn has_pole_risk(&self) -> bool {
+        match self {
+            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Pow(base, exp) => match exp.as_ref() {
+                Expr::Num(n) => n.is_negative() || base.has_pole_risk(),
+                _ => true,
+            },
+            Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.has_pole_risk()),
+            Expr::Fun(_, args) => args.iter().any(|a| a.has_pole_risk()),
+            Expr::Div(a, b) => a.has_pole_risk() || b.has_pole_risk(),
+            Expr::Rel(_, a, b) => a.has_pole_risk() || b.has_pole_risk(),
+        }
+    }
+
+    /// True when the expression may fail to denote a defined, finite value: the symbolic constant
+    /// infinity, an explicit quotient, or a pole risk. The identities `a - a = 0` and `0*a = 0`
+    /// hold only for a defined, finite `a`, so the zero-coefficient and zero-factor folds must
+    /// consult this guard: over infinity both forms are indeterminate (inf - inf, 0*inf) and folding
+    /// them yields a definite wrong value. Pi and e are finite and are deliberately NOT hazards.
+    /// This is the reference's `Constructors.HasUndefinedRisk`.
+    pub fn has_undefined_risk(&self) -> bool {
+        match self {
+            Expr::Num(_) | Expr::Sym(_) => false,
+            Expr::Fun(name, args) => {
+                (name == "inf" && args.is_empty()) || args.iter().any(|a| a.has_undefined_risk())
+            }
+            Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.has_undefined_risk()),
+            Expr::Pow(base, exp) => match exp.as_ref() {
+                Expr::Num(n) => {
+                    n.is_negative() || base.has_pole_risk() || base.has_undefined_risk()
+                }
+                _ => true,
+            },
+            // An explicit quotient is undefined wherever its denominator vanishes; the reference
+            // has no Div node (a division is a negative power) and reaches the same verdict there.
+            Expr::Div(..) => true,
+            Expr::Rel(_, a, b) => a.has_undefined_risk() || b.has_undefined_risk(),
         }
     }
 
@@ -2155,7 +2207,20 @@ fn divide_out(term: &Expr, var: &str, degree: i64) -> Expr {
             let mut rest = Vec::new();
             let mut removed = 0i64;
             for f in factors {
-                let d = f.degree_in(var);
+                // Only the variable itself and an integer power of it are removable. A factor
+                // that merely MENTIONS the variable (exp(x), sin(x), log(x)) is not a power of it:
+                // stripping it would make x*exp(x) look like x^2 and the solver would answer
+                // +-sqrt(c) for x*exp(x) = c. The reference's Polynomial.TryFromExpr refuses such
+                // a term; this is that refusal stated on the factor.
+                let removable = match f {
+                    Expr::Sym(s) => s == var,
+                    Expr::Pow(base, exp) => {
+                        base.as_ref() == &Expr::sym(var)
+                            && matches!(exp.as_ref(), Expr::Num(n) if n.denominator().to_decimal() == "1")
+                    }
+                    _ => false,
+                };
+                let d = if removable { f.degree_in(var) } else { 0 };
                 if removed < degree && d > 0 && d <= degree - removed {
                     removed += d;
                     continue;
@@ -2252,6 +2317,15 @@ pub fn poly_coeffs(e: &Expr, var: &str) -> Option<Vec<Rat>> {
             return None;
         };
         let coefficient = divide_out(&term, var, degree);
+        // A coefficient of a polynomial in \`var\` is free of \`var\` by definition. A factor such as
+        // exp(x) or sin(x) counts as one degree (its argument does), so divide_out can strip it as
+        // if it were a power of x and leave a NUMERIC coefficient behind — x*exp(x) then looked
+        // like x^2 and the solver answered +-sqrt(c). The reference's Polynomial.TryFromExpr
+        // refuses a term whose variable-carrying factor is not a power of the variable; this is
+        // that refusal stated on the coefficient.
+        if coefficient.contains(var) {
+            return None;
+        }
         let value = match coefficient {
             Expr::Num(n) => n,
             _ => return None,
@@ -3754,6 +3828,18 @@ fn canonical_rank(e: &Expr) -> u8 {
     }
 }
 
+/// The reference's NamedConstant ordinal (Pi, E, I, Infinity): the total order over the four
+/// named constants, which the canonical form of a product follows.
+fn named_constant_rank(name: &str) -> Option<u8> {
+    match name {
+        "pi" => Some(0),
+        "e" => Some(1),
+        "i" => Some(2),
+        "inf" => Some(3),
+        _ => None,
+    }
+}
+
 /// The kernel's total order over canonical expressions, used for Add and Multiply operand order.
 pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     use std::cmp::Ordering;
@@ -3773,7 +3859,16 @@ pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
         (Expr::Sym(x), Expr::Sym(y)) => x.cmp(y),
-        (Expr::Fun(n1, a1), Expr::Fun(n2, a2)) => n1.cmp(n2).then_with(|| seq(a1, a2)),
+        (Expr::Fun(n1, a1), Expr::Fun(n2, a2)) => {
+            // The reference's NamedConstant enum ordinal (Pi, E, I, Infinity) orders the four
+            // named constants, so a product's canonical form is (pi) (i), not (i) (pi).
+            if a1.is_empty() && a2.is_empty() {
+                if let (Some(r1), Some(r2)) = (named_constant_rank(n1), named_constant_rank(n2)) {
+                    return r1.cmp(&r2);
+                }
+            }
+            n1.cmp(n2).then_with(|| seq(a1, a2))
+        }
         (Expr::Pow(b1, e1), Expr::Pow(b2, e2)) => {
             canonical_order(b1, b2).then_with(|| canonical_order(e1, e2))
         }
@@ -3837,6 +3932,9 @@ mod panic_sweep_round23;
 
 #[cfg(test)]
 mod complex_closed_forms_round30;
+
+#[cfg(test)]
+mod indeterminate_forms_round31;
 
 #[cfg(test)]
 mod printing_round16;

@@ -1877,10 +1877,6 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                 ),
                 None => (equation.clone(), None, None),
             };
-            // Periodic equations have parametric solution families, not a finite root list.
-            if let Some(family) = parametric_family(&target, &var) {
-                return Ok(family_with_assumptions(engine, &var, family));
-            }
             // A pure power of the solved variable is a monomial. The reference's polynomial
             // conversion stores the exponent as an int: for 1..=i32::MAX that is a real
             // polynomial with one root, 0, carrying the exponent as its multiplicity, and the
@@ -1995,6 +1991,18 @@ pub fn call(engine: &mut Engine, name: &str, args: Vec<Value>, pos: usize) -> Re
                         domain.as_str(),
                         lovelace_symbolics::SolveOutcome::RootExpressions(vec![value]),
                         Some(condition),
+                    ));
+                }
+            }
+            // Elementary compositions: h(u) = c with an invertible head h (exp, log, a power,
+            // sin/cos/tan). The reference reaches this branch only after the polynomial and
+            // linear forms have declined, and every candidate is verified against the original
+            // equation before it can enter a complete set.
+            if lovelace_symbolics::poly_coeffs(&target, &var).is_none() {
+                if let Some(branch) = solve_elementary(&target, &var, &domain, 0) {
+                    return Ok(enforce_solution_values(
+                        solve_branch_to_value(engine, &var, &domain, branch),
+                        &var,
                     ));
                 }
             }
@@ -5680,6 +5688,12 @@ fn solve_linear_symbolic(e: &Sym, var: &str) -> Option<(Sym, Sym)> {
         }
     }
     let a = coefficient?;
+    // The reference's TryCoefficients guard: a coefficient of a linear equation in x is free of x
+    // by definition. An x that leaks into c0 or c1 (x*log(x), -sin(x)) is not a coefficient at
+    // all — root = -c0/c1 would be a circular answer, not a value.
+    if constant.contains(var) || a.contains(var) {
+        return None;
+    }
     // x = -b/a
     let value = Sym::mul(Sym::neg(constant), Sym::pow(a.clone(), Sym::num(-1)));
     Some((value, a))
@@ -5712,79 +5726,776 @@ fn divide_var(t: &Sym, var: &str) -> Option<Sym> {
     }
 }
 
-/// Recognises the periodic shapes whose solutions are a family parameterised by an integer.
-fn parametric_family(equation: &Sym, var: &str) -> Option<Value> {
-    let k = Sym::sym("k");
-    let pi = Sym::Fun("pi".to_string(), Vec::new());
-    let i = Sym::sym("i");
-    let makes_family = |template: Sym, period: Sym| -> Value {
-        let family = Value::Record(
-            "SolutionFamily".to_string(),
-            vec![
-                ("template".to_string(), Value::Symbolic(template)),
-                ("parameter".to_string(), Value::Symbolic(k.clone())),
-                ("period".to_string(), Value::Symbolic(period)),
-                ("parameter_domain".to_string(), Value::Domain("integer".to_string())),
-                ("conditions".to_string(), Value::Vector(Vec::new())),
-                ("exactness".to_string(), enum_value("SolutionExactness", "ParametricExact")),
-            ],
-        );
-        Value::Record(
-            "SolveResult".to_string(),
-            vec![
-                ("status".to_string(), enum_value("SolveStatus", "Solved")),
-                ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
-                ("domain".to_string(), Value::Domain("complex".to_string())),
-                ("complete".to_string(), Value::Boolean(true)),
-                ("completeness".to_string(), enum_value("Completeness", "Complete")),
-                ("solutions".to_string(), Value::Vector(Vec::new())),
-                ("families".to_string(), Value::Vector(vec![family])),
-                ("common_conditions".to_string(), Value::Vector(Vec::new())),
-                ("represented_count".to_string(), Value::Integer(Int::from_i64(0))),
-                ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
-                ("unrepresented_reason".to_string(), Value::Text(String::new())),
-                ("diagnostics".to_string(), Value::Vector(Vec::new())),
-            ],
-        )
-    };
-    // exp(x) = c  ->  x = log(c) + 2*k*pi*i
-    if let Sym::Add(terms) = equation {
-        if terms.len() == 2 {
-            let has_exp = terms.iter().any(|t| {
-                matches!(t, Sym::Fun(n, a) if n == "exp" && a.len() == 1 && a[0] == Sym::sym(var))
-            });
-            let constant = terms.iter().find_map(|t| match t {
-                Sym::Num(n) => Some(n.clone()),
-                _ => None,
-            });
-            if has_exp {
-                if let Some(c) = constant {
-                    let rhs = c.neg();
-                    let template = Sym::Add(vec![
-                        Sym::Fun("log".to_string(), vec![Sym::Num(rhs)]),
-                        Sym::Mul(vec![
-                            Sym::num(2),
-                            k.clone(),
-                            pi.clone(),
-                            i.clone(),
-                        ]),
-                    ]);
-                    let period = Sym::Mul(vec![Sym::num(2), pi, i]);
-                    return Some(makes_family(template, period));
-                }
-            }
+// ---------------------------------------------------------------------------
+// Inverse-branch solving (round 31)
+//
+// A port of the reference's Solvers.SolveElementary / SolveInverse / SolvePeriodic /
+// SolveExponentialFamily: an equation whose solved variable appears only through an invertible
+// head h(u) is answered by inverting h, solving u == h^-1(c) recursively, and VERIFYING every
+// candidate against the original equation. Periodic heads publish parametric families instead of a
+// finite list, and a value that still mentions the solved variable is a circular answer (not a
+// root): it is dropped, and a set that lost one is never claimed complete.
+// ---------------------------------------------------------------------------
+
+/// One branch's outcome before it is projected onto the SolveResult record.
+enum SolveBranch {
+    /// Values (each with its conditions) and/or parametric families.
+    Set {
+        solutions: Vec<(Sym, Vec<Sym>)>,
+        families: Vec<Value>,
+    },
+    /// No solutions, carrying the reference's own reason.
+    Empty(String),
+    /// Unevaluated, carrying the reference's own reason.
+    Unevaluated(String),
+}
+
+fn pi_constant() -> Sym {
+    Sym::Fun("pi".to_string(), Vec::new())
+}
+
+/// The imaginary unit as the reference represents it: a named constant, never a user symbol, so a
+/// family template's canonical form is (i) and its free_symbols do not include i.
+fn imaginary_constant() -> Sym {
+    Sym::Fun("i".to_string(), Vec::new())
+}
+
+/// The numeric value of a constant expression at the solver's 40-digit working precision, or None
+/// when the expression is symbolic. The reference's Evaluation.ConstantToNum over the real tier.
+fn constant_real(c: &Sym) -> Option<Real> {
+    crate::numeric::evaluate(c, 40).ok().and_then(|num| num.to_real(40))
+}
+
+/// True when the expression mentions the solved variable as a free symbol. Structural on purpose:
+/// the defining polynomial of a RootOf names x as that value's BOUND variable, so
+/// rootof(x^4 - x^2 - 1, 0) is a value like any other, while log(x) offered as a solution of
+/// exp(x) = x is a circular answer.
+fn mentions_solved_variable(e: &Sym, var: &str) -> bool {
+    match e {
+        Sym::Fun(name, _) if name == "rootof" => false,
+        Sym::Sym(s) => s == var,
+        Sym::Num(_) => false,
+        Sym::Add(v) | Sym::Mul(v) => v.iter().any(|x| mentions_solved_variable(x, var)),
+        Sym::Pow(a, b) => mentions_solved_variable(a, var) || mentions_solved_variable(b, var),
+        Sym::Fun(_, args) => args.iter().any(|a| mentions_solved_variable(a, var)),
+        Sym::Div(a, b) => mentions_solved_variable(a, var) || mentions_solved_variable(b, var),
+        Sym::Rel(_, a, b) => mentions_solved_variable(a, var) || mentions_solved_variable(b, var),
+    }
+}
+
+/// Chooses a family parameter symbol not colliding with the equation's symbols (the reference's
+/// FreshParameter: k, then k1, k2, ...).
+fn fresh_parameter(c: &Sym, u: &Sym) -> String {
+    let mut name = "k".to_string();
+    let mut index = 1;
+    while c.contains(&name) || u.contains(&name) {
+        name = format!("k{index}");
+        index += 1;
+    }
+    name
+}
+
+/// The total-function folds the reference applies when it CONSTRUCTS a function application
+/// (Exprs.Function -> Evaluation.FoldFunction): the exact special points the family builders rely
+/// on, so atan(0) in tan(x) = 0 is the constant 0 and the template is k*pi, not atan(0) + k*pi.
+fn fold_unary(name: &str, arg: &Sym) -> Sym {
+    if let Sym::Num(r) = arg {
+        let fold = match name {
+            "exp" if r.is_zero() => Some(Sym::num(1)),
+            "sin" if r.is_zero() => Some(Sym::num(0)),
+            "cos" if r.is_zero() => Some(Sym::num(1)),
+            "tan" if r.is_zero() => Some(Sym::num(0)),
+            "log" if r.is_one() => Some(Sym::num(0)),
+            "atan" if r.is_zero() => Some(Sym::num(0)),
+            "asin" if r.is_zero() => Some(Sym::num(0)),
+            "acos" if r.is_one() => Some(Sym::num(0)),
+            _ => None,
+        };
+        if let Some(folded) = fold {
+            return folded;
         }
     }
-    // sin(x) = 0  ->  x = k*pi
-    if let Sym::Fun(name, args) = equation {
-        if name == "sin" && args.len() == 1 && args[0] == Sym::sym(var) {
-            let template = Sym::Mul(vec![k.clone(), pi.clone()]);
-            return Some(makes_family(template, pi));
+    Sym::Fun(name.to_string(), vec![arg.clone()])
+}
+
+/// A sum of family-template terms in the published order, dropping the folded zero terms the
+/// reference's Add would collect (a template is Add(0, k*pi) as k*pi, not 0 + k*pi).
+fn add_terms(terms: Vec<Sym>) -> Sym {
+    let kept: Vec<Sym> = terms.into_iter().filter(|t| *t != Sym::num(0)).collect();
+    match kept.len() {
+        0 => Sym::num(0),
+        1 => kept.into_iter().next().unwrap(),
+        _ => Sym::Add(kept),
+    }
+}
+
+/// A SolutionFamily record. The template is built with the raw Add/Mul constructors in the
+/// reference's published order: the family builder is the ONE place the term order is chosen, so a
+/// canonicalizing rebuild would reorder a template the contract fixes.
+fn solution_family(template: Sym, parameter: &str, period: Sym, conditions: Vec<Sym>) -> Value {
+    Value::Record(
+        "SolutionFamily".to_string(),
+        vec![
+            ("template".to_string(), Value::Symbolic(template)),
+            ("parameter".to_string(), Value::Symbolic(Sym::sym(parameter))),
+            ("period".to_string(), Value::Symbolic(period)),
+            ("parameter_domain".to_string(), Value::Domain("integer".to_string())),
+            (
+                "conditions".to_string(),
+                Value::Vector(conditions.into_iter().map(Value::Symbolic).collect()),
+            ),
+            ("exactness".to_string(), enum_value("SolutionExactness", "ParametricExact")),
+        ],
+    )
+}
+
+/// Solves h(u) = c for the periodic heads sin/cos/tan: the solutions are parametric families (sin
+/// and cos have period 2*pi, tan pi), not a finite list.
+fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> SolveBranch {
+    if *u != Sym::sym(var) {
+        return SolveBranch::Unevaluated(format!(
+            "{name}(u) = c with composite u is not supported in v1."
+        ));
+    }
+    let Some(cv) = constant_real(c) else {
+        return SolveBranch::Unevaluated(format!(
+            "{name}(x) = c with symbolic c is not supported in v1."
+        ));
+    };
+    let k = fresh_parameter(c, u);
+    let kexpr = Sym::sym(&k);
+    let pi = pi_constant();
+    let principal = fold_unary(
+        match name {
+            "sin" => "asin",
+            "cos" => "acos",
+            _ => "atan",
+        },
+        c,
+    );
+    let two_pi = Sym::mul(Sym::num(2), pi.clone());
+    if name == "tan" {
+        let template = add_terms(vec![principal, Sym::mul(kexpr, pi.clone())]);
+        return SolveBranch::Set {
+            solutions: Vec::new(),
+            families: vec![solution_family(template, &k, pi, Vec::new())],
+        };
+    }
+    // sin/cos: classify |c| against 1.
+    let cmp_one = cv.abs().cmp(&Real::from_i64(1));
+    if cmp_one == std::cmp::Ordering::Greater {
+        return if domain == "real" {
+            SolveBranch::Empty(format!("{name}(x) = c has no real solution for |c| > 1."))
+        } else {
+            SolveBranch::Unevaluated(format!(
+                "{name}(x) = c has complex solutions for |c| > 1 that are not representable in v1."
+            ))
+        };
+    }
+    if cv.is_zero() {
+        // sin(x) = 0 -> x = k*pi; cos(x) = 0 -> x = pi/2 + k*pi.
+        let template = if name == "sin" {
+            Sym::mul(kexpr, pi.clone())
+        } else {
+            Sym::Add(vec![
+                Sym::mul(Sym::rational(&Int::from_i64(1), &Nat::from_u64(2)), pi.clone()),
+                Sym::mul(kexpr, pi.clone()),
+            ])
+        };
+        return SolveBranch::Set {
+            solutions: Vec::new(),
+            families: vec![solution_family(template, &k, pi, Vec::new())],
+        };
+    }
+    if cmp_one == std::cmp::Ordering::Equal {
+        // |c| = 1: the two branches merge into one family.
+        let template = add_terms(vec![principal, Sym::mul(kexpr, two_pi.clone())]);
+        return SolveBranch::Set {
+            solutions: Vec::new(),
+            families: vec![solution_family(template, &k, two_pi, Vec::new())],
+        };
+    }
+    // |c| < 1: two families, one per branch.
+    let first = add_terms(vec![principal.clone(), Sym::mul(kexpr.clone(), two_pi.clone())]);
+    let second = if name == "sin" {
+        add_terms(vec![
+            pi.clone(),
+            Sym::mul(Sym::num(-1), principal),
+            Sym::mul(kexpr, two_pi.clone()),
+        ])
+    } else {
+        add_terms(vec![
+            Sym::mul(Sym::num(-1), principal),
+            Sym::mul(kexpr, two_pi.clone()),
+        ])
+    };
+    SolveBranch::Set {
+        solutions: Vec::new(),
+        families: vec![
+            solution_family(first, &k, two_pi.clone(), Vec::new()),
+            solution_family(second, &k, two_pi, Vec::new()),
+        ],
+    }
+}
+
+/// exp(u) = c over the complex field: the inverse is not one value but the family
+/// log(c) + 2*pi*k*i (exp is periodic with period 2*pi*i), the same shape the periodic
+/// trigonometric inverses publish. c != 0 is the hypothesis the family is valid under when c is
+/// not numerically decidable.
+fn solve_exponential_family(h: &Sym, u: &Sym, c: &Sym, var: &str) -> SolveBranch {
+    if *u != Sym::sym(var) {
+        return SolveBranch::Unevaluated(
+            "exp(u) = c with composite u is not supported in v1: the inverse of exp over the complex \
+             field is the family log(c) + 2*pi*k*i, which cannot be propagated through a composite \
+             argument."
+                .to_string(),
+        );
+    }
+    let k = fresh_parameter(c, u);
+    let i = imaginary_constant();
+    let pi = pi_constant();
+    let period = Sym::Mul(vec![Sym::num(2), pi.clone(), i.clone()]);
+    // log(1) folds to 0 (the reference's FoldFunction), so exp(x) = 1 is 2*pi*k*i, not log(1) + ...
+    let principal = fold_unary("log", c);
+    let template = add_terms(vec![
+        principal.clone(),
+        Sym::Mul(vec![Sym::num(2), Sym::sym(&k), pi, i]),
+    ]);
+    let conditions = if constant_real(c).is_none() {
+        vec![Sym::Rel(
+            lovelace_symbolics::RelOp::Ne,
+            Box::new(c.clone()),
+            Box::new(Sym::num(0)),
+        )]
+    } else {
+        Vec::new()
+    };
+    // The family is a claim about EVERY member: spot-check the principal member (k = 0) against
+    // the ORIGINAL equation. A decidable non-zero residual means the template is not a solution at
+    // all; an undecidable one (symbolic c) is kept.
+    let principal_member = lovelace_symbolics::substitute(&template, &k, &Sym::num(0));
+    if residual_is_zero(&Sym::sub(h.clone(), c.clone()), var, &principal_member) == Some(false) {
+        return SolveBranch::Unevaluated(
+            "the principal member log(c) of the inverse family does not satisfy the original \
+             equation, so no solution set is claimed."
+                .to_string(),
+        );
+    }
+    SolveBranch::Set {
+        solutions: Vec::new(),
+        families: vec![solution_family(template, &k, period, conditions)],
+    }
+}
+
+/// The n-th roots of unity as exact expressions in ascending k order (z_k = e^(2*pi*i*k/n)).
+fn unity_roots(n: i64) -> Vec<Sym> {
+    let half = Sym::rational(&Int::from_i64(1), &Nat::from_u64(2));
+    match n {
+        1 => vec![Sym::num(1)],
+        2 => vec![Sym::num(1), Sym::num(-1)],
+        4 => vec![
+            Sym::num(1),
+            imaginary_constant(),
+            Sym::num(-1),
+            Sym::neg(imaginary_constant()),
+        ],
+        3 => {
+            let sqrt3_half = Sym::mul(Sym::pow(Sym::num(3), half.clone()), half);
+            let minus_half = Sym::rational(&Int::from_i64(-1), &Nat::from_u64(2));
+            let omega = Sym::add(
+                minus_half.clone(),
+                Sym::mul(sqrt3_half.clone(), imaginary_constant()),
+            );
+            let omega2 = Sym::sub(
+                minus_half,
+                Sym::mul(sqrt3_half, imaginary_constant()),
+            );
+            vec![Sym::num(1), omega, omega2]
+        }
+        _ => {
+            let two_pi = Sym::mul(Sym::num(2), pi_constant());
+            let mut list = Vec::new();
+            for step in 0..n.max(0) {
+                if step == 0 {
+                    list.push(Sym::num(1));
+                    continue;
+                }
+                if n % 2 == 0 && step == n / 2 {
+                    list.push(Sym::num(-1));
+                    continue;
+                }
+                let angle = Sym::mul(
+                    Sym::rational(&Int::from_i64(step), &Nat::from_u64(n as u64)),
+                    two_pi.clone(),
+                );
+                list.push(Sym::Add(vec![
+                    Sym::Fun("cos".to_string(), vec![angle.clone()]),
+                    Sym::mul(
+                        imaginary_constant(),
+                        Sym::Fun("sin".to_string(), vec![angle]),
+                    ),
+                ]));
+            }
+            list
+        }
+    }
+}
+
+/// Inverts one head h and solves the branches it produces (the reference's SolveInverse).
+fn solve_inverse(h: &Sym, c: &Sym, var: &str, domain: &str, depth: usize) -> Option<SolveBranch> {
+    if depth > 8 {
+        return Some(SolveBranch::Unevaluated(
+            "inverse nesting budget exceeded.".to_string(),
+        ));
+    }
+    let mut u: Option<Sym> = None;
+    let mut inverses: Option<Vec<Sym>> = None;
+    match h {
+        Sym::Fun(name, args) if args.len() == 1 => {
+            u = Some(args[0].clone());
+            match name.as_str() {
+                "sin" | "cos" | "tan" => {
+                    return Some(solve_periodic(name, &args[0], c, var, domain))
+                }
+                "exp" => {
+                    // exp(u) = 0 has no solution, and over the reals it needs c > 0.
+                    if let Some(cv) = constant_real(c) {
+                        if cv.is_zero() {
+                            return Some(SolveBranch::Empty(
+                                "exp(u) = 0 has no solution.".to_string(),
+                            ));
+                        }
+                        if domain == "real" && cv.cmp(&Real::zero()) == std::cmp::Ordering::Less {
+                            return Some(SolveBranch::Empty(
+                                "exp(u) = c has no real solution for c < 0.".to_string(),
+                            ));
+                        }
+                    }
+                    // Over the complex field exp's inverse is the infinite family, not one value.
+                    if domain == "complex" {
+                        return Some(solve_exponential_family(h, &args[0], c, var));
+                    }
+                    inverses = Some(vec![Sym::Fun("log".to_string(), vec![c.clone()])]);
+                }
+                "log" => inverses = Some(vec![Sym::Fun("exp".to_string(), vec![c.clone()])]),
+                // The reference represents sqrt(u) as the half power u^(1/2), so its inverse is
+                // u = c^2 (the principal branch only: the exponent is not an integer).
+                "sqrt" => {
+                    inverses = Some(vec![Sym::pow(c.clone(), Sym::num(2))]);
+                }
+                _ => return None,
+            }
+        }
+        Sym::Pow(base, exp) => {
+            let n = match exp.as_ref() {
+                Sym::Num(n) if !n.is_one() => n.clone(),
+                _ => return None,
+            };
+            if n.is_zero() {
+                return None;
+            }
+            u = Some((**base).clone());
+            let principal = Sym::pow(
+                c.clone(),
+                Sym::Num(
+                    lovelace_symbolics::Rat::one()
+                        .div(&n)
+                        .unwrap_or_else(lovelace_symbolics::Rat::one),
+                ),
+            );
+            // u^n = c has exactly n solutions over the complex field; every root of unity is
+            // generated whenever the exponent is a small positive integer.
+            if n.is_integer() {
+                if let Some(count) = n.to_i64() {
+                    if (1..=16).contains(&count) {
+                        inverses = Some(
+                            unity_roots(count)
+                                .into_iter()
+                                .map(|z| Sym::mul(principal.clone(), z))
+                                .collect(),
+                        );
+                    }
+                }
+            }
+            if inverses.is_none() {
+                inverses = Some(vec![principal]);
+            }
+        }
+        _ => return None,
+    }
+    let u = u?;
+    let inverses = inverses?;
+
+    let mut solutions: Vec<(Sym, Vec<Sym>)> = Vec::new();
+    let mut families: Vec<Value> = Vec::new();
+    for inverse in inverses {
+        let inner = Sym::sub(u.clone(), inverse);
+        match solve_inner(&inner, var, domain, depth + 1) {
+            SolveBranch::Empty(_) => continue,
+            SolveBranch::Set {
+                solutions: inner_solutions,
+                families: inner_families,
+            } => {
+                solutions.extend(inner_solutions);
+                families.extend(inner_families);
+            }
+            SolveBranch::Unevaluated(message) => return Some(SolveBranch::Unevaluated(message)),
+        }
+    }
+    if solutions.is_empty() && families.is_empty() {
+        return Some(SolveBranch::Empty(
+            "no branch produced a solution.".to_string(),
+        ));
+    }
+    // The branches above are NECESSARY-condition generators, not equivalences: sqrt(x) = -2
+    // inverts to x = 4 and sqrt(4) = +2. Every candidate is verified against the ORIGINAL h - c,
+    // not the transformed equation the recursion solved.
+    let original = Sym::sub(h.clone(), c.clone());
+    let mut rejected = 0usize;
+    let mut verified: Vec<(Sym, Vec<Sym>)> = Vec::new();
+    for (value, conditions) in solutions {
+        match residual_is_zero(&original, var, &value) {
+            Some(false) => rejected += 1,
+            _ => verified.push((value, conditions)),
+        }
+    }
+    if verified.is_empty() && families.is_empty() {
+        return Some(SolveBranch::Unevaluated(format!(
+            "every candidate from the inverse branch(es) fails substitution into the original \
+             equation ({rejected} rejected): the inverse step is not invertible on this branch, so \
+             no solution set is claimed."
+        )));
+    }
+    Some(SolveBranch::Set {
+        solutions: verified,
+        families,
+    })
+}
+
+/// The reference's SolveElementary: a bare invertible head h(u) = 0, and h(u) + c = 0 with c a
+/// folded constant.
+fn solve_elementary(f: &Sym, var: &str, domain: &str, depth: usize) -> Option<SolveBranch> {
+    if matches!(f, Sym::Fun(..) | Sym::Pow(..)) {
+        if let Some(branch) = solve_inverse(f, &Sym::num(0), var, domain, depth) {
+            return Some(branch);
+        }
+    }
+    if let Sym::Add(terms) = f {
+        for term in terms {
+            let rhs = match term {
+                Sym::Num(n) => Sym::Num(n.neg()),
+                // A term written as -h(u) is the reference's second accepted shape.
+                Sym::Mul(factors) if factors.len() == 2 && factors[0] == Sym::num(-1) => {
+                    factors[1].clone()
+                }
+                _ => continue,
+            };
+            let u = Sym::sub(f.clone(), term.clone());
+            if !matches!(u, Sym::Fun(..) | Sym::Pow(..)) {
+                continue;
+            }
+            if let Some(branch) = solve_inverse(&u, &rhs, var, domain, depth) {
+                return Some(branch);
+            }
         }
     }
     None
 }
 
+/// The ONE residual predicate: true when the equation is zero at the candidate, false when it is
+/// provably not zero, None when it is not numerically decidable. The inverse-branch gate drops a
+/// candidate only on a decidable false and keeps it otherwise.
+pub(crate) fn residual_is_zero(equation: &Sym, var: &str, value: &Sym) -> Option<bool> {
+    let at = lovelace_symbolics::substitute(equation, var, value);
+    if let Sym::Num(n) = &at {
+        return Some(n.is_zero());
+    }
+    let tolerance = Real::from_str(&format!("0.{}1", "0".repeat(24))).unwrap_or_else(Real::zero);
+    match crate::numeric::evaluate(&at, 40) {
+        Ok(num) => match num {
+            crate::numeric::Num::Exact(r) => Some(r.is_zero()),
+            crate::numeric::Num::Real(r) => {
+                Some(r.abs().cmp(&tolerance) == std::cmp::Ordering::Less)
+            }
+            crate::numeric::Num::Complex(z) => {
+                Some(z.magnitude(40).cmp(&tolerance) == std::cmp::Ordering::Less)
+            }
+        },
+        Err(_) => None,
+    }
+}
+
+/// One recursive solve of the inner equation u == h^-1(c): polynomial first, then a linear
+/// equation with variable-free coefficients, then the elementary inverses. Anything else is the
+/// reference's structured Unevaluated.
+fn solve_inner(equation: &Sym, var: &str, domain: &str, depth: usize) -> SolveBranch {
+    if depth > 8 {
+        return SolveBranch::Unevaluated("inverse nesting budget exceeded.".to_string());
+    }
+    if let Some(coeffs) = lovelace_symbolics::poly_coeffs(equation, var) {
+        let outcome = filter_real_domain(
+            lovelace_symbolics::solve_polynomial_named(&coeffs, var),
+            domain,
+        );
+        use lovelace_symbolics::SolveOutcome;
+        return match outcome {
+            SolveOutcome::Roots(roots) => SolveBranch::Set {
+                solutions: roots
+                    .into_iter()
+                    .map(|r| (lovelace_symbolics::expr_from_rat(&r.value), Vec::new()))
+                    .collect(),
+                families: Vec::new(),
+            },
+            SolveOutcome::RootExpressions(expressions) => SolveBranch::Set {
+                solutions: expressions.into_iter().map(|e| (e, Vec::new())).collect(),
+                families: Vec::new(),
+            },
+            SolveOutcome::RootExpressionsCount(expressions, _) => SolveBranch::Set {
+                solutions: expressions.into_iter().map(|e| (e, Vec::new())).collect(),
+                families: Vec::new(),
+            },
+            SolveOutcome::NoSolutions | SolveOutcome::NoRealSolutions => {
+                SolveBranch::Empty("no solutions".to_string())
+            }
+            _ => SolveBranch::Unevaluated("No solver for this structure.".to_string()),
+        };
+    }
+    if let Some((value, coefficient)) = solve_linear_symbolic(equation, var) {
+        if !mentions_solved_variable(&value, var) {
+            let condition = Sym::Rel(
+                lovelace_symbolics::RelOp::Ne,
+                Box::new(coefficient),
+                Box::new(Sym::num(0)),
+            );
+            return SolveBranch::Set {
+                solutions: vec![(value, vec![condition])],
+                families: Vec::new(),
+            };
+        }
+    }
+    if let Some(branch) = solve_elementary(equation, var, domain, depth + 1) {
+        return branch;
+    }
+    SolveBranch::Unevaluated("No solver for this structure.".to_string())
+}
+
+/// The real-domain filter the top-level polynomial path applies, restated for the inner branches.
+fn filter_real_domain(
+    outcome: lovelace_symbolics::SolveOutcome,
+    domain: &str,
+) -> lovelace_symbolics::SolveOutcome {
+    use lovelace_symbolics::SolveOutcome;
+    if domain != "real" {
+        return outcome;
+    }
+    match outcome {
+        SolveOutcome::Partial(roots) if roots.is_empty() => SolveOutcome::NoRealSolutions,
+        SolveOutcome::Unevaluated => SolveOutcome::NoRealSolutions,
+        SolveOutcome::RootExpressions(expressions) => {
+            let real: Vec<_> = expressions
+                .into_iter()
+                .filter(|e| !e.has_imaginary_unit())
+                .collect();
+            if real.is_empty() {
+                SolveOutcome::NoRealSolutions
+            } else {
+                SolveOutcome::RootExpressions(real)
+            }
+        }
+        SolveOutcome::RootExpressionsCount(expressions, _) => {
+            SolveOutcome::RootExpressions(expressions)
+        }
+        other => other,
+    }
+}
+
+/// The solution exactness classifier the SolveResult record uses: a radical or algebraic value is
+/// AlgebraicExact, a plain elementary inverse such as log(5) is Exact.
+fn solution_exactness(e: &Sym) -> &'static str {
+    let algebraic = e.contains_fun("sqrt")
+        || e.contains_fun("rootof")
+        || e.has_imaginary_unit()
+        || e.has_algebraic_power()
+        || e.contains_fun("acos");
+    if algebraic {
+        "AlgebraicExact"
+    } else {
+        "Exact"
+    }
+}
+
+fn solution_record(value: &Sym, conditions: &[Sym]) -> Value {
+    Value::Record(
+        "Solution".to_string(),
+        vec![
+            ("value".to_string(), Value::Symbolic(value.clone())),
+            (
+                "conditions".to_string(),
+                Value::Vector(conditions.iter().cloned().map(Value::Symbolic).collect()),
+            ),
+            ("multiplicity".to_string(), Value::Integer(Int::from_i64(1))),
+            (
+                "exactness".to_string(),
+                enum_value("SolutionExactness", solution_exactness(value)),
+            ),
+        ],
+    )
+}
+
+/// The conditions every solution shares (an intersection, never a union).
+fn common_conditions(solutions: &[(Sym, Vec<Sym>)]) -> Vec<Sym> {
+    let Some((_, first)) = solutions.first() else {
+        return Vec::new();
+    };
+    let mut common = first.clone();
+    for (_, conditions) in solutions.iter().skip(1) {
+        common.retain(|atom| conditions.contains(atom));
+    }
+    common
+}
+
+/// Projects one elementary branch onto the SolveResult record.
+fn solve_branch_to_value(engine: &Engine, var: &str, domain: &str, branch: SolveBranch) -> Value {
+    match branch {
+        SolveBranch::Empty(message) => no_solutions_result(var, domain, &message),
+        SolveBranch::Unevaluated(message) => {
+            unevaluated_solve_result(var, domain, "solve.unevaluated", &message)
+        }
+        SolveBranch::Set {
+            solutions,
+            families,
+        } => {
+            let common = common_conditions(&solutions);
+            let records: Vec<Value> = solutions
+                .iter()
+                .map(|(value, conditions)| solution_record(value, conditions))
+                .collect();
+            let represented = records.len();
+            let has_families = !families.is_empty();
+            let result = Value::Record(
+                "SolveResult".to_string(),
+                vec![
+                    ("status".to_string(), enum_value("SolveStatus", "Solved")),
+                    ("variable".to_string(), Value::Symbolic(Sym::sym(var))),
+                    ("domain".to_string(), Value::Domain(domain.to_string())),
+                    ("complete".to_string(), Value::Boolean(true)),
+                    ("completeness".to_string(), enum_value("Completeness", "Complete")),
+                    ("solutions".to_string(), Value::Vector(records)),
+                    ("families".to_string(), Value::Vector(families)),
+                    (
+                        "common_conditions".to_string(),
+                        Value::Vector(common.iter().cloned().map(Value::Symbolic).collect()),
+                    ),
+                    (
+                        "represented_count".to_string(),
+                        Value::Integer(Int::from_i64(represented as i64)),
+                    ),
+                    ("unrepresented_count".to_string(), Value::Integer(Int::from_i64(0))),
+                    ("unrepresented_reason".to_string(), Value::Text(String::new())),
+                    ("diagnostics".to_string(), Value::Vector(Vec::new())),
+                ],
+            );
+            if has_families {
+                family_with_assumptions(engine, var, result)
+            } else {
+                result
+            }
+        }
+    }
+}
+
+/// The solver's publication boundary: a solution VALUE and equally a family TEMPLATE must not
+/// contain the symbol being solved for. A circular entry is dropped; a set that lost one is no
+/// longer complete (Unevaluated when nothing survived, Partial when something did).
+fn enforce_solution_values(result: Value, var: &str) -> Value {
+    let Value::Record(name, mut fields) = result else {
+        return result;
+    };
+    let mut circular: u64 = 0;
+    if let Some((_, Value::Vector(solutions))) = fields.iter_mut().find(|(key, _)| key == "solutions")
+    {
+        let before = solutions.len();
+        solutions.retain(|entry| match entry {
+            Value::Record(_, solution_fields) => {
+                match solution_fields.iter().find(|(key, _)| key == "value") {
+                    Some((_, Value::Symbolic(value))) => !mentions_solved_variable(value, var),
+                    _ => true,
+                }
+            }
+            _ => true,
+        });
+        circular += (before - solutions.len()) as u64;
+    }
+    if let Some((_, Value::Vector(families))) = fields.iter_mut().find(|(key, _)| key == "families") {
+        let before = families.len();
+        families.retain(|entry| match entry {
+            Value::Record(_, family_fields) => {
+                match family_fields.iter().find(|(key, _)| key == "template") {
+                    Some((_, Value::Symbolic(template))) => {
+                        !mentions_solved_variable(template, var)
+                    }
+                    _ => true,
+                }
+            }
+            _ => true,
+        });
+        circular += (before - families.len()) as u64;
+    }
+    if circular == 0 {
+        return Value::Record(name, fields);
+    }
+    let reason = format!(
+        "an inverse branch produced {circular} candidate(s) that still contain the solved variable \
+         {var} (a circular answer, not a value), so they are not represented and the set is not \
+         claimed complete."
+    );
+    let solutions_left = matches!(
+        fields.iter().find(|(key, _)| key == "solutions"),
+        Some((_, Value::Vector(v))) if !v.is_empty()
+    );
+    let families_left = matches!(
+        fields.iter().find(|(key, _)| key == "families"),
+        Some((_, Value::Vector(v))) if !v.is_empty()
+    );
+    fn set_field(fields: &mut Vec<(String, Value)>, key: &str, value: Value) {
+        if let Some(slot) = fields.iter_mut().find(|(k, _)| k == key) {
+            slot.1 = value;
+        }
+    }
+    if !solutions_left && !families_left {
+        set_field(&mut fields, "status", enum_value("SolveStatus", "Unevaluated"));
+        set_field(&mut fields, "complete", Value::Boolean(false));
+        set_field(&mut fields, "completeness", enum_value("Completeness", "Unknown"));
+        set_field(&mut fields, "represented_count", Value::Integer(Int::from_i64(0)));
+        set_field(&mut fields, "unrepresented_count", Value::Integer(Int::from_i64(0)));
+        set_field(&mut fields, "unrepresented_reason", Value::Text(String::new()));
+        set_field(
+            &mut fields,
+            "diagnostics",
+            Value::Vector(vec![diagnostic(
+                "solve.unevaluated",
+                "UnsupportedOperation",
+                &reason,
+            )]),
+        );
+        return Value::Record(name, fields);
+    }
+    // Partial: something survived, so the set is a real (incomplete) answer.
+    let previous: u64 = match fields.iter().find(|(key, _)| key == "unrepresented_count") {
+        Some((_, Value::Integer(count))) => count.to_decimal().parse::<u64>().unwrap_or(0),
+        _ => 0,
+    };
+    set_field(&mut fields, "status", enum_value("SolveStatus", "Partial"));
+    set_field(&mut fields, "complete", Value::Boolean(false));
+    set_field(&mut fields, "completeness", enum_value("Completeness", "Partial"));
+    set_field(
+        &mut fields,
+        "unrepresented_count",
+        Value::Integer(Int::from_i64((previous + circular) as i64)),
+    );
+    set_field(&mut fields, "unrepresented_reason", Value::Text(reason));
+    Value::Record(name, fields)
+}
 /// Reads back the MathIR text emitted by lower: constants, parameters and one node per line.
 fn parse_ir_text(text: &str) -> Option<Sym> {
     let mut constants: Vec<Sym> = Vec::new();

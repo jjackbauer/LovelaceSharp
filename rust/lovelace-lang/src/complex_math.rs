@@ -9,6 +9,16 @@ use lovelace_real::Real;
 
 use crate::complex::Complex;
 
+/// The reference ComplexMath.Sin/Cos of a REAL argument (the SinCosAtPrecision pair). The complex
+/// surface composes these, not Real.Sin: the two kernels differ for a huge argument and for an
+/// exact table angle, and this is the numeric evaluator's path.
+fn real_sin(value: &Real, digits: usize) -> Real {
+    truncate_frac(&value.sin_cos_raw(digits).0, digits)
+}
+
+fn real_cos(value: &Real, digits: usize) -> Real {
+    truncate_frac(&value.sin_cos_raw(digits).1, digits)
+}
 fn truncate_pair(z: &Complex, digits: usize) -> Complex {
     Complex::new(truncate_frac(z.re(), digits), truncate_frac(z.im(), digits))
 }
@@ -25,8 +35,8 @@ fn with_provenance(result: Complex, argument: &Complex) -> Complex {
 pub fn exp(z: &Complex, digits: usize) -> Complex {
     let digits = digits.max(1);
     let e = z.re().exp(digits);
-    let cos = z.im().cos(digits);
-    let sin = z.im().sin(digits);
+    let cos = real_cos(z.im(), digits);
+    let sin = real_sin(z.im(), digits);
     with_provenance(truncate_pair(&Complex::new(e.mul(&cos), e.mul(&sin)), digits), z)
 }
 
@@ -36,8 +46,8 @@ pub fn sin(z: &Complex, digits: usize) -> Complex {
     let a = z.re();
     let b = z.im();
     let value = Complex::new(
-        a.sin(digits).mul(&b.cosh_hyperbolic(digits)),
-        a.cos(digits).mul(&b.sinh_hyperbolic(digits)),
+        real_sin(a, digits).mul(&b.cosh_hyperbolic(digits)),
+        real_cos(a, digits).mul(&b.sinh_hyperbolic(digits)),
     );
     with_provenance(truncate_pair(&value, digits), z)
 }
@@ -48,8 +58,8 @@ pub fn cos(z: &Complex, digits: usize) -> Complex {
     let a = z.re();
     let b = z.im();
     let value = Complex::new(
-        a.cos(digits).mul(&b.cosh_hyperbolic(digits)),
-        a.sin(digits).mul(&b.sinh_hyperbolic(digits)).neg(),
+        real_cos(a, digits).mul(&b.cosh_hyperbolic(digits)),
+        real_sin(a, digits).mul(&b.sinh_hyperbolic(digits)).neg(),
     );
     with_provenance(truncate_pair(&value, digits), z)
 }
@@ -67,8 +77,8 @@ pub fn sinh(z: &Complex, digits: usize) -> Complex {
     let a = z.re();
     let b = z.im();
     let value = Complex::new(
-        a.sinh_hyperbolic(digits).mul(&b.cos(digits)),
-        a.cosh_hyperbolic(digits).mul(&b.sin(digits)),
+        a.sinh_hyperbolic(digits).mul(&real_cos(b, digits)),
+        a.cosh_hyperbolic(digits).mul(&real_sin(b, digits)),
     );
     with_provenance(truncate_pair(&value, digits), z)
 }
@@ -79,8 +89,8 @@ pub fn cosh(z: &Complex, digits: usize) -> Complex {
     let a = z.re();
     let b = z.im();
     let value = Complex::new(
-        a.cosh_hyperbolic(digits).mul(&b.cos(digits)),
-        a.sinh_hyperbolic(digits).mul(&b.sin(digits)),
+        a.cosh_hyperbolic(digits).mul(&real_cos(b, digits)),
+        a.sinh_hyperbolic(digits).mul(&real_sin(b, digits)),
     );
     with_provenance(truncate_pair(&value, digits), z)
 }

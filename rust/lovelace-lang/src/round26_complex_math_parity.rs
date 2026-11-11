@@ -13,6 +13,25 @@
 
 use lovelace_real::Real;
 
+/// This module pins the reference ComplexMath kernel (the numeric evaluator's SinCosAtPrecision
+/// pair), which is NOT Real.Sin/Real.Cos: the two answer differently for an exact table angle and
+/// for a huge argument. The extension methods name the kernel under test explicitly so a call site
+/// cannot silently move to the other one.
+trait ComplexMathTrig {
+    fn cm_sin(&self, digits: usize) -> Real;
+    fn cm_cos(&self, digits: usize) -> Real;
+}
+
+impl ComplexMathTrig for Real {
+    fn cm_sin(&self, digits: usize) -> Real {
+        lovelace_real::transcendental::truncate_frac(&self.sin_cos_raw(digits).0, digits)
+    }
+
+    fn cm_cos(&self, digits: usize) -> Real {
+        lovelace_real::transcendental::truncate_frac(&self.sin_cos_raw(digits).1, digits)
+    }
+}
+
 use crate::complex::Complex;
 use crate::complex_math as cm;
 
@@ -102,10 +121,10 @@ fn complex_math_real_trig_at_fifty_places() {
     // Atan2_GivenYZeroXNegativeOne_ReturnsPi.
     let pi = Real::pi(50);
     let half_pi = pi.div(&Real::from_i64(2), 50).expect("pi/2");
-    assert_eq!(half_pi.sin(50), Real::from_i64(1));
-    assert_eq!(pi.sin(50), Real::zero());
-    assert_eq!(Real::zero().cos(50), Real::from_i64(1));
-    assert_eq!(pi.cos(50), Real::from_i64(-1));
+    assert_eq!(half_pi.cm_sin(50), Real::from_i64(1));
+    assert_eq!(pi.cm_sin(50), Real::zero());
+    assert_eq!(Real::zero().cm_cos(50), Real::from_i64(1));
+    assert_eq!(pi.cm_cos(50), Real::from_i64(-1));
     let quarter = pi.div(&Real::from_i64(4), 50).expect("pi/4");
     assert!(close(&r("1"), &quarter.tan(50).expect("tan(pi/4)"), 45));
     assert!(close(&quarter, &r("1").atan(50), 45));
@@ -149,7 +168,7 @@ fn complex_math_inverse_trig_and_hyperbolic() {
     assert_eq!(r("1").asin(50).expect("asin(1)"), half_pi);
     assert!(close(
         &r("0.5"),
-        &r("0.5").asin(50).expect("asin(0.5)").sin(50),
+        &r("0.5").asin(50).expect("asin(0.5)").cm_sin(50),
         45
     ));
     assert_eq!(Real::zero().acos(50).expect("acos(0)"), half_pi);
@@ -186,7 +205,7 @@ fn complex_math_pi_resolution_sin_integer_multiples() {
         let delta = Real::pi(places + 100).sub(&pi);
         let tolerance = tiny(places + 5);
         for k in 1..=6i64 {
-            let actual = pi.mul(&Real::from_i64(k)).sin(30);
+            let actual = pi.mul(&Real::from_i64(k)).cm_sin(30);
             let mut expected = delta.mul(&Real::from_i64(k));
             if k % 2 == 0 {
                 expected = expected.neg();
@@ -208,7 +227,7 @@ fn complex_math_pi_resolution_tan_of_half_pi() {
         let delta = Real::pi(places + 100).sub(&pi);
         let half_delta = delta.div(&Real::from_i64(2), places + 100).expect("delta/2");
         let tolerance = tiny(places + 5);
-        let cos = half_pi.cos(30);
+        let cos = half_pi.cm_cos(30);
         let tan = half_pi.tan(30).expect("tan(pi/2)");
         assert!(
             cos.cmp(&Real::zero()) == std::cmp::Ordering::Greater,
@@ -237,12 +256,12 @@ fn complex_math_pi_resolution_exact_ambient_multiples() {
     for places in [20usize, 50, 100] {
         let pi = Real::pi(places);
         let tolerance = tiny(places - 1);
-        assert_eq!(pi.sin(places), Real::zero());
-        assert_eq!(pi.cos(places), Real::from_i64(-1));
+        assert_eq!(pi.cm_sin(places), Real::zero());
+        assert_eq!(pi.cm_cos(places), Real::from_i64(-1));
         let half = pi.div(&Real::from_i64(2), places).expect("pi/2");
-        assert!(below(&half.sin(places).sub(&Real::from_i64(1)).abs(), &tolerance));
+        assert!(below(&half.cm_sin(places).sub(&Real::from_i64(1)).abs(), &tolerance));
         let third = pi.div(&Real::from_i64(3), places).expect("pi/3");
-        assert!(below(&third.cos(places).sub(&r("0.5")).abs(), &tolerance));
+        assert!(below(&third.cm_cos(places).sub(&r("0.5")).abs(), &tolerance));
         let quarter = pi.div(&Real::from_i64(4), places).expect("pi/4");
         assert!(below(
             &quarter.tan(places).expect("tan(pi/4)").sub(&Real::from_i64(1)).abs(),
@@ -260,8 +279,8 @@ fn complex_math_truncated_transcendentals_are_not_exact() {
     // TruncatedTranscendentals_AreNotExact: five arguments, five functions, plus atan(1).
     for text in ["1", "0.5", "2"] {
         let x = r(text);
-        assert!(!x.sin(30).is_exact(), "sin({x}) claims exactness");
-        assert!(!x.cos(30).is_exact(), "cos({x}) claims exactness");
+        assert!(!x.cm_sin(30).is_exact(), "sin({x}) claims exactness");
+        assert!(!x.cm_cos(30).is_exact(), "cos({x}) claims exactness");
         assert!(!x.tan(30).expect("tan").is_exact(), "tan({x}) claims exactness");
         assert!(!x.exp(30).is_exact(), "exp({x}) claims exactness");
         assert!(!x.ln(30).expect("ln").is_exact(), "ln({x}) claims exactness");
@@ -269,8 +288,8 @@ fn complex_math_truncated_transcendentals_are_not_exact() {
     let third = Real::from_i64(1).div(&Real::from_i64(3), 30).expect("1/3");
     let seventh_fifths = Real::from_i64(7).div(&Real::from_i64(5), 30).expect("7/5");
     for x in [third, seventh_fifths] {
-        assert!(!x.sin(30).is_exact(), "sin({x}) claims exactness");
-        assert!(!x.cos(30).is_exact(), "cos({x}) claims exactness");
+        assert!(!x.cm_sin(30).is_exact(), "sin({x}) claims exactness");
+        assert!(!x.cm_cos(30).is_exact(), "cos({x}) claims exactness");
         assert!(!x.tan(30).expect("tan").is_exact(), "tan({x}) claims exactness");
         assert!(!x.exp(30).is_exact(), "exp({x}) claims exactness");
         assert!(!x.ln(30).expect("ln").is_exact(), "ln({x}) claims exactness");
@@ -281,15 +300,15 @@ fn complex_math_truncated_transcendentals_are_not_exact() {
 #[test]
 fn complex_math_exact_results_keep_their_exactness() {
     // ExactResults_KeepTheirExactness: the guards are exact, the pi multiples are value-only.
-    assert!(Real::zero().sin(30).is_exact());
-    assert_eq!(Real::zero().sin(30), Real::zero());
-    assert!(Real::zero().cos(30).is_exact());
-    assert_eq!(Real::zero().cos(30), Real::from_i64(1));
+    assert!(Real::zero().cm_sin(30).is_exact());
+    assert_eq!(Real::zero().cm_sin(30), Real::zero());
+    assert!(Real::zero().cm_cos(30).is_exact());
+    assert_eq!(Real::zero().cm_cos(30), Real::from_i64(1));
     assert!(Real::zero().exp(30).is_exact());
     assert_eq!(Real::zero().exp(30), Real::from_i64(1));
     let pi = Real::pi(30);
-    assert_eq!(pi.sin(30), Real::zero());
-    assert_eq!(pi.cos(30), Real::from_i64(-1));
+    assert_eq!(pi.cm_sin(30), Real::zero());
+    assert_eq!(pi.cm_cos(30), Real::from_i64(-1));
 }
 
 #[test]
@@ -297,7 +316,7 @@ fn complex_math_tiny_values_are_not_flushed_to_zero() {
     // ValuesSmallerThanTheDigitWindow_AreNotFlushedToZero.
     let tiny_value = r(&format!("0.{}1", "0".repeat(99)));
     let exp_neg70 = Real::from_i64(-70).exp(30);
-    let sin_tiny = tiny_value.sin(30);
+    let sin_tiny = tiny_value.cm_sin(30);
     let tan_tiny = tiny_value.tan(30).expect("tan(1e-100)");
     assert!(!sin_tiny.is_zero(), "sin(1e-100) = {sin_tiny} was flushed to zero");
     assert!(
@@ -319,9 +338,9 @@ fn complex_math_tiny_values_are_not_flushed_to_zero() {
 #[test]
 fn complex_math_truncating_an_inexact_value_stays_inexact() {
     // TruncatingAnInexactValue_DoesNotMakeItExact.
-    let inexact = r("1").sin(30);
+    let inexact = r("1").cm_sin(30);
     assert!(!inexact.is_exact());
-    assert!(!inexact.cos(30).is_exact());
+    assert!(!inexact.cm_cos(30).is_exact());
     assert!(!inexact.exp(30).is_exact());
 }
 
@@ -422,8 +441,8 @@ fn complex_math_inexact_pi_at_its_own_scale_produces_inexact_results() {
     for scale in [30usize, 60, 100] {
         let pi = Real::pi(scale);
         assert!(!pi.is_exact(), "pi({scale}) is a truncation and must be inexact");
-        let cos = pi.cos(scale);
-        let sin = pi.sin(scale);
+        let cos = pi.cm_cos(scale);
+        let sin = pi.cm_sin(scale);
         let tan = pi.tan(scale).expect("tan(pi)");
         assert_eq!(cos, Real::from_i64(-1));
         assert_eq!(sin, Real::zero());
@@ -439,8 +458,8 @@ fn complex_math_exactly_zero_reduction_of_an_inexact_pi_is_not_exact() {
     // ExactlyZeroReduction_OfAnInexactAmbientPi_IsNotExact.
     let pi = Real::pi(40);
     assert!(!pi.is_exact());
-    let cos = pi.cos(40);
-    let sin = pi.sin(40);
+    let cos = pi.cm_cos(40);
+    let sin = pi.cm_sin(40);
     let tan = pi.tan(40).expect("tan(pi)");
     assert_eq!(cos, Real::from_i64(-1));
     assert_eq!(sin, Real::zero());
@@ -453,19 +472,19 @@ fn complex_math_inexact_pi_at_another_scale_produces_inexact_results() {
     // InexactPiAtAnotherScale_ProducesInexactResults.
     let pi30 = Real::pi(30);
     assert!(!pi30.is_exact());
-    assert!(!pi30.cos(100).is_exact());
-    assert!(!pi30.sin(100).is_exact());
+    assert!(!pi30.cm_cos(100).is_exact());
+    assert!(!pi30.cm_sin(100).is_exact());
     assert!(!pi30.tan(100).expect("tan").is_exact());
 }
 
 #[test]
 fn complex_math_exact_zero_argument_keeps_its_exact_results() {
     // ExactZeroArgument_KeepsItsExactResults.
-    assert_eq!(Real::zero().sin(40), Real::zero());
-    assert_eq!(Real::zero().cos(40), Real::from_i64(1));
+    assert_eq!(Real::zero().cm_sin(40), Real::zero());
+    assert_eq!(Real::zero().cm_cos(40), Real::from_i64(1));
     assert_eq!(Real::zero().tan(40).expect("tan(0)"), Real::zero());
-    assert!(Real::zero().sin(40).is_exact());
-    assert!(Real::zero().cos(40).is_exact());
+    assert!(Real::zero().cm_sin(40).is_exact());
+    assert!(Real::zero().cm_cos(40).is_exact());
     assert!(Real::zero().tan(40).expect("tan(0)").is_exact());
 }
 
@@ -473,8 +492,8 @@ fn complex_math_exact_zero_argument_keeps_its_exact_results() {
 fn complex_math_inexact_zero_argument_does_not_claim_exactness() {
     // InexactZeroArgument_DoesNotClaimExactness.
     let zero = Real::zero().mark_inexact();
-    let sin = zero.sin(40);
-    let cos = zero.cos(40);
+    let sin = zero.cm_sin(40);
+    let cos = zero.cm_cos(40);
     let tan = zero.tan(40).expect("tan(inexact 0)");
     assert_eq!(sin, Real::zero());
     assert_eq!(cos, Real::from_i64(1));

@@ -5,8 +5,11 @@
 //! \`ulong[]\` limbs and converts to and from decimal text only at the boundary.
 
 pub(crate) mod bz;
+pub mod digit_store;
 pub(crate) mod newton;
 pub(crate) mod ntt;
+
+pub use digit_store::{DigitStore, DigitStoreError};
 
 use std::cmp::Ordering;
 

@@ -472,8 +472,8 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
                 _ => {
                     let real = x.to_real(places).ok_or_else(complex_to_real_error)?;
                     match name {
-                        "sin" => Ok(Num::Real(real.sin(places))),
-                        "cos" => Ok(Num::Real(real.cos(places))),
+                        "sin" => Ok(Num::Real(truncate_frac(&real.sin_cos_raw(places).0, places))),
+                        "cos" => Ok(Num::Real(truncate_frac(&real.sin_cos_raw(places).1, places))),
                         _ => real
                             .tan(places)
                             .map(Num::Real)
@@ -523,6 +523,12 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
                 .map(Num::Real)
                 .ok_or_else(|| domain_argument_error("AtanhReal(x) requires |x| < 1."))
         }
+        // The named mathematical constants of the reference's numeric tier: pi and e are real
+        // approximations at the ambient budget, i is the exact imaginary unit. The solver's
+        // residual check needs them (a candidate such as 2*i must be numerically checkable).
+        "pi" if values.is_empty() => Ok(Num::Real(Real::pi(places))),
+        "e" if values.is_empty() => Ok(Num::Real(Real::e(places))),
+        "i" if values.is_empty() => Ok(Num::Complex(Complex::i())),
         "sqrt" => {
             let x = unary(name, values)?;
             x.pow(&Num::Exact(Rat::from_i64(1).div(&Rat::from_i64(2)).unwrap()), places)

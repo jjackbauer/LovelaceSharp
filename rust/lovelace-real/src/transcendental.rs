@@ -247,21 +247,21 @@ impl Real {
     /// \`sin(x)\` truncated to \`digits\` fractional places.
     pub fn sin(&self, digits: usize) -> Real {
         let digits = digits.max(1);
-        truncate_frac(&sin_cos_at_precision(self, digits).0, digits)
+        real_sin(self, digits)
     }
 
     /// \`cos(x)\` truncated to \`digits\` fractional places.
     pub fn cos(&self, digits: usize) -> Real {
         let digits = digits.max(1);
-        truncate_frac(&sin_cos_at_precision(self, digits).1, digits)
+        real_cos(self, digits)
     }
 
     /// \`tan(x) = sin(x) / cos(x)\` with both halves taken at the ambient precision, matching the
     /// reference's numeric evaluator (\`NumOps.Tan\`). \`None\` at a pole.
     pub fn tan(&self, digits: usize) -> Option<Real> {
         let digits = digits.max(1);
-        let sin = self.sin(digits);
-        let cos = self.cos(digits);
+        let sin = complex_math_sin(self, digits);
+        let cos = complex_math_cos(self, digits);
         if cos.is_zero() {
             return None;
         }
@@ -610,4 +610,391 @@ fn atan_series(y: &Real, work: usize) -> Real {
         }
     }
     sum
+}
+
+// ---------------------------------------------------------------------------
+// The reference's Real.Sin / Real.Cos kernel (Lovelace.Real/Real.cs)
+//
+// TWO trigonometric kernels exist in the reference, and they are not the same
+// function: ComplexMath.Sin/Cos reduce modulo 2*pi with an i64 turn quotient
+// (the numeric evaluator's path), while Real.Sin/Cos ask the special-angle
+// table first, carry the argument-aware precision, and reduce with an INTEGER
+// quotient, so 10^20 and 10^100 are measured instead of overflowing. The
+// sin_cos_raw pair below is the ComplexMath port; the functions that follow
+// port the Real.Sin/Cos contract.
+// ---------------------------------------------------------------------------
+
+/// The reference's ComplexMath.Sin: the numeric evaluator's path, kept explicit so the wire's
+/// evalf keeps comparing against the same function it always did.
+pub fn complex_math_sin(value: &Real, digits: usize) -> Real {
+    let digits = digits.max(1);
+    truncate_frac(&sin_cos_at_precision(value, digits).0, digits)
+}
+
+/// The reference's ComplexMath.Cos.
+pub fn complex_math_cos(value: &Real, digits: usize) -> Real {
+    let digits = digits.max(1);
+    truncate_frac(&sin_cos_at_precision(value, digits).1, digits)
+}
+
+/// 10^-places as an exact literal.
+fn ten_to_the_neg_places(places: usize) -> Real {
+    ten_to_the_neg(places)
+}
+
+/// The number of INTEGER digits of a value (0 for anything below 1): the magnitude's decimal width
+/// plus the exponent. Reading the exponent alone is wrong for a decimal literal, which reports
+/// exponent 0 however long it is (10^100).
+fn trig_integer_digits(value: &Real) -> i64 {
+    const MAX_EXTRA: i64 = i32::MAX as i64 - 16;
+    if value.period_len > 0 {
+        return 0;
+    }
+    let digits = value.int.magnitude().to_decimal().len() as i64 + value.exp;
+    if digits <= 0 {
+        0
+    } else if digits > MAX_EXTRA {
+        MAX_EXTRA
+    } else {
+        digits
+    }
+}
+
+/// The decimal place count the kernel must compute at for THIS argument: the request plus the
+/// integer digits the reduction's cancellation spends (never below the ambient request).
+fn trig_reduction_places(value: &Real, digits: usize) -> usize {
+    let required = digits as i64 + 10 + trig_integer_digits(value);
+    if required > digits as i64 {
+        required as usize
+    } else {
+        digits
+    }
+}
+
+/// The places pi must carry for a reduction that measures the angle: the argument's own fractional
+/// places plus the request plus the guard, or the working width.
+fn trig_pi_places(value: &Real, digits: usize, working: usize) -> usize {
+    let argument_places = if value.period_len > 0 {
+        0
+    } else if value.exp < 0 {
+        -value.exp
+    } else {
+        0
+    };
+    let required = trig_integer_digits(value) + argument_places + digits as i64 + 12;
+    if required > working as i64 {
+        required as usize
+    } else {
+        working
+    }
+}
+
+fn truncate_toward_zero(value: &Real) -> Real {
+    Real::from_str(&value.to_decimal_fixed(0)).unwrap_or_else(Real::zero)
+}
+
+/// The integer part of left / right (truncated toward zero) with one integer division: the
+/// reference's WholeQuotient, the reason a ~1.6e99 turn count never narrows through an i64.
+fn whole_quotient(left: &Real, right: &Real) -> Real {
+    if left.period_len > 0 || right.period_len > 0 {
+        let quotient = left
+            .div(right, Real::DEFAULT_COMPUTATION_DECIMAL_PLACES)
+            .unwrap_or_else(Real::zero);
+        return truncate_toward_zero(&quotient);
+    }
+    let mut numerator = left.int.magnitude().clone();
+    let mut denominator = right.int.magnitude().clone();
+    let adjust = left.exp - right.exp;
+    if adjust > 0 {
+        numerator = numerator.mul_pow10(adjust as usize);
+    } else if adjust < 0 {
+        denominator = denominator.mul_pow10((-adjust) as usize);
+    }
+    let Some((whole, _)) = numerator.div_rem(&denominator) else {
+        return Real::zero();
+    };
+    let negative = left.int.is_negative() != right.int.is_negative() && !whole.is_zero();
+    let mut integer = int_from_mag(&whole);
+    if negative {
+        integer = integer.negate();
+    }
+    let value = Real {
+        int: integer,
+        exp: 0,
+        period_start: -1,
+        period_len: 0,
+        inexact: left.inexact || right.inexact,
+    };
+    value.normalized()
+}
+
+/// Reduces value into [0, 2*pi) with the integer quotient.
+fn reduce_to_two_pi_whole(value: &Real, two_pi: &Real) -> Real {
+    if value.cmp(&Real::zero()) != Ordering::Less && value.cmp(two_pi) == Ordering::Less {
+        return value.clone();
+    }
+    let turns = whole_quotient(value, two_pi);
+    let mut reduced = value.sub(&two_pi.mul(&turns));
+    if reduced.cmp(&Real::zero()) == Ordering::Less {
+        reduced = reduced.add(two_pi);
+    }
+    reduced
+}
+
+/// Exactly value / 2 (the reference's HalfOf): halving a decimal only moves its point one place.
+fn half_of(value: &Real, places: usize) -> Real {
+    value
+        .div(&Real::from_i64(2), places + 2)
+        .unwrap_or_else(Real::zero)
+}
+
+/// The reference's TryTerminateExactly: a quotient whose reduced denominator is 2^a*5^b is answered
+/// exactly, everything else is not (the caller then truncates at pi's own scale).
+fn try_terminate_exactly(numerator: &Nat, denominator: &Nat) -> Option<(Nat, i64)> {
+    let mut probe = denominator.clone();
+    let mut twos = 0i64;
+    let mut fives = 0i64;
+    while let Some((quotient, remainder)) = probe.div_rem(&Nat::from_u64(2)) {
+        if !remainder.is_zero() {
+            break;
+        }
+        probe = quotient;
+        twos += 1;
+    }
+    while let Some((quotient, remainder)) = probe.div_rem(&Nat::from_u64(5)) {
+        if !remainder.is_zero() {
+            break;
+        }
+        probe = quotient;
+        fives += 1;
+    }
+    if probe.to_decimal() != "1" {
+        return None;
+    }
+    if twos >= fives {
+        let magnitude = if twos == fives {
+            numerator.clone()
+        } else {
+            numerator.mul(&Nat::from_u64(5).pow((twos - fives) as u64))
+        };
+        Some((magnitude, twos))
+    } else {
+        Some((
+            numerator.mul(&Nat::from_u64(2).pow((fives - twos) as u64)),
+            fives,
+        ))
+    }
+}
+
+/// The value pi*num/den produces at pi's own scale, in integer arithmetic: the exact terminating
+/// quotient when den is 2^a*5^b, otherwise the truncating division, exactly as the reference builds
+/// the candidate angle it compares against.
+pub(crate) fn special_angle_candidate(pi: &Real, num: u64, den: u64) -> Real {
+    let numerator = pi.int.magnitude().mul(&Nat::from_u64(num));
+    let denominator = Nat::from_u64(den);
+    if let Some((magnitude, scale)) = try_terminate_exactly(&numerator, &denominator) {
+        return Real {
+            int: int_from_mag(&magnitude),
+            exp: pi.exp - scale,
+            period_start: -1,
+            period_len: 0,
+            inexact: false,
+        }
+        .normalized();
+    }
+    let (magnitude, _) = numerator
+        .div_rem(&denominator)
+        .unwrap_or((Nat::zero(), Nat::zero()));
+    Real {
+        int: int_from_mag(&magnitude),
+        exp: pi.exp,
+        period_start: -1,
+        period_len: 0,
+        inexact: false,
+    }
+    .normalized()
+}
+
+/// The 16 exact sin/cos pairs of the special-angle table (multiples of pi/6 and pi/4 in [0, 2*pi)).
+fn special_angle_table(places: usize) -> [(u64, u64, Real, Real); 16] {
+    let half = Real::from_str("0.5").unwrap_or_else(Real::zero);
+    let neg_half = Real::from_str("-0.5").unwrap_or_else(Real::zero);
+    let neg_one = Real::from_i64(-1);
+    let sqrt2_half = Real::from_i64(2)
+        .sqrt(places)
+        .div(&Real::from_i64(2), places + 5)
+        .unwrap_or_else(Real::zero);
+    let sqrt3_half = Real::from_i64(3)
+        .sqrt(places)
+        .div(&Real::from_i64(2), places + 5)
+        .unwrap_or_else(Real::zero);
+    [
+        (0, 1, Real::zero(), Real::from_i64(1)),
+        (1, 6, half.clone(), sqrt3_half.clone()),
+        (1, 4, sqrt2_half.clone(), sqrt2_half.clone()),
+        (1, 3, sqrt3_half.clone(), half.clone()),
+        (1, 2, Real::from_i64(1), Real::zero()),
+        (2, 3, sqrt3_half.clone(), neg_half.clone()),
+        (3, 4, sqrt2_half.clone(), sqrt2_half.neg()),
+        (5, 6, half.clone(), sqrt3_half.neg()),
+        (1, 1, Real::zero(), neg_one.clone()),
+        (7, 6, neg_half.clone(), sqrt3_half.neg()),
+        (5, 4, sqrt2_half.neg(), sqrt2_half.neg()),
+        (4, 3, sqrt3_half.neg(), neg_half.clone()),
+        (3, 2, neg_one.clone(), Real::zero()),
+        (5, 3, sqrt3_half.neg(), half.clone()),
+        (7, 4, sqrt2_half.neg(), sqrt2_half.clone()),
+        (11, 6, neg_half, sqrt3_half),
+    ]
+}
+
+/// The reference's TrySpecialAngle: the exact sin/cos when x is one of the 16 table angles, else
+/// None. The comparison is against pi at the CALLER's scale, which is what makes sin(pi) exactly 0.
+fn try_special_angle(x: &Real, pi: &Real, places: usize) -> Option<(Real, Real)> {
+    let table = special_angle_table(places);
+    for (num, den, sin, cos) in table {
+        let angle = if num == 0 {
+            Real::zero()
+        } else {
+            special_angle_candidate(pi, num, den)
+        };
+        // A non-periodic x whose own last stored place sits above the angle's cannot equal it.
+        if x.period_len == 0 && x.exp > angle.exp {
+            continue;
+        }
+        if x.cmp(&angle) == Ordering::Equal {
+            return Some((sin, cos));
+        }
+    }
+    None
+}
+
+/// |value| < 10^-(guard+1), the series' termination threshold and the cosine's cancellation test.
+fn below_decimal_guard(value: &Real, guard: usize) -> bool {
+    value.abs().cmp(&ten_to_the_neg_places(guard + 1)) == Ordering::Less
+}
+
+/// sin(r) at guard places: the reference's SinTaylor (threshold 10^-(guard+1)).
+fn sin_taylor_guarded(r: &Real, guard: usize) -> Real {
+    let x2 = r.mul(r);
+    let mut term = r.clone();
+    let mut sum = r.clone();
+    for k in 1..=(5 * guard + 60) {
+        let denom = (2 * k) * (2 * k + 1);
+        term = div_truncate(&term.neg().mul(&x2), &Real::from_i64(denom as i64), guard);
+        sum = sum.add(&term);
+        if below_decimal_guard(&term, guard) {
+            break;
+        }
+    }
+    sum
+}
+
+/// cos(r) at guard places: the reference's CosTaylor (threshold 10^-(guard+1)).
+fn cos_taylor_guarded(r: &Real, guard: usize) -> Real {
+    let x2 = r.mul(r);
+    let mut term = Real::from_i64(1);
+    let mut sum = Real::from_i64(1);
+    for k in 1..=(5 * guard + 60) {
+        let denom = (2 * k - 1) * (2 * k);
+        term = div_truncate(&term.neg().mul(&x2), &Real::from_i64(denom as i64), guard);
+        sum = sum.add(&term);
+        if below_decimal_guard(&term, guard) {
+            break;
+        }
+    }
+    sum
+}
+
+/// Real.Sin(value, digits): the special-angle table first (against the caller's own pi), then an
+/// argument-aware reduction with an INTEGER turn quotient and the series at digits+10 guard places.
+fn real_sin(value: &Real, digits: usize) -> Real {
+    let digits = digits.max(1);
+    if value.cmp(&Real::zero()) == Ordering::Less {
+        return real_sin(&value.neg(), digits).neg();
+    }
+    // (1) the table, against the caller's pi and in the caller's scope.
+    let ambient_pi = Real::pi(digits);
+    let ambient_two_pi = ambient_pi.mul(&Real::from_i64(2));
+    let ambient_x = reduce_to_two_pi_whole(value, &ambient_two_pi);
+    if let Some((sin, _)) = try_special_angle(&ambient_x, &ambient_pi, digits) {
+        return sin;
+    }
+    // (2) a general angle runs at the width THIS argument needs.
+    let working = trig_reduction_places(value, digits);
+    let guard = digits + 10;
+    let pi = Real::pi(trig_pi_places(value, digits, working));
+    let two_pi = pi.mul(&Real::from_i64(2));
+    let half_pi = half_of(&pi, working);
+    let mut x = reduce_to_two_pi_whole(value, &two_pi);
+    if let Some((sin, _)) = try_special_angle(&x, &pi, working) {
+        return sin;
+    }
+    let mut negative = false;
+    if x.cmp(&pi) != Ordering::Greater {
+        if x.cmp(&half_pi) == Ordering::Greater {
+            x = pi.sub(&x);
+        }
+    } else if x.cmp(&pi.add(&half_pi)) != Ordering::Greater {
+        x = x.sub(&pi);
+        negative = true;
+    } else {
+        x = two_pi.sub(&x);
+        negative = true;
+    }
+    let sin = sin_taylor_guarded(&x, guard).mark_inexact();
+    if negative {
+        sin.neg()
+    } else {
+        sin
+    }
+}
+
+/// Real.Cos(value, digits), the reference's even-symmetry/table/reduction order.
+fn real_cos(value: &Real, digits: usize) -> Real {
+    let digits = digits.max(1);
+    if value.cmp(&Real::zero()) == Ordering::Less {
+        return real_cos(&value.neg(), digits);
+    }
+    let ambient_pi = Real::pi(digits);
+    let ambient_two_pi = ambient_pi.mul(&Real::from_i64(2));
+    let ambient_x = reduce_to_two_pi_whole(value, &ambient_two_pi);
+    if let Some((_, cos)) = try_special_angle(&ambient_x, &ambient_pi, digits) {
+        return cos;
+    }
+    let working = trig_reduction_places(value, digits);
+    let guard = digits + 10;
+    let pi = Real::pi(trig_pi_places(value, digits, working));
+    let two_pi = pi.mul(&Real::from_i64(2));
+    let half_pi = half_of(&pi, working);
+    let mut x = reduce_to_two_pi_whole(value, &two_pi);
+    if let Some((_, cos)) = try_special_angle(&x, &pi, working) {
+        return cos;
+    }
+    let mut negate = false;
+    if x.cmp(&pi) != Ordering::Greater {
+        if x.cmp(&half_pi) == Ordering::Greater {
+            x = pi.sub(&x);
+            negate = true;
+        }
+    } else if x.cmp(&pi.add(&half_pi)) != Ordering::Greater {
+        x = x.sub(&pi);
+        negate = true;
+    } else {
+        x = two_pi.sub(&x);
+    }
+    // Within 10^-(guard+1) of pi/2 the cosine series is pure cancellation; there cos(x) =
+    // sin(pi/2 - x) and the sine of a small argument has no cancellation to lose it in.
+    let distance = half_pi.sub(&x);
+    let cos = if below_decimal_guard(&distance, guard) {
+        sin_taylor_guarded(&distance, guard)
+    } else {
+        cos_taylor_guarded(&x, guard)
+    }
+    .mark_inexact();
+    if negate {
+        cos.neg()
+    } else {
+        cos
+    }
 }

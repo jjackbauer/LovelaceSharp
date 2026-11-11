@@ -25,6 +25,8 @@ mod round26_trig_parity;
 mod round29_real_batch;
 #[cfg(test)]
 mod round30_real_batch;
+#[cfg(test)]
+mod round31_trig;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///

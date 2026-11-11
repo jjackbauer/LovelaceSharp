@@ -28190,632 +28190,812 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_CrossCopyConcurrent_NeitherDeadlocksNorThrows#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_CrossCopyConcurrent_NeitherDeadlocksNorThrows"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:195 asserts 500 cross-copies in each direction between stores [1,2] and [3,4] complete without deadlock and leave both destinations with ByteCount 1. Rust: rust/lovelace-nat/src/digit_store.rs:1244 lovelace-nat::digit_store::tests::CopyDigitsFrom_CrossCopyConcurrent_NeitherDeadlocksNorThrows asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_GivenFourDigitSource_ByteCountAndDigitsMatchSource#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenFourDigitSource_ByteCountAndDigitsMatchSource"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:31 asserts copying [6,2,8,4] into the store built from [3,7,1,5] gives ByteCount 2, DigitCount 4 and digits 6,2,8,4. Rust: rust/lovelace-nat/src/digit_store.rs:1181 lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenFourDigitSource_ByteCountAndDigitsMatchSource asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_GivenNonZeroSource_MutatingSourceAfterCopyDoesNotAffectDest#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenNonZeroSource_MutatingSourceAfterCopyDoesNotAffectDest"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:131 asserts after copying [5,9] and zeroing the source, the destination still holds digits 5 and 9. Rust: rust/lovelace-nat/src/digit_store.rs:1219 lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenNonZeroSource_MutatingSourceAfterCopyDoesNotAffectDest asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_GivenTenDigitSource_AllDigitsPreserved#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenTenDigitSource_AllDigitsPreserved"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:158 asserts copying [9,8,7,6,5,4,3,2,1,0] gives ByteCount 5 and preserves all ten digits. Rust: rust/lovelace-nat/src/digit_store.rs:1230 lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenTenDigitSource_AllDigitsPreserved asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_GivenThreeDigitSource_ByteCountAndDigitsMatchSource#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenThreeDigitSource_ByteCountAndDigitsMatchSource"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:71 asserts copying [4,5,7] into the store built from [1,2,9] gives ByteCount 2, DigitCount 3 and digits 4,5,7. Rust: rust/lovelace-nat/src/digit_store.rs:1195 lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenThreeDigitSource_ByteCountAndDigitsMatchSource asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreCopyDigitsFromTests/CopyDigitsFrom_GivenZeroSource_DestinationBytesNotOverwritten#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenZeroSource_DestinationBytesNotOverwritten"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreCopyDigitsFromTests.cs:104 asserts copying a zero store into the store [8,3] leaves ByteCount 1, DigitCount 2 and digits 8,3. Rust: rust/lovelace-nat/src/digit_store.rs:1208 lovelace-nat::digit_store::tests::CopyDigitsFrom_GivenZeroSource_DestinationBytesNotOverwritten asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreMutatorTests/SetDigitCount_ConcurrentCalls_FinalValueIsOneOfTheWrittenValues#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigitCount_ConcurrentCalls_FinalValueIsOneOfTheWrittenValues"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreMutatorTests.cs:50 asserts 200 threads writing values 0..199 leave a final DigitCount below 200 (one of the written values). Rust: rust/lovelace-nat/src/digit_store.rs:1292 lovelace-nat::digit_store::tests::SetDigitCount_ConcurrentCalls_FinalValueIsOneOfTheWrittenValues asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreMutatorTests/SetDigitCount_GivenPositiveValue_DigitCountIsUpdated#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigitCount_GivenPositiveValue_DigitCountIsUpdated"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreMutatorTests.cs:23 asserts SetDigitCount(7) sets DigitCount 7. Rust: rust/lovelace-nat/src/digit_store.rs:1278 lovelace-nat::digit_store::tests::SetDigitCount_GivenPositiveValue_DigitCountIsUpdated asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreMutatorTests/SetDigitCount_GivenZero_DigitCountIsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigitCount_GivenZero_DigitCountIsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreMutatorTests.cs:36 asserts SetDigitCount(0) on the store [3] sets DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:1285 lovelace-nat::digit_store::tests::SetDigitCount_GivenZero_DigitCountIsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreMutatorTests/SetIsZero_GivenFalse_IsZeroBecomesFalse#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetIsZero_GivenFalse_IsZeroBecomesFalse"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreMutatorTests.cs:87 asserts SetIsZero(false) on a default store sets IsZero false. Rust: rust/lovelace-nat/src/digit_store.rs:1313 lovelace-nat::digit_store::tests::SetIsZero_GivenFalse_IsZeroBecomesFalse asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreMutatorTests/SetIsZero_GivenTrue_IsZeroBecomesTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetIsZero_GivenTrue_IsZeroBecomesTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreMutatorTests.cs:73 asserts SetIsZero(true) on the store [5] sets IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:1306 lovelace-nat::digit_store::tests::SetIsZero_GivenTrue_IsZeroBecomesTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenAlreadyZeroStore_RemainsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenAlreadyZeroStore_RemainsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:106 asserts Reset on a default store keeps IsZero true and DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:1157 lovelace-nat::digit_store::tests::Reset_GivenAlreadyZeroStore_RemainsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenMultiDigitStore_ClearsEverything#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenMultiDigitStore_ClearsEverything"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:83 asserts Reset on the store [1,2,3] sets IsZero true, DigitCount 0 and ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:1148 lovelace-nat::digit_store::tests::Reset_GivenMultiDigitStore_ClearsEverything asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenNonZeroStore_ByteCountBecomesZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_ByteCountBecomesZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:53 asserts Reset on the store [3] sets ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:1134 lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_ByteCountBecomesZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenNonZeroStore_DigitCountBecomesZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_DigitCountBecomesZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:38 asserts Reset on the store [7] sets DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:1127 lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_DigitCountBecomesZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenNonZeroStore_GetDigitReturnsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_GetDigitReturnsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:68 asserts Reset on the store [9] makes GetDigit(0) return 0. Rust: rust/lovelace-nat/src/digit_store.rs:1141 lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_GetDigitReturnsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_GivenNonZeroStore_IsZeroBecomesTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_IsZeroBecomesTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:24 asserts Reset on the store [5] sets IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:1120 lovelace-nat::digit_store::tests::Reset_GivenNonZeroStore_IsZeroBecomesTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreResetTests/Reset_ThenSetDigit_StoreIsReusable#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Reset_ThenSetDigit_StoreIsReusable"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreResetTests.cs:125 asserts after Reset, setting digits 6 and 8 yields DigitCount 2, digits 6 and 8, and IsZero false. Rust: rust/lovelace-nat/src/digit_store.rs:1165 lovelace-nat::digit_store::tests::Reset_ThenSetDigit_StoreIsReusable asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenConcurrentReads_AllSnapshotsAreIdentical#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenConcurrentReads_AllSnapshotsAreIdentical"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:139 asserts 32 threads reading a 20-digit store all receive the identical snapshot. Rust: rust/lovelace-nat/src/digit_store.rs:1099 lovelace-nat::digit_store::tests::SnapshotDigits_GivenConcurrentReads_AllSnapshotsAreIdentical asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenMultipleDigits_ReturnsAllDigitsLeastSignificantFirst#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenMultipleDigits_ReturnsAllDigitsLeastSignificantFirst"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:68 asserts the store with digits [3,7,2,5] snapshots to [3,7,2,5]. Rust: rust/lovelace-nat/src/digit_store.rs:1062 lovelace-nat::digit_store::tests::SnapshotDigits_GivenMultipleDigits_ReturnsAllDigitsLeastSignificantFirst asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenPairedDigitsInSameByte_CorrectlyUnpacksBothNibbles#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenPairedDigitsInSameByte_CorrectlyUnpacksBothNibbles"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:47 asserts the store with digits [4,9] snapshots to [4,9]. Rust: rust/lovelace-nat/src/digit_store.rs:1057 lovelace-nat::digit_store::tests::SnapshotDigits_GivenPairedDigitsInSameByte_CorrectlyUnpacksBothNibbles asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenSingleDigit_ReturnsSingleElementArray#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenSingleDigit_ReturnsSingleElementArray"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:31 asserts the store with digit [5] snapshots to [5]. Rust: rust/lovelace-nat/src/digit_store.rs:1052 lovelace-nat::digit_store::tests::SnapshotDigits_GivenSingleDigit_ReturnsSingleElementArray asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:86 asserts the ten-digit store [0,1,2,3,4,5,6,7,8,9] snapshots back to the identical sequence. Rust: rust/lovelace-nat/src/digit_store.rs:1070 lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence#1"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:86 asserts the ten-digit store [9,8,7,6,5,4,3,2,1,0] snapshots back to the identical sequence. Rust: rust/lovelace-nat/src/digit_store.rs:1070 lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence#2"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:86 asserts the ten-digit store [1,0,1,0,1,0,1,0,1,0] snapshots back to the identical sequence. Rust: rust/lovelace-nat/src/digit_store.rs:1070 lovelace-nat::digit_store::tests::SnapshotDigits_GivenTenDigitSequence_ReturnsIdenticalSequence asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_GivenZeroStore_ReturnsEmptyArray#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_GivenZeroStore_ReturnsEmptyArray"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:19 asserts a zero store snapshots to an empty vector. Rust: rust/lovelace-nat/src/digit_store.rs:1047 lovelace-nat::digit_store::tests::SnapshotDigits_GivenZeroStore_ReturnsEmptyArray asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_LengthEqualsDigitCount#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:123 asserts snapshot length equals DigitCount 1 for a one-digit store. Rust: rust/lovelace-nat/src/digit_store.rs:1091 lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_LengthEqualsDigitCount#1"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:123 asserts snapshot length equals DigitCount 3 for a three-digit store. Rust: rust/lovelace-nat/src/digit_store.rs:1091 lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_LengthEqualsDigitCount#2"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:123 asserts snapshot length equals DigitCount 7 for a seven-digit store. Rust: rust/lovelace-nat/src/digit_store.rs:1091 lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_LengthEqualsDigitCount#3"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:123 asserts snapshot length equals DigitCount 11 for an eleven-digit store. Rust: rust/lovelace-nat/src/digit_store.rs:1091 lovelace-nat::digit_store::tests::SnapshotDigits_LengthEqualsDigitCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreSnapshotDigitsTests/SnapshotDigits_ReturnsCopyNotReference_MutatingSnapshotDoesNotAffectStore#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SnapshotDigits_ReturnsCopyNotReference_MutatingSnapshotDoesNotAffectStore"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreSnapshotDigitsTests.cs:102 asserts mutating snapshot[0] to 0xFF leaves the store's digit 0 at 7. Rust: rust/lovelace-nat/src/digit_store.rs:1083 lovelace-nat::digit_store::tests::SnapshotDigits_ReturnsCopyNotReference_MutatingSnapshotDoesNotAffectStore asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ByteCount_GivenNoDigits_ReturnsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ByteCount_GivenNoDigits_ReturnsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:334 asserts a default store has ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:946 lovelace-nat::digit_store::tests::ByteCount_GivenNoDigits_ReturnsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ByteCount_GivenOneDigit_ReturnsOne#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ByteCount_GivenOneDigit_ReturnsOne"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:341 asserts the store with digit [3] has ByteCount 1. Rust: rust/lovelace-nat/src/digit_store.rs:951 lovelace-nat::digit_store::tests::ByteCount_GivenOneDigit_ReturnsOne asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ByteCount_GivenThreeDigits_ReturnsTwo#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ByteCount_GivenThreeDigits_ReturnsTwo"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:358 asserts the store with digits [3,7,1] has ByteCount 2. Rust: rust/lovelace-nat/src/digit_store.rs:961 lovelace-nat::digit_store::tests::ByteCount_GivenThreeDigits_ReturnsTwo asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ByteCount_GivenTwoDigits_ReturnsOne#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ByteCount_GivenTwoDigits_ReturnsOne"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:349 asserts the store with digits [3,7] has ByteCount 1. Rust: rust/lovelace-nat/src/digit_store.rs:956 lovelace-nat::digit_store::tests::ByteCount_GivenTwoDigits_ReturnsOne asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/Constructor_GivenDefault_ByteCountIsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Constructor_GivenDefault_ByteCountIsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:27 asserts a default store has ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:743 lovelace-nat::digit_store::tests::Constructor_GivenDefault_ByteCountIsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/Constructor_GivenDefault_DigitCountIsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Constructor_GivenDefault_DigitCountIsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:13 asserts a default store has DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:733 lovelace-nat::digit_store::tests::Constructor_GivenDefault_DigitCountIsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/Constructor_GivenDefault_IsZeroIsTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::Constructor_GivenDefault_IsZeroIsTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:20 asserts a default store has IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:738 lovelace-nat::digit_store::tests::Constructor_GivenDefault_IsZeroIsTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/CopyConstructor_GivenNonZeroSource_ProducesBitwiseIdenticalStore#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyConstructor_GivenNonZeroSource_ProducesBitwiseIdenticalStore"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:38 asserts a copy of the store built from digits [3,7,1] has the same DigitCount 3, ByteCount 2, IsZero false and identical digits and nibbles. Rust: rust/lovelace-nat/src/digit_store.rs:748 lovelace-nat::digit_store::tests::CopyConstructor_GivenNonZeroSource_ProducesBitwiseIdenticalStore asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/CopyConstructor_GivenSelf_DoesNotCorruptState#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyConstructor_GivenSelf_DoesNotCorruptState"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:65 asserts constructing a copy from the store itself and copying it onto itself leaves DigitCount, IsZero and digit 0 (5) unchanged. Rust: rust/lovelace-nat/src/digit_store.rs:770 lovelace-nat::digit_store::tests::CopyConstructor_GivenSelf_DoesNotCorruptState asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/CopyConstructor_GivenZeroSource_ProducesZeroInstanceWithNoBytes#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyConstructor_GivenZeroSource_ProducesZeroInstanceWithNoBytes"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:55 asserts a copy of a default zero store is zero with ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:763 lovelace-nat::digit_store::tests::CopyConstructor_GivenZeroSource_ProducesZeroInstanceWithNoBytes asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/DigitCount_GivenDefault_ReturnsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::DigitCount_GivenDefault_ReturnsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:372 asserts a default store has DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:966 lovelace-nat::digit_store::tests::DigitCount_GivenDefault_ReturnsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/DigitCount_GivenOneSetDigit_ReturnsOne#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::DigitCount_GivenOneSetDigit_ReturnsOne"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:379 asserts the store with digit [4] has DigitCount 1. Rust: rust/lovelace-nat/src/digit_store.rs:971 lovelace-nat::digit_store::tests::DigitCount_GivenOneSetDigit_ReturnsOne asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/DigitCount_GivenTwoSetDigitsInSequence_ReturnsTwo#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::DigitCount_GivenTwoSetDigitsInSequence_ReturnsTwo"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:387 asserts the store with digits [4,6] has DigitCount 2. Rust: rust/lovelace-nat/src/digit_store.rs:976 lovelace-nat::digit_store::tests::DigitCount_GivenTwoSetDigitsInSequence_ReturnsTwo asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetBitwise_GivenPackedByte_ExtractsHighNibbleCorrectly#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetBitwise_GivenPackedByte_ExtractsHighNibbleCorrectly"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:87 asserts byte 0 of the store with digit [9] has high nibble 9. Rust: rust/lovelace-nat/src/digit_store.rs:784 lovelace-nat::digit_store::tests::GetBitwise_GivenPackedByte_ExtractsHighNibbleCorrectly asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetBitwise_GivenPackedByte_ExtractsLowNibbleCorrectly#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetBitwise_GivenPackedByte_ExtractsLowNibbleCorrectly"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:97 asserts byte 0 of the store with digits [4,6] has low nibble 6. Rust: rust/lovelace-nat/src/digit_store.rs:790 lovelace-nat::digit_store::tests::GetBitwise_GivenPackedByte_ExtractsLowNibbleCorrectly asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetDigit_GivenEvenPosition_ReturnsHighNibbleOfByteAtHalfPosition#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetDigit_GivenEvenPosition_ReturnsHighNibbleOfByteAtHalfPosition"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:211 asserts the store with digit [7] returns 7 at even position 0. Rust: rust/lovelace-nat/src/digit_store.rs:861 lovelace-nat::digit_store::tests::GetDigit_GivenEvenPosition_ReturnsHighNibbleOfByteAtHalfPosition asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetDigit_GivenIsZeroTrue_ReturnsZeroForAnyPosition#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetDigit_GivenIsZeroTrue_ReturnsZeroForAnyPosition"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:203 asserts a zero store returns 0 at positions 0 and 5. Rust: rust/lovelace-nat/src/digit_store.rs:854 lovelace-nat::digit_store::tests::GetDigit_GivenIsZeroTrue_ReturnsZeroForAnyPosition asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetDigit_GivenOddPosition_ReturnsLowNibbleOfByteAtHalfPosition#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetDigit_GivenOddPosition_ReturnsLowNibbleOfByteAtHalfPosition"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:219 asserts the store with digits [4,9] returns 9 at odd position 1. Rust: rust/lovelace-nat/src/digit_store.rs:867 lovelace-nat::digit_store::tests::GetDigit_GivenOddPosition_ReturnsLowNibbleOfByteAtHalfPosition asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetDigit_GivenPositionAtOrBeyondDigitCount_ReturnsZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetDigit_GivenPositionAtOrBeyondDigitCount_ReturnsZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:228 asserts the one-digit store [3] returns 0 at positions 1 and 100. Rust: rust/lovelace-nat/src/digit_store.rs:873 lovelace-nat::digit_store::tests::GetDigit_GivenPositionAtOrBeyondDigitCount_ReturnsZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GetDigit_GivenTwoConsecutiveDigits_BothRoundTripCorrectly#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GetDigit_GivenTwoConsecutiveDigits_BothRoundTripCorrectly"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:237 asserts the store with digits [5,8] returns 5 at 0 and 8 at 1. Rust: rust/lovelace-nat/src/digit_store.rs:880 lovelace-nat::digit_store::tests::GetDigit_GivenTwoConsecutiveDigits_BothRoundTripCorrectly asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GrowDigits_GivenCall_IncreasesByteCountByOne#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GrowDigits_GivenCall_IncreasesByteCountByOne"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:142 asserts GrowDigits increases ByteCount by 1. Rust: rust/lovelace-nat/src/digit_store.rs:818 lovelace-nat::digit_store::tests::GrowDigits_GivenCall_IncreasesByteCountByOne asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/GrowDigits_GivenCall_NewByteLowNibbleIsSentinel0x0C#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::GrowDigits_GivenCall_NewByteLowNibbleIsSentinel0x0C"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:151 asserts the byte appended by GrowDigits has nibbles (0,0x0C). Rust: rust/lovelace-nat/src/digit_store.rs:826 lovelace-nat::digit_store::tests::GrowDigits_GivenCall_NewByteLowNibbleIsSentinel0x0C asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/IsZero_GivenDefault_ReturnsTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::IsZero_GivenDefault_ReturnsTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:400 asserts a default store has IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:981 lovelace-nat::digit_store::tests::IsZero_GivenDefault_ReturnsTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/IsZero_GivenDigitSetAtPositionNonZeroOnly_RemainsTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::IsZero_GivenDigitSetAtPositionNonZeroOnly_RemainsTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:415 asserts IsZero starts true, becomes false after position 0 is set to 5 and stays false after position 1 is set to 3. Rust: rust/lovelace-nat/src/digit_store.rs:992 lovelace-nat::digit_store::tests::IsZero_GivenDigitSetAtPositionNonZeroOnly_RemainsTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/IsZero_GivenDigitSetAtPositionZero_ReturnsFalse#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::IsZero_GivenDigitSetAtPositionZero_ReturnsFalse"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:407 asserts a store with digit 9 at position 0 has IsZero false. Rust: rust/lovelace-nat/src/digit_store.rs:986 lovelace-nat::digit_store::tests::IsZero_GivenDigitSetAtPositionZero_ReturnsFalse asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetBitwise_GivenPositionBeyondByteCountPlusOne_DoesNotWrite#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetBitwise_GivenPositionBeyondByteCountPlusOne_DoesNotWrite"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:129 asserts setting byte 2 on an empty store leaves ByteCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:811 lovelace-nat::digit_store::tests::SetBitwise_GivenPositionBeyondByteCountPlusOne_DoesNotWrite asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetBitwise_GivenPositionEqualsByteCount_CallsGrowDigits#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetBitwise_GivenPositionEqualsByteCount_CallsGrowDigits"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:119 asserts setting byte 0 (5,3) on an empty store grows ByteCount by 1 and stores (5,3). Rust: rust/lovelace-nat/src/digit_store.rs:802 lovelace-nat::digit_store::tests::SetBitwise_GivenPositionEqualsByteCount_CallsGrowDigits asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetBitwise_GivenTwoNibbles_PacksIntoExpectedByte#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetBitwise_GivenTwoNibbles_PacksIntoExpectedByte"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:108 asserts the store with digits [3,7] reads back byte 0 as (3,7). Rust: rust/lovelace-nat/src/digit_store.rs:796 lovelace-nat::digit_store::tests::SetBitwise_GivenTwoNibbles_PacksIntoExpectedByte asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenEvenPosition_StoresDigitInHighNibble#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenEvenPosition_StoresDigitInHighNibble"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:271 asserts setting digit 6 at even position 0 stores it in the high nibble. Rust: rust/lovelace-nat/src/digit_store.rs:905 lovelace-nat::digit_store::tests::SetDigit_GivenEvenPosition_StoresDigitInHighNibble asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenNewPosition_IncrementsDigitCount#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenNewPosition_IncrementsDigitCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:260 asserts setting positions 0 then 1 takes DigitCount from 0 to 1 to 2. Rust: rust/lovelace-nat/src/digit_store.rs:895 lovelace-nat::digit_store::tests::SetDigit_GivenNewPosition_IncrementsDigitCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenOddPosition_StoresDigitInLowNibble#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenOddPosition_StoresDigitInLowNibble"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:280 asserts setting digit 8 at odd position 1 stores it in the low nibble. Rust: rust/lovelace-nat/src/digit_store.rs:911 lovelace-nat::digit_store::tests::SetDigit_GivenOddPosition_StoresDigitInLowNibble asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenOddPositionOnNewByte_InitializesHighNibbleToFifteen#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenOddPositionOnNewByte_InitializesHighNibbleToFifteen"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:290 asserts setting digit 4 at position 0 creates byte 0 with nibbles (4,0x0F). Rust: rust/lovelace-nat/src/digit_store.rs:917 lovelace-nat::digit_store::tests::SetDigit_GivenOddPositionOnNewByte_InitializesHighNibbleToFifteen asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenPositionBeyondDigitCountByMoreThanOne_DoesNotWrite#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenPositionBeyondDigitCountByMoreThanOne_DoesNotWrite"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:303 asserts SetDigit(2,5) on an empty store returns PositionOutOfRange and leaves DigitCount 0. Rust: rust/lovelace-nat/src/digit_store.rs:923 lovelace-nat::digit_store::tests::SetDigit_GivenPositionBeyondDigitCountByMoreThanOne_DoesNotWrite asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenPositionNonZeroOnly_IsZeroRemainsTrue#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenPositionNonZeroOnly_IsZeroRemainsTrue"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:312 asserts setting position 0 to 7 clears IsZero and setting position 1 to 3 leaves it false. Rust: rust/lovelace-nat/src/digit_store.rs:936 lovelace-nat::digit_store::tests::SetDigit_GivenPositionNonZeroOnly_IsZeroRemainsTrue asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/SetDigit_GivenPositionZero_SetsIsZeroToFalse#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::SetDigit_GivenPositionZero_SetsIsZeroToFalse"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:251 asserts setting digit 3 at position 0 clears IsZero. Rust: rust/lovelace-nat/src/digit_store.rs:887 lovelace-nat::digit_store::tests::SetDigit_GivenPositionZero_SetsIsZeroToFalse asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ShrinkDigits_GivenEvenDigitCount_SetsLowNibbleToFifteenAndDecrementsCount#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ShrinkDigits_GivenEvenDigitCount_SetsLowNibbleToFifteenAndDecrementsCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:180 asserts the two-digit store [5,3] keeps one byte, decrements DigitCount to 1 and sets the low nibble to 0x0F. Rust: rust/lovelace-nat/src/digit_store.rs:843 lovelace-nat::digit_store::tests::ShrinkDigits_GivenEvenDigitCount_SetsLowNibbleToFifteenAndDecrementsCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ShrinkDigits_GivenOddDigitCount_RemovesLastByteAndDecrementsCount#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ShrinkDigits_GivenOddDigitCount_RemovesLastByteAndDecrementsCount"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:166 asserts the one-digit store [5] loses one byte and one digit. Rust: rust/lovelace-nat/src/digit_store.rs:833 lovelace-nat::digit_store::tests::ShrinkDigits_GivenOddDigitCount_RemovesLastByteAndDecrementsCount asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenEvenDigitCount_PrintsBothNibblesOfLastByte#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenEvenDigitCount_PrintsBothNibblesOfLastByte"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:462 asserts the four-digit store [4,3,2,1] renders as \"1234\". Rust: rust/lovelace-nat/src/digit_store.rs:1017 lovelace-nat::digit_store::tests::ToString_GivenEvenDigitCount_PrintsBothNibblesOfLastByte asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenIsZeroTrue_ReturnsStringZero#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenIsZeroTrue_ReturnsStringZero"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:436 asserts a zero store renders as \"0\". Rust: rust/lovelace-nat/src/digit_store.rs:1002 lovelace-nat::digit_store::tests::ToString_GivenIsZeroTrue_ReturnsStringZero asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenMultipleBytes_IteratesInReverseOrder#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenMultipleBytes_IteratesInReverseOrder"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:474 asserts the five-digit store [5,4,3,2,1] renders as \"12345\". Rust: rust/lovelace-nat/src/digit_store.rs:1022 lovelace-nat::digit_store::tests::ToString_GivenMultipleBytes_IteratesInReverseOrder asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenOddDigitCount_PrintsHighNibbleOfLastByte#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenOddDigitCount_PrintsHighNibbleOfLastByte"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:451 asserts the three-digit store [3,2,1] renders as \"123\". Rust: rust/lovelace-nat/src/digit_store.rs:1012 lovelace-nat::digit_store::tests::ToString_GivenOddDigitCount_PrintsHighNibbleOfLastByte asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenSeparator_InsertsCharacterEveryThreeDigitsFromRight#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenSeparator_InsertsCharacterEveryThreeDigitsFromRight"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:491 asserts digits [7,6,5,4,3,2,1] with separator ',' render as \"1,234,567\". Rust: rust/lovelace-nat/src/digit_store.rs:1027 lovelace-nat::digit_store::tests::ToString_GivenSeparator_InsertsCharacterEveryThreeDigitsFromRight asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenSeparatorAndLessThanFourDigits_NoSeparatorInserted#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenSeparatorAndLessThanFourDigits_NoSeparatorInserted"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:506 asserts digits [3,2,1] with separator ',' render without a separator as \"123\". Rust: rust/lovelace-nat/src/digit_store.rs:1035 lovelace-nat::digit_store::tests::ToString_GivenSeparatorAndLessThanFourDigits_NoSeparatorInserted asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTests/ToString_GivenSingleDigit_ReturnsThatDigitAsString#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_GivenSingleDigit_ReturnsThatDigitAsString"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTests.cs:443 asserts the store with digit [7] renders as \"7\". Rust: rust/lovelace-nat/src/digit_store.rs:1007 lovelace-nat::digit_store::tests::ToString_GivenSingleDigit_ReturnsThatDigitAsString asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreThreadSafetyTests/CopyDigitsFrom_ConcurrentToSameDestination_NeverThrowsAndFinalStateValid#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_ConcurrentToSameDestination_NeverThrowsAndFinalStateValid"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreThreadSafetyTests.cs:157 asserts two 500-copy threads writing the same destination leave ByteCount 1, DigitCount 2 and digits 4,2. Rust: rust/lovelace-nat/src/digit_store.rs:1480 lovelace-nat::digit_store::tests::CopyDigitsFrom_ConcurrentToSameDestination_NeverThrowsAndFinalStateValid asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreThreadSafetyTests/CopyDigitsFrom_SelfCopyUnderConcurrentRead_NeverCorruptsDigit#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::CopyDigitsFrom_SelfCopyUnderConcurrentRead_NeverCorruptsDigit"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreThreadSafetyTests.cs:202 asserts 1000 self-copies under a concurrent reader never change digit 0 from 7. Rust: rust/lovelace-nat/src/digit_store.rs:1510 lovelace-nat::digit_store::tests::CopyDigitsFrom_SelfCopyUnderConcurrentRead_NeverCorruptsDigit asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreThreadSafetyTests/ToString_ConcurrentWithReset_AlwaysReturnsValidDecimalString#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_ConcurrentWithReset_AlwaysReturnsValidDecimalString"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreThreadSafetyTests.cs:84 asserts 1000 concurrent render/reset iterations always return a non-empty decimal string with no leading zero (except \"0\"). Rust: rust/lovelace-nat/src/digit_store.rs:1448 lovelace-nat::digit_store::tests::ToString_ConcurrentWithReset_AlwaysReturnsValidDecimalString asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreThreadSafetyTests/TrimLeadingZeros_ConcurrentWithGetDigit_NeverThrowsAndDigitsInRange#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_ConcurrentWithGetDigit_NeverThrowsAndDigitsInRange"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreThreadSafetyTests.cs:27 asserts 1000 concurrent trim/read iterations on [5,0,0] keep every read in 0..9 and the final digit 0 equal to 5. Rust: rust/lovelace-nat/src/digit_store.rs:1420 lovelace-nat::digit_store::tests::TrimLeadingZeros_ConcurrentWithGetDigit_NeverThrowsAndDigitsInRange asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreToStringParallelTests/ToString_Given100Digits_ReturnsCorrectDigitOrder#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_Given100Digits_ReturnsCorrectDigitOrder"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreToStringParallelTests.cs:59 asserts a 100-digit store renders the generated 100-character most-significant-first string. Rust: rust/lovelace-nat/src/digit_store.rs:1384 lovelace-nat::digit_store::tests::ToString_Given100Digits_ReturnsCorrectDigitOrder asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreToStringParallelTests/ToString_Given19Digits_ReturnsCorrectDigitOrder#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_Given19Digits_ReturnsCorrectDigitOrder"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreToStringParallelTests.cs:72 asserts a 19-digit store renders as \"8765432109876543210\". Rust: rust/lovelace-nat/src/digit_store.rs:1390 lovelace-nat::digit_store::tests::ToString_Given19Digits_ReturnsCorrectDigitOrder asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreToStringParallelTests/ToString_Given20Digits_ReturnsCorrectDigitOrder#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_Given20Digits_ReturnsCorrectDigitOrder"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreToStringParallelTests.cs:49 asserts a 20-digit store (digits i%10, LSB first) renders as \"98765432109876543210\". Rust: rust/lovelace-nat/src/digit_store.rs:1377 lovelace-nat::digit_store::tests::ToString_Given20Digits_ReturnsCorrectDigitOrder asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreToStringParallelTests/ToString_Given20DigitsWithSeparator_ReturnsCorrectSeparatedString#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_Given20DigitsWithSeparator_ReturnsCorrectSeparatedString"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreToStringParallelTests.cs:94 asserts a 20-digit store with separator ',' renders as \"98,765,432,109,876,543,210\". Rust: rust/lovelace-nat/src/digit_store.rs:1403 lovelace-nat::digit_store::tests::ToString_Given20DigitsWithSeparator_ReturnsCorrectSeparatedString asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreToStringParallelTests/ToString_Given99Digits_ReturnsCorrectDigitOrder#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::ToString_Given99Digits_ReturnsCorrectDigitOrder"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreToStringParallelTests.cs:81 asserts a 99-digit store renders the generated 99-character most-significant-first string. Rust: rust/lovelace-nat/src/digit_store.rs:1397 lovelace-nat::digit_store::tests::ToString_Given99Digits_ReturnsCorrectDigitOrder asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenAllZeroDigits_ResetsToZeroState#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenAllZeroDigits_ResetsToZeroState"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:105 asserts trimming [0,0,0] sets IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:1357 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenAllZeroDigits_ResetsToZeroState asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenEvenDigitCountWithSingleLeadingZero_TrimsToSingleDigit#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenEvenDigitCountWithSingleLeadingZero_TrimsToSingleDigit"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:45 asserts trimming [4,0] leaves DigitCount 1 and digit 4. Rust: rust/lovelace-nat/src/digit_store.rs:1333 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenEvenDigitCountWithSingleLeadingZero_TrimsToSingleDigit asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenMultipleLeadingZeroDigits_DigitCountReducedAndValuePreserved#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenMultipleLeadingZeroDigits_DigitCountReducedAndValuePreserved"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:26 asserts trimming [5,0,0] leaves DigitCount 1, digit 5 and IsZero false. Rust: rust/lovelace-nat/src/digit_store.rs:1324 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenMultipleLeadingZeroDigits_DigitCountReducedAndValuePreserved asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenNoLeadingZeros_LeavesValueUnchanged#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenNoLeadingZeros_LeavesValueUnchanged"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:66 asserts trimming [3,2,1] leaves DigitCount 3 and renders \"123\". Rust: rust/lovelace-nat/src/digit_store.rs:1341 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenNoLeadingZeros_LeavesValueUnchanged asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenSingleNonZeroDigit_LeavesValueUnchanged#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenSingleNonZeroDigit_LeavesValueUnchanged"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:84 asserts trimming [7] leaves DigitCount 1 and digit 7. Rust: rust/lovelace-nat/src/digit_store.rs:1349 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenSingleNonZeroDigit_LeavesValueUnchanged asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.DigitStoreTrimLeadingZerosTests/TrimLeadingZeros_GivenSingleZeroDigit_ResetsToZeroState#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenSingleZeroDigit_ResetsToZeroState"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:123 asserts trimming [0] sets IsZero true. Rust: rust/lovelace-nat/src/digit_store.rs:1365 lovelace-nat::digit_store::tests::TrimLeadingZeros_GivenSingleZeroDigit_ResetsToZeroState asserts the same case."
 
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.UnitTest1/Test1#0"
@@ -44225,79 +44405,101 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/ImaginaryUnitIntegerPowers_FoldExactly#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::imaginary_unit_integer_powers_fold_exactly"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:169 asserts i^2 = -1, i^3 = -i, i^4 = 1 and i^-1 = -i through canonical print/parse round trips. Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:213 lovelace-symbolics::complex_closed_forms_round30::imaginary_unit_integer_powers_fold_exactly asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/NegativeBaseRationalPowers_MatchTheSympyPrincipalBranch#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::negative_base_rational_powers_match_the_sympy_principal_branch"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:136 asserts (-1)^(1/2) = i, (-4)^(1/2) = 2i, (-3)^(1/2) = i*sqrt(3), (-4)^(3/2) = -8i and (-4)^(-1/2) = -i/2 by canonical form and real/imaginary parts. Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:187 lovelace-symbolics::complex_closed_forms_round30::negative_base_rational_powers_match_the_sympy_principal_branch asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/NegativeBaseThirdRoot_IsOutsideTheBoundedSet#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::negative_base_third_root_is_outside_the_bounded_set"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:283 asserts (-8)^(1/3) folds to -2 while (-8)^(2/3) stays the power (pow (rat -8 1) (rat 2 3)). Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:235 lovelace-symbolics::complex_closed_forms_round30::negative_base_third_root_is_outside_the_bounded_set asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/PositiveBaseNonIntegerPower_IsStillLeftUnevaluated#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::positive_base_non_integer_power_is_still_left_unevaluated"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:272 asserts 2^(1/2) stays the unevaluated power (pow (rat 2 1) (rat 1 2)). Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:225 lovelace-symbolics::complex_closed_forms_round30::positive_base_non_integer_power_is_still_left_unevaluated asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/QuadraticWithNegativeDiscriminant_CoversANonZeroRealPart#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round30_run_batch::complex_quadratic_covers_a_non_zero_real_part"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:231 asserts x^2+4 gives the exact canonical roots +-2i and x^2+2*x+5 gives the exact unexpanded roots 1/2*(-2-4i) and 1/2*(-2+4i), with every root substituting to exactly 0. Rust: rust/lovelace-run/src/round30_run_batch.rs:164 lovelace-run::round30_run_batch::complex_quadratic_covers_a_non_zero_real_part asserts the same canonical roots, unrepresented_count 0 and zero after substitution."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/QuadraticWithNegativeDiscriminant_YieldsTheExactComplexSolutionSet#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round30_run_batch::complex_quadratic_with_negative_discriminant_yields_the_exact_complex_solution_set"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:208 asserts solving x^2+1==0 gives status Solved on the Complex domain, 0 unrepresented roots, and canonical roots (i) and (mul (rat -1 1) (i)), each substituting to exactly 0. Rust: rust/lovelace-run/src/round30_run_batch.rs:133 lovelace-run::round30_run_batch::complex_quadratic_with_negative_discriminant_yields_the_exact_complex_solution_set asserts the solved/complete record, unrepresented_count 0, the same two canonical roots and zero after substitution."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/SqrtOfANonNegativeValue_IsUnchanged#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::sqrt_of_a_non_negative_value_is_unchanged"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:293 asserts sqrt(4) = 2, sqrt(9) = 3, sqrt(2) stays (pow (rat 2 1) (rat 1 2)) and sqrt(0) is the rational zero. Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:243 lovelace-symbolics::complex_closed_forms_round30::sqrt_of_a_non_negative_value_is_unchanged asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/SqrtOfNegativeFour_IsExactlyTwoI#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_four_is_exactly_two_i"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:90 asserts sqrt(-4) is exact, canonical (mul (rat 2 1) (i)), and has parts (0,2). Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:146 lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_four_is_exactly_two_i asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/SqrtOfNegativeNonSquare_IsTheExactImaginaryMultipleOfTheRadical#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_non_square_is_the_exact_imaginary_multiple_of_the_radical"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:117 asserts sqrt(-2) equals i*sqrt(2), canonical (mul (i) (pow (rat 2 1) (rat 1 2))), with parts (0,sqrt(2)). Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:168 lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_non_square_is_the_exact_imaginary_multiple_of_the_radical asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/SqrtOfNegativeOne_IsTheExactImaginaryUnit#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_one_is_the_exact_imaginary_unit"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:77 asserts sqrt(-1) is the exact named constant i, canonical (i), with parts (0,1). Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:137 lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_one_is_the_exact_imaginary_unit asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/SqrtOfNegativePerfectSquares_AreExactImaginaryConstants#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_perfect_squares_are_exact_imaginary_constants"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:101 asserts sqrt(-9) = 3i canonical (mul (rat 3 1) (i)) and sqrt(-1/4) = i/2 canonical (mul (rat 1 2) (i)), both exact. Rust: rust/lovelace-symbolics/src/complex_closed_forms_round30.rs:154 lovelace-symbolics::complex_closed_forms_round30::sqrt_of_negative_perfect_squares_are_exact_imaginary_constants asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/AssumptionScopes_RestoreOnDispose#0"
@@ -46696,121 +46898,155 @@ targetPhase = 0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"symbolic\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"symbolics\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#10"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"optimization\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#11"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"dsp\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#12"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"introspection\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#2"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"calculus\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"matrices\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"matrix\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"linear algebra\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#6"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"mathir\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#7"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"ir\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#8"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"compilation\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/CategoryAliases_Resolve#9"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::category_aliases_resolve"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:76 asserts the category alias \"solving\" resolves and its help does not answer \"No category\". Rust: rust/lovelace-lang/src/help.rs:293 lovelace-lang::help::tests::category_aliases_resolve asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/EveryBuiltin_HasCompleteMetadata#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::every_builtin_has_complete_metadata"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:29 asserts every catalog builtin has a help entry with a summary and a declared return kind and none renders the placeholders \"(no summary registered)\", \"(no further help registered)\" or \"Returns: Value\". Rust: rust/lovelace-lang/src/help.rs:262 lovelace-lang::help::tests::every_builtin_has_complete_metadata asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/Funcs_FallsBackToNameSearch#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::funcs_falls_back_to_name_search"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:85 asserts funcs(\"solve\") lists \"solve(\" and \"solve_full(\" without answering \"No category\". Rust: rust/lovelace-lang/src/help.rs:316 lovelace-lang::help::tests::funcs_falls_back_to_name_search asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/Funcs_ListsEveryBuiltinUnderACategory#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::funcs_lists_every_builtin_under_a_category"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:95 asserts funcs(None) lists the Solving, Symbolics and DSP categories. Rust: rust/lovelace-lang/src/help.rs:325 lovelace-lang::help::tests::funcs_lists_every_builtin_under_a_category asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HelpMetadataCompletenessTests/Signature_DistinguishesOptionalParameters#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::help::tests::signature_distinguishes_optional_parameters"
 reason = "No Rust test has been mapped to this capability yet."
 targetPhase = 0
+note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:52 asserts help for solve renders \"solve(f, x [, domain])\", solve_full renders \"solve_full(f, x [, domain])\" and diff renders the fully required \"diff(f, x)\". Rust: rust/lovelace-lang/src/help.rs:282 lovelace-lang::help::tests::signature_distinguishes_optional_parameters asserts the same case."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/BuiltinCount_IncludesTheThreeHyperbolicFunctions#0"
