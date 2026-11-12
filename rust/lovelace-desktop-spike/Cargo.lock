@@ -1857,7 +1857,6 @@ dependencies = [
  "eframe",
  "egui",
  "resvg",
- "tiny-skia 0.12.0",
 ]
 
 [[package]]

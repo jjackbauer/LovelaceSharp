@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "note": "The only way a P0 row may be non-PASS at a RELEASE verdict. owner must be 'user' and approved must be true. quote is the user's own words from the session.",
+  "waivers": [
+    {
+      "id": "TST-012",
+      "owner": "user",
+      "approved": true,
+      "quote": "Waive both now: approve a Windows-only v1 without the 5-user study",
+      "date": "2026-11-12",
+      "scope": "whole requirement",
+      "consequence": "The v1 release carries no human usability-session evidence. TST-012 stays BLOCKED in the register and is never reported as PASS. TST-013 (SUS >= 80, P1) is also not claimed.",
+      "review_after": "2026-12-31",
+      "dec": "DEC-006"
+    }
+  ]
+}

@@ -176,3 +176,140 @@
 - **Priority**: P2 curiosity (workaround is in place)
 - **Raised by**: Round 0 (orchestrator)
 - **Related**: EVD-013, RISK-004
+
+### VAL-001: The intent audit falsified the contract's "no replacement" claim
+
+- **Target**: `goal.md` v1 mechanism table (M1–M19, "Removed or replaced: none") and DEC-001..005
+- **Method**: Read `intent-audit.md`; re-derived each of its six REPLACED/REMOVED rows against
+  `goal.md` and `requirements.md`; opened the engine source for the WKS claim; read the gate script
+  for the waiver and evidence-class claims.
+- **Evidence examined**: `intent-audit.md` rows for ARC-001, CON-009, TST-011, TST-012, severity-1
+  closure, human-waiver path; `requirements.md` §2 CON/ARC/TST rows; `rust/lovelace-lang/src/lib.rs`
+  (no public remove/clear); `tools/desktop-gate.ps1` v1 (free-text `APPROVED_DEVIATION`, no class
+  check, no dimension tally)
+- **Result**: **Supported** for all six. Additionally: the DoD as written could never exit 0 because
+  it required `p0_not_tested = p0_blocked = 0` while TST-012 was committed to BLOCKED and Linux to
+  NOT_TESTED; and an agent-inferred constraint (C7, freeze the engine) excluded WKS-003/004, a
+  user-named mechanism.
+- **Conclusion**: Contract repaired in `goal.md` v2 — two verdicts (`-Readiness`, `-Verify`),
+  per-row evidence classes, `gate/waivers.json` with `owner: user`, `gate/defects.json`, C7 amended to
+  allow tested engine extensions, `platform-matrix.md` published, M20/M21 added. DEC-006 records the
+  user's scope decision. The gate was rebuilt and re-verified (EVD-028).
+- **Related**: EVD-026, EVD-028, DEC-006, RISK-005
+
+### DEC-006: User-approved Windows-only v1 with the TST-012 usability study waived
+
+- **Decision**: v1 is released on Windows only. TST-012 (>=5 target users, 8 tasks) is waived for v1
+  and stays `BLOCKED`, never `PASS`. The Linux half of ARC-001 and the "other supported platform"
+  clause of TST-011 are deferred with the platform scope. The waiver is recorded in
+  `gate/waivers.json` and the platform matrix in `platform-matrix.md`.
+- **Owner**: user — **Status**: approved
+- **Rationale**: the user answered the scope question with "Waive both now: approve a Windows-only v1
+  without the 5-user study". The v4 release rule explicitly allows a P0 to be "passing **or
+  human-waived**", so this is a contract-compliant deviation, not a narrowing by the agent.
+- **Alternatives considered**: leaving both `BLOCKED` with a READY_FOR_WAIVER verdict (rejected by the
+  user, who wants the release route open); keeping the release permanently blocked (also rejected).
+- **Consequences**: the final verdict may be RELEASE without human usability evidence; every report
+  must say so explicitly, and TST-013 (SUS >= 80) is not claimed.
+- **Related**: TST-012, TST-013, ARC-001, TST-011, CON-009, EVD-028
+
+### OBS-003: The headless core is synchronous and projects strings, not structured values
+
+- **Source**: `rust/lovelace-desktop/src/app.rs:145-167,592-610`;
+  `rust/lovelace-desktop/src/engine.rs:45-81`
+- **Fact**: `Command::Run` only snapshots a `RunRequest`; `run_blocking` evaluates inline on the
+  caller's thread; `RunOutput` carries `Vec<(String, String)>` variables and
+  `Vec<(String, Vec<String>)>` functions, so the UI can never see a value's structure. `Evaluator`
+  has no cancellation token.
+- **Implications**: ARC-005/008/010, RUN-004/005/006 and RES-001 all require replacing the execution
+  and projection layer, not decorating it.
+- **Confidence**: High — **Agent**: Observer "core" (census-core.md, 238 OBS) — **Verified by**:
+  EVD-025, EVD-006
+- **Related**: EVD-025, RUN-006, ARC-010
+
+### OBS-004: The web reference delivers plot SVG and structured results inside the run payload
+
+- **Source**: `Lovelace.Studio/wwwroot/app.js:185-192,212-231,263-339`;
+  `Lovelace.Studio/EngineHost.cs:270-272`
+- **Fact**: the poll response carries `plot: {svg, title}` and a `result.structured` tree; the client
+  sets the SVG into the DOM and renders records/arrays/symbolic fields from the structured tree. It
+  never calls `/api/symbolic/inspect`; the inspector is fed only from the run result.
+- **Implications**: behavioural parity needs the desktop to consume the engine's SVG string and the
+  structured projection directly — both already exist in `lovelace-lang` (`last_plot`,
+  `variable_values`, `structured::project_value`). The desktop's temp-file plot path is an
+  implementation regression, not a web behaviour.
+- **Confidence**: High — **Agent**: Observer "web" (census-web.md, 107 OBS, 23 capabilities) —
+  **Verified by**: EVD-023, EVD-024
+- **Related**: EVD-023, EVD-024, PLT-002, RES-001, SYM-001
+
+### OBS-005: The desktop SVG parser covers two of the elements the engine emits
+
+- **Source**: `rust/lovelace-desktop/src/svg.rs:111-200`
+- **Fact**: only `<text>` and `<polyline>` are parsed; `<rect>`, `<line>`, `<path>`, transforms,
+  `fill`, `stroke-width` and `clipPath` are not read. `svg.rs` contains no painter; GDI drawing lives
+  elsewhere.
+- **Implications**: PLT-001/PLT-002 require a real renderer (resvg/tiny-skia), not an extension of
+  this parser.
+- **Confidence**: High — **Agent**: Observer "render-engine" (census-render-engine.md, 117 OBS) —
+  **Verified by**: EVD-027
+- **Related**: EVD-027, PLT-001, PLT-002
+
+### OBS-006: The current window exposes no accessibility tree, no DPI handling and no theme integration
+
+- **Source**: `rust/lovelace-desktop/src/win32/shell.rs`, `ffi.rs` (whole files)
+- **Fact**: no `WM_GETOBJECT`, `IAccessible`, UIA provider, DPI-awareness call, `WM_CTLCOLOR`,
+  `SetWindowTheme` or `DwmSetWindowAttribute` appears in either file; colours come from the
+  `COLOR_WINDOW` system index; the status bar writes only part 0.
+- **Implications**: A11Y-002/003/004/006 and VIS-002 require a stack with an accessibility tree and
+  theming. The eframe probe already demonstrates such a tree (EVD-021).
+- **Confidence**: High — **Agent**: Observer "gui" (census-gui.md, 322 OBS) — **Verified by**: grep
+  of both files for those tokens (no matches) plus EVD-021
+- **Related**: EVD-021, A11Y-002, VIS-002
+
+### OBS-007: The web Studio has no tabs; its session is the browser tab
+
+- **Source**: `Lovelace.Studio/wwwroot/app.js:5-8,31-63`; `index.html`
+- **Fact**: the client stores one `sessionId` in `sessionStorage` and has no tab strip; "one engine per
+  browser tab" is the session boundary. Pane minimize/maximize exist and are not persisted.
+- **Implications**: DOC-001 desktop tabs are a deliberate desktop improvement, and LAY-005/006 must
+  preserve the web's minimize/maximize semantics while adding persistence.
+- **Confidence**: High — **Agent**: Observer "web" — **Verified by**: census-web capability table and
+  the absence of tab code in app.js
+- **Related**: DOC-001, LAY-005, LAY-006
+
+### RISK-005: HEAD moves under this run and the engine is being edited concurrently
+
+- **Risk**: the other session committed `420000f` mid-run and still holds uncommitted edits in
+  `rust/lovelace-lang/src/{builtins.rs,syntax.rs}`. Evidence recorded at one HEAD can be invalidated
+  by a later engine change, and a strict clean-tree release gate cannot pass while those edits are
+  outstanding.
+- **Likelihood**: High — **Impact**: High
+- **Evidence**: EVD-019, `git status` showing the other session's modified engine files
+- **Mitigation**: gate provenance is ancestor-bound (proof produced at an ancestor commit stays
+  valid); each round records HEAD at start and end; this run commits only its own paths; the final
+  release run must happen at a commit where the other session is clean and the tracked evidence
+  hashes still match. If that cannot be achieved, the verdict is READY_FOR_WAIVER, not RELEASE.
+- **Gate**: G1
+
+### OBS-008: The parity register is real but 42 IDs still have no owning feature row
+
+- **Source**: `round-1/parity-register.md`
+- **Fact**: 49 web capability rows (7 PRESENT / 10 PARTIAL / 20 MISSING / 12 DIFFERENT) and 24
+  desktop-only rows, each with a web citation, the desktop as-built code, owning requirement IDs and
+  a planned GUI test. 42 IDs are UNMAPPED: CON-001/004/005/007/008/010, ARC-001, EDT-016/017,
+  RUN-016, INC-009/011, PLF-007/010, 11 PERF rows and all 18 TST rows.
+- **Implications**: CON-002 cannot pass while any ID lacks an owner. The unmapped groups are mostly
+  process/quality requirements whose owner is the gate itself rather than a feature row; the register
+  must say so explicitly (a `gate-owned` owner) before CON-002 is claimable.
+- **Confidence**: High — **Agent**: Synthesizer "parity register" — **Verified by**: EVD-039, EVD-040
+- **Related**: EVD-039, EVD-040, CON-002, CON-007
+
+### TODO-003: Make the register account for every requirement ID
+
+- **Task**: Give each of the 42 UNMAPPED IDs an explicit owner — either a feature row or the gate row
+  that certifies it (for example TST-016 owns the release manifest; PERF rows are owned by the
+  performance gate under CON-008) — so CON-002 can be audited without omissions.
+- **Priority**: P0
+- **Depends on**: the first GUI rows existing, so gate-owned rows can point at real tests
+- **Status**: Open
+- **Related**: CON-002, EVD-040

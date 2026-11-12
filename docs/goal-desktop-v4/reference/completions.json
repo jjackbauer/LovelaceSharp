@@ -1,0 +1,664 @@
+﻿{
+    "items":  [
+                  {
+                      "label":  "func",
+                      "kind":  "keyword",
+                      "detail":  "func"
+                  },
+                  {
+                      "label":  "if",
+                      "kind":  "keyword",
+                      "detail":  "if"
+                  },
+                  {
+                      "label":  "else",
+                      "kind":  "keyword",
+                      "detail":  "else"
+                  },
+                  {
+                      "label":  "while",
+                      "kind":  "keyword",
+                      "detail":  "while"
+                  },
+                  {
+                      "label":  "for",
+                      "kind":  "keyword",
+                      "detail":  "for"
+                  },
+                  {
+                      "label":  "in",
+                      "kind":  "keyword",
+                      "detail":  "in"
+                  },
+                  {
+                      "label":  "return",
+                      "kind":  "keyword",
+                      "detail":  "return"
+                  },
+                  {
+                      "label":  "break",
+                      "kind":  "keyword",
+                      "detail":  "break"
+                  },
+                  {
+                      "label":  "continue",
+                      "kind":  "keyword",
+                      "detail":  "continue"
+                  },
+                  {
+                      "label":  "abs",
+                      "kind":  "builtin",
+                      "detail":  "abs(x)"
+                  },
+                  {
+                      "label":  "acos",
+                      "kind":  "builtin",
+                      "detail":  "acos(x)"
+                  },
+                  {
+                      "label":  "acosh",
+                      "kind":  "builtin",
+                      "detail":  "acosh(x)"
+                  },
+                  {
+                      "label":  "and",
+                      "kind":  "builtin",
+                      "detail":  "and(a, b)"
+                  },
+                  {
+                      "label":  "apart",
+                      "kind":  "builtin",
+                      "detail":  "apart(f, x)"
+                  },
+                  {
+                      "label":  "append",
+                      "kind":  "builtin",
+                      "detail":  "append(a, b)"
+                  },
+                  {
+                      "label":  "asin",
+                      "kind":  "builtin",
+                      "detail":  "asin(x)"
+                  },
+                  {
+                      "label":  "asinh",
+                      "kind":  "builtin",
+                      "detail":  "asinh(x)"
+                  },
+                  {
+                      "label":  "assume",
+                      "kind":  "builtin",
+                      "detail":  "assume(relation)"
+                  },
+                  {
+                      "label":  "assume_clear",
+                      "kind":  "builtin",
+                      "detail":  "assume_clear()"
+                  },
+                  {
+                      "label":  "assume_integer",
+                      "kind":  "builtin",
+                      "detail":  "assume_integer(x)"
+                  },
+                  {
+                      "label":  "assume_negative",
+                      "kind":  "builtin",
+                      "detail":  "assume_negative(x)"
+                  },
+                  {
+                      "label":  "assume_nonnegative",
+                      "kind":  "builtin",
+                      "detail":  "assume_nonnegative(x)"
+                  },
+                  {
+                      "label":  "assume_positive",
+                      "kind":  "builtin",
+                      "detail":  "assume_positive(x)"
+                  },
+                  {
+                      "label":  "assume_real",
+                      "kind":  "builtin",
+                      "detail":  "assume_real(x)"
+                  },
+                  {
+                      "label":  "assumptions",
+                      "kind":  "builtin",
+                      "detail":  "assumptions()"
+                  },
+                  {
+                      "label":  "atan",
+                      "kind":  "builtin",
+                      "detail":  "atan(x)"
+                  },
+                  {
+                      "label":  "atanh",
+                      "kind":  "builtin",
+                      "detail":  "atanh(x)"
+                  },
+                  {
+                      "label":  "cancel",
+                      "kind":  "builtin",
+                      "detail":  "cancel(f)"
+                  },
+                  {
+                      "label":  "cancel_full",
+                      "kind":  "builtin",
+                      "detail":  "cancel_full(f)"
+                  },
+                  {
+                      "label":  "capabilities",
+                      "kind":  "builtin",
+                      "detail":  "capabilities()"
+                  },
+                  {
+                      "label":  "collect",
+                      "kind":  "builtin",
+                      "detail":  "collect(f, x)"
+                  },
+                  {
+                      "label":  "compile",
+                      "kind":  "builtin",
+                      "detail":  "compile(f, params)"
+                  },
+                  {
+                      "label":  "compile_full",
+                      "kind":  "builtin",
+                      "detail":  "compile_full(f, params)"
+                  },
+                  {
+                      "label":  "complex",
+                      "kind":  "builtin",
+                      "detail":  "complex()"
+                  },
+                  {
+                      "label":  "concat",
+                      "kind":  "builtin",
+                      "detail":  "concat(a, b, axis)"
+                  },
+                  {
+                      "label":  "conj",
+                      "kind":  "builtin",
+                      "detail":  "conj(x)"
+                  },
+                  {
+                      "label":  "conv",
+                      "kind":  "builtin",
+                      "detail":  "conv(x, h)"
+                  },
+                  {
+                      "label":  "cos",
+                      "kind":  "builtin",
+                      "detail":  "cos(x)"
+                  },
+                  {
+                      "label":  "cosh",
+                      "kind":  "builtin",
+                      "detail":  "cosh(x)"
+                  },
+                  {
+                      "label":  "cosine",
+                      "kind":  "builtin",
+                      "detail":  "cosine(freq, phase, n)"
+                  },
+                  {
+                      "label":  "cross",
+                      "kind":  "builtin",
+                      "detail":  "cross(a, b)"
+                  },
+                  {
+                      "label":  "delay",
+                      "kind":  "builtin",
+                      "detail":  "delay(x, k)"
+                  },
+                  {
+                      "label":  "det",
+                      "kind":  "builtin",
+                      "detail":  "det(m)"
+                  },
+                  {
+                      "label":  "dft",
+                      "kind":  "builtin",
+                      "detail":  "dft(x, n)"
+                  },
+                  {
+                      "label":  "diff",
+                      "kind":  "builtin",
+                      "detail":  "diff(f, x)"
+                  },
+                  {
+                      "label":  "divrem",
+                      "kind":  "builtin",
+                      "detail":  "divrem(a, b)"
+                  },
+                  {
+                      "label":  "dot",
+                      "kind":  "builtin",
+                      "detail":  "dot(a, b)"
+                  },
+                  {
+                      "label":  "e",
+                      "kind":  "builtin",
+                      "detail":  "e(digits)"
+                  },
+                  {
+                      "label":  "evalf",
+                      "kind":  "builtin",
+                      "detail":  "evalf(f, digits)"
+                  },
+                  {
+                      "label":  "evalir",
+                      "kind":  "builtin",
+                      "detail":  "evalir(ir, values, digits)"
+                  },
+                  {
+                      "label":  "evalir_batch",
+                      "kind":  "builtin",
+                      "detail":  "evalir_batch(ir, values, digits)"
+                  },
+                  {
+                      "label":  "exp",
+                      "kind":  "builtin",
+                      "detail":  "exp(x)"
+                  },
+                  {
+                      "label":  "expand",
+                      "kind":  "builtin",
+                      "detail":  "expand(f)"
+                  },
+                  {
+                      "label":  "exponential",
+                      "kind":  "builtin",
+                      "detail":  "exponential(c, n)"
+                  },
+                  {
+                      "label":  "eye",
+                      "kind":  "builtin",
+                      "detail":  "eye(rows, cols)"
+                  },
+                  {
+                      "label":  "factor",
+                      "kind":  "builtin",
+                      "detail":  "factor(f)"
+                  },
+                  {
+                      "label":  "fft",
+                      "kind":  "builtin",
+                      "detail":  "fft(x)"
+                  },
+                  {
+                      "label":  "filter",
+                      "kind":  "builtin",
+                      "detail":  "filter(a, b, x)"
+                  },
+                  {
+                      "label":  "flatten",
+                      "kind":  "builtin",
+                      "detail":  "flatten(a)"
+                  },
+                  {
+                      "label":  "hessian",
+                      "kind":  "builtin",
+                      "detail":  "hessian(f, vars)"
+                  },
+                  {
+                      "label":  "im",
+                      "kind":  "builtin",
+                      "detail":  "im(x)"
+                  },
+                  {
+                      "label":  "impulse",
+                      "kind":  "builtin",
+                      "detail":  "impulse(n)"
+                  },
+                  {
+                      "label":  "inf",
+                      "kind":  "builtin",
+                      "detail":  "inf()"
+                  },
+                  {
+                      "label":  "inspect",
+                      "kind":  "builtin",
+                      "detail":  "inspect(x)"
+                  },
+                  {
+                      "label":  "integer",
+                      "kind":  "builtin",
+                      "detail":  "integer()"
+                  },
+                  {
+                      "label":  "integrate",
+                      "kind":  "builtin",
+                      "detail":  "integrate(f, x)"
+                  },
+                  {
+                      "label":  "integrate_full",
+                      "kind":  "builtin",
+                      "detail":  "integrate_full(f, x)"
+                  },
+                  {
+                      "label":  "inv",
+                      "kind":  "builtin",
+                      "detail":  "inv(x)"
+                  },
+                  {
+                      "label":  "inv_full",
+                      "kind":  "builtin",
+                      "detail":  "inv_full(x)"
+                  },
+                  {
+                      "label":  "is_even",
+                      "kind":  "builtin",
+                      "detail":  "is_even(x)"
+                  },
+                  {
+                      "label":  "is_odd",
+                      "kind":  "builtin",
+                      "detail":  "is_odd(x)"
+                  },
+                  {
+                      "label":  "jacobian",
+                      "kind":  "builtin",
+                      "detail":  "jacobian(fs, vars)"
+                  },
+                  {
+                      "label":  "latex",
+                      "kind":  "builtin",
+                      "detail":  "latex(expr)"
+                  },
+                  {
+                      "label":  "len",
+                      "kind":  "builtin",
+                      "detail":  "len(v)"
+                  },
+                  {
+                      "label":  "limit",
+                      "kind":  "builtin",
+                      "detail":  "limit(f, x, x0)"
+                  },
+                  {
+                      "label":  "limit_full",
+                      "kind":  "builtin",
+                      "detail":  "limit_full(f, x, x0)"
+                  },
+                  {
+                      "label":  "limit_left",
+                      "kind":  "builtin",
+                      "detail":  "limit_left(f, x, x0)"
+                  },
+                  {
+                      "label":  "limit_right",
+                      "kind":  "builtin",
+                      "detail":  "limit_right(f, x, x0)"
+                  },
+                  {
+                      "label":  "linsolve",
+                      "kind":  "builtin",
+                      "detail":  "linsolve(a, b)"
+                  },
+                  {
+                      "label":  "linsolve_full",
+                      "kind":  "builtin",
+                      "detail":  "linsolve_full(a, b)"
+                  },
+                  {
+                      "label":  "log",
+                      "kind":  "builtin",
+                      "detail":  "log(x)"
+                  },
+                  {
+                      "label":  "lower",
+                      "kind":  "builtin",
+                      "detail":  "lower(f, params)"
+                  },
+                  {
+                      "label":  "matmul",
+                      "kind":  "builtin",
+                      "detail":  "matmul(a, b)"
+                  },
+                  {
+                      "label":  "matrix_rank",
+                      "kind":  "builtin",
+                      "detail":  "matrix_rank(a)"
+                  },
+                  {
+                      "label":  "max",
+                      "kind":  "builtin",
+                      "detail":  "max(a, axis)"
+                  },
+                  {
+                      "label":  "mean",
+                      "kind":  "builtin",
+                      "detail":  "mean(a, axis)"
+                  },
+                  {
+                      "label":  "min",
+                      "kind":  "builtin",
+                      "detail":  "min(a, axis)"
+                  },
+                  {
+                      "label":  "movingavg",
+                      "kind":  "builtin",
+                      "detail":  "movingavg(x, w)"
+                  },
+                  {
+                      "label":  "ndims",
+                      "kind":  "builtin",
+                      "detail":  "ndims(a)"
+                  },
+                  {
+                      "label":  "noise",
+                      "kind":  "builtin",
+                      "detail":  "noise(scale, disp, n, seed)"
+                  },
+                  {
+                      "label":  "norm",
+                      "kind":  "builtin",
+                      "detail":  "norm(a, axis)"
+                  },
+                  {
+                      "label":  "not",
+                      "kind":  "builtin",
+                      "detail":  "not(a)"
+                  },
+                  {
+                      "label":  "numel",
+                      "kind":  "builtin",
+                      "detail":  "numel(a)"
+                  },
+                  {
+                      "label":  "ones",
+                      "kind":  "builtin",
+                      "detail":  "ones(dims)"
+                  },
+                  {
+                      "label":  "optimize",
+                      "kind":  "builtin",
+                      "detail":  "optimize(f, params)"
+                  },
+                  {
+                      "label":  "optimize_full",
+                      "kind":  "builtin",
+                      "detail":  "optimize_full(f, params)"
+                  },
+                  {
+                      "label":  "or",
+                      "kind":  "builtin",
+                      "detail":  "or(a, b)"
+                  },
+                  {
+                      "label":  "pi",
+                      "kind":  "builtin",
+                      "detail":  "pi(digits)"
+                  },
+                  {
+                      "label":  "plot",
+                      "kind":  "builtin",
+                      "detail":  "plot(x, y, title)"
+                  },
+                  {
+                      "label":  "powerseries",
+                      "kind":  "builtin",
+                      "detail":  "powerseries(k, a, n)"
+                  },
+                  {
+                      "label":  "print",
+                      "kind":  "builtin",
+                      "detail":  "print(values)"
+                  },
+                  {
+                      "label":  "prod",
+                      "kind":  "builtin",
+                      "detail":  "prod(a, axis)"
+                  },
+                  {
+                      "label":  "rank",
+                      "kind":  "builtin",
+                      "detail":  "rank(a)"
+                  },
+                  {
+                      "label":  "rational",
+                      "kind":  "builtin",
+                      "detail":  "rational()"
+                  },
+                  {
+                      "label":  "re",
+                      "kind":  "builtin",
+                      "detail":  "re(x)"
+                  },
+                  {
+                      "label":  "real",
+                      "kind":  "builtin",
+                      "detail":  "real()"
+                  },
+                  {
+                      "label":  "reshape",
+                      "kind":  "builtin",
+                      "detail":  "reshape(a, dims)"
+                  },
+                  {
+                      "label":  "scale",
+                      "kind":  "builtin",
+                      "detail":  "scale(x, c)"
+                  },
+                  {
+                      "label":  "series",
+                      "kind":  "builtin",
+                      "detail":  "series(f, x, x0, order)"
+                  },
+                  {
+                      "label":  "setprecision",
+                      "kind":  "builtin",
+                      "detail":  "setprecision(digits)"
+                  },
+                  {
+                      "label":  "shape",
+                      "kind":  "builtin",
+                      "detail":  "shape(a)"
+                  },
+                  {
+                      "label":  "sign",
+                      "kind":  "builtin",
+                      "detail":  "sign(x)"
+                  },
+                  {
+                      "label":  "simplify",
+                      "kind":  "builtin",
+                      "detail":  "simplify(f)"
+                  },
+                  {
+                      "label":  "simplify_full",
+                      "kind":  "builtin",
+                      "detail":  "simplify_full(f)"
+                  },
+                  {
+                      "label":  "sin",
+                      "kind":  "builtin",
+                      "detail":  "sin(x)"
+                  },
+                  {
+                      "label":  "sinh",
+                      "kind":  "builtin",
+                      "detail":  "sinh(x)"
+                  },
+                  {
+                      "label":  "solve",
+                      "kind":  "builtin",
+                      "detail":  "solve(f, x, domain)"
+                  },
+                  {
+                      "label":  "solve_full",
+                      "kind":  "builtin",
+                      "detail":  "solve_full(f, x, domain)"
+                  },
+                  {
+                      "label":  "solve_system",
+                      "kind":  "builtin",
+                      "detail":  "solve_system(eqs, vars)"
+                  },
+                  {
+                      "label":  "solve_system_full",
+                      "kind":  "builtin",
+                      "detail":  "solve_system_full(eqs, vars)"
+                  },
+                  {
+                      "label":  "sqrt",
+                      "kind":  "builtin",
+                      "detail":  "sqrt(x)"
+                  },
+                  {
+                      "label":  "squeeze",
+                      "kind":  "builtin",
+                      "detail":  "squeeze(a)"
+                  },
+                  {
+                      "label":  "step",
+                      "kind":  "builtin",
+                      "detail":  "step(n)"
+                  },
+                  {
+                      "label":  "subs",
+                      "kind":  "builtin",
+                      "detail":  "subs(f, x, value)"
+                  },
+                  {
+                      "label":  "sum",
+                      "kind":  "builtin",
+                      "detail":  "sum(a, axis)"
+                  },
+                  {
+                      "label":  "symbol",
+                      "kind":  "builtin",
+                      "detail":  "symbol(name, domain)"
+                  },
+                  {
+                      "label":  "tan",
+                      "kind":  "builtin",
+                      "detail":  "tan(x)"
+                  },
+                  {
+                      "label":  "tanh",
+                      "kind":  "builtin",
+                      "detail":  "tanh(x)"
+                  },
+                  {
+                      "label":  "trace",
+                      "kind":  "builtin",
+                      "detail":  "trace(m)"
+                  },
+                  {
+                      "label":  "transpose",
+                      "kind":  "builtin",
+                      "detail":  "transpose(a, perm)"
+                  },
+                  {
+                      "label":  "type",
+                      "kind":  "builtin",
+                      "detail":  "type(x)"
+                  },
+                  {
+                      "label":  "zeros",
+                      "kind":  "builtin",
+                      "detail":  "zeros(dims)"
+                  }
+              ]
+}

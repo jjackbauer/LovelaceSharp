@@ -1,20 +1,158 @@
 {
     "schema":  1,
-    "generated_at":  "2026-11-12T08:37:35.2079371-03:00",
+    "mode":  "readiness",
+    "generated_at":  "2026-11-12T08:58:14.0834571-03:00",
     "verdict":  "FAIL",
     "provenance":  {
-                       "head_sha":  "fad305c1852be469f2bc365f7ae5948b76b97bcb",
-                       "dirty_paths":  11,
-                       "toolchain":  "fad305c1852be469f2bc365f7ae5948b76b97bcb"
+                       "head_sha":  "420000f6ad5e7d5124b149e322b940e2fc1e41c0",
+                       "dirty_paths":  20
                    },
     "p0_total":  171,
     "p0_pass":  0,
     "p0_fail":  0,
-    "p0_not_tested":  171,
-    "p0_blocked":  0,
+    "p0_not_tested":  170,
+    "p0_blocked":  1,
     "p0_deviation":  0,
+    "p0_waived":  1,
     "journeys_pass":  0,
     "journeys_total":  22,
+    "dimensions_met":  0,
+    "dimensions_total":  19,
+    "dimensions":  [
+                       {
+                           "id":  "D01",
+                           "group":  "CON",
+                           "pass":  0,
+                           "total":  9,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D02",
+                           "group":  "ARC",
+                           "pass":  0,
+                           "total":  10,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D03",
+                           "group":  "VIS",
+                           "pass":  0,
+                           "total":  11,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D04",
+                           "group":  "LAY",
+                           "pass":  0,
+                           "total":  7,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D05",
+                           "group":  "EDT",
+                           "pass":  0,
+                           "total":  15,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D06",
+                           "group":  "DOC",
+                           "pass":  0,
+                           "total":  10,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D07",
+                           "group":  "RUN",
+                           "pass":  0,
+                           "total":  18,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D08",
+                           "group":  "INC",
+                           "pass":  0,
+                           "total":  9,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D09",
+                           "group":  "WKS",
+                           "pass":  0,
+                           "total":  6,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D10",
+                           "group":  "RES",
+                           "pass":  0,
+                           "total":  7,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D11",
+                           "group":  "SYM",
+                           "pass":  0,
+                           "total":  9,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D12",
+                           "group":  "PLT",
+                           "pass":  0,
+                           "total":  10,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D13",
+                           "group":  "LOG",
+                           "pass":  0,
+                           "total":  7,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D14",
+                           "group":  "A11Y",
+                           "pass":  0,
+                           "total":  10,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D15",
+                           "group":  "PLF",
+                           "pass":  0,
+                           "total":  8,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D16",
+                           "group":  "PERF",
+                           "pass":  0,
+                           "total":  9,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D17",
+                           "group":  "TST",
+                           "pass":  0,
+                           "total":  16,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D18",
+                           "group":  "JOURNEYS",
+                           "pass":  0,
+                           "total":  22,
+                           "met":  false
+                       },
+                       {
+                           "id":  "D19",
+                           "group":  "EVIDENCE",
+                           "pass":  0,
+                           "total":  3,
+                           "met":  false
+                       }
+                   ],
     "problems":  [
                      "CON-001: P0 status NOT_TESTED",
                      "CON-002: P0 status NOT_TESTED",
@@ -182,7 +320,6 @@
                      "TST-009: P0 status NOT_TESTED",
                      "TST-010: P0 status NOT_TESTED",
                      "TST-011: P0 status NOT_TESTED",
-                     "TST-012: P0 status NOT_TESTED",
                      "TST-014: P0 status NOT_TESTED",
                      "TST-015: P0 status NOT_TESTED",
                      "TST-016: P0 status NOT_TESTED",
@@ -208,7 +345,6 @@
                      "J-19: journey status NOT_TESTED",
                      "J-20: journey status NOT_TESTED",
                      "J-21: journey status NOT_TESTED",
-                     "J-22: journey status NOT_TESTED",
-                     "working tree is dirty (11 paths); release evidence must come from a clean commit"
+                     "J-22: journey status NOT_TESTED"
                  ]
 }

@@ -1,0 +1,65 @@
+﻿UIA pid=22792 window=Lovelace Desktop Spike - eframe/egui 0.37
+root | Lovelace Desktop Spike - eframe/egui 0.37 | ControlType.Window
+Pane |  | id= | focusable=False | enabled=True
+  Text | Lovelace Desktop Spike | id= | focusable=False | enabled=True
+  Text | eframe/egui 0.37 | id= | focusable=False | enabled=True
+  Button | Run | id= | focusable=True | enabled=True
+  Button | Cancel | id= | focusable=True | enabled=True
+  Text | Zoom | id= | focusable=False | enabled=True
+  Button | 1.0x | id= | focusable=True | enabled=True
+  Button | 1.5x | id= | focusable=True | enabled=True
+  Button | 2.0x | id= | focusable=True | enabled=True
+  Text | ppp 1.00 | id= | focusable=False | enabled=True
+  Text | Quick eval (IME field): | id= | focusable=False | enabled=True
+  Text | expression | id= | focusable=False | enabled=True
+  Edit | expression | id= | focusable=True | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Button | script.lv | id= | focusable=True | enabled=True
+  Button | analysis.lv | id= | focusable=True | enabled=True
+  Text | 5000 lines / 504999 bytes | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Text | Ln 1, Col 9 | id= | focusable=False | enabled=True
+  Text | 5000 lines / 504999 bytes | id= | focusable=False | enabled=True
+  Text | visible rows 32 / laid out 31 | id= | focusable=False | enabled=True
+  Text | IME events: 0 | id= | focusable=False | enabled=True
+  Text | zoom 1.00x  ppp 1.00 | id= | focusable=False | enabled=True
+  Text | editor 501px  plot 501px  logs 128px | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Pane | Editor - script.lv | id= | focusable=False | enabled=True
+    Text | script.lv | id= | focusable=False | enabled=True
+    Text | 5000 lines / 504999 bytes | id= | focusable=False | enabled=True
+    Edit | Script editor, 5000 lines, caret line 1 column 9 | id= | focusable=True | enabled=True
+  Pane | Plot - engine SVG | id= | focusable=False | enabled=True
+    Button | Fit | id= | focusable=True | enabled=True
+    Button | 1.0x | id= | focusable=True | enabled=True
+    Button | 1.5x | id= | focusable=True | enabled=True
+    Button | 2.0x | id= | focusable=True | enabled=True
+    Button | Load malformed SVG | id= | focusable=True | enabled=True
+    Text | raster 640x400 @ 1.00x - 5.88 ms raster, 0.34 ms upload (zoom 1.00x) | id= | focusable=False | enabled=True
+    Image | SVG plot canvas, 640 by 400 points, zoom 1.00 | id= | focusable=True | enabled=True
+  Pane | Workspace | id= | focusable=False | enabled=True
+    Text | Filter | id= | focusable=False | enabled=True
+    Edit | Filter | id= | focusable=True | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | 3.14159 | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | 3*x^2 + 4*x | id= | focusable=False | enabled=True
+    Text | g | id= | focusable=False | enabled=True
+    Text | (3*x^2 + 4*x) / 7 | id= | focusable=False | enabled=True
+    Text | h | id= | focusable=False | enabled=True
+    Text | 0.428571428571 | id= | focusable=False | enabled=True
+    Text | m | id= | focusable=False | enabled=True
+    Text | 3x3 matrix | id= | focusable=False | enabled=True
+    Text | d | id= | focusable=False | enabled=True
+    Text | -3.0 | id= | focusable=False | enabled=True
+    Text | precision | id= | focusable=False | enabled=True
+    Text | 1000 digits | id= | focusable=False | enabled=True
+    Text | session | id= | focusable=False | enabled=True
+    Text | spike-1 | id= | focusable=False | enabled=True
+    Button | Clear variables | id= | focusable=True | enabled=True
+  Pane | Logs | id= | focusable=False | enabled=True
+    Button | Clear logs | id= | focusable=True | enabled=True
+    Text | IME events: 0 | id= | focusable=False | enabled=True
+  Separator | Editor / plot splitter | id= | focusable=True | enabled=True
+  Separator | Plot / workspace splitter | id= | focusable=True | enabled=True
+  Separator | Plot / logs splitter | id= | focusable=True | enabled=True

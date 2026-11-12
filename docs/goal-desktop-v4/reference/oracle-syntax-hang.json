@@ -1,0 +1,174 @@
+﻿{
+    "captured_at":  "2026-11-12T09:04:00.3563745-03:00",
+    "oracle":  "http://localhost:5000",
+    "session":  "fad74c75e09a4e88952f75f64deaec45",
+    "source":  "w = (1 + \n",
+    "accepted":  {
+                     "runId":  "1df28349b63c480bac3709c403aecab4",
+                     "sessionId":  "fad74c75e09a4e88952f75f64deaec45"
+                 },
+    "polls":  [
+                  {
+                      "t":  0,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  1,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  2,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  3,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  4,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  5,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  6,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  7,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  8,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  9,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  10,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  11,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  12,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  13,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  14,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  15,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  16,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  17,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  18,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  19,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  20,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  21,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  22,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  23,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  24,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  25,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  26,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  27,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  28,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  29,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  30,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  31,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  32,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  33,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  34,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  35,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  36,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  37,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  38,
+                      "status":  "queued"
+                  },
+                  {
+                      "t":  39,
+                      "status":  "queued"
+                  }
+              ],
+    "observed_final_status":  "queued",
+    "note":  "A malformed script never reaches a terminal run state; the client would poll forever and the session lock stays held."
+}

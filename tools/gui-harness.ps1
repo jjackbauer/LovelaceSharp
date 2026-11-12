@@ -1,0 +1,205 @@
+<#
+.SYNOPSIS
+  Real-window GUI harness for Lovelace Desktop acceptance evidence.
+
+.DESCRIPTION
+  Launches a native window, waits for it, captures a PNG of its client area, dumps its UI Automation
+  tree, invokes controls by their accessible name, sends keystrokes, and closes it. Every action
+  appends a line to a driver log so the artifact bundle is reproducible and can be attached to the
+  gate as `gui` evidence.
+
+  Windows PowerShell 5.1 compatible. ASCII-only source on purpose: PS 5.1 reads .ps1 as ANSI when a
+  BOM is absent, and a non-ASCII literal would corrupt the parser.
+
+.EXAMPLE
+  powershell -File tools/gui-harness.ps1 -Action launch -Exe path\to\app.exe -OutDir out -Log out\driver.log
+  powershell -File tools/gui-harness.ps1 -Action capture -ProcessId 1234 -OutDir out -Name shot -Log out\driver.log
+  powershell -File tools/gui-harness.ps1 -Action uia -ProcessId 1234 -OutDir out -Log out\driver.log
+  powershell -File tools/gui-harness.ps1 -Action click -ProcessId 1234 -Name "Run" -Log out\driver.log
+  powershell -File tools/gui-harness.ps1 -Action keys -ProcessId 1234 -Keys "^a" -Log out\driver.log
+  powershell -File tools/gui-harness.ps1 -Action close -ProcessId 1234 -Log out\driver.log
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state')]
+    [string]$Action,
+    [string]$Exe = '',
+    [string[]]$Arguments = @(),
+    [int]$ProcessId = 0,
+    [string]$Title = '',
+    [string]$Name = '',
+    [string]$Keys = '',
+    [string]$OutDir = '',
+    [string]$Log = '',
+    [int]$TimeoutSec = 30
+)
+
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Drawing, System.Windows.Forms, UIAutomationClient, UIAutomationTypes
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public struct GuiRect { public int Left; public int Top; public int Right; public int Bottom; }
+public static class GuiNative {
+  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out GuiRect rect);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hWnd, out GuiRect rect);
+  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref GuiRect point);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr hWnd);
+}
+"@
+
+function Write-Log([string]$line) {
+    $stamp = (Get-Date).ToString('HH:mm:ss.fff')
+    $text = "$stamp $line"
+    Write-Output $text
+    if ($Log) {
+        $dir = Split-Path $Log -Parent
+        if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+        Add-Content -LiteralPath $Log -Value $text -Encoding UTF8
+    }
+}
+
+function Get-AppProcess {
+    if ($ProcessId -eq 0) { throw 'no -ProcessId given' }
+    $p = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $p) { throw "process $ProcessId is not running" }
+    return $p
+}
+
+function Get-MainHandle {
+    $p = Get-AppProcess
+    for ($i = 0; $i -lt ($TimeoutSec * 10); $i++) {
+        $p.Refresh()
+        if ($p.MainWindowHandle -ne 0 -and $p.MainWindowTitle) { return $p.MainWindowHandle }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "no main window appeared within $TimeoutSec s (title filter '$Title')"
+}
+
+function Find-ByTitle([string]$substr) {
+    $procs = Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*$substr*" }
+    if (-not $procs) { throw "no window whose title contains '$substr'" }
+    return @($procs)[0]
+}
+
+switch ($Action) {
+    'launch' {
+        if ($Exe -eq '') { throw 'launch needs -Exe' }
+        if (-not (Test-Path -LiteralPath $Exe)) { throw "exe not found: $Exe" }
+        $p = if ($Arguments.Count -gt 0) { Start-Process -FilePath $Exe -ArgumentList $Arguments -PassThru } else { Start-Process -FilePath $Exe -PassThru }
+        Write-Log "launch pid=$($p.Id) exe=$Exe args=$($Arguments -join ' ')"
+        Write-Output "PROCESS_ID=$($p.Id)"
+        break
+    }
+    'wait' {
+        $p = if ($ProcessId -ne 0) { Get-AppProcess } else { Find-ByTitle $Title }
+        $h = if ($ProcessId -ne 0) { Get-MainHandle } else { [IntPtr]$p.MainWindowHandle }
+        Write-Log "wait pid=$($p.Id) hwnd=$h title=$($p.MainWindowTitle)"
+        Write-Output "HWND=$h"
+        break
+    }
+    'state' {
+        $p = Get-AppProcess
+        $p.Refresh()
+        $hung = if ($p.MainWindowHandle -ne 0) { [GuiNative]::IsHungAppWindow($p.MainWindowHandle) } else { $false }
+        $responding = $p.Responding
+        Write-Log "state pid=$($p.Id) hwnd=$($p.MainWindowHandle) responding=$responding hung=$hung cpu=$([math]::Round($p.TotalProcessorTime.TotalMilliseconds))ms ws=$([math]::Round($p.WorkingSet64/1MB))MB"
+        Write-Output "RESPONDING=$responding HUNG=$hung WINDOW=$($p.MainWindowHandle) TITLE=$($p.MainWindowTitle)"
+        break
+    }
+    'capture' {
+        $p = Get-AppProcess
+        $h = if ($Title -ne '') { [IntPtr](Find-ByTitle $Title).MainWindowHandle } else { (Get-AppProcess) | ForEach-Object { $_.Refresh(); $_.MainWindowHandle } }
+        if ($Title -ne '') { $h = [IntPtr](Find-ByTitle $Title).MainWindowHandle } else { $h = [IntPtr]$h }
+        if ($h -eq [IntPtr]::Zero) { throw 'no window handle' }
+        [GuiNative]::SetForegroundWindow($h) | Out-Null
+        Start-Sleep -Milliseconds 250
+        $r = New-Object GuiRect
+        [GuiNative]::GetWindowRect($h, [ref]$r) | Out-Null
+        $w = $r.Right - $r.Left; $ht = $r.Bottom - $r.Top
+        if ($w -le 0 -or $ht -le 0) { throw "bad window rect ${w}x${ht}" }
+        $bmp = New-Object System.Drawing.Bitmap($w, $ht)
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size($w, $ht)))
+        if (-not $OutDir) { $OutDir = '.' }
+        New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+        $name = if ($Name) { $Name } else { "window-$((Get-Date).ToString('HHmmss'))" }
+        $path = Join-Path $OutDir "$name.png"
+        $bmp.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+        $g.Dispose(); $bmp.Dispose()
+        Write-Log "capture pid=$($p.Id) hwnd=$h rect=${w}x${ht} file=$path bytes=$((Get-Item $path).Length)"
+        Write-Output "CAPTURE=$path SIZE=${w}x${ht}"
+        break
+    }
+    'uia' {
+        $p = Get-AppProcess
+        $p.Refresh()
+        $h = [IntPtr]$p.MainWindowHandle
+        if ($h -eq [IntPtr]::Zero) { throw 'no window handle' }
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+        $walker = [System.Windows.Automation.TreeWalker]::RawViewWalker
+        $lines = New-Object System.Collections.Generic.List[string]
+        $lines.Add("UIA pid=$($p.Id) window=$($p.MainWindowTitle)")
+        $script:nodes = 0
+        function Walk($el, $depth) {
+            if ($depth -gt 8) { return }
+            $c = $walker.GetFirstChild($el)
+            while ($c) {
+                $n = $c.Current
+                $type = $n.ControlType.ProgrammaticName.Replace('ControlType.', '')
+                $lines.Add(('  ' * $depth) + "$type | $($n.Name) | id=$($n.AutomationId) | focusable=$($n.IsKeyboardFocusable) | enabled=$($n.IsEnabled)")
+                $script:nodes++
+                Walk $c ($depth + 1)
+                $c = $walker.GetNextSibling($c)
+            }
+        }
+        $lines.Add("root | $($root.Current.Name) | $($root.Current.ControlType.ProgrammaticName)")
+        Walk $root 0
+        if (-not $OutDir) { $OutDir = '.' }
+        New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+        $path = Join-Path $OutDir 'uia-tree.txt'
+        $lines | Set-Content -LiteralPath $path -Encoding UTF8
+        Write-Log "uia pid=$($p.Id) hwnd=$h nodes=$script:nodes file=$path"
+        Write-Output "UIA=$path NODES=$script:nodes"
+        break
+    }
+    'click' {
+        if ($Name -eq '') { throw 'click needs -Name' }
+        $p = Get-AppProcess
+        $p.Refresh()
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$p.MainWindowHandle)
+        $cond = New-Object System.Windows.Automation.AndCondition(
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty, $Name)),
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsEnabledProperty, $true))
+        )
+        $el = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
+        if (-not $el) { throw "no enabled element named '$Name'" }
+        $pattern = $el.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+        $pattern.Invoke()
+        Write-Log "click pid=$($p.Id) name=$Name type=$($el.Current.ControlType.ProgrammaticName)"
+        Write-Output "CLICKED=$Name"
+        break
+    }
+    'keys' {
+        if ($Keys -eq '') { throw 'keys needs -Keys' }
+        $p = Get-AppProcess
+        $p.Refresh()
+        [GuiNative]::SetForegroundWindow([IntPtr]$p.MainWindowHandle) | Out-Null
+        Start-Sleep -Milliseconds 150
+        [System.Windows.Forms.SendKeys]::SendWait($Keys)
+        Write-Log "keys pid=$($p.Id) keys=$Keys"
+        Write-Output "SENT=$Keys"
+        break
+    }
+    'close' {
+        $p = Get-AppProcess
+        $p.CloseMainWindow() | Out-Null
+        $exited = $p.WaitForExit(5000)
+        if (-not $exited) { Stop-Process -Id $p.Id -Force; Write-Log "close pid=$($p.Id) forced" }
+        else { Write-Log "close pid=$($p.Id) graceful" }
+        break
+    }
+}

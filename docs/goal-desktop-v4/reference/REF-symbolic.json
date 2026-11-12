@@ -1,0 +1,1436 @@
+﻿{
+    "id":  "REF-symbolic",
+    "captured_at":  "2026-11-12T09:03:42.0976187-03:00",
+    "session":  "6ae43aac06594904a1e041cd473a1cdb",
+    "oracle":  "http://localhost:5000",
+    "timed_out":  false,
+    "steps":  [
+                  {
+                      "kind":  "run",
+                      "source":  "x = symbol(\"x\")\nf = diff(x^3 + 2*x, x)\nsimplify(f)\n",
+                      "accepted":  {
+                                       "runId":  "a29bb29332b94bf78dbb0b79f9ee456e",
+                                       "sessionId":  "6ae43aac06594904a1e041cd473a1cdb"
+                                   },
+                      "final":  {
+                                    "status":  "finished",
+                                    "totalStatements":  3,
+                                    "completedStatements":  3,
+                                    "reusedCount":  0,
+                                    "currentIndex":  2,
+                                    "currentLabel":  "simplify(f);",
+                                    "subProgress":  null,
+                                    "subLabel":  null,
+                                    "response":  {
+                                                     "result":  {
+                                                                    "kind":  "Symbolic",
+                                                                    "display":  "3*x^2 + 2",
+                                                                    "typed":  "3*x^2 + 2 (Symbolic)",
+                                                                    "structured":  {
+                                                                                       "kind":  "Symbolic",
+                                                                                       "type":  null,
+                                                                                       "value":  null,
+                                                                                       "pretty":  "3*x^2 + 2",
+                                                                                       "canonical":  "(add (rat 2 1) (mul (rat 3 1) (pow (sym x) (rat 2 1))))",
+                                                                                       "domain":  "complex",
+                                                                                       "exact":  true,
+                                                                                       "nodeCount":  7,
+                                                                                       "freeSymbols":  [
+                                                                                                           "x"
+                                                                                                       ],
+                                                                                       "re":  null,
+                                                                                       "im":  null,
+                                                                                       "shape":  null,
+                                                                                       "elements":  null,
+                                                                                       "fields":  null,
+                                                                                       "truncated":  null,
+                                                                                       "truncationReason":  null,
+                                                                                       "budget":  null,
+                                                                                       "numerator":  null,
+                                                                                       "denominator":  null
+                                                                                   },
+                                                                    "typeName":  null
+                                                                },
+                                                     "variables":  [
+                                                                       {
+                                                                           "name":  "_",
+                                                                           "kind":  "Symbolic",
+                                                                           "display":  "3*x^2 + 2",
+                                                                           "structured":  {
+                                                                                              "kind":  "Symbolic",
+                                                                                              "type":  null,
+                                                                                              "value":  null,
+                                                                                              "pretty":  "3*x^2 + 2",
+                                                                                              "canonical":  "(add (rat 2 1) (mul (rat 3 1) (pow (sym x) (rat 2 1))))",
+                                                                                              "domain":  "complex",
+                                                                                              "exact":  true,
+                                                                                              "nodeCount":  7,
+                                                                                              "freeSymbols":  [
+                                                                                                                  "x"
+                                                                                                              ],
+                                                                                              "re":  null,
+                                                                                              "im":  null,
+                                                                                              "shape":  null,
+                                                                                              "elements":  null,
+                                                                                              "fields":  null,
+                                                                                              "truncated":  null,
+                                                                                              "truncationReason":  null,
+                                                                                              "budget":  null,
+                                                                                              "numerator":  null,
+                                                                                              "denominator":  null
+                                                                                          },
+                                                                           "typeName":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "f",
+                                                                           "kind":  "Symbolic",
+                                                                           "display":  "3*x^2 + 2",
+                                                                           "structured":  {
+                                                                                              "kind":  "Symbolic",
+                                                                                              "type":  null,
+                                                                                              "value":  null,
+                                                                                              "pretty":  "3*x^2 + 2",
+                                                                                              "canonical":  "(add (rat 2 1) (mul (rat 3 1) (pow (sym x) (rat 2 1))))",
+                                                                                              "domain":  "complex",
+                                                                                              "exact":  true,
+                                                                                              "nodeCount":  7,
+                                                                                              "freeSymbols":  [
+                                                                                                                  "x"
+                                                                                                              ],
+                                                                                              "re":  null,
+                                                                                              "im":  null,
+                                                                                              "shape":  null,
+                                                                                              "elements":  null,
+                                                                                              "fields":  null,
+                                                                                              "truncated":  null,
+                                                                                              "truncationReason":  null,
+                                                                                              "budget":  null,
+                                                                                              "numerator":  null,
+                                                                                              "denominator":  null
+                                                                                          },
+                                                                           "typeName":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "x",
+                                                                           "kind":  "Symbolic",
+                                                                           "display":  "x",
+                                                                           "structured":  {
+                                                                                              "kind":  "Symbolic",
+                                                                                              "type":  null,
+                                                                                              "value":  null,
+                                                                                              "pretty":  "x",
+                                                                                              "canonical":  "(sym x)",
+                                                                                              "domain":  "complex",
+                                                                                              "exact":  true,
+                                                                                              "nodeCount":  1,
+                                                                                              "freeSymbols":  [
+                                                                                                                  "x"
+                                                                                                              ],
+                                                                                              "re":  null,
+                                                                                              "im":  null,
+                                                                                              "shape":  null,
+                                                                                              "elements":  null,
+                                                                                              "fields":  null,
+                                                                                              "truncated":  null,
+                                                                                              "truncationReason":  null,
+                                                                                              "budget":  null,
+                                                                                              "numerator":  null,
+                                                                                              "denominator":  null
+                                                                                          },
+                                                                           "typeName":  null
+                                                                       }
+                                                                   ],
+                                                     "functions":  [
+                                                                       {
+                                                                           "name":  "abs",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "acos",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "acosh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "and",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "apart",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "append",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "asin",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "asinh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume",
+                                                                           "parameters":  [
+                                                                                              "relation"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_clear",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_integer",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_negative",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_nonnegative",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_positive",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assume_real",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "assumptions",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "atan",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "atanh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cancel",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cancel_full",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "capabilities",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "collect",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "compile",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "params"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.MathIR"
+                                                                       },
+                                                                       {
+                                                                           "name":  "compile_full",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "params"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.MathIR"
+                                                                       },
+                                                                       {
+                                                                           "name":  "complex",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "concat",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "conj",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "conv",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "h"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cos",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cosh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cosine",
+                                                                           "parameters":  [
+                                                                                              "freq",
+                                                                                              "phase",
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "cross",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "delay",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "k"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "det",
+                                                                           "parameters":  [
+                                                                                              "m"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "dft",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "diff",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "divrem",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "dot",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "e",
+                                                                           "parameters":  [
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "evalf",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "evalir",
+                                                                           "parameters":  [
+                                                                                              "ir",
+                                                                                              "values",
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.MathIR"
+                                                                       },
+                                                                       {
+                                                                           "name":  "evalir_batch",
+                                                                           "parameters":  [
+                                                                                              "ir",
+                                                                                              "values",
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.MathIR"
+                                                                       },
+                                                                       {
+                                                                           "name":  "exp",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "expand",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "exponential",
+                                                                           "parameters":  [
+                                                                                              "c",
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "eye",
+                                                                           "parameters":  [
+                                                                                              "rows",
+                                                                                              "cols"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "factor",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "fft",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "filter",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "flatten",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "hessian",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "vars"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "im",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "impulse",
+                                                                           "parameters":  [
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "inf",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "inspect",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "integer",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "integrate",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "integrate_full",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "inv",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "inv_full",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "is_even",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "is_odd",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "jacobian",
+                                                                           "parameters":  [
+                                                                                              "fs",
+                                                                                              "vars"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "latex",
+                                                                           "parameters":  [
+                                                                                              "expr"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "len",
+                                                                           "parameters":  [
+                                                                                              "v"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "limit",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "x0"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "limit_full",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "x0"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "limit_left",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "x0"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "limit_right",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "x0"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "linsolve",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "linsolve_full",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "log",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "lower",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "params"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.MathIR"
+                                                                       },
+                                                                       {
+                                                                           "name":  "matmul",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "matrix_rank",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "max",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "mean",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "min",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "movingavg",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "w"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "ndims",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "noise",
+                                                                           "parameters":  [
+                                                                                              "scale",
+                                                                                              "disp",
+                                                                                              "n",
+                                                                                              "seed"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "norm",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "not",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "numel",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "ones",
+                                                                           "parameters":  [
+                                                                                              "dims"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "optimize",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "params"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "optimize_full",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "params"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "or",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "b"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "pi",
+                                                                           "parameters":  [
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "plot",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "y",
+                                                                                              "title"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "powerseries",
+                                                                           "parameters":  [
+                                                                                              "k",
+                                                                                              "a",
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "print",
+                                                                           "parameters":  [
+                                                                                              "values"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "prod",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "rank",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "rational",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "re",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "real",
+                                                                           "parameters":  [
+
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "reshape",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "dims"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "scale",
+                                                                           "parameters":  [
+                                                                                              "x",
+                                                                                              "c"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "series",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "x0",
+                                                                                              "order"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "setprecision",
+                                                                           "parameters":  [
+                                                                                              "digits"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "shape",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "sign",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "simplify",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "simplify_full",
+                                                                           "parameters":  [
+                                                                                              "f"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "sin",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "sinh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "solve",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "domain"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "solve_full",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "domain"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "solve_system",
+                                                                           "parameters":  [
+                                                                                              "eqs",
+                                                                                              "vars"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "solve_system_full",
+                                                                           "parameters":  [
+                                                                                              "eqs",
+                                                                                              "vars"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "sqrt",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "squeeze",
+                                                                           "parameters":  [
+                                                                                              "a"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "step",
+                                                                           "parameters":  [
+                                                                                              "n"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Dsp"
+                                                                       },
+                                                                       {
+                                                                           "name":  "subs",
+                                                                           "parameters":  [
+                                                                                              "f",
+                                                                                              "x",
+                                                                                              "value"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "sum",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "axis"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "symbol",
+                                                                           "parameters":  [
+                                                                                              "name",
+                                                                                              "domain"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "tan",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "tanh",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  "Lovelace.Symbolics"
+                                                                       },
+                                                                       {
+                                                                           "name":  "trace",
+                                                                           "parameters":  [
+                                                                                              "m"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "transpose",
+                                                                           "parameters":  [
+                                                                                              "a",
+                                                                                              "perm"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "type",
+                                                                           "parameters":  [
+                                                                                              "x"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       },
+                                                                       {
+                                                                           "name":  "zeros",
+                                                                           "parameters":  [
+                                                                                              "dims"
+                                                                                          ],
+                                                                           "isBuiltin":  true,
+                                                                           "span":  null,
+                                                                           "plugin":  null
+                                                                       }
+                                                                   ],
+                                                     "logs":  [
+
+                                                              ],
+                                                     "plot":  null,
+                                                     "diagnostics":  [
+
+                                                                     ],
+                                                     "revision":  85,
+                                                     "elapsed":  "565.2 µs",
+                                                     "timings":  [
+                                                                     {
+                                                                         "line":  1,
+                                                                         "text":  "x = symbol(\"x\")",
+                                                                         "result":  "x",
+                                                                         "output":  null,
+                                                                         "elapsed":  "57.7 µs",
+                                                                         "mode":  "compute",
+                                                                         "structured":  {
+                                                                                            "kind":  "Symbolic",
+                                                                                            "type":  null,
+                                                                                            "value":  null,
+                                                                                            "pretty":  "x",
+                                                                                            "canonical":  "(sym x)",
+                                                                                            "domain":  "complex",
+                                                                                            "exact":  true,
+                                                                                            "nodeCount":  1,
+                                                                                            "freeSymbols":  [
+                                                                                                                "x"
+                                                                                                            ],
+                                                                                            "re":  null,
+                                                                                            "im":  null,
+                                                                                            "shape":  null,
+                                                                                            "elements":  null,
+                                                                                            "fields":  null,
+                                                                                            "truncated":  null,
+                                                                                            "truncationReason":  null,
+                                                                                            "budget":  null,
+                                                                                            "numerator":  null,
+                                                                                            "denominator":  null
+                                                                                        }
+                                                                     },
+                                                                     {
+                                                                         "line":  2,
+                                                                         "text":  "f = diff(x^3 + 2*x, x)",
+                                                                         "result":  "3*x^2 + 2",
+                                                                         "output":  null,
+                                                                         "elapsed":  "182 µs",
+                                                                         "mode":  "compute",
+                                                                         "structured":  {
+                                                                                            "kind":  "Symbolic",
+                                                                                            "type":  null,
+                                                                                            "value":  null,
+                                                                                            "pretty":  "3*x^2 + 2",
+                                                                                            "canonical":  "(add (rat 2 1) (mul (rat 3 1) (pow (sym x) (rat 2 1))))",
+                                                                                            "domain":  "complex",
+                                                                                            "exact":  true,
+                                                                                            "nodeCount":  7,
+                                                                                            "freeSymbols":  [
+                                                                                                                "x"
+                                                                                                            ],
+                                                                                            "re":  null,
+                                                                                            "im":  null,
+                                                                                            "shape":  null,
+                                                                                            "elements":  null,
+                                                                                            "fields":  null,
+                                                                                            "truncated":  null,
+                                                                                            "truncationReason":  null,
+                                                                                            "budget":  null,
+                                                                                            "numerator":  null,
+                                                                                            "denominator":  null
+                                                                                        }
+                                                                     },
+                                                                     {
+                                                                         "line":  3,
+                                                                         "text":  "simplify(f)",
+                                                                         "result":  "3*x^2 + 2",
+                                                                         "output":  null,
+                                                                         "elapsed":  "162.9 µs",
+                                                                         "mode":  "compute",
+                                                                         "structured":  {
+                                                                                            "kind":  "Symbolic",
+                                                                                            "type":  null,
+                                                                                            "value":  null,
+                                                                                            "pretty":  "3*x^2 + 2",
+                                                                                            "canonical":  "(add (rat 2 1) (mul (rat 3 1) (pow (sym x) (rat 2 1))))",
+                                                                                            "domain":  "complex",
+                                                                                            "exact":  true,
+                                                                                            "nodeCount":  7,
+                                                                                            "freeSymbols":  [
+                                                                                                                "x"
+                                                                                                            ],
+                                                                                            "re":  null,
+                                                                                            "im":  null,
+                                                                                            "shape":  null,
+                                                                                            "elements":  null,
+                                                                                            "fields":  null,
+                                                                                            "truncated":  null,
+                                                                                            "truncationReason":  null,
+                                                                                            "budget":  null,
+                                                                                            "numerator":  null,
+                                                                                            "denominator":  null
+                                                                                        }
+                                                                     }
+                                                                 ],
+                                                     "reusedCount":  0,
+                                                     "precision":  1000
+                                                 }
+                                }
+                  }
+              ]
+}

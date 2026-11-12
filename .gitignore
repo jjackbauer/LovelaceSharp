@@ -83,3 +83,8 @@ parity/.tmp/
 parity/diff/runs/
 parity/build/
 
+
+# Rust spike build outputs (desktop v4 ARC-001)
+rust/target-spike/
+rust/target-desktop/
+

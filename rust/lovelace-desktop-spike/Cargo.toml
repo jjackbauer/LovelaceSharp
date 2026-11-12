@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "lovelace-desktop-spike"
 version = "0.1.0"
 edition = "2024"
@@ -12,7 +12,6 @@ publish = false
 eframe = "0.37"
 egui = "0.37"
 resvg = "0.50"
-tiny-skia = "0.12"
 
 # Bench numbers are reported from this dev profile, so keep it optimized.
 # `cargo build` (debug) is the exact command in the report; opt-level 2 means the
@@ -20,3 +19,4 @@ tiny-skia = "0.12"
 [profile.dev]
 opt-level = 2
 debug = false
+
