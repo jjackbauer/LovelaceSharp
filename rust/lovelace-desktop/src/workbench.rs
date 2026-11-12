@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::completion::{self, CompletionItem};
+use crate::document_io::{self, LoadedFile, NewlineStyle};
 use crate::engine::{self, DEFAULT_PRECISION, EngineState, PlotCapture};
 use crate::execution::{
     DesktopEvent, Diagnostic, DocumentId, EvaluatorFactory, EventSink, ExecutionHost, RunHandle,
@@ -48,6 +49,33 @@ a = 2
 b = a + 10
 b
 ";
+
+/// The tab title a document with no file yet carries.
+pub const UNTITLED_TITLE: &str = "untitled.lv";
+
+/// The result of writing a document to disk.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SaveOutcome {
+    /// The bytes were written: `path` is where, and `bytes` how many.
+    Saved {
+        /// The path the document now has.
+        path: PathBuf,
+        /// Number of bytes written.
+        bytes: usize,
+    },
+    /// The document has no path yet, so the window must ask for one and call
+    /// [`Workbench::save_as`].
+    NeedsPath,
+    /// The write failed; the message is logged and returned for the caller to surface.
+    Failed(String),
+}
+
+/// The file name of `path`, or the whole path when it has none.
+fn file_name_of(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.display().to_string())
+}
 
 /// Which toolbar controls the window must show for the active document's state.
 ///
@@ -84,6 +112,13 @@ pub struct WorkbenchDocument {
     pub title: String,
     /// File path, when the document came from disk.
     pub path: Option<PathBuf>,
+    /// DOC-002: the newline style recorded when the file was opened.
+    ///
+    /// New lines are written with [`NewlineStyle::ending`]; the text itself keeps the file's own
+    /// endings because [`WorkbenchDocument::source`] was decoded without normalisation.
+    pub newline: NewlineStyle,
+    /// DOC-002: true when the file began with a UTF-8 byte-order mark, which save restores.
+    pub bom: bool,
     /// Source text currently in the editor.
     pub source: String,
     /// Precision passed to the next run's engine.
@@ -144,12 +179,39 @@ pub struct WorkbenchDocument {
     quick_eval_run: Option<RunId>,
     started: Option<Instant>,
     saved_source: String,
+    /// The bytes the document was last read from or written to.
+    ///
+    /// DOC-002: a buffer that still matches [`Self::saved_source`] writes these bytes verbatim, so
+    /// an unmodified file round-trips even when no single separator describes it (a mixed-ending
+    /// file, for example). `None` for a document that has never been written.
+    original_bytes: Option<Vec<u8>>,
 }
 
 impl WorkbenchDocument {
     /// True when the buffer differs from the text last saved or loaded.
     pub fn dirty(&self) -> bool {
         self.source != self.saved_source
+    }
+
+    /// The tab title with the unsaved-changes marker: `"name.lv"` or `"name.lv *"`.
+    ///
+    /// DOC-002: one function produces the marker for the tab strip, the editor pane header and the
+    /// window title, so the three cannot disagree about whether the buffer has unsaved changes.
+    pub fn title_with_marker(&self) -> String {
+        if self.dirty() {
+            format!("{} *", self.title)
+        } else {
+            self.title.clone()
+        }
+    }
+
+    /// The encoding badge: `"UTF-8 BOM · CRLF"`, `"UTF-8 · LF"`, and so on.
+    pub fn encoding_label(&self) -> String {
+        format!(
+            "UTF-8{} · {}",
+            if self.bom { " BOM" } else { "" },
+            self.newline.label()
+        )
     }
 
     /// The current run state.
@@ -293,6 +355,17 @@ pub struct Workbench {
     active: usize,
     engine_name: &'static str,
     plot_root: PathBuf,
+    /// Paths the user opened or saved, newest first, without duplicates.
+    ///
+    /// DOC-002 requires Save As to update the recent list. DOC-004 owns persisting it across
+    /// restarts; this list lives for the life of the workbench and is what the window's Recent
+    /// menu shows.
+    recent_files: Vec<String>,
+    /// The id the next document created by this workbench receives.
+    ///
+    /// Ids are never reused: an event from a closed tab's run carries the old id, and a new tab
+    /// must not answer to it. The counter starts above the two constructor documents.
+    next_id: u64,
     /// The active engine's own symbol table, captured once when the workbench was created.
     ///
     /// Completion uses it before the first run (keywords + the engine's registered functions
@@ -395,6 +468,8 @@ impl Workbench {
             active: 0,
             engine_name,
             plot_root,
+            recent_files: Vec::new(),
+            next_id: 3,
             engine_state,
         };
         workbench.log(
@@ -585,25 +660,73 @@ impl Workbench {
         }
     }
 
-    /// Loads a file into a document, recording its path and clean state.
+    /// Loads a file into an existing document, recording its path and clean state.
     ///
-    /// This is used by the window when it is started with a script path. A read failure is
-    /// logged and returned so the caller can surface it.
+    /// This is the window's startup path (the script named on the command line). A read failure is
+    /// logged and returned so the caller can surface it, and a file that is not UTF-8 is refused
+    /// before the tab is touched: the decoder never mangles bytes it cannot read.
     pub fn load_file(&mut self, index: usize, path: &Path) -> Result<(), String> {
-        let text = match std::fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(error) => {
-                let message = format!("Cannot open {}: {error}", path.display());
+        if index >= self.docs.len() {
+            return Err("No document tab to open the file in.".to_string());
+        }
+        let loaded = match document_io::read(path) {
+            Ok(loaded) => loaded,
+            Err(message) => {
                 self.log(index, LogKind::Diagnostic, message.clone());
                 return Err(message);
             }
         };
-        let title = path
-            .file_name()
-            .map(|name| name.to_string_lossy().into_owned())
-            .unwrap_or_else(|| path.display().to_string());
+        self.adopt_loaded(index, path, loaded);
+        Ok(())
+    }
+
+    /// Opens `path` in a tab: the active tab when it is an untouched empty document, else a new
+    /// one. Returns the index of the tab the file was opened in.
+    ///
+    /// A file that does not decode (not UTF-8, or UTF-16) is refused with the message logged and
+    /// returned, and no tab is created or modified.
+    pub fn open(&mut self, path: &Path) -> Result<usize, String> {
+        let loaded = match document_io::read(path) {
+            Ok(loaded) => loaded,
+            Err(message) => {
+                self.log(self.active, LogKind::Diagnostic, message.clone());
+                return Err(message);
+            }
+        };
+        let index = match self.pristine_active() {
+            Some(index) => index,
+            None => {
+                let id = self.next_document_id();
+                self.docs
+                    .push(WorkbenchDocument::new(id, UNTITLED_TITLE, ""));
+                self.docs.len() - 1
+            }
+        };
+        self.adopt_loaded(index, path, loaded);
+        self.active = index;
+        Ok(index)
+    }
+
+    /// The active tab, when it is an empty document nothing has been written to.
+    ///
+    /// Open reuses this tab instead of leaving an empty "untitled" tab beside the file; every other
+    /// tab (including the starter document) keeps its content and the file opens in a new tab.
+    fn pristine_active(&self) -> Option<usize> {
+        self.docs
+            .get(self.active)
+            .filter(|doc| doc.path.is_none() && !doc.dirty() && doc.source.is_empty())
+            .map(|_| self.active)
+    }
+
+    /// Makes `index` show a file that has just been decoded.
+    ///
+    /// The document keeps the path, the decoded text (with the file's own line endings), the
+    /// recorded newline style, the BOM flag and the file's own bytes. Its panes are cleared
+    /// because the previous run described text that is no longer displayed.
+    fn adopt_loaded(&mut self, index: usize, path: &Path, loaded: LoadedFile) {
+        let title = file_name_of(path);
         let Some(doc) = self.docs.get_mut(index) else {
-            return Err("No document tab to open the file in.".to_string());
+            return;
         };
         if doc.state().is_in_flight() {
             if let Some(handle) = doc.run.as_ref() {
@@ -614,10 +737,13 @@ impl Workbench {
             doc.started = None;
         }
         let was_active = doc.state() != RunState::Idle;
-        doc.title = title.clone();
+        doc.title = title;
         doc.path = Some(path.to_path_buf());
-        doc.source = text;
+        doc.source = loaded.text;
         doc.saved_source = doc.source.clone();
+        doc.newline = loaded.newline;
+        doc.bom = loaded.bom;
+        doc.original_bytes = Some(loaded.bytes);
         doc.revision = doc.revision.saturating_add(1);
         doc.snapshot = None;
         doc.last_plot = None;
@@ -629,8 +755,176 @@ impl Workbench {
         if was_active {
             doc.run_state.reset("document loaded from disk");
         }
-        self.log(index, LogKind::Info, format!("Opened {}.", path.display()));
-        Ok(())
+        let bytes = self.docs[index].source.len();
+        let detail = self.docs[index].encoding_label();
+        self.add_recent(path);
+        self.log(
+            index,
+            LogKind::Info,
+            format!(
+                "Opened {} ({bytes} bytes, {detail}).",
+                path.display()
+            ),
+        );
+    }
+
+    /// Adds a new empty document tab and selects it. Returns its index.
+    pub fn new_document(&mut self) -> usize {
+        let id = self.next_document_id();
+        let title = self.next_untitled_title();
+        let precision = self.docs[self.active].precision;
+        let mut document = WorkbenchDocument::new(id, &title, "");
+        document.precision = precision;
+        self.docs.push(document);
+        let index = self.docs.len() - 1;
+        self.active = index;
+        self.log(index, LogKind::Info, format!("New document {title}."));
+        index
+    }
+
+    /// The id a document created now would receive.
+    fn next_document_id(&mut self) -> DocumentId {
+        let id = DocumentId(self.next_id);
+        self.next_id = self.next_id.saturating_add(1);
+        id
+    }
+
+    /// A tab title no open document uses: `untitled.lv`, then `untitled-2.lv`, and so on.
+    fn next_untitled_title(&self) -> String {
+        for sequence in 1..=self.docs.len() + 2 {
+            let candidate = if sequence == 1 {
+                UNTITLED_TITLE.to_string()
+            } else {
+                format!("untitled-{sequence}.lv")
+            };
+            if !self.docs.iter().any(|doc| doc.title == candidate) {
+                return candidate;
+            }
+        }
+        format!("untitled-{}.lv", self.docs.len() + 3)
+    }
+
+    /// Writes a document to its own path, or reports that it needs one.
+    pub fn save(&mut self, index: usize) -> SaveOutcome {
+        let Some(path) = self.docs.get(index).and_then(|doc| doc.path.clone()) else {
+            return SaveOutcome::NeedsPath;
+        };
+        self.write_document(index, path)
+    }
+
+    /// Writes a document to `path` and adopts it as the document's file.
+    ///
+    /// DOC-002: Save As updates the path, the tab title and the recent list, and the tab is clean
+    /// afterwards because the bytes on disk are the bytes in the buffer.
+    pub fn save_as(&mut self, index: usize, path: PathBuf) -> SaveOutcome {
+        self.write_document(index, path)
+    }
+
+    /// The shared write: pick the bytes, write them, adopt the path and clear the dirty marker.
+    fn write_document(&mut self, index: usize, path: PathBuf) -> SaveOutcome {
+        let prepared = match self.docs.get(index) {
+            None => Err("No document is open.".to_string()),
+            Some(doc) => {
+                // DOC-002: an unmodified document writes the bytes it was read from, so a BOM, a
+                // mixed-ending file or any other byte survives; only an edited buffer is
+                // re-encoded, and even then its text (with the file's line endings) is written
+                // verbatim.
+                let bytes = match (doc.dirty(), doc.original_bytes.as_ref()) {
+                    (false, Some(original)) => original.clone(),
+                    _ => document_io::encode(&doc.source, doc.bom),
+                };
+                Ok((bytes, doc.source.clone(), doc.bom))
+            }
+        };
+        let (bytes, source, bom) = match prepared {
+            Ok(prepared) => prepared,
+            Err(message) => return SaveOutcome::Failed(message),
+        };
+        match document_io::write(&path, &bytes) {
+            Ok(written) => {
+                {
+                    let doc = &mut self.docs[index];
+                    doc.path = Some(path.clone());
+                    doc.title = file_name_of(&path);
+                    doc.saved_source = source;
+                    doc.original_bytes = Some(bytes);
+                    doc.newline = NewlineStyle::detect(&doc.source);
+                    doc.bom = bom;
+                }
+                let detail = self.docs[index].encoding_label();
+                self.add_recent(&path);
+                self.log(
+                    index,
+                    LogKind::Info,
+                    format!("Saved {} ({written} bytes, {detail}).", path.display()),
+                );
+                SaveOutcome::Saved {
+                    path,
+                    bytes: written,
+                }
+            }
+            Err(message) => {
+                self.log(index, LogKind::Diagnostic, message.clone());
+                SaveOutcome::Failed(message)
+            }
+        }
+    }
+
+    /// Closes the tab with this identity, cancelling any run it owns.
+    ///
+    /// This is the post-decision step: the window calls it only after the tab's unsaved changes
+    /// have been saved or explicitly discarded (DOC-003). Closing the last tab leaves a fresh
+    /// empty document, because the window is never tab-less.
+    pub fn close_document(&mut self, id: DocumentId) -> bool {
+        let Some(index) = self.docs.iter().position(|doc| doc.id == id) else {
+            return false;
+        };
+        if let Some(handle) = self.docs[index].run.as_ref() {
+            let _ = self.host.cancel(handle);
+        }
+        let title = self.docs[index].title.clone();
+        self.docs.remove(index);
+        if self.docs.is_empty() {
+            let id = self.next_document_id();
+            self.docs
+                .push(WorkbenchDocument::new(id, UNTITLED_TITLE, ""));
+            self.active = 0;
+        } else if self.active > index {
+            self.active -= 1;
+        } else if self.active >= self.docs.len() {
+            self.active = self.docs.len() - 1;
+        }
+        self.log(self.active, LogKind::Info, format!("Closed {title}."));
+        true
+    }
+
+    /// The identities of the tabs with unsaved changes, in tab order.
+    ///
+    /// DOC-003: the window asks about exactly these documents, so a clean tab never shows a prompt.
+    pub fn dirty_documents(&self) -> Vec<DocumentId> {
+        self.docs
+            .iter()
+            .filter(|doc| doc.dirty())
+            .map(|doc| doc.id)
+            .collect()
+    }
+
+    /// The index of the tab with this identity, if it is open.
+    pub fn document_index(&self, id: DocumentId) -> Option<usize> {
+        self.docs.iter().position(|doc| doc.id == id)
+    }
+
+    /// Paths the user opened or saved, newest first.
+    pub fn recent_files(&self) -> &[String] {
+        &self.recent_files
+    }
+
+    /// Records a path as most recently used, without duplicates and capped.
+    fn add_recent(&mut self, path: &Path) {
+        let path = path.to_string_lossy().into_owned();
+        self.recent_files.retain(|existing| existing != &path);
+        self.recent_files.insert(0, path);
+        self.recent_files.truncate(crate::settings::MAX_RECENT_FILES);
     }
 
     /// Sets the active document's precision.
@@ -1395,6 +1689,8 @@ impl WorkbenchDocument {
             id,
             title: title.to_string(),
             path: None,
+            newline: NewlineStyle::detect(source),
+            bom: false,
             source: source.to_string(),
             precision: DEFAULT_PRECISION,
             revision: 0,
@@ -1415,6 +1711,7 @@ impl WorkbenchDocument {
             quick_eval_run: None,
             started: None,
             saved_source: source.to_string(),
+            original_bytes: None,
         }
     }
 }
@@ -1438,6 +1735,7 @@ fn plot_scoped_factory(inner: EvaluatorFactory, root: PathBuf) -> EvaluatorFacto
 mod tests {
     use super::*;
     use crate::completion::CompletionKind;
+    use crate::document_io::LineEnding;
     use crate::engine::{EngineFunction, Evaluator, FakeEngine};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -3483,5 +3781,345 @@ mod tests {
             .map(|variable| variable.name.as_str())
             .collect();
         assert_eq!(names, ["a", "b"]);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-002 / DOC-003: the file lifecycle. Every test drives the same entry points the window
+    // calls (`open`, `save`, `save_as`, `new_document`, `close_document`); the native dialogs are
+    // the window's job, so the paths are supplied directly here.
+    // -----------------------------------------------------------------------------------------
+
+    /// A file in the test scratch directory, unique per test and process.
+    fn scratch(name: &str) -> PathBuf {
+        let directory = std::env::temp_dir().join("lovelace-desktop-workbench-file-tests");
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        directory.join(format!("{name}-{}.lv", std::process::id()))
+    }
+
+    /// True when `bytes` contains a carriage return only as part of a CRLF pair.
+    fn keeps_every_line_crlf(bytes: &[u8]) -> bool {
+        let mut index = 0;
+        while index < bytes.len() {
+            if bytes[index] == b'\r' {
+                if bytes.get(index + 1) != Some(&b'\n') {
+                    return false;
+                }
+                index += 2;
+            } else if bytes[index] == b'\n' {
+                return false;
+            } else {
+                index += 1;
+            }
+        }
+        true
+    }
+
+    #[test]
+    fn opening_a_bom_crlf_file_records_the_bom_the_style_and_the_file_name() {
+        let path = scratch("open-bom");
+        let bytes = b"\xEF\xBB\xBFa = 1\r\nb = 2\r\n";
+        std::fs::write(&path, bytes).expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&path).expect("open");
+
+        let document = workbench.document(index).expect("opened tab");
+        assert_eq!(document.path.as_deref(), Some(path.as_path()));
+        assert_eq!(document.title, path.file_name().unwrap().to_string_lossy());
+        assert!(!document.dirty(), "a freshly opened file is clean");
+        assert!(document.bom, "the BOM must be recorded");
+        assert_eq!(document.newline, NewlineStyle::CrLf);
+        assert_eq!(document.source, "a = 1\r\nb = 2\r\n", "no normalisation");
+        assert_eq!(document.encoding_label(), "UTF-8 BOM · CRLF");
+        assert_eq!(document.title_with_marker(), document.title);
+        assert_eq!(
+            workbench.recent_files().first().map(String::as_str),
+            Some(path.to_string_lossy().as_ref()),
+            "opening records the path as recently used"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_crlf_file_that_is_not_modified_is_saved_byte_identically() {
+        let path = scratch("save-crlf");
+        let bytes = b"a = 1\r\nb = 2\r\n";
+        std::fs::write(&path, bytes).expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&path).expect("open");
+        assert_eq!(
+            workbench.save(index),
+            SaveOutcome::Saved {
+                path: path.clone(),
+                bytes: bytes.len()
+            }
+        );
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            bytes,
+            "saving an unmodified CRLF file must not rewrite its line endings"
+        );
+        assert!(!workbench.document(index).expect("tab").dirty());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_bom_file_keeps_its_bom_when_it_is_saved_unmodified() {
+        let path = scratch("save-bom");
+        let bytes = b"\xEF\xBB\xBFplot([1], [2], \"bom\")\r\n";
+        std::fs::write(&path, bytes).expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&path).expect("open");
+        assert!(matches!(
+            workbench.save(index),
+            SaveOutcome::Saved { bytes: written, .. } if written == bytes.len()
+        ));
+        let written = std::fs::read(&path).expect("read back");
+        assert_eq!(written, bytes);
+        assert_eq!(&written[..3], &[0xEF, 0xBB, 0xBF], "the BOM is still there");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_mixed_ending_file_round_trips_when_it_is_saved_unmodified() {
+        let path = scratch("save-mixed");
+        let bytes = b"one\r\ntwo\nthree\r\n";
+        std::fs::write(&path, bytes).expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&path).expect("open");
+        assert_eq!(
+            workbench.document(index).expect("tab").newline,
+            NewlineStyle::Mixed {
+                first: LineEnding::CrLf
+            }
+        );
+        assert!(matches!(workbench.save(index), SaveOutcome::Saved { .. }));
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            bytes,
+            "no separator describes this file, so only its own bytes are correct"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn an_edit_then_save_clears_the_dirty_marker_and_keeps_the_files_endings() {
+        let path = scratch("save-dirty");
+        std::fs::write(&path, b"a = 1\r\nb = 2\r\n").expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&path).expect("open");
+        let id = workbench.document(index).expect("tab").id;
+        assert!(workbench.dirty_documents().is_empty(), "a fresh tab is clean");
+
+        workbench.set_source(index, "a = 1\r\nb = 3\r\n".to_string());
+        let document = workbench.document(index).expect("tab");
+        assert!(document.dirty(), "the edit must show");
+        assert_eq!(
+            document.title_with_marker(),
+            format!("{} *", document.title),
+            "the dirty marker is part of the title"
+        );
+        assert_eq!(workbench.dirty_documents(), vec![id]);
+
+        assert!(matches!(workbench.save(index), SaveOutcome::Saved { .. }));
+        let document = workbench.document(index).expect("tab");
+        assert!(!document.dirty(), "saving clears the marker");
+        assert_eq!(document.title_with_marker(), document.title);
+        assert!(workbench.dirty_documents().is_empty());
+        let written = std::fs::read(&path).expect("read back");
+        assert_eq!(written, b"a = 1\r\nb = 3\r\n");
+        assert!(
+            keeps_every_line_crlf(&written),
+            "the edited file is still pure CRLF: {:?}",
+            String::from_utf8_lossy(&written)
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn save_as_updates_the_path_the_title_and_the_recent_list() {
+        let path = scratch("save-as");
+        let _ = std::fs::remove_file(&path);
+
+        let mut workbench = fake_workbench();
+        let index = workbench.new_document();
+        let id = workbench.document(index).expect("new tab").id;
+        workbench.set_source(index, "x = 41\nx + 1\n".to_string());
+        assert_eq!(
+            workbench.save(index),
+            SaveOutcome::NeedsPath,
+            "a document with no file must ask for a path, not invent one"
+        );
+        assert_eq!(
+            workbench.document(index).expect("tab").title_with_marker(),
+            "untitled-2.lv *"
+        );
+
+        let outcome = workbench.save_as(index, path.clone());
+        assert!(
+            matches!(
+                &outcome,
+                SaveOutcome::Saved { path: saved_path, bytes } if *saved_path == path && *bytes == 13
+            ),
+            "Save As writes the 13-byte buffer to the chosen path: {outcome:?}"
+        );
+        let document = workbench.document(index).expect("tab");
+        assert_eq!(document.path.as_deref(), Some(path.as_path()));
+        assert_eq!(document.title, path.file_name().unwrap().to_string_lossy());
+        assert_eq!(document.title_with_marker(), document.title);
+        assert_eq!(document.newline, NewlineStyle::Lf, "an LF buffer stays LF");
+        assert!(!document.bom);
+        assert_eq!(
+            workbench.recent_files().first().map(String::as_str),
+            Some(path.to_string_lossy().as_ref())
+        );
+        assert_eq!(std::fs::read(&path).expect("read back"), b"x = 41\nx + 1\n");
+        assert_eq!(
+            workbench.document_index(id),
+            Some(index),
+            "Save As does not move the tab"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn saving_an_untitled_document_twice_keeps_the_recent_list_deduplicated() {
+        let path = scratch("save-twice");
+        let _ = std::fs::remove_file(&path);
+
+        let mut workbench = fake_workbench();
+        let index = workbench.new_document();
+        workbench.save_as(index, path.clone());
+        workbench.set_source(index, "y = 1\n".to_string());
+        workbench.save(index);
+
+        let recent = workbench.recent_files();
+        assert_eq!(
+            recent
+                .iter()
+                .filter(|entry| entry.as_str() == path.to_string_lossy())
+                .count(),
+            1,
+            "the same path is recorded once, newest first: {recent:?}"
+        );
+        assert_eq!(
+            recent.first().map(String::as_str),
+            Some(path.to_string_lossy().as_ref())
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_non_utf8_file_is_refused_with_a_clear_message_and_no_tab_is_created() {
+        let path = scratch("refuse-non-utf8");
+        let bytes = b"a = 1\nb = \xE9\n";
+        std::fs::write(&path, bytes).expect("fixture");
+
+        let mut workbench = fake_workbench();
+        let before = workbench.documents().len();
+        let message = workbench.open(&path).expect_err("a non-UTF-8 file must be refused");
+        assert!(
+            message.contains("not UTF-8") && message.contains("re-save it as UTF-8"),
+            "the message must say what is wrong and what to do: {message}"
+        );
+        assert!(
+            message.contains(&path.display().to_string()),
+            "the message must name the file: {message}"
+        );
+        assert_eq!(
+            workbench.documents().len(),
+            before,
+            "a refused file must not create an empty tab"
+        );
+        assert_eq!(
+            std::fs::read(&path).expect("the file is untouched"),
+            bytes,
+            "a refused file must never be rewritten"
+        );
+        let logged = workbench.active_document().logs.iter().any(|line| {
+            line.kind == LogKind::Diagnostic && line.text.contains("not UTF-8")
+        });
+        assert!(logged, "the refusal must be in the log");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn opening_reuses_an_empty_active_tab_and_adds_one_for_a_document_with_content() {
+        let path = scratch("reuse-tab");
+        std::fs::write(&path, b"a = 1\n").expect("fixture");
+
+        let mut workbench = fake_workbench();
+        // The starter tab has content, so Open adds a tab instead of replacing it.
+        let opened = workbench.open(&path).expect("open");
+        assert_eq!(opened, 2);
+        assert_eq!(workbench.documents().len(), 3);
+        assert_eq!(workbench.active(), opened);
+
+        // A fresh untitled tab is empty, so the next Open reuses it.
+        let index = workbench.new_document();
+        assert_eq!(index, 3);
+        let opened = workbench.open(&path).expect("open");
+        assert_eq!(opened, index, "an untouched empty tab is reused");
+        assert_eq!(workbench.documents().len(), 4);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_new_document_is_selected_untitled_and_clean_until_it_is_edited() {
+        let mut workbench = fake_workbench();
+        let index = workbench.new_document();
+        assert_eq!(workbench.active(), index);
+        {
+            let document = workbench.document(index).expect("new tab");
+            assert_eq!(document.title, "untitled-2.lv");
+            assert_eq!(document.source, "");
+            assert_eq!(document.path, None);
+            assert!(!document.dirty(), "a new empty buffer is not dirty");
+            assert!(!document.bom);
+        }
+        assert!(workbench.dirty_documents().is_empty());
+        let id = workbench.document(index).expect("new tab").id;
+
+        workbench.set_source(index, "z = 1\n".to_string());
+        assert!(workbench.dirty_documents().contains(&id));
+        assert_eq!(
+            workbench.new_document(),
+            index + 1,
+            "a second new document gets the next free title"
+        );
+        assert_eq!(
+            workbench.document(index + 1).expect("second new tab").title,
+            "untitled-3.lv"
+        );
+    }
+
+    #[test]
+    fn closing_a_tab_selects_a_neighbour_and_the_last_tab_leaves_a_fresh_document() {
+        let mut workbench = fake_workbench();
+        let first = workbench.document(0).expect("first tab").id;
+        let second = workbench.document(1).expect("second tab").id;
+        workbench.set_active(1);
+
+        assert!(workbench.close_document(second));
+        assert_eq!(workbench.documents().len(), 1);
+        assert_eq!(workbench.active(), 0, "the remaining tab becomes active");
+        assert_eq!(workbench.document(0).expect("remaining").id, first);
+        assert!(!workbench.close_document(second), "it is already closed");
+
+        assert!(workbench.close_document(first));
+        assert_eq!(
+            workbench.documents().len(),
+            1,
+            "the window is never tab-less"
+        );
+        let replacement = workbench.document(0).expect("replacement tab");
+        assert_eq!(replacement.title, "untitled.lv");
+        assert_eq!(replacement.source, "");
+        assert!(!replacement.dirty());
+        assert_ne!(replacement.id, first, "the replacement is a new document");
     }
 }

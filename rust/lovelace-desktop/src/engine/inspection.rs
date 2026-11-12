@@ -271,6 +271,9 @@ fn tree_node(expression: &Expr) -> Json {
             vec![tree_node(left), tree_node(right)],
         ),
         Expr::Real(_) => ("Real", None, Vec::new()),
+        // A complex constant is a leaf of the engine's expression model, like `Num` and `Real`:
+        // it has no sub-expressions, and its label is the engine's own rendering.
+        Expr::Complex(_, _) => ("Complex", None, Vec::new()),
     };
     Json::obj([
         ("kind", Json::Str(kind.to_string())),

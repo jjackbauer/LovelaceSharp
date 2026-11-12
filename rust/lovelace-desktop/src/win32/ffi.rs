@@ -1139,11 +1139,43 @@ pub fn dispatch_message(message: &MSG) {
 }
 
 /// Shows the Open dialog and returns the chosen path.
+///
+/// This is the legacy Win32 shell's dialog; the workbench calls [`open_file_dialog_with`], which
+/// offers the `.lv` extension the new document model writes.
 pub fn open_file_dialog(owner: HWND) -> Option<PathBuf> {
-    let filter: Vec<u16> = "Lovelace scripts (*.ls)\0*.ls;*.lvl\0All files (*.*)\0*.*\0\0"
-        .encode_utf16()
-        .collect();
-    let title = wide("Open Lovelace script");
+    open_file_dialog_with(
+        owner,
+        "Open Lovelace script",
+        &[
+            ("Lovelace scripts (*.ls)", "*.ls;*.lvl"),
+            ("All files (*.*)", "*.*"),
+        ],
+        None,
+    )
+}
+
+/// Shows the Open dialog with an explicit title, filter list and starting folder.
+///
+/// `filters` is a list of (description, pattern) pairs rendered in order. The dialog keeps the
+/// process working directory (`OFN_NOCHANGEDIR`), requires the file to exist and hides the
+/// read-only check box; it returns the chosen path, or `None` when the user cancels.
+pub fn open_file_dialog_with(
+    owner: HWND,
+    title: &str,
+    filters: &[(&str, &str)],
+    initial_dir: Option<&std::path::Path>,
+) -> Option<PathBuf> {
+    // The filter string is pairs of NUL-terminated strings, then one extra NUL.
+    let mut filter: Vec<u16> = Vec::new();
+    for (description, pattern) in filters {
+        filter.extend(description.encode_utf16());
+        filter.push(0);
+        filter.extend(pattern.encode_utf16());
+        filter.push(0);
+    }
+    filter.push(0);
+    let title = wide(title);
+    let directory = initial_dir.map(|directory| wide(&directory.to_string_lossy()));
     let mut file = vec![0u16; 2048];
     let mut dialog = OPENFILENAMEW {
         hwndOwner: owner,
@@ -1151,6 +1183,10 @@ pub fn open_file_dialog(owner: HWND) -> Option<PathBuf> {
         nFilterIndex: 1,
         lpstrFile: file.as_mut_ptr(),
         nMaxFile: file.len() as u32,
+        lpstrInitialDir: directory
+            .as_ref()
+            .map(|directory| directory.as_ptr())
+            .unwrap_or(std::ptr::null()),
         lpstrTitle: title.as_ptr(),
         Flags: OFN_FILEMUSTEXIST
             | OFN_PATHMUSTEXIST

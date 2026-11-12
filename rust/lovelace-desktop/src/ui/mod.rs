@@ -7,6 +7,7 @@
 
 mod app;
 pub(crate) mod editor;
+pub(crate) mod file_dialogs;
 pub(crate) mod plot;
 mod syntax;
 

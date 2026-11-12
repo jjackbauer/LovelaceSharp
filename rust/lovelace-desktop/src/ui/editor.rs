@@ -18,6 +18,7 @@ use egui::{
 
 use crate::completion::{self, CaretContext, CompletionItem, CompletionKind, CompletionSession};
 use crate::diagnostic_map::{self, DiagnosticRange};
+use crate::document_io::NewlineStyle;
 use crate::execution::Diagnostic;
 use crate::history::{self, Caret, EditKind, History, HistoryCommand, Snapshot};
 
@@ -80,7 +81,13 @@ pub struct EditorMetrics {
 /// One editable buffer with its own caret and scroll position.
 pub struct TextEditor {
     /// Source lines, always at least one (an empty document has one empty line).
+    ///
+    /// A line ending is not part of a line: `\r` from a CRLF file is stripped on load and put back
+    /// by [`TextEditor::source`] using [`Self::newline`], so a CRLF document is editable and
+    /// saves with its own line endings.
     pub lines: Vec<String>,
+    /// The line ending new lines are written with, copied from the document (DOC-002).
+    pub newline: NewlineStyle,
     /// Caret row, 0-based.
     pub caret_row: usize,
     /// Caret column in characters, 0-based.
@@ -132,14 +139,28 @@ pub fn surface_id() -> egui::Id {
 }
 
 fn split_lines(source: &str) -> Vec<String> {
-    source.split('\n').map(|line| line.to_string()).collect()
+    // A CRLF file splits on `\n` and leaves the `\r` at the end of every line. It is a line
+    // ending, not a character: strip exactly one so the buffer holds the text the user sees.
+    source
+        .split('\n')
+        .map(|line| line.strip_suffix('\r').unwrap_or(line).to_string())
+        .collect()
 }
 
 impl TextEditor {
-    /// Creates an editor for `source`, with the caret at the start.
+    /// Creates an editor for `source`, with the caret at the start and LF line endings.
     pub fn from_source(source: &str) -> TextEditor {
+        TextEditor::from_source_with_newline(source, NewlineStyle::Lf)
+    }
+
+    /// Creates an editor for `source` that writes new lines with `newline`.
+    ///
+    /// DOC-002: the window constructs one of these per document from the newline style recorded
+    /// when the file was opened, so an edit adds line endings of the file's own kind.
+    pub fn from_source_with_newline(source: &str, newline: NewlineStyle) -> TextEditor {
         TextEditor {
             lines: split_lines(source),
+            newline,
             caret_row: 0,
             caret_col: 0,
             scroll_y: 0.0,
@@ -156,12 +177,23 @@ impl TextEditor {
         }
     }
 
-    /// Replaces the buffer from an external source (file load, tab switch back after a reload).
+    /// Replaces the buffer from an external source, keeping the current newline style.
     ///
     /// The history is discarded: its snapshots name rows and columns of the text that was just
     /// replaced, so keeping them would let an undo move the caret into unrelated text.
+    #[cfg_attr(not(test), allow(dead_code))] // the window always supplies a newline style
     pub fn load(&mut self, source: &str) {
+        let newline = self.newline;
+        self.load_with_newline(source, newline);
+    }
+
+    /// Replaces the buffer and the newline style from an external source (a file load).
+    ///
+    /// The history is discarded: its snapshots name rows and columns of the text that was just
+    /// replaced, so keeping them would let an undo move the caret into unrelated text.
+    pub fn load_with_newline(&mut self, source: &str, newline: NewlineStyle) {
         self.lines = split_lines(source);
+        self.newline = newline;
         self.caret_row = self.caret_row.min(self.line_count().saturating_sub(1));
         self.caret_col = self.caret_col.min(self.line_chars(self.caret_row));
         self.scroll_y = 0.0;
@@ -173,10 +205,14 @@ impl TextEditor {
         self.syntax_edits = u64::MAX;
     }
 
-    /// The current buffer as source text. Exactly the text supplied to [`TextEditor::load`]
-    /// round-trips, including a trailing newline.
+    /// The current buffer as source text, with the document's own line endings.
+    ///
+    /// The text supplied to [`TextEditor::load_with_newline`] round-trips when it used one line
+    /// ending throughout, including a trailing newline. A file that mixed endings loses that mix
+    /// here (the editor has one separator); the workbench's clean save writes the loaded bytes, so
+    /// an unmodified mixed file still round-trips on disk.
     pub fn source(&self) -> String {
-        self.lines.join("\n")
+        self.lines.join(self.newline.ending().as_str())
     }
 
     /// Number of lines (an empty buffer has one empty line).
@@ -1690,5 +1726,49 @@ mod tests {
             !second.undo(),
             "the other document's history was never shared"
         );
+    }
+
+    /// DOC-002: a CRLF file opens with its `\r` stripped for display and closes with CRLF again,
+    /// so an unmodified buffer is the file's own text and an edit adds CRLF, not LF.
+    #[test]
+    fn a_crlf_buffer_round_trips_and_new_lines_use_crlf() {
+        let source = "a = 1\r\nb = 2\r\n";
+        let mut editor = TextEditor::from_source_with_newline(source, NewlineStyle::CrLf);
+        assert_eq!(editor.lines, vec!["a = 1", "b = 2", ""], "no stray \\r is a cell");
+        assert_eq!(editor.line_chars(0), 5, "the caret sees five characters");
+        assert_eq!(editor.source(), source, "an untouched buffer is byte-equal");
+
+        editor.set_caret(0, 5);
+        editor.newline();
+        editor.insert_str("c = 3");
+        assert_eq!(
+            editor.source(),
+            "a = 1\r\nc = 3\r\nb = 2\r\n",
+            "a new line uses the document's own ending"
+        );
+    }
+
+    /// DOC-002: an LF file stays LF when it is edited; the editor never normalises to a platform
+    /// default and never rewrites the other style.
+    #[test]
+    fn an_lf_buffer_writes_new_lines_with_lf() {
+        let mut editor = TextEditor::from_source_with_newline("a = 1\nb = 2\n", NewlineStyle::Lf);
+        assert_eq!(editor.source(), "a = 1\nb = 2\n");
+        editor.set_caret(0, 5);
+        editor.newline();
+        editor.insert_str("c = 3");
+        assert_eq!(editor.source(), "a = 1\nc = 3\nb = 2\n");
+    }
+
+    /// The caret and the readout ignore the stripped line ending: a CRLF document's line 1 has
+    /// the same character count as the same line in an LF document.
+    #[test]
+    fn a_crlf_line_has_no_phantom_column_at_its_end() {
+        let editor = TextEditor::from_source_with_newline("ab\r\ncd\r\n", NewlineStyle::CrLf);
+        assert_eq!(editor.line_chars(0), 2);
+        let mut editor = editor;
+        editor.set_caret(0, 99);
+        assert_eq!(caret(&editor), (0, 2), "the caret clamps before the ending");
+        assert_eq!(editor.line_col_1based(), (1, 3));
     }
 }

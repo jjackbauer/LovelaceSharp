@@ -1471,14 +1471,43 @@
                      "type":  "D",
                      "requirement":  "Implement standard native file lifecycle",
                      "acceptance":  "New/Open/Save/Save As/Close use native dialogs; unmodified file round-trips byte-identically under chosen newline and encoding policy.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/crlf-bom.lv",
+                                          "sha256":  "D67CE20FD0B3E541CAEFD106307AA4848265F6C8FB49D9F0B88750DA37C72963",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/mixed-newlines.lv",
+                                          "sha256":  "6E9A1608770A75BE68801B3D21CCCB0F5CF83E40A4705191ED465030A4722F3B",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/opened-file.png",
+                                          "sha256":  "0A85E9A85C0716FFDF9D14734F8261B9B8D4CBD3495F255CB613E43BE3EBD20F",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/opened-file-uia.txt",
+                                          "sha256":  "1097AD48A014DF50EED62D36883BBFB9BE947A522A4DAC65CC187F5EDC9E8C47",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/file-lifecycle.md",
+                                          "sha256":  "180C1002F1C3BE3D0427A354214CB9EA5E6A77B9C6615097B154A25749D2A610",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop document_io; window Save of fixtures",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Native Open/Save/Save As via comdlg32; UTF-8 BOM recorded and preserved; clean save writes the file\u0027s own bytes (crlf-bom.lv SHA-256 D67CE20F... unchanged); edited save keeps BOM+CRLF; mixed endings round-trip; UTF-16/invalid UTF-8 refused naming byte+offset; 318 tests."
                  },
                  {
                      "id":  "DOC-003",
@@ -1487,14 +1516,43 @@
                      "type":  "D",
                      "requirement":  "Prompt on unsaved work",
                      "acceptance":  "Close tab, close window and Quit offer Save/Discard/Cancel; Cancel leaves buffer and focus untouched.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/unsaved-prompt.png",
+                                          "sha256":  "FA7F06FA23E3EB5B3ED955118BC50CAD49960C79D7BF2B8848065F0A2CD733E4",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/after-cancel.png",
+                                          "sha256":  "098D81A167735534764FFD853200DDC20D77FE13AD802BA6A916DA619F38350A",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/after-discard.png",
+                                          "sha256":  "6639607217AD64DA8433E9DA034EC66A8857149361CBB35FF625BB51367CF6A7",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/window-close-prompt.png",
+                                          "sha256":  "5A202AE856AC89CAA1A8A07BBD48BC4DE84BF71063859A4A390E0E300D32E42C",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-31/file-lifecycle.md",
+                                          "sha256":  "180C1002F1C3BE3D0427A354214CB9EA5E6A77B9C6615097B154A25749D2A610",
+                                          "class":  "file",
+                                          "at_head":  "cde88f94a302fe0d9813f9c8ae2c2cb63a5cf170"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "window captures: prompt, cancel, discard",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Dirty tab/window close/Quit all prompt Save/Discard/Cancel; Cancel keeps buffer, caret, tab and focus and writes nothing; Discard closes without writing; Save writes then closes; keystrokes stripped while open."
                  },
                  {
                      "id":  "DOC-004",

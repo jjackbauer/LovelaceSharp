@@ -1,0 +1,4 @@
+# round-31 DOC-002 fixture: UTF-8 without a BOM, LF line endings
+a = 2
+b = a + 40
+b

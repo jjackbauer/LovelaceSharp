@@ -29,6 +29,7 @@ mod app;
 mod completion;
 #[cfg(windows)]
 mod diagnostic_map;
+mod document_io;
 mod engine;
 mod execution;
 mod gui_selftest;
@@ -125,6 +126,11 @@ fn usage() -> String {
     text.push_str("  lovelace-desktop --help             this message\n");
     text.push_str("  lovelace-desktop --version          print the version\n\n");
     text.push_str("SHORTCUTS:\n");
+    text.push_str("  Ctrl+N                              new document tab\n");
+    text.push_str("  Ctrl+O                              open a Lovelace script from disk\n");
+    text.push_str("  Ctrl+S                              save the active document\n");
+    text.push_str("  Ctrl+Shift+S                        save the active document as a new file\n");
+    text.push_str("  Ctrl+W                              close the active tab (prompts when dirty)\n");
     text.push_str("  Ctrl+Enter                          run the active document\n");
     text.push_str("  Esc                                 cancel the in-flight run\n");
     text.push_str("  Ctrl+Z                              undo the active document's last edit\n");
@@ -133,7 +139,11 @@ fn usage() -> String {
         "  F8                                  jump to the last failed run's diagnostic\n",
     );
     text.push_str(
-        "  The workbench toolbar has Run, Cancel (while running) and the precision control.\n",
+        "  The File bar has New, Open..., Save, Save As..., Recent, Close and Quit; closing a\n",
     );
+    text.push_str(
+        "  document with unsaved changes asks Save / Discard / Cancel. The toolbar has Run,\n",
+    );
+    text.push_str("  Cancel (while running) and the precision control.\n");
     text
 }

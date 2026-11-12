@@ -493,3 +493,11 @@
 - **Verdict**: Falsified for the claim "these rows are equivalent". They are mapped, and the mapped tests do not assert the example's behaviour. Under VER-002/VER-008 they are weak mappings.
 - **Consequence**: they are re-opened as "weak mapping under review"; they stay counted as mapped (the ledger counts mapping) but the final acceptance report must list them as not-yet-equivalent, and the divergences are dispatched as production work (canonical and/or/not forms; plot SVG; compile result shape).
 - **Related**: VAL-003, the round-75 classification
+
+### VAL-005: The six DifferentialOracle rows are SKIPPED by the C# suite on this host
+
+- **Source**: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:13-21, read by the orchestrator at round 98
+- **Fact**: those tests carry [RequiresSympyFact]; the class documentation states "without python3 + sympy the run reports SKIPPED with the reason, and with LOVELACE_REQUIRE_SYMPY=1 nothing is skipped - the body runs and FAILS". This host has no python (CAP-003). So the C# test does not run here at all: there is no observable C# behaviour to match, and the rows are not a Rust deficiency.
+- **Correction to earlier reports**: the sweeps described these six as "unrunnable, needs live SymPy" in a way that implied a Rust gap. The accurate statement is: the reference does not execute them on this host either; the comparison is environment-gated on both sides.
+- **Consequence**: their disposition is a capability decision, not porting work. The kernel half of the same corpus (OracleCorpusDeclarationTests) is machine-checkable and is the part a Rust port can reproduce.
+- **Related**: CAP-003, round-45 and round-66 sweeps

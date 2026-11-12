@@ -12,11 +12,12 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::document_io::NewlineStyle;
 use crate::engine::DEFAULT_PRECISION;
 use crate::keyboard::{WorkbenchCommand, command_for_shortcut};
 use crate::log_kind::LogKind;
 use crate::run_state::RunState;
-use crate::workbench::{Workbench, WorkbenchDocument};
+use crate::workbench::{SaveOutcome, Workbench, WorkbenchDocument};
 
 type Check = fn() -> Result<String, String>;
 
@@ -47,7 +48,7 @@ pub fn run() -> i32 {
         "GUI_SELFTEST plot-dir {}",
         crate::engine::default_plot_dir().display()
     );
-    let checks: [(&str, Check); 14] = [
+    let checks: [(&str, Check); 16] = [
         ("two-tabs", check_two_tabs),
         ("arithmetic", check_arithmetic),
         ("print", check_print),
@@ -62,6 +63,8 @@ pub fn run() -> i32 {
         ("run-state-cancel", check_run_state_cancel),
         ("run-state-fail", check_run_state_fail),
         ("run-state-stale", check_run_state_stale),
+        ("file-bom-crlf", check_file_bom_crlf),
+        ("file-refuse", check_file_refuse),
     ];
     // The editor's own history is a Windows-only surface (egui is a Windows dependency), so the
     // check joins the list exactly when that surface is compiled in.
@@ -1336,5 +1339,168 @@ fn check_run_state_stale() -> Result<String, String> {
         duration_text(document, RunState::Queued, RunState::Running),
         duration_text(document, RunState::Running, RunState::Finished),
         duration_text(document, RunState::Finished, RunState::Stale)
+    ))
+}
+
+/// The scratch directory the file-lifecycle checks read and write.
+///
+/// It lives under the process's temporary directory, which the evidence runs redirect to the
+/// round's own writable folder, so the checks never touch the repository or a user profile.
+fn file_scratch(name: &str) -> Result<PathBuf, String> {
+    let directory = std::env::temp_dir().join("lovelace-desktop-gui-selftest");
+    std::fs::create_dir_all(&directory)
+        .map_err(|error| format!("cannot create {}: {error}", directory.display()))?;
+    Ok(directory.join(name))
+}
+
+/// DOC-002: a BOM + CRLF file opens with both recorded, saves back byte-identically while it is
+/// unmodified, and keeps its line endings after an edit while the dirty marker clears on save.
+fn check_file_bom_crlf() -> Result<String, String> {
+    let path = file_scratch("bom-crlf.lv")?;
+    let original: &[u8] = b"\xEF\xBB\xBFa = 1\r\nb = 2\r\n";
+    std::fs::write(&path, original)
+        .map_err(|error| format!("file-bom-crlf: cannot write the fixture: {error}"))?;
+
+    let mut workbench = new_workbench();
+    let index = workbench
+        .open(&path)
+        .map_err(|error| format!("file-bom-crlf: {error}"))?;
+    let document = workbench
+        .document(index)
+        .ok_or("file-bom-crlf: no tab was opened")?;
+    if !document.bom {
+        return Err("file-bom-crlf: the byte-order mark was not recorded".to_string());
+    }
+    if document.newline != NewlineStyle::CrLf {
+        return Err(format!(
+            "file-bom-crlf: newline style is {:?}, expected CRLF",
+            document.newline
+        ));
+    }
+    if document.title != "bom-crlf.lv" {
+        return Err(format!(
+            "file-bom-crlf: the tab is titled {:?}",
+            document.title
+        ));
+    }
+    if document.dirty() {
+        return Err("file-bom-crlf: a freshly opened file is dirty".to_string());
+    }
+    let badge = document.encoding_label();
+    if badge != "UTF-8 BOM \u{b7} CRLF" {
+        return Err(format!("file-bom-crlf: encoding badge is {badge:?}"));
+    }
+
+    match workbench.save(index) {
+        SaveOutcome::Saved { .. } => {}
+        outcome => {
+            return Err(format!(
+                "file-bom-crlf: the unmodified save returned {outcome:?}"
+            ));
+        }
+    }
+    let written = std::fs::read(&path)
+        .map_err(|error| format!("file-bom-crlf: cannot read the file back: {error}"))?;
+    if written != original {
+        return Err(format!(
+            "file-bom-crlf: the unmodified save changed the bytes: {:02X?}",
+            written
+        ));
+    }
+
+    let id = workbench
+        .document(index)
+        .ok_or("file-bom-crlf: the tab vanished")?
+        .id;
+    workbench.set_source(index, "a = 1\r\nb = 3\r\n".to_string());
+    let marked = workbench
+        .document(index)
+        .ok_or("file-bom-crlf: the tab vanished")?
+        .title_with_marker();
+    if !marked.ends_with(" *") {
+        return Err(format!("file-bom-crlf: dirty title is {marked:?}"));
+    }
+    if workbench.dirty_documents() != vec![id] {
+        return Err("file-bom-crlf: dirty_documents did not name the edited tab".to_string());
+    }
+    match workbench.save(index) {
+        SaveOutcome::Saved { .. } => {}
+        outcome => {
+            return Err(format!(
+                "file-bom-crlf: the edited save returned {outcome:?}"
+            ));
+        }
+    }
+    let document = workbench
+        .document(index)
+        .ok_or("file-bom-crlf: the tab vanished")?;
+    if document.dirty() {
+        return Err("file-bom-crlf: the save did not clear the dirty marker".to_string());
+    }
+    let written = std::fs::read(&path)
+        .map_err(|error| format!("file-bom-crlf: cannot read the file back: {error}"))?;
+    if written != b"\xEF\xBB\xBFa = 1\r\nb = 3\r\n" {
+        return Err(format!(
+            "file-bom-crlf: the edited save lost the BOM or the CRLF endings: {:02X?}",
+            written
+        ));
+    }
+    // The tab is closed so the check leaves no state behind, and the last tab keeps the window.
+    let tabs_before = workbench.documents().len();
+    let style = if document.newline == NewlineStyle::CrLf {
+        "CRLF"
+    } else {
+        "other"
+    };
+    workbench.close_document(id);
+    if workbench.documents().len() != tabs_before - 1 {
+        return Err("file-bom-crlf: closing the tab did not remove it".to_string());
+    }
+    let _ = std::fs::remove_file(&path);
+    Ok(format!(
+        "{} opened in tab {index} ({style}); unmodified save byte-identical ({} bytes); dirty marker cleared by save; edited save kept BOM and CRLF; tab closed",
+        badge,
+        original.len()
+    ))
+}
+
+/// DOC-002: a file that is not UTF-8 is refused with a message naming the problem, and neither
+/// the workbench nor the file is modified.
+fn check_file_refuse() -> Result<String, String> {
+    let path = file_scratch("non-utf8.lv")?;
+    let original: &[u8] = b"a = 1\nb = \xE9\n";
+    std::fs::write(&path, original)
+        .map_err(|error| format!("file-refuse: cannot write the fixture: {error}"))?;
+    let mut workbench = new_workbench();
+    let before = workbench.documents().len();
+    let message = workbench
+        .open(&path)
+        .err()
+        .ok_or("file-refuse: a non-UTF-8 file was accepted")?;
+    for expected in ["not UTF-8", "0xE9", "re-save it as UTF-8"] {
+        if !message.contains(expected) {
+            return Err(format!(
+                "file-refuse: the message does not name {expected:?}: {message}"
+            ));
+        }
+    }
+    if workbench.documents().len() != before {
+        return Err(format!(
+            "file-refuse: the refusal changed the tab count from {before} to {}",
+            workbench.documents().len()
+        ));
+    }
+    let written = std::fs::read(&path)
+        .map_err(|error| format!("file-refuse: cannot read the file back: {error}"))?;
+    if written != original {
+        return Err("file-refuse: the refused file was rewritten".to_string());
+    }
+    if !log_text(&workbench, workbench.active()).contains("not UTF-8") {
+        return Err("file-refuse: the refusal is missing from the log".to_string());
+    }
+    let _ = std::fs::remove_file(&path);
+    Ok(format!(
+        "refused with {message:?}; tab count kept at {before}; file bytes untouched ({} bytes)",
+        original.len()
     ))
 }

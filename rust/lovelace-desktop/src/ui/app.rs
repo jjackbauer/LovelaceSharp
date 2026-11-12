@@ -14,22 +14,23 @@ use egui::{
 };
 
 use crate::engine::FunctionOrigin;
-use crate::execution::Diagnostic;
+use crate::execution::{Diagnostic, DocumentId};
 use crate::inspector::{Inspection, InspectorExpansion, Section, TREE_ROOT_PATH, tree_path};
-use crate::keyboard;
+use crate::keyboard::{self, FileCommand};
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
 use crate::results_tree::{
     ArrayNode, ExpansionState, ResultProjection, StructuredNode, element_path, field_path,
 };
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
-use crate::workbench::{DocumentView, Workbench};
+use crate::workbench::{DocumentView, SaveOutcome, Workbench};
 use crate::workspace_table::{
     FunctionColumn, FunctionTable, VariableColumn, VariableTable, cell_text, ordered_functions,
     ordered_variables,
 };
 
 use super::editor::{TextEditor, surface_id};
+use super::file_dialogs::{self, FileDialogs, NativeFileDialogs};
 use super::plot::{self, Plot, PngBackground};
 /// Pane background.
 pub const PANE_BG: Color32 = Color32::from_rgb(0x17, 0x1b, 0x21);
@@ -169,6 +170,62 @@ impl Default for PngExport {
     }
 }
 
+/// What the user is answering when the unsaved-changes prompt is open (DOC-003).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum UnsavedAnswer {
+    /// Write the document, then continue closing.
+    Save,
+    /// Close without writing; the edits are lost.
+    Discard,
+    /// Leave everything exactly as it was: the tab stays open, the buffer and the caret unchanged.
+    Cancel,
+}
+
+impl UnsavedAnswer {
+    /// The button label, which is also the prompt's accessible name in a UIA capture.
+    fn label(self) -> &'static str {
+        match self {
+            UnsavedAnswer::Save => "Save",
+            UnsavedAnswer::Discard => "Discard",
+            UnsavedAnswer::Cancel => "Cancel",
+        }
+    }
+}
+
+/// What closing is being decided for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CloseTarget {
+    /// One tab, identified by its stable document identity.
+    Tab(DocumentId),
+    /// The whole window (the title-bar close button, Quit and the OS close request).
+    Window,
+}
+
+/// The pending Save/Discard/Cancel question (DOC-003).
+///
+/// Documents are identified by [`DocumentId`], not by tab index, so a tab change during the flow
+/// cannot make the prompt name the wrong document.
+#[derive(Clone, Debug)]
+struct ClosePrompt {
+    /// What is being closed once every question is answered.
+    target: CloseTarget,
+    /// Documents with unsaved changes still to ask about, in tab order.
+    pending: Vec<DocumentId>,
+    /// How many documents the flow started with, so the prompt can say "1 of 2".
+    total: usize,
+    /// The widget that had focus when the prompt opened; restored on Cancel.
+    focus_before: Option<Id>,
+    /// Why the last Save in the prompt failed, shown in the prompt itself.
+    error: Option<String>,
+}
+
+impl ClosePrompt {
+    /// The document this prompt is asking about.
+    fn current(&self) -> DocumentId {
+        self.pending[0]
+    }
+}
+
 /// The window application.
 pub struct WorkbenchApp {
     workbench: Workbench,
@@ -179,7 +236,32 @@ pub struct WorkbenchApp {
     /// closure. No pane calls back into the workbench for pane data.
     view: DocumentView,
     editors: Vec<TextEditor>,
+    /// The identity of the document each editor holds, parallel to `editors`.
+    ///
+    /// DOC-002: New, Open and Close change the tab list, so the editors are reconciled by document
+    /// identity instead of by position. A surviving tab keeps its editor (caret, selection,
+    /// history); a new tab gets a fresh one.
+    editor_ids: Vec<DocumentId>,
     loaded_revisions: Vec<u64>,
+    /// DOC-002: the native dialogs. A headless test replaces this with a scripted answer.
+    dialogs: Box<dyn FileDialogs>,
+    /// DOC-003: the open Save/Discard/Cancel question, if any.
+    close: Option<ClosePrompt>,
+    /// True once the close flow approved closing the window, so the OS request that follows is
+    /// allowed instead of starting the flow again.
+    window_close_approved: bool,
+    /// The title last sent to the native window, so it is only sent when it changes.
+    window_title: String,
+    /// A widget to focus on the next pass (DOC-003's focus restoration).
+    ///
+    /// A focus request made in the pass that dismisses the modal cannot stick: the modal's layer
+    /// is still the top layer while the panes paint, so the editor is not interactable in that
+    /// pass. Queueing the id for the next pass is what makes Cancel leave the focus where it was.
+    pending_focus: Option<Id>,
+    /// DOC-003 test seam: the prompt buttons painted in the last pass and their rectangles.
+    prompt_buttons: Vec<(UnsavedAnswer, Rect)>,
+    /// DOC-002 test seam: the File bar buttons painted in the last pass and their rectangles.
+    file_buttons: Vec<(&'static str, Rect)>,
     plot: Plot,
     loaded_plot_svg: Option<String>,
     /// PLT-006: the open PNG export options window, if any.
@@ -244,8 +326,11 @@ impl WorkbenchApp {
         let editors = workbench
             .documents()
             .iter()
-            .map(|document| TextEditor::from_source(&document.source))
+            .map(|document| {
+                TextEditor::from_source_with_newline(&document.source, document.newline)
+            })
             .collect();
+        let editor_ids = workbench.documents().iter().map(|doc| doc.id).collect();
         let loaded_revisions = workbench
             .documents()
             .iter()
@@ -258,7 +343,15 @@ impl WorkbenchApp {
             workbench,
             view,
             editors,
+            editor_ids,
             loaded_revisions,
+            dialogs: Box::new(NativeFileDialogs),
+            close: None,
+            window_close_approved: false,
+            window_title: String::new(),
+            pending_focus: None,
+            prompt_buttons: Vec::new(),
+            file_buttons: Vec::new(),
             plot: Plot::new(),
             loaded_plot_svg: None,
             plot_export: None,
@@ -286,9 +379,11 @@ impl WorkbenchApp {
         }
     }
 
-    /// Applies queued events and re-loads the active editor if its document changed elsewhere.
+    /// Applies queued events and re-loads the editors whose document changed elsewhere.
     fn sync(&mut self) {
         self.workbench.poll();
+        // DOC-002: New, Open and Close change the tab list; keep one editor per open document.
+        self.sync_editors();
         // RUN-003: assemble the frame's pane state once, from the same committed snapshot the
         // poll above applied. Every pane below renders this value, not a fresh workbench lookup.
         self.view = self.workbench.active_view();
@@ -300,13 +395,6 @@ impl WorkbenchApp {
         // makes every editor decoration appear with the failure and disappear on the next edit.
         for (index, editor) in self.editors.iter_mut().enumerate() {
             editor.diagnostic = self.workbench.diagnostic(index).cloned();
-        }
-        let active = self.workbench.active();
-        let revision = self.workbench.documents()[active].revision;
-        if self.loaded_revisions[active] != revision {
-            let source = self.workbench.documents()[active].source.clone();
-            self.editors[active].load(&source);
-            self.loaded_revisions[active] = revision;
         }
         let current_svg = self.view.plot.as_ref().map(|plot| plot.svg.clone());
         if current_svg != self.loaded_plot_svg {
@@ -321,6 +409,495 @@ impl WorkbenchApp {
                 }
             }
         }
+    }
+
+    /// Keeps `editors`, `loaded_revisions` and `editor_ids` in step with the workbench's tabs.
+    ///
+    /// A tab that is still open keeps its editor object, so its caret, selection and undo history
+    /// survive another tab opening or closing. A document whose revision advanced elsewhere (a
+    /// file load, a reload) gets its text and newline style re-loaded; the fresh tab of a document
+    /// created since the last frame gets a new editor at the start of its text.
+    fn sync_editors(&mut self) {
+        let ids: Vec<DocumentId> = self
+            .workbench
+            .documents()
+            .iter()
+            .map(|document| document.id)
+            .collect();
+        if self.editor_ids != ids {
+            let mut previous: Vec<(DocumentId, TextEditor, u64)> = self
+                .editor_ids
+                .iter()
+                .copied()
+                .zip(self.editors.drain(..))
+                .zip(self.loaded_revisions.drain(..))
+                .map(|((id, editor), revision)| (id, editor, revision))
+                .collect();
+            let mut editors = Vec::with_capacity(ids.len());
+            let mut revisions = Vec::with_capacity(ids.len());
+            for (index, id) in ids.iter().enumerate() {
+                let document = &self.workbench.documents()[index];
+                match previous.iter().position(|(existing, _, _)| existing == id) {
+                    Some(position) => {
+                        let (_, mut editor, loaded) = previous.remove(position);
+                        if loaded != document.revision {
+                            editor.load_with_newline(&document.source, document.newline);
+                        }
+                        editors.push(editor);
+                        revisions.push(document.revision);
+                    }
+                    None => {
+                        editors.push(TextEditor::from_source_with_newline(
+                            &document.source,
+                            document.newline,
+                        ));
+                        revisions.push(document.revision);
+                    }
+                }
+            }
+            self.editors = editors;
+            self.loaded_revisions = revisions;
+            self.editor_ids = ids;
+            return;
+        }
+        let active = self.workbench.active();
+        let revision = self.workbench.documents()[active].revision;
+        if self.loaded_revisions[active] != revision {
+            let document = &self.workbench.documents()[active];
+            let (source, newline) = (document.source.clone(), document.newline);
+            self.editors[active].load_with_newline(&source, newline);
+            self.loaded_revisions[active] = revision;
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-002: the file lifecycle. New / Open / Save / Save As / Close all go through the
+    // workbench, which owns the document state and the bytes; the window only asks the native
+    // dialogs for a path and renders the result.
+    // -----------------------------------------------------------------------------------------
+
+    /// Ctrl+N / File > New: add an empty document tab and select it.
+    fn new_document(&mut self) {
+        self.workbench.new_document();
+    }
+
+    /// Ctrl+O / File > Open: ask the native Open dialog, then open the chosen file in a tab.
+    fn open_dialog(&mut self) {
+        let Some(path) = self.dialogs.open() else {
+            return;
+        };
+        // A refusal (a non-UTF-8 file, for example) is logged by the workbench with its reason and
+        // leaves every tab alone; the editor keeps the focus it already had.
+        if let Ok(index) = self.workbench.open(&path) {
+            self.sync_after_tab_change(index);
+        }
+    }
+
+    /// Ctrl+S / File > Save, or Ctrl+Shift+S / File > Save As.
+    ///
+    /// `ask_path` forces the Save As dialog; Save asks only when the document has no path yet.
+    /// A cancelled dialog changes nothing at all.
+    fn save_active(&mut self, ask_path: bool) {
+        let active = self.workbench.active();
+        let _ = self.write_document_through_dialogs(active, ask_path);
+    }
+
+    /// Writes one document, asking the native Save As dialog when needed.
+    ///
+    /// Returns `None` when the user cancelled the dialog (nothing was written and the document is
+    /// unchanged), otherwise the workbench's outcome.
+    fn write_document_through_dialogs(
+        &mut self,
+        index: usize,
+        ask_path: bool,
+    ) -> Option<SaveOutcome> {
+        let (has_path, suggested, initial_dir) = {
+            let document = self.workbench.document(index)?;
+            (
+                document.path.is_some(),
+                file_dialogs::suggested_name(&document.title),
+                document
+                    .path
+                    .as_ref()
+                    .and_then(|path| path.parent().map(PathBuf::from)),
+            )
+        };
+        if !ask_path && has_path {
+            return Some(self.workbench.save(index));
+        }
+        let path = self.dialogs.save_as(&suggested, initial_dir.as_deref())?;
+        Some(self.workbench.save_as(index, path))
+    }
+
+    /// Makes `index` the active tab and reconciles the editors immediately, before any pane in
+    /// this frame indexes them.
+    fn sync_after_tab_change(&mut self, index: usize) {
+        self.workbench.set_active(index);
+        self.sync();
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-003: the unsaved-changes prompt.
+    // -----------------------------------------------------------------------------------------
+
+    /// Starts closing `target`, or closes it immediately when nothing in it is dirty.
+    fn request_close(&mut self, target: CloseTarget, ctx: &egui::Context) {
+        if self.close.is_some() {
+            return;
+        }
+        let pending: Vec<DocumentId> = match target {
+            CloseTarget::Tab(id) => match self.workbench.document_index(id) {
+                Some(index) if self.workbench.documents()[index].dirty() => vec![id],
+                Some(_) => Vec::new(),
+                None => return,
+            },
+            CloseTarget::Window => self.workbench.dirty_documents(),
+        };
+        if pending.is_empty() {
+            self.perform_close(target, ctx);
+            return;
+        }
+        let total = pending.len();
+        let focus_before = ctx.memory(|memory| memory.focused());
+        self.close = Some(ClosePrompt {
+            target,
+            pending,
+            total,
+            focus_before,
+            error: None,
+        });
+    }
+
+    /// Carries out a close that has been decided: a tab is removed, the window asks the OS to
+    /// close and the next close request is allowed through.
+    fn perform_close(&mut self, target: CloseTarget, ctx: &egui::Context) {
+        match target {
+            CloseTarget::Tab(id) => {
+                self.workbench.close_document(id);
+                // The tab list changed under this frame's editors; reconcile now so no pane draws
+                // a document that is gone.
+                self.sync();
+                self.pending_focus = Some(surface_id());
+            }
+            CloseTarget::Window => {
+                self.window_close_approved = true;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+        }
+    }
+
+    /// Applies one answer to the prompt.
+    ///
+    /// Cancel is deliberately the cheapest branch: it drops the prompt, restores the focus that
+    /// was taken when it opened, and touches no editor, no buffer and no caret.
+    fn answer_close(&mut self, answer: UnsavedAnswer, ctx: &egui::Context) {
+        let Some(prompt) = self.close.clone() else {
+            return;
+        };
+        match answer {
+            UnsavedAnswer::Cancel => {
+                self.close = None;
+                // Restored on the next pass, when the modal's layer no longer blocks the editor.
+                self.pending_focus = Some(prompt.focus_before.unwrap_or_else(surface_id));
+            }
+            UnsavedAnswer::Discard => self.advance_close(ctx),
+            UnsavedAnswer::Save => {
+                let Some(index) = self.workbench.document_index(prompt.current()) else {
+                    self.advance_close(ctx);
+                    return;
+                };
+                match self.write_document_through_dialogs(index, false) {
+                    Some(SaveOutcome::Saved { .. }) => self.advance_close(ctx),
+                    Some(SaveOutcome::Failed(message)) => {
+                        // The write failed: keep asking, and say why in the prompt.
+                        if let Some(prompt) = self.close.as_mut() {
+                            prompt.error = Some(message);
+                        }
+                    }
+                    Some(SaveOutcome::NeedsPath) => {
+                        // Unreachable: the dialog supplies a path before this outcome can occur.
+                        if let Some(prompt) = self.close.as_mut() {
+                            prompt.error = Some("This document has no path yet.".to_string());
+                        }
+                    }
+                    None => {
+                        // The Save As dialog was cancelled. The prompt stays open so the user can
+                        // still choose Discard or Cancel.
+                    }
+                }
+            }
+        }
+    }
+
+    /// Removes the answered document from the queue and closes when nothing is left to ask about.
+    fn advance_close(&mut self, ctx: &egui::Context) {
+        let Some(prompt) = self.close.as_mut() else {
+            return;
+        };
+        prompt.pending.remove(0);
+        prompt.error = None;
+        if prompt.pending.is_empty() {
+            let target = prompt.target;
+            self.close = None;
+            self.perform_close(target, ctx);
+        }
+    }
+
+    /// Interprets the OS close request (title-bar X, Alt+F4).
+    ///
+    /// A dirty workbench refuses the close for this frame and asks instead; nothing is written and
+    /// nothing is discarded until the prompt is answered. A clean workbench lets the close through.
+    fn handle_close_request(&mut self, ctx: &egui::Context) {
+        if !ctx.input(|input| input.viewport().close_requested()) {
+            return;
+        }
+        if self.window_close_approved {
+            return;
+        }
+        if self.close.is_some() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            return;
+        }
+        if self.workbench.dirty_documents().is_empty() {
+            self.window_close_approved = true;
+            return;
+        }
+        ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        self.request_close(CloseTarget::Window, ctx);
+    }
+
+    /// Paints the prompt and applies the answer.
+    ///
+    /// The caller reads Escape/Enter before this runs and strips every key and text event from the
+    /// frame, so no keystroke can reach an editor while the question is open. The modal is drawn in
+    /// egui's foreground layer, so it is painted above the panes even though it is built first.
+    fn close_prompt_ui(&mut self, ctx: &egui::Context, escape: bool, enter: bool) {
+        self.prompt_buttons.clear();
+        let Some(prompt) = self.close.clone() else {
+            return;
+        };
+        let Some(index) = self.workbench.document_index(prompt.current()) else {
+            // The document disappeared while the prompt was up; there is nothing to save.
+            self.close = None;
+            return;
+        };
+        let title = self.workbench.documents()[index].title.clone();
+        let total = prompt.total;
+        let remaining = prompt.pending.len();
+        let error = prompt.error.clone();
+        let mut answer: Option<UnsavedAnswer> = None;
+        let modal = egui::Modal::new(egui::Id::unique("unsaved-changes-prompt")).show(ctx, |ui| {
+            ui.set_max_width(480.0);
+            ui.label(RichText::new("Unsaved changes").strong().size(16.0).color(TEXT));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(format!("Save changes to {title} before closing?"))
+                    .color(TEXT)
+                    .size(14.0),
+            );
+            if total > 1 {
+                ui.label(
+                    RichText::new(format!(
+                        "Document {} of {} with unsaved changes.",
+                        total - remaining + 1,
+                        total
+                    ))
+                    .small()
+                    .color(DIM),
+                );
+            }
+            ui.label(
+                RichText::new("If you discard, what you changed since the last save is lost.")
+                    .small()
+                    .color(DIM),
+            );
+            if let Some(error) = &error {
+                ui.add_space(2.0);
+                ui.label(RichText::new(error).small().color(ERROR));
+            }
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                for choice in [
+                    UnsavedAnswer::Save,
+                    UnsavedAnswer::Discard,
+                    UnsavedAnswer::Cancel,
+                ] {
+                    let text = RichText::new(choice.label()).size(14.0);
+                    let text = if choice == UnsavedAnswer::Save {
+                        text.strong()
+                    } else {
+                        text
+                    };
+                    let response = ui.add(egui::Button::new(text).min_size(vec2(96.0, 26.0)));
+                    if response.clicked() {
+                        answer = Some(choice);
+                    }
+                    self.prompt_buttons.push((choice, response.rect));
+                }
+            });
+        });
+        if answer.is_none() {
+            if escape {
+                answer = Some(UnsavedAnswer::Cancel);
+            } else if enter {
+                answer = Some(UnsavedAnswer::Save);
+            } else if modal.should_close() {
+                answer = Some(UnsavedAnswer::Cancel);
+            }
+        }
+        if let Some(answer) = answer {
+            self.answer_close(answer, ctx);
+        }
+    }
+
+    /// Sends the active document's name and dirty marker to the native window title.
+    fn update_window_title(&mut self, ctx: &egui::Context) {
+        let title = format!(
+            "Lovelace Desktop - {}",
+            self.workbench.active_document().title_with_marker()
+        );
+        if title != self.window_title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.window_title = title;
+        }
+    }
+
+    /// Reads this frame's file shortcut, if any (DOC-002's Ctrl+N/O/S, Ctrl+Shift+S, Ctrl+W).
+    fn file_shortcut(&self, ui: &Ui) -> Option<FileCommand> {
+        ui.input(|input| {
+            for event in &input.events {
+                if let egui::Event::Key {
+                    key,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } = event
+                {
+                    if !(modifiers.ctrl || modifiers.command) || modifiers.alt {
+                        continue;
+                    }
+                    let letter = match key {
+                        Key::N => 'n',
+                        Key::O => 'o',
+                        Key::S => 's',
+                        Key::W => 'w',
+                        _ => continue,
+                    };
+                    if let Some(command) =
+                        keyboard::file_command_for_shortcut(letter, true, modifiers.shift)
+                    {
+                        return Some(command);
+                    }
+                }
+            }
+            None
+        })
+    }
+
+    /// Executes one file command through the same entry points the buttons use.
+    fn apply_file_command(&mut self, command: FileCommand, ctx: &egui::Context) {
+        // Trace mode only: the file command's stable name, beside the run trace marks.
+        crate::run_trace::mark("file_command", command.label());
+        match command {
+            FileCommand::New => self.new_document(),
+            FileCommand::Open => self.open_dialog(),
+            FileCommand::Save => self.save_active(false),
+            FileCommand::SaveAs => self.save_active(true),
+            FileCommand::CloseTab => {
+                let id = self.workbench.active_document().id;
+                self.request_close(CloseTarget::Tab(id), ctx);
+            }
+        }
+    }
+
+    /// The file bar: New / Open / Save / Save As / Recent / Close / Quit and the active
+    /// document's encoding and path.
+    fn file_bar(&mut self, ui: &mut Ui) {
+        let ctx = ui.ctx().clone();
+        self.file_buttons.clear();
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("File").small().color(DIM));
+            if self.file_bar_button(ui, "New", "New document (Ctrl+N)") {
+                self.new_document();
+            }
+            if self.file_bar_button(ui, "Open...", "Open a Lovelace script from disk (Ctrl+O)") {
+                self.open_dialog();
+            }
+            if self.file_bar_button(
+                ui,
+                "Save",
+                "Save the active document (Ctrl+S); asks for a path when it has none",
+            ) {
+                self.save_active(false);
+            }
+            if self.file_bar_button(
+                ui,
+                "Save As...",
+                "Save the active document under a new name (Ctrl+Shift+S)",
+            ) {
+                self.save_active(true);
+            }
+            let recent = self.workbench.recent_files().to_vec();
+            ui.add_enabled_ui(!recent.is_empty(), |ui| {
+                ui.menu_button("Recent", |ui| {
+                    ui.set_min_width(360.0);
+                    for path in &recent {
+                        if ui.button(path).clicked() {
+                            if let Ok(index) = self.workbench.open(std::path::Path::new(path)) {
+                                self.sync_after_tab_change(index);
+                            }
+                            ui.close();
+                        }
+                    }
+                })
+                .response
+                .on_hover_text("Files opened or saved in this session");
+            });
+            ui.separator();
+            if self.file_bar_button(
+                ui,
+                "Close",
+                "Close the active tab (Ctrl+W); prompts when it has unsaved changes",
+            ) {
+                let id = self.workbench.active_document().id;
+                self.request_close(CloseTarget::Tab(id), &ctx);
+            }
+            if self.file_bar_button(
+                ui,
+                "Quit",
+                "Quit Lovelace Desktop; prompts for every unsaved document",
+            ) {
+                self.request_close(CloseTarget::Window, &ctx);
+            }
+            ui.separator();
+            let document = self.workbench.active_document();
+            ui.label(
+                RichText::new(document.encoding_label())
+                    .monospace()
+                    .color(DIM),
+            )
+            .on_hover_text("The encoding and newline style this document saves with");
+            match &document.path {
+                Some(path) => {
+                    ui.label(
+                        RichText::new(path.display().to_string())
+                            .monospace()
+                            .small()
+                            .color(DIM),
+                    );
+                }
+                None => {
+                    ui.label(RichText::new("no file yet").small().color(DIM));
+                }
+            }
+        });
+    }
+
+    /// One File bar button: records its rectangle for the pointer tests and reports a click.
+    fn file_bar_button(&mut self, ui: &mut Ui, label: &'static str, hover: &str) -> bool {
+        let response = ui.button(label).on_hover_text(hover);
+        self.file_buttons.push((label, response.rect));
+        response.clicked()
     }
 
     fn ui_root(&mut self, ui: &mut Ui) {
@@ -338,6 +915,38 @@ impl WorkbenchApp {
                 "frame_begin",
                 format!("pass={}", ui.ctx().cumulative_pass_nr()),
             );
+        }
+
+        let ctx = ui.ctx().clone();
+        // A focus request made while the modal was up is applied every pass until it takes
+        // effect: the modal's layer is still the top layer for one pass after it stops being
+        // painted, so the editor is only interactable again on the pass after that.
+        if let Some(id) = self.pending_focus {
+            ctx.memory_mut(|memory| memory.request_focus(id));
+        }
+        // DOC-003: the OS close request (title-bar X, Alt+F4) is either refused with a prompt or
+        // allowed through. It is handled before anything else so a close can never race a pane.
+        self.handle_close_request(&ctx);
+        // While the prompt is open nothing in this frame may consume a keystroke: read the two keys
+        // the prompt itself uses, then strip every key and text event so no editor can be edited
+        // behind the modal. The modal's buttons still receive pointer events, and the prompt is
+        // drawn in egui's foreground layer even though it is built before the panes.
+        if self.close.is_some() {
+            let (escape, enter) = ctx.input(|input| {
+                (
+                    input.key_pressed(Key::Escape),
+                    input.key_pressed(Key::Enter),
+                )
+            });
+            ctx.input_mut(|input| {
+                input.events.retain(|event| {
+                    !matches!(
+                        event,
+                        egui::Event::Text(_) | egui::Event::Key { .. } | egui::Event::Paste(_)
+                    )
+                });
+            });
+            self.close_prompt_ui(&ctx, escape, enter);
         }
 
         // Start with keyboard focus in the editor so a typed script lands there without a click.
@@ -426,6 +1035,12 @@ impl WorkbenchApp {
             self.workbench.command(command);
         }
 
+        // DOC-002: the file shortcuts are window-level commands because each of them may open a
+        // native dialog. Ctrl+N/O/S, Ctrl+Shift+S and Ctrl+W are mapped in `keyboard`.
+        if let Some(command) = self.file_shortcut(ui) {
+            self.apply_file_command(command, ui.ctx());
+        }
+
         self.sync();
         if self.trace_pending {
             crate::run_trace::mark("sync_done", "event queue polled and document synced");
@@ -442,6 +1057,7 @@ impl WorkbenchApp {
             }
         }
 
+        egui::Panel::top("filebar").show(ui, |ui| self.file_bar(ui));
         egui::Panel::top("toolbar").show(ui, |ui| self.toolbar(ui));
         if self.trace_pending {
             crate::run_trace::mark("toolbar_drawn", "");
@@ -455,6 +1071,16 @@ impl WorkbenchApp {
         // PLT-006: the PNG options window sits over every pane, not inside the plot pane, so a
         // click on it cannot also reach the plot canvas underneath.
         self.plot_export_window(ui.ctx());
+        // DOC-002: the native window title carries the active file name and its dirty marker.
+        self.update_window_title(ui.ctx());
+        // A queued focus request is cleared only once the editor actually holds the focus; while
+        // the modal's layer is still the top layer the request cannot take effect, so it is kept
+        // and re-requested on the following pass.
+        if let Some(id) = self.pending_focus {
+            if ctx.memory(|memory| memory.focused()) == Some(id) {
+                self.pending_focus = None;
+            }
+        }
         if self.trace_pending {
             crate::run_trace::mark("panes_drawn", "");
         }
@@ -558,13 +1184,7 @@ impl WorkbenchApp {
                 .workbench
                 .documents()
                 .iter()
-                .map(|document| {
-                    format!(
-                        "{}{}",
-                        document.title,
-                        if document.dirty() { " *" } else { "" }
-                    )
-                })
+                .map(|document| document.title_with_marker())
                 .collect();
             for (index, title) in tabs.iter().enumerate() {
                 let selected = index == self.workbench.active();
@@ -662,8 +1282,8 @@ impl WorkbenchApp {
 
     fn editor_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
         let active = self.workbench.active();
-        let title = match self.workbench.document(active) {
-            Some(document) => document.title.clone(),
+        let (title, encoding) = match self.workbench.document(active) {
+            Some(document) => (document.title.clone(), document.encoding_label()),
             None => return,
         };
         let lines = self.editors[active].line_count();
@@ -688,6 +1308,11 @@ impl WorkbenchApp {
             ui.scope_builder(header_ui(header), |ui| {
                 ui.label(RichText::new(&title).color(ACCENT).monospace());
                 ui.label(RichText::new(format!("{lines} lines / {bytes} bytes")).color(DIM));
+                ui.label(RichText::new(&encoding).monospace().small().color(DIM))
+                    .on_hover_text(
+                        "The document's encoding and newline style; Save writes them back \
+                         unchanged unless the file is edited",
+                    );
                 if let Some(diagnostic) = &diagnostic {
                     ui.separator();
                     ui.label(
@@ -2453,14 +3078,88 @@ mod tests {
         screen: egui::Vec2,
         events: Vec<egui::Event>,
     ) {
-        let input = egui::RawInput {
+        let _ = frame_capturing(ctx, app, screen, events, Default::default());
+    }
+
+    /// One headless pass with an explicit viewport map, returning everything the integration would
+    /// apply (DOC-003's close commands are read from the output).
+    fn frame_capturing(
+        ctx: &egui::Context,
+        app: &mut WorkbenchApp,
+        screen: egui::Vec2,
+        events: Vec<egui::Event>,
+        viewports: egui::ViewportIdMap<egui::ViewportInfo>,
+    ) -> egui::FullOutput {
+        let mut input = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), screen)),
             events,
             ..Default::default()
         };
+        if !viewports.is_empty() {
+            input.viewports = viewports;
+        }
         let mut output = ctx.run_ui(input, |ui| app.ui_root(ui));
         // A headless pass has no painter to upload the font texture to; mark the deltas handled.
         output.textures_delta.clear();
+        output
+    }
+
+    /// Delivers one OS close request (the title-bar X) to the window, returning the frame output.
+    fn close_request(ctx: &egui::Context, app: &mut WorkbenchApp) -> egui::FullOutput {
+        let mut viewports = egui::ViewportIdMap::default();
+        viewports.insert(
+            egui::ViewportId::ROOT,
+            egui::ViewportInfo {
+                events: vec![egui::ViewportEvent::Close],
+                ..Default::default()
+            },
+        );
+        frame_capturing(ctx, app, vec2(1280.0, 800.0), Vec::new(), viewports)
+    }
+
+    /// True when the frame asked the integration to cancel a close (DOC-003's refusal).
+    fn cancelled_close(output: &egui::FullOutput) -> bool {
+        output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .map(|viewport| {
+                viewport
+                    .commands
+                    .iter()
+                    .any(|command| matches!(command, egui::ViewportCommand::CancelClose))
+            })
+            .unwrap_or(false)
+    }
+
+    /// True when the frame asked the integration to close the window (DOC-003's approval).
+    fn approved_close(output: &egui::FullOutput) -> bool {
+        output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .map(|viewport| {
+                viewport
+                    .commands
+                    .iter()
+                    .any(|command| matches!(command, egui::ViewportCommand::Close))
+            })
+            .unwrap_or(false)
+    }
+
+    /// The center of the prompt button the test wants to click.
+    fn prompt_button(app: &WorkbenchApp, choice: UnsavedAnswer) -> egui::Pos2 {
+        app.prompt_buttons
+            .iter()
+            .find(|(painted, _)| *painted == choice)
+            .map(|(_, rect)| rect.center())
+            .unwrap_or_else(|| panic!("the {choice:?} button was not painted"))
+    }
+
+    /// The buttons the open prompt painted, in their on-screen order.
+    fn prompt_choices(app: &WorkbenchApp) -> Vec<&'static str> {
+        app.prompt_buttons
+            .iter()
+            .map(|(choice, _)| choice.label())
+            .collect()
     }
 
     /// A full pointer click at `pos`: move, press, release (one pass each), the same sequence a
@@ -4749,5 +5448,495 @@ mod tests {
         frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
         frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, false)]);
         assert!(!app.inspector_open, "clicking Result must restore the result view");
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-002 / DOC-003: the window's file lifecycle and the unsaved-changes prompt.
+    // -----------------------------------------------------------------------------------------
+
+    /// A file in the test scratch directory, unique per test and process.
+    fn fixture(name: &str, bytes: &[u8]) -> PathBuf {
+        let directory = std::env::temp_dir().join("lovelace-desktop-window-file-tests");
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        let path = directory.join(format!("{name}-{}.lv", std::process::id()));
+        std::fs::write(&path, bytes).expect("fixture bytes");
+        path
+    }
+
+    /// A workbench with the fixture opened in its own tab, which becomes active.
+    fn opened_workbench(path: &std::path::Path) -> Workbench {
+        let mut workbench = slow_workbench();
+        workbench.open(path).expect("open the fixture");
+        workbench
+    }
+
+    /// Answers both dialogs from a queue, so Open and Save As can run headlessly.
+    #[derive(Default)]
+    struct ScriptedDialogs {
+        open: std::collections::VecDeque<Option<PathBuf>>,
+        save: std::collections::VecDeque<Option<PathBuf>>,
+    }
+
+    impl ScriptedDialogs {
+        fn opening(paths: impl IntoIterator<Item = Option<PathBuf>>) -> ScriptedDialogs {
+            ScriptedDialogs {
+                open: paths.into_iter().collect(),
+                save: std::collections::VecDeque::new(),
+            }
+        }
+
+        fn saving(paths: impl IntoIterator<Item = Option<PathBuf>>) -> ScriptedDialogs {
+            ScriptedDialogs {
+                open: std::collections::VecDeque::new(),
+                save: paths.into_iter().collect(),
+            }
+        }
+    }
+
+    impl FileDialogs for ScriptedDialogs {
+        fn open(&mut self) -> Option<PathBuf> {
+            self.open.pop_front().flatten()
+        }
+
+        fn save_as(&mut self, _suggested: &str, _initial_dir: Option<&std::path::Path>) -> Option<PathBuf> {
+            self.save.pop_front().flatten()
+        }
+    }
+
+    /// One pass with no events, used to settle the frame after a state change.
+    fn settle(ctx: &egui::Context, app: &mut WorkbenchApp) {
+        frame(ctx, app, Vec::new());
+        frame(ctx, app, Vec::new());
+    }
+
+    #[test]
+    fn the_prompt_names_the_document_and_offers_save_discard_and_cancel() {
+        let path = fixture("prompt-buttons", b"a = 1\nb = 2\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "a = 1\nb = 3\n".to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+        assert!(app.close.is_some(), "a dirty tab must ask before closing");
+        settle(&ctx, &mut app);
+
+        assert_eq!(
+            prompt_choices(&app),
+            vec!["Save", "Discard", "Cancel"],
+            "the prompt offers exactly the three answers, in that order"
+        );
+        let prompt = app.close.as_ref().expect("prompt");
+        assert!(prompt.error.is_none());
+        assert_eq!(prompt.pending.len(), 1);
+        assert_eq!(prompt.total, 1);
+        // The document the question names is the dirty one.
+        assert_eq!(
+            app.workbench
+                .document_index(prompt.current())
+                .map(|index| app.workbench.documents()[index].title_with_marker()),
+            Some(format!("{} *", path.file_name().unwrap().to_string_lossy()))
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn cancel_keeps_the_buffer_the_caret_the_tab_and_the_focus() {
+        let path = fixture("prompt-cancel", b"a = 1\nb = 2\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "a = 1\nb = 3\n".to_string());
+        let tabs = workbench.documents().len();
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        app.editors[index].set_caret(1, 3);
+        let caret = app.editors[index].caret();
+        frame(&ctx, &mut app, Vec::new());
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(surface_id()),
+            "the editor owns the focus before the prompt"
+        );
+
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+        assert!(app.close.is_some(), "the prompt must be open");
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            None,
+            "the prompt owns the keyboard: the editor is not focused while it is open"
+        );
+
+        // Escape is the prompt's Cancel.
+        frame(&ctx, &mut app, vec![key(Key::Escape, egui::Modifiers::default())]);
+
+        assert!(app.close.is_none(), "Cancel dismisses the prompt");
+        assert_eq!(
+            app.workbench.documents().len(),
+            tabs,
+            "Cancel closes nothing"
+        );
+        assert_eq!(
+            app.workbench.documents()[index].source, "a = 1\nb = 3\n",
+            "Cancel keeps the edited buffer"
+        );
+        assert!(app.workbench.documents()[index].dirty(), "it is still unsaved");
+        assert_eq!(app.editors[index].caret(), caret, "the caret has not moved");
+        // The modal's layer blocks the editor for one pass after it stops being painted, so the
+        // focus it had before the prompt is granted back on the pass after that.
+        frame(&ctx, &mut app, Vec::new());
+        frame(&ctx, &mut app, Vec::new());
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(surface_id()),
+            "focus is back in the editor, where it was"
+        );
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"a = 1\nb = 2\n",
+            "Cancel writes nothing"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn discard_closes_the_tab_without_writing_to_the_file() {
+        let path = fixture("prompt-discard", b"x = 1\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "x = 2\n".to_string());
+        let tabs = workbench.documents().len();
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+
+        let discard = prompt_button(&app, UnsavedAnswer::Discard);
+        pointer_click(&ctx, &mut app, discard);
+
+        assert!(app.close.is_none(), "Discard finishes the close");
+        assert_eq!(
+            app.workbench.documents().len(),
+            tabs - 1,
+            "the tab is closed"
+        );
+        assert_eq!(app.editors.len(), tabs - 1, "its editor is gone too");
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"x = 1\n",
+            "Discard writes nothing"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn save_in_the_prompt_writes_the_edit_then_closes_the_tab() {
+        let path = fixture("prompt-save", b"x = 1\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "x = 2\n".to_string());
+        let tabs = workbench.documents().len();
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+
+        let save = prompt_button(&app, UnsavedAnswer::Save);
+        pointer_click(&ctx, &mut app, save);
+
+        assert!(app.close.is_none(), "Save finishes the close");
+        assert_eq!(app.workbench.documents().len(), tabs - 1);
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"x = 2\n",
+            "Save in the prompt writes the edited buffer"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_clean_tab_closes_without_a_prompt() {
+        let path = fixture("clean-close", b"x = 1\n");
+        let workbench = opened_workbench(&path);
+        let tabs = workbench.documents().len();
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+
+        assert!(app.close.is_none(), "a clean tab must not ask anything");
+        assert_eq!(app.workbench.documents().len(), tabs - 1);
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"x = 1\n",
+            "closing a clean tab writes nothing"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_window_close_request_with_unsaved_changes_is_refused_and_prompts() {
+        let path = fixture("window-close", b"a = 1\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "a = 2\n".to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        let output = close_request(&ctx, &mut app);
+
+        assert!(
+            cancelled_close(&output),
+            "the window must refuse the close while a document is dirty"
+        );
+        assert!(app.close.is_some(), "the refusal is a prompt");
+        assert!(
+            !app.window_close_approved,
+            "the window has not been allowed to close"
+        );
+
+        // Cancel the prompt with Escape: the window stays open, nothing was written.
+        settle(&ctx, &mut app);
+        frame(&ctx, &mut app, vec![key(Key::Escape, egui::Modifiers::default())]);
+        assert!(app.close.is_none());
+        assert!(!app.window_close_approved);
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"a = 1\n",
+            "refusing the close writes nothing"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn a_window_close_request_on_a_clean_workbench_is_allowed() {
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        let output = close_request(&ctx, &mut app);
+
+        assert!(
+            !cancelled_close(&output),
+            "a clean workbench does not refuse a close"
+        );
+        assert!(
+            !approved_close(&output),
+            "no close command is needed: the request is simply allowed through"
+        );
+        assert!(app.window_close_approved);
+        assert!(app.close.is_none());
+    }
+
+    #[test]
+    fn quit_from_the_file_bar_prompts_and_discard_closes_the_window() {
+        let path = fixture("quit-prompt", b"a = 1\n");
+        let mut workbench = opened_workbench(&path);
+        let index = workbench.active();
+        workbench.set_source(index, "a = 2\n".to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        let quit = app
+            .file_buttons
+            .iter()
+            .find(|(label, _)| *label == "Quit")
+            .expect("the File bar paints Quit")
+            .1
+            .center();
+        pointer_click(&ctx, &mut app, quit);
+
+        assert!(app.close.is_some(), "Quit asks about the dirty document");
+        settle(&ctx, &mut app);
+        let discard = prompt_button(&app, UnsavedAnswer::Discard);
+        pointer_click(&ctx, &mut app, discard);
+
+        assert!(app.close.is_none());
+        assert!(
+            app.window_close_approved,
+            "Discard on Quit approves closing the window"
+        );
+        // The next OS close request is allowed through instead of asking again.
+        let output = close_request(&ctx, &mut app);
+        assert!(!cancelled_close(&output));
+        assert_eq!(
+            std::fs::read(&path).expect("read back"),
+            b"a = 1\n",
+            "Discard from Quit writes nothing"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn saving_a_pathless_document_from_the_prompt_asks_for_a_path_then_closes() {
+        let path = fixture("prompt-save-as", b"");
+        let _ = std::fs::remove_file(&path);
+        let mut workbench = slow_workbench();
+        let index = workbench.new_document();
+        workbench.set_source(index, "q = 5\n".to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        app.dialogs = Box::new(ScriptedDialogs::saving([Some(path.clone())]));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+        assert!(app.close.is_some(), "the dirty tab prompts first");
+        assert!(
+            prompt_choices(&app).contains(&"Save"),
+            "the prompt offers Save"
+        );
+
+        // Answer Save: the workbench has no path, so the scripted Save As dialog supplies one.
+        let save = prompt_button(&app, UnsavedAnswer::Save);
+        pointer_click(&ctx, &mut app, save);
+
+        assert!(app.close.is_none(), "the flow finished");
+        assert_eq!(std::fs::read(&path).expect("read back"), b"q = 5\n");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn ctrl_n_adds_a_tab_and_ctrl_w_closes_the_clean_one() {
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        assert_eq!(app.workbench.documents().len(), 2);
+
+        frame(&ctx, &mut app, vec![key(Key::N, ctrl_modifiers())]);
+
+        assert_eq!(app.workbench.documents().len(), 3, "Ctrl+N adds a tab");
+        assert_eq!(app.editors.len(), 3, "and an editor for it");
+        assert_eq!(app.workbench.active(), 2);
+        assert_eq!(
+            app.workbench.documents()[2].title_with_marker(),
+            "untitled-2.lv"
+        );
+        assert_eq!(app.editors[2].source(), "", "the new tab starts empty");
+        assert!(
+            app.window_title.ends_with("untitled-2.lv"),
+            "the window title names the active document: {:?}",
+            app.window_title
+        );
+
+        frame(&ctx, &mut app, vec![key(Key::W, ctrl_modifiers())]);
+
+        assert_eq!(app.workbench.documents().len(), 2, "Ctrl+W closes it");
+        assert_eq!(app.editors.len(), 2);
+        assert!(app.close.is_none(), "a clean tab does not prompt");
+    }
+
+    #[test]
+    fn ctrl_shift_s_asks_for_a_path_and_ctrl_s_then_writes_to_it() {
+        let path = fixture("save-as-binding", b"");
+        let _ = std::fs::remove_file(&path);
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        app.dialogs = Box::new(ScriptedDialogs::saving([Some(path.clone())]));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::S, ctrl_shift_modifiers())]);
+
+        assert_eq!(
+            app.workbench.documents()[0].path.as_deref(),
+            Some(path.as_path()),
+            "Ctrl+Shift+S adopts the chosen path"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].title,
+            path.file_name().unwrap().to_string_lossy(),
+            "Save As renames the tab"
+        );
+        let written = std::fs::read(&path).expect("the starter script was written");
+        assert!(
+            written.starts_with(b"# Lovelace Desktop."),
+            "Save As wrote the buffer: {:?}",
+            String::from_utf8_lossy(&written)
+        );
+
+        // One edit, then Ctrl+S: the document has a path, so no dialog may be needed. The
+        // scripted queue is empty, so a dialog would return None and nothing would be written.
+        frame(&ctx, &mut app, vec![egui::Event::Text("w".to_string())]);
+        assert!(app.workbench.documents()[0].dirty());
+        assert!(app.window_title.ends_with(" *"), "{:?}", app.window_title);
+        frame(&ctx, &mut app, vec![key(Key::S, ctrl_modifiers())]);
+
+        let written = std::fs::read(&path).expect("read back");
+        assert!(
+            written.starts_with(b"w# Lovelace Desktop."),
+            "Ctrl+S wrote the edit to the document's own path: {:?}",
+            String::from_utf8_lossy(&written)
+        );
+        assert!(!app.workbench.documents()[0].dirty(), "the marker is cleared");
+        assert!(!app.window_title.ends_with(" *"));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn ctrl_o_opens_the_file_the_dialog_returns_and_the_tab_shows_its_name() {
+        let path = fixture("open-binding", b"u = 7\r\n");
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        app.dialogs = Box::new(ScriptedDialogs::opening([Some(path.clone())]));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::O, ctrl_modifiers())]);
+
+        assert_eq!(app.workbench.documents().len(), 3, "Open added a tab");
+        assert_eq!(app.editors.len(), 3, "with an editor");
+        let document = &app.workbench.documents()[2];
+        assert_eq!(document.title, path.file_name().unwrap().to_string_lossy());
+        assert_eq!(document.source, "u = 7\r\n", "the CRLF text is intact");
+        assert_eq!(document.newline, crate::document_io::NewlineStyle::CrLf);
+        assert!(!document.dirty());
+        assert!(
+            app.window_title.ends_with(&document.title),
+            "the window title names the opened file: {:?}",
+            app.window_title
+        );
+        assert_eq!(
+            app.editors[2].lines,
+            vec!["u = 7", ""],
+            "the editor shows no phantom carriage return"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn opening_a_non_utf8_file_through_the_dialog_is_refused_without_a_new_tab() {
+        let path = fixture("open-bad-utf8", b"u = \xE9\n");
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        app.dialogs = Box::new(ScriptedDialogs::opening([Some(path.clone())]));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        frame(&ctx, &mut app, vec![key(Key::O, ctrl_modifiers())]);
+
+        assert_eq!(
+            app.workbench.documents().len(),
+            2,
+            "a refused file must not create a tab"
+        );
+        let logged = app
+            .workbench
+            .active_document()
+            .logs
+            .iter()
+            .any(|line| line.kind == LogKind::Diagnostic && line.text.contains("not UTF-8"));
+        assert!(logged, "the refusal is in the log with its reason");
+        assert_eq!(
+            std::fs::read(&path).expect("the file is untouched"),
+            b"u = \xE9\n"
+        );
+        let _ = std::fs::remove_file(&path);
     }
 }
