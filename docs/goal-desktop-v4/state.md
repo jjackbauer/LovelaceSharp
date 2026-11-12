@@ -34,7 +34,8 @@
 | 0 | Contract, baseline, fail-closed gate | Probe | 0 | 18 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | gate live |
 | 1 | Census all 17 groups + web reference | Survey | 1 auditor + 5 observers + 1 synthesizer | 10 | 1 (6 claims) | G1✓ G2✓ G3✗ G4✓ G5✓ | 784 OBS; register 229/229; contract repaired; DEC-006 |
 | 2 | ARC-001 spike, measured | Implementer → orchestrator | 1 implementer + 1 candidate prober | 12 | 2 (flaky bench, mojibake) | G1✓ G2✓ G3✗ G4✓ G5✓ | working workbench measured; bench flakiness fixed by watchdog (pending report) |
-| 3 | Async execution core with typed events and cancellation | Implementer → orchestrator | 1 implementer (stopped) + 1 repairer | 2 | 1 (red suite) | G1✓ G2✓ G3✗ G4✗ G5✓ | code written, **14/81 tests red**; slicer returned zero statements; repair re-dispatched with the observed failures |
+| 3 | Async execution core with typed events and cancellation | Implementer → orchestrator | 1 implementer (stopped) + 1 repairer | 4 | 1 (red suite) | G1✓ G2✓ G3✗ G4✗ G5✓ | slicer fixed (5 tests green); execution suite **72 passed / 9 failed**; repair still in flight |
+| 4 | ARC-001 candidate comparison completed (iced, slint) | Probe | 1 implementer | 1 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | iced rejected (no accessibility); slint viable but unmeasured for 5k lines |
 
 ## Contract rows closed this run
 
