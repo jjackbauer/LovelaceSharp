@@ -3839,7 +3839,15 @@ fn shape_failure(name: &str, position: usize, expected: &str, arrived: &Value) -
 /// An unresolved NAME is a vocabulary failure with its own code and category, and the registry's
 /// answer — the closest names, any syntax note, and how many names exist — travels with it.
 fn unknown_function(name: &str, pos: usize) -> LangError {
-    let suggestions = registry::suggest(name);
+    unknown_function_among(name, pos, &|_| true)
+}
+
+/// The same failure where the caller decides which registered names this engine exposes.
+pub(crate) fn unknown_function_among<F>(name: &str, pos: usize, allowed: &F) -> LangError
+where
+    F: Fn(&str) -> bool,
+{
+    let suggestions = registry::suggest_among(name, allowed);
     let hints = registry::hints(name);
     let mut message = format!("Unknown function '{name}'.");
     if suggestions.len() == 1 {
@@ -3855,7 +3863,12 @@ fn unknown_function(name: &str, pos: usize) -> LangError {
     let mut error = LangError::coded(message, pos, "UnknownFunction", "UnsupportedOperation");
     error.suggestions = suggestions;
     error.hints = hints;
-    error.registry_size = Some(registry::BUILTINS.len());
+    error.registry_size = Some(
+        registry::BUILTINS
+            .iter()
+            .filter(|info| allowed(info.name))
+            .count(),
+    );
     error
 }
 

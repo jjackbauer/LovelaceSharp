@@ -6,10 +6,8 @@
 //! here weakens an assertion: where the C# row asserts a reference, the Rust test asserts the
 //! canonical-form identity that the reference's interning is an implementation of.
 
-use crate::{
-    canonical_parse, square_free_univariate, Expr, Rat,
-};
 use crate::symbolic_matrix::SymbolicMatrix;
+use crate::{Expr, Rat, canonical_parse, square_free_univariate};
 
 /// SmokeTests.cs:245 Interning_EqualStructureSharesReference - Add(Power(x,2), x) and
 /// Add(x, Power(x,2)) are the same expression. The C# row asserts Assert.Same because its
@@ -35,10 +33,15 @@ fn acceptance_canonical_print_parse_round_trips() {
         Expr::sub(x, Expr::num(1)),
     );
     let text = e.canonical();
-    let back = canonical_parse(&text).unwrap_or_else(|error| panic!("canonical parse failed: {error:?}"));
+    let back =
+        canonical_parse(&text).unwrap_or_else(|error| panic!("canonical parse failed: {error:?}"));
     assert_eq!(back.canonical(), text, "canonical text must round-trip");
     let again = canonical_parse(&back.canonical()).expect("idempotent canonical parse");
-    assert_eq!(again.canonical(), text, "canonical parse must be idempotent");
+    assert_eq!(
+        again.canonical(),
+        text,
+        "canonical parse must be idempotent"
+    );
 }
 
 /// UsageExamples.cs:27 Snippet_16_2_EqualityAndHashConsing - the published snippet: the two
@@ -64,7 +67,8 @@ fn usage_snippet_16_4_canonical_text_round_trip() {
         Expr::num(1),
     );
     let text = f.canonical();
-    let back = canonical_parse(&text).unwrap_or_else(|error| panic!("canonical parse failed: {error:?}"));
+    let back =
+        canonical_parse(&text).unwrap_or_else(|error| panic!("canonical parse failed: {error:?}"));
     assert_eq!(back.canonical(), text, "canonical text must round-trip");
 }
 
@@ -73,8 +77,14 @@ fn usage_snippet_16_4_canonical_text_round_trip() {
 /// approximation. Expr::is_exact is the flag the snippet reads.
 #[test]
 fn usage_snippet_16_8_exactness_discipline() {
-    let third = Rat::new(lovelace_int::Int::from_i64(1), lovelace_nat::Nat::from_u64(3));
-    let half = Rat::new(lovelace_int::Int::from_i64(1), lovelace_nat::Nat::from_u64(2));
+    let third = Rat::new(
+        lovelace_int::Int::from_i64(1),
+        lovelace_nat::Nat::from_u64(3),
+    );
+    let half = Rat::new(
+        lovelace_int::Int::from_i64(1),
+        lovelace_nat::Nat::from_u64(2),
+    );
     assert!(Expr::Num(third).is_exact(), "an exact rational is exact");
     assert!(
         Expr::pow(Expr::num(2), Expr::Num(half)).is_exact(),
@@ -132,14 +142,14 @@ fn polynomials_square_free_of_x_squared_times_x_minus_one() {
     );
 }
 
-/// UnsatisfiablePropagationTests.cs:46 Transform_RequirementConsistentWithAssumptions_KeepsItsConditions
-/// - x/x may only be cancelled when x != 0; a caller assumption set that does not refute it keeps
+/// UnsatisfiablePropagationTests.cs:46 Transform_RequirementConsistentWithAssumptions_KeepsItsConditions:
+/// x/x may only be cancelled when x != 0; a caller assumption set that does not refute it keeps
 /// the requirement, and the required atom is the NonZero property of x.
 #[test]
 fn transform_requirement_consistent_with_assumptions_keeps_its_conditions() {
-    use crate::assumptions::{Assumption, AssumptionSet, SymbolPredicate};
-    use crate::rewrite_registry::{transform, TransformOptions};
     use crate::RelOp;
+    use crate::assumptions::{Assumption, AssumptionSet, SymbolPredicate};
+    use crate::rewrite_registry::{TransformOptions, transform};
 
     let x = Expr::sym("x");
     let assumptions = AssumptionSet::empty()
@@ -159,7 +169,10 @@ fn transform_requirement_consistent_with_assumptions_keeps_its_conditions() {
         result
             .conditions
             .atoms()
-            .contains(&Assumption::SymbolProperty("x".to_string(), SymbolPredicate::NonZero)),
+            .contains(&Assumption::SymbolProperty(
+                "x".to_string(),
+                SymbolPredicate::NonZero
+            )),
         "the kept requirement must be x != 0, got {:?}",
         result.conditions.atoms()
     );
@@ -169,9 +182,9 @@ fn transform_requirement_consistent_with_assumptions_keeps_its_conditions() {
 /// the same rewrite under x = 0: the required x != 0 is refuted, so the branch is unsatisfiable.
 #[test]
 fn transform_requirement_refuted_by_assumptions_is_unsatisfiable() {
-    use crate::assumptions::{Assumption, AssumptionSet};
-    use crate::rewrite_registry::{transform, TransformOptions};
     use crate::RelOp;
+    use crate::assumptions::{Assumption, AssumptionSet};
+    use crate::rewrite_registry::{TransformOptions, transform};
 
     let x = Expr::sym("x");
     let assumptions = AssumptionSet::empty()
@@ -198,7 +211,7 @@ fn transform_requirement_refuted_by_assumptions_is_unsatisfiable() {
 #[test]
 fn dx_semantic_transform_budget_exceeded_is_reported() {
     use crate::assumptions::AssumptionSet;
-    use crate::rewrite_registry::{transform, TransformOptions};
+    use crate::rewrite_registry::{TransformOptions, transform};
 
     let x = Expr::sym("x");
     let options = TransformOptions {
@@ -220,7 +233,7 @@ fn dx_semantic_transform_budget_exceeded_is_reported() {
 #[test]
 fn dx_semantic_transform_trace_is_opt_in_but_conditions_always_survive() {
     use crate::assumptions::{Assumption, AssumptionSet, SymbolPredicate, Tristate};
-    use crate::rewrite_registry::{transform, TransformOptions};
+    use crate::rewrite_registry::{TransformOptions, transform};
 
     let x = Expr::sym("x");
     let result = transform(

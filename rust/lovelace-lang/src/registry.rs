@@ -1771,8 +1771,22 @@ const SYNTAX_HINTS: &[(&str, &str)] = &[
 
 /// The registered names closest to `queried`, best first (rank, then ordinal name, at most three).
 pub fn suggest(queried: &str) -> Vec<String> {
+    suggest_among(queried, &|_| true)
+}
+
+/// The names closest to `queried` among the registered names the predicate admits.
+///
+/// A bare engine exposes only the core builtins plus the plugins it loaded, so its unresolved-call
+/// suggestions must not name a plugin builtin the engine cannot answer.
+pub fn suggest_among<F>(queried: &str, allowed: &F) -> Vec<String>
+where
+    F: Fn(&str) -> bool,
+{
     let mut ranked: Vec<(u8, &'static str)> = Vec::new();
     for builtin in BUILTINS {
+        if !allowed(builtin.name) {
+            continue;
+        }
         let rank = name_rank(builtin.name, queried);
         if rank >= 0 {
             ranked.push((rank as u8, builtin.name));
@@ -1783,7 +1797,7 @@ pub fn suggest(queried: &str) -> Vec<String> {
         .find(|(word, _)| word.eq_ignore_ascii_case(queried))
     {
         for target in *targets {
-            if find(target).is_some() {
+            if find(target).is_some() && allowed(target) {
                 ranked.push((0, target));
             }
         }

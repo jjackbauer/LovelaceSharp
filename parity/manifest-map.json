@@ -30695,19 +30695,22 @@
     "note": "Round 45: the captured variable m of [[1,2],[3,4]] publishes kind Array with a 2x2 structured shape."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests/ACoercionFailureOnAnEngineInternalValue_IsNotDisguisedAsAnArgumentError#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (register a builtin that coerces/casts its payload); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::coercion_failure_on_an_engine_internal_value_stays_internal",
+    "reason": "Round 68 mapping: the BuiltinArgumentShapeGuardTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# BuiltinArgumentShapeGuardTests.cs:67 ACoercionFailureOnAnEngineInternalValue_IsNotDisguisedAsAnArgumentError; rust/lovelace-lang/src/round67_modus.rs coercion_failure_on_an_engine_internal_value_stays_internal asserts the engine-internal failure is InternalError/InternalInvariantFailure, not a shape refusal. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests/ARegisteredBuiltinThatCastsItsOwnPayload_IsAttributedToTheArgumentItReadLast#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (register a builtin that coerces/casts its payload); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::registered_builtin_that_casts_its_payload_is_attributed_to_the_last_argument",
+    "reason": "Round 68 mapping: the BuiltinArgumentShapeGuardTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# BuiltinArgumentShapeGuardTests.cs:49 ARegisteredBuiltinThatCastsItsOwnPayload_IsAttributedToTheArgumentItReadLast; rust/lovelace-lang/src/round67_modus.rs registered_builtin_that_casts_its_payload_is_attributed_to_the_last_argument asserts a body's hard cast names the argument it read last. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.BuiltinArgumentShapeGuardTests/ARegisteredBuiltinThatCoercesItsArgument_IsAttributedToTheBuiltinAndThePosition#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (register a builtin that coerces/casts its payload); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::registered_builtin_that_coerces_its_argument_is_attributed_to_the_position",
+    "reason": "Round 68 mapping: the BuiltinArgumentShapeGuardTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# BuiltinArgumentShapeGuardTests.cs:33 ARegisteredBuiltinThatCoercesItsArgument_IsAttributedToTheBuiltinAndThePosition; rust/lovelace-lang/src/round67_modus.rs registered_builtin_that_coerces_its_argument_is_attributed_to_the_position asserts 'probe(): argument 2 must be an array or vector; got Natural.'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly#0": {
     "disposition": "deferred",
@@ -30731,14 +30734,16 @@
     "note": "Round 61: C# DspPluginTests.ComplexArithmetic_GivenComplex_ThrowsActionableError expects the full widening refusal; rust/lovelace-lang/src/dsp_family_round61.rs complex_arithmetic_refusal_names_the_bridge_builtins asserts exit 1, InvalidOperation/DomainError and the identical sentence including \"use re()/im()/conj()/abs() to bridge back to Real.\". See docs/goal-parity-contract/round-61/dsp-family.md section 2 row 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/DspPlugin_GivenUnregisteredEngine_ThrowsUnknownFunction#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin loading seam (an engine without the Dsp plugin registered); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::dsp_plugin_unregistered_engine_refuses_fft",
+    "reason": "Round 68 mapping: the DspPluginTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# DspPluginTests.cs:17 DspPlugin_GivenUnregisteredEngine_ThrowsUnknownFunction; rust/lovelace-lang/src/round67_modus.rs dsp_plugin_unregistered_engine_refuses_fft asserts a bare Engine::new_bare refuses fft with exactly \"Unknown function 'fft'.\" and no suggestions. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/DspPlugin_LoadedTwice_Throws#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (duplicate load / core-name collision refusal); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::dsp_plugin_loaded_twice_is_refused",
+    "reason": "Round 68 mapping: the DspPluginTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# DspPluginTests.cs:255 DspPlugin_LoadedTwice_Throws; rust/lovelace-lang/src/round67_modus.rs dsp_plugin_loaded_twice_is_refused asserts the second load fails with 'already loaded'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/Filter_GivenLength_ReturnsImpulseResponse#0": {
     "disposition": "ported",
@@ -30753,14 +30758,16 @@
     "note": "Round 52: C# DspPluginTests.Filter_GivenSignal_MatchesConvolution (DspPluginTests.cs:117) compares the direct filter([1, -0.5], [1], [1, 1, 1, 1]) prefix with conv([1,1,1,1], filter([1,-0.5],[1],4)); rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts the same \"[1, 1.5, 1.75, 1.875] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 10."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/PluginBuiltin_GivenCoreNameCollision_Throws#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (duplicate load / core-name collision refusal); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::plugin_builtin_core_name_collision_is_refused",
+    "reason": "Round 68 mapping: the DspPluginTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# DspPluginTests.cs:266 PluginBuiltin_GivenCoreNameCollision_Throws; rust/lovelace-lang/src/round67_modus.rs plugin_builtin_core_name_collision_is_refused asserts a plugin registering 'abs' is refused with 'already registered'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.EnumPayloadSeamTests/EnumValue_RoundTripsThroughTheModusSeam#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin seam carrying EnumValue payloads; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::enum_value_round_trips_through_the_modus_seam",
+    "reason": "Round 68 mapping: the EnumPayloadSeamTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# EnumPayloadSeamTests.cs:42 EnumValue_RoundTripsThroughTheModusSeam; rust/lovelace-lang/src/round67_modus.rs enum_value_round_trips_through_the_modus_seam asserts an Enum(\"SolveStatus\",\"Solved\") payload crosses the seam and returns with both type and member. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.FunctionTests/Evaluate_GivenFunctionLocalVariable_DoesNotLeakToGlobal#0": {
     "disposition": "deferred",
@@ -30778,54 +30785,64 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusArityTests/ExactCount_RequiresTheDeclaredCount#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (pair/opt/plain/variadic_min); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::exact_count_requires_the_declared_count",
+    "reason": "Round 68 mapping: the ModusArityTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusArityTests.cs:55 ExactCount_RequiresTheDeclaredCount; rust/lovelace-lang/src/round67_modus.rs exact_count_requires_the_declared_count asserts 'pair(): expected 2 arguments; got 1.' and the InvalidArgument/TypeMismatch code. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusArityTests/MinArity_AllowsTheOptionalTail_AndStillRefusesLess#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (pair/opt/plain/variadic_min); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::min_arity_allows_the_optional_tail_and_still_refuses_less",
+    "reason": "Round 68 mapping: the ModusArityTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusArityTests.cs:79 MinArity_AllowsTheOptionalTail_AndStillRefusesLess; rust/lovelace-lang/src/round67_modus.rs min_arity_allows_the_optional_tail_and_still_refuses_less asserts opt(1) and opt(1,2) answer and 'opt(): expected 1 to 2 arguments; got 0.'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusArityTests/ParametersOnlyRegistration_UsesTheSameRule#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (pair/opt/plain/variadic_min); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::parameters_only_registration_uses_the_same_rule",
+    "reason": "Round 68 mapping: the ModusArityTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusArityTests.cs:70 ParametersOnlyRegistration_UsesTheSameRule; rust/lovelace-lang/src/round67_modus.rs parameters_only_registration_uses_the_same_rule asserts parameters-only 'plain' refuses one argument with 'plain(): expected 2 arguments; got 1.'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusArityTests/Variadic_RemovesTheUpperBound_AndHonoursTheLowerOne#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration seam (pair/opt/plain/variadic_min); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::variadic_removes_the_upper_bound_and_honours_the_lower_one",
+    "reason": "Round 68 mapping: the ModusArityTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusArityTests.cs:89 Variadic_RemovesTheUpperBound_AndHonoursTheLowerOne; rust/lovelace-lang/src/round67_modus.rs variadic_removes_the_upper_bound_and_honours_the_lower_one asserts variadic_min accepts 4 arguments and refuses 0 with 'expected at least 1 argument; got 0.'. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/Dispatch_UnsupportedElementType_FallsBack#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::dispatch_unsupported_element_type_falls_back",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:49 Dispatch_UnsupportedElementType_FallsBack; rust/lovelace-lang/src/round67_modus.rs dispatch_unsupported_element_type_falls_back asserts i32 operands return false so the reference backend runs. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/DspPlugin_LoadedThroughModusSeam_RegistersDspBuiltins#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::dsp_plugin_loaded_through_modus_seam_registers_dsp_builtins",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:101 DspPlugin_LoadedThroughModusSeam_RegistersDspBuiltins; rust/lovelace-lang/src/round67_modus.rs dsp_plugin_loaded_through_modus_seam_registers_dsp_builtins asserts fft answers [1, 1, 1, 1] (Vector), fft advertises Lovelace.Dsp and abs advertises none. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/Kernel_DeclinesUnsupportedOp#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::kernel_declines_unsupported_op",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:64 Kernel_DeclinesUnsupportedOp; rust/lovelace-lang/src/round67_modus.rs kernel_declines_unsupported_op asserts the Real Add kernel declines Multiply and dispatch returns false. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/PluginLoad_RegistersKernel_AndDispatchRuns#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::plugin_load_registers_kernel_and_dispatch_runs",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:13 PluginLoad_RegistersKernel_AndDispatchRuns; rust/lovelace-lang/src/round67_modus.rs plugin_load_registers_kernel_and_dispatch_runs asserts loading StatisticsPlugin registers a Real Add kernel and dispatch writes 5,7,9. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/RealAddKernel_GivenRealOperands_MatchesDirectRealAddition#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::real_add_kernel_matches_direct_real_addition",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:31 RealAddKernel_GivenRealOperands_MatchesDirectRealAddition; rust/lovelace-lang/src/round67_modus.rs real_add_kernel_matches_direct_real_addition asserts 1.5 + 2.25 through the kernel equals direct Real addition. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ModusTests/ScalarResult_GivenBooleanAndText_ReturnValues#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing modus plugin registration and kernel dispatch API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::scalar_result_boolean_and_text_return_values",
+    "reason": "Round 68 mapping: the ModusTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# ModusTests.cs:80 ScalarResult_GivenBooleanAndText_ReturnValues; rust/lovelace-lang/src/round67_modus.rs scalar_result_boolean_and_text_return_values asserts the ScalarResult channel returns True (Boolean) and hello. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/ANameNothingIsCloseTo_IsNotGuessedAt#0": {
     "disposition": "deferred",
@@ -30933,19 +30950,22 @@
     "note": "Round 48: C# RecordSchemaTests.Validate_ReportsMissingAndUndeclaredFields checks Validate's missing-declared and undeclared-field violations; rust/lovelace-run/src/record_schema_batch.rs validate_reports_missing_and_undeclared_fields asserts the same wording and order. See docs/goal-parity-contract/round-48/record-schemas.md §4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordValueTests/MemberAccess_OnNonRecord_ExplainsRequirement#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordValue member access + modus plugin seam; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::member_access_on_a_non_record_explains_the_requirement",
+    "reason": "Round 68 mapping: the RecordValueTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# RecordValueTests.cs:55 MemberAccess_OnNonRecord_ExplainsRequirement; rust/lovelace-lang/src/round67_modus.rs member_access_on_a_non_record_explains_the_requirement asserts 'member access requires a record result' with the Symbolic hint. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordValueTests/MemberAccess_UnknownField_NamesAvailableMembers#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordValue member access + modus plugin seam; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::member_access_unknown_field_names_available_members",
+    "reason": "Round 68 mapping: the RecordValueTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# RecordValueTests.cs:44 MemberAccess_UnknownField_NamesAvailableMembers; rust/lovelace-lang/src/round67_modus.rs member_access_unknown_field_names_available_members asserts the miss names the type and the available members. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordValueTests/Record_CrossesModusPluginBoundary#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RecordValue member access + modus plugin seam; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::record_crosses_the_modus_plugin_boundary",
+    "reason": "Round 68 mapping: the RecordValueTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# RecordValueTests.cs:75 Record_CrossesModusPluginBoundary; rust/lovelace-lang/src/round67_modus.rs record_crosses_the_modus_plugin_boundary asserts a plugin-produced PluginResult keeps its record type and answer field. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecursionBudgetCompositionTests/TheDeepestAcceptedCall_Answers_InEveryComposition#14": {
     "disposition": "deferred",
@@ -31005,14 +31025,16 @@
     "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenTrailingSemicolon_SuppressesBlankSeparator (ScriptSourceTests.cs:48) asserts a trailing semicolon suppresses the blank separator; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_trailing_semicolon_suppresses_blank_separator asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SharedPluginInstanceAssumptionIsolationTests/CallerInstalledAssumptionScope_KeepsPrecedenceInsideAnEngineEvaluation#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing plugin-instance assumption-scope API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::caller_installed_assumption_scope_keeps_precedence_inside_an_engine_evaluation",
+    "reason": "Round 68 mapping: the SharedPluginInstanceAssumptionIsolationTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# SharedPluginInstanceAssumptionIsolationTests.cs:115 CallerInstalledAssumptionScope_KeepsPrecedenceInsideAnEngineEvaluation; rust/lovelace-lang/src/round67_modus.rs caller_installed_assumption_scope_keeps_precedence_inside_an_engine_evaluation asserts simplify(x > 0) is True only inside the installed scope. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SharedPluginInstanceAssumptionIsolationTests/OnePluginTwoEngines_AssumptionCommittedWhileAIsRunning_DoesNotDecideB#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing plugin-instance assumption-scope API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round67_modus::assumption_committed_while_a_is_running_does_not_decide_b",
+    "reason": "Round 68 mapping: the SharedPluginInstanceAssumptionIsolationTests row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: modus-seams.md",
+    "note": "Round 67: C# SharedPluginInstanceAssumptionIsolationTests.cs:75 OnePluginTwoEngines_AssumptionCommittedWhileAIsRunning_DoesNotDecideB; rust/lovelace-lang/src/round67_modus.rs assumption_committed_while_a_is_running_does_not_decide_b asserts engine B answers x > 0 from inside engine A's gate and A remains True afterwards. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StatementTests/Evaluate_GivenVariableAssignmentInsideBlock_DoesNotLeak#0": {
     "disposition": "deferred",
@@ -31935,29 +31957,34 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Content_PrimitivePart_SplitCoefficients#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round67_polynomial_algebra::content_primitive_part_split_coefficients",
+    "reason": "Round 68 mapping: the PolynomialsApiTests content/primitive-part row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: polynomial-algebra.md",
+    "note": "Round 67: C# PolynomialsApiTests.cs:33 Content_PrimitivePart_SplitCoefficients asserts 2x^2+4x+6 has content 2 and primitive part x^2+2x+3; rust/lovelace-symbolics/src/round67_polynomial_algebra.rs content_primitive_part_split_coefficients asserts the same values through the new polynomials facade. See docs/goal-parity-contract/round-67/polynomial-algebra.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Discriminant_MatchesKnownValues#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round67_polynomial_algebra::discriminant_matches_known_values",
+    "reason": "Round 68 mapping: the PolynomialsApiTests discriminant row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: polynomial-algebra.md",
+    "note": "Round 67: C# PolynomialsApiTests.cs:126 Discriminant_MatchesKnownValues asserts disc(x^2+3x+2) = 1 and disc(x^2-2) = 8; rust/lovelace-symbolics/src/round67_polynomial_algebra.rs discriminant_matches_known_values asserts the same two values. See docs/goal-parity-contract/round-67/polynomial-algebra.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Factor_QuarticWithRationalRoots_FourLinearFactors#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round67_polynomial_algebra::factor_quartic_with_rational_roots_four_linear_factors",
+    "reason": "Round 68 mapping: the PolynomialsApiTests factor row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: polynomial-algebra.md",
+    "note": "Round 67: C# PolynomialsApiTests.cs:85 Factor_QuarticWithRationalRoots_FourLinearFactors asserts x^4-5x^2+4 has content 1 and four distinct monic linear factors of multiplicity 1 whose product reconstructs the input; rust/lovelace-symbolics/src/round67_polynomial_algebra.rs factor_quartic_with_rational_roots_four_linear_factors asserts the same factors in the oracle's ascending rational-root order. See docs/goal-parity-contract/round-67/polynomial-algebra.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Gcd_Lcm_AreConsistent#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round67_polynomial_algebra::gcd_lcm_are_consistent",
+    "reason": "Round 68 mapping: the PolynomialsApiTests gcd/lcm row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: polynomial-algebra.md",
+    "note": "Round 67: C# PolynomialsApiTests.cs:56 Gcd_Lcm_AreConsistent asserts gcd(x^2-1, x^2+2x+1) is the monic x+1 and gcd*lcm equals the product of the inputs; rust/lovelace-symbolics/src/round67_polynomial_algebra.rs gcd_lcm_are_consistent asserts the same. See docs/goal-parity-contract/round-67/polynomial-algebra.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Resultant_MatchesKnownValues#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round67_polynomial_algebra::resultant_matches_known_values",
+    "reason": "Round 68 mapping: the PolynomialsApiTests resultant row is reproduced by the named Rust test in the measured inventory (see note). Round 67 report: polynomial-algebra.md",
+    "note": "Round 67: C# PolynomialsApiTests.cs:107 Resultant_MatchesKnownValues asserts res(x^2-2, x-1) = -1, res(x-1, x-1) = 0 and res(x-1, x-2) = 1; rust/lovelace-symbolics/src/round67_polynomial_algebra.rs resultant_matches_known_values asserts the same three values. See docs/goal-parity-contract/round-67/polynomial-algebra.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/SquareFree_X2Times_XMinus1#0": {
     "disposition": "ported",

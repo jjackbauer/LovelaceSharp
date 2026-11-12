@@ -18,6 +18,7 @@ pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
 pub mod mathir;
+pub mod modus;
 pub mod numeric;
 pub mod registry;
 pub mod structured;
@@ -30,7 +31,7 @@ pub mod cancel {
     pub use lovelace_symbolics::cancel::*;
 }
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use lovelace_array::{Field, NdArray};
@@ -534,6 +535,12 @@ pub struct Engine {
     /// solve, simplify, simplify_full and inspect read. One set per engine, so two engines that
     /// run concurrently never answer each other's queries.
     assumptions: lovelace_symbolics::assumptions::AssumptionSet,
+    /// The plugin seam: registered builtins, kernels, loaded plugin names and the optional
+    /// plugin-instance assumption context (the reference's `ModusHost`).
+    modus: modus::ModusHost,
+    /// `None` keeps every advertised builtin available (the runner's behaviour). `Some` is a
+    /// bare engine that exposes only core builtins plus the plugins it has loaded.
+    enabled_plugins: Option<HashSet<String>>,
 }
 
 impl Default for Engine {
@@ -570,7 +577,133 @@ impl Engine {
             domain_assumptions: Vec::new(),
             bounds: Vec::new(),
             assumptions: lovelace_symbolics::assumptions::AssumptionSet::empty(),
+            modus: modus::ModusHost::new(),
+            enabled_plugins: None,
         }
+    }
+
+    /// Creates a BARE engine: core builtins only, with the descriptors advertised by a plugin
+    /// unavailable until that plugin is loaded. This is the Rust equivalent of the reference's
+    /// `new SuiteEngine()`, which does not expose `fft` until `DspPlugin` is loaded. `Engine::new()`
+    /// remains the runner's all-plugins-loaded engine, so no existing behaviour moves.
+    pub fn new_bare() -> Engine {
+        let mut engine = Engine::new();
+        engine.enabled_plugins = Some(HashSet::new());
+        engine
+    }
+
+    /// Loads a Modus plugin, stamping its registrations and enabling the builtins its descriptor
+    /// advertises on a bare engine.
+    pub fn load_plugin(&mut self, plugin: &mut dyn modus::ModusPlugin) -> Result<(), LangError> {
+        self.modus.load(plugin)?;
+        if let Some(enabled) = &mut self.enabled_plugins {
+            enabled.insert(plugin.name().to_string());
+        }
+        Ok(())
+    }
+
+    /// Registers a host builtin directly (the reference's `SuiteEngine.RegisterBuiltin`).
+    pub fn register_builtin<F>(
+        &mut self,
+        name: &str,
+        parameters: &[&str],
+        implementation: F,
+    ) -> Result<(), LangError>
+    where
+        F: Fn(&modus::PluginArgs) -> Result<modus::Payload, modus::PluginError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.modus
+            .register_builtin(name, parameters, implementation)
+    }
+
+    /// Registers a descriptor-carrying host builtin.
+    pub fn register_builtin_descriptor<F>(
+        &mut self,
+        descriptor: modus::BuiltinDescriptor,
+        implementation: F,
+    ) -> Result<(), LangError>
+    where
+        F: Fn(&modus::PluginArgs) -> Result<modus::Payload, modus::PluginError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.modus
+            .register_builtin_descriptor(descriptor, implementation)
+    }
+
+    /// Registers an array-to-array host builtin.
+    pub fn register_array_builtin<F>(
+        &mut self,
+        name: &str,
+        implementation: F,
+    ) -> Result<(), LangError>
+    where
+        F: Fn(&modus::PayloadArray) -> Result<modus::PayloadArray, modus::PluginError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.modus.register_array_builtin(name, implementation)
+    }
+
+    /// Registers an exact-field elementwise kernel.
+    pub fn register_kernel<T: modus::KernelScalar>(
+        &mut self,
+        kernel: Box<dyn modus::FieldKernel<T>>,
+    ) {
+        self.modus.register_kernel(kernel);
+    }
+
+    /// Fallible kernel dispatch over the plugin host.
+    pub fn try_dispatch_kernel<T: modus::KernelScalar>(
+        &self,
+        op: modus::ArrayOp,
+        left: &[T],
+        right: &[T],
+        result: &mut [T],
+    ) -> bool {
+        self.modus.try_dispatch(op, left, right, result)
+    }
+
+    /// The plugin that registered a builtin: a host registration's plugin stamp, otherwise the
+    /// static descriptor's plugin (core builtins carry none).
+    pub fn plugin_name_of(&self, name: &str) -> Option<&str> {
+        self.modus
+            .plugin_name_of(name)
+            .or_else(|| crate::registry::find(name).and_then(|info| info.plugin))
+    }
+
+    /// True when the name is available on this engine: core names always, plugin-advertised
+    /// names only when the engine is all-plugins (`Engine::new`) or the plugin was loaded.
+    fn plugin_enabled(&self, name: &str) -> bool {
+        let Some(enabled) = &self.enabled_plugins else {
+            return true;
+        };
+        match crate::registry::find(name).and_then(|info| info.plugin) {
+            Some(plugin) => enabled.contains(plugin),
+            None => true,
+        }
+    }
+
+    /// The descriptor a host registration stored, when it carried metadata.
+    pub fn registered_descriptor(&self, name: &str) -> Option<&modus::BuiltinDescriptor> {
+        self.modus.descriptor_of(name)
+    }
+
+    /// True when the engine resolves the name as a user function or a registered builtin.
+    pub fn has_function(&self, name: &str) -> bool {
+        self.funcs.contains_key(name)
+            || self.modus.contains(name)
+            || crate::registry::find(name).is_some()
+    }
+
+    /// Registers the plugin-instance assumption context whose caller scopes the engine honours.
+    pub fn register_assumption_context(&mut self, context: std::sync::Arc<context::Context>) {
+        self.modus.register_assumption_context(context);
     }
 
     /// Sets the computation and display precision (decimal places).
@@ -700,7 +833,19 @@ impl Engine {
         let deadline = self.cancel_after.map(|after| Instant::now() + after);
         let scope = lovelace_symbolics::cancel::arm(deadline);
         self.cancelled = false;
+        // A caller-installed plugin scope takes precedence INSIDE this evaluation, and the
+        // engine's own session set is restored when the evaluation ends (the reference's
+        // "the engine installs its own store only when the caller has not installed one").
+        let scoped = self.modus.active_assumption_scope();
+        let saved_assumptions = scoped.map(|assumptions| {
+            let previous = self.assumptions.clone();
+            self.assumptions = assumptions;
+            previous
+        });
         let mut result = self.eval_inner(source);
+        if let Some(previous) = saved_assumptions {
+            self.assumptions = previous;
+        }
         if lovelace_symbolics::cancel::observed() {
             self.cancelled = true;
             // A kernel stopped early and returned its identity value; that value is not a result.
@@ -1119,16 +1264,33 @@ impl Engine {
             Expr::Member(target, field) => {
                 let t = self.eval_expr(target)?;
                 match t {
-                    Value::Record(_, fields) => fields
+                    Value::Record(type_name, fields) => fields
                         .iter()
                         .find(|(k, _)| k == field)
                         .map(|(_, v)| v.clone())
-                        .ok_or_else(|| LangError::plain(format!("No field named '{}'.", field))),
-                    other => Err(LangError::plain(format!(
-                        "Cannot read field '{}' from a value of kind '{}'.",
-                        field,
-                        other.kind_name()
-                    ))),
+                        .ok_or_else(|| {
+                            let names: Vec<&str> =
+                                fields.iter().map(|(name, _)| name.as_str()).collect();
+                            LangError::plain(format!(
+                                "record '{}' has no member '{}'. Available members: {}.",
+                                type_name,
+                                field,
+                                names.join(", ")
+                            ))
+                        }),
+                    other => {
+                        let hint = if matches!(other, Value::Symbolic(_)) {
+                            " Symbolic expressions have no members; call the *_full builtin (e.g. solve_full) for structured results."
+                        } else {
+                            ""
+                        };
+                        Err(LangError::plain(format!(
+                            "member '{}' is not available on type '{}': member access requires a record result.{}",
+                            field,
+                            other.kind_name(),
+                            hint
+                        )))
+                    }
                 }
             }
             Expr::Assign(name, value) => {
@@ -1210,6 +1372,18 @@ impl Engine {
         // the deadline passed inside, and only the statement loop knows that position.
         if lovelace_symbolics::cancel::check() {
             return Err(cancelled_error());
+        }
+        // A dynamically registered builtin (a plugin or host registration) is dispatched before
+        // the static builtin table, so a plugin can own a name the language match does not know.
+        if let Some(result) = self.modus.call(name, &args, pos) {
+            return result;
+        }
+        // A bare engine hides the builtins a plugin descriptor advertises until that plugin is
+        // loaded; the unresolved call is the same vocabulary failure an absent builtin gives.
+        if !self.plugin_enabled(name) {
+            return Err(builtins::unknown_function_among(name, pos, &|candidate| {
+                self.plugin_enabled(candidate)
+            }));
         }
         // A builtin that failed without naming its own position failed at the CALL: the
         // published diagnostic points at the call site, which is where the caller must look.
@@ -1827,6 +2001,12 @@ mod round19_batch;
 
 #[cfg(test)]
 mod round66_resweep;
+
+/// Round-67 Modus plugin-seam member map: the 22 deferred census rows whose contract is the
+/// registration surface, the payload channel, load-time refusals, kernel dispatch, descriptor
+/// arity and the plugin-instance assumption scope.
+#[cfg(test)]
+mod round67_modus;
 
 #[cfg(test)]
 mod dsp_round20;

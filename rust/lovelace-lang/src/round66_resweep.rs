@@ -3,9 +3,9 @@
 //!
 //! The C# assertion (cited per test) is the contract. Each test states the translation it uses.
 
-use crate::numeric::{evaluate, Num};
+use crate::numeric::{Num, evaluate};
 use lovelace_symbolics::symbolic_matrix::SymbolicMatrix;
-use lovelace_symbolics::{substitute, Expr, Rat};
+use lovelace_symbolics::{Expr, Rat, substitute};
 
 /// SmokeTests.cs:158 Inverse_SymbolicMatrix_TimesOriginalIsIdentity - A times A-inverse is the
 /// identity, verified numerically at x = 3, y = 2. The Rust surface publishes the inverse with its
@@ -32,8 +32,9 @@ fn acceptance_inverse_times_original_is_identity() {
     for (row, column, expected) in [(0usize, 0usize, 1i64), (0, 1, 0), (1, 0, 0), (1, 1, 1)] {
         let entry = product.get(row, column).expect("entry");
         let at_point = substitute(&substitute(entry, "x", &three), "y", &two);
-        let value = evaluate(&at_point, 40)
-            .unwrap_or_else(|error| panic!("entry ({row},{column}) did not evaluate: {}", error.message));
+        let value = evaluate(&at_point, 40).unwrap_or_else(|error| {
+            panic!("entry ({row},{column}) did not evaluate: {}", error.message)
+        });
         match value {
             Num::Exact(rat) => assert_eq!(
                 rat,

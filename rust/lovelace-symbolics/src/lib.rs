@@ -12,6 +12,7 @@ use lovelace_nat::Nat;
 pub mod assumptions;
 pub mod cancel;
 pub mod groebner;
+pub mod polynomials;
 pub mod rational_functions;
 pub mod real_literal;
 pub mod rewrite_registry;
@@ -3024,15 +3025,21 @@ fn poly_div_exact(num: &[Rat], den: &[Rat]) -> Option<Vec<Rat>> {
 /// Yun's square-free decomposition of a univariate polynomial with rational coefficients.
 ///
 /// Each returned pair is (factor coefficient vector, multiplicity), with the factors pairwise
-/// coprime and their product equal to the input. `x^3 - x^2 = x^2*(x - 1)` decomposes into
-/// `(x - 1, 1)` then `(x, 2)` - the order the reference's factor list is built in.
+/// coprime and their product equal to the input TIMES the leading coefficient the decomposition
+/// strips: every factor is monic, as the reference's `SquareFreeUnivariate` normalizes them.
+/// `x^3 - x^2 = x^2*(x - 1)` decomposes into `(x - 1, 1)` then `(x, 2)` - the order the
+/// reference's factor list is built in. A nonzero constant decomposes into the unit once
+/// (the reference's `NormalizeUnivariate`); the zero polynomial decomposes into nothing.
 pub fn square_free_univariate(coeffs: &[Rat]) -> Vec<(Vec<Rat>, u64)> {
     if cancel::check() {
         return Vec::new();
     }
     let p = trim_poly(coeffs.to_vec());
     if p.len() <= 1 {
-        return Vec::new();
+        if p.last().map(|c| c.is_zero()).unwrap_or(true) {
+            return Vec::new();
+        }
+        return vec![(vec![Rat::one()], 1)];
     }
     let derivative = poly_derivative(&p);
     let mut g = poly_gcd(&p, &derivative);
@@ -3052,7 +3059,7 @@ pub fn square_free_univariate(coeffs: &[Rat]) -> Vec<(Vec<Rat>, u64)> {
             None => return out,
         };
         if z.len() > 1 {
-            out.push((z, multiplicity));
+            out.push((poly_monic(&z), multiplicity));
         }
         if y.len() > 1 {
             g = match poly_div_exact(&g, &y) {
@@ -5157,6 +5164,9 @@ mod round39_residue;
 
 #[cfg(test)]
 mod round66_resweep;
+
+#[cfg(test)]
+mod round67_polynomial_algebra;
 
 #[cfg(test)]
 mod printing_round16;
