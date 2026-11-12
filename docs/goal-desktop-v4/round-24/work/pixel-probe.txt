@@ -1,0 +1,4 @@
+﻿png=docs/goal-desktop-v4/round-24/coherence-printwindow.png size=1500x1320 bytes=212890 sha256=19D134721E14A07592FF38581B0C9D7114A2B83BF2E403E8809F288C709CEAE8
+log_header_top=1065 status_top=1288
+logs_progress_pixels=276 logs_timing_pixels=117 logs_result_accent_pixels=21
+workspace_accent_pixels=21 workspace_dim_pixels=61

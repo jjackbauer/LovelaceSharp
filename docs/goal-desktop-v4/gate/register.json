@@ -1751,14 +1751,31 @@
                      "type":  "W",
                      "requirement":  "Render all committed outputs coherently",
                      "acceptance":  "After each committed statement, variables, functions, log output, plots, revision and diagnostics reflect the same coherent engine snapshot.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-24/coherence-printwindow.png",
+                                          "sha256":  "19D134721E14A07592FF38581B0C9D7114A2B83BF2E403E8809F288C709CEAE8",
+                                          "class":  "gui",
+                                          "at_head":  "e397da8d1726955c8f06a64e76337e1405222571"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-24/coherence-uia.txt",
+                                          "sha256":  "4F4EF1F82217A36C084537234568482683062ECC5BC7D9A0A6EECC2B41688A21",
+                                          "class":  "gui",
+                                          "at_head":  "e397da8d1726955c8f06a64e76337e1405222571"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-24/coherence.md",
+                                          "sha256":  "9D68CEE6EC03EFFD770FBE9B21DCB524053D6DE9598E6C86A837A029F6A49178",
+                                          "class":  "gui",
+                                          "at_head":  "e397da8d1726955c8f06a64e76337e1405222571"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop committed|coherence; PrintWindow capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "StepCommitted/Cancelled/Failed now carry the whole WorkspaceSnapshot; one apply_event commit branch flushes buffered lines and publishes the snapshot; DocumentView renders every pane. Capture shows rev 1 committed 4/4 with a=1,b=2 and log statement 4/4. 215 tests."
                  },
                  {
                      "id":  "RUN-004",

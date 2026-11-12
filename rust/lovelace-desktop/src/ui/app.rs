@@ -18,7 +18,7 @@ use crate::keyboard;
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
-use crate::workbench::Workbench;
+use crate::workbench::{DocumentView, Workbench};
 
 use super::editor::{TextEditor, surface_id};
 use super::plot::Plot;
@@ -145,6 +145,12 @@ pub fn compute_layout(
 /// The window application.
 pub struct WorkbenchApp {
     workbench: Workbench,
+    /// The one assembled state this frame renders (RUN-003).
+    ///
+    /// Rebuilt in [`WorkbenchApp::sync`] immediately after `poll()`, so every pane draws the
+    /// same committed snapshot, log, revision and diagnostic even though it is a separate egui
+    /// closure. No pane calls back into the workbench for pane data.
+    view: DocumentView,
     editors: Vec<TextEditor>,
     loaded_revisions: Vec<u64>,
     plot: Plot,
@@ -188,8 +194,10 @@ impl WorkbenchApp {
             .iter()
             .map(|document| document.revision)
             .collect();
+        let view = workbench.active_view();
         WorkbenchApp {
             workbench,
+            view,
             editors,
             loaded_revisions,
             plot: Plot::new(),
@@ -210,6 +218,9 @@ impl WorkbenchApp {
     /// Applies queued events and re-loads the active editor if its document changed elsewhere.
     fn sync(&mut self) {
         self.workbench.poll();
+        // RUN-003: assemble the frame's pane state once, from the same committed snapshot the
+        // poll above applied. Every pane below renders this value, not a fresh workbench lookup.
+        self.view = self.workbench.active_view();
         // The workbench gates a diagnostic on the revision it was produced for; copying it here
         // makes every editor decoration appear with the failure and disappear on the next edit.
         for (index, editor) in self.editors.iter_mut().enumerate() {
@@ -222,7 +233,7 @@ impl WorkbenchApp {
             self.editors[active].load(&source);
             self.loaded_revisions[active] = revision;
         }
-        let current_svg = self.workbench.active_plot().map(|plot| plot.svg.clone());
+        let current_svg = self.view.plot.as_ref().map(|plot| plot.svg.clone());
         if current_svg != self.loaded_plot_svg {
             match current_svg {
                 Some(svg) => {
@@ -528,10 +539,13 @@ impl WorkbenchApp {
         ui.painter()
             .rect_filled(full, 0.0, Color32::from_rgb(0x0b, 0x0e, 0x12));
 
-        self.editor_pane(ui, layout.editor);
-        self.plot_pane(ui, layout.plot);
-        self.workspace_pane(ui, layout.workspace);
-        self.logs_pane(ui, layout.logs);
+        // RUN-003: one view for the whole frame. The clone is what a pane closure can borrow
+        // while another pane mutates `self`; no pane reads pane data from the workbench.
+        let view = self.view.clone();
+        self.editor_pane(ui, layout.editor, &view);
+        self.plot_pane(ui, layout.plot, &view);
+        self.workspace_pane(ui, layout.workspace, &view);
+        self.logs_pane(ui, layout.logs, &view);
 
         let drag_a = splitter(
             ui,
@@ -568,7 +582,7 @@ impl WorkbenchApp {
         }
     }
 
-    fn editor_pane(&mut self, ui: &mut Ui, rect: Rect) {
+    fn editor_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
         let active = self.workbench.active();
         let title = match self.workbench.document(active) {
             Some(document) => document.title.clone(),
@@ -577,8 +591,9 @@ impl WorkbenchApp {
         let lines = self.editors[active].line_count();
         let bytes = self.editors[active].bytes();
         // A run failure is also stated in the pane header, so the position and message are
-        // readable (and visible to accessibility clients) without hovering the underline.
-        let diagnostic = self.workbench.active_diagnostic().cloned();
+        // readable (and visible to accessibility clients) without hovering the underline. The
+        // frame's assembled view already applied the revision gate.
+        let diagnostic = view.diagnostic.clone();
         // The live catalogue: keywords, the engine's registered functions and the active
         // document's last committed variables/user functions. Built fresh each pass so an
         // engine snapshot landing or a tab switch is reflected immediately. The same capture is
@@ -633,12 +648,8 @@ impl WorkbenchApp {
         });
     }
 
-    fn plot_pane(&mut self, ui: &mut Ui, rect: Rect) {
-        let active = self.workbench.active();
-        let plot_title = self.workbench.documents()[active]
-            .last_plot
-            .as_ref()
-            .map(|plot| plot.title.clone());
+    fn plot_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
+        let plot_title = view.plot.as_ref().map(|plot| plot.title.clone());
         let empty = self.plot.is_empty();
         with_pane(ui, rect, "Plot - engine SVG", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
@@ -689,10 +700,20 @@ impl WorkbenchApp {
         });
     }
 
-    fn workspace_pane(&mut self, ui: &mut Ui, rect: Rect) {
-        let (variables, functions, has_snapshot) = match self.workbench.active_snapshot() {
-            Some(snapshot) => (snapshot.variables.clone(), snapshot.functions.clone(), true),
-            None => (Vec::new(), Vec::new(), false),
+    fn workspace_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
+        let variables = &view.variables;
+        let functions = &view.functions;
+        let has_snapshot = view.has_snapshot;
+        // RUN-003: the pane states the revision and committed prefix it is showing, from the
+        // same DocumentView as the variables below it. The status strip reports the live buffer
+        // revision; this line reports the committed snapshot's revision.
+        let state_line = if has_snapshot {
+            format!(
+                "rev {} · committed {}/{}",
+                view.revision.0, view.committed_steps, view.total
+            )
+        } else {
+            format!("rev {} · no committed statement", view.revision.0)
         };
         let mut filter = self.filter.clone();
         with_pane(ui, rect, "Workspace", |ui, header, body| {
@@ -721,9 +742,11 @@ impl WorkbenchApp {
                     egui::ScrollArea::vertical()
                         .id_salt("workspace_scroll")
                         .show(ui, |ui| {
+                            ui.label(RichText::new(&state_line).small().color(ACCENT));
+                            ui.add_space(4.0);
                             ui.label(RichText::new("VARIABLES").small().color(DIM));
                             let mut shown = 0usize;
-                            for (name, value) in &variables {
+                            for (name, value) in variables {
                                 if !filter.is_empty() && !name.contains(filter.as_str()) {
                                     continue;
                                 }
@@ -748,7 +771,7 @@ impl WorkbenchApp {
                             ui.separator();
                             ui.label(RichText::new("FUNCTIONS").small().color(DIM));
                             let mut shown = 0usize;
-                            for (name, parameters) in &functions {
+                            for (name, parameters) in functions {
                                 if !filter.is_empty() && !name.contains(filter.as_str()) {
                                     continue;
                                 }
@@ -779,7 +802,7 @@ impl WorkbenchApp {
         self.filter = filter;
     }
 
-    fn logs_pane(&mut self, ui: &mut Ui, rect: Rect) {
+    fn logs_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
         let active = self.workbench.active();
         let legend = log_kind_legend();
         with_pane(ui, rect, "Logs", |ui, header, body| {
@@ -802,7 +825,7 @@ impl WorkbenchApp {
                     // RUN-002: the quick-eval one-liner lives above the log list, so it stays
                     // visible with an empty log and cannot be confused with a history row.
                     self.quick_eval_row(ui);
-                    let logs = self.workbench.active_logs();
+                    let logs = &view.logs;
                     if logs.is_empty() {
                         ui.label(RichText::new("No log entries yet. Run the document.").color(DIM));
                         // The legend names every kind and marker before the first line exists,
@@ -1376,6 +1399,34 @@ mod tests {
             app.workbench.diagnostic(0).is_none(),
             "the workbench also hides a diagnostic whose revision is no longer current"
         );
+    }
+
+    /// RUN-003 through the window: after a four-statement run, the view the frame renders is
+    /// the workbench's one assembled object and its variables, revision and log tail agree.
+    #[test]
+    fn a_frame_renders_the_same_assembled_view_the_workbench_published() {
+        let mut app = fake_app_with_source("a = 1\nb = a + 1\nprint(\"p\")\nb\n");
+        let ctx = egui::Context::default();
+        assert!(app.workbench.run_active());
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        frame(&ctx, &mut app, Vec::new());
+
+        let view = app.workbench.active_view();
+        assert_eq!(
+            app.view, view,
+            "the frame must render the workbench's assembled view, not a second assembly"
+        );
+        assert_eq!(view.revision, crate::execution::SourceRevision(1));
+        assert_eq!(view.committed_steps, 4);
+        assert_eq!(
+            view.variables,
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ]
+        );
+        assert_eq!(view.last_committed_log_statement(), Some(4));
+        assert_eq!(view.last_log_statement(), Some(4));
     }
 
     #[test]

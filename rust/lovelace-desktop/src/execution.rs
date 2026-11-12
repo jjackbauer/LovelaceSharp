@@ -43,7 +43,13 @@ pub struct RunId(pub u64);
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct SourceRevision(pub u64);
 
-/// Everything the panes need to update together after a run, plus the revision it belongs to.
+/// Everything the panes need to update together, plus the revision it belongs to.
+///
+/// RUN-003: this is the atomic unit of pane state. It is published **at every commit** (carried
+/// by [`DesktopEvent::StepCommitted`]) and once more with the terminal event, always rebuilt from
+/// one `Progress` capture. A consumer that adopts the snapshot has, at the same instant, the
+/// variables, functions, state capture, plot, print output and revision of exactly the committed
+/// statements it names in `committed_steps`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WorkspaceSnapshot {
     /// Display form of the last value-producing committed statement ("Void" when none did).
@@ -66,6 +72,8 @@ pub struct WorkspaceSnapshot {
     pub revision: SourceRevision,
     /// How many statements were committed when the snapshot was taken.
     pub committed_steps: usize,
+    /// How many sliced statements the run that produced this snapshot visited.
+    pub total: usize,
     /// The failure that ended the run, when it ended in one.
     pub diagnostic: Option<String>,
 }
@@ -96,6 +104,11 @@ pub enum DesktopEvent {
         label: String,
     },
     /// A statement was evaluated successfully and its effects are part of the workspace.
+    ///
+    /// RUN-003: the event carries the complete [`WorkspaceSnapshot`] for the committed prefix
+    /// through `index`, taken at the same commit point as the variable/function/state/plot
+    /// captures. The consumer applies the snapshot, the statement's log lines and the committed
+    /// counter from this one event, so no pane can advance alone.
     StepCommitted {
         /// The document being run.
         document: DocumentId,
@@ -105,6 +118,8 @@ pub enum DesktopEvent {
         index: usize,
         /// Whether the value was reused from a cache; this core has no cache, so it is false.
         reused: bool,
+        /// The coherent workspace through this statement.
+        snapshot: WorkspaceSnapshot,
     },
     /// One print line produced by a statement.
     Output {
@@ -137,6 +152,10 @@ pub enum DesktopEvent {
         snapshot: WorkspaceSnapshot,
     },
     /// The run stopped because its cancellation token was signalled.
+    ///
+    /// RUN-003: `snapshot` describes exactly the `committed_steps` committed statements; it is
+    /// the same value the terminal publish wrote, carried in the event so the consumer applies
+    /// the terminal panes from one object instead of looking the snapshot up separately.
     Cancelled {
         /// The document that ran.
         document: DocumentId,
@@ -144,8 +163,13 @@ pub enum DesktopEvent {
         run: RunId,
         /// The number of statements committed before cancellation was observed.
         committed_steps: usize,
+        /// The coherent state of the committed prefix.
+        snapshot: WorkspaceSnapshot,
     },
     /// The run stopped because a statement failed or the engine panicked.
+    ///
+    /// RUN-003: `snapshot` is the committed prefix, with the rendered diagnostic in its
+    /// `diagnostic` field; `diagnostic` carries the structured position for the editor.
     Failed {
         /// The document that ran.
         document: DocumentId,
@@ -153,6 +177,8 @@ pub enum DesktopEvent {
         run: RunId,
         /// The structured failure: message plus its position in the full source.
         diagnostic: Diagnostic,
+        /// The coherent state of the committed prefix plus the failure.
+        snapshot: WorkspaceSnapshot,
     },
 }
 
@@ -510,7 +536,11 @@ impl ExecutionHost {
         }
     }
 
-    /// The last snapshot published for a document, if any run reached a terminal state.
+    /// The last snapshot published for a document, if any.
+    ///
+    /// Terminal events now carry the same snapshot, so the workbench does not need this lookup;
+    /// it stays as the host-facing proof that publishing and the event agree (execution tests).
+    #[allow(dead_code)] // host-facing accessor exercised by the execution tests
     pub fn last_snapshot(&self, document: DocumentId) -> Option<WorkspaceSnapshot> {
         let snapshots = self
             .snapshots
@@ -591,12 +621,14 @@ impl RunWorker {
             Err(payload) => {
                 if !progress.ended {
                     let diagnostic = self.diagnostic_for(progress.current, panic_text(payload));
-                    self.publish(self.snapshot(&progress, Some(diagnostic.render())));
+                    let snapshot = self.snapshot(&progress, Some(diagnostic.render()));
+                    self.publish(snapshot.clone());
                     self.retire();
                     self.emit(DesktopEvent::Failed {
                         document: self.document,
                         run: self.run,
                         diagnostic,
+                        snapshot,
                     });
                 }
             }
@@ -612,12 +644,13 @@ impl RunWorker {
     /// emits exactly one terminal `Cancelled` event.
     fn finish_cancelled(&self, progress: &mut Progress) {
         let snapshot = self.snapshot(progress, None);
-        self.publish(snapshot);
+        self.publish(snapshot.clone());
         self.retire();
         self.emit(DesktopEvent::Cancelled {
             document: self.document,
             run: self.run,
-            committed_steps: progress.committed,
+            committed_steps: snapshot.committed_steps,
+            snapshot,
         });
         progress.ended = true;
     }
@@ -705,6 +738,9 @@ impl RunWorker {
                         run: self.run,
                         index,
                         reused: false,
+                        // RUN-003: the whole committed prefix travels with the commit event, so
+                        // the panes and the log advance from one object.
+                        snapshot: self.snapshot(progress, None),
                     });
                     let total = self.statements.len().max(1);
                     self.emit(DesktopEvent::SubProgress {
@@ -763,12 +799,14 @@ impl RunWorker {
 
     /// Publishes a final snapshot and the single Failed event for the run.
     fn fail(&self, progress: &mut Progress, diagnostic: Diagnostic) {
-        self.publish(self.snapshot(progress, Some(diagnostic.render())));
+        let snapshot = self.snapshot(progress, Some(diagnostic.render()));
+        self.publish(snapshot.clone());
         self.retire();
         self.emit(DesktopEvent::Failed {
             document: self.document,
             run: self.run,
             diagnostic,
+            snapshot,
         });
         progress.ended = true;
     }
@@ -784,6 +822,7 @@ impl RunWorker {
             output: progress.output.clone(),
             revision: self.revision,
             committed_steps: progress.committed,
+            total: self.statements.len(),
             diagnostic,
         }
     }
@@ -1058,6 +1097,7 @@ mod tests {
             output: vec![result.to_string()],
             revision,
             committed_steps: 1,
+            total: 1,
             diagnostic: None,
         }
     }
@@ -1267,6 +1307,7 @@ mod tests {
                 document,
                 run,
                 committed_steps,
+                snapshot,
             } => {
                 assert_eq!(*document, DocumentId(2));
                 assert_eq!(*run, handle.run());
@@ -1275,9 +1316,13 @@ mod tests {
                     "committed_steps was {committed_steps}, expected fewer than 200"
                 );
                 assert!(*committed_steps >= 1, "expected at least the first step");
-                let snapshot = host
+                let published = host
                     .last_snapshot(DocumentId(2))
                     .expect("a cancelled run must publish its last snapshot");
+                assert_eq!(
+                    snapshot, &published,
+                    "the Cancelled event must carry the snapshot the run published"
+                );
                 assert_eq!(snapshot.committed_steps, *committed_steps);
                 assert_eq!(
                     snapshot.variables,
@@ -1397,16 +1442,21 @@ mod tests {
                 document: stopped,
                 run,
                 committed_steps,
+                snapshot: event_snapshot,
             } => {
                 assert_eq!(*stopped, document);
                 assert_eq!(*run, handle.run());
                 assert_eq!(*committed_steps, 0, "the one kernel statement did not commit");
-                let snapshot = host
+                let published = host
                     .last_snapshot(document)
                     .expect("a cancelled run must publish its last snapshot");
-                assert_eq!(snapshot.committed_steps, 0);
-                assert_eq!(snapshot.result, "Void");
-                assert_eq!(snapshot.revision, SourceRevision(1));
+                assert_eq!(
+                    event_snapshot, &published,
+                    "the Cancelled event must carry the snapshot the run published"
+                );
+                assert_eq!(event_snapshot.committed_steps, 0);
+                assert_eq!(event_snapshot.result, "Void");
+                assert_eq!(event_snapshot.revision, SourceRevision(1));
             }
             other => panic!(
                 "terminal after cancel was {}, expected Cancelled; collected {:?}",
@@ -1497,6 +1547,7 @@ mod tests {
                 document,
                 run,
                 committed_steps,
+                ..
             } => {
                 assert_eq!(*document, doc1);
                 assert_eq!(*run, handle1.run());

@@ -98,7 +98,19 @@ pub struct WorkbenchDocument {
     pub last_plot: Option<PlotCapture>,
     /// The document's log, oldest first. Every line carries its [`LogKind`] and renders the
     /// kind's visible marker (see [`LogLine::render`]).
+    ///
+    /// RUN-003: statement-scoped lines are appended only when the statement commits, so the log
+    /// tail and the committed snapshot advance in the same [`Workbench::apply_event`] branch.
     pub logs: Vec<LogLine>,
+    /// Statement-scoped log lines produced by the in-flight statement, not yet committed.
+    ///
+    /// A `[progress]` line (from `StepStarted`) and its `[stdout]` lines (from `Output`) wait
+    /// here until the matching `StepCommitted` arrives. They are then flushed in their original
+    /// order and the commit snapshot is published in the same branch: no pane can show a line
+    /// from a statement whose effects the workspace does not have yet.
+    pending_logs: Vec<LogLine>,
+    /// The 0-based statement the in-flight statement-scoped events belong to.
+    current_statement: Option<usize>,
     /// The structured diagnostic of the last failed run, with its source revision.
     ///
     /// It is kept only while [`Workbench::diagnostic`] can prove the revision still describes
@@ -170,6 +182,97 @@ impl WorkbenchDocument {
     /// Duration of the first adjacent `from -> to` transition pair, when present.
     pub fn duration_between(&self, from: RunState, to: RunState) -> Option<std::time::Duration> {
         self.run_state.duration_between(from, to)
+    }
+}
+
+/// The assembled state a frame renders, built from one document at one instant.
+///
+/// RUN-003: this exists so a pane cannot read a variable from the last commit, a revision from
+/// the buffer and a log line from the next statement. [`Workbench::view`] fills every field from
+/// the same document state and the same committed [`WorkspaceSnapshot`]; [`DocumentView`] then
+/// answers the coherence questions the tests and the window pane use:
+///
+/// - `committed_steps` / `committed_statement()` are the committed snapshot's prefix;
+/// - `last_committed_log_statement()` is the last statement the log names that is **inside**
+///   that prefix (a terminal failure/cancellation attempt line names the next index and is
+///   deliberately excluded);
+/// - `last_log_statement()` is the last statement the log names at all.
+///
+/// The egui window renders `variables`/`functions`/`plot`/`logs`/`diagnostic` and the visible
+/// `revision` from this one object.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DocumentView {
+    /// The source revision the committed snapshot belongs to.
+    pub revision: SourceRevision,
+    /// True once a run has published a workspace snapshot.
+    pub has_snapshot: bool,
+    /// Committed statements in that snapshot (the state's revision).
+    pub committed_steps: usize,
+    /// Statements the snapshot's run visited.
+    pub total: usize,
+    /// Display form of the last value-producing committed statement.
+    pub result: String,
+    /// Variables after the committed prefix, sorted by the engine.
+    pub variables: Vec<(String, String)>,
+    /// Functions after the committed prefix.
+    pub functions: Vec<(String, Vec<String>)>,
+    /// The kind-aware capture the completion catalogue reads.
+    pub state: EngineState,
+    /// The most recent plot produced by the committed prefix.
+    pub plot: Option<PlotCapture>,
+    /// Every print line produced by the committed prefix.
+    pub output: Vec<String>,
+    /// The log as the pane paints it: only lines whose statement committed (plus run-level and
+    /// terminal lines).
+    pub logs: Vec<LogLine>,
+    /// The failure diagnostic that still describes the buffer, with its revision already checked.
+    pub diagnostic: Option<Diagnostic>,
+    /// The document's visible run state.
+    pub run_state: RunState,
+    /// Duration of the last run, in milliseconds.
+    pub elapsed_ms: u64,
+}
+
+impl DocumentView {
+    // These are the coherence predicates the RUN-003 tests and any host renderer use; the egui
+    // window reads the fields directly. They stay on the assembled object on purpose.
+    #[allow(dead_code)]
+    /// The 1-based number of the last committed statement, when one committed.
+    pub fn committed_statement(&self) -> Option<usize> {
+        (self.committed_steps > 0).then_some(self.committed_steps)
+    }
+
+    #[allow(dead_code)]
+    /// The 1-based number of the last statement any log line names.
+    pub fn last_log_statement(&self) -> Option<usize> {
+        self.logs
+            .iter()
+            .filter_map(|line| line.statement)
+            .max()
+            .map(|statement| statement + 1)
+    }
+
+    #[allow(dead_code)]
+    /// The 1-based number of the last statement the log names **inside** the committed prefix.
+    ///
+    /// This is the pane-level form of RUN-003's rule: at rest after commit `n` this is `n`, and
+    /// the variables/revision in the same object describe exactly statements `1..=n`.
+    pub fn last_committed_log_statement(&self) -> Option<usize> {
+        self.logs
+            .iter()
+            .filter_map(|line| line.statement)
+            .filter(|statement| *statement < self.committed_steps)
+            .max()
+            .map(|statement| statement + 1)
+    }
+
+    #[allow(dead_code)]
+    /// The display value of a variable in this view, if present.
+    pub fn variable(&self, name: &str) -> Option<&str> {
+        self.variables
+            .iter()
+            .find(|(variable, _)| variable == name)
+            .map(|(_, value)| value.as_str())
     }
 }
 
@@ -508,6 +611,8 @@ impl Workbench {
         doc.revision = doc.revision.saturating_add(1);
         doc.snapshot = None;
         doc.last_plot = None;
+        doc.pending_logs.clear();
+        doc.current_statement = None;
         doc.committed = 0;
         doc.total = 0;
         doc.elapsed_ms = 0;
@@ -817,6 +922,9 @@ impl Workbench {
 
         match &sequenced.event {
             DesktopEvent::RunStarted { total, .. } => {
+                // A run starts with an empty statement window: anything still buffered belongs
+                // to a delivery that never committed and must not leak into this run's log.
+                self.drop_pending(index);
                 crate::run_trace::mark(
                     "run_started_applied",
                     format!("total={} document={}", total, id.0),
@@ -856,24 +964,52 @@ impl Workbench {
             } => {
                 // LOG-002 progress: the workbench already receives one StepStarted per
                 // top-level statement, so the log routes that existing event instead of
-                // inventing progress. StepCommitted/SubProgress are not logged separately:
-                // they describe the same statement and would duplicate every progress line.
+                // inventing progress. RUN-003: the line is buffered and only appended when the
+                // statement commits, so it cannot name a statement whose effects are not in the
+                // workspace yet.
                 let total = self.docs[index].total;
-                self.log(
-                    index,
+                self.docs[index].current_statement = Some(*statement);
+                let line = LogLine::new(
                     LogKind::Progress,
                     format!("statement {}/{}: {}", statement + 1, total, label),
-                );
+                )
+                .at_statement(*statement);
+                self.push_pending(index, line);
                 true
             }
             DesktopEvent::StepCommitted {
-                index: statement, ..
+                index: statement,
+                snapshot,
+                ..
             } => {
-                self.docs[index].committed = statement + 1;
+                // RUN-003: this one branch advances every pane. The event's snapshot is the
+                // coherent committed prefix; the statement's buffered progress/stdout lines are
+                // appended first, then the snapshot is published and the committed counter moves.
+                // A stale (abandoned) run keeps its lines buffered for the discard notice and
+                // never publishes a snapshot that describes replaced source.
+                if stale {
+                    return true;
+                }
+                debug_assert_eq!(
+                    snapshot.committed_steps,
+                    statement + 1,
+                    "a commit snapshot must describe exactly the statements before and including it"
+                );
+                self.flush_pending(index);
+                if !quick_eval {
+                    self.publish_snapshot(index, snapshot.clone());
+                }
+                self.docs[index].committed = snapshot.committed_steps;
                 true
             }
             DesktopEvent::Output { text, .. } => {
-                self.log(index, LogKind::Stdout, text.clone());
+                // RUN-003: buffered with the statement it belongs to and flushed at its commit.
+                let line = LogLine::new(LogKind::Stdout, text.clone());
+                let line = match self.docs[index].current_statement {
+                    Some(statement) => line.at_statement(statement),
+                    None => line,
+                };
+                self.push_pending(index, line);
                 true
             }
             DesktopEvent::SubProgress { .. } => true,
@@ -888,6 +1024,10 @@ impl Workbench {
                 if !self.docs[index].state().is_in_flight() {
                     return false;
                 }
+                // The terminal snapshot is the same coherent object the terminal publish wrote;
+                // flushing first guarantees the log tail's statement lines are exactly the
+                // committed prefix the snapshot names.
+                self.flush_pending(index);
                 let accepted = self.docs[index].sink.apply(sequenced);
                 if !accepted {
                     return self.discard_terminal(
@@ -931,7 +1071,9 @@ impl Workbench {
                 true
             }
             DesktopEvent::Cancelled {
-                committed_steps, ..
+                committed_steps,
+                snapshot,
+                ..
             } => {
                 if stale {
                     return self.discard_terminal(
@@ -943,15 +1085,17 @@ impl Workbench {
                 if !self.docs[index].state().is_in_flight() {
                     return false;
                 }
+                self.flush_pending(index);
                 if !quick_eval {
-                    let snapshot = self.host.last_snapshot(id);
-                    if let Some(snapshot) = snapshot {
-                        self.publish_snapshot(index, snapshot);
-                    }
+                    self.publish_snapshot(index, snapshot.clone());
                 }
                 {
                     let doc = &mut self.docs[index];
-                    doc.committed = *committed_steps;
+                    debug_assert_eq!(
+                        snapshot.committed_steps, *committed_steps,
+                        "the Cancelled count and its snapshot must name the same committed prefix"
+                    );
+                    doc.committed = snapshot.committed_steps;
                     let transitioned = doc.run_state.finish(
                         tracked_run,
                         RunState::Cancelled,
@@ -974,7 +1118,11 @@ impl Workbench {
                 self.log(index, LogKind::Timing, text);
                 true
             }
-            DesktopEvent::Failed { diagnostic, .. } => {
+            DesktopEvent::Failed {
+                diagnostic,
+                snapshot,
+                ..
+            } => {
                 if stale {
                     return self.discard_terminal(
                         index,
@@ -985,11 +1133,9 @@ impl Workbench {
                 if !self.docs[index].state().is_in_flight() {
                     return false;
                 }
+                self.flush_pending(index);
                 if !quick_eval {
-                    let snapshot = self.host.last_snapshot(id);
-                    if let Some(snapshot) = snapshot {
-                        self.publish_snapshot(index, snapshot);
-                    }
+                    self.publish_snapshot(index, snapshot.clone());
                 }
                 {
                     let doc = &mut self.docs[index];
@@ -999,6 +1145,7 @@ impl Workbench {
                         doc.diagnostic = Some(diagnostic.clone());
                         doc.diagnostic_revision = Some(sequenced.revision);
                     }
+                    doc.committed = snapshot.committed_steps;
                     let transitioned =
                         doc.run_state
                             .finish(tracked_run, RunState::Failed, "Failed event applied");
@@ -1013,12 +1160,12 @@ impl Workbench {
                 let text = if quick_eval {
                     format!(
                         "Run failed after {} committed statements in {} ms.",
-                        self.docs[index].committed, elapsed
+                        snapshot.committed_steps, elapsed
                     )
                 } else {
                     format!(
                         "Run failed after {} committed statements in {} ms; the committed prefix remains in the workspace.",
-                        self.docs[index].committed, elapsed
+                        snapshot.committed_steps, elapsed
                     )
                 };
                 self.log(index, LogKind::Timing, text);
@@ -1041,6 +1188,10 @@ impl Workbench {
         doc.elapsed_ms = elapsed;
         doc.run = None;
         doc.quick_eval_run = None;
+        // A terminal event ends the run's statement window; any line still buffered describes a
+        // statement that never committed and must not leak into a later run.
+        doc.pending_logs.clear();
+        doc.current_statement = None;
         elapsed
     }
 
@@ -1049,6 +1200,8 @@ impl Workbench {
     /// The run was in flight and is now over, so the state machine still accepts exactly one
     /// terminal transition. `Cancelled` is the truthful state: the run was abandoned by the
     /// source edit (or its result failed the revision check), not completed for this buffer.
+    /// The abandoned run's buffered statement lines are still appended: the log narrates what
+    /// was attempted, while no snapshot is published and therefore no pane claims its effects.
     fn discard_terminal(&mut self, index: usize, run: RunId, reason: &str) -> bool {
         if !self.docs[index].state().is_in_flight() {
             return false;
@@ -1061,6 +1214,7 @@ impl Workbench {
         if !transitioned {
             return false;
         }
+        self.flush_pending(index);
         let _ = self.close_run(index);
         self.log(
             index,
@@ -1070,11 +1224,13 @@ impl Workbench {
         true
     }
 
-    /// Records a snapshot and adopts its plot, if it produced one.
+    /// Records a snapshot and adopts exactly the plot it carries.
+    ///
+    /// RUN-003: the plot is part of the snapshot, so a commit without a plot (a new run whose
+    /// committed prefix has not drawn one) must clear the previous run's plot instead of leaving
+    /// a picture that belongs to different variables and a different revision.
     fn publish_snapshot(&mut self, index: usize, snapshot: WorkspaceSnapshot) {
-        if let Some(plot) = snapshot.plot.clone() {
-            self.docs[index].last_plot = Some(plot);
-        }
+        self.docs[index].last_plot = snapshot.plot.clone();
         self.docs[index].snapshot = Some(snapshot);
     }
 
@@ -1083,10 +1239,42 @@ impl Workbench {
         let Some(doc) = self.docs.get_mut(index) else {
             return;
         };
+        Self::push_line(doc, LogLine::new(kind, text));
+    }
+
+    /// Appends one already-built line, enforcing [`LOG_CAP`].
+    fn push_line(doc: &mut WorkbenchDocument, line: LogLine) {
         if doc.logs.len() >= LOG_CAP {
             doc.logs.remove(0);
         }
-        doc.logs.push(LogLine::new(kind, text));
+        doc.logs.push(line);
+    }
+
+    /// Buffers a statement-scoped line until the statement commits.
+    fn push_pending(&mut self, index: usize, line: LogLine) {
+        if let Some(doc) = self.docs.get_mut(index) {
+            doc.pending_logs.push(line);
+        }
+    }
+
+    /// Appends every buffered statement line in production order and closes the statement window.
+    fn flush_pending(&mut self, index: usize) {
+        let Some(doc) = self.docs.get_mut(index) else {
+            return;
+        };
+        doc.current_statement = None;
+        let pending = std::mem::take(&mut doc.pending_logs);
+        for line in pending {
+            Self::push_line(doc, line);
+        }
+    }
+
+    /// Drops buffered statement lines without appending them.
+    fn drop_pending(&mut self, index: usize) {
+        if let Some(doc) = self.docs.get_mut(index) {
+            doc.pending_logs.clear();
+            doc.current_statement = None;
+        }
     }
 
     /// The status strip: document, revision, precision, cursor and run state.
@@ -1104,11 +1292,13 @@ impl Workbench {
     }
 
     /// The active document's last plot, if any.
+    #[allow(dead_code)] // host-facing accessor; the window renders `active_view().plot`
     pub fn active_plot(&self) -> Option<&PlotCapture> {
         self.docs[self.active].last_plot.as_ref()
     }
 
     /// The active document's log lines.
+    #[allow(dead_code)] // host-facing accessor; the window renders `active_view().logs`
     pub fn active_logs(&self) -> &[LogLine] {
         &self.docs[self.active].logs
     }
@@ -1118,7 +1308,55 @@ impl Workbench {
         self.docs[self.active].snapshot.as_ref()
     }
 
+    /// Assembles the state the panes render for one document.
+    ///
+    /// Every pane-relevant field is copied from this document in one call: the committed
+    /// snapshot (variables, functions, state, plot, output, result, source revision and
+    /// committed/total statement counts), the log, the revision-gated diagnostic and the run
+    /// state. A consumer that holds the returned value holds one coherent state.
+    pub fn view(&self, index: usize) -> Option<DocumentView> {
+        let document = self.docs.get(index)?;
+        let snapshot = document.snapshot.as_ref();
+        Some(DocumentView {
+            revision: snapshot
+                .map(|snapshot| snapshot.revision)
+                .unwrap_or(SourceRevision(0)),
+            has_snapshot: snapshot.is_some(),
+            committed_steps: snapshot
+                .map(|snapshot| snapshot.committed_steps)
+                .unwrap_or(0),
+            total: snapshot.map(|snapshot| snapshot.total).unwrap_or(0),
+            result: snapshot
+                .map(|snapshot| snapshot.result.clone())
+                .unwrap_or_default(),
+            variables: snapshot
+                .map(|snapshot| snapshot.variables.clone())
+                .unwrap_or_default(),
+            functions: snapshot
+                .map(|snapshot| snapshot.functions.clone())
+                .unwrap_or_default(),
+            state: snapshot
+                .map(|snapshot| snapshot.state.clone())
+                .unwrap_or_default(),
+            plot: snapshot.and_then(|snapshot| snapshot.plot.clone()),
+            output: snapshot
+                .map(|snapshot| snapshot.output.clone())
+                .unwrap_or_default(),
+            logs: document.logs.clone(),
+            diagnostic: self.diagnostic(index).cloned(),
+            run_state: document.state(),
+            elapsed_ms: document.elapsed_ms,
+        })
+    }
+
+    /// The active document's assembled view (the state the window renders this frame).
+    pub fn active_view(&self) -> DocumentView {
+        self.view(self.active)
+            .expect("the workbench always has an active document")
+    }
+
     /// The active document's failure diagnostic, while it still describes the buffer.
+    #[allow(dead_code)] // host-facing accessor; the window renders `active_view().diagnostic`
     pub fn active_diagnostic(&self) -> Option<&Diagnostic> {
         self.diagnostic(self.active)
     }
@@ -1152,6 +1390,8 @@ impl WorkbenchDocument {
             snapshot: None,
             last_plot: None,
             logs: Vec::new(),
+            pending_logs: Vec::new(),
+            current_statement: None,
             diagnostic: None,
             diagnostic_revision: None,
             run_state: RunStateMachine::new(),
@@ -1187,6 +1427,7 @@ mod tests {
     use super::*;
     use crate::completion::CompletionKind;
     use crate::engine::{EngineFunction, Evaluator, FakeEngine};
+    use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
     fn fake_workbench() -> Workbench {
@@ -2637,5 +2878,451 @@ mod tests {
             document.logs
         );
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+    }
+
+    /// RUN-003: after **every** committed statement the assembled view must name the same
+    /// statement in its variables, source revision, committed count and log tail.
+    ///
+    /// The test drains the real `ExecutionHost` stream one event at a time and inspects
+    /// [`Workbench::active_view`] immediately after each `StepCommitted`, before the next event
+    /// (even a `SubProgress` or another statement's `StepStarted`) is applied. A pane that
+    /// advanced on a separate event, or a log line appended before its statement's effects were
+    /// in the snapshot, cannot pass: at commit `n` the view must equal exactly the state after
+    /// statement `n`, with `last_log_statement() == Some(n)`.
+    #[test]
+    fn every_committed_step_publishes_one_coherent_snapshot() {
+        let mut workbench = fake_workbench();
+        let source = "a = 1\nb = a + 1\nprint(\"p\")\nb\n";
+        workbench.set_source(0, source.to_string());
+        let revision = SourceRevision(workbench.documents()[0].revision);
+        assert!(workbench.run_active());
+
+        let labels = ["a = 1", "b = a + 1", "print(\"p\")", "b"];
+        let expected_variables = [
+            vec![("a".to_string(), "1".to_string())],
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+        ];
+        let expected_results = ["1", "2", "Void", "2"];
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut commits = 0usize;
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "the run never delivered a terminal event"
+            );
+            let event = workbench
+                .host
+                .next_event(Duration::from_secs(5))
+                .expect("the worker must publish its events");
+            let committed = matches!(&event.event, DesktopEvent::StepCommitted { .. });
+            let terminal = matches!(
+                &event.event,
+                DesktopEvent::Finished { .. }
+                    | DesktopEvent::Cancelled { .. }
+                    | DesktopEvent::Failed { .. }
+            );
+            assert!(
+                workbench.apply_event(&event),
+                "the first delivery of {:?} must be applied",
+                event.event
+            );
+            if committed {
+                let n = commits + 1;
+                let view = workbench.active_view();
+                assert_eq!(
+                    view.committed_steps, n,
+                    "after statement {n} the committed count must be {n}, not {}",
+                    view.committed_steps
+                );
+                assert_eq!(view.committed_statement(), Some(n));
+                assert_eq!(
+                    view.revision, revision,
+                    "the committed snapshot must carry the revision the run was submitted for"
+                );
+                assert_eq!(view.total, 4);
+                assert_eq!(
+                    view.variables, expected_variables[n - 1],
+                    "variables after statement {n} were {:?}",
+                    view.variables
+                );
+                assert_eq!(view.result, expected_results[n - 1]);
+                let state_variables: Vec<(String, String)> = view
+                    .state
+                    .variables
+                    .iter()
+                    .map(|variable| (variable.name.clone(), variable.display.clone()))
+                    .collect();
+                assert_eq!(
+                    state_variables, expected_variables[n - 1],
+                    "the completion capture must describe the same committed prefix"
+                );
+                assert_eq!(
+                    view.functions.len(),
+                    view.state.functions.len(),
+                    "the pane list and the completion capture must be the same commit"
+                );
+                assert!(view.functions.iter().any(|(name, _)| name == "print"));
+                assert_eq!(
+                    view.output.len(),
+                    if n >= 3 { 1 } else { 0 },
+                    "print output must appear with its own commit"
+                );
+                assert_eq!(view.diagnostic, None);
+                // The log tail names exactly the statement the variables describe.
+                assert_eq!(
+                    view.last_committed_log_statement(),
+                    Some(n),
+                    "the log's last committed line must be statement {n}; logs: {:?}",
+                    view.logs
+                );
+                assert_eq!(
+                    view.last_log_statement(),
+                    Some(n),
+                    "no log line may name a later statement after commit {n}; logs: {:?}",
+                    view.logs
+                );
+                let progress = view
+                    .logs
+                    .iter()
+                    .rev()
+                    .find(|line| line.kind == LogKind::Progress)
+                    .expect("every commit flushes its progress line");
+                assert_eq!(
+                    progress.text,
+                    format!("statement {n}/4: {}", labels[n - 1])
+                );
+                assert_eq!(progress.statement, Some(n - 1));
+                assert!(
+                    view.logs
+                        .iter()
+                        .all(|line| line.statement.map_or(true, |statement| statement < n)),
+                    "after commit {n} the log still holds a later statement's line: {:?}",
+                    view.logs
+                );
+                commits += 1;
+            }
+            if terminal {
+                break;
+            }
+        }
+
+        assert_eq!(commits, 4, "the script has exactly four statements");
+        let view = workbench.active_view();
+        assert_eq!(view.run_state, RunState::Finished);
+        assert_eq!(view.committed_steps, 4);
+        assert_eq!(view.variables, expected_variables[3]);
+        assert_eq!(view.result, "2");
+        assert_eq!(view.output, vec!["p".to_string()]);
+        assert_eq!(view.last_committed_log_statement(), Some(4));
+        assert_eq!(view.last_log_statement(), Some(4));
+        // The stdout line belongs to statement 3 and follows its progress line.
+        let progress_three = view
+            .logs
+            .iter()
+            .position(|line| line.kind == LogKind::Progress && line.statement == Some(2))
+            .expect("statement 3's progress line");
+        let stdout = view
+            .logs
+            .iter()
+            .position(|line| line.kind == LogKind::Stdout && line.text == "p")
+            .expect("the print's stdout line");
+        assert!(
+            progress_three < stdout,
+            "the print's own progress line must precede its output"
+        );
+    }
+
+    /// RUN-003 plot clause: the plot in the assembled view is the committed snapshot's plot.
+    ///
+    /// A later run that draws nothing must not leave the previous run's picture beside the new
+    /// run's variables and revision.
+    #[test]
+    fn a_new_run_without_a_plot_clears_the_previous_run_plot_in_the_view() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "plot(\"trend\", 1, 4, 2)\na = 1\nb = 2\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let view = workbench.active_view();
+        assert_eq!(view.run_state, RunState::Finished);
+        let plot = view
+            .plot
+            .as_ref()
+            .expect("the plot produced by statement 1 must be in the committed snapshot");
+        assert_eq!(plot.title, "trend");
+        assert!(plot.svg.contains("<svg"));
+        assert_eq!(view.last_committed_log_statement(), Some(3));
+        assert_eq!(
+            workbench.documents()[0]
+                .last_plot
+                .as_ref()
+                .map(|plot| plot.title.as_str()),
+            Some("trend")
+        );
+
+        workbench.set_source(0, "a = 7\nb = 8\n".to_string());
+        let revision = SourceRevision(workbench.documents()[0].revision);
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let view = workbench.active_view();
+        assert_eq!(view.run_state, RunState::Finished);
+        assert_eq!(view.revision, revision);
+        assert_eq!(view.committed_steps, 2);
+        assert_eq!(
+            view.variables,
+            vec![
+                ("a".to_string(), "7".to_string()),
+                ("b".to_string(), "8".to_string()),
+            ]
+        );
+        assert_eq!(
+            view.plot, None,
+            "a plot from the previous run would not belong to these variables"
+        );
+        assert!(
+            workbench.documents()[0].last_plot.is_none(),
+            "the document's plot field must agree with the committed snapshot"
+        );
+    }
+
+    /// RUN-003: an error at statement 3 must leave the view on the committed prefix (statements
+    /// 1-2) while the diagnostic and the log name statement 3.
+    ///
+    /// `c = 1 / 0` fails before the assignment inserts `c`, so a half-applied variable from the
+    /// failed statement would show up as a `c` in `variables`; the single assembled view is
+    /// asserted exactly, including the absence of `c`.
+    #[test]
+    fn a_failure_at_statement_three_keeps_the_committed_prefix_and_names_statement_three() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\nb = a + 1\nc = 1 / 0\nb\n".to_string());
+        let revision = SourceRevision(workbench.documents()[0].revision);
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+
+        let view = workbench.active_view();
+        assert_eq!(view.run_state, RunState::Failed);
+        assert_eq!(
+            view.revision, revision,
+            "the committed prefix must stay on the submitted revision"
+        );
+        assert_eq!(view.committed_steps, 2);
+        assert_eq!(view.committed_statement(), Some(2));
+        assert_eq!(view.total, 4);
+        assert_eq!(
+            view.variables,
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+            "the failed statement must not half-apply a variable"
+        );
+        assert_eq!(view.variable("c"), None);
+        assert_eq!(view.result, "2", "the last committed value is kept");
+        assert_eq!(view.output, Vec::<String>::new());
+        assert_eq!(
+            view.last_committed_log_statement(),
+            Some(2),
+            "the last committed log line is statement 2; logs: {:?}",
+            view.logs
+        );
+        assert_eq!(
+            view.last_log_statement(),
+            Some(3),
+            "the log narrates the failed attempt at statement 3"
+        );
+        let diagnostic = view
+            .diagnostic
+            .as_ref()
+            .expect("a failed run must publish the structured diagnostic");
+        assert_eq!(diagnostic.statement_index, 2, "0-based statement 3");
+        assert_eq!((diagnostic.line, diagnostic.column), (3, 1));
+        assert_eq!(diagnostic.message, "Cannot divide by zero.");
+        assert!(view.logs.iter().any(|line| {
+            line.kind == LogKind::Diagnostic
+                && line.text.contains("Cannot divide by zero.")
+                && line.text.contains("line 3, column 1")
+        }));
+        assert!(view.logs.iter().any(|line| {
+            line.kind == LogKind::Timing
+                && line.text.contains("Run failed after 2 committed statements")
+        }));
+        // The same view supplies the completion capture, and it agrees: only a and b.
+        let names: Vec<&str> = view
+            .state
+            .variables
+            .iter()
+            .map(|variable| variable.name.as_str())
+            .collect();
+        assert_eq!(names, ["a", "b"]);
+    }
+
+    /// The fake engine with its third evaluation held open until the run is cancelled.
+    ///
+    /// The worker's cancellation check happens at statement boundaries; a kernel that observes
+    /// the live flag returns an error, which the worker recognises as the requested
+    /// cancellation. This makes "cancelled after statement 2" deterministic instead of a race.
+    struct CancelAtThirdEngine {
+        inner: FakeEngine,
+        calls: usize,
+        cancel_flag: Option<Arc<AtomicBool>>,
+        entered: Arc<AtomicBool>,
+    }
+
+    impl CancelAtThirdEngine {
+        fn new(entered: Arc<AtomicBool>) -> CancelAtThirdEngine {
+            CancelAtThirdEngine {
+                inner: FakeEngine::new(),
+                calls: 0,
+                cancel_flag: None,
+                entered,
+            }
+        }
+    }
+
+    impl Evaluator for CancelAtThirdEngine {
+        fn eval(&mut self, src: &str) -> Result<String, String> {
+            self.calls += 1;
+            if self.calls == 3 {
+                self.entered.store(true, Ordering::Release);
+                let deadline = Instant::now() + Duration::from_secs(5);
+                loop {
+                    if self
+                        .cancel_flag
+                        .as_ref()
+                        .map(|flag| flag.load(Ordering::Acquire))
+                        .unwrap_or(false)
+                    {
+                        break;
+                    }
+                    assert!(
+                        Instant::now() < deadline,
+                        "the test never cancelled the in-flight statement"
+                    );
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                return Err("Cancelled.".to_string());
+            }
+            self.inner.eval(src)
+        }
+
+        fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
+            self.cancel_flag = flag;
+        }
+
+        fn set_precision(&mut self, decimals: usize) {
+            self.inner.set_precision(decimals);
+        }
+
+        fn precision(&self) -> usize {
+            self.inner.precision()
+        }
+
+        fn variables(&self) -> Vec<(String, String)> {
+            self.inner.variables()
+        }
+
+        fn functions(&self) -> Vec<(String, Vec<String>)> {
+            self.inner.functions()
+        }
+
+        fn state(&self) -> Option<EngineState> {
+            self.inner.state()
+        }
+
+        fn take_output(&mut self) -> Vec<String> {
+            self.inner.take_output()
+        }
+
+        fn last_plot(&self) -> Option<PlotCapture> {
+            self.inner.last_plot()
+        }
+    }
+
+    /// RUN-003: cancelling after statement 2 must keep exactly the committed prefix in every
+    /// field of the assembled view, with no variable from the cancelled statement 3.
+    #[test]
+    fn cancelling_after_statement_two_keeps_the_same_coherent_prefix() {
+        let entered = Arc::new(AtomicBool::new(false));
+        let factory_entered = Arc::clone(&entered);
+        let mut workbench = Workbench::with_factory(Box::new(move || {
+            Box::new(CancelAtThirdEngine::new(Arc::clone(&factory_entered)))
+        }));
+        workbench.set_source(0, "a = 1\nb = a + 1\nc = 3\nb\n".to_string());
+        let revision = SourceRevision(workbench.documents()[0].revision);
+        assert!(workbench.run_active());
+
+        // Wait until the worker is inside statement 3 *and* the workbench has applied its
+        // StepStarted, so the cancelled attempt is a real third-statement window.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            workbench.poll();
+            if entered.load(Ordering::Acquire)
+                && workbench.documents()[0].current_statement == Some(2)
+            {
+                break;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "statements 1-2 never committed and statement 3 never started"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            workbench.cancel_active(),
+            "the in-flight run must accept the cancellation"
+        );
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+
+        let view = workbench.active_view();
+        assert_eq!(view.run_state, RunState::Cancelled);
+        assert_eq!(view.revision, revision);
+        assert_eq!(view.committed_steps, 2);
+        assert_eq!(view.committed_statement(), Some(2));
+        assert_eq!(view.total, 4);
+        assert_eq!(
+            view.variables,
+            vec![
+                ("a".to_string(), "1".to_string()),
+                ("b".to_string(), "2".to_string()),
+            ],
+            "the cancelled statement must not appear in the workspace"
+        );
+        assert_eq!(view.variable("c"), None);
+        assert_eq!(view.result, "2");
+        assert_eq!(
+            view.last_committed_log_statement(),
+            Some(2),
+            "the last committed log line is statement 2; logs: {:?}",
+            view.logs
+        );
+        assert_eq!(
+            view.last_log_statement(),
+            Some(3),
+            "the log narrates the cancelled attempt at statement 3"
+        );
+        assert_eq!(view.diagnostic, None, "a cancellation is not a diagnostic");
+        assert!(view.logs.iter().any(|line| {
+            line.kind == LogKind::Timing
+                && line.text
+                    .contains("Run cancelled after 2 statements")
+        }));
+        let names: Vec<&str> = view
+            .state
+            .variables
+            .iter()
+            .map(|variable| variable.name.as_str())
+            .collect();
+        assert_eq!(names, ["a", "b"]);
     }
 }

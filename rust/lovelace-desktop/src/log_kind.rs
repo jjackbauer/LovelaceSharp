@@ -92,15 +92,29 @@ pub struct LogLine {
     pub kind: LogKind,
     /// Message text without a trailing newline.
     pub text: String,
+    /// The 0-based statement this line belongs to, when one produced it.
+    ///
+    /// RUN-003: per-statement progress and `print` lines carry the index of the statement that
+    /// produced them. An assembled [`crate::workbench::DocumentView`] uses the tag to prove that
+    /// its log tail belongs to the same committed prefix as its variables and revision, instead
+    /// of comparing display strings.
+    pub statement: Option<usize>,
 }
 
 impl LogLine {
-    /// Builds a log line.
+    /// Builds an unattributed log line (run-level, result, diagnostic or timing).
     pub fn new(kind: LogKind, text: impl Into<String>) -> LogLine {
         LogLine {
             kind,
             text: text.into(),
+            statement: None,
         }
+    }
+
+    /// Attributes the line to the 0-based statement that produced it.
+    pub fn at_statement(mut self, statement: usize) -> LogLine {
+        self.statement = Some(statement);
+        self
     }
 
     /// The exact text the window paints: `marker`, one space, then the message.
