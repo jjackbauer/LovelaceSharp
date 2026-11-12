@@ -729,8 +729,13 @@ fn rat_to_real(value: &Rat, places: usize) -> Real {
     result
 }
 
-/// The published form of an exact rational: bounded to the requested digit count. The payload
-/// path is exact unless the reference 1000-place literal boundary marks the rendered digits inexact.
+/// The published form of an exact rational: bounded to the requested digit count.
+///
+/// A rational whose decimal expansion TERMINATES within `places` is the exact decimal it denotes.
+/// One that does not is truncated, and the dropped digits are part of the answer's route: the
+/// published Real is inexact even though the rational it came from was exact (the reference's
+/// `evalir(compile(x*1/3, [x]), [1], 2)` publishes `0.33` with `exact: false`, while
+/// `evalir(compile(x*1/2, [x]), [1], 2)` publishes an exact `0.5`).
 fn rational_to_published(value: &Rat, places: usize) -> Real {
     let num = value.numerator();
     let den = value.denominator();
@@ -754,10 +759,10 @@ fn rational_to_published(value: &Rat, places: usize) -> Real {
         text.push_str(&digits);
     }
     let result = Real::from_str(&text).unwrap_or_else(Real::zero);
-    if places >= 1000 && !rem.is_zero() {
-        result.mark_inexact()
-    } else {
+    if rem.is_zero() {
         result
+    } else {
+        result.mark_inexact()
     }
 }
 

@@ -244,7 +244,7 @@ fn suite_composition_deepest_accepted_call_answers_in_every_composition() {
             let value = engine
                 .eval(&script)
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
-            if !answer.is_empty() && name != "the body of a for" && name != "the body of a while" {
+            if !answer.is_empty() {
                 assert_eq!(value.display(), answer, "{name}");
             }
         }

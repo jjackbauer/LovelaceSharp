@@ -17,6 +17,22 @@ use lovelace_json::Json;
 
 use crate::{Engine, Value};
 
+/// Projects one runtime value onto its structured wire form after refusing a value deeper than
+/// the published value budget.
+///
+/// The reference's `StructuredProjection.ToStructured` refuses with
+/// `InputDepthExceededException` before its recursive walk. This is the fallible entry point for
+/// a value the caller constructed itself; the engine and runner only ever project values
+/// `Engine::eval` has already admitted, so [`project_value`] stays the infallible form.
+pub fn try_project_value(
+    engine: &Engine,
+    value: &Value,
+    budget: Option<usize>,
+) -> Result<Json, crate::LangError> {
+    crate::check_value_depth(value)?;
+    Ok(project_value(engine, value, budget))
+}
+
 /// Projects one runtime value onto its structured wire form.
 ///
 /// Total over the value kinds: every kind publishes the fields that identify it, and an absent

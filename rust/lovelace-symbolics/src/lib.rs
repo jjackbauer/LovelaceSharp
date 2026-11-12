@@ -14,10 +14,12 @@ pub mod cancel;
 pub mod groebner;
 pub mod parameter_domain;
 pub mod polynomials;
+pub mod proof_bridge;
 pub mod rational_functions;
 pub mod real_literal;
 pub mod rewrite_registry;
 pub mod series_kink;
+pub mod solution_set;
 pub mod symbolic_matrix;
 
 /// An exact rational coefficient.
@@ -4602,21 +4604,30 @@ impl Expr {
         }
     }
 
-    /// The structural best-known domain of the expression.
+    /// The structural best-known domain of the expression (no assumptions).
     pub fn domain(&self) -> Dom {
+        self.domain_under(&crate::assumptions::AssumptionSet::empty())
+    }
+
+    /// The structural best-known domain of the expression under `assumptions`.
+    ///
+    /// This is the reference's `Domains.DomainOf`: a symbol's domain is read from the
+    /// assumption scope (the narrowest domain atom wins), and a non-integer power is real only
+    /// when the base is provably non-negative.
+    pub fn domain_under(&self, assumptions: &crate::assumptions::AssumptionSet) -> Dom {
         match self {
             Expr::Num(_) => Dom::Rational,
             // A real constant is a decimal value the numeric tier handed over.
             Expr::Real(_) => Dom::Real,
-            // An unconstrained symbol ranges over the complex field.
-            Expr::Sym(_) => Dom::Complex,
+            // An unconstrained symbol ranges over the complex field; an assumption may narrow it.
+            Expr::Sym(name) => domain_from_lattice(assumptions.domain_of_symbol(name)),
             Expr::Add(items) | Expr::Mul(items) => items
                 .iter()
-                .map(|i| i.domain())
+                .map(|i| i.domain_under(assumptions))
                 .max()
                 .unwrap_or(Dom::Integer),
             Expr::Pow(base, exp) => {
-                let bd = base.domain();
+                let bd = base.domain_under(assumptions);
                 if let Expr::Num(n) = exp.as_ref() {
                     if n.denominator().to_decimal() == "1" {
                         if n.is_negative() {
@@ -4631,6 +4642,15 @@ impl Expr {
                 }
                 // A non-integer exponent is real only under a provable non-negative base.
                 if bd != Dom::Complex {
+                    if let Expr::Sym(symbol) = base.as_ref() {
+                        if assumptions.ask(&crate::assumptions::Assumption::SymbolProperty(
+                            symbol.clone(),
+                            crate::assumptions::SymbolPredicate::NonNegative,
+                        )) == crate::assumptions::Tristate::True
+                        {
+                            return Dom::Real;
+                        }
+                    }
                     if let Some(v) = numeric_rational(base) {
                         if !v.is_negative() {
                             return Dom::Real;
@@ -4639,7 +4659,7 @@ impl Expr {
                 }
                 Dom::Complex
             }
-            Expr::Div(a, b) => a.domain().max(b.domain()),
+            Expr::Div(a, b) => a.domain_under(assumptions).max(b.domain_under(assumptions)),
             Expr::Rel(..) => Dom::Complex,
             Expr::Fun(name, args) => match (name.as_str(), args.len()) {
                 ("pi", 0) | ("e", 0) | ("inf", 0) => Dom::Real,
@@ -4651,17 +4671,23 @@ impl Expr {
                 ("piecewise", _) => match self.as_piecewise() {
                     Some((branches, otherwise)) => branches
                         .iter()
-                        .map(|(guard, value)| guard.domain().max(value.domain()))
-                        .fold(otherwise.domain(), |acc: Dom, d| acc.max(d)),
+                        .map(|(guard, value)| {
+                            guard
+                                .domain_under(assumptions)
+                                .max(value.domain_under(assumptions))
+                        })
+                        .fold(otherwise.domain_under(assumptions), |acc: Dom, d| {
+                            acc.max(d)
+                        }),
                     None => Dom::Complex,
                 },
                 // An unevaluated derivative of a real-valued body is real.
                 ("derivative", _) => match self.as_derivative() {
-                    Some((body, _)) => body.domain(),
+                    Some((body, _)) => body.domain_under(assumptions),
                     None => Dom::Complex,
                 },
                 ("sqrt", 1) => {
-                    let ad = args[0].domain();
+                    let ad = args[0].domain_under(assumptions);
                     if ad == Dom::Complex {
                         return Dom::Complex;
                     }
@@ -4678,7 +4704,7 @@ impl Expr {
                     let ad = if args.is_empty() {
                         Dom::Real
                     } else {
-                        args[0].domain()
+                        args[0].domain_under(assumptions)
                     };
                     if name == "abs" || name == "re" || name == "im" {
                         return Dom::Real;
@@ -4692,6 +4718,22 @@ impl Expr {
             },
         }
     }
+}
+
+/// Maps the assumption lattice's domain onto the expression lattice.
+fn domain_from_lattice(domain: crate::assumptions::Domain) -> Dom {
+    use crate::assumptions::Domain;
+    match domain {
+        Domain::Integer => Dom::Integer,
+        Domain::Rational => Dom::Rational,
+        Domain::Real => Dom::Real,
+        Domain::Complex => Dom::Complex,
+    }
+}
+
+/// The reference's `Domains.DomainOf`: the structural best-known domain under an assumption set.
+pub fn domain_of(expression: &Expr, assumptions: &crate::assumptions::AssumptionSet) -> Dom {
+    expression.domain_under(assumptions)
 }
 
 // ---------------------------------------------------------------------------
@@ -5507,6 +5549,11 @@ mod round76_matrix;
 /// Round-90 logical constructors and the exactness leaf-rule census rows.
 #[cfg(test)]
 mod round90_symbolic_families;
+
+/// Round-92 small symbolic families: assumption-scoped domain inference, the library solution
+/// set's default-domain policy, the solve-completeness mapping and the rewrite proof bridge.
+#[cfg(test)]
+mod round92_symbolic_families;
 
 #[cfg(test)]
 mod printing_round16;

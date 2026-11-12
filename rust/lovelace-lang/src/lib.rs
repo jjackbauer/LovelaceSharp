@@ -11,24 +11,31 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod builtins;
+mod cancellable;
 pub mod complex;
 pub mod complex_math;
 pub mod context;
+pub mod diagnostic;
 pub mod display_format;
+pub mod docs_sync;
 pub mod evaluation_boundary;
 pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
 pub mod mathir;
 pub mod modus;
+pub mod name_suggestions;
 pub mod numeric;
 pub mod plot_file;
 pub mod plot_surface;
+pub mod print_budget;
+pub mod real_literal_route;
 pub mod registry;
 pub mod signals;
 pub mod structural_equality;
 pub mod structured;
 pub mod syntax;
+mod unicode;
 pub mod value_widen;
 
 /// The cooperative cancellation token every long-running kernel polls. Re-exported so a host can
@@ -38,6 +45,7 @@ pub mod cancel {
 }
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::Write;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
@@ -244,8 +252,20 @@ impl Value {
         }
     }
 
-    /// The display form.
+    /// The display form, with the reference's ASCII symbolic rendering.
     pub fn display(&self) -> String {
+        self.display_with_unicode(false)
+    }
+
+    /// The display form under the reference's Unicode symbolic rendering (∞ π ≤ ≥ ≠).
+    pub fn display_unicode(&self) -> String {
+        self.display_with_unicode(true)
+    }
+
+    /// The display form, selecting the reference's symbolic rendering. Every kind other than
+    /// Symbolic is identical in both forms; an array or record threads the choice through its
+    /// elements (the reference's `ValueFormatter.Format(value, unicode)`).
+    pub fn display_with_unicode(&self, unicode: bool) -> String {
         match self {
             Value::Natural(n) => n.to_decimal(),
             Value::Integer(i) => i.to_decimal(),
@@ -262,15 +282,21 @@ impl Value {
                         s.push_str("...");
                         break;
                     }
-                    s.push_str(&v.display());
+                    s.push_str(&v.display_with_unicode(unicode));
                 }
                 s.push(']');
                 s
             }
-            Value::Array(a) => render_array(a),
+            Value::Array(a) => render_array(a, unicode),
             Value::Function(name) => format!("<function {}>", name),
             Value::Void => String::new(),
-            Value::Symbolic(e) => e.to_string(),
+            Value::Symbolic(e) => {
+                if unicode {
+                    crate::unicode::symbolic(e)
+                } else {
+                    e.to_string()
+                }
+            }
             Value::Domain(name) => name.clone(),
             Value::Enum(_, name) => name.clone(),
             Value::Complex(re, im) => {
@@ -298,7 +324,7 @@ impl Value {
                     }
                     s.push_str(k);
                     s.push_str(": ");
-                    s.push_str(&v.display());
+                    s.push_str(&v.display_with_unicode(unicode));
                 }
                 s.push(')');
                 s
@@ -306,18 +332,46 @@ impl Value {
         }
     }
 
-    /// The typed form: display plus the kind in parentheses.
+    /// The display form after refusing a value deeper than the published value budget.
+    ///
+    /// The reference's `ValueFormatter.Format` walks the value recursively and refuses with
+    /// `InputDepthExceededException` before the walk can exhaust the stack. This is that fallible
+    /// entry point: a value at the budget renders, one past it is refused with the same typed
+    /// message instead of overflowing.
+    pub fn try_display(&self) -> Result<String, LangError> {
+        check_value_depth(self)?;
+        Ok(self.display())
+    }
+
+    /// The typed counterpart of [`Value::try_display`].
+    pub fn try_typed(&self) -> Result<String, LangError> {
+        check_value_depth(self)?;
+        Ok(self.typed())
+    }
+
+    /// The typed form: display plus the kind in parentheses, ASCII symbolic rendering.
+    pub fn typed(&self) -> String {
+        self.typed_with_unicode(false)
+    }
+
+    /// The typed form under the selected symbolic rendering.
     ///
     /// A record publishes its OWN type name (SolveResult, Inspection, …), and an enum publishes
     /// its bare member name — exactly the reference formatter's rules.
-    pub fn typed(&self) -> String {
+    pub fn typed_with_unicode(&self, unicode: bool) -> String {
         match self {
             Value::Void => "(void)".to_string(),
             // Text and enum values are published without a kind suffix, matching the reference.
-            Value::Text(_) => self.display(),
+            Value::Text(_) => self.display_with_unicode(unicode),
             Value::Enum(_, name) => name.clone(),
-            Value::Record(name, _) => format!("{} ({})", self.display(), name),
-            _ => format!("{} ({})", self.display(), self.kind_name()),
+            Value::Record(name, _) => {
+                format!("{} ({})", self.display_with_unicode(unicode), name)
+            }
+            _ => format!(
+                "{} ({})",
+                self.display_with_unicode(unicode),
+                self.kind_name()
+            ),
         }
     }
 
@@ -360,7 +414,7 @@ impl DisplayBudget {
     }
 }
 
-fn render_array(a: &NdArray<Value>) -> String {
+fn render_array(a: &NdArray<Value>, unicode: bool) -> String {
     fn rec(
         a: &NdArray<Value>,
         shape: &[usize],
@@ -368,10 +422,11 @@ fn render_array(a: &NdArray<Value>) -> String {
         idx: &mut Vec<usize>,
         budget: &mut DisplayBudget,
         out: &mut String,
+        unicode: bool,
     ) {
         if dim == shape.len() {
             if let Some(v) = a.get(idx) {
-                out.push_str(&v.display());
+                out.push_str(&v.display_with_unicode(unicode));
             }
             return;
         }
@@ -388,14 +443,17 @@ fn render_array(a: &NdArray<Value>) -> String {
                 break;
             }
             idx.push(i);
-            rec(a, shape, dim + 1, idx, budget, out);
+            rec(a, shape, dim + 1, idx, budget, out, unicode);
             idx.pop();
         }
         out.push(']');
     }
     let shape = a.shape().to_vec();
     if shape.is_empty() {
-        return a.get(&[]).map(|v| v.display()).unwrap_or_default();
+        return a
+            .get(&[])
+            .map(|v| v.display_with_unicode(unicode))
+            .unwrap_or_default();
     }
     let mut out = String::new();
     rec(
@@ -405,6 +463,7 @@ fn render_array(a: &NdArray<Value>) -> String {
         &mut Vec::new(),
         &mut DisplayBudget::new(),
         &mut out,
+        unicode,
     );
     out
 }
@@ -586,6 +645,9 @@ pub struct Engine {
     /// interpreter's `PrecisionExplicitlySet`, which plugin builtins read).
     precision_explicit: bool,
     output: Vec<String>,
+    /// Whether display formatting prefers the Unicode math glyphs (∞ π ≤ ≥ ≠), the
+    /// reference's `SuiteEngine.UnicodeOutput` knob. ASCII is the default.
+    unicode_output_enabled: bool,
     plot: Option<PlotCapture>,
     plot_dir: String,
     plot_file: String,
@@ -654,6 +716,7 @@ impl Engine {
             precision: 1000,
             precision_explicit: false,
             output: Vec::new(),
+            unicode_output_enabled: false,
             plot: None,
             plot_dir: dir.to_string_lossy().to_string(),
             plot_file: "plot.svg".to_string(),
@@ -892,6 +955,12 @@ impl Engine {
         self.plot.clone()
     }
 
+    /// Clears the captured plot (the reference's `SuiteEngine.ResetPlotCapture`). The engine's
+    /// plot directory and file name are untouched; only the `LastPlot` capture is forgotten.
+    pub fn reset_plot_capture(&mut self) {
+        self.plot = None;
+    }
+
     /// Drains captured print output.
     pub fn take_output(&mut self) -> Vec<String> {
         std::mem::take(&mut self.output)
@@ -901,12 +970,28 @@ impl Engine {
     /// Real.DisplayDecimalPlaces: 100 until setprecision moves it). The scope covers the whole
     /// nested rendering, so a Real inside an array or record is capped too.
     pub fn format(&self, value: &Value) -> String {
-        lovelace_real::with_display_decimal_places(self.display_precision(), || value.display())
+        lovelace_real::with_display_decimal_places(self.display_precision(), || {
+            value.display_with_unicode(self.unicode_output_enabled)
+        })
     }
 
     /// Renders a value with its kind, under the same display-precision scope.
     pub fn format_typed(&self, value: &Value) -> String {
-        lovelace_real::with_display_decimal_places(self.display_precision(), || value.typed())
+        lovelace_real::with_display_decimal_places(self.display_precision(), || {
+            value.typed_with_unicode(self.unicode_output_enabled)
+        })
+    }
+
+    /// Whether display formatting prefers the Unicode math glyphs (the reference's
+    /// `SuiteEngine.UnicodeOutput`). ASCII is the default.
+    pub fn unicode_output(&self) -> bool {
+        self.unicode_output_enabled
+    }
+
+    /// Selects the Unicode math glyphs (∞ π ≤ ≥ ≠) for symbolic rendering, or ASCII when false.
+    /// The change is formatting-only: values, equality and the wire protocol are untouched.
+    pub fn set_unicode_output(&mut self, enabled: bool) {
+        self.unicode_output_enabled = enabled;
     }
 
     /// Global variables as (name, typed rendering), sorted by name.
@@ -1148,6 +1233,35 @@ impl Engine {
         result
     }
 
+    /// Evaluates with a caller-supplied output writer, the reference's
+    /// `EvaluateAsync(source, output, token)` overload. Print lines produced by THIS evaluation
+    /// go to `writer`; the engine's previously captured output is restored afterwards (the
+    /// reference saves and restores `Output` in a finally block). The value or failure is the
+    /// ordinary `eval` outcome.
+    pub fn eval_with_output<W: Write>(
+        &mut self,
+        source: &str,
+        writer: &mut W,
+    ) -> Result<Value, LangError> {
+        let already_captured = self.output.len();
+        let result = self.eval(source);
+        let produced: Vec<String> = self.output.drain(already_captured..).collect();
+        for line in produced {
+            let _ = writeln!(writer, "{line}");
+        }
+        result
+    }
+
+    /// Evaluates under a caller-supplied deadline, the reference's cancellation-token budget, and
+    /// restores the engine's previous deadline afterwards. A kernel that observes the spent budget
+    /// returns `Cancelled`/`BudgetExceeded`; [`Engine::was_cancelled`] records the observation.
+    pub fn eval_with_budget(&mut self, source: &str, budget: Duration) -> Result<Value, LangError> {
+        let previous = self.cancel_after.replace(budget);
+        let result = self.eval(source);
+        self.cancel_after = previous;
+        result
+    }
+
     fn eval_inner(&mut self, source: &str) -> Result<Value, LangError> {
         // The reference's ScriptSource.ToSemicolonStatements strips a leading byte-order mark
         // before the engine sees the text and its ScriptPositions maps every published engine
@@ -1263,20 +1377,9 @@ impl Engine {
         }
         // A VALUE deeper than the published budget is a valid input the renderer cannot walk:
         // refuse it structurally before any capture or projection recurses over it.
-        let last_depth = value_depth(&last);
-        if last_depth > MAX_VALUE_DEPTH {
-            return Err(LangError::depth(
-                "value",
-                last_depth,
-                MAX_VALUE_DEPTH,
-                "nesting",
-            ));
-        }
+        check_value_depth(&last)?;
         for value in self.vars.values() {
-            let depth = value_depth(value);
-            if depth > MAX_VALUE_DEPTH {
-                return Err(LangError::depth("value", depth, MAX_VALUE_DEPTH, "nesting"));
-            }
+            check_value_depth(value)?;
         }
         self.revision += 1;
         if !matches!(last, Value::Void) {
@@ -1323,6 +1426,12 @@ impl Engine {
                 // A live body is one statement per iteration, so check on every iteration: the
                 // check is a thread-local read against the microseconds the body costs, and a
                 // loop that never allocates would otherwise run for minutes unwatched.
+                //
+                // The loop's value is the last completed body value, as in the reference: a
+                // sibling statement or loop scaffold does not turn a value into Void. A break
+                // or continue ends the iteration without completing a value, so the previous
+                // completed value stands.
+                let mut last = Value::Void;
                 let mut iteration = 0u64;
                 loop {
                     if lovelace_symbolics::cancel::poll(iteration) {
@@ -1341,11 +1450,12 @@ impl Engine {
                     }
                     match self.exec(body)? {
                         Flow::Break => break,
-                        Flow::Continue | Flow::Value(_) => {}
+                        Flow::Continue => continue,
+                        Flow::Value(v) => last = v,
                         Flow::Return(v) => return Ok(Flow::Return(v)),
                     }
                 }
-                Ok(Flow::Value(Value::Void))
+                Ok(Flow::Value(last))
             }
             Stmt::For(var, range, body) => {
                 let r = self.eval_expr(range)?;
@@ -1358,6 +1468,9 @@ impl Engine {
                         )));
                     }
                 };
+                // The loop's value is the last completed body value (the reference's for/while
+                // statement value); a loop that never runs a body answers Void.
+                let mut last = Value::Void;
                 for (iteration, item) in items.into_iter().enumerate() {
                     if lovelace_symbolics::cancel::poll(iteration as u64) {
                         return Err(cancelled_error());
@@ -1367,10 +1480,10 @@ impl Engine {
                         Flow::Break => break,
                         Flow::Continue => continue,
                         Flow::Return(v) => return Ok(Flow::Return(v)),
-                        Flow::Value(_) => {}
+                        Flow::Value(v) => last = v,
                     }
                 }
-                Ok(Flow::Value(Value::Void))
+                Ok(Flow::Value(last))
             }
             Stmt::Return(e, _) => {
                 let v = match e {
@@ -1502,7 +1615,7 @@ impl Engine {
                 let v = self.eval_expr(inner)?;
                 match v {
                     Value::Natural(n) => match n.to_u64() {
-                        Some(k) => Ok(Value::Natural(Nat::factorial(k))),
+                        Some(k) => Ok(Value::Natural(cancellable::factorial(k)?)),
                         None => Err(LangError::plain("Factorial argument is too large.")),
                     },
                     // An Integer factorial is the same value with the Integer kind: zero and
@@ -1514,7 +1627,13 @@ impl Engine {
                             ));
                         }
                         match i.magnitude().to_u64() {
-                            Some(k) => Ok(Value::Integer(Int::factorial(k))),
+                            Some(k) => {
+                                let magnitude = cancellable::factorial(k)?;
+                                Ok(Value::Integer(
+                                    Int::from_decimal(&magnitude.to_decimal())
+                                        .unwrap_or_else(Int::zero),
+                                ))
+                            }
                             None => Err(LangError::plain("Factorial argument is too large.")),
                         }
                     }
@@ -2132,6 +2251,24 @@ fn value_depth(root: &Value) -> usize {
     max
 }
 
+/// Refuses a value whose nesting exceeds the published value budget.
+///
+/// This is the check the reference's `ValueFormatter.Format` and
+/// `StructuredProjection.ToStructured` perform before their recursive walks. It is public so a
+/// host that constructs values itself can ask the same question the engine asks after every
+/// evaluation, and the fallible display/projection entry points ([Value::try_display],
+/// [structured::try_project_value]) call it.
+///
+/// The measured depth is the value's real depth, so a refusal at the boundary names `1025`; the
+/// walk is iterative, which is what makes a value 20000 levels deep refuse instead of dying.
+pub fn check_value_depth(root: &Value) -> Result<(), LangError> {
+    let depth = value_depth(root);
+    if depth > MAX_VALUE_DEPTH {
+        return Err(LangError::depth("value", depth, MAX_VALUE_DEPTH, "nesting"));
+    }
+    Ok(())
+}
+
 /// A tokenizer or parser refusal: both are the PARSE layer, so both carry its wire code. A
 /// tokenizer refusal that already names a finer code (the unterminated-string `InvalidInput`) and
 /// a depth refusal that carries `DepthExceeded` keep their own taxonomy.
@@ -2180,6 +2317,7 @@ pub fn token_count(source: &str) -> Result<usize, LangError> {
 }
 
 /// Re-exported so hosts can name binary operators.
+pub use diagnostic::ErrorCategory;
 pub use syntax::BinOp as Operator;
 /// Re-exported token type.
 pub use syntax::Tok as Token;
@@ -2491,3 +2629,20 @@ mod round90_runner_families;
 /// the solver half of ExactnessFlag. One test per closed rows' observable.
 #[cfg(test)]
 mod round90_symbolic_families;
+
+/// Round-92 runner/Suite families: the twelve deferred rows across CancellationObservation,
+/// SuiteEngineOutputPlot, HelpService, NameSuggestions, CapabilitiesBuiltin and
+/// DiagnosticContract. One test per census id, each asserting the oracle-observed observable.
+#[cfg(test)]
+mod round92_runner_families;
+
+/// Round-92 small symbolic families: the complex symbolic/numeric exactness pairing, linsolve
+/// verification by numeric substitution, and the two loop-body recursion-composition rows.
+#[cfg(test)]
+mod round92_symbolic_families;
+
+/// Round-93 eval/print families: one test per census id across EvalirDigitArgumentContract,
+/// PrintBudget, PrintBudgetTokenBoundary, TruncatingEvaluationStaysInexact, ValueDepthGuard and
+/// DocsSync. Every expected value is the C# assertion.
+#[cfg(test)]
+mod round93_eval_print;

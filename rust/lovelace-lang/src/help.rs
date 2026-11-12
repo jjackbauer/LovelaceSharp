@@ -249,6 +249,17 @@ pub fn overview() -> String {
         }
         text.push_str(&format!("\n  {category:<16} {count} function(s)"));
     }
+    // The reference's overview continues past the counts with the commands an agent can use and
+    // the prelude every descriptor example runs under (HelpService.Overview). The census row
+    // asserts the `help <function>` line; the whole block is reproduced so the rendered views
+    // cannot drift.
+    text.push_str("\n\nhelp <category>       list a category's functions");
+    text.push_str("\nhelp <function>       signature, summary, examples");
+    text.push_str("\nfuncs [category]      categorized function listing");
+    text.push_str("\nvars / clear / delete / run <file> / set precision|display|pretty");
+    text.push_str("\nLanguage statements & operators: docs/Language.md");
+    text.push_str("\n\nEvery function example runs after this prelude:");
+    text.push_str("\n  x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\")");
     text
 }
 

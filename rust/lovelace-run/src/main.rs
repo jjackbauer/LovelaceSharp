@@ -17,6 +17,27 @@ use script_source::{ScriptSource, SourceIdentity, SourceOrigin};
 const PROTOCOL_VERSION: &str = "1";
 const SYMBOLIC_FORMAT_VERSION: &str = "#!lovelace-sym 1";
 const MATH_IR_VERSION: &str = "2";
+// A test-only clock hook: the cancellation rows that assert the ledger's verdict need the
+// published elapsed and the budget in a FIXED order, not one that depends on machine load.
+// The override only changes the two clock fields `execute` returns; the evaluation itself still
+// runs (and completes) through the same engine path, and the guard clears the override on drop.
+#[cfg(test)]
+thread_local! {
+    static TEST_ELAPSED_MS: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+#[cfg(test)]
+fn with_test_elapsed_ms<T>(milliseconds: f64, run: impl FnOnce() -> T) -> T {
+    struct Reset;
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            TEST_ELAPSED_MS.with(|slot| slot.set(None));
+        }
+    }
+    TEST_ELAPSED_MS.with(|slot| slot.set(Some(milliseconds)));
+    let _reset = Reset;
+    run()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mode {
@@ -393,6 +414,14 @@ fn execute(engine: &mut Engine, opts: &Options, source: &str) -> Execution {
     let outcome = engine.eval(source);
     let elapsed = started.elapsed();
     let elapsed_ms = elapsed.as_secs_f64() * 1000.0;
+    #[cfg(test)]
+    let (elapsed, elapsed_ms) = match TEST_ELAPSED_MS.with(std::cell::Cell::get) {
+        Some(milliseconds) => (
+            std::time::Duration::from_secs_f64(milliseconds / 1000.0),
+            milliseconds,
+        ),
+        None => (elapsed, elapsed_ms),
+    };
     Execution {
         outcome,
         elapsed,

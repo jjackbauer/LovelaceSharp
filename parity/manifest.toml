@@ -863,18 +863,20 @@ note = "C#: Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs:
 [[test]]
 id = "Lovelace.Complex.Tests/Lovelace.Complex.Tests.ComplexMathInexactArgumentProvenanceTests/SymbolicNodeAndNumericResult_AgreeForSine#0"
 project = "Lovelace.Complex.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Real/RealLiteral provenance API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::complexmathinexactargumentprovenancetests_symbolicnodeandnumericresult_agree_for_sine"
+reason = "Ported by round 94: the sine provenance row's node/value exactness agreement (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs:188 SymbolicNodeAndNumericResult_AgreeForSine asserts the sin(pi(30)) symbolic node and the numeric value EvaluateToNum reads back are both inexact, and the value is ComplexMath.Sin(pi30). Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:87 complexmathinexactargumentprovenancetests_symbolicnodeandnumericresult_agree_for_sine asserts the node and numeric value are both inexact, agree on the flag, and the value equals complex_math_sin(pi30)."
 
 [[test]]
 id = "Lovelace.Complex.Tests/Lovelace.Complex.Tests.ComplexMathInexactArgumentProvenanceTests/SymbolicNodeAndNumericResult_AgreeForTheSameExpression#0"
 project = "Lovelace.Complex.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Real/RealLiteral provenance API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::complexmathinexactargumentprovenancetests_symbolicnodeandnumericresult_agree_for_the_same_expression"
+reason = "Ported by round 94: the cosine provenance row's node/value exactness agreement (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Complex.Tests/ComplexMathInexactArgumentProvenanceTests.cs:161 SymbolicNodeAndNumericResult_AgreeForTheSameExpression asserts the cos(pi(30)) symbolic node and its numeric value are both inexact, and the value is ComplexMath.Cos(pi30). Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:50 complexmathinexactargumentprovenancetests_symbolicnodeandnumericresult_agree_for_the_same_expression asserts the node and numeric value are both inexact, agree on the flag, and the value equals complex_math_cos(pi30)."
 
 [[test]]
 id = "Lovelace.Complex.Tests/Lovelace.Complex.Tests.ComplexMathPiResolutionTests/Sin_IntegerMultiplesOfPiTruncatedAtDPlaces_ReproduceTheDistanceToPi#0"
@@ -36767,18 +36769,20 @@ note = "Round 67: C# BuiltinArgumentShapeGuardTests.cs:33 ARegisteredBuiltinThat
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine cancellation-token API (CancellationToken on EvaluateAsync); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::evaluate_given_long_factorial_and_short_budget_cancels_promptly"
+reason = "Ported by round 94: the factorial cancellation observation (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/CancellationObservationTests.cs:52 Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly asserts a 1500 ms budget on `2000000!` throws EvaluationCancelledException and settles inside the 20 s fence. Rust: rust/lovelace-lang/src/round92_runner_families.rs:100 evaluate_given_long_factorial_and_short_budget_cancels_promptly asserts eval_with_budget(`2000000!`, 1500 ms) returns Cancelled/BudgetExceeded with the reference message, was_cancelled() is true and it settles inside the 20 s fence."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongNaturalPowerAndShortBudget_CancelsPromptly#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine cancellation-token API (CancellationToken on EvaluateAsync); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::evaluate_given_long_natural_power_and_short_budget_cancels_promptly"
+reason = "Ported by round 94: the natural-power cancellation observation (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/CancellationObservationTests.cs:28 Evaluate_GivenLongNaturalPowerAndShortBudget_CancelsPromptly asserts a 1500 ms budget on `2^1000000000` throws EvaluationCancelledException, the token is cancelled, and the call settles inside the 20 s fence. Rust: rust/lovelace-lang/src/round92_runner_families.rs:94 evaluate_given_long_natural_power_and_short_budget_cancels_promptly asserts eval_with_budget(`2^1000000000`, 1500 ms) returns Cancelled/BudgetExceeded with the reference message, was_cancelled() is true and it settles inside the 20 s fence."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CrossEngineIsolationTests/ConcurrentEngines_CaptureTheirOwnPrintOutput#0"
@@ -38662,10 +38666,11 @@ note = "C# HelpServiceTests.Help_Compile_ShowsDescriptor: compile(f, params), Ma
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Overview_ListsAllCategories#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService overview/UnicodeOutput formatting API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::help_overview_lists_all_categories"
+reason = "Ported by round 94: the help overview category tail (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/HelpServiceTests.cs:26 Help_Overview_ListsAllCategories asserts Help.Overview lists every category that has functions, the Symbolics and Solving headings, and `help <function>`. Rust: rust/lovelace-lang/src/round92_runner_families.rs:147 help_overview_lists_all_categories asserts overview contains every populated category, Symbolics, Solving and `help <function>`."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Solve_ShowsSignatureSummaryExampleAndSeeAlso#0"
@@ -38697,10 +38702,11 @@ note = "C# HelpServiceTests.Help_UnknownArgument_Explains: an unknown argument e
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/UnicodeOutput_ThreadsThroughEngineFormatting#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService overview/UnicodeOutput formatting API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::unicode_output_threads_through_engine_formatting"
+reason = "Ported by round 94: the UnicodeOutput engine knob (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/HelpServiceTests.cs:103 UnicodeOutput_ThreadsThroughEngineFormatting asserts UnicodeOutput is false by default, true renders `∞ (Symbolic)`, and clearing it restores `inf (Symbolic)`. Rust: rust/lovelace-lang/src/round92_runner_families.rs:163 unicode_output_threads_through_engine_formatting asserts ASCII is the default, set_unicode_output(true) renders `∞ (Symbolic)`, and clearing it restores `inf (Symbolic)`."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.InputDepthGuardTests/FlatChainOnePastTheBudget_IsRefused#0"
@@ -41009,10 +41015,11 @@ note = "Round 67: C# ModusTests.cs:80 ScalarResult_GivenBooleanAndText_ReturnVal
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/ANameNothingIsCloseTo_IsNotGuessedAt#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing NameSuggestions.edit-distance suggester; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::a_name_nothing_is_close_to_is_not_guessed_at"
+reason = "Ported by round 94: the no-close-name suggestion contract (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/NameSuggestionsTests.cs:42 ANameNothingIsCloseTo_IsNotGuessedAt asserts Suggest(Registry, q) is empty for fft, nosuchfn, push and zip. Rust: rust/lovelace-lang/src/round92_runner_families.rs:202 a_name_nothing_is_close_to_is_not_guessed_at asserts suggest(REGISTRY, q) is empty for the same four names."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/ANameNothingIsCloseTo_IsNotGuessedAt#1"
@@ -41161,10 +41168,11 @@ note = "Round-28: C# EditDistance_IsTheStructuralMetric row; Rust lovelace-lang:
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/EditDistance_IsTheStructuralMetric#3"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing NameSuggestions.edit-distance suggester; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::edit_distance_is_the_structural_metric"
+reason = "Ported by round 94: the structural edit-distance metric and its sentinel (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/NameSuggestionsTests.cs:92 EditDistance_IsTheStructuralMetric asserts row 3 of the theory, with its three neighbours, gives 1 for transpose/tranpose and det/dot, 2 for transpose/tranpsose, and int.MaxValue for solve_full/solve_x. Rust: rust/lovelace-lang/src/round92_runner_families.rs:213 edit_distance_is_the_structural_metric asserts edit_distance returns 1, 1, 2 and i32::MAX for the same four pairs."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/Rank_OrdersTheFourDegreesOfCloseness#0"
@@ -41880,18 +41888,20 @@ note = "C# asserts f(85) answers in each composition; the Rust test covers the f
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecursionBudgetCompositionTests/TheDeepestAcceptedCall_Answers_InEveryComposition#14"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'recursion': $.result: f(85) in a for/while body returns an error envelope in Rust vs the documented 0"
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::recursionbudgetcompositiontests_thedeepestacceptedcall_answers_in_a_for_body"
+reason = "Ported by round 94: the for-body recursion composition answers the deepest accepted call (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Suite.Tests/RecursionBudgetCompositionTests.cs:101 TheDeepestAcceptedCall_Answers_InEveryComposition (row 14) asserts the body of a for answers Natural 0 for `for i in 1..5 { f(85) }`. Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:240 recursionbudgetcompositiontests_thedeepestacceptedcall_answers_in_a_for_body asserts the for-body composition evaluates to Natural 0 (display `0`)."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecursionBudgetCompositionTests/TheDeepestAcceptedCall_Answers_InEveryComposition#15"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'recursion': $.result: f(85) in a for/while body returns an error envelope in Rust vs the documented 0"
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::recursionbudgetcompositiontests_thedeepestacceptedcall_answers_in_a_while_body"
+reason = "Ported by round 94: the while-body recursion composition answers the deepest accepted call (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Suite.Tests/RecursionBudgetCompositionTests.cs:101 TheDeepestAcceptedCall_Answers_InEveryComposition (row 15) asserts the body of a while answers Natural 0 for the 85-deep call inside the loop. Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:254 recursionbudgetcompositiontests_thedeepestacceptedcall_answers_in_a_while_body asserts the while-body composition evaluates to Natural 0 (display `0`)."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecursionBudgetCompositionTests/TheDeepestAcceptedCall_Answers_InEveryComposition#2"
@@ -43621,10 +43631,11 @@ note = "Round 45: setprecision(18); 1/1009 publishes 0.000991080277502477 with e
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/EvaluateAsync_GivenOutputWriter_CapturesPrintLinesToThatWriter#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine Output writer / ResetPlotCapture API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::evaluate_async_given_output_writer_captures_print_lines_to_that_writer"
+reason = "Ported by round 94: the output-writer capture and restore (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineOutputPlotTests.cs:8 EvaluateAsync_GivenOutputWriter_CapturesPrintLinesToThatWriter asserts EvaluateAsync with a TextWriter captures `hi` and restores the engine's original Output. Rust: rust/lovelace-lang/src/round92_runner_families.rs:111 evaluate_async_given_output_writer_captures_print_lines_to_that_writer asserts eval_with_output captures `hi` and take_output() still returns the pre-existing `before` line."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/EvaluateAsync_GivenPlotCall_SetsLastPlotSvg#0"
@@ -43638,10 +43649,11 @@ note = "C#: SuiteEngineOutputPlotTests.cs:21 asserts plot(1..3,[1,4,9]) captures
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/ResetPlotCapture_GivenPreviousPlot_ClearsLastPlot#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine Output writer / ResetPlotCapture API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::reset_plot_capture_given_previous_plot_clears_last_plot"
+reason = "Ported by round 94: the plot-capture reset (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineOutputPlotTests.cs:45 ResetPlotCapture_GivenPreviousPlot_ClearsLastPlot asserts LastPlot is non-null after plot, then null after ResetPlotCapture. Rust: rust/lovelace-lang/src/round92_runner_families.rs:126 reset_plot_capture_given_previous_plot_clears_last_plot asserts last_plot() is Some after plot and None after reset_plot_capture."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/CaptureState_GivenVariablesAndFunctions_ReturnsMatchingSnapshot#0"
@@ -44455,10 +44467,11 @@ note = "C#: Lovelace.Suite.Tests/UnterminatedStringTests.cs:38 Lovelace.Suite.Te
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueDepthGuardTests/ADeepRecordChain_IsRefusedTheSameWay#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ValueFormatter depth guard API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::valuedepthguardtests_a_deep_record_chain_is_refused_the_same_way"
+reason = "Ported by round 94: the record-chain value-depth guard (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/ValueDepthGuardTests.cs:151 ADeepRecordChain_IsRefusedTheSameWay asserts a 1024-level record chain renders, 1025 is refused by the display walk, and 20000 is refused by the structured projection. Rust: rust/lovelace-lang/src/round93_eval_print.rs:446 valuedepthguardtests_a_deep_record_chain_is_refused_the_same_way asserts depth 1024 renders, 1025 is refused by try_display and 20000 by try_project_value, both DepthExceeded/BudgetExceeded."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueDepthGuardTests/ARankFarPastTheBudget_IsRefusedRatherThanExhaustingTheStack#0"
@@ -44517,10 +44530,11 @@ note = "C# asserts depth 1025 is refused and named; repeated here."
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueDepthGuardTests/ValueOnePastTheBudget_IsRefusedByTheStructuredProjection#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ValueFormatter depth guard API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::valuedepthguardtests_value_one_past_the_budget_is_refused_by_the_structured_projection"
+reason = "Ported by round 94: the structured-projection depth boundary (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/ValueDepthGuardTests.cs:126 ValueOnePastTheBudget_IsRefusedByTheStructuredProjection asserts the structured projection refuses depth 1025 with `value depth 1025 exceeds the maximum supported nesting depth of 1024`, while depth 1024 still projects an Array. Rust: rust/lovelace-lang/src/round93_eval_print.rs:411 valuedepthguardtests_value_one_past_the_budget_is_refused_by_the_structured_projection asserts try_project_value refuses 1025 with the same message and the 1024 control still projects kind Array."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ValueTests/Value_GivenInteger_StoresIntegerKind#0"
@@ -45038,10 +45052,11 @@ note = "C# UnsatisfiableSet: the sentinel answers Unsatisfiable, not Unknown."
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/AdvertisedCodesAndCategories_MatchTheLiveEnvelope#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'capability-advertisement': $.category: the advertised trigger set includes plot.symbolic-expression, which the live Rust call answers as TypeMismatch vs DomainError"
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::advertised_codes_and_categories_match_the_live_envelope"
+reason = "Ported by round 94: the advertised-capabilities/live-envelope agreement (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs:368 AdvertisedCodesAndCategories_MatchTheLiveEnvelope asserts each of the 19 advertised unsupported-operation entries matches the live envelope/record code, category and message. Rust: rust/lovelace-lang/src/round92_runner_families.rs:263 advertised_codes_and_categories_match_the_live_envelope asserts all 19 advertised triggers are run and their live carrier matches the advertised code, category and message."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/Capabilities_IsOneRegisteredBuiltin_WithCompleteMetadata#0"
@@ -45091,10 +45106,11 @@ note = "Round 45: each of the three unevaluated integrals publishes both integra
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'power-zero': $.exitCode: 0^(1/2) is refused in Rust vs the supported 0 in the oracle"
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::power_exponent_class_refuses_what_it_says_and_names_what_is_supported"
+reason = "Ported by round 94: the power-exponent refusal/advertisement boundary (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/CapabilitiesBuiltinTests.cs:494 PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported asserts the two power classes refuse the same twelve scripts with UnsupportedOperation and the positive-base message; the seven supported shapes (including 0^(1/2) = 0) answer; the old pow.non-integer-exponent id is absent; both scopes name the counterexample. Rust: rust/lovelace-lang/src/round92_runner_families.rs:332 power_exponent_class_refuses_what_it_says_and_names_what_is_supported asserts the same twelve refusals and seven supported answers (including 0^(1/2) = 0), the old id absent, and the scope text naming the counterexample."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/SolveDomainStatement_NamesItsOperation_AndEveryDomainStaysUsableElsewhere#0"
@@ -45405,10 +45421,11 @@ note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:137 asserts a So
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/ErrorCategory_HasExactlyTheSevenFrozenMembers#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ErrorCategory enum (seven frozen members); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::error_category_has_exactly_the_seven_frozen_members"
+reason = "Ported by round 94: the seven frozen ErrorCategory members (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:52 ErrorCategory_HasExactlyTheSevenFrozenMembers asserts ErrorCategory has exactly the seven frozen members in the reference order. Rust: rust/lovelace-lang/src/round92_runner_families.rs:400 error_category_has_exactly_the_seven_frozen_members asserts ErrorCategory::ALL is the seven frozen names in order and from_name round-trips."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/EveryRichResult_EndsWithADiagnosticsArrayNeverText#0"
@@ -45476,10 +45493,11 @@ note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:67 row 6 drives 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/KernelNotes_CrossAsDiagnosticMessages#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'solve-selfeq': $.result.display: solve_full(x == x, x) differs (status/diagnostics text); the oracle publishes Unevaluated with a kernel note"
+disposition = "ported"
+rust = "lovelace-lang::round92_runner_families::kernel_notes_cross_as_diagnostic_messages"
+reason = "Ported by round 94: the kernel notes crossing as diagnostic messages (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:209 KernelNotes_CrossAsDiagnosticMessages asserts solve_full(x == x, x) publishes solve.unevaluated/UnsupportedOperation with `0 = 0: every value is a solution.`, and the limit control publishes its leading-coefficient note. Rust: rust/lovelace-lang/src/round92_runner_families.rs:422 kernel_notes_cross_as_diagnostic_messages asserts the solve identity diagnostic carries the reference code/category/message, and the limit control carries `leading coefficient is symbolic`."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/PartialSolve_CarriesADiagnosticWithAStableCodeAndAnErrorCategoryMember#0"
@@ -45559,18 +45577,20 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DocsSyncTests/Every_CSharpSnippet_AppearsInUsageExamples#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing README/UsageExamples sync checker; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::docssynctests_every_c_sharp_snippet_appears_in_usage_examples"
+reason = "Ported by round 94: the C# usage-guide snippet sync (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DocsSyncTests.cs:16 Every_CSharpSnippet_AppearsInUsageExamples asserts every fenced C# snippet in Lovelace.Symbolics/README.md appears whitespace-normalized in UsageExamples.cs (8 measured). Rust: rust/lovelace-lang/src/round93_eval_print.rs:509 docssynctests_every_c_sharp_snippet_appears_in_usage_examples asserts check_csharp_snippets_appear reports no missing snippet and a non-zero count (8 measured)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DocsSyncTests/Every_LovelaceExample_HasAnExpectedResult#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing README/UsageExamples sync checker; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::docssynctests_every_lovelace_example_has_an_expected_result"
+reason = "Ported by round 94: the lovelace example expected-result sync (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DocsSyncTests.cs:35 Every_LovelaceExample_HasAnExpectedResult asserts every fenced lovelace example in README.md has a non-blank expected result (103 measured). Rust: rust/lovelace-lang/src/round93_eval_print.rs:521 docssynctests_every_lovelace_example_has_an_expected_result asserts parse_examples returns the examples (103 measured) and every expected result is non-blank."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DomainFailureVocabularyTests/DivisionByZero_IsAnEvaluationFailure#0"
@@ -45647,10 +45667,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:226 asserts assum
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/DomainOf_NegativeIntegerPower_IsRationalNotInteger#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::dxsemanticclosuretests_domainof_negativeintegerpower_isrationalnotinteger"
+reason = "Ported by round 94: the assumption-scoped domain of a negative integer power (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:286 DomainOf_NegativeIntegerPower_IsRationalNotInteger asserts under x : Integer, DomainOf(x^-1) is Rational and DomainOf(x^2) keeps Integer. Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:28 dxsemanticclosuretests_domainof_negativeintegerpower_isrationalnotinteger asserts domain_of(x^-1, x:Integer) is Rational and domain_of(x^2, x:Integer) is Integer."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Language_Assume_ContradictionThrows#0"
@@ -45799,10 +45820,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:169 asserts solve
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Solve_QuarticNoRealRoots_DefaultDomain_ReportsUnevaluated#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::dxsemanticclosuretests_solve_quartic_no_real_roots_default_domain_reports_unevaluated"
+reason = "Ported by round 94: the quartic default-domain Unevaluated status and note (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs:179 Solve_QuarticNoRealRoots_DefaultDomain_ReportsUnevaluated asserts the default complex-domain solve of x^4 + 1 is Unevaluated with a note containing `complex algebraic roots`. Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:56 dxsemanticclosuretests_solve_quartic_no_real_roots_default_domain_reports_unevaluated asserts the complex-domain solve is Unevaluated with zero solutions, unrepresented_count 4 and the complex-algebraic-roots note; the real domain is NoSolutions/`no real solutions`."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Solve_QuarticNoRealRoots_RealDomain_IsEmpty#0"
@@ -47111,18 +47133,20 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-digits': $.exitCode: evalir(..., 2.0) is refused as \"got the Real 2, which is integral\" vs accepted as the integer 2"
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::evalirdigitargumentcontracttests_an_exactly_integral_real_literal_is_the_integer_it_denotes_0"
+reason = "Ported by round 94: the evalir integral-Real digit argument (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/EvalirDigitArgumentContractTests.cs:125 AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes (evalir) asserts the `2.0` digit argument answers exactly like `2` for evalir (0.33, never 0.333). Rust: rust/lovelace-lang/src/round93_eval_print.rs:88 evalirdigitargumentcontracttests_an_exactly_integral_real_literal_is_the_integer_it_denotes_0 asserts evalir with 2.0 equals the 2 answer, renders 0.33 not 0.333, and publishes exact:false."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes#1"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-digits': $.exitCode: evalir(..., 2.0) is refused as \"got the Real 2, which is integral\" vs accepted as the integer 2"
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::evalirdigitargumentcontracttests_an_exactly_integral_real_literal_is_the_integer_it_denotes_1"
+reason = "Ported by round 94: the evalir_batch integral-Real digit argument (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/EvalirDigitArgumentContractTests.cs:125 AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes (evalir_batch) asserts the `2.0` digit argument answers exactly like `2` for evalir_batch (0.33, never 0.333). Rust: rust/lovelace-lang/src/round93_eval_print.rs:94 evalirdigitargumentcontracttests_an_exactly_integral_real_literal_is_the_integer_it_denotes_1 asserts evalir_batch with 2.0 equals the 2 answer, renders 0.33 not 0.333, and publishes exact:false for every element."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalirDigitArgumentContractTests/AnIntegralDigitCount_IsStillHonoured#0"
@@ -51127,18 +51151,20 @@ note = "C#: Lovelace.Symbolics.Tests/LimitExistenceTriStateTests.cs:86 Undetermi
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LinsolveCheckTests/Solve_3x3_VerifiesByNumericSubstitution#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix linsolve numeric-verification API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::linsolvechecktests_solve3x3_verifiesbynumericsubstitution"
+reason = "Ported by round 94: the 3x3 linsolve numeric-substitution check (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/LinsolveCheckTests.cs:40 Solve_3x3_VerifiesByNumericSubstitution asserts the 3x3 symbolic solve at x=2,y=3 satisfies 2*v0+v1=1, v0+2*v1+v2=0 and v1+3*v2=1. Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:184 linsolvechecktests_solve3x3_verifiesbynumericsubstitution asserts the 3x3 solution substituted at x=2,y=3 satisfies the same three rows to 50 places."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LinsolveCheckTests/Solve_VerifiesByNumericSubstitution#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix linsolve numeric-verification API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round92_symbolic_families::linsolvechecktests_solve_verifiesbynumericsubstitution"
+reason = "Ported by round 94: the 2x2 linsolve numeric-substitution check (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/LinsolveCheckTests.cs:11 Solve_VerifiesByNumericSubstitution asserts the 2x2 symbolic solve substituted at two (x,y) pairs satisfies x*v0+v1=0 and y*v1=1. Rust: rust/lovelace-lang/src/round92_symbolic_families.rs:150 linsolvechecktests_solve_verifiesbynumericsubstitution asserts the solution substituted at (2,3) and (-1/2,5/2) satisfies x*v0+v1=0 and y*v1=1 to 50 places."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Deserialize_RejectsMalformedProgram#0"
@@ -53310,10 +53336,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTests.cs:83 CanonicalMode_Honour
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTests/DepthBudget_ReportsDepthLimit#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Printing.PrintOptions/PrintBudget/PrintOutcome API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::printbudgettests_depth_budget_reports_depth_limit"
+reason = "Ported by round 94: the kernel depth-budget truncation (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTests.cs:73 DepthBudget_ReportsDepthLimit asserts Print(expand((x+1)^12), MaxDepth: 2) is truncated with reason depth-limit, budget 2, NodeCount = the whole expression's count, and text ending ` …`. Rust: rust/lovelace-lang/src/round93_eval_print.rs:113 printbudgettests_depth_budget_reports_depth_limit asserts the depth-capped print is truncated, names depth-limit/budget 2/the whole node count, and ends ` …`."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTests/NoBudget_IsExactlyTheUnboundedRendering#0"
@@ -53327,10 +53354,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTests.cs:23 NoBudget_IsExactlyTh
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTests/NodeBudget_OnACompactRendering_DropsNothingAndSaysSo#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Printing.PrintOptions/PrintBudget/PrintOutcome API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::printbudgettests_node_budget_on_a_compact_rendering_drops_nothing_and_says_so"
+reason = "Ported by round 94: the node-budget compact-rendering rule (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTests.cs:61 NodeBudget_OnACompactRendering_DropsNothingAndSaysSo asserts Print(x + 1, MaxNodes: 1) is not truncated, has no truncation, and returns the whole `x + 1`. Rust: rust/lovelace-lang/src/round93_eval_print.rs:146 printbudgettests_node_budget_on_a_compact_rendering_drops_nothing_and_says_so asserts the compact rendering over the node budget is not truncated, has no truncation, and is the whole `x + 1`."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTests/NodeBudget_ReportsReasonCountBudgetAndPartialResult#0"
@@ -53344,10 +53372,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTests.cs:42 NodeBudget_ReportsRe
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTokenBoundaryTests/AnIdentifierLongerThanTheAllowance_IsKeptWhole#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Printing.PrintOptions/PrintBudget token-boundary API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::printbudgettokenboundarytests_an_identifier_longer_than_the_allowance_is_kept_whole"
+reason = "Ported by round 94: the whole-first-token truncation boundary (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTokenBoundaryTests.cs:69 AnIdentifierLongerThanTheAllowance_IsKeptWhole asserts a 54-character identifier at MaxNodes 1 is kept whole, abbreviated as the identifier plus ` …`, truncated, node-budget, budget 1. Rust: rust/lovelace-lang/src/round93_eval_print.rs:211 printbudgettokenboundarytests_an_identifier_longer_than_the_allowance_is_kept_whole asserts the 54-character identifier is kept whole, truncated with node-budget/budget 1, and cut at a token boundary."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTokenBoundaryTests/ARenderingThatIsOneLongToken_RetainsNothing#0"
@@ -53361,10 +53390,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTokenBoundaryTests.cs:123 ARende
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTokenBoundaryTests/ARenderingWithinTheAllowance_IsUntouched#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Printing.PrintOptions/PrintBudget token-boundary API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::printbudgettokenboundarytests_a_rendering_within_the_allowance_is_untouched"
+reason = "Ported by round 94: the allowance boundary that keeps a rendering whole (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTokenBoundaryTests.cs:105 ARenderingWithinTheAllowance_IsUntouched asserts a 44-character identifier plus ` + 1` is exactly the 48-character allowance, so MaxNodes 1 returns it whole and reports nothing. Rust: rust/lovelace-lang/src/round93_eval_print.rs:247 printbudgettokenboundarytests_a_rendering_within_the_allowance_is_untouched asserts the 48-character rendering is returned whole with no truncation."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrintBudgetTokenBoundaryTests/TheCanonicalFormOfTheSameValue_AlsoEndsAtABoundary#0"
@@ -53557,18 +53587,20 @@ note = "C#: RelationsAndFamiliesTests.cs:133 asserts sin(x)=0 publishes one fami
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProofBridgeTests/EveryObligation_IsStatedAndHonestAboutItsStatus#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite proof-obligation bridge API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::rewriteproofbridgetests_everyobligation_isstatedandhonestaboutitsstatus"
+reason = "Ported by round 94: the proof-obligation statements and honest statuses (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/RewriteProofBridgeTests.cs:26 EveryObligation_IsStatedAndHonestAboutItsStatus asserts every obligation statement is non-empty, no theorem is named unless the status is MachineChecked, and all nine are Unproven. Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:152 rewriteproofbridgetests_everyobligation_isstatedandhonestaboutitsstatus asserts every statement is non-empty, theorem is None unless MachineChecked, and every obligation is Unproven."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProofBridgeTests/EveryShippedRule_HasExactlyOneProofObligation#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite proof-obligation bridge API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::rewriteproofbridgetests_everyshippedrule_hasexactlyoneproofobligation"
+reason = "Ported by round 94: the shipped-rule/proof-obligation join (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/RewriteProofBridgeTests.cs:14 EveryShippedRule_HasExactlyOneProofObligation asserts the sorted shipped-rule ids equal the sorted proof-obligation ids, one obligation per rule. Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:131 rewriteproofbridgetests_everyshippedrule_hasexactlyoneproofobligation asserts sorted shipped_rule_ids() == proof_rule_ids(), bridge_is_in_step(), nine obligations and no duplicate obligation key."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/Budget_CountsAppliedRewrites_AndStopsFurtherGroups#0"
@@ -54005,10 +54037,11 @@ note = "Round 45: series(1/(x-1),x,0,2) publishes exactly -x + O(x^2) - 1 with n
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/BudgetExceeded_IsIncomplete_WithTheKernelCompletenessOfThePartialSubset#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SolveCompletenessMapping.Of API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::solvecompletenessmappingtests_budgetexceeded_is_incomplete_with_the_kernel_completeness"
+reason = "Ported by round 94: the BudgetExceeded completeness mapping (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessMappingTests.cs:47 BudgetExceeded_IsIncomplete_WithTheKernelCompletenessOfThePartialSubset asserts Of(BudgetExceeded) is (complete=false, Unknown) and Of(BudgetExceeded, Partial) carries (false, Partial). Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:84 solvecompletenessmappingtests_budgetexceeded_is_incomplete_with_the_kernel_completeness asserts SolveCompletenessMapping::of(BudgetExceeded) is (false, Unknown) and of_with_partial_subset(BudgetExceeded, Partial) is (false, Partial)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/EveryStatusCarriesTheDocumentedPair#0"
@@ -54040,10 +54073,11 @@ note = "C#: SolveCompletenessMappingTests.cs:39 row 2 asserts the documented (co
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/EveryStatusCarriesTheDocumentedPair#3"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SolveCompletenessMapping.Of API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round92_symbolic_families::solvecompletenessmappingtests_everystatuscarriesthedocumentedpair"
+reason = "Ported by round 94: the every-status documented completeness pairs (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessMappingTests.cs:39 EveryStatusCarriesTheDocumentedPair asserts row 3 of the theory, with rows 0-2, maps Solved/NoSolutions to (true, Complete), Partial to (false, Partial), and Unevaluated to (false, Unknown). Rust: rust/lovelace-symbolics/src/round92_symbolic_families.rs:102 solvecompletenessmappingtests_everystatuscarriesthedocumentedpair asserts the four documented pairs, including row 3 Unevaluated = (false, Unknown)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/LanguageStatuses_ReportExactlyWhatTheMappingReturns#0"
@@ -54478,10 +54512,11 @@ note = "C# ExactControls_StayExact: sqrt(4), 1/17, (-4)^(1/2) and dft([1,2,3])[0
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedArgument_IsInexact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RealLiteral/NumReal exactness API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::truncatingevaluationstaysinexacttests_function_of_a_truncated_argument_is_inexact"
+reason = "Ported by round 94: the truncated-argument inexactness property (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:273 FunctionOfATruncatedArgument_IsInexact asserts every elementary function of every truncated argument (11 arguments x 9 functions) is an inexact Real. Rust: rust/lovelace-lang/src/round93_eval_print.rs:303 truncatingevaluationstaysinexacttests_function_of_a_truncated_argument_is_inexact asserts all 99 function/argument pairs evaluate through a RealLiteral to an inexact Real, with the truncation premise asserted."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#0"
@@ -54594,10 +54629,11 @@ note = "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:11
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/LiteralRoundTrip_KeepsGenuinelyExactValuesExact#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RealLiteral/NumReal exactness API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round93_eval_print::truncatingevaluationstaysinexacttests_literal_round_trip_keeps_genuinely_exact_values_exact"
+reason = "Ported by round 94: the exact literal round trip (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/TruncatingEvaluationStaysInexactTests.cs:239 LiteralRoundTrip_KeepsGenuinelyExactValuesExact asserts the seven genuinely exact values 0, 1, 1/2, -3/2, 1/8, 1000000 and 1/(10^19) keep their digits and exactness through RealLiteral.FromRealExact(...).ToReal(). Rust: rust/lovelace-lang/src/round93_eval_print.rs:337 truncatingevaluationstaysinexacttests_literal_round_trip_keeps_genuinely_exact_values_exact asserts the seven values keep their digits, exact route and is_exact through RealLiteral::from_real_exact(...).to_real()."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/LiteralRoundTrip_PreservesBothTheDigitsAndTheRoute#0"

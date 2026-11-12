@@ -1782,14 +1782,27 @@ pub fn suggest_among<F>(queried: &str, allowed: &F) -> Vec<String>
 where
     F: Fn(&str) -> bool,
 {
-    let mut ranked: Vec<(u8, &'static str)> = Vec::new();
-    for builtin in BUILTINS {
-        if !allowed(builtin.name) {
-            continue;
-        }
-        let rank = name_rank(builtin.name, queried);
+    let names: Vec<&str> = BUILTINS
+        .iter()
+        .filter(|builtin| allowed(builtin.name))
+        .map(|builtin| builtin.name)
+        .collect();
+    suggest_from(&names, queried)
+}
+
+/// The closest names in a CALLER-SUPPLIED registry, best first.
+///
+/// This is the reference `NameSuggestions.Suggest(registered, queried)` contract: the caller
+/// decides which names exist (a plugin set, a projected registry, a test's fixed list), and a
+/// synonym is offered only when its target is in that list. Rank, then ordinal name, at most
+/// `MAX_SUGGESTIONS`, duplicates removed.
+pub fn suggest_from<S: AsRef<str>>(registered: &[S], queried: &str) -> Vec<String> {
+    let mut ranked: Vec<(u8, &str)> = Vec::new();
+    for name in registered {
+        let name = name.as_ref();
+        let rank = name_rank(name, queried);
         if rank >= 0 {
-            ranked.push((rank as u8, builtin.name));
+            ranked.push((rank as u8, name));
         }
     }
     if let Some((_, targets)) = SYNONYMS
@@ -1797,7 +1810,7 @@ where
         .find(|(word, _)| word.eq_ignore_ascii_case(queried))
     {
         for target in *targets {
-            if find(target).is_some() && allowed(target) {
+            if registered.iter().any(|name| name.as_ref() == *target) {
                 ranked.push((0, target));
             }
         }
@@ -1841,7 +1854,7 @@ pub fn name_rank(registered: &str, queried: &str) -> i32 {
         } else {
             2
         };
-        if edit_distance(&reg, &query) <= tolerance {
+        if capped_edit_distance(&reg, &query) <= tolerance {
             return 2;
         }
     }
@@ -1859,8 +1872,20 @@ fn shared_prefix(a: &str, b: &str) -> usize {
         .count()
 }
 
+/// The reference `NameSuggestions.EditDistance`: the Levenshtein distance in the contract's
+/// `int` shape, with `i32::MAX` when the length difference alone is more than two edits (the
+/// reference's `int.MaxValue` sentinel).
+pub fn edit_distance(a: &str, b: &str) -> i32 {
+    let distance = capped_edit_distance(a, b);
+    if distance == usize::MAX {
+        i32::MAX
+    } else {
+        distance as i32
+    }
+}
+
 /// Levenshtein distance, capped: a length difference above two is far enough to be no suggestion.
-fn edit_distance(a: &str, b: &str) -> usize {
+fn capped_edit_distance(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     if a.len().abs_diff(b.len()) > 2 {
@@ -1881,9 +1906,8 @@ fn edit_distance(a: &str, b: &str) -> usize {
 }
 #[cfg(test)]
 mod round28_tests {
-    //! Round-28 port of NameSuggestionsTests.EditDistance_IsTheStructuralMetric (the three
-    //! rows whose expected distance is a concrete number; the int.MaxValue "too far" sentinel
-    //! row is refused in the round report because Rust answers usize::MAX).
+    //! Round-28 port of NameSuggestionsTests.EditDistance_IsTheStructuralMetric; round 92 adds the
+    //! fourth ("too far") row now that the public API returns the contract's `int.MaxValue`.
 
     #[test]
     fn edit_distance_is_the_structural_metric() {

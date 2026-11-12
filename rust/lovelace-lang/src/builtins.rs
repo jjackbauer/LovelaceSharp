@@ -533,34 +533,41 @@ fn compare(a: &Value, b: &Value) -> Result<std::cmp::Ordering, LangError> {
     Err(LangError::plain("Comparison needs two numeric values."))
 }
 
+fn exponent_integer(exp: &Value) -> Option<Int> {
+    // A Real is accepted only when it IS an exact integer (2.0 is, 2.5 is not), exactly as the
+    // reference's NumericOps.Power converts the exponent before dispatching.
+    as_int(exp).or_else(|| as_real(exp).and_then(|r| r.to_int_exact()))
+}
+
+fn non_integer_refusal() -> LangError {
+    // A non-integer exponent is not a domain failure: the runtime does not offer the operation,
+    // and the caller can rewrite it with an exact exponent.
+    LangError::coded(
+        "Non-integer exponents are not yet supported.",
+        0,
+        "UnsupportedOperation",
+        "UnsupportedOperation",
+    )
+}
+
+fn zero_base_refusal() -> LangError {
+    LangError::coded(
+        "Base cannot be zero. (Parameter 'base')",
+        0,
+        "InvalidArgument",
+        "TypeMismatch",
+    )
+}
+
 fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
     if matches!(base, Value::Symbolic(_)) || matches!(exp, Value::Symbolic(_)) {
         if let Some(v) = symbolic_pow(base, exp) {
             return Ok(v);
         }
     }
-    // The reference's ONE exact complex fallback in the numeric power path (NumericOps.PowerReal):
-    // an exact negative base under the PRINCIPAL square root has the closed form
-    // (-a)^(1/2) = i*sqrt(a), so it is routed to the kernel's Power constructor. Every other
-    // non-integer exponent keeps the typed refusal below.
-    if let (Some(b), Some(e)) = (as_expr(base), as_expr(exp)) {
-        if matches!(&b, Sym::Num(n) if n.is_negative())
-            && matches!(&e, Sym::Num(n)
-                if n.numerator().to_decimal() == "1" && n.denominator().to_decimal() == "2")
-        {
-            return Ok(Value::Symbolic(Sym::pow(b, e)));
-        }
-    }
-    let e = as_int(exp).ok_or_else(|| {
-        // A non-integer exponent is not a domain failure: the runtime does not offer the
-        // operation, and the caller can rewrite it with an exact exponent.
-        LangError::coded(
-            "Non-integer exponents are not yet supported.",
-            0,
-            "UnsupportedOperation",
-            "UnsupportedOperation",
-        )
-    })?;
+    let Some(e) = exponent_integer(exp) else {
+        return non_integer_pow(base, exp);
+    };
     let e_nat = Int::from_decimal(&e.magnitude().to_decimal())
         .ok_or_else(|| LangError::plain("Exponent is too large."))?;
     let e_u64 = e_nat
@@ -571,8 +578,20 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
     elementwise_scalar(base, |v| {
         let value =
             match v {
-                Value::Natural(n) => Value::Natural(n.pow(e_u64)),
-                Value::Integer(i) => Value::Integer(i.pow(e_u64)),
+                Value::Natural(n) => Value::Natural(crate::cancellable::pow(n, e_u64)?),
+                Value::Integer(i) => {
+                    // The natural magnitude is the value; the sign is the base's sign for an odd
+                    // exponent (the reference's Integer.Pow). The cancellable path is the natural
+                    // one, so an armed deadline stops inside the same kernel.
+                    let magnitude = crate::cancellable::pow(i.magnitude(), e_u64)?;
+                    let decimal = magnitude.to_decimal();
+                    let value = Int::from_decimal(&decimal).unwrap_or_else(Int::zero);
+                    Value::Integer(if i.is_negative() && e_u64 % 2 == 1 {
+                        value.negate()
+                    } else {
+                        value
+                    })
+                }
                 Value::Real(r) => {
                     // A u64 exponent wider than i64 used to wrap negative here; refuse the count
                     // exactly as the reference's Int64 conversion does, instead of silently
@@ -603,12 +622,7 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
                 // zero.")), which the runner maps to InvalidArgument/TypeMismatch. The old
                 // reciprocal path reported DivisionByZero/DomainError instead: same refusal,
                 // wrong taxonomy and prose.
-                Some(r) if r.is_zero() => Err(LangError::coded(
-                    "Base cannot be zero. (Parameter 'base')",
-                    0,
-                    "InvalidArgument",
-                    "TypeMismatch",
-                )),
+                Some(r) if r.is_zero() => Err(zero_base_refusal()),
                 Some(r) => match Real::from_i64(1).div(&r, 1000) {
                     Some(inv) => Ok(Value::Real(inv)),
                     None => Err(divide_by_zero()),
@@ -618,6 +632,40 @@ fn pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
         } else {
             Ok(value)
         }
+    })
+}
+
+/// The reference's numeric power when the exponent is not an integer.
+///
+/// Two shapes are supported on the exact kernels and must be applied ELEMENT-WISE: a ZERO base
+/// under a POSITIVE non-integer exponent is exactly zero (the capability statement names
+/// `0^(1/2) = 0`), and a negative base under the principal square root is the exact complex
+/// `i*sqrt(|base|)`. Every other non-integer exponent keeps the typed refusal.
+fn non_integer_pow(base: &Value, exp: &Value) -> Result<Value, LangError> {
+    let Some(exponent) = as_real(exp) else {
+        return Err(non_integer_refusal());
+    };
+    let negative_exponent = exponent.is_negative();
+    let exponent_expr = as_expr(exp);
+    let principal_sqrt = matches!(&exponent_expr, Some(Sym::Num(n))
+        if n.numerator().to_decimal() == "1" && n.denominator().to_decimal() == "2");
+    elementwise_scalar(base, |v| {
+        if as_real(v).is_some_and(|r| r.is_zero()) {
+            return if negative_exponent {
+                Err(zero_base_refusal())
+            } else {
+                // The reference publishes the exact Real zero, not the Natural zero.
+                Ok(Value::Real(Real::zero()))
+            };
+        }
+        if principal_sqrt
+            && as_real(v).is_some_and(|r| r.cmp(&Real::zero()) == std::cmp::Ordering::Less)
+        {
+            if let (Some(b), Some(e)) = (as_expr(v), exponent_expr.clone()) {
+                return Ok(Value::Symbolic(Sym::pow(b, e)));
+            }
+        }
+        Err(non_integer_refusal())
     })
 }
 
@@ -1554,10 +1602,7 @@ pub fn call(
             let f = as_expr(&args[0])
                 .ok_or_else(|| LangError::plain("integrate needs an expression."))?;
             checkpoint()?;
-            let var = match &args[1] {
-                Value::Symbolic(Sym::Sym(name)) => name.clone(),
-                _ => return Err(LangError::plain("integrate needs a variable.")),
-            };
+            let var = symbolic_variable_argument(name, 2, &args[1])?;
             if let Some(result) = integrate_basic(&f, &var) {
                 return Ok(Value::Symbolic(result));
             }
@@ -1618,10 +1663,7 @@ pub fn call(
             let f = as_expr(&args[0])
                 .ok_or_else(|| LangError::plain("integrate needs an expression."))?;
             checkpoint()?;
-            let var = match &args[1] {
-                Value::Symbolic(Sym::Sym(n)) => n.clone(),
-                _ => return Err(LangError::plain("integrate needs a variable.")),
-            };
+            let var = symbolic_variable_argument(name, 2, &args[1])?;
             let antiderivative = integrate_basic(&f, &var);
             let (status, verified, expression, method, verification, exactness, conditions) =
                 match &antiderivative {
@@ -2143,10 +2185,7 @@ pub fn call(
             }
             let f =
                 as_expr(&args[0]).ok_or_else(|| LangError::plain("limit needs an expression."))?;
-            let var = match &args[1] {
-                Value::Symbolic(Sym::Sym(name)) => name.clone(),
-                _ => return Err(LangError::plain("limit needs a variable.")),
-            };
+            let var = symbolic_variable_argument(name, 2, &args[1])?;
             let side = match name {
                 "limit_left" => Side::Left,
                 "limit_right" => Side::Right,
@@ -2165,10 +2204,7 @@ pub fn call(
             if args.len() < 2 {
                 return Err(LangError::plain("solve needs an equation and a variable."));
             }
-            let var = match &args[1] {
-                Value::Symbolic(Sym::Sym(name)) => name.clone(),
-                _ => return Err(LangError::plain("solve needs a symbolic variable.")),
-            };
+            let var = symbolic_variable_argument(name, 2, &args[1])?;
             let domain = match args.get(2) {
                 Some(Value::Domain(d)) => d.clone(),
                 Some(Value::Text(d)) => d.clone(),
@@ -2205,13 +2241,24 @@ pub fn call(
                     )
                 });
             }
-            let expr =
-                as_expr(&args[0]).ok_or_else(|| LangError::plain("solve needs an equation."))?;
+            let expr = symbolic_expression_argument(name, 1, &args[0])?;
             checkpoint()?;
             let equation = match expr {
                 Sym::Rel(lovelace_symbolics::RelOp::Eq, l, r) => Sym::sub(*l, *r),
                 other => other,
             };
+            // An identity equation canonicalises to the zero constant: it holds for every value,
+            // which is an enumeration the solver does not publish. The reference carries the
+            // kernel note as the diagnostic MESSAGE ("0 = 0: every value is a solution."), and
+            // the same sentence serves a caller-written `0 == 0` (the Boolean path above).
+            if matches!(&equation, Sym::Num(n) if n.is_zero()) {
+                return Ok(unevaluated_solve_result(
+                    &var,
+                    &domain,
+                    "solve.unevaluated",
+                    "0 = 0: every value is a solution.",
+                ));
+            }
             // A quotient is solved through its numerator, carrying the denominator's
             // non-vanishing condition into the result.
             let (target, condition, denominator) = match quotient_parts(&equation) {
@@ -3698,32 +3745,29 @@ fn evalir_digits(name: &str, arg: &Value) -> Result<usize, LangError> {
     let head = format!("{name}(): argument 3 (digits)");
     let bounds = "between 1 and 2147483647";
     let refuse = |message: String| LangError::coded(message, 0, "InvalidArgument", "TypeMismatch");
+    // An integer payload is one decimal count, whichever tier carried it: the bounds check and
+    // its message are shared so an exactly integral Real cannot answer a different contract from
+    // the same integer written without the '.0'.
+    let integer_count = |text: &str| -> Result<usize, LangError> {
+        match text.parse::<i64>() {
+            Ok(v) if (1..=2147483647).contains(&v) => Ok(v as usize),
+            Ok(v) => Err(refuse(format!(
+                "{head} must be a Natural or Integer {bounds}; got {v}."
+            ))),
+            Err(_) => Err(refuse(format!(
+                "{head} must be a Natural or Integer {bounds}; got {text}."
+            ))),
+        }
+    };
     match arg {
-        Value::Natural(n) => {
-            let text = n.to_decimal();
-            match text.parse::<i64>() {
-                Ok(v) if (1..=2147483647).contains(&v) => Ok(v as usize),
-                Ok(v) => Err(refuse(format!(
-                    "{head} must be a Natural or Integer {bounds}; got {v}."
-                ))),
-                Err(_) => Err(refuse(format!(
-                    "{head} must be a Natural or Integer {bounds}; got {text}."
-                ))),
-            }
-        }
-        Value::Integer(i) => {
-            let text = i.to_decimal();
-            match text.parse::<i64>() {
-                Ok(v) if (1..=2147483647).contains(&v) => Ok(v as usize),
-                Ok(v) => Err(refuse(format!(
-                    "{head} must be a Natural or Integer {bounds}; got {v}."
-                ))),
-                Err(_) => Err(refuse(format!(
-                    "{head} must be a Natural or Integer {bounds}; got {text}."
-                ))),
-            }
-        }
+        Value::Natural(n) => integer_count(&n.to_decimal()),
+        Value::Integer(i) => integer_count(&i.to_decimal()),
         Value::Real(r) => match r.to_int_exact() {
+            // An exactly integral Real IS the integer it denotes. The reference host normalizes
+            // it before the builtin is called (EvalirDigitArgumentContractTests
+            // AnExactlyIntegralRealLiteral_IsTheIntegerItDenotes), so 2.0 is accepted exactly
+            // like 2 and answers the same count instead of being refused with "write it as 2".
+            Some(i) if r.is_exact() => integer_count(&i.to_decimal()),
             Some(i) => {
                 let text = i.to_decimal();
                 Err(refuse(format!(
@@ -4084,6 +4128,48 @@ fn shape_failure(name: &str, position: usize, expected: &str, arrived: &Value) -
         "TypeMismatch",
     )
     .with_signature(signature)
+}
+
+/// A symbolic-variable argument (the reference's `solve()/integrate()/limit(): argument n must
+/// be a symbolic variable` refusal). The live envelope is InvalidOperation/DomainError, matching
+/// the capability statement's advertised classification.
+fn symbolic_variable_argument(
+    name: &str,
+    position: usize,
+    value: &Value,
+) -> Result<String, LangError> {
+    match value {
+        Value::Symbolic(Sym::Sym(variable)) => Ok(variable.clone()),
+        other => Err(LangError::coded(
+            format!(
+                "{name}(): argument {position} must be a symbolic variable; got {}.",
+                other.kind_name()
+            ),
+            0,
+            "InvalidOperation",
+            "DomainError",
+        )),
+    }
+}
+
+/// A symbolic-expression argument (the reference's `argument n must be a symbolic expression`
+/// refusal), classified like the variable refusal above.
+fn symbolic_expression_argument(
+    name: &str,
+    position: usize,
+    value: &Value,
+) -> Result<Sym, LangError> {
+    as_expr(value).ok_or_else(|| {
+        LangError::coded(
+            format!(
+                "{name}(): argument {position} must be a symbolic expression; got {}.",
+                value.kind_name()
+            ),
+            0,
+            "InvalidOperation",
+            "DomainError",
+        )
+    })
 }
 
 /// An unresolved NAME is a vocabulary failure with its own code and category, and the registry's
@@ -5103,7 +5189,7 @@ fn dsp_payload_type_name(value: &Value) -> &'static str {
         Value::Complex(_, _) => "Complex",
         Value::Text(_) => "String",
         Value::Boolean(_) => "Boolean",
-        Value::Symbolic(_) => "Expr",
+        Value::Symbolic(_) => "SymbolExpr",
         Value::Vector(_) | Value::Array(_) => "PayloadArray",
         Value::Record(_, _) => "RecordValue",
         Value::Enum(_, _) => "EnumValue",
@@ -6450,7 +6536,7 @@ fn complex_sample(value: &Value) -> Result<(Real, Real), LangError> {
         Value::Complex(re, im) => Ok((re.clone(), im.clone())),
         other => Err(LangError::plain(format!(
             "DSP builtins expect numeric/complex elements, but got '{}'.",
-            other.kind_name()
+            dsp_payload_type_name(other)
         ))),
     }
 }

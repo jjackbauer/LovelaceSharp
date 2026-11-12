@@ -334,23 +334,24 @@ fn the_diagnostic_position_is_the_completed_prefix_on_the_cli_cancellation_row()
 
 #[test]
 fn a_run_that_completes_past_its_deadline_is_a_success_with_a_truthful_ledger() {
-    // An unpolled kernel (the Natural factorial lives outside this round's scope) can finish after
-    // the budget without observing it. The reference never turns a completed evaluation into a
-    // cancellation: the envelope stays ok, the ledger says stopped:false/exceeded:true, and the
-    // diagnostic says the evaluation completed anyway.
-    let result = run_args(&[
-        "--eval",
-        "200000!",
-        "--json",
-        "--omit-functions",
-        "--omit-variables",
-        "--print-budget",
-        "5",
-        "--cancel-after",
-        // Far below the factorial's ~52 ms, and far above any plausible scheduling hiccup between
-        // arming the deadline and the first statement's boundary check.
-        "20",
-    ]);
+    // A completed evaluation is never turned into a cancellation: the envelope stays ok, the
+    // ledger says stopped:false/exceeded:true, and the diagnostic says the evaluation completed
+    // anyway. The deadline-versus-completion ORDER is driven by the test clock hook rather than by
+    // a wall-clock race: the script really completes through `execute`, and the published elapsed
+    // is fixed at 25 ms against the 20 ms budget, so the verdict cannot flip under load.
+    let result = super::with_test_elapsed_ms(25.0, || {
+        run_args(&[
+            "--eval",
+            "1 + 1",
+            "--json",
+            "--omit-functions",
+            "--omit-variables",
+            "--print-budget",
+            "5",
+            "--cancel-after",
+            "20",
+        ])
+    });
     let env = &result.env;
     assert_eq!(result.exit, 0, "a completed run is a success: {env:?}");
     assert!(boolean(get(env, "ok")));

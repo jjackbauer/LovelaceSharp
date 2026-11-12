@@ -1,0 +1,62 @@
+[
+ {
+  "start": 36767,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongFactorialAndShortBudget_CancelsPromptly#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine cancellation-token API (CancellationToken on EvaluateAsync); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 36775,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongNaturalPowerAndShortBudget_CancelsPromptly#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.CancellationObservationTests/Evaluate_GivenLongNaturalPowerAndShortBudget_CancelsPromptly#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine cancellation-token API (CancellationToken on EvaluateAsync); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 38662,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Overview_ListsAllCategories#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Overview_ListsAllCategories#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService overview/UnicodeOutput formatting API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 38697,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/UnicodeOutput_ThreadsThroughEngineFormatting#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/UnicodeOutput_ThreadsThroughEngineFormatting#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing HelpService overview/UnicodeOutput formatting API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 41009,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/ANameNothingIsCloseTo_IsNotGuessedAt#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/ANameNothingIsCloseTo_IsNotGuessedAt#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing NameSuggestions.edit-distance suggester; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 41161,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/EditDistance_IsTheStructuralMetric#3",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.NameSuggestionsTests/EditDistance_IsTheStructuralMetric#3\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing NameSuggestions.edit-distance suggester; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 43621,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/EvaluateAsync_GivenOutputWriter_CapturesPrintLinesToThatWriter#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/EvaluateAsync_GivenOutputWriter_CapturesPrintLinesToThatWriter#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine Output writer / ResetPlotCapture API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 43638,
+  "id": "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/ResetPlotCapture_GivenPreviousPlot_ClearsLastPlot#0",
+  "raw": "id = \"Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/ResetPlotCapture_GivenPreviousPlot_ClearsLastPlot#0\"\nproject = \"Lovelace.Suite.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine Output writer / ResetPlotCapture API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 45038,
+  "id": "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/AdvertisedCodesAndCategories_MatchTheLiveEnvelope#0",
+  "raw": "id = \"Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/AdvertisedCodesAndCategories_MatchTheLiveEnvelope#0\"\nproject = \"Lovelace.Symbolics.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 measured family 'capability-advertisement': $.category: the advertised trigger set includes plot.symbolic-expression, which the live Rust call answers as TypeMismatch vs DomainError\"\ntargetPhase = 0\nnote = \"Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md.\"\n"
+ },
+ {
+  "start": 45091,
+  "id": "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported#0",
+  "raw": "id = \"Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/PowerExponentClass_RefusesWhatItSays_AndNamesWhatIsSupported#0\"\nproject = \"Lovelace.Symbolics.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 measured family 'power-zero': $.exitCode: 0^(1/2) is refused in Rust vs the supported 0 in the oracle\"\ntargetPhase = 0\nnote = \"Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md.\"\n"
+ },
+ {
+  "start": 45405,
+  "id": "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/ErrorCategory_HasExactlyTheSevenFrozenMembers#0",
+  "raw": "id = \"Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/ErrorCategory_HasExactlyTheSevenFrozenMembers#0\"\nproject = \"Lovelace.Symbolics.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ErrorCategory enum (seven frozen members); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.\"\ntargetPhase = 0\nnote = \"Library-only census row; grouped by missing API in the round-45 final sweep.\"\n"
+ },
+ {
+  "start": 45476,
+  "id": "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/KernelNotes_CrossAsDiagnosticMessages#0",
+  "raw": "id = \"Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DiagnosticContractTests/KernelNotes_CrossAsDiagnosticMessages#0\"\nproject = \"Lovelace.Symbolics.Tests\"\ndisposition = \"deferred\"\nreason = \"Round 45 measured family 'solve-selfeq': $.result.display: solve_full(x == x, x) differs (status/diagnostics text); the oracle publishes Unevaluated with a kernel note\"\ntargetPhase = 0\nnote = \"Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md.\"\n"
+ }
+]
