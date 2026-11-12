@@ -43,6 +43,8 @@ function Save-Json($obj, $path) {
 }
 
 $entries = @()
+# `powershell -File` passes "a,b" as one string, so accept comma-separated evidence lists too.
+$Evidence = @($Evidence | ForEach-Object { $_ -split ',' } | Where-Object { $_ -ne '' -and $null -ne $_ })
 foreach ($e in $Evidence) {
     if ($e -eq '') { continue }
     $p = if ([System.IO.Path]::IsPathRooted($e)) { $e } else { Join-Path $RepoRoot $e }

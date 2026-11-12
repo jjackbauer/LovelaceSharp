@@ -1,16 +1,16 @@
 {
     "schema":  1,
     "mode":  "readiness",
-    "generated_at":  "2026-11-12T08:58:14.0834571-03:00",
+    "generated_at":  "2026-11-12T09:10:09.8634073-03:00",
     "verdict":  "FAIL",
     "provenance":  {
-                       "head_sha":  "420000f6ad5e7d5124b149e322b940e2fc1e41c0",
-                       "dirty_paths":  20
+                       "head_sha":  "a17be2a466d9798b99221181fe2d5817b19347c2",
+                       "dirty_paths":  18
                    },
     "p0_total":  171,
-    "p0_pass":  0,
+    "p0_pass":  8,
     "p0_fail":  0,
-    "p0_not_tested":  170,
+    "p0_not_tested":  162,
     "p0_blocked":  1,
     "p0_deviation":  0,
     "p0_waived":  1,
@@ -22,7 +22,7 @@
                        {
                            "id":  "D01",
                            "group":  "CON",
-                           "pass":  0,
+                           "pass":  7,
                            "total":  9,
                            "met":  false
                        },
@@ -134,7 +134,7 @@
                        {
                            "id":  "D17",
                            "group":  "TST",
-                           "pass":  0,
+                           "pass":  1,
                            "total":  16,
                            "met":  false
                        },
@@ -148,21 +148,34 @@
                        {
                            "id":  "D19",
                            "group":  "EVIDENCE",
-                           "pass":  0,
+                           "pass":  1,
                            "total":  3,
                            "met":  false
                        }
                    ],
+    "scorecard":  {
+                      "functional":  {
+                                         "rows":  53,
+                                         "pass":  8,
+                                         "met":  false,
+                                         "note":  "engine and state semantics: unit/file/static evidence only"
+                                     },
+                      "visual":  {
+                                     "rows":  98,
+                                     "pass":  0,
+                                     "met":  false,
+                                     "note":  "real-window artifacts: screenshots, UIA dumps, GUI driver logs"
+                                 },
+                      "performance":  {
+                                          "rows":  20,
+                                          "pass":  0,
+                                          "met":  false,
+                                          "note":  "measured numeric budgets on this machine"
+                                      }
+                  },
     "problems":  [
-                     "CON-001: P0 status NOT_TESTED",
-                     "CON-002: P0 status NOT_TESTED",
-                     "CON-003: P0 status NOT_TESTED",
-                     "CON-004: P0 status NOT_TESTED",
-                     "CON-005: P0 status NOT_TESTED",
-                     "CON-006: P0 status NOT_TESTED",
                      "CON-007: P0 status NOT_TESTED",
                      "CON-008: P0 status NOT_TESTED",
-                     "CON-009: P0 status NOT_TESTED",
                      "ARC-001: P0 status NOT_TESTED",
                      "ARC-002: P0 status NOT_TESTED",
                      "ARC-003: P0 status NOT_TESTED",
@@ -323,7 +336,6 @@
                      "TST-014: P0 status NOT_TESTED",
                      "TST-015: P0 status NOT_TESTED",
                      "TST-016: P0 status NOT_TESTED",
-                     "TST-017: P0 status NOT_TESTED",
                      "J-01: journey status NOT_TESTED",
                      "J-02: journey status NOT_TESTED",
                      "J-03: journey status NOT_TESTED",

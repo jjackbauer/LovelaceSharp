@@ -13,14 +13,19 @@
                      "type":  "W",
                      "requirement":  "Declare the authoritative reference surfaces",
                      "acceptance":  "Pin C# Studio backend, Studio JS/CSS and Rust engine/desktop commit SHAs in a machine-readable baseline; all parity claims name those SHAs.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/baseline.json",
+                                          "sha256":  "3C5AEE93348CBDADE0B8F009D6E78E58D2575FE2010E5167897F31E6F48851C2",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "tools/desktop-gate.ps1 -Init",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Machine-readable baseline: code HEAD, reference commit, catalog hash, 13 source hashes, toolchain."
                  },
                  {
                      "id":  "CON-002",
@@ -29,14 +34,19 @@
                      "type":  "W",
                      "requirement":  "Maintain a feature-by-feature parity register",
                      "acceptance":  "Every visible web feature, route-derived behavior and desktop-only behavior has owner, source path, status, test and waiver; omissions fail the audit.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/parity-register.md",
+                                          "sha256":  "2B9B0838FBBA8753FA8119D3DDD1C70F2042009B4700DEED60E66B532135E0D4",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "review",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "49-row feature register; 229/229 requirement IDs accounted exactly once, 186 owned."
                  },
                  {
                      "id":  "CON-003",
@@ -45,14 +55,19 @@
                      "type":  "W",
                      "requirement":  "Distinguish behavioral parity from implementation parity",
                      "acceptance":  "REST and browser storage are replaced by in-process native mechanisms; parity tests compare behavior, not transport or widget technology.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/parity-semantics.md",
+                                          "sha256":  "3B4E6600C6A1FDD34A80CE7DE109AE1BBDC55D391D4F45887ABEB20CC962AAD6",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "review",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Transport-to-native mapping plus the consequences for parity tests."
                  },
                  {
                      "id":  "CON-004",
@@ -61,14 +76,19 @@
                      "type":  "W",
                      "requirement":  "Preserve one authoritative evaluation engine",
                      "acceptance":  "Desktop commands use the same Rust kernel as Rust runner; no math/parser/precision semantics are reimplemented in widgets or renderer.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/engine/real.rs",
+                                          "sha256":  "4D147E6A51DBACA5FBA7D796DEA34FC2C7C4C4FCC5CE5673B2028C2BDA0465C4",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "census-core",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "RealEngine owns lovelace_lang::Engine and delegates eval/format; no math semantics in the desktop."
                  },
                  {
                      "id":  "CON-005",
@@ -77,14 +97,25 @@
                      "type":  "Q",
                      "requirement":  "Forbid phantom completion",
                      "acceptance":  "Release remains blocked when any P0 acceptance test is absent, skipped, stale, unrun or failed, regardless of headless suite count.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/gate-failclosed.txt",
+                                          "sha256":  "B65C18CA1D6C7F7D6136321BA19A0FF3B5398F055E0A5F7E39CD97D98BB7CEC3",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      },
+                                      {
+                                          "path":  "tools/desktop-gate.ps1",
+                                          "sha256":  "F9B1FB1A039A4890FD457EAB0D0219E97836D02C33922EA42403B7AF58FBEA4D",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "-Verify",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Gate exits non-zero on unevidenced rows."
                  },
                  {
                      "id":  "CON-006",
@@ -93,14 +124,19 @@
                      "type":  "Q",
                      "requirement":  "Record intentional deviations",
                      "acceptance":  "Every non-parity choice has human-approved rationale, expiry/review criterion and evidence; absence is not counted as equivalence.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/deviations.md",
+                                          "sha256":  "6AC550E033AA7B4FEBD0BE8DFD18C4A17E4444177DDB971A427EBC7E8A390EED",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "review",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Seven deviations with owner, status, rationale, review criterion and evidence."
                  },
                  {
                      "id":  "CON-007",
@@ -125,12 +161,17 @@
                      "type":  "Q",
                      "requirement":  "Separate visual, functional and performance acceptance",
                      "acceptance":  "Release scorecard reports three independent gates and never substitutes screenshots for semantics or engine unit tests for real-window behavior.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/acceptance-gates.md",
+                                          "sha256":  "75934A9A13E7A4FD6EC592A255861811F7FE48448EE9145BA64D9E2FF3269A71",
+                                          "class":  "static",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "desktop-gate -Status",
                      "waiver":  "",
                      "scope_note":  ""
                  },
@@ -141,14 +182,19 @@
                      "type":  "D",
                      "requirement":  "Document supported platforms explicitly",
                      "acceptance":  "Publish Windows, Linux and macOS target matrix, clearly marking initial release and later ports; no platform claim without a built, run GUI test.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/platform-matrix.md",
+                                          "sha256":  "359BBA6C84F9105B51B31B7ACAB205C9977DEEF47BBA257D21DD542F7050EFF2",
+                                          "class":  "file",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "review",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Published matrix: Windows 11 x64 initial release; Win10 and Linux/macOS not claimed."
                  },
                  {
                      "id":  "CON-010",
@@ -3645,12 +3691,23 @@
                      "type":  "Q",
                      "requirement":  "Make unsupported features visible, not silently skipped",
                      "acceptance":  "Feature register distinguishes PASS, FAIL, BLOCKED, NOT_TESTED, APPROVED_DEVIATION; missing evidence blocks final parity.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "tools/desktop-gate.ps1",
+                                          "sha256":  "F9B1FB1A039A4890FD457EAB0D0219E97836D02C33922EA42403B7AF58FBEA4D",
+                                          "class":  "file",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/gate-failclosed.txt",
+                                          "sha256":  "B65C18CA1D6C7F7D6136321BA19A0FF3B5398F055E0A5F7E39CD97D98BB7CEC3",
+                                          "class":  "file",
+                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "-Verify",
                      "waiver":  "",
                      "scope_note":  ""
                  },

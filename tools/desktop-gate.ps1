@@ -308,6 +308,28 @@ function Invoke-Check([bool]$strict) {
         if (-not $dims[$k].met -and $strict) { $problems.Add("dimension $k ($($dims[$k].group)) is not MET ($($dims[$k].pass)/$($dims[$k].total) P0 PASS)") }
     }
 
+    # Three independent acceptance gates (CON-008). A row counts toward the gate its evidence class
+    # belongs to, so engine unit tests can never certify a GUI row and a screenshot can never
+    # certify semantics.
+    $score = [ordered]@{}
+    foreach ($bucket in @(
+            @{ name = 'functional'; classes = @('unit', 'file', 'static') },
+            @{ name = 'visual';     classes = @('gui') },
+            @{ name = 'performance'; classes = @('perf') })) {
+        $rows = @($p0 | Where-Object { $_.evidence_class -in $bucket.classes })
+        $pass = @($rows | Where-Object { $_.status -eq 'PASS' }).Count
+        $score[$bucket.name] = [ordered]@{
+            rows  = $rows.Count
+            pass  = $pass
+            met   = ($pass -eq $rows.Count)
+            note  = switch ($bucket.name) {
+                'functional'  { 'engine and state semantics: unit/file/static evidence only' }
+                'visual'      { 'real-window artifacts: screenshots, UIA dumps, GUI driver logs' }
+                'performance' { 'measured numeric budgets on this machine' }
+            }
+        }
+    }
+
     $t = [ordered]@{
         p0_total      = $p0.Count
         p0_pass       = @($p0 | Where-Object { $_.status -eq 'PASS' }).Count
@@ -340,6 +362,7 @@ function Invoke-Check([bool]$strict) {
         dimensions_met = $met
         dimensions_total = 19
         dimensions    = @($dims.Keys | Sort-Object | ForEach-Object { [ordered]@{ id = $_; group = $dims[$_].group; pass = $dims[$_].pass; total = $dims[$_].total; met = $dims[$_].met } })
+        scorecard     = $score
         problems      = @($problems)
     }
     Save-Json $result $GateJsonPath

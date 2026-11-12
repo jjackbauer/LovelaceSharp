@@ -1,0 +1,94 @@
+{
+    "schema":  1,
+    "created_at":  "2026-11-12T09:08:52.9956582-03:00",
+    "product":  "Lovelace Desktop v4.0",
+    "baseline":  {
+                     "branch":  "rust",
+                     "code_head":  "a17be2a466d9798b99221181fe2d5817b19347c2",
+                     "note":  "Reference surfaces and the desktop crate at the commit named by code_head. The v4 catalog was transcribed from the user contract, not from the repository, so its hash pins the transcription rather than an upstream revision.",
+                     "reference_commit":  "fad305c1852be469f2bc365f7ae5948b76b97bcb",
+                     "reference_commit_note":  "The web Studio surfaces are byte-identical between fad305c and code_head (verified below by hash); fad305c is recorded as the reference review point named by the contract."
+                 },
+    "toolchain":  {
+                      "rustc":  "1.99.1 (58cf8f9c3 2026-10-13)",
+                      "cargo":  "1.99.1 (5f94df478 2026-08-27)",
+                      "target":  "x86_64-pc-windows-msvc",
+                      "os":  "Windows 11 x64"
+                  },
+    "catalog":  {
+                    "path":  "docs/goal-desktop-v4/requirements.md",
+                    "sha256":  "FF589B0EC8BE6A486FC8B9A8861CDBCEE5C9FE8DA2B66FB6B5FC841DA92DBE18",
+                    "requirements":  229,
+                    "p0":  171,
+                    "p1":  56,
+                    "p2":  2,
+                    "journeys":  22
+                },
+    "sources":  [
+                    {
+                        "path":  "Lovelace.Studio/wwwroot/app.js",
+                        "bytes":  30076,
+                        "sha256":  "3A79AB7721685443E85D23375A7C9E482959FFEDE7C9C217D9DA5FA3E5C3E6FF"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/wwwroot/index.html",
+                        "bytes":  6417,
+                        "sha256":  "0A154C028A539F6A0CC4D449F57265AC563790361C69A0F702ACF1DE0E13BB68"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/wwwroot/styles.css",
+                        "bytes":  12698,
+                        "sha256":  "E38F35EC31829AC25993748428D3FAC59B94D74F58847435B84F4DFE1988B857"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/README.md",
+                        "bytes":  5105,
+                        "sha256":  "E57ACE41536CF8C046E8F2FBCBD6448AD8F301D4143248B63C149B7FCD6A1B39"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/IncrementalRunner.cs",
+                        "bytes":  17365,
+                        "sha256":  "C7AA49D354A7B1F38C4A10D0B081DFDCB2D504252609F642FBA89C07E53DE45E"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/EngineHost.cs",
+                        "bytes":  15761,
+                        "sha256":  "ECF01CC4BFA258CC5722D60F395CD89A39F7AC753F6C3AF6C7A413F71C21F54B"
+                    },
+                    {
+                        "path":  "Lovelace.Studio/Program.cs",
+                        "bytes":  5212,
+                        "sha256":  "A2F66AD8F3348285085D3B62C080D3ACBFB1D3A1E2F793684B572A46672DFC9F"
+                    },
+                    {
+                        "path":  "rust/lovelace-lang/src/lib.rs",
+                        "bytes":  79714,
+                        "sha256":  "DCDDFA638C528CAA785FB7B97F5EBEA161004CE8CCA7B632A6175F259F6D48AB"
+                    },
+                    {
+                        "path":  "rust/lovelace-desktop/src/app.rs",
+                        "bytes":  50390,
+                        "sha256":  "DFADCA47527A79BD8023585BFEE29824D9B2841670101BD62B24E09AD603A1F8"
+                    },
+                    {
+                        "path":  "rust/lovelace-desktop/src/win32/shell.rs",
+                        "bytes":  30962,
+                        "sha256":  "6DAF071816E00B45FB7CE966C8C62F06A0328855F6F4369BE26CFE180B1B84BF"
+                    },
+                    {
+                        "path":  "rust/lovelace-desktop/src/engine/real.rs",
+                        "bytes":  2528,
+                        "sha256":  "4D147E6A51DBACA5FBA7D796DEA34FC2C7C4C4FCC5CE5673B2028C2BDA0465C4"
+                    },
+                    {
+                        "path":  "rust/lovelace-desktop/src/selftest.rs",
+                        "bytes":  17473,
+                        "sha256":  "7A4137ECFE464200C60126A525CCEB676B03F9619855D200155E4ADFBF678871"
+                    },
+                    {
+                        "path":  ".github/requirements/Lovelace.Rust.Desktop.md",
+                        "bytes":  28907,
+                        "sha256":  "20A88C9F9F90D13809CC970776D25EA62D7E0A9ACFFB7CA666CCC4FA8E220F5B"
+                    }
+                ]
+}
