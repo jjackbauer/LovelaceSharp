@@ -12,6 +12,11 @@ path = "src/main.rs"
 [dependencies]
 lovelace-json = { path = "../lovelace-json" }
 lovelace-lang = { path = "../lovelace-lang" }
+lovelace-int = { path = "../lovelace-int" }
+lovelace-real = { path = "../lovelace-real" }
+
+[dev-dependencies]
+lovelace-nat = { path = "../lovelace-nat" }
 
 [lints]
 workspace = true

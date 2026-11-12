@@ -65,6 +65,21 @@ pub fn run_args(args: &[&str]) -> RunResult {
     let mut engine = Engine::new();
     if let Some(dir) = &opts.plot_dir {
         engine.set_plot_dir(dir);
+        // Mirror main: an empty path is the reference's documented ArgumentException and crosses
+        // as PlotDirectoryError/TypeMismatch instead of being silently ignored.
+        if dir.is_empty() {
+            let env = pre_engine_error_envelope(
+                "PlotDirectoryError",
+                "TypeMismatch",
+                "Cannot use plot directory '': The value cannot be an empty string. (Parameter 'path')"
+                    .to_string(),
+            );
+            return RunResult {
+                exit: 1,
+                stdout: env.to_string(),
+                env,
+            };
+        }
         // Mirror main: a directory the process cannot create crosses as
         // PlotDirectoryError/TypeMismatch instead of being silently ignored.
         if let Err(e) = std::fs::create_dir_all(dir) {

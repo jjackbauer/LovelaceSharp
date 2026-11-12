@@ -71,8 +71,11 @@ dependencies = [
 name = "lovelace-run"
 version = "0.1.0"
 dependencies = [
+ "lovelace-int",
  "lovelace-json",
  "lovelace-lang",
+ "lovelace-nat",
+ "lovelace-real",
 ]
 
 [[package]]

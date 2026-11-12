@@ -1,0 +1,226 @@
+{
+    "schema":  1,
+    "count":  22,
+    "journeys":  [
+                     {
+                         "id":  "J-01",
+                         "name":  "First-run",
+                         "outcome":  "Fresh install, launch app, open example, run; editor, typed result and status correct within two primary actions.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-02",
+                         "name":  "Basic script",
+                         "outcome":  "Enter a=2; b=a^10; b; verify result, variables, cursor and log output.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-03",
+                         "name":  "Precision",
+                         "outcome":  "Set precision 20, evaluate sqrt(2), set 1000, rerun; full exact stored digits, visible precision and cache invalidation.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-04",
+                         "name":  "Session isolation",
+                         "outcome":  "Two tabs with x=10 vs x=99 and different precision; switch tabs during run; no state leak.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-05",
+                         "name":  "Concurrent evaluation",
+                         "outcome":  "Start long run A, type and execute B, cancel A; UI stays responsive, B result correct.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-06",
+                         "name":  "Real cancellation",
+                         "outcome":  "Run a cancellation-aware expensive operation; cancel from UI; underlying work terminates, terminal event seen, no pending spinner.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-07",
+                         "name":  "Incremental reuse",
+                         "outcome":  "Run a=2;b=a+1;c=pi(100); edit only independent statement; see actual reused count and correct output.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-08",
+                         "name":  "Dependency invalidation",
+                         "outcome":  "Change a or redefine function f; all transitive dependents recompute; independent statements reuse.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-09",
+                         "name":  "Side effects",
+                         "outcome":  "Repeated `print` and `plot` are executed each requested run; output not duplicated within one run.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-10",
+                         "name":  "Clear semantics",
+                         "outcome":  "Define function f and variable x; Clear Variables removes x but not f; deleting one var preserves all other state.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-11",
+                         "name":  "Autocomplete",
+                         "outcome":  "Type `sq`; completion offers sqrt with signature; define function and variable and see them appear; accepting suggestion edits source predictably.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-12",
+                         "name":  "Error navigation",
+                         "outcome":  "Trigger Unicode multiline error; exact line/column highlighted; error code/category accessible, jump-to-source works.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-13",
+                         "name":  "Structured mathematics",
+                         "outcome":  "Inspect symbolic simplification, matrix inverse, solve record and 1000-digit number without losing exactness metadata.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-14",
+                         "name":  "MathIR inspection",
+                         "outcome":  "Compile symbolic expression, navigate IR and copy byte-preserved IR; unrelated source edits do not reevaluate inspector.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-15",
+                         "name":  "Plot presentation",
+                         "outcome":  "Generate plot with paths, text, axes, clipping; zoom, pan, fit, copy and export SVG/PNG, compare reference screenshot.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-16",
+                         "name":  "File safety",
+                         "outcome":  "Open file, edit, external modify, resolve conflict; save preserving line endings and data; no silent overwrite.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-17",
+                         "name":  "Crash recovery",
+                         "outcome":  "Edit unsaved tab, kill process, relaunch, recover data, reopen tabs and layout without automatically executing.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-18",
+                         "name":  "Theme/scale",
+                         "outcome":  "Switch light/dark, 100/150/200% scale and 900×600 layout; no cropped main actions or unreadable text.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-19",
+                         "name":  "Accessibility",
+                         "outcome":  "Keyboard-only open, edit, run, inspect, export; screen reader announces relevant status/progress/diagnostics.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-20",
+                         "name":  "Stress",
+                         "outcome":  "Open 500KB script, output 100k log messages, render 1MB SVG; measure latency and bound memory.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-21",
+                         "name":  "Offline",
+                         "outcome":  "Disable network entirely and run all primary workflows; no listener, external CDN, or unplanned traffic.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     },
+                     {
+                         "id":  "J-22",
+                         "name":  "Release evidence",
+                         "outcome":  "Build from clean pinned SHA, run GUI suite, save screenshot/semantic/perf evidence with hashes and source-bound release gate.",
+                         "status":  "NOT_TESTED",
+                         "evidence":  [
+
+                                      ],
+                         "notes":  ""
+                     }
+                 ]
+}

@@ -1,0 +1,22 @@
+[package]
+name = "lovelace-desktop-spike"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Standalone spike: NOT a member of rust/Cargo.toml. The empty [workspace] table
+# is what stops cargo from walking up and claiming this package as a member.
+[workspace]
+
+[dependencies]
+eframe = "0.37"
+egui = "0.37"
+resvg = "0.50"
+tiny-skia = "0.12"
+
+# Bench numbers are reported from this dev profile, so keep it optimized.
+# `cargo build` (debug) is the exact command in the report; opt-level 2 means the
+# numbers describe optimized code, not an unoptimized debug binary.
+[profile.dev]
+opt-level = 2
+debug = false

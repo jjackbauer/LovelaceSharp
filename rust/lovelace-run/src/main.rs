@@ -301,6 +301,18 @@ fn run() {
     let mut engine = Engine::new();
     if let Some(dir) = &opts.plot_dir {
         engine.set_plot_dir(dir);
+        // The reference's plot-directory preflight is Directory.CreateDirectory: an empty path is
+        // the documented ArgumentException, not a silent success. It is the same caller-level
+        // PlotDirectoryError/TypeMismatch envelope as a path the OS cannot create (F1-C).
+        if dir.is_empty() {
+            emit_pre_engine_error(
+                &opts,
+                "PlotDirectoryError",
+                "TypeMismatch",
+                "Cannot use plot directory '': The value cannot be an empty string. (Parameter 'path')"
+                    .to_string(),
+            );
+        }
         // plot() writes without creating the directory, so a fresh --plot-dir must be created.
         // A directory the process cannot create is a caller-level failure, not a crash: it crosses
         // as PlotDirectoryError/TypeMismatch with the same envelope shape.
@@ -1081,6 +1093,12 @@ mod schemas;
 #[allow(dead_code)]
 mod script_source;
 
+// The additive plot surface (round 70): PlotValue, the exact model, renderer options and the
+// deterministic SVG / JSON serialisation. It is the reference Plotting.cs equivalent; the plot()
+// builtin keeps its own output, so no corpus or fixture byte moves.
+#[allow(dead_code)]
+mod plot_surface;
+
 #[cfg(test)]
 mod parity_batch;
 
@@ -1140,6 +1158,9 @@ mod round50_resweep;
 
 #[cfg(test)]
 mod round66_resweep;
+
+#[cfg(test)]
+mod plot_surface_wire;
 
 #[cfg(test)]
 mod record_schema_batch;

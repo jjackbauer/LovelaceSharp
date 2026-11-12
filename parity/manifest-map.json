@@ -30660,19 +30660,22 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.PlotDirectoryErrorTests/EmptyPlotDirectory_IsAnErrorEnvelopeWithExitOne#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'plot-wire': $.exitCode: --plot-dir \"\" exits 0 in Rust vs 1 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface_wire::empty_plot_directory_is_an_error_envelope_with_exit_one",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotDirectoryErrorTests.cs:61 EmptyPlotDirectory_IsAnErrorEnvelopeWithExitOne requires exit 1, protocolVersion 1, PlotDirectoryError/TypeMismatch, recoverable, the empty path in the message, and the duration/diagnostics shape; lovelace-run plot_surface_wire::empty_plot_directory_is_an_error_envelope_with_exit_one asserts the same through run_args."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.PlotFileErrorTests/EmptyPlotFile_IsAnErrorEnvelopeWithExitOne#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'plot-wire': $.diagnostics[0].message: --plot-file \"\" writes \"Cannot write plot: The system cannot find the path specified. (os error 3).\" vs the oracle naming the requested path",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface_wire::empty_plot_file_is_an_error_envelope_with_exit_one",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotFileErrorTests.cs:39 EmptyPlotFile_IsAnErrorEnvelopeWithExitOne requires exit 1, PlotFileError/TypeMismatch, recoverable, and the caller path in both envelope and diagnostic message; lovelace-run plot_surface_wire::empty_plot_file_is_an_error_envelope_with_exit_one asserts the same for the plot directory itself."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.PlotFileErrorTests/PlotFileUnderAMissingDirectory_IsAnErrorEnvelopeWithExitOne#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'plot-wire': $.diagnostics[0].message: --plot-file nope/x.svg names the OS error in Rust vs the requested path in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface_wire::plot_file_under_a_missing_directory_is_an_error_envelope_with_exit_one",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotFileErrorTests.cs:31 PlotFileUnderAMissingDirectory_IsAnErrorEnvelopeWithExitOne requires the same envelope for nope/x.svg and the caller path in message and diagnostic; lovelace-run plot_surface_wire::plot_file_under_a_missing_directory_is_an_error_envelope_with_exit_one asserts the same and that the missing parent is not created."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.RecursionDepthEnvelopeTests/NestedBlocksInsideARecursiveBody_AreRefused_InsteadOfDying#0": {
     "disposition": "deferred",
@@ -30880,29 +30883,34 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.PlotTests/PlotValue_GivenHugeNatural_ToRealPreservesDigitsExactly#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing PlotValue and SvgPlotRenderer API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface::tests::plot_value_given_huge_natural_to_real_preserves_digits_exactly",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotTests.cs:102 PlotValue_GivenHugeNatural_ToRealPreservesDigitsExactly promotes a 401-digit Natural and requires the exact decimal string; rust/lovelace-run/src/plot_surface.rs plot_value_given_huge_natural_to_real_preserves_digits_exactly asserts the same 401-digit exactness through PlotValue::to_real."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.PlotTests/PlotValue_GivenPeriodicReal_ExpandsToDouble#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing PlotValue and SvgPlotRenderer API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface::tests::plot_value_given_periodic_real_expands_to_double",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotTests.cs:92 PlotValue_GivenPeriodicReal_ExpandsToDouble converts Rl.Parse(\"0.(3)\") and requires 1/3 to three places; plot_value_given_periodic_real_expands_to_double asserts |to_double - 1/3| < 0.001."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.PlotTests/SvgPlotRenderer_GivenCubicSpline_PassesThroughDataEndpoints#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing PlotValue and SvgPlotRenderer API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface::tests::svg_given_cubic_spline_passes_through_data_endpoints",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotTests.cs:189 SvgPlotRenderer_GivenCubicSpline_PassesThroughDataEndpoints compares the first and last polyline points of a Linear and a CubicSpline model over the same four data points; svg_given_cubic_spline_passes_through_data_endpoints asserts the same endpoint equality through SvgPlotRenderer::render."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.PlotTests/SvgPlotRenderer_GivenHugeCloseXValues_KeepsPointsDistinct#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing PlotValue and SvgPlotRenderer API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface::tests::svg_given_huge_close_x_values_keeps_points_distinct",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotTests.cs:113 SvgPlotRenderer_GivenHugeCloseXValues_KeepsPointsDistinct plots 10^20 and 10^20+1 and requires two distinct x pixels and no Infinity/NaN; svg_given_huge_close_x_values_keeps_points_distinct asserts the same through SvgPlotRenderer::render."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.PlotTests/SvgPlotRenderer_GivenLinearInterpolation_EmitsPolyline#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing PlotValue and SvgPlotRenderer API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface::tests::svg_given_linear_interpolation_emits_polyline",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# PlotTests.cs:173 SvgPlotRenderer_GivenLinearInterpolation_EmitsPolyline asserts <polyline and no <path>; svg_given_linear_interpolation_emits_polyline asserts the same output contract through SvgPlotRenderer::render. The Rust series uses the renderer default CubicSpline rather than setting Linear, so the Linear shortcut itself is exercised by the linear baseline in svg_given_cubic_spline_passes_through_data_endpoints, not here."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecordSchemaTests/DiagnosticSchema_DeclaresTheSixFrozenFields#0": {
     "disposition": "ported",
@@ -31348,9 +31356,10 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/SymbolicPlot_IsATypedRefusal_NeverAnInternalInvariantFailure#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'plot-wire': $.category: plot(sin(x)) and plot(1) are TypeMismatch in Rust vs DomainError in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::plot_surface_wire::symbolic_plot_is_a_typed_refusal",
+    "reason": "Round 71 mapping: the row's documented behaviour is reproduced by the named Rust test in the measured inventory (see note). Round 70 implementation: plot_surface.rs and the builtins_plot error paths.",
+    "note": "Round 70: C# CapabilitiesBuiltinTests.cs:621 SymbolicPlot_IsATypedRefusal_NeverAnInternalInvariantFailure drives plot(sin(x)) and plot(1), then plot([x,1,2]), requires InvalidOperation/DomainError and equality with the live plot.symbolic-expression / plot.symbolic-element advertisements; lovelace-run plot_surface_wire::symbolic_plot_is_a_typed_refusal asserts the same three refusals plus both advertisement equalities through run_args."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/CompilationResult_IrText_RoundTrips#0": {
     "disposition": "ported",

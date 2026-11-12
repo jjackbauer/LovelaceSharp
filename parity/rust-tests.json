@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T11:15:37Z",
+    "generatedAtUtc":  "2026-11-12T11:50:10Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5146,
+                  "passed":  5160,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5147
+                   "tests":  5161
                },
-    "sourcesSha256":  "6d5bec3ed075569a6a7f8d235e34455c0040d36a48d7e2adab3794e05fa33599",
+    "sourcesSha256":  "3041213a903f8f0a1e56bce4e5c03b69e26b1fdca8dd61c2ebc1db6d74c9a1bb",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -4833,6 +4833,20 @@
                                      "parity_batch::matrix_step_n",
                                      "parity_batch::matrix_sum_axis",
                                      "parity_batch::matrix_zeros_dims",
+                                     "plot_surface::tests::plot_value_given_huge_natural_to_real_preserves_digits_exactly",
+                                     "plot_surface::tests::plot_value_given_periodic_real_expands_to_double",
+                                     "plot_surface::tests::plot_value_refuses_non_numeric_kinds_with_the_reference_message",
+                                     "plot_surface::tests::renderer_options_size_the_document_and_change_the_palette",
+                                     "plot_surface::tests::svg_given_cubic_spline_passes_through_data_endpoints",
+                                     "plot_surface::tests::svg_given_huge_close_x_values_keeps_points_distinct",
+                                     "plot_surface::tests::svg_given_linear_interpolation_emits_polyline",
+                                     "plot_surface::tests::svg_given_three_points_uses_dense_spline_polyline",
+                                     "plot_surface::tests::wire_serialisation_publishes_the_model_and_the_runner_plot_block",
+                                     "plot_surface_wire::a_writable_plot_file_is_still_written_after_the_refusals",
+                                     "plot_surface_wire::empty_plot_directory_is_an_error_envelope_with_exit_one",
+                                     "plot_surface_wire::empty_plot_file_is_an_error_envelope_with_exit_one",
+                                     "plot_surface_wire::plot_file_under_a_missing_directory_is_an_error_envelope_with_exit_one",
+                                     "plot_surface_wire::symbolic_plot_is_a_typed_refusal",
                                      "pretty_batch::latex_grouping_rows_carry_the_same_nesting_as_pretty",
                                      "pretty_batch::pretty_is_minimal_no_doubled_parenthesis_pair",
                                      "pretty_batch::pretty_reported_case_exp_of_negative_square_has_no_argument_parens",

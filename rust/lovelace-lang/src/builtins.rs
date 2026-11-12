@@ -4704,37 +4704,80 @@ fn to_f64(v: &Value) -> f64 {
     plain.parse::<f64>().unwrap_or(0.0)
 }
 
+/// The reference's `RequirePlotVector`: `plot()` accepts only a rank-1 `Vector` (a scalar or
+/// symbolic argument is a typed `InvalidOperation`/`DomainError` refusal, never a coercion).
+fn plot_vector(value: &Value, argument: &str) -> Result<Vec<Value>, LangError> {
+    match value {
+        Value::Vector(items) => Ok(items.clone()),
+        _ => Err(LangError::plain(format!(
+            "{argument} must be a vector, but got '{}'.",
+            value.kind_name()
+        ))),
+    }
+}
+
+/// The reference's `PlotValue.ToReal` kind gate: a plot coordinate must be a numeric Value.
+fn plot_coordinate(value: &Value) -> Result<f64, LangError> {
+    match value {
+        Value::Natural(_) | Value::Integer(_) | Value::Real(_) | Value::RealClamped(_, _, _) => {
+            Ok(to_f64(value))
+        }
+        _ => Err(LangError::plain(format!(
+            "Cannot convert value of kind '{}' to a number for plotting.",
+            value.kind_name()
+        ))),
+    }
+}
+
 fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangError> {
     let (xs, ys, title) = match args.len() {
         1 => {
-            let ys = flatten_values(&args[0])?;
-            let xs: Vec<Value> = (0..ys.len())
+            let ys = plot_vector(&args[0], "plot() argument 1")?;
+            let xs: Vec<Value> = (1..=ys.len())
                 .map(|i| Value::Natural(Nat::from_u64(i as u64)))
                 .collect();
             (xs, ys, String::new())
         }
         2 => (
-            flatten_values(&args[0])?,
-            flatten_values(&args[1])?,
+            plot_vector(&args[0], "plot() argument 1")?,
+            plot_vector(&args[1], "plot() argument 2")?,
             String::new(),
         ),
-        3 => (
-            flatten_values(&args[0])?,
-            flatten_values(&args[1])?,
-            args[2].display(),
-        ),
-        _ => return Err(LangError::plain("plot takes one to three arguments.")),
+        3 => {
+            let Value::Text(title) = &args[2] else {
+                return Err(LangError::plain(format!(
+                    "plot() title must be a string, but got '{}'.",
+                    args[2].kind_name()
+                )));
+            };
+            (
+                plot_vector(&args[0], "plot() argument 1")?,
+                plot_vector(&args[1], "plot() argument 2")?,
+                title.clone(),
+            )
+        }
+        _ => {
+            return Err(LangError::plain(format!(
+                "plot() expects 1 to 3 arguments, but got {}.",
+                args.len()
+            )));
+        }
     };
-    if xs.len() != ys.len() || xs.is_empty() {
-        return Err(LangError::plain(
-            "plot needs two series of the same length.",
-        ));
+    if xs.len() != ys.len() {
+        return Err(LangError::plain(format!(
+            "plot() vectors must have the same length ({} vs {}).",
+            xs.len(),
+            ys.len()
+        )));
+    }
+    if xs.is_empty() {
+        return Err(LangError::plain("plot() cannot plot an empty vector."));
     }
     let width = 640.0f64;
     let height = 400.0f64;
     let margin = 40.0f64;
-    let xv: Vec<f64> = xs.iter().map(to_f64).collect();
-    let yv: Vec<f64> = ys.iter().map(to_f64).collect();
+    let xv: Vec<f64> = xs.iter().map(plot_coordinate).collect::<Result<_, _>>()?;
+    let yv: Vec<f64> = ys.iter().map(plot_coordinate).collect::<Result<_, _>>()?;
     let xmin = xv.iter().cloned().fold(f64::INFINITY, f64::min);
     let xmax = xv.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     let ymin = yv.iter().cloned().fold(f64::INFINITY, f64::min);
@@ -4778,19 +4821,14 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
     {
         path = path.replace('/', "\\");
     }
-    if let Some(parent) = std::path::Path::new(&path).parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            LangError::coded(
-                format!("Cannot write plot: {e}."),
-                0,
-                "PlotFileError",
-                "TypeMismatch",
-            )
-        })?;
-    }
+    // The reference's PlotFileWriteException: a caller-supplied output path that cannot be
+    // written is a caller-level failure whose message NAMES the path the caller asked for (the
+    // plot directory joined with the plot file name, before GetFullPath). The parent is not
+    // created here: the reference writes exactly the combined path, and a missing directory is
+    // the refusal this row measures.
     std::fs::write(&path, &svg).map_err(|e| {
         LangError::coded(
-            format!("Cannot write plot: {e}."),
+            format!("Cannot write the plot file '{}': {e}", joined.display()),
             0,
             "PlotFileError",
             "TypeMismatch",

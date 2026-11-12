@@ -1,0 +1,153 @@
+# Goal — Lovelace Desktop v4.0: native Rust parity and modern UX
+
+**Owner:** orchestrator (stretch-goal-harness). **Started:** 2026-11-12. **Round cap:** 40.
+**Authoritative requirement catalog:** [`requirements.md`](requirements.md) — 229 requirements
+(171 P0 / 56 P1 / 2 P2) plus 22 mandatory journeys.
+
+## Verbatim request (anchor)
+
+The user pasted the full *Lovelace Desktop — Native Rust Parity & Modern UX Requirements (v4.0)*
+contract and invoked `/stretch-goal-harness`. Its own statement of the outcome, quoted verbatim:
+
+> **Product goal:** A modern, genuinely pleasant, self-contained native scientific scripting workbench
+> built in Rust that preserves every meaningful user-facing capability of the existing JavaScript Studio
+> and meaningfully improves the desktop ergonomics. A Win32 demo shell that happens to execute scripts
+> does **not** satisfy this goal.
+
+and its release rule, quoted verbatim:
+
+> A production-quality desktop parity release requires: **all P0 requirements** passing or
+> human-waived; every Web-parity item explicitly accepted; all 22 mandatory journeys executed and
+> green; native GUI launched on each advertised OS; no skipped proof counted as PASS; clean
+> source-bound build and evidence hashes; and all severity-1 usability defects closed.
+
+Every normative row of the source contract is transcribed verbatim in
+[`requirements.md`](./requirements.md); that file is the only permitted source of requirement IDs,
+priorities, types and acceptance criteria.
+
+## The goal, in one sentence
+
+Lovelace Desktop ships as a native Rust scientific scripting workbench that satisfies every P0 row of
+the v4.0 contract with fresh, source-bound GUI evidence and passes all 22 mandatory journeys, judged
+by the §5 release gate against the SHA-pinned web Studio reference.
+
+## Named mechanisms — intent anchor table
+
+Every mechanism the user named. A row may leave this table only by a user-approved `DEC` with
+`Owner: user` and `Status: approved`.
+
+| # | Mechanism named by the user | Verdict | Where the goal carries it |
+|---|---|---|---|
+| M1 | Code editor replacing the Win32 `EDIT`: completion, error decoration, caret/line/column | **KEPT** | EDT-001..021, LAY-001 |
+| M2 | Asynchronous runtime with statement + sub-operation progress and cancel | **KEPT** | RUN-001..019, ARC-004..009 |
+| M3 | Incremental execution: source hash + dependency tracking + per-session cache | **KEPT** | INC-001..011, RUN-015 |
+| M4 | Session-scoped precision with a visible native control | **KEPT** | RUN-019, RUN-020, DOC-009 |
+| M5 | Tabs with one engine per document and session isolation | **KEPT** | DOC-001, ARC-006/007, LAY-009 |
+| M6 | Workspace: variable table, function table, delete variable, clear-variables semantics | **KEPT** | WKS-001..011 |
+| M7 | Structured results and symbolic inspector (canonical, trace, assumptions, MathIR) | **KEPT** | RES-001..011, SYM-001..011 |
+| M8 | Graph rendering the engine's own SVG (not a partial GDI interpretation) | **KEPT** | PLT-001..013 |
+| M9 | Quick-eval console | **KEPT** | RUN-002, LOG-003 |
+| M10 | Native files: open/save, tabs, recent files, settings, autosave/restore, conflict safety | **KEPT** | DOC-002..014, PLF-001/004/006 |
+| M11 | Modern visual design: dark/light themes, tokens, typography, states | **KEPT** | VIS-001..018 |
+| M12 | Automated tests: headless **plus real GUI**, screenshot regression, usability | **KEPT** | TST-001..018, section 5 |
+| M13 | Genuine native UI/editor framework spike before committing (ARC-001) | **KEPT** | ARC-001, section 3 |
+| M14 | No webview / JavaScript / CDN / localhost HTTP / browser storage; offline-first | **KEPT** | ARC-002, PLF-002/003/005 |
+| M15 | One authoritative evaluation engine; no math/parser/precision semantics re-implemented in UI | **KEPT** | CON-004, ARC-010 |
+| M16 | Platform matrix (Windows initial release; Linux/macOS later ports) with built+run evidence only | **KEPT** | CON-009, PLF-009/010 |
+| M17 | The 22 mandatory end-to-end journeys | **KEPT** | requirements.md §4, TST-001 |
+| M18 | Data contracts: DocumentId/RunId/SourceRevision, typed commands and events | **KEPT** | ARC-003/004/008, section 3 |
+| M19 | Stable user-visible capability of the web Studio preserved (W-type parity) | **KEPT** | CON-002/003/007, all W rows |
+
+**Removed or replaced: none.** The goal keeps the full contract; no requirement is re-worded,
+de-scoped or renumbered by this file.
+
+## Definition of done (falsifiable)
+
+The goal is done when **one** command reports all dimensions green, bound to a clean build of the
+goal's own HEAD:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/desktop-gate.ps1 -Verify
+```
+
+Expected observable: exit code `0`, and `docs/goal-desktop-v4/gate/gate.json` contains
+`p0_fail: 0`, `p0_not_tested: 0`, `p0_blocked: 0`, `journeys_pass: 22`, `journeys_total: 22`,
+`provenance.head_sha` equal to `git rev-parse HEAD` of the verified tree, and zero rows whose evidence
+artifact hash is older than the source it claims to certify. Any non-zero exit, any `FAIL`,
+`NOT_TESTED` or `BLOCKED` on a P0 row, any journey not `PASS`, or any stale evidence hash is a
+**gate failure**, not a partial pass.
+
+The gate has 19 dimensions. Each dimension is `MET` only when every P0 requirement in it is `PASS`
+with the evidence class that row requires (GUI rows need a real-window artifact; headless AppState
+tests do not count — section 0 of the contract):
+
+| # | Dimension | Requirements | Required evidence class |
+|---|---|---|---|
+| D01 | CON — contract, scope, traceability | CON-001..009 | register + baseline SHAs + audit |
+| D02 | ARC — native architecture, concurrency | ARC-001..009 | GUI + worker tests + spike record |
+| D03 | VIS — visual design system | VIS-001..010, 016, 018 | screenshots both themes + contrast report |
+| D04 | LAY — layout, panes, navigation | LAY-001..004, 008, 009, 011 | GUI driver + screenshots |
+| D05 | EDT — editor | EDT-001..010, 012..017 | GUI driver + IME/UTF-16 tests |
+| D06 | DOC — documents and files | DOC-001..006, 008..010, 014 | GUI + file-system tests |
+| D07 | RUN — async execution, progress, cancel | RUN-001..014, 016, 017, 019, 020 | GUI + worker + timing tests |
+| D08 | INC — incremental correctness | INC-001..008, 010 | metamorphic test suite |
+| D09 | WKS — workspace | WKS-001..004, 006, 009 | GUI + snapshot tests |
+| D10 | RES — structured results | RES-001..006, 010 | golden structured projections |
+| D11 | SYM — symbolic inspector and MathIR | SYM-001..007, 009, 011 | GUI + golden inspector tests |
+| D12 | PLT — plots | PLT-001..006, 008, 009, 011, 012 | SVG corpus + screenshots + HiDPI |
+| D13 | LOG — console and logs | LOG-001..006, 010 | byte-exact output + load test |
+| D14 | A11Y — accessibility | A11Y-001..008, 012, 014 | UIA tree dump + keyboard journeys |
+| D15 | PLF — OS integration, security, packaging | PLF-001..006, 009, 010 | dialogs + offline + atomic-save tests |
+| D16 | PERF — budgets | PERF-001..005, 009..012 | measured runs on this machine |
+| D17 | TST — acceptance infrastructure | TST-001..012, 014..017 | the gate suite itself |
+| D18 | Journeys | J-01..J-22 | one reproducible artifact per journey |
+| D19 | Release evidence | TST-016, CON-005/008 | gate.json + manifest + hashes |
+
+P1 rows are reported but do not gate convergence; they are required only for the words
+"polished 1.0". P2 rows are optional.
+
+## Hard constraints (gates)
+
+| # | Constraint | Provenance |
+|---|---|---|
+| C1 | No embedded webview, JavaScript engine, CDN asset, browser storage or mandatory localhost HTTP service; the app evaluates with all network interfaces disabled | user (ARC-002, PLF-002/003/005, §0) |
+| C2 | One authoritative engine: desktop commands call the same Rust kernel as the Rust runner; no math/parser/precision semantics re-implemented in widgets, renderer or tests | user (CON-004, ARC-010) |
+| C3 | Do not change language semantics, the C# oracle, fixture expectations or web Studio behaviour to make desktop tests pass | user (§0) |
+| C4 | P0 is blocking; an absent, skipped, stale or unrun acceptance test is a failure; headless proof cannot stand in for GUI proof | user (CON-005, TST-002, §0) |
+| C5 | Unsupported or unverified features are shown as `BLOCKED`/`NOT_TESTED`, never silently skipped or renamed PASS | user (TST-017) |
+| C6 | A platform is claimed only after a built and run GUI test on it; Windows is the initial release target on this machine, Linux/macOS are later ports | user (CON-009) |
+| C7 | Mutating another session's in-flight work is forbidden; this run owns `rust/lovelace-desktop`, the goal directory and its own test harness, and treats the prior run's dirty `lovelace-run`/`lovelace-lang` changes as read-only | repo (observed 2026-11-12) |
+
+## Preferences (tie-breakers only, never gates)
+
+- `egui`/`eframe` is the leading framework candidate because the repo's own prior requirements doc
+  chose it; the ARC-001 spike decides, and a different framework may win on measured evidence.
+- Dark theme is the default; 1280×800 is the default window; the §1 token table is a starting point,
+  not a validated palette.
+- Core semantics move to a framework-independent layer before any renderer is committed.
+
+## Known resource limits (recorded now, not discovered later)
+
+- **TST-012** requires ≥5 target users in human usability sessions. This run cannot recruit people.
+  The product will be delivered; that row will stay `BLOCKED` with the missing evidence named, and
+  the release gate will therefore report a human-waiver requirement rather than a green light.
+- **CON-009** Linux/macOS support requires a built and run GUI test on those systems. Only Windows is
+  available here, so they stay `NOT_TESTED` (explicitly unsupported in the release matrix), which is
+  what CON-009 permits.
+
+## Stop criteria
+
+1. **Converged:** `tools/desktop-gate.ps1 -Verify` exits 0 with all 19 dimensions `MET`, except rows
+   this run is structurally unable to produce (TST-012 human sessions; non-Windows GUI runs), which
+   must be reported as `BLOCKED` with the missing evidence named — never as PASS.
+2. **Capped:** round 40 reached. Stop and report coverage honestly; a cap is not convergence.
+3. **Blocked:** the same concrete blocking condition persists for three consecutive rounds. Name the
+   condition, never "it is hard".
+
+## Non-negotiable evidence rules for this goal
+
+- Agent chat answers are claims. Only the orchestrator's own tool calls create `EVD` rows.
+- Any GUI claim requires an artifact: a screenshot PNG, a UIA tree dump, or a driver log with the
+  window that produced it — headless `--selftest` output is not GUI evidence.
+- Any performance claim requires a measured number from this machine with the command recorded.
+- Any parity claim names the baseline SHA and the reference path.

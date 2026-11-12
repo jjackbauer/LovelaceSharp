@@ -1,0 +1,3216 @@
+{
+    "schema":  1,
+    "source":  "docs/goal-desktop-v4/requirements.md",
+    "catalog_total":  229,
+    "catalog_p0":  171,
+    "catalog_p1":  56,
+    "catalog_p2":  2,
+    "rows":  [
+                 {
+                     "id":  "CON-001",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Declare the authoritative reference surfaces",
+                     "acceptance":  "Pin C# Studio backend, Studio JS/CSS and Rust engine/desktop commit SHAs in a machine-readable baseline; all parity claims name those SHAs.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-002",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Maintain a feature-by-feature parity register",
+                     "acceptance":  "Every visible web feature, route-derived behavior and desktop-only behavior has owner, source path, status, test and waiver; omissions fail the audit.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-003",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Distinguish behavioral parity from implementation parity",
+                     "acceptance":  "REST and browser storage are replaced by in-process native mechanisms; parity tests compare behavior, not transport or widget technology.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-004",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Preserve one authoritative evaluation engine",
+                     "acceptance":  "Desktop commands use the same Rust kernel as Rust runner; no math/parser/precision semantics are reimplemented in widgets or renderer.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-005",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Forbid phantom completion",
+                     "acceptance":  "Release remains blocked when any P0 acceptance test is absent, skipped, stale, unrun or failed, regardless of headless suite count.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-006",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Record intentional deviations",
+                     "acceptance":  "Every non-parity choice has human-approved rationale, expiry/review criterion and evidence; absence is not counted as equivalence.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-007",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Adopt independent golden user journeys",
+                     "acceptance":  "Record deterministic reference state/output/diagnostics/plots for the named web Studio journeys and execute corresponding desktop scenarios.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-008",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Separate visual, functional and performance acceptance",
+                     "acceptance":  "Release scorecard reports three independent gates and never substitutes screenshots for semantics or engine unit tests for real-window behavior.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-009",
+                     "group":  "CON",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Document supported platforms explicitly",
+                     "acceptance":  "Publish Windows, Linux and macOS target matrix, clearly marking initial release and later ports; no platform claim without a built, run GUI test.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "CON-010",
+                     "group":  "CON",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Set quality-first prioritization",
+                     "acceptance":  "Delivery plan prioritizes editor responsiveness, real cancellation, readability, working plots and useful inspection before optional decoration.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-001",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Choose and validate a native rendering stack",
+                     "acceptance":  "Run a time-boxed spike comparing candidate Rust UI frameworks against real editor, accessibility, text/IME, plotting and docking acceptance scenarios; record choice.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-002",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "No browser/runtime dependency",
+                     "acceptance":  "Production desktop has no embedded webview, JavaScript engine or mandatory localhost service; application operates with all network interfaces disabled.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-003",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Preserve UI-core separation",
+                     "acceptance":  "Headless app state and commands are independent of platform window handles; native renderer consumes state and publishes typed commands.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-004",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Introduce typed event-driven execution",
+                     "acceptance":  "Worker emits RunStarted/StepStarted/StepComputed/StepReused/SubProgress/Output/Plot/Diagnostic/Completed/Cancelled with run and document IDs.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-005",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Never execute evaluation on the UI thread",
+                     "acceptance":  "Even a 30-second script leaves pointer, keyboard, window close, pane resize and animations responsive; automated GUI watchdog verifies.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-006",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Per-document serialized engine mutation",
+                     "acceptance":  "Only one computation mutates a document engine at a time; concurrent requests are rejected or queued with clear UI policy.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-007",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Permit independent documents to run concurrently",
+                     "acceptance":  "With tab A busy, tab B can run and cancel and tab A continues unaffected; no process-wide engine lock.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-008",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Revision-bound completion and events",
+                     "acceptance":  "Every event has document ID, run ID, source revision and sequence; events from obsolete revisions never overwrite current pane state.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-009",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Cancellation tokens reach long operations",
+                     "acceptance":  "Worker passes a cooperative token into evaluator, high-precision math and symbolic loops; cancellation interrupts a test operation rather than only setting UI state.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-010",
+                     "group":  "ARC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Use structured values end-to-end",
+                     "acceptance":  "UI gets typed numeric, array, record, symbolic and diagnostic projections; display text is not reparsed to infer structure.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-011",
+                     "group":  "ARC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Keep native OS glue isolated",
+                     "acceptance":  "Platform-specific unsafe code stays in small adapters with reviewed invariants; shared UI, workspace, execution and settings logic is safe Rust.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "ARC-012",
+                     "group":  "ARC",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Resist unbounded memory and event queues",
+                     "acceptance":  "Progress and output delivery has coalescing/backpressure and bounded storage without losing terminal events, final result or required diagnostics.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-001",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Define a deliberate visual direction",
+                     "acceptance":  "Product design describes a calm scientific workbench: information-dense, precise, low-noise, professional; final screens are reviewed against reference mockups.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-002",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Ship excellent dark and light themes",
+                     "acceptance":  "Both themes have complete token sets for surfaces, text, borders, focus, selection, syntax, plots and semantic status; no unthemed native child control.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-003",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Use a systematic spacing scale",
+                     "acceptance":  "Layout spacing uses 4/8/12/16/24/32 logical-pixel tokens with documented exceptions; an automated style lint flags raw one-off margins.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-004",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Establish a typography hierarchy",
+                     "acceptance":  "UI uses legible proportional controls and configurable monospaced code/output; titles, labels, table text and metadata have consistent hierarchy.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-005",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Favor legibility over visual effects",
+                     "acceptance":  "No gradients, heavy glass effects or gratuitous animations obscure content; active pane, selection, errors and actions remain legible in both themes.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-006",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Define reusable control states",
+                     "acceptance":  "Every button/input/tab/menu/popup/splitter implements rest, hover, pressed, disabled, selected, focus and error states with consistent interaction.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-007",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide semantic color without color dependence",
+                     "acceptance":  "Success, failure, progress, cancelled and warning use text/icon/shape plus color; color is never the only carrier of state.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-008",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Implement meaningful empty states",
+                     "acceptance":  "First launch and empty variables/functions/plots/logs/inspector panes explain what to do next and offer an appropriate next action.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-009",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set minimum contrast ratios",
+                     "acceptance":  "Normal text reaches WCAG AA 4.5:1 and large text/non-text UI indicators reach 3:1 in each theme, validated from rendered colors.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-010",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Design unmistakable primary action",
+                     "acceptance":  "Run is discoverable in toolbar and menu; Cancel visibly replaces or accompanies Run while active and communicates progress.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-011",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Make iconography coherent",
+                     "acceptance":  "One consistent icon family, stroke weight and size; icons with ambiguous meaning include visible text or tooltips with shortcut.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-012",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Prefer progressive disclosure",
+                     "acceptance":  "Primary viewport keeps editor and output prominent; secondary metadata, verbose JSON and advanced settings open on demand.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-013",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Make density adjustable",
+                     "acceptance":  "Compact, comfortable and default density modes change row height/padding but preserve layout, accessible hit areas and typography hierarchy.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-014",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Specify polished transient feedback",
+                     "acceptance":  "Success uses subtle confirmation; errors are near their cause; progress never uses indefinite spinner where measured work exists.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-015",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Respect motion preferences",
+                     "acceptance":  "Animation is modest (typically 120–200 ms) and reduced-motion setting removes nonessential motion while maintaining feedback.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-016",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Ensure coherent responsive window design",
+                     "acceptance":  "The 900×600, 1280×800 and 1920×1080 layouts remain usable without clipping, accidental overlays or illegible content.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-017",
+                     "group":  "VIS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide consistent platform chrome",
+                     "acceptance":  "Title, toolbar, menus and window controls feel native while retaining one cross-platform product identity; no hand-drawn imitation of OS close buttons.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "VIS-018",
+                     "group":  "VIS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Design a usable first-run experience",
+                     "acceptance":  "Fresh launch presents working example/Open File/New Script affordances plus a concise keyboard hint; user can run first script in at most two actions.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-001",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Make the editor the primary surface",
+                     "acceptance":  "At default 1280×800 editor receives at least ~45% width and clear visual priority without making results/plot inaccessible.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-002",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Provide complete Studio pane parity",
+                     "acceptance":  "Visible reachable Editor, Workspace, Graph, Logs and Symbolic Inspector; each has a titled pane and its own empty/error states.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-003",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Support draggable splitters",
+                     "acceptance":  "Mouse and keyboard resize all adjacent panes with min sizes; double click or command restores sensible defaults.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-004",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Persist pane sizes and visibility",
+                     "acceptance":  "After close/relaunch the layout matches user choices including hidden/maximized panes, unless screen geometry makes that unsafe.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-005",
+                     "group":  "LAY",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Support focus mode",
+                     "acceptance":  "User can maximize editor or graph without losing document state; one action returns to previous layout.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-006",
+                     "group":  "LAY",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide layout presets",
+                     "acceptance":  "At least Standard, Explore (larger plot) and Focus (larger editor) presets, with reversible user customization.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-007",
+                     "group":  "LAY",
+                     "priority":  "P2",
+                     "type":  "D",
+                     "requirement":  "Allow dock/undock where supported",
+                     "acceptance":  "Workspace, graph and inspector may be rearranged or detached without losing state; optional feature cannot block core parity.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-008",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Offer an unobtrusive status strip",
+                     "acceptance":  "Status always reports active document, revision, precision, cursor line/column, run state and recent elapsed time without truncating essential fields.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-009",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Make keyboard pane navigation predictable",
+                     "acceptance":  "Ctrl/Cmd+Tab switches documents; a documented shortcut rotates focus between panes with visible focus.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-010",
+                     "group":  "LAY",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Minimize mode-specific confusion",
+                     "acceptance":  "Graph and Inspector clearly indicate which run/document produced current content; no silent cross-tab displays.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-011",
+                     "group":  "LAY",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Handle narrow windows gracefully",
+                     "acceptance":  "At minimum supported size ancillary panes collapse to tabs or drawer rather than shrink editor below usable width.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LAY-012",
+                     "group":  "LAY",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Keep action locations stable",
+                     "acceptance":  "Run, Cancel, precision, search, tab close and pane visibility retain consistent placement across layouts.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-001",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Replace multiline Win32 EDIT as the primary code editor",
+                     "acceptance":  "Real editor supports rich text decorations, gutter, completions, line diagnostics and virtualization; no plain textarea/EDIT as release fallback.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-002",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Implement Lovelace grammar highlighting",
+                     "acceptance":  "Numbers, exact rationals, strings/interpolation, keywords, operators, function definitions, builtins, delimiters, brackets and symbolic tokens highlight contextually.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-003",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Offer live context-aware completion",
+                     "acceptance":  "Completion includes keywords, registered builtins, signatures, user functions, live variables and snippets from active engine; values update after execution.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-004",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Display signatures and argument help",
+                     "acceptance":  "Typing `sqrt(` or `compile(` shows signature and active parameter; documentation is from registered metadata, never duplicate hardcoded text.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-005",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Support fast fuzzy filtering",
+                     "acceptance":  "Completion/palette search ranks exact prefix first and tolerates useful nonprefix matches without blocking typing.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-006",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Correct error underlining and positioning",
+                     "acceptance":  "Errors show underlines and gutter markers at exact reported range with hover tooltip and keyboard navigation, including UTF-16 astral cases.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-007",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Show current line and matching braces",
+                     "acceptance":  "Caret line has subtle emphasis; matching `()[]{}` highlighted with clear unmatched indicator.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-008",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Implement indentation and formatting basics",
+                     "acceptance":  "Indent/outdent selection, smart Enter, auto-close configurable brackets, tab-width and tabs/spaces setting work with the language grammar.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-009",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Support full find and replace",
+                     "acceptance":  "Find, replace, replace-all, case-sensitive, whole-word and optional regex search are reversible and highlight all matches.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-010",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide navigation primitives",
+                     "acceptance":  "Go to line, go to matching bracket, find symbol in file and keyboard document navigation function without pointer input.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-011",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Implement multi-cursor and selection essentials",
+                     "acceptance":  "At least multiple carets, select next match and column selection; undo remains coherent across all cursors.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-012",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Provide robust undo/redo semantics",
+                     "acceptance":  "Burst typing is coalesced; selection/caret positions restored; all editing actions, replacements and auto-format are undoable per document.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-013",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Preserve file encoding and newline policy",
+                     "acceptance":  "Open/save UTF-8, BOM handling and CRLF/LF round-trip without unrequested rewrites; clearly warn on unsupported encoding.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-014",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Prevent Unicode offset corruption",
+                     "acceptance":  "Diagnostic offsets, selections and source ranges correctly convert UTF-16 \u003c-\u003e Rust byte/grapheme positions on emoji, combining marks and newlines.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-015",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Show accurate line and column",
+                     "acceptance":  "Always 1-based source line/column (as in web Studio); moving cursor and selecting text updates promptly.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-016",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Support large files without freezing",
+                     "acceptance":  "A 500 KB/5,000-line script supports 60 Hz scroll target on reference hardware and typing input p95 under 16 ms; measure in GUI.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-017",
+                     "group":  "EDT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Use IME and international input correctly",
+                     "acceptance":  "Compose accented and East-Asian text without losing composition, double committing or invalidating undo; platform UI test required.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-018",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Offer editor zoom and font control",
+                     "acceptance":  "Ctrl/Cmd plus/minus adjusts editor font size; cursor, selection and diagnostics remain aligned and readable.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-019",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Add code-aware context actions",
+                     "acceptance":  "Right-click or command palette supports Run selection/line where valid, Copy, Paste, Go to line and Show help.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-020",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Show modified lines and run markers",
+                     "acceptance":  "Gutter distinguishes dirty source, computed/reused statement and error using consistent icon/tooltip, never replacing actual diagnosis.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "EDT-021",
+                     "group":  "EDT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Avoid unsolicited intrusive autocomplete",
+                     "acceptance":  "Completions dismiss via Esc, preserve text/selection, and do not hijack typing or cover the active line for long.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-001",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Document-tab isolation",
+                     "acceptance":  "Every tab owns buffer, engine, variables, functions, precision, revision, cache, diagnostics and last figure; tests show no leakage.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-002",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Implement standard native file lifecycle",
+                     "acceptance":  "New/Open/Save/Save As/Close use native dialogs; unmodified file round-trips byte-identically under chosen newline and encoding policy.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-003",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Prompt on unsaved work",
+                     "acceptance":  "Close tab, close window and Quit offer Save/Discard/Cancel; Cancel leaves buffer and focus untouched.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-004",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Support recent files and reopen session",
+                     "acceptance":  "Recent files list deduplicates and removes missing paths; relaunch restores tab order/path and active tab.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-005",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Autosave unsaved buffers for crash recovery",
+                     "acceptance":  "Edits are journaled atomically to a recovery directory; forced process termination then restart offers intact recovery before overwriting anything.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-006",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Detect external file changes",
+                     "acceptance":  "External edit while tab open offers Reload/Compare/Keep; silent overwrite is forbidden.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-007",
+                     "group":  "DOC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Enable drag and drop opening",
+                     "acceptance":  "Dropping one or more .ls files opens tabs; duplicates focus existing tab unless user requests another independent session.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-008",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Keep editor buffer separate from runtime state",
+                     "acceptance":  "Loading or editing a file never automatically executes code; each run explicitly targets a source snapshot.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-009",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Preserve per-document precision and formatting settings",
+                     "acceptance":  "Two tabs can have different precision and ASCII/Unicode preferences; selection and process restart do not cause cross-talk.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-010",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Clarify engine-state restart policy",
+                     "acceptance":  "On restart, restore files/unsaved text/layout; any nonrestored computed variables/functions are explicitly shown as reset until rerun.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-011",
+                     "group":  "DOC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Implement reset session safely",
+                     "acceptance":  "Reset Engine is a separately labeled action with clear consequence; clearing variables alone does not reset functions.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-012",
+                     "group":  "DOC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Support tab reorder and close shortcuts",
+                     "acceptance":  "Mouse drag reorder and Ctrl/Cmd+W, Ctrl/Cmd+Tab and middle-click behave consistently.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-013",
+                     "group":  "DOC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Handle deleted/renamed files",
+                     "acceptance":  "An open file renamed/deleted externally remains editable and warns before save; original data is never silently lost.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "DOC-014",
+                     "group":  "DOC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Version persisted state",
+                     "acceptance":  "Settings and recovery documents carry schema version and are migrated or backed up with warning; corruption never crashes startup.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-001",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Run whole script asynchronously",
+                     "acceptance":  "Ctrl/Cmd+Enter starts a background run and reports running state within 100 ms even when evaluation lasts 30 seconds.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-002",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Support quick evaluation",
+                     "acceptance":  "Logs input executes a one-liner in active document engine, appends result, and does not change editor source.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-003",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Render all committed outputs coherently",
+                     "acceptance":  "After each committed statement, variables, functions, log output, plots, revision and diagnostics reflect the same coherent engine snapshot.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-004",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expose step-level progress",
+                     "acceptance":  "UI shows completed/total statements, current label and reused count, with stable progress and cancellable status.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-005",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expose numeric subprogress",
+                     "acceptance":  "Long sqrt/pi/factorial or comparable operations publish human-readable phase and fraction; progress stays meaningful and monotonic where defined.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-006",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Implement working cancellation",
+                     "acceptance":  "Cancelling a real long-running script ends work cooperatively, returns UI to idle and never requires terminating the application.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-007",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Specify cancellation state semantics",
+                     "acceptance":  "Contract defines which completed statements remain committed and what happens to in-flight statement; tests compare with web Studio contract.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-008",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Use bounded cancellation latency",
+                     "acceptance":  "Representative cancellation-aware loops stop within 2 s after request on reference hardware; uninterruptible kernels report why and are budgeted.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-009",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Distinguish statuses",
+                     "acceptance":  "Queued, Running, Cancelling, Completed, Cancelled, Failed and Stale states have distinct labels and terminal events.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-010",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Reject duplicate active runs per tab",
+                     "acceptance":  "Pressing Run during active run cannot corrupt engine; explicit queue/reject behavior is observable.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-011",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Allow multi-tab concurrency",
+                     "acceptance":  "Tab A long calculation does not prevent tab B execution or cancellation.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-012",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Protect against stale results after source edits",
+                     "acceptance":  "Result event includes snapshot revision; editing while run active never falsely presents stale result as current; user can inspect old result with label.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-013",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Preserve partial results safely",
+                     "acceptance":  "On error or cancellation, completed-statement workspace and outputs remain consistent; no half-written variable or duplicate print line.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-014",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Present structured errors and recovery",
+                     "acceptance":  "Diagnostics display code, category, message, line, column and suggestions; user can jump to source and retry after correction.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-015",
+                     "group":  "RUN",
+                     "priority":  "P1",
+                     "type":  "W",
+                     "requirement":  "Expose per-statement timing history",
+                     "acceptance":  "Computed/reused modes, elapsed times and total run time are inspectable without rerunning and without conflating cached timing with work performed.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-016",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Prevent UI starvation from output floods",
+                     "acceptance":  "10,000 emitted log events do not freeze editor; visible log updates batch without changing log order or final integrity.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-017",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Handle engine panics and worker failures gracefully",
+                     "acceptance":  "A simulated worker failure produces recoverable error state, releases run lock and preserves buffer/recovery files; process remains usable.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-018",
+                     "group":  "RUN",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Make progress feedback informative rather than noisy",
+                     "acceptance":  "Progress surfaces a compact inline indicator for short jobs and an expandable detail view for long jobs, without modal interruption.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-019",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expose precision controls on the execution bar",
+                     "acceptance":  "One visibly labeled input sets computation/display precision for the active session; invalid values fail locally with clear guidance.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RUN-020",
+                     "group":  "RUN",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Synchronize script-set precision",
+                     "acceptance":  "A `setprecision(n)` statement updates toolbar, engine, cache invalidation and affected value presentation consistently.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-001",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Port the web incremental strategy",
+                     "acceptance":  "Top-level statement slicing, normalized source hashes and per-document computation cache follow reference behavior; no naïve whole-file rerun substitute.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-002",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Track variable and function read dependencies",
+                     "acceptance":  "Editing one variable definition recomputes dependent statements transitively, while independent statements report reused status.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-003",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Track user-function revisions transitively",
+                     "acceptance":  "Redefining a function invalidates all call sites and dependent calculations, including functions that call that function.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-004",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Avoid caching side effects",
+                     "acceptance":  "`print`, `plot`, `setprecision` and other effectful calls rerun rather than replaying stale side effects.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-005",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Invalidate correctly when precision changes",
+                     "acceptance":  "Precision-dependent cache keys include compute settings; a precision change cannot reuse an old low-precision result.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-006",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Use exact full-value signatures",
+                     "acceptance":  "Cache dependency hashes derive from full canonical typed value, never truncated display or formatted tooltip.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-007",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Preserve code order and scope semantics",
+                     "acceptance":  "Reused assignments reproduce correct downstream visible state without leaking function-local or block-local variables.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-008",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Report reuse honestly",
+                     "acceptance":  "Progress and diagnostics report computed/reused count from actual cache hits; instrumentation can falsify the claim.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-009",
+                     "group":  "INC",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Offer an explicit full rerun option",
+                     "acceptance":  "Run All Fresh clears only execution memoization for active tab and yields the same values/output as incremental run.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-010",
+                     "group":  "INC",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Test edit/rerun metamorphic equivalence",
+                     "acceptance":  "After random edits and cache invalidations, incremental output equals a fresh-run engine snapshot for the identical script and settings.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "INC-011",
+                     "group":  "INC",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Bound cache growth",
+                     "acceptance":  "Cache uses documented memory limits and deterministic eviction; cache eviction never changes results.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-001",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Provide sortable variables table",
+                     "acceptance":  "Show name, kind and display value for all globals including `_`, sorted by ordinal name by default.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-002",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Provide function table with source distinctions",
+                     "acceptance":  "Show name, parameters, builtin/user/plugin origin and summary when available; counts agree with current engine registry.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-003",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Delete one variable without side effects",
+                     "acceptance":  "Per-row delete removes only selected variable, updates revision/completions and invalidates affected cache; functions unchanged.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-004",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Clear variables while preserving functions",
+                     "acceptance":  "Clear Variables empties globals but retains user-defined functions, matching Studio; regression test fails current rebuild-engine workaround.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-005",
+                     "group":  "WKS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Filter and search workspace",
+                     "acceptance":  "Text search filters tables and supports keyboard focus, clear and match navigation; large registries stay responsive.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-006",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Show type-aware value preview",
+                     "acceptance":  "Numbers, matrices, complex, record and symbolic values render readable previews; detailed content opens without truncating in memory.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-007",
+                     "group":  "WKS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Copy multiple value formats",
+                     "acceptance":  "Copy display, canonical and JSON/structured data when available; copy preserves exact numerical digits.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-008",
+                     "group":  "WKS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide context menus for functions",
+                     "acceptance":  "Function rows offer signature, help, insert call/example and user-function source navigation where available.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-009",
+                     "group":  "WKS",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Never show stale document state",
+                     "acceptance":  "Changing active tab switches workspace and plot to matching engine in same repaint, even during another tab’s run.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-010",
+                     "group":  "WKS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Show state origin and revision",
+                     "acceptance":  "Workspace title indicates active tab, revision and whether values are live, cached or from a previous run.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "WKS-011",
+                     "group":  "WKS",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Make long values explorable",
+                     "acceptance":  "Huge integers and symbolic expressions use selectable scrolling/copy rather than forcing entire value into table cell or trimming source.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-001",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Render structured DTOs directly",
+                     "acceptance":  "Recursive typed renderer uses engine structured values and does not reconstruct arrays or records by parsing pretty strings.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-002",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Present exactness/provenance clearly",
+                     "acceptance":  "Where supplied, show Natural/Integer/Real/Complex kind, exact/approximate, precision and truncation reasons without suggesting unproven exactness.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-003",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Present arrays and matrices as spatial structures",
+                     "acceptance":  "N-dimensional shapes and element kinds are visible; 2-D matrices use readable rows/columns and large arrays virtualize.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-004",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expand nested records progressively",
+                     "acceptance":  "Solve, inverse, compile, limit and transform records can be expanded/collapsed by field without data loss.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-005",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Show canonical and pretty expressions",
+                     "acceptance":  "Symbolic result has visible pretty text and optionally expandable canonical representation, domain, free symbols and node count.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-006",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Avoid duplicate evaluation for inspection",
+                     "acceptance":  "Selecting result detail uses captured value and revision; changing source after run does not silently recompute inspected value.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-007",
+                     "group":  "RES",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Allow exact-copy/export",
+                     "acceptance":  "Numeric values can be copied/exported at full precision even when display is clipped for readability.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-008",
+                     "group":  "RES",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Expose diagnostic detail drilldown",
+                     "acceptance":  "Error detail shows code, category, exact message, source location and optional structured signature/hints; no opaque generic failure.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-009",
+                     "group":  "RES",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide breadcrumbs for nested structures",
+                     "acceptance":  "Record/array explorer indicates path (e.g. result.solutions[1].bindings) and allows backtracking without resetting expansion.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-010",
+                     "group":  "RES",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Keep huge result rendering bounded",
+                     "acceptance":  "Rendering a million-digit result or 100k matrix cells neither blocks UI nor allocates one widget per element.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "RES-011",
+                     "group":  "RES",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Separate results from logs",
+                     "acceptance":  "Dedicated Results view (or pinned inspector) keeps the last typed result while Logs displays chronological events; toggling is one click.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-001",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Match web inspector information",
+                     "acceptance":  "Display pretty, canonical, expression tree, current assumptions, simplification trace and MathIR, where engine supplies them.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-002",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Honor result origin",
+                     "acceptance":  "Inspector operates on last committed result from active document, not on current unsaved editor text or a background fresh evaluation.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-003",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Make expression tree navigable",
+                     "acceptance":  "Tree supports expand/collapse, node type, child order, copy node canonical form, and keyboard traversal.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-004",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Show conditions and assumptions structurally",
+                     "acceptance":  "Nonzero/domain/branch conditions are typed symbolic relations, distinguishable from plain text notes.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-005",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expose proof and rewrite steps",
+                     "acceptance":  "Trace displays rule identifier, before/after, classification, required conditions and applicability without hiding conditional rewrites.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-006",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Visually distinguish incomplete results",
+                     "acceptance":  "Partial, Unevaluated and conditional results cannot be presented as fully Solved/Exact; explicit status near the result.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-007",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Make MathIR legible",
+                     "acceptance":  "IR view is monospaced, scrollable, selectable with syntax-like instruction highlighting, copy and export.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-008",
+                     "group":  "SYM",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Correlate related representations",
+                     "acceptance":  "Selecting a symbolic subtree highlights corresponding pretty/canonical section when mappings are available, otherwise no misleading link.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-009",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Handle unsupported inspect paths honestly",
+                     "acceptance":  "An expression that cannot lower to MathIR shows a specific reason and leaves other inspector sections usable.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-010",
+                     "group":  "SYM",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide context-aware symbolic actions",
+                     "acceptance":  "Offer Copy canonical, Insert pretty, Copy MathIR and inspect assumptions with clear action labels; no silent script execution.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "SYM-011",
+                     "group":  "SYM",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Avoid rendering giant symbolic trees eagerly",
+                     "acceptance":  "Tree initially loads bounded depth and virtualizes deeper views; expand remains responsive for \u003e=10k nodes.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-001",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Match full supported Studio plot output",
+                     "acceptance":  "Render all SVG elements/attributes actually emitted by Lovelace plotting, including text, polyline, path, clipping and labels; screenshot comparison verifies.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-002",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Replace partial GDI SVG interpretation",
+                     "acceptance":  "Current minimal polyline/text parser is not accepted as SVG parity; use a complete supported SVG renderer and document supported feature set.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-003",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Render crisp plots at HiDPI",
+                     "acceptance":  "At 100/150/200% scale, strokes, labels and mathematical text remain sharp and correctly positioned with no clipping.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-004",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide intuitive zoom/pan/fit",
+                     "acceptance":  "Wheel/buttons zoom around pointer, drag pans, one-click Fit restores full plot and 100% reset is available.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-005",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Expose plot provenance",
+                     "acceptance":  "Title and active document/run identity appear with plot; opening other tab never silently shows another tab’s chart.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-006",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Support SVG and PNG export",
+                     "acceptance":  "Save SVG preserves engine bytes; PNG export supports chosen dimensions/scaling and transparent/opaque background options.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-007",
+                     "group":  "PLT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Support clipboard copy",
+                     "acceptance":  "Copy Image produces usable bitmap; Copy SVG produces vector data where OS supports it.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-008",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Handle invalid SVG safely",
+                     "acceptance":  "Malformed/oversized SVG produces bounded, informative failure without crashes, file access or network loads.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-009",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Persist last plot per active document",
+                     "acceptance":  "After successful run plot stays inspectable until replaced/reset and is isolated between tabs.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-010",
+                     "group":  "PLT",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Support mouse and keyboard inspection",
+                     "acceptance":  "Plot focus offers keyboard zoom/pan and readable point/cursor values when plot data supports it.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-011",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide sensible no-plot and error states",
+                     "acceptance":  "Graph pane says No plot yet or Plot unavailable with reason and next action; no blank white mystery pane.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-012",
+                     "group":  "PLT",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Keep rendering off UI thread for heavy SVG",
+                     "acceptance":  "Complex plot rasterization occurs in worker with cancellation and cached zoomable bitmap/vector scene; GUI remains responsive.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLT-013",
+                     "group":  "PLT",
+                     "priority":  "P2",
+                     "type":  "D",
+                     "requirement":  "Allow plot history within a session",
+                     "acceptance":  "Optional mini-gallery allows compare/return to previous plots with source and timestamp; feature cannot gate web parity.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-001",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Capture print output exactly once",
+                     "acceptance":  "Repeated polls/events, reruns and cancellation never duplicate print lines or change order; byte-sensitive tests cover line endings.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-002",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Show chronological typed event lines",
+                     "acceptance":  "Logs distinguish echo, stdout, result, diagnostic, timing and progress with readable icons, text and timestamps optional.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-003",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Include quick eval input",
+                     "acceptance":  "Enter executes active session command and clears input only after accepting request; previous commands are navigable with keyboard.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-004",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Keep errors actionable",
+                     "acceptance":  "Click diagnostic opens and focuses source, highlights position, and provides copyable full error details.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-005",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Keep logs selectable and copyable",
+                     "acceptance":  "Copy selected, copy all, clear current view and save log actions work with keyboard and context menu.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-006",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Avoid truncating significant output silently",
+                     "acceptance":  "When storage cap is reached show truncated-history indicator and offer export of available full run log if configured; never hide current fatal error.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-007",
+                     "group":  "LOG",
+                     "priority":  "P1",
+                     "type":  "W",
+                     "requirement":  "Use human-readable timings",
+                     "acceptance":  "Display total and per-statement elapsed with units; cached runs identify reused count and avoid implying reused output was recomputed.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-008",
+                     "group":  "LOG",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide optional log filtering",
+                     "acceptance":  "Filter by errors, outputs, run and document without changing stored event order.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-009",
+                     "group":  "LOG",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Make run completion unobtrusive",
+                     "acceptance":  "Success/fail/cancel indication visible without intrusive modal; long-running jobs receive optional desktop notification only by user opt-in.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "LOG-010",
+                     "group":  "LOG",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Keep performance stable under log load",
+                     "acceptance":  "A run with 100k log records remains scrollable via virtualization and bounded live updates; no quadratic text-control replacement.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-001",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Provide full keyboard navigation",
+                     "acceptance":  "All commands and pane actions accessible without mouse; an automated keyboard journey completes primary tasks.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-002",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Support screen reader roles and names",
+                     "acceptance":  "Windows UIA and corresponding platform accessibility trees expose name/role/value/state for editor, tabs, tables, buttons and progress.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-003",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Show strong keyboard focus",
+                     "acceptance":  "Every focusable control has visible 3:1 focus indicator; focus never becomes invisible in dark or light mode.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-004",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Respect system text scaling",
+                     "acceptance":  "125–200% DPI/text scale retains readable buttons/labels and usable layout without clipped content.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-005",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide adjustable editor typography",
+                     "acceptance":  "Users can configure mono font and 12–24 pt range, line-height and optionally ligatures; all decorations remain aligned.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-006",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Support light/dark system integration",
+                     "acceptance":  "OS theme change updates controls and plot chrome without losing user focus, run or document state.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-007",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Provide a keyboard shortcut reference",
+                     "acceptance":  "Help \u003e Keyboard Shortcuts and command palette display all global and editor shortcuts.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-008",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Avoid conflicts with IME and screen readers",
+                     "acceptance":  "Text composition and shortcut accelerators do not steal native IME shortcuts or screen-reader navigation.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-009",
+                     "group":  "A11Y",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Offer high-contrast mode",
+                     "acceptance":  "High contrast appearance uses semantic tokens rather than merely raising window brightness; contrast validated.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-010",
+                     "group":  "A11Y",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Honor reduced motion",
+                     "acceptance":  "OS reduced-motion preference disables decorative animations while retaining progress values and completion feedback.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-011",
+                     "group":  "A11Y",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Ensure minimum pointer target",
+                     "acceptance":  "Most interactive targets are \u003e=32×32 logical pixels; compact density exceptions preserve alternative keyboard access.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-012",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Make errors independent of color",
+                     "acceptance":  "Errors include icon, text and location; color-blind tests identify errors and successes without hue.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-013",
+                     "group":  "A11Y",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Use clear accessible language",
+                     "acceptance":  "Controls and errors use concise, predictable text; abbreviations have tooltips; accessible description includes action and consequence.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "A11Y-014",
+                     "group":  "A11Y",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Support unicode mathematical glyph rendering",
+                     "acceptance":  "ASCII/Unicode setting updates structured result, workspace and logs consistently; missing glyphs fall back without tofu squares.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-001",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Support native file dialogs and clipboard",
+                     "acceptance":  "Open/Save/Save As, paste and clipboard integration work via OS APIs with expected keyboard shortcuts.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-002",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Define and honor offline-first policy",
+                     "acceptance":  "App launches, evaluates, plots and opens files with network disabled; no HTTP listener or surprise external requests.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-003",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Never load untrusted plot resources",
+                     "acceptance":  "Embedded SVG external references and active content do not trigger network/file reads or script execution.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-004",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Protect against dangerous file overwrite",
+                     "acceptance":  "Saving to existing changed file prompts before overwrite; atomic temp-write/rename and recovery preserve original on failure.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-005",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Package correct assets locally",
+                     "acceptance":  "Fonts fall back to OS-installed fonts; syntax/theme/icon assets are bundled or resolved offline; no CDN at runtime.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-006",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Use app-scoped settings locations",
+                     "acceptance":  "Windows APPDATA, Linux XDG, macOS Application Support are used; no writes to installed binary directory by default.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-007",
+                     "group":  "PLF",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide installer/release artifacts",
+                     "acceptance":  "Signed or notarized where applicable, versioned binaries for supported OS/arch, reliable uninstall and OS integration.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-008",
+                     "group":  "PLF",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Integrate file associations safely",
+                     "acceptance":  "Opening a .ls file from shell launches or focuses desktop with that file, without unexpected execution.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-009",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Expose clear error on unsupported platform",
+                     "acceptance":  "A platform without UI support is explicitly marked unsupported by release metadata, not silently shipped as headless placeholder.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-010",
+                     "group":  "PLF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Keep platform-specific behavior tested",
+                     "acceptance":  "Keyboard modifiers, dialogs, caret/IME, clipboard and DPI tested on every advertised platform.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PLF-011",
+                     "group":  "PLF",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Provide local diagnostics bundle",
+                     "acceptance":  "User can export redacted app version/config/logs for bug reports without private source content unless explicitly opted in.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-001",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set cold-start budget",
+                     "acceptance":  "On reference machine cold start to interactive editor p95 \u003c= 2.0 s and warm start \u003c= 1.0 s; measure signed release binary.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-002",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set UI input-latency budget",
+                     "acceptance":  "Typing/caret movement p95 \u003c= 16 ms and no input freeze \u003e100 ms under normal work, measured with a live GUI profiler.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-003",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set scrolling frame budget",
+                     "acceptance":  "500 KB/5k-line document maintains \u003e=55 fps p95 scrolling on reference desktop; 10k-line stress run is explicitly reported.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-004",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set run-start latency budget",
+                     "acceptance":  "Run button/shortcut acknowledges within 100 ms; worker scheduling not blocked by rendering or queued logs.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-005",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Set cancel acknowledgement budget",
+                     "acceptance":  "Cancel action updates visible state within 100 ms and invokes token immediately; termination meets RUN cancellation bound for cooperative workloads.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-006",
+                     "group":  "PERF",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Set workspace update budget",
+                     "acceptance":  "Updating 10k variable/function rows takes \u003c=200 ms to visible state via diff/virtualization, without recreating all children.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-007",
+                     "group":  "PERF",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Set plot rendering target",
+                     "acceptance":  "Typical SVG \u003c100 KB fits pane in \u003c=250 ms after receipt; complex \u003e1 MB remains interactive and shows pending state.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-008",
+                     "group":  "PERF",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Set idle resource target",
+                     "acceptance":  "Idle process does not continuously poll at high rate or consume \u003e2% of one reference CPU core; measure with window open.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-009",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Avoid quadratic undo and text copying",
+                     "acceptance":  "10k typed characters do not cause unbounded full-buffer clones per keystroke; memory/CPU profiling confirms acceptable scaling.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-010",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Recover gracefully from corrupt settings",
+                     "acceptance":  "Invalid config and recovery files produce warning/default/backup, never launch crash or unrecoverable data loss.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-011",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Monitor resource budgets for enormous math",
+                     "acceptance":  "Extreme precision requests receive estimated memory/time warning or budget refusal; no uncontrolled process abort for documented refusal classes.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "PERF-012",
+                     "group":  "PERF",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Preserve results during paint failures",
+                     "acceptance":  "Renderer crash or invalid plot does not corrupt engine/document; recoverable error surfaces and next run still works.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-001",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Maintain a golden web-to-desktop journey suite",
+                     "acceptance":  "Each reference journey has input, action sequence, expected state/events/plots, desktop driver and a reproducible result artifact.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-002",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Run actual native GUI end-to-end tests",
+                     "acceptance":  "CI or dedicated test VM launches a window and drives pointer/keyboard; headless AppState selftest alone cannot satisfy GUI gate.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-003",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Include screenshot visual regression",
+                     "acceptance":  "Baseline screenshots at 900×600, 1280×800, 1920×1080 and 100/150/200% scale reviewed for both themes.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-004",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test real cancellation with a slow kernel",
+                     "acceptance":  "GUI test cancels a script while worker is inside lengthy computation; asserts UI responsiveness, state consistency and worker termination.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-005",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test concurrent tab isolation",
+                     "acceptance":  "Two tabs execute with different precision and variables concurrently; snapshots and plots never cross, and tab B completes while A runs.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-006",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test incremental vs fresh equivalence",
+                     "acceptance":  "Random edit sequences compare incremental run snapshot to fresh-run reference across dependencies, functions, effects and precision.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-007",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test editor and diagnostic UTF-16 mapping",
+                     "acceptance":  "Emoji, combining marks, CRLF, multiline, nested scopes and parse errors highlight exact location with correct accessible announcement.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-008",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test structured projections",
+                     "acceptance":  "Golden outputs cover exact fractions, 1k-digit numbers, matrix/inverse, solve records, MathIR, symbols, conditions and truncated prints.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-009",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "W",
+                     "requirement":  "Test SVG fidelity",
+                     "acceptance":  "Reference plot corpus rasterized in both renderers; text, strokes and clip regions compared with documented pixel tolerance and manual review.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-010",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Test file recovery and corruption",
+                     "acceptance":  "Crash during dirty buffer edit and interrupted save are replayed; user data remains recoverable and app relaunches cleanly.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-011",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Test screen reader and keyboard flows",
+                     "acceptance":  "One Windows UIA screen reader and one other supported platform accessibility path are exercised; all primary actions reachable.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-012",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Run human usability sessions",
+                     "acceptance":  "At least 5 target users complete 8 scripted tasks; \u003e=90% task success, median \u003c2 min for common tasks, and document qualitative friction.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-013",
+                     "group":  "TST",
+                     "priority":  "P1",
+                     "type":  "D",
+                     "requirement":  "Use a usability quality threshold",
+                     "acceptance":  "Target System Usability Scale \u003e=80 in pilot, with no unresolved severity-1 usability finding at launch.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-014",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "D",
+                     "requirement":  "Audit layout/content across DPI and text scaling",
+                     "acceptance":  "Visual tests at 100/125/150/200% DPI plus system text enlargement identify no overlapping/clipped primary controls.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-015",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Validate accessibility contrast automatically",
+                     "acceptance":  "Theme token checker verifies normal text \u003e=4.5:1 and large/control indicators \u003e=3:1; exemptions documented.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-016",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Require clean release provenance",
+                     "acceptance":  "Artifact manifest records OS, build SHA, Rust toolchain, source hash, GUI test results, screenshot bundle and test fixture checksums.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-017",
+                     "group":  "TST",
+                     "priority":  "P0",
+                     "type":  "Q",
+                     "requirement":  "Make unsupported features visible, not silently skipped",
+                     "acceptance":  "Feature register distinguishes PASS, FAIL, BLOCKED, NOT_TESTED, APPROVED_DEVIATION; missing evidence blocks final parity.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 },
+                 {
+                     "id":  "TST-018",
+                     "group":  "TST",
+                     "priority":  "P1",
+                     "type":  "Q",
+                     "requirement":  "Track objective usability regressions",
+                     "acceptance":  "Continuous measurements compare startup/input/frame metrics and task completion across releases, with declared regression thresholds.",
+                     "status":  "NOT_TESTED",
+                     "evidence":  [
+
+                                  ],
+                     "test":  "",
+                     "waiver":  ""
+                 }
+             ]
+}
