@@ -112,6 +112,14 @@ pub struct TextEditor {
     /// `None` means no selection. When this equals the caret position the selection is empty and
     /// [`TextEditor::selection_range`] reports none.
     pub selection: Option<(usize, usize)>,
+    /// The builtins and symbols the current paint pass classifies. Refreshed from the live
+    /// engine snapshot and the document's `symbol("...")` calls, so the highlighter holds no
+    /// second builtin or symbol list.
+    syntax: syntax::SyntaxContext,
+    /// The `edits` counter the cached symbol set was discovered at; `u64::MAX` forces a refresh.
+    syntax_edits: u64,
+    /// The builtin labels the cached context was built from, for the per-pass change check.
+    syntax_builtins: Vec<String>,
 }
 
 /// The stable egui id of the editor surface.
@@ -142,6 +150,9 @@ impl TextEditor {
             completion: CompletionSession::default(),
             history: History::new(),
             selection: None,
+            syntax: syntax::SyntaxContext::new(),
+            syntax_edits: u64::MAX,
+            syntax_builtins: Vec::new(),
         }
     }
 
@@ -157,6 +168,9 @@ impl TextEditor {
         self.selection = None;
         self.history.reset();
         self.completion.dismiss();
+        // The source changed without going through an edit method, so the cached symbol set must
+        // be rediscovered on the next paint pass.
+        self.syntax_edits = u64::MAX;
     }
 
     /// The current buffer as source text. Exactly the text supplied to [`TextEditor::load`]
@@ -672,11 +686,49 @@ impl TextEditor {
         self.selection = None;
     }
 
+    /// Refreshes the syntax context from the live engine snapshot and the current buffer.
+    ///
+    /// The snapshot's `is_builtin` functions are the engine registry's own labels (the same
+    /// capture completion offers), so the highlighter has no builtin table of its own. The
+    /// snapshot is used directly rather than the deduplicated catalogue: a variable named like a
+    /// builtin must not hide that builtin's colour. The symbol set is rediscovered only when the
+    /// buffer's edit counter moved; the builtin comparison is a cheap per-pass scan.
+    fn refresh_syntax(&mut self, engine: &crate::engine::EngineState) {
+        let builtins: Vec<&str> = engine
+            .functions
+            .iter()
+            .filter(|function| function.is_builtin)
+            .map(|function| function.name.as_str())
+            .collect();
+        let unchanged = builtins.len() == self.syntax_builtins.len()
+            && builtins
+                .iter()
+                .zip(self.syntax_builtins.iter())
+                .all(|(live, cached)| *live == cached.as_str());
+        if !unchanged {
+            self.syntax.set_builtins(builtins.iter().copied());
+            self.syntax_builtins = builtins.into_iter().map(str::to_string).collect();
+        }
+        if self.syntax_edits != self.edits {
+            self.syntax
+                .set_symbols(syntax::discover_symbols(&self.source()));
+            self.syntax_edits = self.edits;
+        }
+    }
+
     /// Draws and edits the buffer inside `rect`.
     ///
     /// `catalogue` is the live completion catalogue for the active document (the window
-    /// rebuilds it from the engine's registry and the last committed snapshot each pass).
-    pub fn ui(&mut self, ui: &mut Ui, rect: Rect, catalogue: &[CompletionItem]) -> EditorMetrics {
+    /// rebuilds it from the engine's registry and the last committed snapshot each pass);
+    /// `engine` is the same capture the catalogue was built from, and supplies the highlighter's
+    /// builtin names.
+    pub fn ui(
+        &mut self,
+        ui: &mut Ui,
+        rect: Rect,
+        catalogue: &[CompletionItem],
+        engine: &crate::engine::EngineState,
+    ) -> EditorMetrics {
         let started = Instant::now();
         let edits_before = self.edits;
         let font = FontId::monospace(13.0);
@@ -998,6 +1050,10 @@ impl TextEditor {
         let visible_rows = ((rect.height() / row_h).ceil() as usize + 1).max(1);
         let last_row = (first_row + visible_rows).min(total);
 
+        // Refresh after this pass's typing events, so a symbol declared by the character just
+        // typed is painted in the same frame rather than one frame late.
+        self.refresh_syntax(engine);
+
         let painter = ui.painter();
         painter.rect_filled(rect, 0.0, EDITOR_BG);
         painter.rect_filled(
@@ -1044,7 +1100,7 @@ impl TextEditor {
                 }
             }
             let line = &self.lines[row];
-            let job = syntax::job(line, font.clone(), &syntax::DARK);
+            let job = syntax::job(line, font.clone(), &syntax::DARK, &self.syntax);
             let galley = painter.layout_job(job);
             laid_out += 1;
             painter.galley(pos2(text_left, y), galley, syntax::DARK.plain);
@@ -1331,6 +1387,43 @@ mod tests {
 
     fn caret(editor: &TextEditor) -> (usize, usize) {
         (editor.caret_row, editor.caret_col)
+    }
+
+    #[test]
+    fn syntax_context_refreshes_builtins_from_the_engine_and_symbols_from_the_buffer() {
+        let state = crate::engine::EngineState {
+            variables: Vec::new(),
+            functions: vec![builtin("squeeze", &["a"])],
+        };
+        let mut editor = TextEditor::from_source("t = symbol(\"t\")");
+        editor.refresh_syntax(&state);
+        assert!(
+            editor.syntax.is_builtin("squeeze"),
+            "the engine's builtin is used"
+        );
+        assert!(
+            editor.syntax.is_symbol("t"),
+            "the buffer's symbol is discovered"
+        );
+        assert!(
+            !editor.syntax.is_builtin("round"),
+            "a name absent from the engine stays plain"
+        );
+
+        // A buffer replacement invalidates the cached symbol set.
+        editor.load("u = symbol(\"u\")");
+        editor.refresh_syntax(&state);
+        assert!(editor.syntax.is_symbol("u"));
+        assert!(!editor.syntax.is_symbol("t"));
+
+        // A changed engine snapshot refreshes the builtin set without a buffer edit.
+        let state = crate::engine::EngineState {
+            variables: Vec::new(),
+            functions: vec![builtin("round", &["x"])],
+        };
+        editor.refresh_syntax(&state);
+        assert!(editor.syntax.is_builtin("round"));
+        assert!(!editor.syntax.is_builtin("squeeze"));
     }
 
     #[test]

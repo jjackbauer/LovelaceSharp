@@ -1015,14 +1015,37 @@
                      "type":  "W",
                      "requirement":  "Implement Lovelace grammar highlighting",
                      "acceptance":  "Numbers, exact rationals, strings/interpolation, keywords, operators, function definitions, builtins, delimiters, brackets and symbolic tokens highlight contextually.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-20/highlighting-detail-2x.png",
+                                          "sha256":  "5287C577B9D28F6481C548CEB21B3D33EB26DA61E0595E8FC2758983EBFF53BC",
+                                          "class":  "gui",
+                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-20/highlighting.png",
+                                          "sha256":  "AF62874B5F849B8F9EE8D46E8F3FE25B2FC8521D6F723A1C9D4AD08020959FEB",
+                                          "class":  "gui",
+                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-20/highlighting.md",
+                                          "sha256":  "58E8BE93C33E11CCE754C9C21100B6E1AC5D6288B45CF7B2D0C7DDEAEB97C682",
+                                          "class":  "gui",
+                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/ui/syntax.rs",
+                                          "sha256":  "8C95ED0636FBDDF8D23A903587AA06828F944250763528FB8D4702CD0620F79E",
+                                          "class":  "gui",
+                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop syntax::tests; PrintWindow capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "12 classifier tests assert exact (byte range, class); capture shows keywords, declared function name, engine builtins, symbols, exact rationals, strings and interpolation expressions; hardcoded builtin list removed in favour of the engine snapshot."
                  },
                  {
                      "id":  "EDT-003",

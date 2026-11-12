@@ -381,6 +381,10 @@ impl Workbench {
     ///
     /// Keys/colour/insertion all read this one list; the window rebuilds it per frame so an
     /// engine snapshot landing or a document switch is reflected without a cache to invalidate.
+    /// The window itself now takes one [`Workbench::completion_state`] capture and builds the
+    /// catalogue from it, so the syntax highlighter can read the same builtin flags; this
+    /// convenience form remains the host/test entry point.
+    #[cfg_attr(not(test), allow(dead_code))]
     pub fn completion_catalogue(&self) -> Vec<CompletionItem> {
         let state = self.completion_state();
         completion::build_catalogue(language::KEYWORDS, &state.functions, &state.variables)

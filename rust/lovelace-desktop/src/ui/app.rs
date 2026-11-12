@@ -534,8 +534,15 @@ impl WorkbenchApp {
         let diagnostic = self.workbench.active_diagnostic().cloned();
         // The live catalogue: keywords, the engine's registered functions and the active
         // document's last committed variables/user functions. Built fresh each pass so an
-        // engine snapshot landing or a tab switch is reflected immediately.
-        let catalogue = self.workbench.completion_catalogue();
+        // engine snapshot landing or a tab switch is reflected immediately. The same capture is
+        // handed to the editor, whose highlighter uses its builtin flags without the catalogue's
+        // shadowing dedup (a variable named like a builtin must not hide that builtin's colour).
+        let engine_state = self.workbench.completion_state();
+        let catalogue = crate::completion::build_catalogue(
+            crate::language::KEYWORDS,
+            &engine_state.functions,
+            &engine_state.variables,
+        );
         let pane_title = format!("Editor - {title}");
         with_pane(ui, rect, &pane_title, |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
@@ -558,7 +565,7 @@ impl WorkbenchApp {
                 }
             });
             let before = self.editors[active].edits;
-            let metrics = self.editors[active].ui(ui, body, &catalogue);
+            let metrics = self.editors[active].ui(ui, body, &catalogue, &engine_state);
             if self.editors[active].edits != before {
                 // An edit makes the old position describe text that is gone. Drop it now, not
                 // only on the next frame, so the paint pass cannot show a stale underline.
