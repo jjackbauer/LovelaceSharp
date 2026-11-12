@@ -86,7 +86,9 @@ mod tests {
     #[test]
     fn both_dialogs_offer_the_lv_extension() {
         assert!(
-            OPEN_FILTERS.iter().any(|(_, pattern)| pattern.contains("*.lv")),
+            OPEN_FILTERS
+                .iter()
+                .any(|(_, pattern)| pattern.contains("*.lv")),
             "Open must list .lv files: {OPEN_FILTERS:?}"
         );
         assert_eq!(

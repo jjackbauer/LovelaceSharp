@@ -861,10 +861,7 @@ impl Workbench {
         self.log(
             index,
             LogKind::Info,
-            format!(
-                "Opened {} ({bytes} bytes, {detail}).",
-                path.display()
-            ),
+            format!("Opened {} ({bytes} bytes, {detail}).", path.display()),
         );
     }
 
@@ -1025,7 +1022,8 @@ impl Workbench {
         let path = path.to_string_lossy().into_owned();
         self.recent_files.retain(|existing| existing != &path);
         self.recent_files.insert(0, path);
-        self.recent_files.truncate(crate::settings::MAX_RECENT_FILES);
+        self.recent_files
+            .truncate(crate::settings::MAX_RECENT_FILES);
     }
 
     /// DOC-004: adopts the persisted recent list when the application starts.
@@ -1137,7 +1135,10 @@ impl Workbench {
                         Err(message) => match record {
                             Some(record) => {
                                 report.recovered.push(record.document_id);
-                                Some(Self::restored_from_record(record, DocumentId(tab.document_id)))
+                                Some(Self::restored_from_record(
+                                    record,
+                                    DocumentId(tab.document_id),
+                                ))
                             }
                             None => {
                                 report.skipped.push(message);
@@ -1149,7 +1150,10 @@ impl Workbench {
                 None => match record {
                     Some(record) => {
                         report.recovered.push(record.document_id);
-                        Some(Self::restored_from_record(record, DocumentId(tab.document_id)))
+                        Some(Self::restored_from_record(
+                            record,
+                            DocumentId(tab.document_id),
+                        ))
                     }
                     None => {
                         report.skipped.push(format!(
@@ -1245,7 +1249,9 @@ impl Workbench {
                 document.total = 0;
                 document.elapsed_ms = 0;
                 if was_active {
-                    document.run_state.reset("document recovered from the journal");
+                    document
+                        .run_state
+                        .reset("document recovered from the journal");
                 }
             }
             self.active = index;
@@ -1312,8 +1318,7 @@ impl Workbench {
 
     /// Appends one restored document and returns its index.
     fn install_document(&mut self, restored: RestoredDocument) -> usize {
-        let mut document =
-            WorkbenchDocument::new(restored.id, &restored.title, &restored.source);
+        let mut document = WorkbenchDocument::new(restored.id, &restored.title, &restored.source);
         document.path = restored.path;
         document.newline = restored
             .newline
@@ -2545,7 +2550,10 @@ mod tests {
             before.functions.len(),
             "the function table is untouched"
         );
-        assert_eq!(after.result, before.result, "the result display is untouched");
+        assert_eq!(
+            after.result, before.result,
+            "the result display is untouched"
+        );
         assert!(
             workbench.documents()[0]
                 .logs
@@ -2616,7 +2624,7 @@ mod tests {
                 if self
                     .cancel
                     .as_ref()
-                    .map_or(false, |flag| flag.load(Ordering::Acquire))
+                    .is_some_and(|flag| flag.load(Ordering::Acquire))
                 {
                     return Err("Cancelled inside the kernel.".to_string());
                 }
@@ -3718,7 +3726,8 @@ mod tests {
             "quick eval must not advance the active document's revision"
         );
         assert_eq!(
-            workbench.documents()[0].revision, inactive_revision,
+            workbench.documents()[0].revision,
+            inactive_revision,
             "quick eval must not touch the inactive document"
         );
         assert_eq!(document.state(), RunState::Finished);
@@ -3863,10 +3872,7 @@ mod tests {
         );
         let document = &workbench.documents()[0];
         assert!(
-            !document
-                .logs
-                .iter()
-                .any(|line| line.kind == LogKind::Echo),
+            !document.logs.iter().any(|line| line.kind == LogKind::Echo),
             "a refused submission has no run to echo"
         );
         assert!(
@@ -3954,7 +3960,8 @@ mod tests {
                 );
                 assert_eq!(view.total, 4);
                 assert_eq!(
-                    view.variables, expected_variables[n - 1],
+                    view.variables,
+                    expected_variables[n - 1],
                     "variables after statement {n} were {:?}",
                     view.variables
                 );
@@ -3966,7 +3973,8 @@ mod tests {
                     .map(|variable| (variable.name.clone(), variable.display.clone()))
                     .collect();
                 assert_eq!(
-                    state_variables, expected_variables[n - 1],
+                    state_variables,
+                    expected_variables[n - 1],
                     "the completion capture must describe the same committed prefix"
                 );
                 assert_eq!(
@@ -4000,15 +4008,12 @@ mod tests {
                     .rev()
                     .find(|line| line.kind == LogKind::Progress)
                     .expect("every commit flushes its progress line");
-                assert_eq!(
-                    progress.text,
-                    format!("statement {n}/4: {}", labels[n - 1])
-                );
+                assert_eq!(progress.text, format!("statement {n}/4: {}", labels[n - 1]));
                 assert_eq!(progress.statement, Some(n - 1));
                 assert!(
                     view.logs
                         .iter()
-                        .all(|line| line.statement.map_or(true, |statement| statement < n)),
+                        .all(|line| line.statement.is_none_or(|statement| statement < n)),
                     "after commit {n} the log still holds a later statement's line: {:?}",
                     view.logs
                 );
@@ -4156,7 +4161,9 @@ mod tests {
         }));
         assert!(view.logs.iter().any(|line| {
             line.kind == LogKind::Timing
-                && line.text.contains("Run failed after 2 committed statements")
+                && line
+                    .text
+                    .contains("Run failed after 2 committed statements")
         }));
         // The same view supplies the completion capture, and it agrees: only a and b.
         let names: Vec<&str> = view
@@ -4314,9 +4321,7 @@ mod tests {
         );
         assert_eq!(view.diagnostic, None, "a cancellation is not a diagnostic");
         assert!(view.logs.iter().any(|line| {
-            line.kind == LogKind::Timing
-                && line.text
-                    .contains("Run cancelled after 2 statements")
+            line.kind == LogKind::Timing && line.text.contains("Run cancelled after 2 statements")
         }));
         let names: Vec<&str> = view
             .state
@@ -4457,7 +4462,10 @@ mod tests {
         let mut workbench = fake_workbench();
         let index = workbench.open(&path).expect("open");
         let id = workbench.document(index).expect("tab").id;
-        assert!(workbench.dirty_documents().is_empty(), "a fresh tab is clean");
+        assert!(
+            workbench.dirty_documents().is_empty(),
+            "a fresh tab is clean"
+        );
 
         workbench.set_source(index, "a = 1\r\nb = 3\r\n".to_string());
         let document = workbench.document(index).expect("tab");
@@ -4565,7 +4573,9 @@ mod tests {
 
         let mut workbench = fake_workbench();
         let before = workbench.documents().len();
-        let message = workbench.open(&path).expect_err("a non-UTF-8 file must be refused");
+        let message = workbench
+            .open(&path)
+            .expect_err("a non-UTF-8 file must be refused");
         assert!(
             message.contains("not UTF-8") && message.contains("re-save it as UTF-8"),
             "the message must say what is wrong and what to do: {message}"
@@ -4584,9 +4594,11 @@ mod tests {
             bytes,
             "a refused file must never be rewritten"
         );
-        let logged = workbench.active_document().logs.iter().any(|line| {
-            line.kind == LogKind::Diagnostic && line.text.contains("not UTF-8")
-        });
+        let logged = workbench
+            .active_document()
+            .logs
+            .iter()
+            .any(|line| line.kind == LogKind::Diagnostic && line.text.contains("not UTF-8"));
         assert!(logged, "the refusal must be in the log");
         let _ = std::fs::remove_file(&path);
     }
@@ -4759,7 +4771,11 @@ mod tests {
         let session = workbench.session_state();
         let ids: Vec<u64> = workbench.documents().iter().map(|doc| doc.id.0).collect();
         assert_eq!(
-            session.documents.iter().map(|tab| tab.document_id).collect::<Vec<_>>(),
+            session
+                .documents
+                .iter()
+                .map(|tab| tab.document_id)
+                .collect::<Vec<_>>(),
             ids,
             "the session keeps tab order"
         );
@@ -4812,7 +4828,10 @@ mod tests {
             report.skipped
         );
         assert!(
-            report.skipped.iter().all(|skipped| skipped.contains("no recovery record")),
+            report
+                .skipped
+                .iter()
+                .all(|skipped| skipped.contains("no recovery record")),
             "{:?}",
             report.skipped
         );
@@ -4831,7 +4850,10 @@ mod tests {
             "second.lv",
             "the active tab is the tab the user had selected, not a shifted neighbour"
         );
-        assert_eq!(relaunched.documents()[1].source, "plot([1], [4], \"two\")\r\n");
+        assert_eq!(
+            relaunched.documents()[1].source,
+            "plot([1], [4], \"two\")\r\n"
+        );
         assert_eq!(
             relaunched.documents()[1].newline,
             NewlineStyle::CrLf,
@@ -4849,7 +4871,10 @@ mod tests {
             );
         }
         assert!(
-            relaunched.documents().iter().all(|doc| doc.state() == RunState::Idle),
+            relaunched
+                .documents()
+                .iter()
+                .all(|doc| doc.state() == RunState::Idle),
             "restoring must not run anything"
         );
         assert!(
@@ -4888,7 +4913,12 @@ mod tests {
         let report = workbench.restore_session(&session, &[]);
         assert_eq!(report.restored.len(), 1);
         assert_eq!(calls.load(Ordering::SeqCst), 0, "no engine was constructed");
-        assert!(workbench.documents().iter().all(|doc| doc.state() == RunState::Idle));
+        assert!(
+            workbench
+                .documents()
+                .iter()
+                .all(|doc| doc.state() == RunState::Idle)
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -4937,7 +4967,11 @@ mod tests {
         assert!(document.dirty(), "a recovered unsaved buffer is dirty");
         assert_eq!(document.caret, (1, 4));
         assert_eq!(document.selection, Some(((0, 0), (1, 4))));
-        assert_eq!(document.id, DocumentId(5), "the identity the journal is keyed by");
+        assert_eq!(
+            document.id,
+            DocumentId(5),
+            "the identity the journal is keyed by"
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -4957,11 +4991,19 @@ mod tests {
         workbench.set_source(0, "a = 1\n".to_string());
         workbench.set_caret(0, (0, 5), Some(((0, 2), (0, 5))));
         let report = journal.sync(workbench.documents(), start);
-        assert_eq!(report.written, vec![document_id], "the first edit is journaled at once");
+        assert_eq!(
+            report.written,
+            vec![document_id],
+            "the first edit is journaled at once"
+        );
         assert!(path.exists());
         let first = RecoveryRecord::parse(&std::fs::read(&path).expect("read")).expect("parses");
         assert_eq!(first.source, "a = 1\n");
-        assert_eq!(first.source.as_bytes(), b"a = 1\n", "byte-identical to the buffer");
+        assert_eq!(
+            first.source.as_bytes(),
+            b"a = 1\n",
+            "byte-identical to the buffer"
+        );
         assert_eq!(first.caret, (0, 5));
         assert_eq!(first.selection, Some(((0, 2), (0, 5))));
         assert_eq!(first.path, None);
@@ -4969,7 +5011,10 @@ mod tests {
         // A keystroke 500 ms later is inside the window: the record must not be rewritten.
         workbench.set_source(0, "a = 2\n".to_string());
         let report = journal.sync(workbench.documents(), start + Duration::from_millis(500));
-        assert!(report.written.is_empty(), "typing must not rewrite per keystroke");
+        assert!(
+            report.written.is_empty(),
+            "typing must not rewrite per keystroke"
+        );
         assert_eq!(
             std::fs::read(&path).expect("read"),
             first.to_bytes(),
@@ -5014,10 +5059,16 @@ mod tests {
         let mut workbench = fake_workbench();
         let index = workbench.open(&file).expect("open");
         let document = workbench.document(index).expect("tab");
-        assert_eq!(document.source_mtime, Some(expected), "open records the mtime");
+        assert_eq!(
+            document.source_mtime,
+            Some(expected),
+            "open records the mtime"
+        );
         workbench.set_source(index, "a = 2\n".to_string());
-        let record =
-            RecoveryRecord::from_document(workbench.document(index).expect("tab"), SystemTime::now());
+        let record = RecoveryRecord::from_document(
+            workbench.document(index).expect("tab"),
+            SystemTime::now(),
+        );
         assert_eq!(record.source_mtime, Some(expected));
         assert_eq!(record.path, Some(file.clone()));
         assert!(
@@ -5038,7 +5089,6 @@ mod tests {
         std::fs::write(&file, on_disk).expect("fixture");
 
         let session;
-        let record;
         {
             // "The process": a workbench and its journal. It is dropped below without ever calling
             // the clean-exit path, which is exactly what a forced kill leaves behind.
@@ -5059,9 +5109,17 @@ mod tests {
 
         let scanned = recovery_mod::scan(&recovery_root);
         assert_eq!(scanned.warnings, Vec::<String>::new());
-        assert_eq!(scanned.records.len(), 1, "the record survived the simulated crash");
-        record = scanned.records[0].clone();
-        assert_eq!(record.path, Some(file.clone()), "the record reports the original path");
+        assert_eq!(
+            scanned.records.len(),
+            1,
+            "the record survived the simulated crash"
+        );
+        let record = scanned.records[0].clone();
+        assert_eq!(
+            record.path,
+            Some(file.clone()),
+            "the record reports the original path"
+        );
         assert_eq!(record.title, "notes.lv");
         assert_eq!(
             record.source, "a = 1\nb = 3\nc = 4\n",
@@ -5072,15 +5130,25 @@ mod tests {
         // puts the missing edit back into that tab. The file itself is not touched.
         let mut relaunched = fake_workbench();
         let restore = relaunched.restore_session(&session, &scanned.records);
-        assert_eq!(restore.restored.len(), 1, "the file's tab is back from disk");
+        assert_eq!(
+            restore.restored.len(),
+            1,
+            "the file's tab is back from disk"
+        );
         assert!(
             restore.recovered.is_empty(),
             "a readable file is restored from disk, leaving its record for the prompt"
         );
         let recovered = relaunched.recover(&record);
-        assert!(recovered.replaced, "the text goes back into the tab that owns the file");
+        assert!(
+            recovered.replaced,
+            "the text goes back into the tab that owns the file"
+        );
         let document = relaunched.document(recovered.index).expect("tab");
-        assert_eq!(document.source, "a = 1\nb = 3\nc = 4\n", "the exact text is restored");
+        assert_eq!(
+            document.source, "a = 1\nb = 3\nc = 4\n",
+            "the exact text is restored"
+        );
         assert_eq!(document.path, Some(file.clone()));
         assert_eq!(document.caret, (2, 5));
         assert!(document.dirty());
@@ -5090,7 +5158,10 @@ mod tests {
             on_disk,
             "recovering must not overwrite the file"
         );
-        assert!(document.state() == RunState::Idle, "recovering runs nothing");
+        assert!(
+            document.state() == RunState::Idle,
+            "recovering runs nothing"
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -5115,7 +5186,10 @@ mod tests {
         let report = journal.clean_exit(workbench.documents());
         assert_eq!(report.deleted, vec![id]);
         assert!(!record_path(&recovery_root, id).exists());
-        assert!(foreign.exists(), "only this session's records are cleaned up");
+        assert!(
+            foreign.exists(),
+            "only this session's records are cleaned up"
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 }

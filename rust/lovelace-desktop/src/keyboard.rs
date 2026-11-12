@@ -88,11 +88,7 @@ pub fn command_for_shortcut(
 ///
 /// The returned command is what the window executes, so this function is the single definition of
 /// DOC-002's shortcut table.
-pub fn file_command_for_shortcut(
-    letter: char,
-    modifier: bool,
-    shift: bool,
-) -> Option<FileCommand> {
+pub fn file_command_for_shortcut(letter: char, modifier: bool, shift: bool) -> Option<FileCommand> {
     if !modifier {
         return None;
     }

@@ -124,9 +124,7 @@ fn usage() -> String {
     text.push_str(
         "  lovelace-desktop --gui-selftest     headless acceptance of the workbench run path\n",
     );
-    text.push_str(
-        "  lovelace-desktop --journey <ID> [--journey <ID> ...] [--out <dir>]\n",
-    );
+    text.push_str("  lovelace-desktop --journey <ID> [--journey <ID> ...] [--out <dir>]\n");
     text.push_str(
         "                                      run J-02/J-03/J-09/J-10/J-15 through the same\n",
     );
@@ -137,9 +135,7 @@ fn usage() -> String {
     text.push_str(
         "  lovelace-desktop --selftest         headless acceptance of the pre-cutover core\n",
     );
-    text.push_str(
-        "  lovelace-desktop --raster-svg <in.svg> --out <out.png> [--scale N]\n",
-    );
+    text.push_str("  lovelace-desktop --raster-svg <in.svg> --out <out.png> [--scale N]\n");
     text.push_str(
         "                                      rasterise one SVG exactly as the plot pane does\n",
     );
@@ -154,7 +150,9 @@ fn usage() -> String {
     text.push_str("  Ctrl+O                              open a Lovelace script from disk\n");
     text.push_str("  Ctrl+S                              save the active document\n");
     text.push_str("  Ctrl+Shift+S                        save the active document as a new file\n");
-    text.push_str("  Ctrl+W                              close the active tab (prompts when dirty)\n");
+    text.push_str(
+        "  Ctrl+W                              close the active tab (prompts when dirty)\n",
+    );
     text.push_str("  Ctrl+Enter                          run the active document\n");
     text.push_str("  Esc                                 cancel the in-flight run\n");
     text.push_str("  Ctrl+Z                              undo the active document's last edit\n");

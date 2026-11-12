@@ -111,7 +111,7 @@ pub fn command_for_shortcut(
 }
 
 /// The undo and redo stacks of one document.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct History {
     undo: Vec<Snapshot>,
     redo: Vec<Snapshot>,
@@ -119,17 +119,6 @@ pub struct History {
     typing_open: bool,
     /// When the last insertion of the open burst happened.
     last_typing: Option<Instant>,
-}
-
-impl Default for History {
-    fn default() -> History {
-        History {
-            undo: Vec::new(),
-            redo: Vec::new(),
-            typing_open: false,
-            last_typing: None,
-        }
-    }
 }
 
 impl History {

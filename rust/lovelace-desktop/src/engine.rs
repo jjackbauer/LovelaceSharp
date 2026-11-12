@@ -16,8 +16,8 @@
 //! The trait keeps the engine call shape from the contract exactly:
 //! eval(source) -> Result<String, String>, where the string is the value's display form.
 
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 
 use lovelace_json::Json;
 
@@ -367,7 +367,10 @@ pub trait Evaluator {
     /// default below is only for minimal evaluators; it derives a best-effort capture from the
     /// two older accessors.
     fn state(&self) -> Option<EngineState> {
-        Some(EngineState::from_legacy(&self.variables(), &self.functions()))
+        Some(EngineState::from_legacy(
+            &self.variables(),
+            &self.functions(),
+        ))
     }
 
     /// The engine's structured projection of the value the most recent successful [`Self::eval`]
@@ -567,7 +570,10 @@ mod tests {
         assert_eq!(state.variables[0].name, "n");
         assert_eq!(state.variables[0].kind, "Natural");
         assert_eq!(state.variables[0].display, "3");
-        assert_eq!(state.variables[1].kind, "Value", "an untyped display has no kind");
+        assert_eq!(
+            state.variables[1].kind, "Value",
+            "an untyped display has no kind"
+        );
         assert_eq!(state.variables[1].display, "true");
         assert_eq!(state.variables[2].kind, "Array");
         assert_eq!(state.variables[2].display, "[1, 2]");
@@ -588,7 +594,10 @@ mod tests {
         let text = state.variables.iter().find(|v| v.name == "text").unwrap();
         assert_eq!(text.kind, "Text");
         assert!(
-            state.functions.iter().any(|f| f.name == "abs" && f.is_builtin),
+            state
+                .functions
+                .iter()
+                .any(|f| f.name == "abs" && f.is_builtin),
             "the fake's own registry is marked builtin: {:?}",
             state.functions
         );
@@ -682,7 +691,9 @@ mod tests {
     #[cfg(feature = "real-engine")]
     fn the_real_engine_publishes_its_registry_and_marks_user_functions() {
         let mut engine = RealEngine::new();
-        let state = engine.state().expect("the real engine publishes its snapshot");
+        let state = engine
+            .state()
+            .expect("the real engine publishes its snapshot");
         let sqrt = state
             .functions
             .iter()

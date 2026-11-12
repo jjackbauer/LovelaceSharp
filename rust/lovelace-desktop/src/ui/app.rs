@@ -580,7 +580,9 @@ impl WorkbenchApp {
         // been approved nothing may journal or persist again: the clean exit has already recorded
         // the final state on disk.
         if !self.window_close_approved {
-            let report = self.recovery.sync(self.workbench.documents(), Instant::now());
+            let report = self
+                .recovery
+                .sync(self.workbench.documents(), Instant::now());
             for failure in report.failed {
                 self.workbench
                     .log_active(LogKind::Diagnostic, format!("Recovery journal: {failure}"));
@@ -780,7 +782,9 @@ impl WorkbenchApp {
         let Some(prompt) = self.recovery_prompt.as_mut() else {
             return;
         };
-        prompt.records.retain(|record| record.document_id != document_id);
+        prompt
+            .records
+            .retain(|record| record.document_id != document_id);
         if prompt.records.is_empty() {
             if let Some(prompt) = self.recovery_prompt.take() {
                 self.pending_focus = Some(prompt.focus_before.unwrap_or_else(surface_id));
@@ -1023,7 +1027,12 @@ impl WorkbenchApp {
         let mut answer: Option<UnsavedAnswer> = None;
         let modal = egui::Modal::new(egui::Id::unique("unsaved-changes-prompt")).show(ctx, |ui| {
             ui.set_max_width(480.0);
-            ui.label(RichText::new("Unsaved changes").strong().size(16.0).color(TEXT));
+            ui.label(
+                RichText::new("Unsaved changes")
+                    .strong()
+                    .size(16.0)
+                    .color(TEXT),
+            );
             ui.add_space(4.0);
             ui.label(
                 RichText::new(format!("Save changes to {title} before closing?"))
@@ -1098,7 +1107,12 @@ impl WorkbenchApp {
         let mut answer: Option<(usize, RecoveryAnswer)> = None;
         let modal = egui::Modal::new(egui::Id::unique("recovery-prompt")).show(ctx, |ui| {
             ui.set_max_width(760.0);
-            ui.label(RichText::new("Recover unsaved work").strong().size(16.0).color(TEXT));
+            ui.label(
+                RichText::new("Recover unsaved work")
+                    .strong()
+                    .size(16.0)
+                    .color(TEXT),
+            );
             ui.add_space(4.0);
             ui.label(
                 RichText::new(
@@ -1144,9 +1158,8 @@ impl WorkbenchApp {
                                     } else {
                                         text
                                     };
-                                    let response = ui.add(
-                                        egui::Button::new(text).min_size(vec2(96.0, 26.0)),
-                                    );
+                                    let response =
+                                        ui.add(egui::Button::new(text).min_size(vec2(96.0, 26.0)));
                                     if response.clicked() {
                                         answer = Some((row, choice));
                                     }
@@ -1867,11 +1880,11 @@ impl WorkbenchApp {
                     self.plot_export = Some(PngExport::default());
                 }
                 if let Some((status, error)) = &self.plot_export_status {
-                    ui.label(
-                        RichText::new(status)
-                            .small()
-                            .color(if *error { ERROR } else { ACCENT }),
-                    );
+                    ui.label(RichText::new(status).small().color(if *error {
+                        ERROR
+                    } else {
+                        ACCENT
+                    }));
                 }
             });
             if empty {
@@ -1983,11 +1996,8 @@ impl WorkbenchApp {
         let mut open = true;
         let mut close = false;
         let mut save = false;
-        let dimensions = match plot::export_pixels(
-            self.plot.svg_w,
-            self.plot.svg_h,
-            options.scale,
-        ) {
+        let dimensions = match plot::export_pixels(self.plot.svg_w, self.plot.svg_h, options.scale)
+        {
             Ok((width, height)) => format!("{width} x {height} px"),
             Err(error) => error,
         };
@@ -2570,7 +2580,11 @@ fn paint_inspector(
     toggles: &mut Vec<(String, Rect)>,
 ) {
     ui.set_max_width(width.max(120.0));
-    ui.label(RichText::new("INSPECTOR · last committed result").small().color(DIM));
+    ui.label(
+        RichText::new("INSPECTOR · last committed result")
+            .small()
+            .color(DIM),
+    );
     if !view.has_snapshot {
         ui.label(RichText::new("No run has published a result yet.").color(DIM));
         return;
@@ -2609,9 +2623,12 @@ fn paint_inspector(
         .map(|detail| format!(" · {detail}"))
         .unwrap_or_default();
     ui.label(
-        RichText::new(format!("subject  {} · {}{detail}", subject.kind, subject.path))
-            .monospace()
-            .color(ACCENT),
+        RichText::new(format!(
+            "subject  {} · {}{detail}",
+            subject.kind, subject.path
+        ))
+        .monospace()
+        .color(ACCENT),
     );
 
     paint_inspector_heading(ui, "Pretty", "");
@@ -2628,7 +2645,11 @@ fn paint_inspector(
 
     match &inspection.tree {
         Section::Supplied(tree) => {
-            paint_inspector_heading(ui, "Expression tree", &count_label(tree.count(), "node", "nodes"));
+            paint_inspector_heading(
+                ui,
+                "Expression tree",
+                &count_label(tree.count(), "node", "nodes"),
+            );
             paint_inspector_node(ui, tree, TREE_ROOT_PATH, expansion, toggles);
         }
         Section::Missing(reason) => {
@@ -2646,9 +2667,11 @@ fn paint_inspector(
             );
             if assumptions.is_empty() {
                 ui.label(
-                    RichText::new("No active assumptions constrain the free symbols of this result.")
-                        .small()
-                        .color(DIM),
+                    RichText::new(
+                        "No active assumptions constrain the free symbols of this result.",
+                    )
+                    .small()
+                    .color(DIM),
                 );
             }
             for assumption in assumptions {
@@ -2663,7 +2686,11 @@ fn paint_inspector(
 
     match &inspection.trace {
         Section::Supplied(steps) => {
-            paint_inspector_heading(ui, "Simplification trace", &count_label(steps.len(), "step", "steps"));
+            paint_inspector_heading(
+                ui,
+                "Simplification trace",
+                &count_label(steps.len(), "step", "steps"),
+            );
             if steps.is_empty() {
                 ui.label(
                     RichText::new(
@@ -2808,23 +2835,14 @@ fn paint_inspector_assumption(ui: &mut Ui, assumption: &crate::inspector::Assump
                 .small()
                 .color(DIM),
         );
-        ui.label(
-            RichText::new(assumption.type_label())
-                .small()
-                .color(ACCENT),
-        );
+        ui.label(RichText::new(assumption.type_label()).small().color(ACCENT));
         ui.label(RichText::new(&assumption.label).monospace().color(TEXT));
     });
     if let Some(canonical) = &assumption.canonical {
         ui.horizontal_wrapped(|ui| {
             ui.add_space(12.0);
             ui.label(RichText::new("canonical").small().color(DIM));
-            ui.label(
-                RichText::new(canonical)
-                    .small()
-                    .monospace()
-                    .color(DIM),
-            );
+            ui.label(RichText::new(canonical).small().monospace().color(DIM));
         });
     }
 }
@@ -2859,7 +2877,8 @@ fn paint_inspector_node(
         ui.ctx().request_repaint();
     }
     let accessible = expansion.accessible_name(path, &label);
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
     let action = if expansion.is_collapsed(path) {
         "expand"
     } else {
@@ -2906,10 +2925,7 @@ fn paint_result_section(
         ui.label(RichText::new("No run has published a result yet.").color(DIM));
         return;
     }
-    let projection = ResultProjection::new(
-        view.result.clone(),
-        view.result_structured.clone(),
-    );
+    let projection = ResultProjection::new(view.result.clone(), view.result_structured.clone());
     // RES-004: the one place the expansion map is scoped to its result. A repaint of the same
     // committed snapshot returns false and keeps every path; a commit that publishes a different
     // value replaces the map instead of applying paths that name the old tree.
@@ -2966,9 +2982,7 @@ fn paint_toggle(
     let visible = expansion.header_text(path, label);
     let response = ui
         .push_id(path, |ui| {
-            ui.add(
-                egui::Button::new(RichText::new(visible).monospace().color(ACCENT)).frame(false),
-            )
+            ui.add(egui::Button::new(RichText::new(visible).monospace().color(ACCENT)).frame(false))
         })
         .inner;
     if response.clicked() {
@@ -2979,7 +2993,8 @@ fn paint_toggle(
         ui.ctx().request_repaint();
     }
     let accessible = expansion.accessible_name(path, label);
-    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
     let action = if expansion.is_collapsed(path) {
         "expand"
     } else {
@@ -3039,11 +3054,7 @@ fn paint_scalar(ui: &mut Ui, scalar: &crate::results_tree::ScalarNode) {
         ui.label(RichText::new(&scalar.kind).monospace().color(DIM));
         ui.label(RichText::new(&scalar.value).monospace().color(TEXT));
         for (key, value) in &scalar.details {
-            ui.label(
-                RichText::new(format!("{key}={value}"))
-                    .small()
-                    .color(DIM),
-            );
+            ui.label(RichText::new(format!("{key}={value}")).small().color(DIM));
         }
     });
 }
@@ -3099,7 +3110,11 @@ fn paint_symbolic_body(ui: &mut Ui, symbolic: &crate::results_tree::SymbolicNode
         .wrap(),
     );
     if let Some(domain) = &symbolic.domain {
-        ui.label(RichText::new(format!("domain     {domain}")).small().color(DIM));
+        ui.label(
+            RichText::new(format!("domain     {domain}"))
+                .small()
+                .color(DIM),
+        );
     }
     if !symbolic.free_symbols.is_empty() {
         ui.label(
@@ -3109,7 +3124,11 @@ fn paint_symbolic_body(ui: &mut Ui, symbolic: &crate::results_tree::SymbolicNode
         );
     }
     if let Some(count) = &symbolic.node_count {
-        ui.label(RichText::new(format!("nodes      {count}")).small().color(DIM));
+        ui.label(
+            RichText::new(format!("nodes      {count}"))
+                .small()
+                .color(DIM),
+        );
     }
     if symbolic.truncated {
         ui.label(
@@ -3119,11 +3138,7 @@ fn paint_symbolic_body(ui: &mut Ui, symbolic: &crate::results_tree::SymbolicNode
         );
     }
     for (key, value) in &symbolic.details {
-        ui.label(
-            RichText::new(format!("{key}={value}"))
-                .small()
-                .color(DIM),
-        );
+        ui.label(RichText::new(format!("{key}={value}")).small().color(DIM));
     }
 }
 
@@ -4606,11 +4621,13 @@ mod tests {
             "Enter in the field must submit a run"
         );
         assert_eq!(
-            app.workbench.documents()[0].source, source_before,
+            app.workbench.documents()[0].source,
+            source_before,
             "quick eval must not change the document buffer"
         );
         assert_eq!(
-            app.workbench.documents()[0].revision, revision_before,
+            app.workbench.documents()[0].revision,
+            revision_before,
             "quick eval must not bump the document revision"
         );
         assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
@@ -4624,10 +4641,12 @@ mod tests {
             .collect();
         assert_eq!(echoes.len(), 1, "exactly one echo line per submission");
         assert_eq!(echoes[0].render(), "[echo] >> 6 * 7");
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.kind == LogKind::Result && line.text == "= 42"));
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.kind == LogKind::Result && line.text == "= 42")
+        );
     }
 
     /// LOG-003: Up/Down on the focused field walk accepted submissions newest first and stop at
@@ -4787,7 +4806,10 @@ mod tests {
             "Esc in the field must not start a run"
         );
         assert!(
-            !app.workbench.active_logs().iter().any(|line| line.kind == LogKind::Echo),
+            !app.workbench
+                .active_logs()
+                .iter()
+                .any(|line| line.kind == LogKind::Echo),
             "Esc must not echo or submit"
         );
         assert_eq!(app.editors[0].source(), "a = 1\n");
@@ -4823,10 +4845,7 @@ mod tests {
                 key(Key::E, shortcut),
             ],
         );
-        assert_eq!(
-            ctx.memory(|memory| memory.focused()),
-            Some(quick_eval_id())
-        );
+        assert_eq!(ctx.memory(|memory| memory.focused()), Some(quick_eval_id()));
         frame(
             &ctx,
             &mut app,
@@ -4955,9 +4974,7 @@ mod tests {
             "the scalar kind must come from the projection: {texts:?}"
         );
         assert!(
-            !texts
-                .iter()
-                .any(|text| text.contains("DivRemResult - ")),
+            !texts.iter().any(|text| text.contains("DivRemResult - ")),
             "the record-looking display must not create a record header: {texts:?}"
         );
         assert!(
@@ -5032,9 +5049,7 @@ mod tests {
                                 ("shape", Json::num_array([2])),
                                 (
                                     "elements",
-                                    Json::Arr(
-                                        values.iter().map(|value| solution(value)).collect(),
-                                    ),
+                                    Json::Arr(values.iter().map(|value| solution(value)).collect()),
                                 ),
                             ]),
                         ),
@@ -5483,10 +5498,7 @@ mod tests {
             ("left", Json::Str("x".to_string())),
             ("right", Json::Str("0".to_string())),
             ("label", Json::Str("x > 0".to_string())),
-            (
-                "canonical",
-                Json::Str("(gt (sym x) (rat 0 1))".to_string()),
-            ),
+            ("canonical", Json::Str("(gt (sym x) (rat 0 1))".to_string())),
         ]);
         let leaf = |kind: &str, label: &str| {
             Json::obj([
@@ -5543,7 +5555,10 @@ mod tests {
                                                 ("label", Json::Str("x^2".to_string())),
                                                 (
                                                     "children",
-                                                    Json::Arr(vec![leaf("Sym", "x"), leaf("Num", "2")]),
+                                                    Json::Arr(vec![
+                                                        leaf("Sym", "x"),
+                                                        leaf("Num", "2"),
+                                                    ]),
                                                 ),
                                             ]),
                                         ]),
@@ -5594,19 +5609,11 @@ mod tests {
         let mut view = result_view("Symbolic 3*x^2");
         view.result = "3*x^2".to_string();
         view.result_structured = Some(lovelace_json::Json::obj([
-            (
-                "kind",
-                lovelace_json::Json::Str("Symbolic".to_string()),
-            ),
-            (
-                "pretty",
-                lovelace_json::Json::Str("3*x^2".to_string()),
-            ),
+            ("kind", lovelace_json::Json::Str("Symbolic".to_string())),
+            ("pretty", lovelace_json::Json::Str("3*x^2".to_string())),
             (
                 "canonical",
-                lovelace_json::Json::Str(
-                    "(mul (rat 3 1) (pow (sym x) (rat 2 1)))".to_string(),
-                ),
+                lovelace_json::Json::Str("(mul (rat 3 1) (pow (sym x) (rat 2 1)))".to_string()),
             ),
         ]));
         view.result_inspection = Some(inspector_payload(mathir));
@@ -5618,7 +5625,9 @@ mod tests {
         Json::obj([
             (
                 "text",
-                Json::Str("#!mathir 2\nparam x\nParameter 0 0\nPowInt 0 0,1\nMul 0 0,2".to_string()),
+                Json::Str(
+                    "#!mathir 2\nparam x\nParameter 0 0\nPowInt 0 0,1\nMul 0 0,2".to_string(),
+                ),
             ),
             ("parameters", Json::str_array(["x"])),
             ("resultType", Json::Str("Integer".to_string())),
@@ -5670,7 +5679,9 @@ mod tests {
         let texts = paint_inspector_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
 
         assert!(
-            texts.iter().any(|text| text == "INSPECTOR · last committed result"),
+            texts
+                .iter()
+                .any(|text| text == "INSPECTOR · last committed result"),
             "the inspector heading: {texts:?}"
         );
         assert!(texts.iter().any(|text| text == "Pretty"), "{texts:?}");
@@ -5690,9 +5701,7 @@ mod tests {
             "{texts:?}"
         );
         assert!(
-            texts
-                .iter()
-                .any(|text| text.ends_with("Mul · 3*x^2")),
+            texts.iter().any(|text| text.ends_with("Mul · 3*x^2")),
             "the tree root's node kind and engine rendering: {texts:?}"
         );
         assert!(
@@ -5714,7 +5723,9 @@ mod tests {
             "{texts:?}"
         );
         assert!(
-            texts.iter().any(|text| text == "classification  Conditional"),
+            texts
+                .iter()
+                .any(|text| text == "classification  Conditional"),
             "{texts:?}"
         );
         assert!(
@@ -5814,10 +5825,8 @@ mod tests {
 
         // Editing advances the buffer revision and marks the result stale, but publishes no new
         // result: the inspector must not move.
-        app.workbench.set_source(
-            0,
-            "x = symbol(\"x\")\n1 + 1".to_string(),
-        );
+        app.workbench
+            .set_source(0, "x = symbol(\"x\")\n1 + 1".to_string());
         frame_sized(&ctx, &mut app, screen, Vec::new());
         assert_eq!(
             app.view.result_inspection, before.result_inspection,
@@ -5876,9 +5885,8 @@ mod tests {
         frame_sized(&ctx, &mut app, screen, Vec::new());
         assert!(!app.inspector_open, "the Result view is the default");
 
-        let inspector_tab = app
-            .workspace_view_tabs[1]
-            .expect("the window painted the Inspector tab");
+        let inspector_tab =
+            app.workspace_view_tabs[1].expect("the window painted the Inspector tab");
         let pos = inspector_tab.center();
         frame_sized(&ctx, &mut app, screen, vec![egui::Event::PointerMoved(pos)]);
         frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
@@ -5899,7 +5907,9 @@ mod tests {
             collect_shape_text(&clipped.shape, &mut texts);
         }
         assert!(
-            texts.iter().any(|text| text == "INSPECTOR · last committed result"),
+            texts
+                .iter()
+                .any(|text| text == "INSPECTOR · last committed result"),
             "the inspector heading is painted: {texts:?}"
         );
         assert!(
@@ -5907,18 +5917,21 @@ mod tests {
             "the committed pretty form is painted: {texts:?}"
         );
         assert!(
-            !texts.iter().any(|text| text == "RESULT · structured projection"),
+            !texts
+                .iter()
+                .any(|text| text == "RESULT · structured projection"),
             "the Result view is replaced, not stacked: {texts:?}"
         );
 
-        let result_tab = app
-            .workspace_view_tabs[0]
-            .expect("the window painted the Result tab");
+        let result_tab = app.workspace_view_tabs[0].expect("the window painted the Result tab");
         let pos = result_tab.center();
         frame_sized(&ctx, &mut app, screen, vec![egui::Event::PointerMoved(pos)]);
         frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
         frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, false)]);
-        assert!(!app.inspector_open, "clicking Result must restore the result view");
+        assert!(
+            !app.inspector_open,
+            "clicking Result must restore the result view"
+        );
     }
 
     // -----------------------------------------------------------------------------------------
@@ -5969,7 +5982,11 @@ mod tests {
             self.open.pop_front().flatten()
         }
 
-        fn save_as(&mut self, _suggested: &str, _initial_dir: Option<&std::path::Path>) -> Option<PathBuf> {
+        fn save_as(
+            &mut self,
+            _suggested: &str,
+            _initial_dir: Option<&std::path::Path>,
+        ) -> Option<PathBuf> {
             self.save.pop_front().flatten()
         }
     }
@@ -6043,7 +6060,11 @@ mod tests {
         );
 
         // Escape is the prompt's Cancel.
-        frame(&ctx, &mut app, vec![key(Key::Escape, egui::Modifiers::default())]);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Escape, egui::Modifiers::default())],
+        );
 
         assert!(app.close.is_none(), "Cancel dismisses the prompt");
         assert_eq!(
@@ -6052,10 +6073,14 @@ mod tests {
             "Cancel closes nothing"
         );
         assert_eq!(
-            app.workbench.documents()[index].source, "a = 1\nb = 3\n",
+            app.workbench.documents()[index].source,
+            "a = 1\nb = 3\n",
             "Cancel keeps the edited buffer"
         );
-        assert!(app.workbench.documents()[index].dirty(), "it is still unsaved");
+        assert!(
+            app.workbench.documents()[index].dirty(),
+            "it is still unsaved"
+        );
         assert_eq!(app.editors[index].caret(), caret, "the caret has not moved");
         // The modal's layer blocks the editor for one pass after it stops being painted, so the
         // focus it had before the prompt is granted back on the pass after that.
@@ -6176,7 +6201,11 @@ mod tests {
 
         // Cancel the prompt with Escape: the window stays open, nothing was written.
         settle(&ctx, &mut app);
-        frame(&ctx, &mut app, vec![key(Key::Escape, egui::Modifiers::default())]);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Escape, egui::Modifiers::default())],
+        );
         assert!(app.close.is_none());
         assert!(!app.window_close_approved);
         assert_eq!(
@@ -6347,7 +6376,10 @@ mod tests {
             "Ctrl+S wrote the edit to the document's own path: {:?}",
             String::from_utf8_lossy(&written)
         );
-        assert!(!app.workbench.documents()[0].dirty(), "the marker is cleared");
+        assert!(
+            !app.workbench.documents()[0].dirty(),
+            "the marker is cleared"
+        );
         assert!(!app.window_title.ends_with(" *"));
         let _ = std::fs::remove_file(&path);
     }
@@ -6511,7 +6543,10 @@ mod tests {
             .as_ref()
             .expect("a surviving record is offered at launch");
         assert_eq!(prompt.records.len(), 1);
-        assert_eq!(prompt.records[0], record, "the prompt lists the journaled record");
+        assert_eq!(
+            prompt.records[0], record,
+            "the prompt lists the journaled record"
+        );
         assert_eq!(
             prompt.records[0].path_label(),
             file.display().to_string(),
@@ -6523,10 +6558,16 @@ mod tests {
         pointer_click(&ctx, &mut app, recover_at);
         settle(&ctx, &mut app);
 
-        assert!(app.recovery_prompt.is_none(), "the answer closes the prompt");
+        assert!(
+            app.recovery_prompt.is_none(),
+            "the answer closes the prompt"
+        );
         let index = app.workbench.active();
         let document = &app.workbench.documents()[index];
-        assert_eq!(document.source, "a = 1\nb = 3\n", "the exact journaled text is back");
+        assert_eq!(
+            document.source, "a = 1\nb = 3\n",
+            "the exact journaled text is back"
+        );
         assert_eq!(document.path.as_deref(), Some(file.as_path()));
         assert_eq!(document.caret, (1, 3), "the journaled caret is back");
         assert!(document.dirty(), "the recovered text is unsaved work");
@@ -6544,9 +6585,15 @@ mod tests {
         // Saving is the first action that may overwrite the file, and it retires the record.
         frame(&ctx, &mut app, vec![key(Key::S, ctrl_modifiers())]);
         settle(&ctx, &mut app);
-        assert_eq!(std::fs::read(&file).expect("the saved file"), b"a = 1\nb = 3\n");
+        assert_eq!(
+            std::fs::read(&file).expect("the saved file"),
+            b"a = 1\nb = 3\n"
+        );
         assert!(!app.workbench.documents()[index].dirty());
-        assert!(!record_path.exists(), "a clean document has no recovery record");
+        assert!(
+            !record_path.exists(),
+            "a clean document has no recovery record"
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -6571,7 +6618,8 @@ mod tests {
         assert!(!record_path.exists(), "discarding deletes the record");
         assert_eq!(std::fs::read(&file).expect("their file"), b"a = 1\nb = 2\n");
         assert_eq!(
-            app.workbench.documents()[0].source, "a = 1\nb = 2\n",
+            app.workbench.documents()[0].source,
+            "a = 1\nb = 2\n",
             "discarding changes no buffer"
         );
         let _ = std::fs::remove_dir_all(&directory);
@@ -6653,7 +6701,10 @@ mod tests {
         assert!(saved.warnings.is_empty(), "{:?}", saved.warnings);
         let session = saved.session.expect("the clean quit wrote the session");
         assert_eq!(session.documents.len(), 4, "every tab is in the session");
-        assert_eq!(session.active, first_tab, "the active tab is in the session");
+        assert_eq!(
+            session.active, first_tab,
+            "the active tab is in the session"
+        );
         assert_eq!(
             session.documents[2].path.as_deref(),
             Some(first.to_string_lossy().as_ref()),
@@ -6725,7 +6776,10 @@ mod tests {
         let discard_at = prompt_button(&app, UnsavedAnswer::Discard);
         pointer_click(&ctx, &mut app, discard_at);
 
-        assert!(app.window_close_approved, "Discard approves the window close");
+        assert!(
+            app.window_close_approved,
+            "Discard approves the window close"
+        );
         assert!(
             !record_path.exists(),
             "the clean exit deleted the record and the closing frame did not journal it again"
@@ -6743,7 +6797,10 @@ mod tests {
         let ctx = egui::Context::default();
         settle(&ctx, &mut app);
         let index = app.workbench.active();
-        assert_eq!(app.workbench.active_document().path.as_deref(), Some(file.as_path()));
+        assert_eq!(
+            app.workbench.active_document().path.as_deref(),
+            Some(file.as_path())
+        );
         app.workbench.set_source(index, "a = 2\n".to_string());
         settle(&ctx, &mut app);
 

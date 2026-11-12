@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T21:36:09Z",
+    "generatedAtUtc":  "2026-11-12T22:05:15Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5665,
+                  "passed":  5666,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5666
+                   "tests":  5667
                },
-    "sourcesSha256":  "273e0bea9452967c801eae5ad47547616b11fbd4a28a7c3f42e8b79b3006132e",
+    "sourcesSha256":  "7a8a2865ddc92b2b51455c1b701e39800d6810a77adf79f0f9131138dc686a77",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -5495,6 +5495,7 @@
                                      "inspector::tests::tree_paths_name_child_order",
                                      "journey::tests::a_mismatch_is_a_failure_and_a_match_is_not",
                                      "journey::tests::fractional_digits_counts_only_digits_after_the_point",
+                                     "journey::tests::only_the_artifact_writing_journeys_need_the_output_directory",
                                      "journey::tests::options_require_a_journey_and_reject_unknown_flags",
                                      "journey::tests::sha256_matches_the_nist_vectors",
                                      "keyboard::tests::a_bare_enter_and_unrelated_keys_issue_no_command",

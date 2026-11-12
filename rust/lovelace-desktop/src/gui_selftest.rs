@@ -534,8 +534,14 @@ fn check_plot() -> Result<String, String> {
     if counts != expected_counts {
         return Err(format!(
             "the engine SVG's element counts are rect {} / line {} / text {} / polyline {}, expected {} / {} / {} / {}",
-            counts[0], counts[1], counts[2], counts[3],
-            expected_counts[0], expected_counts[1], expected_counts[2], expected_counts[3]
+            counts[0],
+            counts[1],
+            counts[2],
+            counts[3],
+            expected_counts[0],
+            expected_counts[1],
+            expected_counts[2],
+            expected_counts[3]
         ));
     }
     let parsed = crate::svg::parse(&plot.svg);
@@ -563,9 +569,18 @@ fn check_plot() -> Result<String, String> {
     // The polyline still represents the three plotted points: (1,4) first, (4,5) at the branch,
     // (2,6) last, at the same mapped coordinates the engine's own tick geometry uses.
     let expected_vertices = [
-        crate::svg::Point { x: 101_818, y: 522_500 },
-        crate::svg::Point { x: 738_181, y: 297_500 },
-        crate::svg::Point { x: 313_939, y: 72_500 },
+        crate::svg::Point {
+            x: 101_818,
+            y: 522_500,
+        },
+        crate::svg::Point {
+            x: 738_181,
+            y: 297_500,
+        },
+        crate::svg::Point {
+            x: 313_939,
+            y: 72_500,
+        },
     ];
     for vertex in expected_vertices {
         if !points.contains(&vertex) {
@@ -1643,11 +1658,8 @@ fn check_recovery_corrupt() -> Result<String, String> {
     let valid_path = recovery::record_path(&root, document_id);
     let full = std::fs::read(&valid_path)
         .map_err(|error| format!("recovery-corrupt: cannot read the record: {error}"))?;
-    std::fs::write(
-        recovery::record_path(&root, 90),
-        &full[..full.len() / 2],
-    )
-    .map_err(|error| format!("recovery-corrupt: {error}"))?;
+    std::fs::write(recovery::record_path(&root, 90), &full[..full.len() / 2])
+        .map_err(|error| format!("recovery-corrupt: {error}"))?;
     std::fs::write(recovery::record_path(&root, 91), b"not a record")
         .map_err(|error| format!("recovery-corrupt: {error}"))?;
 

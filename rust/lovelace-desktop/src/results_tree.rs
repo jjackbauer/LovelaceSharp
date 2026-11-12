@@ -353,7 +353,10 @@ impl RecordNode {
     /// The field names, in the projection's order.
     #[allow(dead_code)] // model accessor: tests and any host renderer read it
     pub fn field_names(&self) -> Vec<&str> {
-        self.fields.iter().map(|field| field.name.as_str()).collect()
+        self.fields
+            .iter()
+            .map(|field| field.name.as_str())
+            .collect()
     }
 
     /// Looks up one field's value by its published name.
@@ -676,7 +679,10 @@ mod tests {
         };
         assert_eq!(quotient.kind, "Natural");
         assert_eq!(quotient.value, "3");
-        assert_eq!(quotient.details, [("exact".to_string(), "true".to_string())]);
+        assert_eq!(
+            quotient.details,
+            [("exact".to_string(), "true".to_string())]
+        );
         let StructuredNode::Scalar(remainder) = record.field("remainder").unwrap() else {
             panic!("the remainder field is a scalar");
         };
@@ -721,8 +727,7 @@ mod tests {
     fn the_display_string_cannot_change_the_rendered_tree() {
         let ambiguous = "DivRemResult(quotient: 9, remainder: 9) [1, 2, 3, 4]";
         let other = "[[9, 9], [9, 9]]";
-        let from_ambiguous =
-            ResultProjection::new(ambiguous, Some(matrix_projection())).tree();
+        let from_ambiguous = ResultProjection::new(ambiguous, Some(matrix_projection())).tree();
         let from_other = ResultProjection::new(other, Some(matrix_projection())).tree();
         assert_eq!(
             from_ambiguous, from_other,
@@ -919,10 +924,8 @@ mod tests {
     /// before the collapse and after the re-expand are identical.
     #[test]
     fn re_expanding_a_collapsed_field_restores_identical_model_content() {
-        let projection = ResultProjection::new(
-            "SolveResult(...)",
-            Some(solve_projection(["-2", "2"])),
-        );
+        let projection =
+            ResultProjection::new("SolveResult(...)", Some(solve_projection(["-2", "2"])));
         let tree = projection.tree().expect("the projection yields a tree");
         let mut state = ExpansionState::new();
         state.bind(&projection);
@@ -1217,7 +1220,10 @@ mod tests {
         let StructuredNode::Symbolic(symbolic) = tree else {
             panic!("diff publishes a symbolic expression");
         };
-        assert!(!symbolic.pretty.is_empty(), "the projection publishes pretty");
+        assert!(
+            !symbolic.pretty.is_empty(),
+            "the projection publishes pretty"
+        );
         assert!(
             !symbolic.canonical.is_empty(),
             "the projection publishes canonical"
@@ -1228,7 +1234,10 @@ mod tests {
             "both renderings name the derivative's variable: {symbolic:?}"
         );
         assert!(
-            symbolic.node_count.as_deref().is_some_and(|count| count != "0"),
+            symbolic
+                .node_count
+                .as_deref()
+                .is_some_and(|count| count != "0"),
             "the projection publishes a node count: {symbolic:?}"
         );
     }
@@ -1242,7 +1251,9 @@ mod tests {
         engine
             .eval("m = [[1, 2], [3, 4]]\nr = divrem(7, 2)")
             .expect("the script evaluates");
-        let state = engine.state().expect("the real engine publishes its capture");
+        let state = engine
+            .state()
+            .expect("the real engine publishes its capture");
         let m = state
             .variables
             .iter()

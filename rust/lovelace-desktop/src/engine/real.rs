@@ -71,8 +71,7 @@ impl Evaluator for RealEngine {
                 // SYM-001: the engine's inspection of that same value, captured at the same
                 // commit point. A value that is not symbolic still gets a payload whose six
                 // sections name the reason they are absent.
-                self.last_inspection =
-                    Some(super::inspection::capture(&mut self.engine, &value));
+                self.last_inspection = Some(super::inspection::capture(&mut self.engine, &value));
                 Ok(self.engine.format(&value))
             }
             Err(error) => Err(error.message),

@@ -24,9 +24,9 @@
       "id": "GATE-003",
       "kind": "source",
       "title": "a Unicode-aware source position is off by one column",
-      "target": "rust/lovelace-run/src/main.rs",
-      "find": "let upto = units.len().min(position);",
-      "replace": "let upto = units.len().min(position + 1);",
+      "target": "rust/lovelace-run/src/script_source.rs",
+      "find": "        (line, (source_offset.saturating_sub(line_start)) + 1)",
+      "replace": "        (line, (source_offset.saturating_sub(line_start)) + 2)",
       "gate": "fixtures:error_envelope"
     },
     {
@@ -70,8 +70,8 @@
       "kind": "source",
       "title": "captured print output is duplicated",
       "target": "rust/lovelace-run/src/main.rs",
-      "find": "    let output = engine.take_output();\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\n        \"variables\",",
-      "replace": "    let mut output = engine.take_output();\n    output.extend(output.clone());\n    fields.push((\"output\", Json::str_array(output)));\n    fields.push((\n        \"variables\",",
+      "find": "    let output = engine.take_output();\r\n    fields.push((\"output\", Json::str_array(output)));\r\n    fields.push((\r\n        \"variables\",",
+      "replace": "    let mut output = engine.take_output();\r\n    output.extend(output.clone());\r\n    fields.push((\"output\", Json::str_array(output)));\r\n    fields.push((\r\n        \"variables\",",
       "gate": "fixtures:print_purity"
     },
     {

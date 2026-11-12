@@ -255,12 +255,7 @@ impl RunStateMachine {
     /// `terminal` must be [`RunState::Finished`], [`RunState::Cancelled`] or [`RunState::Failed`].
     /// The state must still be in flight and the run id must match, so a second terminal event
     /// for the same run (or a late event from an older run) is refused.
-    pub fn finish(
-        &mut self,
-        run: RunId,
-        terminal: RunState,
-        reason: impl Into<String>,
-    ) -> bool {
+    pub fn finish(&mut self, run: RunId, terminal: RunState, reason: impl Into<String>) -> bool {
         if !terminal.is_terminal_run_event() {
             return false;
         }
@@ -346,24 +341,23 @@ impl RunStateMachine {
 
 /// The complete transition relation of the machine.
 fn allowed(from: RunState, to: RunState) -> bool {
-    match (from, to) {
+    matches!(
+        (from, to),
         (
             RunState::Idle
-            | RunState::Finished
-            | RunState::Cancelled
-            | RunState::Failed
-            | RunState::Stale,
+                | RunState::Finished
+                | RunState::Cancelled
+                | RunState::Failed
+                | RunState::Stale,
             RunState::Queued,
-        ) => true,
-        (RunState::Queued, RunState::Running) => true,
-        (RunState::Queued | RunState::Running, RunState::Cancelling) => true,
-        (
-            RunState::Queued | RunState::Running | RunState::Cancelling,
-            RunState::Finished | RunState::Cancelled | RunState::Failed,
-        ) => true,
-        (RunState::Finished, RunState::Stale) => true,
-        _ => false,
-    }
+        ) | (RunState::Queued, RunState::Running)
+            | (RunState::Queued | RunState::Running, RunState::Cancelling)
+            | (
+                RunState::Queued | RunState::Running | RunState::Cancelling,
+                RunState::Finished | RunState::Cancelled | RunState::Failed,
+            )
+            | (RunState::Finished, RunState::Stale)
+    )
 }
 
 #[cfg(test)]
@@ -418,11 +412,7 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(
             sequence,
-            [
-                RunState::Queued,
-                RunState::Running,
-                RunState::Finished
-            ]
+            [RunState::Queued, RunState::Running, RunState::Finished]
         );
         assert_eq!(machine.terminal_run_event_count(), 1);
     }
@@ -509,7 +499,10 @@ mod tests {
             .iter()
             .skip_while(|transition| transition.to != RunState::Stale)
             .any(|transition| transition.to == RunState::Finished);
-        assert!(!finished_after_stale, "Finished must not reappear after Stale");
+        assert!(
+            !finished_after_stale,
+            "Finished must not reappear after Stale"
+        );
     }
 
     #[test]

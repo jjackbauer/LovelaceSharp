@@ -1445,8 +1445,7 @@ mod tests {
                     summaries(&events)
                 )
             });
-            let entered_kernel =
-                matches!(event.event, DesktopEvent::StepStarted { index: 0, .. });
+            let entered_kernel = matches!(event.event, DesktopEvent::StepStarted { index: 0, .. });
             events.push(event);
             if entered_kernel {
                 break;
@@ -1510,7 +1509,10 @@ mod tests {
             } => {
                 assert_eq!(*stopped, document);
                 assert_eq!(*run, handle.run());
-                assert_eq!(*committed_steps, 0, "the one kernel statement did not commit");
+                assert_eq!(
+                    *committed_steps, 0,
+                    "the one kernel statement did not commit"
+                );
                 let published = host
                     .last_snapshot(document)
                     .expect("a cancelled run must publish its last snapshot");

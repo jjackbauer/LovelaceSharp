@@ -9,7 +9,9 @@
 
 use std::collections::BTreeMap;
 
-use super::{DEFAULT_PRECISION, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
+use super::{
+    DEFAULT_PRECISION, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture,
+};
 use crate::svg;
 
 /// Creates a boxed FakeEngine.

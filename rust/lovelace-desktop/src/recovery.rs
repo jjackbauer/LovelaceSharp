@@ -227,7 +227,10 @@ impl RecoveryRecord {
                     source_mtime = value.parse::<u64>().ok().map(system_time_from_nanos);
                 }
                 "saved_unix_nanos" => {
-                    saved_at = value.parse::<u64>().map(system_time_from_nanos).unwrap_or(UNIX_EPOCH);
+                    saved_at = value
+                        .parse::<u64>()
+                        .map(system_time_from_nanos)
+                        .unwrap_or(UNIX_EPOCH);
                 }
                 BYTES_KEY => {
                     declared_bytes = Some(
@@ -305,8 +308,8 @@ impl RecoveryRecord {
 
 /// Reads and parses one record file.
 pub fn read_record(path: &Path) -> Result<RecoveryRecord, String> {
-    let bytes = std::fs::read(path)
-        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
+    let bytes =
+        std::fs::read(path).map_err(|error| format!("cannot read {}: {error}", path.display()))?;
     RecoveryRecord::parse(&bytes).map_err(|error| format!("{}: {error}", path.display()))
 }
 
@@ -538,11 +541,7 @@ impl RecoveryJournal {
     ///
     /// Returns true when a file was written. The first dirty revision of a document is written
     /// immediately; later revisions wait for the debounce window to elapse since the last write.
-    fn write_if_due(
-        &mut self,
-        record: &RecoveryRecord,
-        now: Instant,
-    ) -> Result<bool, String> {
+    fn write_if_due(&mut self, record: &RecoveryRecord, now: Instant) -> Result<bool, String> {
         let Some(root) = self.root.clone() else {
             return Ok(false);
         };
@@ -619,11 +618,7 @@ impl RecoveryJournal {
     /// DOC-005: the window asks for a frame after this delay. Without it the trailing write would
     /// wait for the next input event, and a process killed after the user stopped typing could lose
     /// more than one debounce window of work.
-    pub fn pending_delay(
-        &self,
-        documents: &[WorkbenchDocument],
-        now: Instant,
-    ) -> Option<Duration> {
+    pub fn pending_delay(&self, documents: &[WorkbenchDocument], now: Instant) -> Option<Duration> {
         self.root.as_ref()?;
         let mut soonest: Option<Duration> = None;
         for document in documents {
@@ -632,9 +627,10 @@ impl RecoveryJournal {
             }
             let remaining = match self.tracked.get(&document.id.0) {
                 Some(tracked) if tracked.revision == document.revision => continue,
-                Some(tracked) => self
-                    .debounce
-                    .saturating_sub(now.checked_duration_since(tracked.last_write).unwrap_or_default()),
+                Some(tracked) => self.debounce.saturating_sub(
+                    now.checked_duration_since(tracked.last_write)
+                        .unwrap_or_default(),
+                ),
                 None => Duration::ZERO,
             };
             soonest = Some(match soonest {
@@ -765,7 +761,9 @@ mod tests {
     #[test]
     fn scanning_skips_corrupt_and_truncated_records_with_a_warning() {
         let directory = scratch("scan-corrupt");
-        record().write_atomic(&record_path(&directory, 7)).expect("valid");
+        record()
+            .write_atomic(&record_path(&directory, 7))
+            .expect("valid");
 
         let full = record().to_bytes();
         let truncated = &full[..full.len() - 4];
@@ -791,11 +789,17 @@ mod tests {
             );
         }
         assert!(
-            scan.warnings.iter().any(|warning| warning.contains("doc-8.lvrec")),
+            scan.warnings
+                .iter()
+                .any(|warning| warning.contains("doc-8.lvrec")),
             "the warning names the truncated file: {:?}",
             scan.warnings
         );
-        assert!(scan.warnings.iter().any(|warning| warning.contains("declares")));
+        assert!(
+            scan.warnings
+                .iter()
+                .any(|warning| warning.contains("declares"))
+        );
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -812,10 +816,14 @@ mod tests {
     #[test]
     fn discarding_a_record_deletes_only_that_file() {
         let directory = scratch("discard");
-        record().write_atomic(&record_path(&directory, 7)).expect("keep");
+        record()
+            .write_atomic(&record_path(&directory, 7))
+            .expect("keep");
         let mut second = record();
         second.document_id = 8;
-        second.write_atomic(&record_path(&directory, 8)).expect("drop");
+        second
+            .write_atomic(&record_path(&directory, 8))
+            .expect("drop");
 
         discard_record(&directory, 8).expect("discard");
         assert!(!record_path(&directory, 8).exists());

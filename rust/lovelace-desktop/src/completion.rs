@@ -305,7 +305,12 @@ impl CompletionSession {
     ///
     /// Returns false (and closes) when the filter has no hits, so an empty popup is never
     /// shown. Refreshing keeps the highlighted label when it survives the narrower filter.
-    pub fn show(&mut self, catalogue: &[CompletionItem], prefix: &str, prefix_start: usize) -> bool {
+    pub fn show(
+        &mut self,
+        catalogue: &[CompletionItem],
+        prefix: &str,
+        prefix_start: usize,
+    ) -> bool {
         let items = filter(catalogue, prefix);
         if items.is_empty() {
             self.dismiss();
@@ -460,7 +465,10 @@ mod tests {
         );
         assert_eq!(find("sin").detail, "sin(x, unit)");
         for item in &catalogue {
-            assert_eq!(item.insert, item.label, "acceptance inserts exactly the label");
+            assert_eq!(
+                item.insert, item.label,
+                "acceptance inserts exactly the label"
+            );
         }
     }
 
@@ -600,7 +608,11 @@ mod tests {
 
         let mut lines = vec!["x = sq".to_string()];
         assert_eq!(session.accept(&mut lines, 0, 6), Some((0, 8)));
-        assert_eq!(lines, vec!["x = sqrt".to_string()], "only the prefix changes");
+        assert_eq!(
+            lines,
+            vec!["x = sqrt".to_string()],
+            "only the prefix changes"
+        );
         assert_eq!(
             session.selected().map(|item| item.label.as_str()),
             None,
@@ -617,7 +629,8 @@ mod tests {
 
         // The selection is what gets inserted.
         let mut session = CompletionSession::default();
-        let catalogue = build_catalogue(&[], &[builtin("sqrt", &["x"]), builtin("sq", &["x"])], &[]);
+        let catalogue =
+            build_catalogue(&[], &[builtin("sqrt", &["x"]), builtin("sq", &["x"])], &[]);
         assert!(session.show(&catalogue, "sq", 0));
         assert_eq!(session.selected().unwrap().label, "sq");
         session.move_selection(1);
@@ -647,7 +660,8 @@ mod tests {
 
     #[test]
     fn arrow_navigation_is_clamped_and_a_stale_prefix_is_refused() {
-        let catalogue = build_catalogue(&[], &[builtin("sqrt", &["x"]), builtin("sq", &["x"])], &[]);
+        let catalogue =
+            build_catalogue(&[], &[builtin("sqrt", &["x"]), builtin("sq", &["x"])], &[]);
         let mut session = CompletionSession::default();
         assert!(session.show(&catalogue, "sq", 2));
         session.move_selection(-1);

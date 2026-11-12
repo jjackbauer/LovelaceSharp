@@ -398,8 +398,7 @@ impl Settings {
     /// silently forgetting the file.
     pub fn prune_missing_recent(&mut self) -> usize {
         let before = self.recent_files.len();
-        self.recent_files
-            .retain(|path| Path::new(path).exists());
+        self.recent_files.retain(|path| Path::new(path).exists());
         before - self.recent_files.len()
     }
 
@@ -424,13 +423,10 @@ fn read_session(session: &Json, warnings: &mut Vec<String>) -> Option<SessionSta
     match session.get("documents").and_then(Json::as_arr) {
         Some(items) => {
             for (index, item) in items.iter().enumerate() {
-                let Some(document_id) = item
-                    .get("document_id")
-                    .and_then(|value| match value {
-                        Json::Num(text) => text.parse::<u64>().ok(),
-                        _ => None,
-                    })
-                else {
+                let Some(document_id) = item.get("document_id").and_then(|value| match value {
+                    Json::Num(text) => text.parse::<u64>().ok(),
+                    _ => None,
+                }) else {
                     warnings.push(format!(
                         "session document {index} has no document_id; it was skipped."
                     ));
@@ -459,7 +455,8 @@ fn read_session(session: &Json, warnings: &mut Vec<String>) -> Option<SessionSta
             }
         }
         None => {
-            warnings.push("session.documents is not an array; the session was ignored.".to_string());
+            warnings
+                .push("session.documents is not an array; the session was ignored.".to_string());
             return None;
         }
     }
@@ -787,7 +784,10 @@ mod tests {
 
         let loaded = Settings::load(&settings_path);
         assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
-        let session = loaded.session.as_ref().expect("session survives a save/load");
+        let session = loaded
+            .session
+            .as_ref()
+            .expect("session survives a save/load");
         assert_eq!(session.active, 1, "the active tab is persisted");
         assert_eq!(session.documents.len(), 3, "tab order is persisted");
         assert_eq!(session.documents[0].document_id, 7);
@@ -796,7 +796,10 @@ mod tests {
             session.documents[2].path.as_deref(),
             Some(third.to_string_lossy().as_ref())
         );
-        assert_eq!(session.documents[1].path, None, "a pathless tab stays pathless");
+        assert_eq!(
+            session.documents[1].path, None,
+            "a pathless tab stays pathless"
+        );
         assert_eq!(session.documents[1].document_id, 8);
         let _ = std::fs::remove_dir_all(&directory);
     }
@@ -868,7 +871,10 @@ mod tests {
         let settings = Settings::from_json(text);
         assert!(settings.session.is_none());
         assert!(
-            settings.warnings.iter().any(|warning| warning.contains("session.documents")),
+            settings
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("session.documents")),
             "{:?}",
             settings.warnings
         );
@@ -882,7 +888,11 @@ mod tests {
         }"#;
         let settings = Settings::from_json(text);
         let session = settings.session.expect("one valid entry remains");
-        assert_eq!(session.documents.len(), 1, "the entry without an id is skipped");
+        assert_eq!(
+            session.documents.len(),
+            1,
+            "the entry without an id is skipped"
+        );
         assert_eq!(session.active, 0, "the active index is clamped to the tabs");
     }
 

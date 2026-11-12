@@ -572,9 +572,7 @@ impl Plot {
             Sense::click_and_drag(),
         );
         if response.dragged() {
-            self.view = self
-                .view
-                .pan_by(response.drag_delta(), rect, svg, fit);
+            self.view = self.view.pan_by(response.drag_delta(), rect, svg, fit);
         }
         if response.hovered() {
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
@@ -707,7 +705,6 @@ impl Plot {
             .map_err(|error| format!("cannot write {}: {error}", path.display()))?;
         Ok([pixmap.width(), pixmap.height()])
     }
-
 }
 
 /// A safe default file name for an export, derived from the plot title.
@@ -729,7 +726,11 @@ pub fn export_file_name(title: Option<&str>, extension: &str) -> String {
         .collect();
     let stem = stem.trim().trim_matches('-').trim();
     let stem: String = stem.chars().take(64).collect();
-    let stem = if stem.is_empty() { "plot" } else { stem.as_str() };
+    let stem = if stem.is_empty() {
+        "plot"
+    } else {
+        stem.as_str()
+    };
     format!("{stem}.{extension}")
 }
 
@@ -980,8 +981,16 @@ mod tests {
         // The pane itself survives the hostile document: it reports no parse error, clears, and
         // renders a valid document again (the "app remains usable" half of PLT-002).
         let mut pane = Plot::new();
-        assert!(pane.set_svg(&hostile), "hostile SVG rejected: {:?}", pane.error);
-        assert!(pane.error.is_none(), "hostile SVG left an error: {:?}", pane.error);
+        assert!(
+            pane.set_svg(&hostile),
+            "hostile SVG rejected: {:?}",
+            pane.error
+        );
+        assert!(
+            pane.error.is_none(),
+            "hostile SVG left an error: {:?}",
+            pane.error
+        );
         pane.clear();
         assert!(pane.set_svg(control));
         let (recovered, _) = pane
@@ -1293,7 +1302,11 @@ mod tests {
 </svg>"##;
         let mut plot = Plot::new();
         assert!(plot.set_svg(svg));
-        for (scale, expected) in [(1.0f32, [100u32, 80u32]), (2.0, [200, 160]), (3.5, [350, 280])] {
+        for (scale, expected) in [
+            (1.0f32, [100u32, 80u32]),
+            (2.0, [200, 160]),
+            (3.5, [350, 280]),
+        ] {
             let path = scratch(&format!("export-{scale}.png"));
             let _ = std::fs::remove_file(&path);
             let dimensions = plot
@@ -1302,7 +1315,11 @@ mod tests {
             assert_eq!(dimensions, expected, "scale {scale}");
             let bytes = std::fs::read(&path).expect("png bytes");
             // The PNG signature and the IHDR dimensions, read without trusting our encoder.
-            assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n".as_slice(), "PNG signature");
+            assert_eq!(
+                &bytes[..8],
+                b"\x89PNG\r\n\x1a\n".as_slice(),
+                "PNG signature"
+            );
             assert_eq!(&bytes[12..16], b"IHDR".as_slice(), "IHDR chunk");
             let width = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
             let height = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
@@ -1349,7 +1366,12 @@ mod tests {
         let opaque = tiny_skia::Pixmap::load_png(&opaque_path).expect("decode");
         let outside = opaque.pixel(150, 40).expect("pixel outside the rect");
         assert_eq!(
-            (outside.red(), outside.green(), outside.blue(), outside.alpha()),
+            (
+                outside.red(),
+                outside.green(),
+                outside.blue(),
+                outside.alpha()
+            ),
             (255, 255, 255, 255),
             "the opaque background is not white"
         );
@@ -1442,7 +1464,7 @@ mod tests {
             .export_png_to(&directory.join("exported.png"), 2.0, PngBackground::Opaque)
             .expect("png export");
         assert_eq!(dimensions, [1600, 1200]);
-        assert!(tiny_skia::Pixmap::load_png(&directory.join("exported.png")).is_ok());
+        assert!(tiny_skia::Pixmap::load_png(directory.join("exported.png")).is_ok());
         let _ = std::fs::remove_dir_all(&directory);
     }
 }

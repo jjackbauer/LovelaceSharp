@@ -1215,7 +1215,10 @@ pub fn save_file_dialog(owner: HWND, suggested: &str) -> Option<PathBuf> {
         owner,
         suggested,
         "Save Lovelace script",
-        &[("Lovelace scripts (*.ls)", "*.ls"), ("All files (*.*)", "*.*")],
+        &[
+            ("Lovelace scripts (*.ls)", "*.ls"),
+            ("All files (*.*)", "*.*"),
+        ],
         "ls",
         None,
     )

@@ -1,15 +1,15 @@
 ﻿{
     "schemaVersion":  1,
     "oracle":  "1cc28f255eca6029849f880949fc7be1d40ab8af",
-    "startedAtUtc":  "2026-11-11T20:58:26Z",
-    "finishedAtUtc":  "2026-11-11T21:06:43Z",
+    "startedAtUtc":  "2026-11-12T21:37:43Z",
+    "finishedAtUtc":  "2026-11-12T21:47:38Z",
     "host":  "RICARDO-PC",
     "dotnet":  "10.0.103",
     "cargo":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "differentialCases":  5000,
     "totals":  {
-                   "pass":  9,
-                   "fail":  0,
+                   "pass":  7,
+                   "fail":  2,
                    "skipped":  0,
                    "dimensions":  9
                },
@@ -21,7 +21,7 @@
                            "exitCode":  0,
                            "seconds":  0.8,
                            "command":  "build-oracle.ps1 -Verify",
-                           "summary":  "oracle: dll sha256=f292249fbd8d8a20e60e48942992a141f6315c84e14f291ecb53b453fde4a74a"
+                           "summary":  "oracle: dll sha256=383527d8f309e9e97097e85b38fd274b25157eddc1adecf20b55a9bc8882c058"
                        },
                        {
                            "id":  "D2",
@@ -37,16 +37,16 @@
                            "title":  "Census manifest, project ledger, requirement ledger",
                            "status":  "PASS",
                            "exitCode":  0,
-                           "seconds":  0.3,
+                           "seconds":  0.5,
                            "command":  "gate-manifest + gate-projects + gate-requirements",
-                           "summary":  "gate-manifest.mjs: PASS (structural): 6209 test cases dispositioned; 5720 claim Rust coverage (92.12%). | gate-projects.mjs: PASS: 19 C# projects dispositioned (4 port, 1 consolidated, 8 partial, 6 absent). | gate-requirements.mjs: PASS: 262 requirements accounted for; 48 met, 28 partial, 186 unmet."
+                           "summary":  "gate-manifest.mjs: PASS (structural): 6209 test cases dispositioned; 6090 claim Rust coverage (98.08%). | gate-projects.mjs: PASS: 19 C# projects dispositioned (4 port, 1 consolidated, 8 partial, 6 absent). | gate-requirements.mjs: PASS: 262 requirements accounted for; 48 met, 28 partial, 186 unmet."
                        },
                        {
                            "id":  "D4",
                            "title":  "Differential (5000 cases)",
                            "status":  "PASS",
                            "exitCode":  0,
-                           "seconds":  103,
+                           "seconds":  114,
                            "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\diff\\run.mjs --cases 5000 --seed 1 --no-minimize --concurrency 10",
                            "summary":  "harness exit: 0"
                        },
@@ -55,7 +55,7 @@
                            "title":  "20 protocol golden fixtures",
                            "status":  "PASS",
                            "exitCode":  0,
-                           "seconds":  3.6,
+                           "seconds":  3.7,
                            "command":  "node C:\\Users\\ricar\\dev\\LovelaceSharp\\parity\\tools\\gate-fixtures.mjs",
                            "summary":  "PASS: oracle 20/20, rust 20/20"
                        },
@@ -71,29 +71,29 @@
                        {
                            "id":  "D7",
                            "title":  "Gate falsification (GATE-001..012)",
-                           "status":  "PASS",
-                           "exitCode":  0,
-                           "seconds":  376,
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  453.6,
                            "command":  "mutate.ps1",
-                           "summary":  "mutations: 12/12 detected; 12 reverted trees pass"
+                           "summary":  "mutations: 10/12 detected; 10 reverted trees pass"
                        },
                        {
                            "id":  "D9",
                            "title":  "214-example documentation corpus",
                            "status":  "PASS",
                            "exitCode":  0,
-                           "seconds":  8.6,
+                           "seconds":  12.4,
                            "command":  "cargo run --release -p lovelace-corpus",
                            "summary":  "corpus: 214 passed, 0 failed, 214 total"
                        },
                        {
                            "id":  "D10",
                            "title":  "fmt --check and clippy -D warnings",
-                           "status":  "PASS",
-                           "exitCode":  0,
-                           "seconds":  3.1,
+                           "status":  "FAILED",
+                           "exitCode":  1,
+                           "seconds":  7.6,
                            "command":  "cargo fmt --check; cargo clippy -D warnings",
-                           "summary":  "fmt exit 0, clippy exit 0"
+                           "summary":  "fmt exit 1, clippy exit 101"
                        }
                    ]
 }

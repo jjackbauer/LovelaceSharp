@@ -142,7 +142,11 @@ impl std::fmt::Display for DecodeError {
                 formatter,
                 "the file starts with a UTF-16 {} byte-order mark, not UTF-8; re-save it as UTF-8 \
                  (a Lovelace script is UTF-8 text)",
-                if *big_endian { "big-endian" } else { "little-endian" }
+                if *big_endian {
+                    "big-endian"
+                } else {
+                    "little-endian"
+                }
             ),
             DecodeError::InvalidUtf8 { offset, byte } => write!(
                 formatter,
@@ -218,8 +222,8 @@ pub fn encode(text: &str, bom: bool) -> Vec<u8> {
 
 /// Reads a file and decodes it, with failures phrased for the log and the prompt.
 pub fn read(path: &Path) -> Result<LoadedFile, String> {
-    let bytes = std::fs::read(path)
-        .map_err(|error| format!("Cannot open {}: {error}", path.display()))?;
+    let bytes =
+        std::fs::read(path).map_err(|error| format!("Cannot open {}: {error}", path.display()))?;
     decode(&bytes).map_err(|error| format!("Cannot open {}: {error}.", path.display()))
 }
 
@@ -248,7 +252,10 @@ mod tests {
         let bytes = b"\xEF\xBB\xBFa = 1\n";
         let loaded = decode(bytes).expect("valid UTF-8");
         assert!(loaded.bom, "the byte-order mark must be recorded");
-        assert_eq!(loaded.text, "a = 1\n", "the text must not start with U+FEFF");
+        assert_eq!(
+            loaded.text, "a = 1\n",
+            "the text must not start with U+FEFF"
+        );
         assert_eq!(loaded.bytes, bytes, "the file's own bytes must be kept");
         assert_eq!(encode(&loaded.text, loaded.bom), bytes, "and written back");
     }
@@ -364,7 +371,10 @@ mod tests {
         assert!(loaded.bom);
         assert_eq!(loaded.newline, NewlineStyle::CrLf);
         assert_eq!(encode(&loaded.text, loaded.bom), bytes);
-        assert_eq!(write(&path, &encode(&loaded.text, loaded.bom)), Ok(bytes.len()));
+        assert_eq!(
+            write(&path, &encode(&loaded.text, loaded.bom)),
+            Ok(bytes.len())
+        );
         assert_eq!(std::fs::read(&path).expect("read back"), bytes);
         let _ = std::fs::remove_file(&path);
     }

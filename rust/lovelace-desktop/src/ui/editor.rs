@@ -673,7 +673,8 @@ impl TextEditor {
         }
         match completion::identifier_prefix(&line, self.caret_col) {
             Some(prefix) => {
-                self.completion.show(catalogue, &prefix.text, prefix.start_col);
+                self.completion
+                    .show(catalogue, &prefix.text, prefix.start_col);
             }
             None => self.completion.dismiss(),
         }
@@ -1319,8 +1320,11 @@ impl TextEditor {
             .unwrap_or(0) as f32;
         let padding = 8.0;
         let column_gap = 14.0;
-        let wanted =
-            label_cols * label_char_w + column_gap + detail_cols * detail_char_w + padding * 2.0 + 4.0;
+        let wanted = label_cols * label_char_w
+            + column_gap
+            + detail_cols * detail_char_w
+            + padding * 2.0
+            + 4.0;
         let max_width = (rect.width() - 8.0).max(120.0);
         let width = wanted.clamp(180.0f32.min(max_width), max_width);
         let height_for = |rows: usize| rows as f32 * COMPLETION_ROW_H + 6.0;
@@ -1331,7 +1335,11 @@ impl TextEditor {
         let below_space = (rect.bottom() - 4.0 - below_top).max(0.0);
         let above_space = (caret_top - 3.0 - above_top).max(0.0);
         let place_below = below_space >= above_space;
-        let space = if place_below { below_space } else { above_space };
+        let space = if place_below {
+            below_space
+        } else {
+            above_space
+        };
         let capacity = ((space - 6.0) / COMPLETION_ROW_H).floor().max(0.0) as usize;
         let visible = items.len().min(COMPLETION_MAX_ROWS).min(capacity);
         if visible == 0 {
@@ -1734,7 +1742,11 @@ mod tests {
     fn a_crlf_buffer_round_trips_and_new_lines_use_crlf() {
         let source = "a = 1\r\nb = 2\r\n";
         let mut editor = TextEditor::from_source_with_newline(source, NewlineStyle::CrLf);
-        assert_eq!(editor.lines, vec!["a = 1", "b = 2", ""], "no stray \\r is a cell");
+        assert_eq!(
+            editor.lines,
+            vec!["a = 1", "b = 2", ""],
+            "no stray \\r is a cell"
+        );
         assert_eq!(editor.line_chars(0), 5, "the caret sees five characters");
         assert_eq!(editor.source(), source, "an untouched buffer is byte-equal");
 
