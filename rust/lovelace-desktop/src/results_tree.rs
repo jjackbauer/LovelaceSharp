@@ -19,7 +19,15 @@
 //! A 2-D array is rendered by rows and columns through [`ArrayNode::rows`]; the pane painter in
 //! `ui::app` uses the same shape to lay the cells out. Nothing here looks at a display string.
 
+use std::collections::BTreeMap;
+
 use lovelace_json::Json;
+
+/// The visible indicator painted before an expanded node's label.
+pub const EXPANDED_GLYPH: &str = "\u{25be}"; // BLACK DOWN-POINTING SMALL TRIANGLE
+
+/// The visible indicator painted before a collapsed node's label.
+pub const COLLAPSED_GLYPH: &str = "\u{25b8}"; // BLACK RIGHT-POINTING SMALL TRIANGLE
 
 /// One result as the engine published it: the display text and, alongside it, the structured
 /// projection.
@@ -52,6 +60,152 @@ impl ResultProjection {
         self.structured
             .as_ref()
             .and_then(StructuredNode::from_structured)
+    }
+}
+
+/// The path of one record field: `result.solutions`.
+///
+/// Paths are the keys of [`ExpansionState`]. They are built from the projection's own names and
+/// element indices only, so the same projection always produces the same path.
+pub fn field_path(record_path: &str, field_name: &str) -> String {
+    format!("{record_path}.{field_name}")
+}
+
+/// The path of one array element, matrix row or matrix cell: `result.solutions[0]`,
+/// `result.inverse[1][0]`.
+pub fn element_path(parent_path: &str, index: usize) -> String {
+    format!("{parent_path}[{index}]")
+}
+
+/// The identity of the committed result an [`ExpansionState`] belongs to.
+///
+/// It is the engine display plus the compact serialization of the structured projection. The
+/// buffer revision is deliberately not part of it: editing the document, moving the caret or
+/// running a quick eval (which never publishes a snapshot) cannot change the identity, while a
+/// later commit that publishes a different value does.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ResultIdentity {
+    display: String,
+    structured: String,
+}
+
+impl ResultIdentity {
+    /// The identity of the result this projection describes.
+    pub fn of(projection: &ResultProjection) -> ResultIdentity {
+        ResultIdentity {
+            display: projection.display.clone(),
+            structured: projection
+                .structured
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default(),
+        }
+    }
+}
+
+/// Per-node collapse/expand state, keyed by the node path, scoped to the result it describes.
+///
+/// Every node starts expanded, so the map stores only the decisions the user has made: a path
+/// present with `true` is collapsed, a path present with `false` is explicitly expanded, and an
+/// absent path is the default (expanded). The map never owns tree data: collapsing a node only
+/// hides its children, which stay in the [`StructuredNode`] the pane was handed.
+///
+/// [`Self::bind`] is called once per painted result. It keeps the map across repaints of the
+/// same committed value and clears it when a different result replaces the old one.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ExpansionState {
+    result: Option<ResultIdentity>,
+    collapsed: BTreeMap<String, bool>,
+}
+
+impl ExpansionState {
+    /// A state map with no decisions: every node is expanded.
+    pub fn new() -> ExpansionState {
+        ExpansionState::default()
+    }
+
+    /// Binds the map to the projection's result.
+    ///
+    /// Returns true when a previous result was replaced; in that case every decision is
+    /// dropped, because a path only names a node of the result it was created for. A repaint of
+    /// the same result returns false and keeps every decision.
+    pub fn bind(&mut self, projection: &ResultProjection) -> bool {
+        let identity = ResultIdentity::of(projection);
+        if self.result.as_ref() == Some(&identity) {
+            return false;
+        }
+        let replaced = self.result.is_some();
+        self.result = Some(identity);
+        self.collapsed.clear();
+        replaced
+    }
+
+    /// True when the node at `path` is collapsed. Unknown paths are expanded.
+    pub fn is_collapsed(&self, path: &str) -> bool {
+        self.collapsed.get(path).copied().unwrap_or(false)
+    }
+
+    /// Records one node's state without touching any other path.
+    pub fn set_collapsed(&mut self, path: &str, collapsed: bool) {
+        self.collapsed.insert(path.to_string(), collapsed);
+    }
+
+    /// Flips one node and returns its new collapsed state.
+    pub fn toggle(&mut self, path: &str) -> bool {
+        let collapsed = !self.is_collapsed(path);
+        self.set_collapsed(path, collapsed);
+        collapsed
+    }
+
+    /// The paths the user has collapsed, in path order.
+    #[allow(dead_code)] // model accessor: the tests and the round-27 record read it
+    pub fn collapsed_paths(&self) -> Vec<&str> {
+        self.collapsed
+            .iter()
+            .filter(|(_, collapsed)| **collapsed)
+            .map(|(path, _)| path.as_str())
+            .collect()
+    }
+
+    /// The number of paths the user has decided, collapsed or explicitly expanded.
+    #[allow(dead_code)] // model accessor: the tests read it
+    pub fn len(&self) -> usize {
+        self.collapsed.len()
+    }
+
+    /// True when the user has made no decision yet.
+    #[allow(dead_code)] // model accessor: the tests read it
+    pub fn is_empty(&self) -> bool {
+        self.collapsed.is_empty()
+    }
+
+    /// The visible indicator for `path`.
+    pub fn glyph(&self, path: &str) -> &'static str {
+        if self.is_collapsed(path) {
+            COLLAPSED_GLYPH
+        } else {
+            EXPANDED_GLYPH
+        }
+    }
+
+    /// The state word a UIA client reads: `collapsed` or `expanded`.
+    pub fn state_word(&self, path: &str) -> &'static str {
+        if self.is_collapsed(path) {
+            "collapsed"
+        } else {
+            "expanded"
+        }
+    }
+
+    /// The visible header text: the indicator, then the node's label.
+    pub fn header_text(&self, path: &str, label: &str) -> String {
+        format!("{} {label}", self.glyph(path))
+    }
+
+    /// The accessible name of a header: the label, the node path and the state, so a UIA client
+    /// can tell which node is collapsed and where it sits in the tree.
+    pub fn accessible_name(&self, path: &str, label: &str) -> String {
+        format!("{label} [{path}] {}", self.state_word(path))
     }
 }
 
@@ -595,6 +749,366 @@ mod tests {
             projection.tree(),
             None,
             "without an engine projection the display is not parsed"
+        );
+    }
+
+    /// One symbolic expression in the projection's shape.
+    fn symbolic_json(pretty: &str) -> Json {
+        Json::obj([
+            ("kind", Json::Str("Symbolic".to_string())),
+            ("pretty", Json::Str(pretty.to_string())),
+            ("canonical", Json::Str(format!("(sym {pretty})"))),
+            ("freeSymbols", Json::str_array(["x"])),
+            ("nodeCount", Json::Str("1".to_string())),
+        ])
+    }
+
+    /// One nested `Solution` record, as `solve_full` publishes it inside `solutions`.
+    fn solution_json(value: &str) -> Json {
+        Json::obj([
+            ("kind", Json::Str("Record".to_string())),
+            ("type", Json::Str("Solution".to_string())),
+            (
+                "fields",
+                Json::Arr(vec![
+                    Json::obj([
+                        ("name", Json::Str("value".to_string())),
+                        ("value", symbolic_json(value)),
+                    ]),
+                    Json::obj([
+                        ("name", Json::Str("multiplicity".to_string())),
+                        (
+                            "value",
+                            Json::obj([
+                                ("kind", Json::Str("Integer".to_string())),
+                                ("value", Json::Str("1".to_string())),
+                            ]),
+                        ),
+                    ]),
+                ]),
+            ),
+        ])
+    }
+
+    /// One hand-built `SolveResult` projection: a record whose `solutions` field is a vector of
+    /// nested `Solution` records, each with a symbolic `value` and a scalar `multiplicity`.
+    fn solve_projection(values: [&str; 2]) -> Json {
+        Json::obj([
+            ("kind", Json::Str("Record".to_string())),
+            ("type", Json::Str("SolveResult".to_string())),
+            (
+                "fields",
+                Json::Arr(vec![
+                    Json::obj([
+                        ("name", Json::Str("status".to_string())),
+                        (
+                            "value",
+                            Json::obj([
+                                ("kind", Json::Str("Enum".to_string())),
+                                ("value", Json::Str("Solved".to_string())),
+                                ("type", Json::Str("SolveStatus".to_string())),
+                            ]),
+                        ),
+                    ]),
+                    Json::obj([
+                        ("name", Json::Str("variable".to_string())),
+                        ("value", symbolic_json("x")),
+                    ]),
+                    Json::obj([
+                        ("name", Json::Str("solutions".to_string())),
+                        (
+                            "value",
+                            Json::obj([
+                                ("kind", Json::Str("Array".to_string())),
+                                ("type", Json::Str("Vector".to_string())),
+                                ("shape", Json::num_array([2])),
+                                (
+                                    "elements",
+                                    Json::Arr(values.iter().map(|v| solution_json(v)).collect()),
+                                ),
+                            ]),
+                        ),
+                    ]),
+                ]),
+            ),
+        ])
+    }
+
+    /// Every headline and published value in render order: the bytes a repaint must reproduce
+    /// after a collapse/expand round trip. It is computed from the model only, so it cannot be
+    /// satisfied by keeping the visible rows instead of the children.
+    fn content_digest(node: &StructuredNode, out: &mut String) {
+        out.push_str(&node.headline());
+        out.push('\n');
+        match node {
+            StructuredNode::Record(record) => {
+                for field in &record.fields {
+                    out.push_str(&field.name);
+                    out.push(':');
+                    content_digest(&field.value, out);
+                }
+            }
+            StructuredNode::Array(array) => {
+                for element in &array.elements {
+                    content_digest(element, out);
+                }
+            }
+            StructuredNode::Symbolic(symbolic) => {
+                out.push_str(&symbolic.pretty);
+                out.push('\n');
+                out.push_str(&symbolic.canonical);
+                out.push('\n');
+            }
+            StructuredNode::Scalar(_) | StructuredNode::Null => {}
+        }
+    }
+
+    /// RES-004: collapsing a nested record field only records a decision. The projection's
+    /// children stay in the tree the pane was handed, with every value intact.
+    #[test]
+    fn collapsing_a_nested_record_field_keeps_the_children_in_the_model() {
+        let projection = ResultProjection::new(
+            "SolveResult(status: Solved, variable: x, solutions: [...])",
+            Some(solve_projection(["-2", "2"])),
+        );
+        let tree = projection.tree().expect("the projection yields a tree");
+        let mut state = ExpansionState::new();
+        assert!(
+            !state.bind(&projection),
+            "the first bind has no previous result to replace"
+        );
+        assert!(
+            !state.is_collapsed("result.solutions"),
+            "every node starts expanded"
+        );
+
+        assert!(
+            state.toggle("result.solutions"),
+            "the toggle reports the new collapsed state"
+        );
+        assert!(state.is_collapsed("result.solutions"));
+        assert_eq!(state.collapsed_paths(), ["result.solutions"]);
+
+        let StructuredNode::Record(record) = &tree else {
+            panic!("the projection is a record");
+        };
+        let StructuredNode::Array(solutions) = record
+            .field("solutions")
+            .expect("the record still publishes its solutions")
+        else {
+            panic!("solutions is a vector");
+        };
+        assert_eq!(
+            solutions.elements.len(),
+            2,
+            "collapsing must not remove the vector's children"
+        );
+        let StructuredNode::Record(first) = &solutions.elements[0] else {
+            panic!("each solution is a nested record");
+        };
+        assert_eq!(first.type_name, "Solution");
+        assert_eq!(first.field_names(), ["value", "multiplicity"]);
+        assert_eq!(
+            first.field("value").map(StructuredNode::headline),
+            Some("Symbolic  -2".to_string()),
+            "the nested value is untouched by the collapse"
+        );
+    }
+
+    /// RES-004: collapsing and re-expanding a field is content-preserving. The model bytes
+    /// before the collapse and after the re-expand are identical.
+    #[test]
+    fn re_expanding_a_collapsed_field_restores_identical_model_content() {
+        let projection = ResultProjection::new(
+            "SolveResult(...)",
+            Some(solve_projection(["-2", "2"])),
+        );
+        let tree = projection.tree().expect("the projection yields a tree");
+        let mut state = ExpansionState::new();
+        state.bind(&projection);
+
+        let mut before = String::new();
+        content_digest(&tree, &mut before);
+
+        state.toggle("result.solutions");
+        assert!(state.is_collapsed("result.solutions"));
+        let mut collapsed = String::new();
+        content_digest(&tree, &mut collapsed);
+        assert_eq!(
+            collapsed, before,
+            "hiding a node must not change the model content"
+        );
+
+        state.toggle("result.solutions");
+        assert!(!state.is_collapsed("result.solutions"));
+        let mut after = String::new();
+        content_digest(&tree, &mut after);
+        assert_eq!(
+            after.as_bytes(),
+            before.as_bytes(),
+            "re-expanding must show byte-identical content"
+        );
+    }
+
+    /// RES-004: the state map keeps every path across a repaint of the same result, and a new
+    /// result replaces it. The result identity is the committed value, so an unrelated update
+    /// (an edit, a caret move, a quick eval that publishes no snapshot) cannot clear the map.
+    #[test]
+    fn the_expansion_map_survives_a_repaint_and_a_new_result_clears_it() {
+        let first = ResultProjection::new(
+            "SolveResult(status: Solved, ...)",
+            Some(solve_projection(["-2", "2"])),
+        );
+        let second = ResultProjection::new(
+            "SolveResult(status: Solved, ...)",
+            Some(solve_projection(["-3", "3"])),
+        );
+        let mut state = ExpansionState::new();
+        state.bind(&first);
+        state.toggle("result.solutions");
+        state.toggle("result.status");
+        assert_eq!(
+            state.collapsed_paths(),
+            ["result.solutions", "result.status"],
+            "both decisions are keyed by their node path"
+        );
+
+        assert!(
+            !state.bind(&first),
+            "a repaint of the same committed result must not replace it"
+        );
+        assert!(state.is_collapsed("result.solutions"));
+        assert!(state.is_collapsed("result.status"));
+        assert_eq!(
+            state.len(),
+            2,
+            "a repaint must not add or drop a path decision"
+        );
+
+        assert!(
+            state.bind(&second),
+            "a later commit that publishes a different value is a new result"
+        );
+        assert!(
+            state.is_empty(),
+            "a new result clears the map instead of applying stale paths"
+        );
+        assert!(!state.is_collapsed("result.solutions"));
+        assert!(!state.is_collapsed("result.status"));
+    }
+
+    /// RES-004: the visible indicator and the accessible name state the node path and the
+    /// state; UIA reads the name.
+    #[test]
+    fn the_accessible_name_carries_the_node_path_and_the_state() {
+        let projection =
+            ResultProjection::new("SolveResult(...)", Some(solve_projection(["-2", "2"])));
+        let mut state = ExpansionState::new();
+        state.bind(&projection);
+        let label = "solutions: Vector 2 - 2 elements";
+        assert_eq!(
+            state.header_text("result.solutions", label),
+            "\u{25be} solutions: Vector 2 - 2 elements",
+            "an expanded node shows the down-pointing indicator"
+        );
+        assert_eq!(
+            state.accessible_name("result.solutions", label),
+            "solutions: Vector 2 - 2 elements [result.solutions] expanded"
+        );
+
+        state.toggle("result.solutions");
+        assert_eq!(
+            state.header_text("result.solutions", label),
+            "\u{25b8} solutions: Vector 2 - 2 elements",
+            "a collapsed node shows the right-pointing indicator"
+        );
+        assert_eq!(
+            state.accessible_name("result.solutions", label),
+            "solutions: Vector 2 - 2 elements [result.solutions] collapsed"
+        );
+        assert_eq!(
+            state.header_text("result.status", "status:"),
+            "\u{25be} status:",
+            "a sibling keeps its own expanded state"
+        );
+    }
+
+    /// RES-004: paths name each kind of node the pane paints: record fields by published name,
+    /// array elements and matrix cells by index.
+    #[test]
+    fn paths_name_record_fields_and_array_rows() {
+        assert_eq!(field_path("result", "solutions"), "result.solutions");
+        assert_eq!(element_path("result.solutions", 0), "result.solutions[0]");
+        assert_eq!(
+            element_path(&element_path("result.inverse", 1), 0),
+            "result.inverse[1][0]"
+        );
+        assert_eq!(
+            field_path(&element_path("result.solutions", 1), "value"),
+            "result.solutions[1].value"
+        );
+    }
+
+    /// RES-004 with the real engine: a solve result is the nested record the pane collapses, and
+    /// the paths the pane builds describe its published structure.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn a_real_solve_record_publishes_the_nested_fields_the_tree_collapses() {
+        let mut engine = crate::engine::RealEngine::new();
+        let display = engine
+            .eval("x = symbol(\"x\"); solve_full(x^2 - 4 == 0, x)")
+            .expect("the script evaluates");
+        let projection = ResultProjection::new(display, engine.last_structured());
+        let tree = projection.tree().expect("the projection is a tree");
+        let StructuredNode::Record(record) = tree else {
+            panic!("solve_full publishes a SolveResult record");
+        };
+        assert_eq!(record.type_name, "SolveResult");
+        for field in [
+            "status",
+            "variable",
+            "solutions",
+            "families",
+            "common_conditions",
+            "diagnostics",
+        ] {
+            assert!(
+                record.field(field).is_some(),
+                "the solve record publishes {field}"
+            );
+        }
+        let StructuredNode::Array(solutions) = record
+            .field("solutions")
+            .expect("the record publishes its solutions")
+        else {
+            panic!("solutions is a vector");
+        };
+        assert_eq!(solutions.type_name, "Vector");
+        assert_eq!(
+            solutions.elements.len(),
+            2,
+            "x^2 - 4 has the two solutions the projection publishes"
+        );
+        let mut paths = Vec::new();
+        for (index, element) in solutions.elements.iter().enumerate() {
+            let row = element_path(&field_path("result", "solutions"), index);
+            let StructuredNode::Record(solution) = element else {
+                panic!("each solution is a nested record");
+            };
+            assert_eq!(solution.type_name, "Solution");
+            assert!(solution.field("value").is_some());
+            assert!(solution.field("multiplicity").is_some());
+            paths.push(row);
+        }
+        assert_eq!(paths, ["result.solutions[0]", "result.solutions[1]"]);
+
+        let mut state = ExpansionState::new();
+        state.bind(&projection);
+        state.toggle(&paths[0]);
+        assert!(state.is_collapsed("result.solutions[0]"));
+        assert!(
+            !state.is_collapsed("result.solutions[1]"),
+            "collapsing one solution must not collapse its sibling"
         );
     }
 

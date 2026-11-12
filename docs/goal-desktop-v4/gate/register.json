@@ -2582,14 +2582,43 @@
                      "type":  "W",
                      "requirement":  "Expand nested records progressively",
                      "acceptance":  "Solve, inverse, compile, limit and transform records can be expanded/collapsed by field without data loss.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-27/expand-collapse-collapsed-uia.txt",
+                                          "sha256":  "0EA546018BEA9B1B19FF5A77D6D6F638D3D216F274DFE9F3A9A213A269360210",
+                                          "class":  "gui",
+                                          "at_head":  "42dcaf69444d172c00c4344291d0b84d813a250c"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-27/expand-collapse-expanded-uia.txt",
+                                          "sha256":  "DE26CEA1CC0A939E371B6CABF522794775CD182B33A61A23637A6D5675813689",
+                                          "class":  "gui",
+                                          "at_head":  "42dcaf69444d172c00c4344291d0b84d813a250c"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-27/expand-collapse-collapsed.png",
+                                          "sha256":  "68AEC26804FD88A55772387F3B12439D0FE81264A1FD5B606F29F638A90B5767",
+                                          "class":  "gui",
+                                          "at_head":  "42dcaf69444d172c00c4344291d0b84d813a250c"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-27/expand-collapse-expanded.png",
+                                          "sha256":  "08D392DEBB4403EB9516DCAAA860E5F9DB28CE49F8E3F3E0161FC8BEBACFB43B",
+                                          "class":  "gui",
+                                          "at_head":  "42dcaf69444d172c00c4344291d0b84d813a250c"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-27/expand-collapse.md",
+                                          "sha256":  "F23128CA8AA326806DEC38EA546F7FFC5C83F9FC28DB11E81183945E996481A7",
+                                          "class":  "gui",
+                                          "at_head":  "42dcaf69444d172c00c4344291d0b84d813a250c"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop expansion; two CaptureStates UIA dumps",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Path-keyed expansion state bound to a result identity; collapsed children hidden but retained; re-expansion identical; state survives repaint/edit/quick eval and clears on a new result. UIA names carry [path] collapsed|expanded. 248 tests."
                  },
                  {
                      "id":  "RES-005",

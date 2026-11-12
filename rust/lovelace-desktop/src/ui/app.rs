@@ -18,7 +18,9 @@ use crate::execution::Diagnostic;
 use crate::keyboard;
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
-use crate::results_tree::{ArrayNode, ResultProjection, StructuredNode};
+use crate::results_tree::{
+    ArrayNode, ExpansionState, ResultProjection, StructuredNode, element_path, field_path,
+};
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::{DocumentView, Workbench};
 use crate::workspace_table::{
@@ -168,6 +170,13 @@ pub struct WorkbenchApp {
     /// The two Workspace tables, rebuilt from the frame's committed snapshot in [`Self::sync`].
     variables_table: VariableTable,
     functions_table: FunctionTable,
+    /// RES-004: the RESULT tree's per-path collapse state. It is bound to the committed result
+    /// in `paint_result_section`, so repaints of the same value keep every decision and a new
+    /// result clears the map.
+    expansion: ExpansionState,
+    /// RESULT tree headers painted in the last pass: their node path and rectangle. The pointer
+    /// tests click these centres, the same seam as `variable_header_rects`.
+    result_toggle_rects: Vec<(String, Rect)>,
     /// Header rectangles from the last painted pass; the pointer tests click these centres and
     /// the pane uses them to decide which column a click belongs to.
     variable_header_rects: [Option<Rect>; 3],
@@ -223,6 +232,8 @@ impl WorkbenchApp {
             filter: String::new(),
             variables_table,
             functions_table,
+            expansion: ExpansionState::new(),
+            result_toggle_rects: Vec::new(),
             variable_header_rects: [None; 3],
             function_header_rects: [None; 3],
             quick_eval: QuickEval::new(),
@@ -748,6 +759,12 @@ impl WorkbenchApp {
         let mut function_sort = self.functions_table.sort;
         let mut variable_header_rects: [Option<Rect>; 3] = [None; 3];
         let mut function_header_rects: [Option<Rect>; 3] = [None; 3];
+        // RES-004: the RESULT tree's collapse state and the headers this pass paints. The state
+        // lives on the window, not in the paint pass, so a repaint or an unrelated update (a
+        // quick eval, an edit) cannot reset it; `paint_result_section` clears it only when the
+        // committed result changes.
+        let expansion = &mut self.expansion;
+        let mut result_toggle_rects: Vec<(String, Rect)> = Vec::new();
         with_pane(ui, rect, "Workspace", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
                 let label = ui.label("Filter");
@@ -786,7 +803,13 @@ impl WorkbenchApp {
                             // RES-001: the last committed result's typed tree, built only from
                             // the engine's structured projection. The display text is a caption;
                             // it is never parsed for structure.
-                            paint_result_section(ui, view, result_width);
+                            paint_result_section(
+                                ui,
+                                view,
+                                result_width,
+                                expansion,
+                                &mut result_toggle_rects,
+                            );
 
                             ui.add_space(6.0);
                             ui.separator();
@@ -988,6 +1011,7 @@ impl WorkbenchApp {
         self.functions_table.sort = function_sort;
         self.variable_header_rects = variable_header_rects;
         self.function_header_rects = function_header_rects;
+        self.result_toggle_rects = result_toggle_rects;
     }
 
     fn logs_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
@@ -1148,7 +1172,18 @@ impl eframe::App for WorkbenchApp {
 /// The tree is built by [`ResultProjection::tree`] from `view.result_structured` alone; the
 /// display string is painted as a caption and is never parsed. An engine that publishes no
 /// projection gets an explicit empty state rather than a display-derived guess.
-fn paint_result_section(ui: &mut Ui, view: &DocumentView, width: f32) {
+///
+/// RES-004: `expansion` is the per-path collapse state of this result. It is bound to the
+/// projection before painting, so a repaint of the same committed value keeps every decision
+/// while a new result clears the map. `toggles` receives every painted header's path and
+/// rectangle; the pointer tests click those rectangles and the pane can use them for focus.
+fn paint_result_section(
+    ui: &mut Ui,
+    view: &DocumentView,
+    width: f32,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
     ui.set_max_width(width.max(120.0));
     ui.label(
         RichText::new("RESULT · structured projection")
@@ -1163,6 +1198,10 @@ fn paint_result_section(ui: &mut Ui, view: &DocumentView, width: f32) {
         view.result.clone(),
         view.result_structured.clone(),
     );
+    // RES-004: the one place the expansion map is scoped to its result. A repaint of the same
+    // committed snapshot returns false and keeps every path; a commit that publishes a different
+    // value replaces the map instead of applying paths that name the old tree.
+    expansion.bind(&projection);
     match projection.tree() {
         Some(tree) => {
             // The display caption stays one line: the full display is in the Logs pane and on
@@ -1181,7 +1220,7 @@ fn paint_result_section(ui: &mut Ui, view: &DocumentView, width: f32) {
                     .color(DIM),
             )
             .on_hover_text(full);
-            paint_structured_node(ui, &tree, "result");
+            paint_structured_node(ui, &tree, "result", expansion, toggles);
         }
         None => {
             ui.label(
@@ -1196,36 +1235,89 @@ fn paint_result_section(ui: &mut Ui, view: &DocumentView, width: f32) {
     }
 }
 
-/// Paints one structured node recursively. Record fields expand by name; arrays expand by shape;
-/// symbolic values show pretty and canonical; scalars show their kind and value.
-fn paint_structured_node(ui: &mut Ui, node: &StructuredNode, path: &str) {
+/// Paints one collapsible header row and returns true when its node is open after the click.
+///
+/// The header is an egui button, so a pointer click and Space/Enter on a focused header arrive
+/// as the same `clicked()` and go through the same [`ExpansionState::toggle`] call. A click also
+/// moves keyboard focus onto the header it changed, so the next Space/Enter lands on the node
+/// the user just touched instead of typing into the document.
+///
+/// The visible text carries the ▸/▾ indicator; the accessible name carries the same label, the
+/// node's path and the state word, so a UIA client can tell which node is collapsed.
+fn paint_toggle(
+    ui: &mut Ui,
+    expansion: &mut ExpansionState,
+    path: &str,
+    label: &str,
+    toggles: &mut Vec<(String, Rect)>,
+) -> bool {
+    let visible = expansion.header_text(path, label);
+    let response = ui
+        .push_id(path, |ui| {
+            ui.add(
+                egui::Button::new(RichText::new(visible).monospace().color(ACCENT)).frame(false),
+            )
+        })
+        .inner;
+    if response.clicked() {
+        expansion.toggle(path);
+        ui.memory_mut(|memory| memory.request_focus(response.id));
+        // The indicator and the state word are painted from the map, so ask for the frame that
+        // renders the new state now that the input has been consumed.
+        ui.ctx().request_repaint();
+    }
+    let accessible = expansion.accessible_name(path, label);
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
+    let action = if expansion.is_collapsed(path) {
+        "expand"
+    } else {
+        "collapse"
+    };
+    response.clone().on_hover_text(format!(
+        "{path} · {} — click, or press Space/Enter, to {action}",
+        expansion.state_word(path)
+    ));
+    toggles.push((path.to_string(), response.rect));
+    !expansion.is_collapsed(path)
+}
+
+/// Paints one structured node with its toggle header. Scalars and the absent value have no
+/// children, so they stay a single row and are never given a toggle.
+fn paint_structured_node(
+    ui: &mut Ui,
+    node: &StructuredNode,
+    path: &str,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
     match node {
         StructuredNode::Scalar(scalar) => paint_scalar(ui, scalar),
-        StructuredNode::Null => {
-            ui.label(RichText::new("Null - no value").monospace().color(DIM));
+        StructuredNode::Null => paint_absent(ui),
+        other => {
+            if paint_toggle(ui, expansion, path, &other.headline(), toggles) {
+                ui.indent(path, |ui| {
+                    paint_node_body(ui, other, path, expansion, toggles);
+                });
+            }
         }
-        StructuredNode::Symbolic(symbolic) => {
-            egui::CollapsingHeader::new(
-                RichText::new(symbolic.headline()).monospace().color(ACCENT),
-            )
-            .id_salt(path)
-            .default_open(true)
-            .show(ui, |ui| paint_symbolic_body(ui, symbolic));
-        }
-        StructuredNode::Array(array) => {
-            egui::CollapsingHeader::new(RichText::new(array.headline()).monospace().color(ACCENT))
-                .id_salt(path)
-                .default_open(true)
-                .show(ui, |ui| paint_array_body(ui, array, path));
-        }
-        StructuredNode::Record(record) => {
-            egui::CollapsingHeader::new(
-                RichText::new(record.headline()).monospace().color(ACCENT),
-            )
-            .id_salt(path)
-            .default_open(true)
-            .show(ui, |ui| paint_record_body(ui, record, path));
-        }
+    }
+}
+
+/// Paints a node's children without a header of its own: the caller paints the header (a record
+/// field, an array row or a matrix cell already names the node).
+fn paint_node_body(
+    ui: &mut Ui,
+    node: &StructuredNode,
+    path: &str,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
+    match node {
+        StructuredNode::Scalar(scalar) => paint_scalar(ui, scalar),
+        StructuredNode::Null => paint_absent(ui),
+        StructuredNode::Symbolic(symbolic) => paint_symbolic_body(ui, symbolic),
+        StructuredNode::Array(array) => paint_array_body(ui, array, path, expansion, toggles),
+        StructuredNode::Record(record) => paint_record_body(ui, record, path, expansion, toggles),
     }
 }
 
@@ -1244,39 +1336,34 @@ fn paint_scalar(ui: &mut Ui, scalar: &crate::results_tree::ScalarNode) {
     });
 }
 
-/// A scalar or the absent value fits on the row beside its field name or matrix cell.
-fn inline_node(node: &StructuredNode) -> bool {
-    matches!(node, StructuredNode::Scalar(_) | StructuredNode::Null)
+/// The absent value, painted where a node would be.
+fn paint_absent(ui: &mut Ui) {
+    ui.label(RichText::new("Null - no value").monospace().color(DIM));
 }
 
-/// Paints a compact value used inside a matrix cell or after a record field name.
-fn paint_cell(ui: &mut Ui, node: &StructuredNode, path: &str) {
+/// Paints one matrix cell. A scalar (the common case) is compact on the cell's row; a symbolic
+/// cell is itself a collapsible node, so its pretty and canonical renderings hide behind the
+/// same ▸/▾ header every other node uses.
+fn paint_cell(
+    ui: &mut Ui,
+    node: &StructuredNode,
+    path: &str,
+    column: usize,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
     match node {
         StructuredNode::Scalar(scalar) => paint_scalar(ui, scalar),
         StructuredNode::Null => {
             ui.label(RichText::new("Null").monospace().color(DIM));
         }
-        StructuredNode::Symbolic(symbolic) => {
-            // A symbolic matrix cell still publishes both renderings from the projection; wrap
-            // them inside the cell so the canonical form is readable, not clipped.
-            ui.add(egui::Label::new(
-                RichText::new(format!("pretty: {}", symbolic.pretty))
-                    .monospace()
-                    .color(TEXT),
-            )
-            .wrap());
-            ui.add(
-                egui::Label::new(
-                    RichText::new(format!("canonical: {}", symbolic.canonical))
-                        .monospace()
-                        .small()
-                        .color(DIM),
-                )
-                .wrap(),
-            );
-        }
-        StructuredNode::Array(_) | StructuredNode::Record(_) => {
-            paint_structured_node(ui, node, path);
+        other => {
+            let label = format!("[{column}] {}", other.headline());
+            if paint_toggle(ui, expansion, path, &label, toggles) {
+                ui.indent(path, |ui| {
+                    paint_node_body(ui, other, path, expansion, toggles);
+                });
+            }
         }
     }
 }
@@ -1328,37 +1415,56 @@ fn paint_symbolic_body(ui: &mut Ui, symbolic: &crate::results_tree::SymbolicNode
     }
 }
 
-/// Paints an array's body. A 2-D array is laid out as rows and columns; a 1-D array is a list of
-/// indexed elements; a higher-rank array names its shape and lists its row-major elements.
-fn paint_array_body(ui: &mut Ui, array: &ArrayNode, path: &str) {
-    if array.is_matrix() {
-        let rows = array.rows();
+/// Paints an array's body. Every row is a collapsible group: a 2-D array's rows hold the cells
+/// laid out as columns; a 1-D array's rows hold one element each. A higher-rank array names its
+/// shape and lists its row-major elements exactly like a flat array.
+fn paint_array_body(
+    ui: &mut Ui,
+    array: &ArrayNode,
+    path: &str,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
+    let rows = array.rows();
+    if array.is_matrix() && !rows.is_empty() {
         let columns = array.shape[1].max(1);
         let cell_width = ((ui.available_width() - 44.0) / columns as f32).max(52.0);
-        egui::Grid::new(format!("{path}.rows"))
-            .num_columns(columns + 1)
-            .spacing([6.0, 3.0])
-            .show(ui, |ui| {
-                for (row_index, row) in rows.iter().enumerate() {
-                    ui.label(
-                        RichText::new(format!("[{row_index}]"))
-                            .small()
-                            .color(DIM),
-                    );
-                    for (column_index, cell) in row.iter().enumerate() {
-                        let cell_path = format!("{path}.{row_index}.{column_index}");
-                        ui.allocate_ui_with_layout(
-                            vec2(cell_width, 14.0),
-                            Layout::top_down(Align::Min),
-                            |ui| {
-                                ui.set_width(cell_width);
-                                paint_cell(ui, cell, &cell_path);
-                            },
-                        );
-                    }
-                    ui.end_row();
-                }
-            });
+        for (row_index, row) in rows.iter().enumerate() {
+            let row_path = element_path(path, row_index);
+            let label = format!(
+                "[{row_index}] {} cell{}",
+                row.len(),
+                if row.len() == 1 { "" } else { "s" }
+            );
+            if paint_toggle(ui, expansion, &row_path, &label, toggles) {
+                ui.indent(&row_path, |ui| {
+                    egui::Grid::new(format!("{row_path}.cells"))
+                        .num_columns(columns)
+                        .spacing([6.0, 3.0])
+                        .show(ui, |ui| {
+                            for (column_index, cell) in row.iter().enumerate() {
+                                let cell_path = element_path(&row_path, column_index);
+                                ui.allocate_ui_with_layout(
+                                    vec2(cell_width, 14.0),
+                                    Layout::top_down(Align::Min),
+                                    |ui| {
+                                        ui.set_width(cell_width);
+                                        paint_cell(
+                                            ui,
+                                            cell,
+                                            &cell_path,
+                                            column_index,
+                                            expansion,
+                                            toggles,
+                                        );
+                                    },
+                                );
+                            }
+                            ui.end_row();
+                        });
+                });
+            }
+        }
         return;
     }
     if array.elements.is_empty() {
@@ -1366,43 +1472,43 @@ fn paint_array_body(ui: &mut Ui, array: &ArrayNode, path: &str) {
         return;
     }
     for (index, element) in array.elements.iter().enumerate() {
-        let child_path = format!("{path}.{index}");
-        if inline_node(element) {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    RichText::new(format!("[{index}]"))
-                        .small()
-                        .color(DIM),
-                );
-                paint_cell(ui, element, &child_path);
+        let child_path = element_path(path, index);
+        let label = match element {
+            StructuredNode::Scalar(_) | StructuredNode::Null => format!("[{index}]"),
+            other => format!("[{index}] {}", other.headline()),
+        };
+        if paint_toggle(ui, expansion, &child_path, &label, toggles) {
+            ui.indent(&child_path, |ui| {
+                paint_node_body(ui, element, &child_path, expansion, toggles);
             });
-        } else {
-            paint_structured_node(ui, element, &child_path);
         }
     }
 }
 
-/// Paints a record body: every field's published name, with the value on the same row when it is
-/// a scalar and as an expandable child when it is an array, record or symbolic expression.
-fn paint_record_body(ui: &mut Ui, record: &crate::results_tree::RecordNode, path: &str) {
+/// Paints a record body: every published field is one collapsible node. Its header names the
+/// field and, when the value is structured, the value's headline; its body is the value. A
+/// scalar value is a row inside the field's body, so collapsing a scalar field hides its value
+/// without dropping it from the model.
+fn paint_record_body(
+    ui: &mut Ui,
+    record: &crate::results_tree::RecordNode,
+    path: &str,
+    expansion: &mut ExpansionState,
+    toggles: &mut Vec<(String, Rect)>,
+) {
     if record.fields.is_empty() {
         ui.label(RichText::new("no fields").small().color(DIM));
         return;
     }
-    for (index, field) in record.fields.iter().enumerate() {
-        let child_path = format!("{path}.f{index}");
-        let name = RichText::new(format!("{}:", field.name))
-            .monospace()
-            .color(DIM);
-        if inline_node(&field.value) {
-            ui.horizontal_wrapped(|ui| {
-                ui.label(name);
-                paint_cell(ui, &field.value, &child_path);
-            });
-        } else {
-            ui.label(name);
+    for field in &record.fields {
+        let child_path = field_path(path, &field.name);
+        let label = match &field.value {
+            StructuredNode::Scalar(_) | StructuredNode::Null => format!("{}:", field.name),
+            other => format!("{}: {}", field.name, other.headline()),
+        };
+        if paint_toggle(ui, expansion, &child_path, &label, toggles) {
             ui.indent(&child_path, |ui| {
-                paint_structured_node(ui, &field.value, &child_path);
+                paint_node_body(ui, &field.value, &child_path, expansion, toggles);
             });
         }
     }
@@ -1719,8 +1825,20 @@ mod tests {
     }
 
     fn frame(ctx: &egui::Context, app: &mut WorkbenchApp, events: Vec<egui::Event>) {
+        frame_sized(ctx, app, vec2(1280.0, 800.0), events);
+    }
+
+    /// One headless pass of the whole window at an explicit size. The window-proof layout uses
+    /// 2500x1380, the same frame the round-27 captures were taken in, so the Workspace pane lays
+    /// the result tree out exactly where the pointer tests click it.
+    fn frame_sized(
+        ctx: &egui::Context,
+        app: &mut WorkbenchApp,
+        screen: egui::Vec2,
+        events: Vec<egui::Event>,
+    ) {
         let input = egui::RawInput {
-            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 800.0))),
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), screen)),
             events,
             ..Default::default()
         };
@@ -3016,12 +3134,16 @@ mod tests {
     fn the_result_section_paints_the_projection_and_never_parses_the_display() {
         let ctx = egui::Context::default();
         let view = result_view("DivRemResult(quotient: 9, remainder: 9) [1, 2, 3, 4]");
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
         let input = egui::RawInput {
             screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(460.0, 900.0))),
             ..Default::default()
         };
         let mut output = ctx.run_ui(input, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| paint_result_section(ui, &view, 420.0));
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                paint_result_section(ui, &view, 420.0, &mut expansion, &mut toggles);
+            });
         });
         output.textures_delta.clear();
         let mut texts = Vec::new();
@@ -3030,7 +3152,9 @@ mod tests {
         }
 
         assert!(
-            texts.iter().any(|text| text == "Array 2 x 2 - 4 elements"),
+            texts
+                .iter()
+                .any(|text| text == "\u{25be} Array 2 x 2 - 4 elements"),
             "the array headline must state the projection's shape: {texts:?}"
         );
         for value in ["1", "2", "3", "4"] {
@@ -3050,8 +3174,513 @@ mod tests {
             "the record-looking display must not create a record header: {texts:?}"
         );
         assert!(
-            !texts.iter().any(|text| text == "quotient:"),
+            !texts.iter().any(|text| text.ends_with("quotient:")),
             "the record-looking display must not create a field label: {texts:?}"
+        );
+    }
+
+    /// One nested `SolveResult` view at the paint layer: its `solutions` field is a vector of two
+    /// `Solution` records with a symbolic value. It is the shape `solve_full(x^2 - 4 == 0, x)`
+    /// publishes.
+    fn solve_result_view(values: [&str; 2]) -> DocumentView {
+        use lovelace_json::Json;
+        let symbolic = |pretty: &str| {
+            Json::obj([
+                ("kind", Json::Str("Symbolic".to_string())),
+                ("pretty", Json::Str(pretty.to_string())),
+                ("canonical", Json::Str(format!("(sym {pretty})"))),
+                ("freeSymbols", Json::str_array(["x"])),
+                ("nodeCount", Json::Str("1".to_string())),
+            ])
+        };
+        let solution = |value: &str| {
+            Json::obj([
+                ("kind", Json::Str("Record".to_string())),
+                ("type", Json::Str("Solution".to_string())),
+                (
+                    "fields",
+                    Json::Arr(vec![
+                        Json::obj([
+                            ("name", Json::Str("value".to_string())),
+                            ("value", symbolic(value)),
+                        ]),
+                        Json::obj([
+                            ("name", Json::Str("multiplicity".to_string())),
+                            (
+                                "value",
+                                Json::obj([
+                                    ("kind", Json::Str("Integer".to_string())),
+                                    ("value", Json::Str("1".to_string())),
+                                ]),
+                            ),
+                        ]),
+                    ]),
+                ),
+            ])
+        };
+        let structured = Json::obj([
+            ("kind", Json::Str("Record".to_string())),
+            ("type", Json::Str("SolveResult".to_string())),
+            (
+                "fields",
+                Json::Arr(vec![
+                    Json::obj([
+                        ("name", Json::Str("status".to_string())),
+                        (
+                            "value",
+                            Json::obj([
+                                ("kind", Json::Str("Enum".to_string())),
+                                ("value", Json::Str("Solved".to_string())),
+                                ("type", Json::Str("SolveStatus".to_string())),
+                            ]),
+                        ),
+                    ]),
+                    Json::obj([
+                        ("name", Json::Str("solutions".to_string())),
+                        (
+                            "value",
+                            Json::obj([
+                                ("kind", Json::Str("Array".to_string())),
+                                ("type", Json::Str("Vector".to_string())),
+                                ("shape", Json::num_array([2])),
+                                (
+                                    "elements",
+                                    Json::Arr(
+                                        values.iter().map(|value| solution(value)).collect(),
+                                    ),
+                                ),
+                            ]),
+                        ),
+                    ]),
+                ]),
+            ),
+        ]);
+        let mut view = result_view("SolveResult(status: Solved, solutions: [...])");
+        view.result_structured = Some(structured);
+        view
+    }
+
+    /// Paints one RESULT section pass and returns every Text shape in paint order. The toggle
+    /// list is cleared first, so it always describes the pass that was just painted.
+    fn paint_result_frame(
+        ctx: &egui::Context,
+        view: &DocumentView,
+        expansion: &mut ExpansionState,
+        toggles: &mut Vec<(String, Rect)>,
+        events: Vec<egui::Event>,
+    ) -> Vec<String> {
+        toggles.clear();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(460.0, 900.0))),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                paint_result_section(ui, view, 420.0, expansion, toggles);
+            });
+        });
+        output.textures_delta.clear();
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect_shape_text(&clipped.shape, &mut texts);
+        }
+        texts
+    }
+
+    /// The rectangle the last pass painted for one header path.
+    fn toggle_rect(toggles: &[(String, Rect)], path: &str) -> Rect {
+        toggles
+            .iter()
+            .find(|(recorded, _)| recorded == path)
+            .map(|(_, rect)| *rect)
+            .unwrap_or_else(|| panic!("no painted header for {path}: {toggles:?}"))
+    }
+
+    /// One pointer button event at `pos`.
+    fn pointer_button(pos: egui::Pos2, pressed: bool) -> egui::Event {
+        egui::Event::PointerButton {
+            pos,
+            button: egui::PointerButton::Primary,
+            pressed,
+            modifiers: egui::Modifiers::default(),
+        }
+    }
+
+    /// RES-004 at the paint layer: collapsing a nested record field hides its children, keeps
+    /// them in the model, and re-expanding paints the identical content.
+    #[test]
+    fn the_result_tree_collapses_a_nested_field_and_restores_identical_content() {
+        let ctx = egui::Context::default();
+        let view = solve_result_view(["-2", "2"]);
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
+
+        let expanded = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            expanded
+                .iter()
+                .any(|text| text.ends_with("solutions: Vector 2 - 2 elements")),
+            "the field header names the field and its value: {expanded:?}"
+        );
+        assert!(
+            expanded
+                .iter()
+                .any(|text| text.ends_with("[0] Solution - 2 fields")),
+            "the expanded field paints its nested rows: {expanded:?}"
+        );
+        assert!(
+            expanded.iter().any(|text| text == "pretty     -2"),
+            "the expanded field paints the nested symbolic value: {expanded:?}"
+        );
+        // The header's recorded path is the key the map uses.
+        let _ = toggle_rect(&toggles, "result.solutions");
+
+        expansion.set_collapsed("result.solutions", true);
+        let collapsed = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            collapsed
+                .iter()
+                .any(|text| text == "\u{25b8} solutions: Vector 2 - 2 elements"),
+            "the collapsed field keeps its header and shows the right-pointing indicator: {collapsed:?}"
+        );
+        assert!(
+            !collapsed
+                .iter()
+                .any(|text| text.contains("Solution - 2 fields")),
+            "collapsing hides the nested record rows: {collapsed:?}"
+        );
+        assert!(
+            !collapsed.iter().any(|text| text == "pretty     -2"),
+            "collapsing hides the nested symbolic value: {collapsed:?}"
+        );
+
+        // The children the pass stopped drawing are still in the model.
+        let projection = ResultProjection::new(view.result.clone(), view.result_structured.clone());
+        let tree = projection.tree().expect("the view's projection is a tree");
+        let StructuredNode::Record(record) = &tree else {
+            panic!("the projection is a record");
+        };
+        let StructuredNode::Array(solutions) = record
+            .field("solutions")
+            .expect("the record publishes its solutions")
+        else {
+            panic!("solutions is a vector");
+        };
+        assert_eq!(
+            solutions.elements.len(),
+            2,
+            "a collapsed field's children stay in the model"
+        );
+
+        expansion.set_collapsed("result.solutions", false);
+        let again = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert_eq!(
+            again, expanded,
+            "re-expanding must paint byte-identical content"
+        );
+    }
+
+    /// RES-004: a pointer click and Space on the focused header change the same map entry. The
+    /// click also gives the header keyboard focus, so Space acts on the node the user clicked.
+    #[test]
+    fn a_click_and_space_on_a_result_header_change_the_same_state() {
+        let ctx = egui::Context::default();
+        let view = solve_result_view(["-2", "2"]);
+        let projection = ResultProjection::new(view.result.clone(), view.result_structured.clone());
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
+
+        let _ = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        let pos = toggle_rect(&toggles, "result.solutions").center();
+        for event in [
+            egui::Event::PointerMoved(pos),
+            pointer_button(pos, true),
+            pointer_button(pos, false),
+        ] {
+            let _ = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, vec![event]);
+        }
+        assert!(
+            expansion.is_collapsed("result.solutions"),
+            "a pointer click collapses the field it hits"
+        );
+
+        let mut clicked = ExpansionState::new();
+        clicked.bind(&projection);
+        clicked.toggle("result.solutions");
+        assert_eq!(
+            expansion, clicked,
+            "a click writes the same path entry as a toggle"
+        );
+
+        // The click moved focus to the header; Space is the keyboard route to the same toggle.
+        let _ = paint_result_frame(
+            &ctx,
+            &view,
+            &mut expansion,
+            &mut toggles,
+            vec![key(Key::Space, egui::Modifiers::default())],
+        );
+        assert!(
+            !expansion.is_collapsed("result.solutions"),
+            "Space on the focused header expands it again"
+        );
+        let mut clicked_twice = ExpansionState::new();
+        clicked_twice.bind(&projection);
+        clicked_twice.toggle("result.solutions");
+        clicked_twice.toggle("result.solutions");
+        assert_eq!(
+            expansion, clicked_twice,
+            "click then Space leaves the same state as two clicks"
+        );
+
+        // Enter is the other keyboard activation egui maps to the same click.
+        let _ = paint_result_frame(
+            &ctx,
+            &view,
+            &mut expansion,
+            &mut toggles,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert!(
+            expansion.is_collapsed("result.solutions"),
+            "Enter on the focused header collapses it again"
+        );
+        let mut clicked_three_times = ExpansionState::new();
+        clicked_three_times.bind(&projection);
+        for _ in 0..3 {
+            clicked_three_times.toggle("result.solutions");
+        }
+        assert_eq!(
+            expansion, clicked_three_times,
+            "click, Space and Enter leave the same state as three clicks"
+        );
+    }
+
+    /// RES-004: the collapse state follows the committed result, not the paint pass. An edit
+    /// (a new revision) and a quick eval (new logs/output, no published snapshot) keep it; a new
+    /// result clears it and paints expanded.
+    #[test]
+    fn a_result_collapse_survives_edits_and_a_quick_eval_and_a_new_result_clears_it() {
+        let ctx = egui::Context::default();
+        let view = solve_result_view(["-2", "2"]);
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
+        let _ = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        expansion.set_collapsed("result.solutions", true);
+
+        // An unrelated update: the buffer moved to revision 99 and the frame carries a quick
+        // eval's output and a new run state. The committed result itself is unchanged.
+        let mut edited = view.clone();
+        edited.revision = crate::execution::SourceRevision(99);
+        edited.output.push("6 * 7".to_string());
+        edited.elapsed_ms = 3;
+        edited.run_state = RunState::Running;
+        let texts = paint_result_frame(&ctx, &edited, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            expansion.is_collapsed("result.solutions"),
+            "an edit and a quick eval must not reset the tree"
+        );
+        assert!(
+            !texts
+                .iter()
+                .any(|text| text.contains("Solution - 2 fields")),
+            "the collapsed field stays collapsed across the repaint: {texts:?}"
+        );
+
+        // A new result replaces the old one: the map is cleared and the new tree paints expanded.
+        let new_view = solve_result_view(["-3", "3"]);
+        let texts = paint_result_frame(&ctx, &new_view, &mut expansion, &mut toggles, Vec::new());
+        assert!(expansion.is_empty(), "a new result clears the path map");
+        assert!(!expansion.is_collapsed("result.solutions"));
+        assert!(
+            texts
+                .iter()
+                .any(|text| text.contains("[0] Solution - 2 fields")),
+            "the new result paints expanded: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "pretty     -3"),
+            "and paints its own values: {texts:?}"
+        );
+    }
+
+    /// One symbolic root view at the paint layer: `Symbolic x^2 - 1` with both renderings.
+    fn symbolic_result_view() -> DocumentView {
+        use lovelace_json::Json;
+        let structured = Json::obj([
+            ("kind", Json::Str("Symbolic".to_string())),
+            ("pretty", Json::Str("x^2 - 1".to_string())),
+            (
+                "canonical",
+                Json::Str("(add (pow (sym x) (rat 2 1)) (rat -1 1))".to_string()),
+            ),
+            ("freeSymbols", Json::str_array(["x"])),
+            ("nodeCount", Json::Str("5".to_string())),
+        ]);
+        let mut view = result_view("Symbolic x^2 - 1");
+        view.result_structured = Some(structured);
+        view
+    }
+
+    /// RES-004: a symbolic node is collapsible like any other node; collapsing hides both
+    /// renderings, the model keeps them, and re-expanding is byte-identical.
+    #[test]
+    fn the_result_tree_collapses_a_symbolic_result_without_losing_it() {
+        let ctx = egui::Context::default();
+        let view = symbolic_result_view();
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
+        let expanded = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            expanded
+                .iter()
+                .any(|text| text == "\u{25be} Symbolic  x^2 - 1"),
+            "the symbolic header names the pretty rendering: {expanded:?}"
+        );
+        assert!(
+            expanded.iter().any(|text| text == "pretty     x^2 - 1"),
+            "the expanded symbolic node paints its pretty rendering: {expanded:?}"
+        );
+
+        expansion.set_collapsed("result", true);
+        let collapsed = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            collapsed
+                .iter()
+                .any(|text| text == "\u{25b8} Symbolic  x^2 - 1"),
+            "the collapsed symbol keeps a header with the right-pointing indicator: {collapsed:?}"
+        );
+        assert!(
+            !collapsed.iter().any(|text| text.starts_with("pretty")),
+            "collapsing hides the pretty rendering: {collapsed:?}"
+        );
+        assert!(
+            !collapsed.iter().any(|text| text.starts_with("canonical")),
+            "collapsing hides the canonical rendering: {collapsed:?}"
+        );
+
+        let projection = ResultProjection::new(view.result.clone(), view.result_structured.clone());
+        let tree = projection.tree().expect("the view's projection is a tree");
+        let StructuredNode::Symbolic(symbolic) = &tree else {
+            panic!("the projection is a symbolic node");
+        };
+        assert_eq!(symbolic.pretty, "x^2 - 1");
+        assert!(!symbolic.canonical.is_empty());
+
+        expansion.set_collapsed("result", false);
+        let again = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert_eq!(
+            again, expanded,
+            "re-expanding the symbolic node paints byte-identical content"
+        );
+    }
+
+    /// RES-004: an array row is a collapsible group of its own. Collapsing one matrix/vector row
+    /// hides that row's children and leaves its sibling untouched.
+    #[test]
+    fn an_array_row_collapses_independently_of_its_sibling() {
+        let ctx = egui::Context::default();
+        let view = solve_result_view(["-2", "2"]);
+        let mut expansion = ExpansionState::new();
+        let mut toggles = Vec::new();
+        let expanded = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            expanded
+                .iter()
+                .any(|text| text.ends_with("[0] Solution - 2 fields")),
+            "the vector paints one header per row: {expanded:?}"
+        );
+        assert!(
+            expanded.iter().any(|text| text == "pretty     -2"),
+            "row 0 paints its symbolic value: {expanded:?}"
+        );
+        assert!(
+            expanded.iter().any(|text| text == "pretty     2"),
+            "row 1 paints its symbolic value: {expanded:?}"
+        );
+
+        expansion.set_collapsed("result.solutions[0]", true);
+        let collapsed = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            collapsed
+                .iter()
+                .any(|text| text == "\u{25b8} [0] Solution - 2 fields"),
+            "row 0 is collapsed: {collapsed:?}"
+        );
+        assert!(
+            !collapsed.iter().any(|text| text == "pretty     -2"),
+            "collapsing row 0 hides its value: {collapsed:?}"
+        );
+        assert!(
+            collapsed.iter().any(|text| text == "pretty     2"),
+            "row 1 keeps its value: {collapsed:?}"
+        );
+
+        let projection = ResultProjection::new(view.result.clone(), view.result_structured.clone());
+        let tree = projection.tree().expect("the view's projection is a tree");
+        let StructuredNode::Record(record) = &tree else {
+            panic!("the projection is a record");
+        };
+        let StructuredNode::Array(solutions) = record.field("solutions").unwrap() else {
+            panic!("solutions is a vector");
+        };
+        assert_eq!(solutions.elements.len(), 2, "both rows stay in the model");
+
+        expansion.set_collapsed("result.solutions[0]", false);
+        let again = paint_result_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+        assert_eq!(
+            again, expanded,
+            "re-expanding a row paints byte-identical content"
+        );
+    }
+
+    /// RES-004 end to end through the shipped window layout: a pointer click on a painted field
+    /// header collapses that path in the live tree, and editing the buffer (which advances the
+    /// revision and marks the result stale without publishing a new one) leaves the map alone.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn a_window_click_collapses_a_field_and_an_edit_keeps_it() {
+        let mut workbench = Workbench::new();
+        workbench.set_source(
+            0,
+            "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x)".to_string(),
+        );
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        assert!(app.workbench.run_active(), "the test run must start");
+        assert!(
+            app.workbench.wait_until_idle(Duration::from_secs(15)),
+            "the solve run must finish"
+        );
+
+        let ctx = egui::Context::default();
+        let screen = vec2(2500.0, 1380.0);
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        let rect = app
+            .result_toggle_rects
+            .iter()
+            .find(|(path, _)| path == "result.solutions")
+            .map(|(_, rect)| *rect)
+            .expect("the window paints a header for result.solutions");
+        let pos = rect.center();
+        frame_sized(&ctx, &mut app, screen, vec![egui::Event::PointerMoved(pos)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, false)]);
+        assert!(
+            app.expansion.is_collapsed("result.solutions"),
+            "the click on the painted header must collapse the field"
+        );
+
+        // An edit advances the buffer revision and marks the displayed result stale; it
+        // publishes no new result, so the tree keeps every expansion decision.
+        app.workbench.set_source(
+            0,
+            "x = symbol(\"x\")\nsolve_full(x^2 - 4 == 0, x)\n# edited".to_string(),
+        );
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        assert!(
+            app.expansion.is_collapsed("result.solutions"),
+            "editing the buffer must not reset the result tree"
         );
     }
 }
