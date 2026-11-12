@@ -12,8 +12,10 @@ use lovelace_nat::Nat;
 pub mod assumptions;
 pub mod cancel;
 pub mod groebner;
+pub mod rational_functions;
 pub mod real_literal;
 pub mod series_kink;
+pub mod symbolic_matrix;
 
 /// An exact rational coefficient.
 #[derive(Clone, Debug, PartialEq, Eq)]

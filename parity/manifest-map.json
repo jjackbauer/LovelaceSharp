@@ -31851,19 +31851,22 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/Cancel_ExpandsAnUnexpandedPowerOfASumBeforeReducing#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rational_functions::tests::cancel_expands_an_unexpanded_power_of_a_sum_before_reducing",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.Cancel_ExpandsAnUnexpandedPowerOfASumBeforeReducing (MetamorphicSetClosureTests.cs:657) asserts (x-1)^2/(x-1) and its expanded spelling both cancel to x - 1, while Polynomial.TryFromExpr still refuses a power of a sum and accepts a power of a symbol; rust/lovelace-symbolics/src/rational_functions.rs:811 cancel_expands_an_unexpanded_power_of_a_sum_before_reducing asserts the same two reductions and the same parser boundary. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/Cancel_PoleExclusionIsCarriedAsANonZeroConditionByTheRewritePath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rational_functions::tests::cancel_conditions_are_the_same_atoms_as_non_zero_condition",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58 COMPOSITE row: C# MetamorphicSetClosureTests.Cancel_PoleExclusionIsCarriedAsANonZeroConditionByTheRewritePath (MetamorphicSetClosureTests.cs:499) asserts Simplify.Transform(x/x) returns 1 with a single SymbolProperty(x, NonZero) atom and a rat.cancel-x-over-x step classified Conditional, safe mode refuses the rewrite until the atom is assumed, and x/x is undefined at 0 while 1 is defined. This row is mapped to the new atom test rust/lovelace-symbolics/src/rational_functions.rs:797 cancel_conditions_are_the_same_atoms_as_non_zero_condition, which supplies the structured-cancel atom half (cancel_with_conditions conditions equal non_zero_condition for x and for x - 1); the existing rewrite-path half is covered by the measured lovelace-lang::suite_parity_batch::dxsemanticclosuretests_transform_xoverx_carriesnonzerocondition and lovelace-lang::suite_parity_batch::dxsemanticclosuretests_language_simplify_issafebydefault. The single rust field names the atom test; the two lovelace-lang tests are named here because one field cannot name three tests. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/Cancel_PreservesValueOffPoles_AndThePoleIsExcluded#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rational_functions::tests::cancel_preserves_value_off_poles_and_the_pole_is_excluded",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.Cancel_PreservesValueOffPoles_AndThePoleIsExcluded (MetamorphicSetClosureTests.cs:433) walks the ten-case CancelCorpus and asserts each documented reduction, exact value agreement at eight rational sample points (no tolerance), the original undefined at every pole, and the reduced form defined iff the pole was removed; rust/lovelace-symbolics/src/rational_functions.rs:837 cancel_preserves_value_off_poles_and_the_pole_is_excluded asserts the same ten-case corpus, the same eight sample points, and the same pole-definedness split (nine removed poles; (x^2+1)/(x-1) keeps its pole). See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelBuiltin_ReducesAndRefusesToCancelWhenNoFactorIsCommon#0": {
     "disposition": "deferred",
@@ -31877,24 +31880,28 @@
     "note": "Round 52: C# MetamorphicSetClosureTests.CancelFull_ReportsTheConditionsTheBareValueCannotCarry (MetamorphicSetClosureTests.cs:556) asserts the CancelResult fields for cancel_full(x/x) (Conditional, original x/x, expression 1, changed true, conditions [x != 0]), the unchanged Exact result for (x^2+1)/(x-1) with empty conditions, (x-1)^2/(x-1) expression x - 1 with condition [x - 1 != 0], and record field access; rust/lovelace-lang/src/dispatcher_guard_round51.rs cancel_full_publishes_the_conditions_the_bare_value_cannot_carry asserts the same record fields and typed displays. See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 11."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelWithConditions_BuildsTheSameConditionAtomsAsTheRewritePath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rational_functions::tests::cancel_with_conditions_reports_the_removed_factor_as_a_non_zero_atom",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.CancelWithConditions_BuildsTheSameConditionAtomsAsTheRewritePath (MetamorphicSetClosureTests.cs:606) asserts x/x is Conditional, Changed, expression 1 with one SymbolProperty(x, NonZero) atom equal to the rewrite-path atom, (x-1)^2/(x-1) is x - 1 with one ExpressionProperty(x - 1, NonZero) atom, and (x^2+1)/(x-1) is Exact, unchanged and condition-free with bare and structured forms agreeing; rust/lovelace-symbolics/src/rational_functions.rs:753 cancel_with_conditions_reports_the_removed_factor_as_a_non_zero_atom asserts the same expression, changed flag, status, original and both atom forms, with the exact no-removal case in the sibling cancel_with_conditions_is_exact_when_no_factor_is_removed. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/Inverse_TimesOriginal_IsIdentitySymbolically_UnderDetNonZeroCondition#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::symbolic_matrix::tests::inverse_times_original_is_identity_symbolically_under_det_non_zero_condition",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.Inverse_TimesOriginal_IsIdentitySymbolically_UnderDetNonZeroCondition (MetamorphicSetClosureTests.cs:209) walks the five-matrix InverseCorpus (2x2 general, 2x2 [[x,1],[y,x]], 3x3 tridiagonal, 3x3 cyclic, 3x3 Vandermonde) and asserts exactly one ExpressionProperty(det, NonZero) atom equal to a.Det, the determinant non-zero and polynomial-equal to the independent ground truth, and the cleared-denominator identity A*A^-1 = I proven exactly; rust/lovelace-symbolics/src/symbolic_matrix.rs:470 inverse_times_original_is_identity_symbolically_under_det_non_zero_condition asserts the same five matrices, the same single det atom, the same independent determinants and the same exact identity. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/InverseIdentity_HoldsOnlyWhereDetIsNonZero#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::symbolic_matrix::tests::inverse_identity_holds_only_where_det_is_non_zero",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.InverseIdentity_HoldsOnlyWhereDetIsNonZero (MetamorphicSetClosureTests.cs:325) asserts that at (x,y)=(2,4), where det = x^2 - y = 0, the inverse entries x/(x^2-y) are undefined, and that at (2,3), where det = 1, the product entries are exactly 1, 0, 0, 1; rust/lovelace-symbolics/src/symbolic_matrix.rs:647 inverse_identity_holds_only_where_det_is_non_zero asserts the same two points and the same four product entries. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/InverseIdentityCheck_RejectsInversesThatPassTheNumericSpotCheck#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing RationalFunctions.Cancel/CancelWithConditions and SymbolicMatrix inverse APIs; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::symbolic_matrix::tests::inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check",
+    "reason": "Round 58 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 58: C# MetamorphicSetClosureTests.InverseIdentityCheck_RejectsInversesThatPassTheNumericSpotCheck (MetamorphicSetClosureTests.cs:250) asserts the kernel's own inverse passes, that a transposed adjugate, a sign-flipped cofactor and a +1 numerator perturbation are each rejected with non-empty detail, and that a perturbation subtracting (x-3)^2 from the [0,1] numerator, which vanishes at (x,y)=(3,2), passes the numeric spot check yet is rejected symbolically; rust/lovelace-symbolics/src/symbolic_matrix.rs:575 inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check asserts the same clean pass, the same three corruptions, the same (3,2) identity values and the same symbolic rejection. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PiecewiseAssumptionTests/MirroredSpelling_IsAlsoDecided#0": {
     "disposition": "deferred",

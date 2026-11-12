@@ -30,7 +30,7 @@
 
 use crate::assumptions::{Assumption, AssumptionSet, SymbolPredicate};
 use crate::groebner::Polynomial;
-use crate::{expand, Expr, Rat};
+use crate::{Expr, Rat, expand};
 
 /// How a cancellation changed its input, as a type rather than as spelling.
 ///
@@ -220,7 +220,7 @@ pub fn cancel_with_conditions(e: &Expr) -> CancelResult {
         results.push(reduced);
         let factor = sparse_to_expr(&common, &variables);
         conditions = conditions
-            .add(non_zero_atom(&factor))
+            .add_owned(non_zero_atom(&factor))
             .unwrap_or_else(|(_, set)| set);
     }
     let expression = match results.len() {
@@ -385,8 +385,8 @@ fn sparse_multiply_term(
     for (term_exponents, term_coefficient) in polynomial {
         let width = term_exponents.len().max(exponents.len());
         let mut product = vec![0u32; width];
-        for index in 0..width {
-            product[index] = term_exponents.get(index).copied().unwrap_or(0)
+        for (index, slot) in product.iter_mut().enumerate() {
+            *slot = term_exponents.get(index).copied().unwrap_or(0)
                 + exponents.get(index).copied().unwrap_or(0);
         }
         sparse_add_term(&mut result, product, term_coefficient.mul(coefficient));
@@ -607,7 +607,8 @@ mod tests {
 
     #[test]
     fn try_rationalize_returns_the_documented_numerator_denominator_pairs() {
-        let (numerator, denominator) = try_rationalize(&quotient(x(), x())).expect("x/x is rational");
+        let (numerator, denominator) =
+            try_rationalize(&quotient(x(), x())).expect("x/x is rational");
         assert_eq!(numerator, x());
         assert_eq!(denominator, x());
 
@@ -627,7 +628,8 @@ mod tests {
 
     #[test]
     fn try_rationalize_returns_a_constant_over_one() {
-        let (numerator, denominator) = try_rationalize(&Expr::num(5)).expect("constant is rational");
+        let (numerator, denominator) =
+            try_rationalize(&Expr::num(5)).expect("constant is rational");
         assert_eq!(numerator, Expr::num(5));
         assert_eq!(denominator, Expr::num(1));
     }
@@ -635,7 +637,10 @@ mod tests {
     #[test]
     fn try_rationalize_refuses_a_non_polynomial_numerator() {
         // sin(x) is not a polynomial to the parser, so the reference's TryRationalize refuses.
-        assert_eq!(try_rationalize(&Expr::Fun("sin".to_string(), vec![x()])), None);
+        assert_eq!(
+            try_rationalize(&Expr::Fun("sin".to_string(), vec![x()])),
+            None
+        );
         // A quotient whose denominator is a sum is still a polynomial denominator.
         let (numerator, denominator) = try_rationalize(&quotient(
             Expr::num(1),
@@ -643,7 +648,10 @@ mod tests {
         ))
         .expect("polynomial denominator");
         assert_eq!(numerator, Expr::num(1));
-        assert_eq!(denominator, Expr::add(Expr::pow(x(), Expr::num(2)), Expr::num(1)));
+        assert_eq!(
+            denominator,
+            Expr::add(Expr::pow(x(), Expr::num(2)), Expr::num(1))
+        );
     }
 
     #[test]
@@ -662,15 +670,24 @@ mod tests {
             (quotient(x(), x()), Expr::num(1)),
             (quotient(Expr::pow(x(), Expr::num(2)), x()), x()),
             (
-                quotient(Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(1)), Expr::sub(x(), Expr::num(1))),
+                quotient(
+                    Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(1)),
+                    Expr::sub(x(), Expr::num(1)),
+                ),
                 Expr::add(x(), Expr::num(1)),
             ),
             (
-                quotient(Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(4)), Expr::sub(x(), Expr::num(2))),
+                quotient(
+                    Expr::sub(Expr::pow(x(), Expr::num(2)), Expr::num(4)),
+                    Expr::sub(x(), Expr::num(2)),
+                ),
                 Expr::add(x(), Expr::num(2)),
             ),
             (
-                quotient(Expr::pow(Expr::sub(x(), Expr::num(1)), Expr::num(2)), Expr::sub(x(), Expr::num(1))),
+                quotient(
+                    Expr::pow(Expr::sub(x(), Expr::num(1)), Expr::num(2)),
+                    Expr::sub(x(), Expr::num(1)),
+                ),
                 Expr::sub(x(), Expr::num(1)),
             ),
             (
@@ -692,9 +709,15 @@ mod tests {
                 Expr::add(x(), Expr::num(1)),
             ),
             (
-                quotient(Expr::sub(Expr::pow(x(), Expr::num(3)), Expr::num(8)), Expr::sub(x(), Expr::num(2))),
+                quotient(
+                    Expr::sub(Expr::pow(x(), Expr::num(3)), Expr::num(8)),
+                    Expr::sub(x(), Expr::num(2)),
+                ),
                 Expr::add(
-                    add_all(vec![Expr::pow(x(), Expr::num(2)), Expr::mul(Expr::num(2), x())]),
+                    add_all(vec![
+                        Expr::pow(x(), Expr::num(2)),
+                        Expr::mul(Expr::num(2), x()),
+                    ]),
                     Expr::num(4),
                 ),
             ),
@@ -750,10 +773,7 @@ mod tests {
         assert_eq!(atoms.len(), 1);
         assert_eq!(
             atoms[0],
-            Assumption::ExpressionProperty(
-                Expr::sub(x(), Expr::num(1)),
-                SymbolPredicate::NonZero
-            )
+            Assumption::ExpressionProperty(Expr::sub(x(), Expr::num(1)), SymbolPredicate::NonZero)
         );
     }
 
@@ -803,11 +823,13 @@ mod tests {
         );
         assert_eq!(cancel(&expanded), Expr::sub(x(), Expr::num(1)));
         let variables = vec!["x".to_string()];
-        assert!(Polynomial::from_expr(
-            &Expr::pow(Expr::sub(x(), Expr::num(1)), Expr::num(2)),
-            &variables
-        )
-        .is_none());
+        assert!(
+            Polynomial::from_expr(
+                &Expr::pow(Expr::sub(x(), Expr::num(1)), Expr::num(2)),
+                &variables
+            )
+            .is_none()
+        );
         assert!(Polynomial::from_expr(&Expr::pow(x(), Expr::num(2)), &variables).is_some());
     }
 
@@ -819,7 +841,11 @@ mod tests {
             pole_removed: bool,
         }
         let cases = vec![
-            Case { original: quotient(x(), x()), poles: vec![Rat::zero()], pole_removed: true },
+            Case {
+                original: quotient(x(), x()),
+                poles: vec![Rat::zero()],
+                pole_removed: true,
+            },
             Case {
                 original: quotient(Expr::pow(x(), Expr::num(2)), x()),
                 poles: vec![Rat::zero()],
@@ -912,17 +938,15 @@ mod tests {
                     "sample {point} is a pole of {}",
                     case.original
                 );
-                let before = evaluate(&case.original, &[("x", point.clone())])
+                let bindings = [("x", point.clone()), ("y", Rat::from_i64(3))];
+                let before = evaluate(&case.original, &bindings)
                     .unwrap_or_else(|| panic!("{} is undefined at {point}", case.original));
-                let after = evaluate(&reduced, &[("x", point.clone())])
+                let after = evaluate(&reduced, &bindings)
                     .unwrap_or_else(|| panic!("{reduced} is undefined at {point}"));
                 assert_eq!(before, after, "{} changed value at {point}", case.original);
             }
             for pole in &case.poles {
-                let bindings = [
-                    ("x", pole.clone()),
-                    ("y", Rat::from_i64(3)),
-                ];
+                let bindings = [("x", pole.clone()), ("y", Rat::from_i64(3))];
                 assert!(
                     evaluate(&case.original, &bindings).is_none(),
                     "{} is defined at its pole {pole}",
@@ -946,27 +970,20 @@ mod tests {
 
     #[test]
     fn cancel_reduces_each_additive_term_and_collects_every_condition() {
-        let sum = Expr::add(
-            quotient(x(), x()),
-            quotient(y(), y()),
-        );
+        let sum = Expr::add(quotient(x(), x()), quotient(y(), y()));
         let result = cancel_with_conditions(&sum);
         assert_eq!(result.expression, Expr::num(2));
         assert!(result.changed());
         assert_eq!(result.status(), CancelStatus::Conditional);
         assert_eq!(result.conditions.atoms().len(), 2);
-        assert!(result
-            .conditions
-            .contains(&Assumption::SymbolProperty(
-                "x".to_string(),
-                SymbolPredicate::NonZero
-            )));
-        assert!(result
-            .conditions
-            .contains(&Assumption::SymbolProperty(
-                "y".to_string(),
-                SymbolPredicate::NonZero
-            )));
+        assert!(result.conditions.contains(&Assumption::SymbolProperty(
+            "x".to_string(),
+            SymbolPredicate::NonZero
+        )));
+        assert!(result.conditions.contains(&Assumption::SymbolProperty(
+            "y".to_string(),
+            SymbolPredicate::NonZero
+        )));
     }
 
     #[test]
@@ -977,4 +994,3 @@ mod tests {
         assert_eq!(result.conditions, non_zero_condition(&x()));
     }
 }
-                                                                        

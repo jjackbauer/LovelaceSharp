@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T00:44:30Z",
+    "generatedAtUtc":  "2026-11-12T00:59:27Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5011,
+                  "passed":  5029,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5011
+                   "tests":  5029
                },
-    "sourcesSha256":  "64b20ecd223173f95d93c49abe8eeffbfd540f679ed5f99d67646106dd24e366",
+    "sourcesSha256":  "d55f788090bd9159f58e1472efa421b034ef4abce9aa7dc4de3b0d33d174a01b",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3044,6 +3044,19 @@
                                      "printing_round16::debug_print_visits_operands_in_canonical_order_not_display_order",
                                      "printing_round16::print_dispatches_every_mode_and_the_dispatch_is_case_insensitive",
                                      "printing_round16::unknown_print_mode_is_refused_and_names_every_accepted_mode",
+                                     "rational_functions::tests::cancel_conditions_are_the_same_atoms_as_non_zero_condition",
+                                     "rational_functions::tests::cancel_expands_an_unexpanded_power_of_a_sum_before_reducing",
+                                     "rational_functions::tests::cancel_leaves_an_irreducible_quotient_unchanged",
+                                     "rational_functions::tests::cancel_preserves_value_off_poles_and_the_pole_is_excluded",
+                                     "rational_functions::tests::cancel_reduces_each_additive_term_and_collects_every_condition",
+                                     "rational_functions::tests::cancel_reduces_the_documented_corpus",
+                                     "rational_functions::tests::cancel_with_conditions_is_exact_when_no_factor_is_removed",
+                                     "rational_functions::tests::cancel_with_conditions_reports_the_removed_factor_as_a_non_zero_atom",
+                                     "rational_functions::tests::cancel_zero_over_x_keeps_the_removed_pole_condition",
+                                     "rational_functions::tests::try_rationalize_of_a_sum_returns_the_input_over_one",
+                                     "rational_functions::tests::try_rationalize_refuses_a_non_polynomial_numerator",
+                                     "rational_functions::tests::try_rationalize_returns_a_constant_over_one",
+                                     "rational_functions::tests::try_rationalize_returns_the_documented_numerator_denominator_pairs",
                                      "round36_exactness::elementary_function_of_an_approximate_argument_is_inexact",
                                      "round39_residue::cubic_roots_satisfy_polynomial_symbolically",
                                      "round39_residue::diff_abs_carries_nonzero_condition",
@@ -3055,6 +3068,11 @@
                                      "round39_residue::rootof_evaluates_the_quadratic_radicals",
                                      "round39_residue::rootof_no_real_roots_fails_explicitly",
                                      "round39_residue::yun_square_free_multiplicities_are_correct",
+                                     "symbolic_matrix::tests::a_singular_matrix_publishes_no_inverse_and_the_reference_note",
+                                     "symbolic_matrix::tests::determinant_of_a_non_square_matrix_is_refused",
+                                     "symbolic_matrix::tests::inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check",
+                                     "symbolic_matrix::tests::inverse_identity_holds_only_where_det_is_non_zero",
+                                     "symbolic_matrix::tests::inverse_times_original_is_identity_symbolically_under_det_non_zero_condition",
                                      "tail_round34::acceptance_rational_normalization_and_arithmetic",
                                      "tail_round34::kernel_hardening_rational_roots_include_zero",
                                      "tail_round34::kernel_hardening_root_of_multiple_root_is_square_free_normalized",

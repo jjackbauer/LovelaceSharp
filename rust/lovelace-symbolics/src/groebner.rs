@@ -368,6 +368,47 @@ impl Polynomial {
         result
     }
 
+    /// Multivariate division by a single divisor under `order` (the reference's
+    /// `Polynomial.DivRem`): a leading term the divisor's leading monomial does not divide moves
+    /// to the remainder, everything else is reduced. A zero divisor answers the zero quotient and
+    /// the unchanged dividend; the reference throws there, but no caller in this crate divides by
+    /// zero and a panic is not a contract.
+    pub fn div_rem(&self, divisor: &Polynomial, order: MonomialOrder) -> (Polynomial, Polynomial) {
+        let mut quotient = Polynomial::new(&self.variables);
+        let mut remainder = Polynomial::new(&self.variables);
+        if divisor.is_zero() {
+            return (quotient, self.clone());
+        }
+        let mut working = self.clone();
+        while !working.is_zero() {
+            let (leading, coefficient) = match working.leading_term(order) {
+                Some((monomial, coefficient)) => (monomial.clone(), coefficient.clone()),
+                None => break,
+            };
+            let (divisor_leading, divisor_coefficient) = match divisor.leading_term(order) {
+                Some((monomial, coefficient)) => (monomial.clone(), coefficient.clone()),
+                None => break,
+            };
+            if leading.divisible_by(&divisor_leading) {
+                let quotient_monomial = leading
+                    .divide(&divisor_leading)
+                    .expect("divisibility checked");
+                let Some(quotient_coefficient) = coefficient.div(&divisor_coefficient) else {
+                    break;
+                };
+                let term =
+                    Polynomial::from_term(&self.variables, quotient_monomial, quotient_coefficient);
+                quotient = Polynomial::add(&quotient, &term);
+                working = Polynomial::subtract(&working, &Polynomial::multiply(&term, divisor));
+            } else {
+                let term = Polynomial::from_term(&self.variables, leading, coefficient);
+                remainder = Polynomial::add(&remainder, &term);
+                working = Polynomial::subtract(&working, &term);
+            }
+        }
+        (quotient, remainder)
+    }
+
     /// True when no term mentions any of the named variables (by exponent, not by position).
     pub fn is_free_of(&self, names: &[String]) -> bool {
         let indices: Vec<usize> = names
