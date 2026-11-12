@@ -1750,14 +1750,25 @@
                      "type":  "W",
                      "requirement":  "Distinguish statuses",
                      "acceptance":  "Queued, Running, Cancelling, Completed, Cancelled, Failed and Stale states have distinct labels and terminal events.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-13/run-states.md",
+                                          "sha256":  "4F24EFA3F09DDE2082D0E2F32E1E913A24514B5F0EE340BA864EAFA5648F1626",
+                                          "class":  "gui",
+                                          "at_head":  "8d8df679bdbe27d0d75de7d16261c870b0705e77"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-13/verify-gui-selftest.txt",
+                                          "sha256":  "90784DB99765EF4CC8929D498260A7DA0D540460B3D0FFA0D93DE3CE490AA079",
+                                          "class":  "gui",
+                                          "at_head":  "8d8df679bdbe27d0d75de7d16261c870b0705e77"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "--gui-selftest run-state-*; gui-harness scenario",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Four sequences observed: fast Queued-\u003eRunning-\u003eFinished, cancel -\u003eCancelling-\u003eCancelled (36.2 ms), fail -\u003eFailed, edit -\u003eStale (no resurrect); exactly one terminal event each."
                  },
                  {
                      "id":  "RUN-010",
