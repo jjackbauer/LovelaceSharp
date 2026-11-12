@@ -16,11 +16,28 @@
                          "id":  "J-02",
                          "name":  "Basic script",
                          "outcome":  "Enter a=2; b=a^10; b; verify result, variables, cursor and log output.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/J-02.png",
+                                              "sha256":  "72573493CF8888CDBF06766FEDAC14398931BA435EDC76254F179E733D061094",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/J-02-uia.txt",
+                                              "sha256":  "6D9AA7567D0289E083B037B032BFBB77EF8F0A65ED2AB9D74D7F488830BE60F8",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/journeys.md",
+                                              "sha256":  "F1C4CB56BF04F6AE561BA2C31C2042FF57E8F7DD68884FA7D35A959F76FBF02F",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "My own run: exit 0, result 1024, a=2 and b=1024 (Natural), rev 1; window capture + UIA dump."
                      },
                      {
                          "id":  "J-03",
@@ -146,11 +163,28 @@
                          "id":  "J-15",
                          "name":  "Plot presentation",
                          "outcome":  "Generate plot with paths, text, axes, clipping; zoom, pan, fit, copy and export SVG/PNG, compare reference screenshot.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/J-15.png",
+                                              "sha256":  "97A9107782C1E66D279C89D80D48B6B35E58BC2CBBE76BB608C891122BA520C3",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/J-15-zoom.png",
+                                              "sha256":  "A6279EC9EE346119B92AAA777CF66890578F5B01B5414FBC9798DEC8DDDE057D",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-33/journeys.md",
+                                              "sha256":  "F1C4CB56BF04F6AE561BA2C31C2042FF57E8F7DD68884FA7D35A959F76FBF02F",
+                                              "class":  "gui",
+                                              "at_head":  "0217d6e9eb57a3933ed11b549133178a8cf7399b"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "My run with APPDATA redirected outside the cwd: PASS; 15000-byte SVG byte-identical on export; census 2 rect/13 line/11 text/1 polyline; zoom captured. Default APPDATA is denied to child processes in this session."
                      },
                      {
                          "id":  "J-16",

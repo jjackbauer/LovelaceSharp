@@ -24,11 +24,21 @@
                         "summary":  "Stale 3-point plot assertion",
                         "id":  "DEF-003",
                         "owner":  "agent",
-                        "verified_by":  "assertion now checks the 2 rect/14 line/13 text/1 polyline census, 580 samples and three mapped vertices - stricter than before, not weakened",
+                        "verified_by":  "stricter census assertion",
                         "status":  "fixed",
                         "severity":  2,
                         "area":  "selftest",
-                        "evidence":  "round-30 plot-interaction.md; suite 277 green"
+                        "evidence":  "round-30"
+                    },
+                    {
+                        "summary":  "J-09 fails because --journey points the engine at a per-run directory it never creates (os error 3)",
+                        "id":  "DEF-004",
+                        "owner":  "agent",
+                        "status":  "open",
+                        "severity":  2,
+                        "area":  "--journey",
+                        "evidence":  "orchestrator run: JOURNEY J-09 FAIL cannot write ...lovelace-journey/run-27148/J-09-run1.svg: The system cannot find the path specified",
+                        "next":  "create the per-run plot directory (or use the app-scoped one) and re-run J-09"
                     }
                 ],
     "schema":  1
