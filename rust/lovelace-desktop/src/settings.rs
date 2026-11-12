@@ -5,6 +5,7 @@
 //! a file written by a newer build, or a field of the wrong type must never be able to stop the
 //! application from starting, so from_json has no error return at all.
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use lovelace_json::Json;
@@ -357,22 +358,45 @@ fn read_i64(
     }
 }
 
+/// The per-user application directory: %APPDATA%\Lovelace on Windows, and the usual XDG
+/// location elsewhere. Every file the application writes outside a document lives below it,
+/// so the settings file and the plot directory are always siblings resolved the same way.
+fn app_dir_from(
+    appdata: Option<&OsStr>,
+    xdg_config_home: Option<&OsStr>,
+    home: Option<&OsStr>,
+) -> Option<PathBuf> {
+    if let Some(appdata) = appdata {
+        return Some(PathBuf::from(appdata).join("Lovelace"));
+    }
+    if let Some(xdg) = xdg_config_home {
+        return Some(PathBuf::from(xdg).join("lovelace"));
+    }
+    let home = home?;
+    Some(PathBuf::from(home).join(".config").join("lovelace"))
+}
+
+/// The per-user application directory for this process.
+fn app_dir() -> Option<PathBuf> {
+    app_dir_from(
+        std::env::var_os("APPDATA").as_deref(),
+        std::env::var_os("XDG_CONFIG_HOME").as_deref(),
+        std::env::var_os("HOME").as_deref(),
+    )
+}
+
 /// The per-user settings path: %APPDATA%\Lovelace\desktop.json on Windows, and the usual
 /// XDG location elsewhere.
 pub fn default_config_path() -> Option<PathBuf> {
-    if let Some(appdata) = std::env::var_os("APPDATA") {
-        return Some(PathBuf::from(appdata).join("Lovelace").join("desktop.json"));
-    }
-    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Some(PathBuf::from(xdg).join("lovelace").join("desktop.json"));
-    }
-    let home = std::env::var_os("HOME")?;
-    Some(
-        PathBuf::from(home)
-            .join(".config")
-            .join("lovelace")
-            .join("desktop.json"),
-    )
+    app_dir().map(|directory| directory.join("desktop.json"))
+}
+
+/// The per-user plot directory: %APPDATA%\Lovelace\plots on Windows, and the usual XDG
+/// location elsewhere. It is derived from the same application directory as
+/// [`default_config_path`], so the product never writes beside the executable or in the
+/// process working directory (PLF-006).
+pub fn default_plot_dir() -> Option<PathBuf> {
+    app_dir().map(|directory| directory.join("plots"))
 }
 
 #[cfg(test)]
@@ -488,6 +512,63 @@ mod tests {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn app_dir_prefers_appdata_then_xdg_then_home() {
+        let appdata = OsStr::new(r"C:\Users\example\AppData\Roaming");
+        let xdg = OsStr::new("/home/example/.config");
+        let home = OsStr::new("/home/example");
+
+        let from_appdata =
+            app_dir_from(Some(appdata), Some(xdg), Some(home)).expect("appdata wins");
+        assert_eq!(
+            from_appdata,
+            PathBuf::from(appdata).join("Lovelace"),
+            "the Windows application directory is %APPDATA%\\Lovelace"
+        );
+        assert_eq!(
+            from_appdata.join("desktop.json"),
+            PathBuf::from(appdata).join("Lovelace").join("desktop.json")
+        );
+
+        let from_xdg = app_dir_from(None, Some(xdg), Some(home)).expect("xdg second");
+        assert_eq!(from_xdg, PathBuf::from(xdg).join("lovelace"));
+
+        let from_home = app_dir_from(None, None, Some(home)).expect("home last");
+        assert_eq!(
+            from_home,
+            PathBuf::from(home).join(".config").join("lovelace")
+        );
+
+        assert!(app_dir_from(None, None, None).is_none());
+    }
+
+    #[test]
+    fn plot_dir_is_derived_from_the_settings_application_directory() {
+        let appdata = OsStr::new(r"C:\Users\example\AppData\Roaming");
+        let directory = app_dir_from(Some(appdata), None, None).expect("appdata");
+        assert_eq!(
+            directory.join("plots"),
+            directory
+                .join("desktop.json")
+                .parent()
+                .unwrap()
+                .join("plots"),
+            "the plot directory is the sibling of desktop.json, not the working directory"
+        );
+        assert!(directory.join("plots").ends_with("plots"));
+        assert!(directory.join("plots").starts_with(PathBuf::from(appdata)));
+    }
+
+    #[test]
+    fn default_plot_dir_matches_default_config_path_parent() {
+        let Some(config) = default_config_path() else {
+            // No APPDATA/XDG/HOME in this environment: the derivation itself is covered above.
+            return;
+        };
+        let expected = config.parent().expect("config has a parent").join("plots");
+        assert_eq!(default_plot_dir(), Some(expected));
     }
 
     #[test]

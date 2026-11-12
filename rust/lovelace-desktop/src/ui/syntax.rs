@@ -35,15 +35,37 @@ pub const DARK: Palette = Palette {
 
 /// Keywords coloured as language keywords.
 pub const KEYWORDS: &[&str] = &[
-    "let", "if", "else", "for", "while", "end", "do", "then", "return", "function", "set",
-    "print", "assert", "in", "and", "or", "not", "solve", "plot", "elseif", "assume",
+    "let", "if", "else", "for", "while", "end", "do", "then", "return", "function", "set", "print",
+    "assert", "in", "and", "or", "not", "solve", "plot", "elseif", "assume",
 ];
 
 /// Builtin names coloured as builtins.
 pub const BUILTINS: &[&str] = &[
-    "diff", "integrate", "symbol", "simplify", "expand", "factor", "sqrt", "sin", "cos", "tan",
-    "exp", "log", "abs", "round", "sum", "product", "matrix", "det", "eval", "latex", "trace",
-    "subs", "limit", "series", "pi",
+    "diff",
+    "integrate",
+    "symbol",
+    "simplify",
+    "expand",
+    "factor",
+    "sqrt",
+    "sin",
+    "cos",
+    "tan",
+    "exp",
+    "log",
+    "abs",
+    "round",
+    "sum",
+    "product",
+    "matrix",
+    "det",
+    "eval",
+    "latex",
+    "trace",
+    "subs",
+    "limit",
+    "series",
+    "pi",
 ];
 
 fn push(job: &mut LayoutJob, text: &str, font: &FontId, color: Color32) {

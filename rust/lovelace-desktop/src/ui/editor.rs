@@ -12,9 +12,7 @@
 
 use std::time::Instant;
 
-use egui::{
-    Align2, Color32, CursorIcon, FontId, Rect, Sense, Stroke, TextStyle, Ui, pos2, vec2,
-};
+use egui::{Align2, Color32, CursorIcon, FontId, Rect, Sense, Stroke, TextStyle, Ui, pos2, vec2};
 
 use super::syntax;
 
@@ -65,6 +63,15 @@ pub struct TextEditor {
     pub last_ui_ms: f64,
     /// Number of source-mutating edits, used by the window to detect a changed buffer.
     pub edits: u64,
+}
+
+/// The stable egui id of the editor surface.
+///
+/// The window requests focus for this id on its first frame so a script typed immediately after
+/// startup goes into the editor without a click. `Id::unique` is deterministic, so the same id
+/// is used by every pass.
+pub fn surface_id() -> egui::Id {
+    egui::Id::unique("editor_surface")
 }
 
 fn split_lines(source: &str) -> Vec<String> {
@@ -275,7 +282,7 @@ impl TextEditor {
         let text_left = rect.left() + gutter_w + 6.0;
         let max_scroll = (total as f32 * row_h - rect.height()).max(0.0);
 
-        let id = egui::Id::unique("editor_surface");
+        let id = surface_id();
         let response = ui.interact(rect, id, Sense::click_and_drag());
         if response.clicked() {
             response.request_focus();
@@ -301,11 +308,18 @@ impl TextEditor {
                     egui::Event::Key {
                         key,
                         pressed: true,
+                        modifiers,
                         ..
                     } => match key {
                         egui::Key::Backspace => self.backspace(),
                         egui::Key::Delete => self.delete_forward(),
-                        egui::Key::Enter => self.newline(),
+                        egui::Key::Enter => {
+                            // Ctrl+Enter is the workbench's Run shortcut; it must not also
+                            // insert a newline into the document.
+                            if !(modifiers.command || modifiers.ctrl) {
+                                self.newline();
+                            }
+                        }
                         egui::Key::Tab => self.insert_str("  "),
                         egui::Key::ArrowLeft => self.move_left(),
                         egui::Key::ArrowRight => self.move_right(),
@@ -373,7 +387,10 @@ impl TextEditor {
             let caret_x = text_left + self.caret_col as f32 * char_w;
             let caret_y = rect.top() - self.scroll_y + self.caret_row as f32 * row_h;
             painter.line_segment(
-                [pos2(caret_x, caret_y + 1.0), pos2(caret_x, caret_y + row_h - 1.0)],
+                [
+                    pos2(caret_x, caret_y + 1.0),
+                    pos2(caret_x, caret_y + row_h - 1.0),
+                ],
                 Stroke::new(1.5, CARET),
             );
             painter.rect_stroke(

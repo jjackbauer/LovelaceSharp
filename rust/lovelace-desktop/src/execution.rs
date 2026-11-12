@@ -225,7 +225,11 @@ impl Diagnostic {
     /// statement's absolute offset, clamped to the statement text so an out-of-range position
     /// can never point outside the full source. A message without a position points at the
     /// statement start.
-    pub fn for_statement(statement: &Statement, source: &str, message: impl Into<String>) -> Diagnostic {
+    pub fn for_statement(
+        statement: &Statement,
+        source: &str,
+        message: impl Into<String>,
+    ) -> Diagnostic {
         let message = message.into();
         let relative = position_in_message(&message)
             .map(|position| position.min(statement.text().len()))
@@ -434,9 +438,7 @@ impl ExecutionHost {
         let state = self.state.lock().unwrap_or_else(|error| error.into_inner());
         match state.active.get(&handle.document) {
             Some((run, control))
-                if *run == handle.run
-                    && !control.is_finished()
-                    && !control.is_cancelled() =>
+                if *run == handle.run && !control.is_finished() && !control.is_cancelled() =>
             {
                 control.cancelled.store(true, Ordering::Release);
                 true
@@ -447,7 +449,10 @@ impl ExecutionHost {
 
     /// Waits up to `timeout` for the next event and assigns it a delivery sequence number.
     pub fn next_event(&self, timeout: Duration) -> Option<SequencedEvent> {
-        let receiver = self.receiver.lock().unwrap_or_else(|error| error.into_inner());
+        let receiver = self
+            .receiver
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
         match receiver.recv_timeout(timeout) {
             Ok(raw) => {
                 let sequence = self.sequence.fetch_add(1, Ordering::SeqCst) + 1;
@@ -649,10 +654,8 @@ impl RunWorker {
 
     /// Drains the engine's print output and publishes one event per line.
     fn drain_output(&self, engine: &mut Box<dyn Evaluator>, progress: &mut Progress) {
-        let lines = match panic::catch_unwind(AssertUnwindSafe(|| engine.take_output())) {
-            Ok(lines) => lines,
-            Err(_) => Vec::new(),
-        };
+        let lines =
+            panic::catch_unwind(AssertUnwindSafe(|| engine.take_output())).unwrap_or_default();
         for line in lines {
             self.emit(DesktopEvent::Output {
                 document: self.document,
@@ -810,12 +813,7 @@ mod tests {
     }
 
     fn sleep_factory(delay: Duration) -> EvaluatorFactory {
-        Box::new(move || {
-            Box::new(SleepEngine {
-                delay,
-                calls: 0,
-            })
-        })
+        Box::new(move || Box::new(SleepEngine { delay, calls: 0 }))
     }
 
     /// An engine that reports its executed-statement count as a variable, so a snapshot can be
@@ -838,12 +836,7 @@ mod tests {
     }
 
     fn progress_factory(delay: Duration) -> EvaluatorFactory {
-        Box::new(move || {
-            Box::new(ProgressEngine {
-                delay,
-                steps: 0,
-            })
-        })
+        Box::new(move || Box::new(ProgressEngine { delay, steps: 0 }))
     }
 
     /// Panics on the first evaluation that reaches it, then succeeds. The flag is shared across
@@ -904,7 +897,9 @@ mod tests {
             DesktopEvent::Output { text, .. } => format!("Output({text:?})"),
             DesktopEvent::SubProgress { .. } => "SubProgress".to_string(),
             DesktopEvent::Finished { .. } => "Finished".to_string(),
-            DesktopEvent::Cancelled { committed_steps, .. } => {
+            DesktopEvent::Cancelled {
+                committed_steps, ..
+            } => {
                 format!("Cancelled({committed_steps})")
             }
             DesktopEvent::Failed { diagnostic, .. } => format!("Failed({diagnostic})"),
@@ -994,7 +989,10 @@ mod tests {
         let first = host
             .next_event(Duration::from_millis(100))
             .unwrap_or_else(|| panic!("RunStarted was not available within 100 ms of submit"));
-        eprintln!("T2 RunStarted received {:?} after submit", started.elapsed());
+        eprintln!(
+            "T2 RunStarted received {:?} after submit",
+            started.elapsed()
+        );
         match &first.event {
             DesktopEvent::RunStarted {
                 document,
@@ -1013,7 +1011,10 @@ mod tests {
             ),
         }
 
-        assert!(host.cancel(&handle), "cancel must be accepted on an active run");
+        assert!(
+            host.cancel(&handle),
+            "cancel must be accepted on an active run"
+        );
         let events = drain_until_terminal(&host, Duration::from_secs(2));
         assert!(
             matches!(
@@ -1214,7 +1215,9 @@ mod tests {
             .expect("first submit for document 1");
         match host.submit(doc1, SourceRevision(4), "x = 1".to_string(), 1000) {
             Err(SubmitError::Busy) => {}
-            Err(other) => panic!("second submit for document 1 failed with {other:?}, expected Busy"),
+            Err(other) => {
+                panic!("second submit for document 1 failed with {other:?}, expected Busy")
+            }
             Ok(_) => panic!("second submit for document 1 succeeded, expected Busy"),
         }
 
@@ -1230,7 +1233,7 @@ mod tests {
             match host.next_event(Duration::from_secs(5)) {
                 Some(event) => match &event.event {
                     DesktopEvent::Finished { document, .. } if *document == doc2 => {
-                        break Instant::now()
+                        break Instant::now();
                     }
                     DesktopEvent::Finished { document, .. } => {
                         panic!("document {document:?} finished before document 2")
@@ -1272,7 +1275,10 @@ mod tests {
             } => {
                 assert_eq!(*document, doc1);
                 assert_eq!(*run, handle1.run());
-                assert!(*committed_steps < 5, "committed_steps was {committed_steps}");
+                assert!(
+                    *committed_steps < 5,
+                    "committed_steps was {committed_steps}"
+                );
             }
             other => panic!(
                 "terminal for document 1 was {}, expected Cancelled",
@@ -1352,7 +1358,9 @@ mod tests {
         assert_eq!(sink.revision(), SourceRevision(2));
         let state_before = sink.snapshot().cloned();
         assert_eq!(
-            state_before.as_ref().map(|snapshot| snapshot.result.as_str()),
+            state_before
+                .as_ref()
+                .map(|snapshot| snapshot.result.as_str()),
             Some("new")
         );
 
@@ -1446,10 +1454,7 @@ mod tests {
         assert_eq!(diagnostic.byte_offset, statement.byte_offset() + 6);
         assert_eq!(diagnostic.line, 3);
         assert_eq!(diagnostic.column, 7);
-        assert_eq!(
-            diagnostic.message,
-            "Unexpected token 'x' at position 6."
-        );
+        assert_eq!(diagnostic.message, "Unexpected token 'x' at position 6.");
         assert_eq!(
             diagnostic.render(),
             "line 3, column 7: Unexpected token 'x' at position 6."
@@ -1544,9 +1549,7 @@ mod tests {
         }
         #[cfg(feature = "real-engine")]
         assert_eq!(
-            *names
-                .lock()
-                .unwrap_or_else(|error| error.into_inner()),
+            *names.lock().unwrap_or_else(|error| error.into_inner()),
             vec!["lovelace-lang"],
             "the default build must use the real engine"
         );

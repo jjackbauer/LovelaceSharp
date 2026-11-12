@@ -31,7 +31,7 @@ pub mod cancel {
     pub use lovelace_symbolics::cancel::*;
 }
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
 use lovelace_array::{Field, NdArray};
@@ -486,6 +486,84 @@ pub struct PlotCapture {
     pub svg: String,
 }
 
+/// One variable in a [`StateSnapshot`]: its name, published kind and display rendering.
+///
+/// The reference's `StateVariable` record (`Name`, `Kind`, `Display`). Built once, when
+/// `capture_state` runs, so later engine mutations cannot change it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StateVariable {
+    /// The variable name as written in source.
+    pub name: String,
+    /// The published kind name (`Natural`, `Real`, `Vector`, …).
+    pub kind: String,
+    /// The display rendering at the engine's display precision.
+    pub display: String,
+}
+
+/// One function in a [`StateSnapshot`], or the definition carried by a
+/// [`FunctionDefined`] event.
+///
+/// The reference's `StateFunction` record (`Name`, `Parameters`, `IsBuiltin`, `Span`,
+/// `Plugin`). The Rust engine does not track a source span on a user definition, so the span
+/// field of the reference record has no counterpart here; every other field is published.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StateFunction {
+    /// The function name as written in source.
+    pub name: String,
+    /// The ordered parameter names.
+    pub parameters: Vec<String>,
+    /// True for a builtin (native or plugin) and false for a user definition.
+    pub is_builtin: bool,
+    /// The plugin that registered the builtin, when one did.
+    pub plugin: Option<String>,
+}
+
+/// An immutable capture of the engine's variables and functions, with the revision it was
+/// taken at.
+///
+/// The reference's `StateSnapshot`: a host takes one capture to read a consistent view and
+/// compares `revision` later to detect staleness. The maps are owned copies sorted by name, so
+/// a mutating engine call after the capture cannot alter the snapshot.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StateSnapshot {
+    /// The engine revision when the snapshot was taken.
+    pub revision: u64,
+    /// The captured variables, keyed and sorted by name.
+    pub variables: BTreeMap<String, StateVariable>,
+    /// The captured functions, keyed and sorted by name.
+    pub functions: BTreeMap<String, StateFunction>,
+}
+
+/// Event payload for a global variable change: define, reassign, or remove.
+///
+/// The reference's `VariableChangedEventArgs`. `removed` distinguishes a removal, whose
+/// `value` is the value that was removed, from a definition or reassignment.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VariableChanged {
+    /// The variable name.
+    pub name: String,
+    /// The value written, or the value removed when `removed` is true.
+    pub value: Value,
+    /// True when the event reports a removal.
+    pub removed: bool,
+}
+
+/// Event payload for a function definition.
+///
+/// The reference's `FunctionDefinedEventArgs`; the definition's name and declared parameters
+/// are the observable identity.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FunctionDefined {
+    /// The definition that was registered.
+    pub definition: StateFunction,
+}
+
+/// A subscriber to a [`VariableChanged`] event.
+type VariableChangedListener = Box<dyn FnMut(&VariableChanged) + Send>;
+
+/// A subscriber to a [`FunctionDefined`] event.
+type FunctionDefinedListener = Box<dyn FnMut(&FunctionDefined) + Send>;
+
 /// One interval endpoint: the value and whether the endpoint is included.
 type IntervalEnd = (lovelace_symbolics::Rat, bool);
 /// One optional endpoint of an assumption interval.
@@ -541,6 +619,10 @@ pub struct Engine {
     /// `None` keeps every advertised builtin available (the runner's behaviour). `Some` is a
     /// bare engine that exposes only core builtins plus the plugins it has loaded.
     enabled_plugins: Option<HashSet<String>>,
+    /// Subscribers to the [`VariableChanged`] event, in subscription order.
+    variable_listeners: Vec<VariableChangedListener>,
+    /// Subscribers to the [`FunctionDefined`] event, in subscription order.
+    function_listeners: Vec<FunctionDefinedListener>,
 }
 
 impl Default for Engine {
@@ -579,6 +661,8 @@ impl Engine {
             assumptions: lovelace_symbolics::assumptions::AssumptionSet::empty(),
             modus: modus::ModusHost::new(),
             enabled_plugins: None,
+            variable_listeners: Vec::new(),
+            function_listeners: Vec::new(),
         }
     }
 
@@ -616,7 +700,14 @@ impl Engine {
             + 'static,
     {
         self.modus
-            .register_builtin(name, parameters, implementation)
+            .register_builtin(name, parameters, implementation)?;
+        self.raise_function_defined(StateFunction {
+            name: name.to_string(),
+            parameters: parameters.iter().map(|p| (*p).to_string()).collect(),
+            is_builtin: true,
+            plugin: self.modus.plugin_name_of(name).map(str::to_string),
+        });
+        Ok(())
     }
 
     /// Registers a descriptor-carrying host builtin.
@@ -631,8 +722,19 @@ impl Engine {
             + Sync
             + 'static,
     {
+        let definition = StateFunction {
+            name: descriptor.name.clone(),
+            parameters: descriptor.parameters.clone(),
+            is_builtin: true,
+            plugin: self
+                .modus
+                .plugin_name_of(&descriptor.name)
+                .map(str::to_string),
+        };
         self.modus
-            .register_builtin_descriptor(descriptor, implementation)
+            .register_builtin_descriptor(descriptor, implementation)?;
+        self.raise_function_defined(definition);
+        Ok(())
     }
 
     /// Registers an array-to-array host builtin.
@@ -822,6 +924,161 @@ impl Engine {
         out.sort_by(|a, b| a.0.cmp(&b.0));
         out
     }
+    /// Captures an immutable snapshot of the global variables and the function table, with the
+    /// revision it was taken at.
+    ///
+    /// The Rust counterpart of the reference's `SuiteEngine.CaptureState`. Variables carry the
+    /// same three fields as `StateVariable` (name, kind, display). Functions carry the same
+    /// observable identity as `StateFunction` — name, declared parameters, builtin flag and the
+    /// registering plugin — for the engine's user definitions, its Modus registrations and every
+    /// builtin the engine currently exposes. The reference's `Span` has no Rust counterpart and
+    /// is not published. The maps are owned copies, so later mutation cannot change them.
+    pub fn capture_state(&self) -> StateSnapshot {
+        let mut variables: BTreeMap<String, StateVariable> = BTreeMap::new();
+        for (name, value) in &self.vars {
+            // `true`/`false` are language constants, not globals (the `variables()` filter).
+            if name == "true" || name == "false" {
+                continue;
+            }
+            variables.insert(
+                name.clone(),
+                StateVariable {
+                    name: name.clone(),
+                    kind: value.kind_name().to_string(),
+                    display: self.format(value),
+                },
+            );
+        }
+
+        let mut functions: BTreeMap<String, StateFunction> = BTreeMap::new();
+        for builtin in crate::registry::BUILTINS {
+            if !self.plugin_enabled(builtin.name) {
+                continue;
+            }
+            functions.insert(
+                builtin.name.to_string(),
+                StateFunction {
+                    name: builtin.name.to_string(),
+                    parameters: builtin
+                        .parameters
+                        .iter()
+                        .map(|p| (*p).to_string())
+                        .collect(),
+                    is_builtin: true,
+                    plugin: builtin.plugin.map(|p| p.to_string()),
+                },
+            );
+        }
+        for name in self.modus.names() {
+            functions.insert(name.to_string(), self.host_function(name));
+        }
+        for (name, (parameters, _)) in &self.funcs {
+            functions.insert(
+                name.clone(),
+                StateFunction {
+                    name: name.clone(),
+                    parameters: parameters.clone(),
+                    is_builtin: false,
+                    plugin: None,
+                },
+            );
+        }
+
+        StateSnapshot {
+            revision: self.revision,
+            variables,
+            functions,
+        }
+    }
+
+    /// Defines or overwrites a global variable and raises [`VariableChanged`].
+    ///
+    /// The reference's `SuiteEngine.SetVariable`: the value is stored, the revision moves once,
+    /// and the event carries `(name, value, removed: false)`.
+    pub fn set_variable(&mut self, name: &str, value: Value) {
+        self.vars.insert(name.to_string(), value.clone());
+        self.revision += 1;
+        self.raise_variable_changed(name, &value, false);
+    }
+
+    /// Looks up a global variable without throwing; `None` is the reference's false return.
+    pub fn try_get_variable(&self, name: &str) -> Option<&Value> {
+        self.vars.get(name)
+    }
+
+    /// Removes a global variable, returning whether it existed.
+    ///
+    /// A present variable raises [`VariableChanged`] with `removed: true` and the value that was
+    /// removed; a missing name returns false and raises nothing, exactly the reference's
+    /// `SuiteEngine.RemoveVariable` false branch.
+    pub fn remove_variable(&mut self, name: &str) -> bool {
+        match self.vars.remove(name) {
+            Some(value) => {
+                self.revision += 1;
+                self.raise_variable_changed(name, &value, true);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Subscribes to [`VariableChanged`]. Listeners run in subscription order, with the payload
+    /// for one mutation, before the engine call returns.
+    pub fn on_variable_changed<F>(&mut self, listener: F)
+    where
+        F: FnMut(&VariableChanged) + Send + 'static,
+    {
+        self.variable_listeners.push(Box::new(listener));
+    }
+
+    /// Subscribes to [`FunctionDefined`]. Listeners run in subscription order, with the payload
+    /// for one definition, before the engine call returns.
+    pub fn on_function_defined<F>(&mut self, listener: F)
+    where
+        F: FnMut(&FunctionDefined) + Send + 'static,
+    {
+        self.function_listeners.push(Box::new(listener));
+    }
+
+    /// Raises one variable-change event to every subscriber.
+    fn raise_variable_changed(&mut self, name: &str, value: &Value, removed: bool) {
+        if self.variable_listeners.is_empty() {
+            return;
+        }
+        let event = VariableChanged {
+            name: name.to_string(),
+            value: value.clone(),
+            removed,
+        };
+        for listener in &mut self.variable_listeners {
+            listener(&event);
+        }
+    }
+
+    /// Raises one function-defined event to every subscriber.
+    fn raise_function_defined(&mut self, definition: StateFunction) {
+        if self.function_listeners.is_empty() {
+            return;
+        }
+        let event = FunctionDefined { definition };
+        for listener in &mut self.function_listeners {
+            listener(&event);
+        }
+    }
+
+    /// The snapshot view of one Modus-registered builtin.
+    fn host_function(&self, name: &str) -> StateFunction {
+        StateFunction {
+            name: name.to_string(),
+            parameters: self
+                .modus
+                .descriptor_of(name)
+                .map(|descriptor| descriptor.parameters.clone())
+                .unwrap_or_default(),
+            is_builtin: true,
+            plugin: self.modus.plugin_name_of(name).map(str::to_string),
+        }
+    }
 
     /// Evaluates a script and returns its final value.
     ///
@@ -999,6 +1256,9 @@ impl Engine {
         self.revision += 1;
         if !matches!(last, Value::Void) {
             self.vars.insert("_".to_string(), last.clone());
+            // The reference stores the result through `SetVariable("_", result)`, so the
+            // result variable is itself a variable-change event, after every statement event.
+            self.raise_variable_changed("_", &last, false);
         }
         Ok(last)
     }
@@ -1099,6 +1359,12 @@ impl Engine {
             Stmt::Func(name, params, body) => {
                 self.funcs
                     .insert(name.clone(), (params.clone(), (**body).clone()));
+                self.raise_function_defined(StateFunction {
+                    name: name.clone(),
+                    parameters: params.clone(),
+                    is_builtin: false,
+                    plugin: None,
+                });
                 Ok(Flow::Value(Value::Void))
             }
         }
@@ -1296,6 +1562,10 @@ impl Engine {
             Expr::Assign(name, value) => {
                 let v = self.eval_expr(value)?;
                 self.vars.insert(name.clone(), v.clone());
+                // The engine's store is flat, so this insert is the global write the
+                // reference raises `VariableChanged` for. A later round that adds real
+                // block/function scopes must move this raise with that store.
+                self.raise_variable_changed(name, &v, false);
                 Ok(v)
             }
         }
@@ -2119,3 +2389,8 @@ mod fixed_dsp_tests;
 /// Round-61 DSP family: the seven round-50 `dsp` census rows, each pinned to the oracle.
 #[cfg(test)]
 mod dsp_family_round61;
+
+/// Round-76 SuiteEngine capture/event surface: the four deferred `SuiteEngineTests` rows for
+/// `CaptureState`, `VariableChanged`, `FunctionDefined` and `SetVariable`/`RemoveVariable`.
+#[cfg(test)]
+mod round76_capture_events;

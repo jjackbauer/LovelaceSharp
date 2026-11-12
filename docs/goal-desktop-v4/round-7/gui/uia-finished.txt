@@ -1,0 +1,2 @@
+﻿UIA pid=20488 window=Lovelace Desktop
+root | Lovelace Desktop | ControlType.Window

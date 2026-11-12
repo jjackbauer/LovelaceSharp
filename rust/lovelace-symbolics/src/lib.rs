@@ -5177,6 +5177,10 @@ mod round67_polynomial_algebra;
 #[cfg(test)]
 mod round75_probe;
 
+/// Round-76 MatrixAdvanceTests rank/inverse/solve census rows.
+#[cfg(test)]
+mod round76_matrix;
+
 #[cfg(test)]
 mod printing_round16;
 

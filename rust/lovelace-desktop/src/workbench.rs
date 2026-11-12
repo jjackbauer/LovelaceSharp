@@ -25,11 +25,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::app::LogLevel;
-use crate::engine::{self, PlotCapture, DEFAULT_PRECISION};
+use crate::engine::{self, DEFAULT_PRECISION, PlotCapture};
 use crate::execution::{
     DesktopEvent, DocumentId, EvaluatorFactory, EventSink, ExecutionHost, RunHandle,
     SequencedEvent, SourceRevision, SubmitError, WorkspaceSnapshot,
 };
+use crate::keyboard::WorkbenchCommand;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 
 /// Maximum number of log entries retained per document; the oldest are evicted first.
@@ -98,6 +99,33 @@ impl RunOutcome {
     }
 }
 
+/// Which toolbar controls the window must show for the active document's state.
+///
+/// The window builds its toolbar from this value, and `--gui-selftest` asserts on the same
+/// value while a long run is in flight. That keeps the visible state a tested product decision
+/// instead of a condition that only exists inside the egui closure.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ToolbarState {
+    /// Run is clickable (no run is in flight).
+    pub run_enabled: bool,
+    /// Cancel is on screen; true while a run is in flight.
+    pub cancel_visible: bool,
+    /// Cancel is clickable.
+    pub cancel_enabled: bool,
+}
+
+/// One pass over the typed event queue, as measured by [`Workbench::poll_report`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PollReport {
+    /// Number of nonblocking `ExecutionHost::next_event` calls this pass made. Always at least
+    /// one: the final call is the one that found the queue empty.
+    pub calls: usize,
+    /// Number of events that were applied to a document.
+    pub applied: usize,
+    /// Longest single `ExecutionHost::next_event` call in this pass.
+    pub next_event_max: Duration,
+}
+
 /// One document tab: its source, its run identity and the state published by its last run.
 pub struct WorkbenchDocument {
     /// The document's stable identity, and the id every event carries.
@@ -148,6 +176,7 @@ pub struct Workbench {
     docs: Vec<WorkbenchDocument>,
     active: usize,
     engine_name: &'static str,
+    plot_root: PathBuf,
 }
 
 impl Default for Workbench {
@@ -160,17 +189,20 @@ impl Workbench {
     /// Creates the shipped workbench: the real engine and two document tabs.
     pub fn new() -> Workbench {
         let engine_name = (engine::default_engine_factory())().name();
-        let plot_root = engine::default_plot_dir();
+        let (plot_root, plot_error) = engine::prepare_plot_dir();
         let factory = plot_scoped_factory(
             Box::new(engine::default_engine_factory()),
             plot_root.clone(),
         );
-        let mut workbench = Workbench::with_named_factory(factory, engine_name);
+        let mut workbench = Workbench::with_plot_root(factory, engine_name, plot_root.clone());
         workbench.log(
             0,
             LogLevel::Info,
             format!("Plot directory: {}.", plot_root.display()),
         );
+        if let Some(message) = plot_error {
+            workbench.log(0, LogLevel::Error, message);
+        }
         workbench
     }
 
@@ -182,21 +214,35 @@ impl Workbench {
     #[allow(dead_code)] // exercised by the unit tests; the shipped constructor is `new`
     pub fn with_factory(factory: EvaluatorFactory) -> Workbench {
         let engine_name = (factory)().name();
-        let plot_root = engine::default_plot_dir();
-        let mut workbench = Workbench::with_named_factory(
+        let (plot_root, plot_error) = engine::prepare_plot_dir();
+        let mut workbench = Workbench::with_plot_root(
             plot_scoped_factory(factory, plot_root.clone()),
             engine_name,
+            plot_root.clone(),
         );
         workbench.log(
             0,
             LogLevel::Info,
             format!("Plot directory: {}.", plot_root.display()),
         );
+        if let Some(message) = plot_error {
+            workbench.log(0, LogLevel::Error, message);
+        }
         workbench
     }
 
     /// Creates a workbench over an arbitrary factory and an explicit engine name.
+    #[allow(dead_code)] // used by the unit tests; the shipped constructors pick the engine itself
     pub fn with_named_factory(factory: EvaluatorFactory, engine_name: &'static str) -> Workbench {
+        Workbench::with_plot_root(factory, engine_name, engine::default_plot_dir())
+    }
+
+    /// Creates a workbench over a factory, a name and the plot root its runs write under.
+    fn with_plot_root(
+        factory: EvaluatorFactory,
+        engine_name: &'static str,
+        plot_root: PathBuf,
+    ) -> Workbench {
         let host = ExecutionHost::new(factory);
         let mut workbench = Workbench {
             host,
@@ -206,6 +252,7 @@ impl Workbench {
             ],
             active: 0,
             engine_name,
+            plot_root,
         };
         workbench.log(
             0,
@@ -216,6 +263,29 @@ impl Workbench {
             ),
         );
         workbench
+    }
+
+    /// The application-scoped directory this workbench's runs write plots into.
+    pub fn plot_dir(&self) -> &Path {
+        &self.plot_root
+    }
+
+    /// The toolbar controls the window must show for the active document right now.
+    pub fn toolbar_state(&self) -> ToolbarState {
+        let running = self.active_is_running();
+        ToolbarState {
+            run_enabled: !running,
+            cancel_visible: running,
+            cancel_enabled: running,
+        }
+    }
+
+    /// Applies one keyboard command (Ctrl+Enter or Esc) to the active document.
+    pub fn command(&mut self, command: WorkbenchCommand) -> bool {
+        match command {
+            WorkbenchCommand::Run => self.run_active(),
+            WorkbenchCommand::Cancel => self.cancel_active(),
+        }
     }
 
     /// The name of the engine every run constructs.
@@ -440,13 +510,29 @@ impl Workbench {
     /// caller decides when to call this: the window calls it at the top of every frame and
     /// schedules another frame while a run is in flight.
     pub fn poll(&mut self) -> bool {
-        let mut changed = false;
-        while let Some(sequenced) = self.host.next_event(Duration::ZERO) {
+        self.poll_report().applied > 0
+    }
+
+    /// Drains the typed event queue and measures how long each nonblocking host call took.
+    ///
+    /// This is exactly the loop [`Workbench::poll`] runs, exposed so `--gui-selftest` can prove
+    /// the window's next-event path stays responsive while a long computation is in flight. The
+    /// final call is the one that observes the queue empty, so `calls` is never zero.
+    pub fn poll_report(&mut self) -> PollReport {
+        let mut report = PollReport::default();
+        loop {
+            let started = Instant::now();
+            let next = self.host.next_event(Duration::ZERO);
+            let elapsed = started.elapsed();
+            report.calls += 1;
+            report.next_event_max = report.next_event_max.max(elapsed);
+            let Some(sequenced) = next else {
+                return report;
+            };
             if self.apply_event(&sequenced) {
-                changed = true;
+                report.applied += 1;
             }
         }
-        changed
     }
 
     /// Polls until no run is in flight or `timeout` elapses. Returns true when the workbench
@@ -490,7 +576,9 @@ impl Workbench {
                 true
             }
             DesktopEvent::StepStarted { .. } => true,
-            DesktopEvent::StepCommitted { index: statement, .. } => {
+            DesktopEvent::StepCommitted {
+                index: statement, ..
+            } => {
                 self.docs[index].committed = statement + 1;
                 true
             }
@@ -526,7 +614,9 @@ impl Workbench {
                 );
                 true
             }
-            DesktopEvent::Cancelled { committed_steps, .. } => {
+            DesktopEvent::Cancelled {
+                committed_steps, ..
+            } => {
                 if stale {
                     self.finish_stale(index);
                     return true;
@@ -744,9 +834,7 @@ mod tests {
     }
 
     fn slow_workbench(delay: Duration) -> Workbench {
-        Workbench::with_factory(Box::new(move || {
-            Box::new(SlowEngine { delay })
-        }))
+        Workbench::with_factory(Box::new(move || Box::new(SlowEngine { delay })))
     }
 
     #[test]
@@ -788,18 +876,19 @@ mod tests {
             "variables were {:?}",
             snapshot.variables
         );
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.text.starts_with("Run started")));
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.text == "= 12"));
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.text.starts_with("Run finished")));
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.text.starts_with("Run started"))
+        );
+        assert!(document.logs.iter().any(|line| line.text == "= 12"));
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.text.starts_with("Run finished"))
+        );
     }
 
     #[test]
@@ -814,10 +903,12 @@ mod tests {
             .expect("a finished snapshot");
         assert_eq!(snapshot.result, "2");
         assert_eq!(snapshot.output, vec!["x".to_string()]);
-        assert!(workbench.documents()[0]
-            .logs
-            .iter()
-            .any(|line| line.level == LogLevel::Output && line.text == "x"));
+        assert!(
+            workbench.documents()[0]
+                .logs
+                .iter()
+                .any(|line| line.level == LogLevel::Output && line.text == "x")
+        );
     }
 
     #[test]
@@ -857,10 +948,12 @@ mod tests {
             snapshot.variables,
             vec![("committed".to_string(), "yes".to_string())]
         );
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.text.starts_with("Run cancelled after")));
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.text.starts_with("Run cancelled after"))
+        );
         assert!(workbench.status_text(1, 1).contains("Cancelled"));
     }
 
@@ -876,10 +969,12 @@ mod tests {
         let snapshot = document.snapshot.as_ref().expect("failed snapshot");
         assert_eq!(snapshot.committed_steps, 1);
         assert!(snapshot.diagnostic.is_some());
-        assert!(document
-            .logs
-            .iter()
-            .any(|line| line.level == LogLevel::Error && line.text.starts_with("Diagnostic:")));
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.level == LogLevel::Error && line.text.starts_with("Diagnostic:"))
+        );
         assert!(workbench.status_text(1, 1).contains("Failed"));
     }
 
@@ -901,25 +996,29 @@ mod tests {
         workbench.set_source(0, "a = 1\n".to_string());
         assert!(workbench.run_active());
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
-        assert!(workbench.documents()[0]
-            .snapshot
-            .as_ref()
-            .unwrap()
-            .variables
-            .iter()
-            .any(|(name, _)| name == "a"));
+        assert!(
+            workbench.documents()[0]
+                .snapshot
+                .as_ref()
+                .unwrap()
+                .variables
+                .iter()
+                .any(|(name, _)| name == "a")
+        );
 
         workbench.set_active(1);
         workbench.set_source(1, "b = 2\n".to_string());
         assert!(workbench.run_active());
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
-        assert!(workbench.documents()[1]
-            .snapshot
-            .as_ref()
-            .unwrap()
-            .variables
-            .iter()
-            .any(|(name, _)| name == "b"));
+        assert!(
+            workbench.documents()[1]
+                .snapshot
+                .as_ref()
+                .unwrap()
+                .variables
+                .iter()
+                .any(|(name, _)| name == "b")
+        );
         assert_eq!(
             workbench.documents()[0]
                 .snapshot
@@ -938,9 +1037,8 @@ mod tests {
 
     #[test]
     fn a_plot_from_an_earlier_statement_survives_later_statements() {
-        let mut workbench = Workbench::with_factory(Box::new(|| {
-            Box::new(PlotOnceEngine { calls: 0 })
-        }));
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(PlotOnceEngine { calls: 0 })));
         workbench.set_source(0, "plot([1, 2])\na = 1\nb = 2\n".to_string());
         assert!(workbench.run_active());
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
@@ -957,6 +1055,122 @@ mod tests {
             document.last_plot.as_ref().map(|plot| plot.title.as_str()),
             Some("first-statement plot")
         );
+    }
+
+    #[test]
+    fn toolbar_state_tracks_the_active_run_and_the_status_strip() {
+        let mut workbench = slow_workbench(Duration::from_millis(20));
+        let source = (0..50)
+            .map(|index| format!("step = {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        workbench.set_source(0, source);
+
+        let idle = workbench.toolbar_state();
+        assert!(idle.run_enabled);
+        assert!(!idle.cancel_visible);
+        assert!(!idle.cancel_enabled);
+
+        assert!(workbench.run_active());
+        let running = workbench.toolbar_state();
+        assert!(!running.run_enabled, "Run must be disabled while running");
+        assert!(
+            running.cancel_visible,
+            "Cancel must be visible while running"
+        );
+        assert!(
+            running.cancel_enabled,
+            "Cancel must be enabled while running"
+        );
+        assert!(
+            workbench.status_text(1, 1).contains("run Running"),
+            "status strip was {:?}",
+            workbench.status_text(1, 1)
+        );
+
+        assert!(workbench.cancel_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
+        assert_eq!(
+            workbench.documents()[0].outcome,
+            Some(RunOutcome::Cancelled)
+        );
+        let finished = workbench.toolbar_state();
+        assert!(finished.run_enabled, "Run returns after a run is terminal");
+        assert!(!finished.cancel_visible, "Cancel leaves with the run");
+        assert!(workbench.status_text(1, 1).contains("run Cancelled"));
+    }
+
+    #[test]
+    fn keyboard_commands_use_the_same_run_and_cancel_entry_points() {
+        let mut workbench = slow_workbench(Duration::from_millis(10));
+        workbench.set_source(0, "a = 1\nb = 2\nc = 3\n".to_string());
+        assert!(workbench.command(crate::keyboard::WorkbenchCommand::Run));
+        assert!(workbench.active_is_running());
+        assert!(workbench.command(crate::keyboard::WorkbenchCommand::Cancel));
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
+        assert_eq!(
+            workbench.documents()[0].outcome,
+            Some(RunOutcome::Cancelled)
+        );
+        assert!(
+            !workbench.command(crate::keyboard::WorkbenchCommand::Cancel),
+            "cancelling an idle document is a no-op"
+        );
+    }
+
+    #[test]
+    fn plot_dir_is_application_scoped_and_not_under_the_working_directory() {
+        let workbench = fake_workbench();
+        assert_eq!(workbench.plot_dir(), engine::default_plot_dir());
+        let cwd = std::env::current_dir().expect("current directory");
+        assert!(
+            !workbench.plot_dir().starts_with(&cwd),
+            "plot directory {} must not be under the working directory {}",
+            workbench.plot_dir().display(),
+            cwd.display()
+        );
+        let logged = workbench.documents()[0]
+            .logs
+            .iter()
+            .find(|line| line.text.starts_with("Plot directory:"))
+            .map(|line| line.text.clone())
+            .expect("the plot directory is logged at startup");
+        assert!(
+            logged.contains(&workbench.plot_dir().display().to_string()),
+            "logged plot line {logged:?} does not name {}",
+            workbench.plot_dir().display()
+        );
+    }
+
+    #[test]
+    fn poll_report_measures_a_nonblocking_next_event_path_while_running() {
+        let mut workbench = slow_workbench(Duration::from_millis(20));
+        let source = (0..20)
+            .map(|index| format!("step = {index}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        workbench.set_source(0, source);
+        assert!(workbench.run_active());
+
+        let mut reports = 0;
+        let mut max = Duration::ZERO;
+        let mut applied = 0;
+        while workbench.active_is_running() && reports < 8 {
+            let report = workbench.poll_report();
+            assert!(report.calls >= 1);
+            max = max.max(report.next_event_max);
+            applied += report.applied;
+            reports += 1;
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        assert!(reports >= 1);
+        assert!(
+            max < Duration::from_millis(50),
+            "the next-event path blocked for {max:?}"
+        );
+        assert!(applied >= 1, "no typed event was seen during the sample");
+        let _ = workbench.cancel_active();
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
     }
 
     #[test]
@@ -984,8 +1198,7 @@ mod tests {
             workbench.documents()[0].snapshot.is_none(),
             "a run whose source was replaced must not publish its snapshot"
         );
-        let texts = workbench
-            .documents()[0]
+        let texts = workbench.documents()[0]
             .logs
             .iter()
             .map(|line| line.text.as_str())

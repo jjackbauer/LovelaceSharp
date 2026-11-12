@@ -33,49 +33,54 @@ pub use real::RealEngine;
 /// Default display precision, in decimal places.
 pub const DEFAULT_PRECISION: usize = 1000;
 
-/// Returns a directory the engine can actually write plot files into.
+/// Returns the application-scoped directory the engine writes plot files into.
 ///
-/// The engine's own default is the process temp directory, which is not writable for the
-/// desktop process in every environment (the round-5 window run observed `Access is denied`
-/// there). We prefer a per-user application directory, prove it is writable with a probe file,
-/// and fall back to a temp subdirectory or a named directory under the working directory.
+/// The directory is `%APPDATA%\Lovelace\plots` on Windows, derived exactly like the settings
+/// path in [`crate::settings::default_config_path`] (`%APPDATA%\Lovelace\desktop.json`). It is
+/// never below the process working directory: PLF-006 forbids writing beside the executable,
+/// and the previous fallback that did so is gone on purpose. A process with no APPDATA, XDG or
+/// HOME falls back to a temp directory, which is still not the working directory.
 ///
 /// The result is computed once per process; every document and every run shares the root.
 pub fn default_plot_dir() -> std::path::PathBuf {
     static DIRECTORY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
-    DIRECTORY.get_or_init(probe_plot_dir).clone()
+    DIRECTORY
+        .get_or_init(|| {
+            crate::settings::default_plot_dir()
+                .unwrap_or_else(|| std::env::temp_dir().join("lovelace-desktop").join("plots"))
+        })
+        .clone()
 }
 
-fn probe_plot_dir() -> std::path::PathBuf {
-    let mut candidates = Vec::new();
-    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
-        candidates.push(std::path::PathBuf::from(local).join("Lovelace").join("plots"));
+/// Creates the application-scoped plot directory and reports a failure instead of ignoring it.
+///
+/// Returns the resolved path and, when the directory cannot be created or written, a message
+/// naming the path and the operating-system error. The caller copies that message into the
+/// product log at startup; silently reusing an unwritable directory is what made the old plot
+/// path defect invisible.
+pub fn prepare_plot_dir() -> (std::path::PathBuf, Option<String>) {
+    let path = default_plot_dir();
+    if let Err(error) = std::fs::create_dir_all(&path) {
+        let message = format!(
+            "Cannot create the plot directory {}: {error}. Plot statements will fail until it is writable.",
+            path.display()
+        );
+        return (path, Some(message));
     }
-    if let Some(roaming) = std::env::var_os("APPDATA") {
-        candidates.push(std::path::PathBuf::from(roaming).join("Lovelace").join("plots"));
-    }
-    if let Some(profile) = std::env::var_os("USERPROFILE") {
-        candidates.push(std::path::PathBuf::from(profile).join("Lovelace").join("plots"));
-    }
-    candidates.push(std::env::temp_dir().join("lovelace-desktop-plots"));
-    // The process may be confined to its working directory (for example a sandboxed build
-    // agent). Keep the fallback named so it is obvious what the directory is.
-    candidates.push(
-        std::env::current_dir()
-            .unwrap_or_else(|_| std::path::PathBuf::from("."))
-            .join("lovelace-plots"),
-    );
-    for candidate in candidates {
-        if std::fs::create_dir_all(&candidate).is_err() {
-            continue;
-        }
-        let probe = candidate.join(".write-probe");
-        if std::fs::write(&probe, b"probe").is_ok() {
+    let probe = path.join(".write-probe");
+    match std::fs::write(&probe, b"probe") {
+        Ok(()) => {
             let _ = std::fs::remove_file(&probe);
-            return candidate;
+            (path, None)
+        }
+        Err(error) => {
+            let message = format!(
+                "Cannot write in the plot directory {}: {error}. Plot statements will fail until it is writable.",
+                path.display()
+            );
+            (path, Some(message))
         }
     }
-    std::path::PathBuf::from("lovelace-plots")
 }
 
 /// A plot produced by an evaluation.
@@ -209,6 +214,52 @@ mod tests {
         let output = engine.eval_full("y = 4\n1 / 0");
         assert!(output.result.is_err());
         assert_eq!(output.variables, vec![("y".to_string(), "4".to_string())]);
+    }
+
+    #[test]
+    fn plot_dir_is_the_roaming_appdata_lovelace_plots_directory() {
+        let appdata = std::env::var_os("APPDATA").expect("this test runs with APPDATA set");
+        let expected = std::path::PathBuf::from(appdata)
+            .join("Lovelace")
+            .join("plots");
+        assert_eq!(
+            default_plot_dir(),
+            expected,
+            "the plot directory must be derived from the app-scoped %APPDATA%\\Lovelace directory"
+        );
+    }
+
+    #[test]
+    fn plot_dir_is_never_under_the_working_directory() {
+        let cwd = std::env::current_dir().expect("current directory");
+        let plot_dir = default_plot_dir();
+        assert!(
+            !plot_dir.starts_with(&cwd),
+            "plot directory {} must not be under the working directory {}",
+            plot_dir.display(),
+            cwd.display()
+        );
+    }
+
+    #[test]
+    fn prepare_plot_dir_creates_the_resolved_directory_and_reports_failure() {
+        let (directory, error) = prepare_plot_dir();
+        assert_eq!(
+            directory,
+            default_plot_dir(),
+            "the prepared directory is the resolved application-scoped directory"
+        );
+        assert!(
+            directory.is_dir(),
+            "prepare_plot_dir must create {} so the engine has a place to write",
+            directory.display()
+        );
+        if let Some(message) = error {
+            assert!(
+                message.contains(&directory.display().to_string()),
+                "a creation failure must name the resolved directory: {message}"
+            );
+        }
     }
 
     #[test]

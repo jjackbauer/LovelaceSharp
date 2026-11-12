@@ -76,13 +76,7 @@ pub fn slice(source: &str) -> Vec<Statement> {
             if byte == b'\n' {
                 in_comment = false;
                 if depth <= 0 {
-                    push_statement(
-                        source,
-                        segment_start,
-                        index,
-                        &line_starts,
-                        &mut statements,
-                    );
+                    push_statement(source, segment_start, index, &line_starts, &mut statements);
                     segment_start = index + 1;
                 }
             }
@@ -109,13 +103,7 @@ pub fn slice(source: &str) -> Vec<Statement> {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => depth = (depth - 1).max(0),
             b';' | b'\n' if depth <= 0 => {
-                push_statement(
-                    source,
-                    segment_start,
-                    index,
-                    &line_starts,
-                    &mut statements,
-                );
+                push_statement(source, segment_start, index, &line_starts, &mut statements);
                 segment_start = index + 1;
             }
             _ => {}
@@ -256,7 +244,10 @@ mod tests {
         assert_eq!(string_statements.len(), 2, "{string_statements:?}");
         assert_eq!(string_statements[0].text(), "s = \"a;b\"");
         assert_eq!(string_statements[1].text(), "t = 1");
-        assert_eq!(reconstruct(string_source, &string_statements), string_source);
+        assert_eq!(
+            reconstruct(string_source, &string_statements),
+            string_source
+        );
     }
 
     #[test]
@@ -265,10 +256,7 @@ mod tests {
         let statements = slice(source);
         assert_eq!(statements.len(), 3, "{statements:?}");
         assert_eq!(
-            statements
-                .iter()
-                .map(Statement::text)
-                .collect::<Vec<_>>(),
+            statements.iter().map(Statement::text).collect::<Vec<_>>(),
             vec!["a = 1", "b = \"x;y\"", "c = 3"]
         );
         for statement in &statements {
@@ -304,7 +292,10 @@ mod tests {
         assert_eq!(statements.len(), 2, "{statements:?}");
         assert_eq!(statements[0].text(), "a = 1");
         assert_eq!(statements[1].text(), "b = 2");
-        assert_eq!(reconstruct(with_comment_between, &statements), with_comment_between);
+        assert_eq!(
+            reconstruct(with_comment_between, &statements),
+            with_comment_between
+        );
     }
 
     #[test]

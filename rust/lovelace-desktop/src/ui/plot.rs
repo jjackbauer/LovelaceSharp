@@ -95,7 +95,7 @@ pub fn render_to_pixmap(
     let width_points = svg_w.max(1.0);
     let height_points = svg_h.max(1.0);
     let scale = scale.clamp(0.25, 8.0);
-    let cap = max_side.min(MAX_SIDE).max(64.0);
+    let cap = max_side.clamp(64.0, MAX_SIDE);
     let mut pixel_width = (width_points * scale).round().max(1.0);
     let mut pixel_height = (height_points * scale).round().max(1.0);
     if pixel_width.max(pixel_height) > cap {
@@ -211,8 +211,8 @@ impl Plot {
             return;
         }
         let desired = desired_scale.clamp(0.5, 4.0);
-        let stale = self.texture.is_none()
-            || (desired / self.raster_scale.max(0.01) - 1.0).abs() > 0.12;
+        let stale =
+            self.texture.is_none() || (desired / self.raster_scale.max(0.01) - 1.0).abs() > 0.12;
         if stale {
             self.rasterize(ctx, desired);
         }
@@ -303,7 +303,11 @@ impl Plot {
             .min(available.height() / self.svg_h.max(1.0))
             .max(0.01);
 
-        let response = ui.interact(rect, egui::Id::unique("plot_canvas"), Sense::click_and_drag());
+        let response = ui.interact(
+            rect,
+            egui::Id::unique("plot_canvas"),
+            Sense::click_and_drag(),
+        );
         if response.dragged() {
             self.pan += response.drag_delta();
         }
@@ -358,9 +362,7 @@ impl Plot {
             "SVG plot canvas, {:.0} by {:.0} points, zoom {:.2}",
             self.svg_w, self.svg_h, self.zoom
         );
-        response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::Role::Image, true, label.clone())
-        });
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Image, true, label.clone()));
 
         self.last_screen = screen;
         self.last_pointer = pointer;

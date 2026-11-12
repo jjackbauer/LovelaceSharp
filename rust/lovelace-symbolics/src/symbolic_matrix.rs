@@ -45,6 +45,26 @@ impl MatrixInverseResult {
     }
 }
 
+/// The outcome of [`SymbolicMatrix::solve_with_conditions`]: the particular solution (None when
+/// the system is refused), the conditions under which it solves A*x = b, and the reference's note
+/// for a refused solve.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MatrixSolveResult {
+    /// The solution vector, or None when the system is singular, underdetermined or not square.
+    pub vector: Option<Vec<Expr>>,
+    /// The conditions under which the vector solves the system; exactly det != 0 when it exists.
+    pub conditions: AssumptionSet,
+    /// The reference's note for a refused solve, None when solved.
+    pub note: Option<String>,
+}
+
+impl MatrixSolveResult {
+    /// True when a solution vector was produced.
+    pub fn is_solved(&self) -> bool {
+        self.vector.is_some()
+    }
+}
+
 impl SymbolicMatrix {
     /// Builds a matrix from rows. None when the rows are not all the same width.
     pub fn from_rows(rows: Vec<Vec<Expr>>) -> Option<SymbolicMatrix> {
@@ -188,6 +208,73 @@ impl SymbolicMatrix {
         })
     }
 
+    /// The generic rank over the rational-function field, by fraction-free (Bareiss) elimination
+    /// with full pivoting.
+    ///
+    /// Every pivot that is not a provably-zero constant contributes one to the rank, so a symbolic
+    /// pivot counts (the generic rank over Q(x)) and a numeric zero does not. The pivot search is
+    /// the reference's: the first row at or below the current one that holds a non-zero entry at
+    /// or right of the current column, and the first such column in that row. A zero row or column
+    /// is skipped by the search; when no pivot remains the rank is final.
+    pub fn rank(&self) -> usize {
+        let n = self.rows;
+        let m = self.columns;
+        if n == 0 || m == 0 {
+            return 0;
+        }
+        let variables = self.symbols();
+        let mut entries = self.data.clone();
+        let mut previous = Expr::num(1);
+        let mut rank = 0;
+        let (mut row_index, mut column_index) = (0usize, 0usize);
+        while row_index < n && column_index < m {
+            let mut pivot: Option<(usize, usize)> = None;
+            for i in row_index..n {
+                for j in column_index..m {
+                    if !is_provably_zero(&entries[i * m + j]) {
+                        pivot = Some((i, j));
+                        break;
+                    }
+                }
+                if pivot.is_some() {
+                    break;
+                }
+            }
+            let Some((pivot_row, pivot_column)) = pivot else {
+                break;
+            };
+            if pivot_row != row_index {
+                for j in 0..m {
+                    entries.swap(row_index * m + j, pivot_row * m + j);
+                }
+            }
+            if pivot_column != column_index {
+                for i in 0..n {
+                    entries.swap(i * m + column_index, i * m + pivot_column);
+                }
+            }
+            rank += 1;
+            let pivot_entry = entries[row_index * m + column_index].clone();
+            for i in row_index + 1..n {
+                for j in column_index + 1..m {
+                    let numerator = Expr::sub(
+                        Expr::mul(entries[i * m + j].clone(), pivot_entry.clone()),
+                        Expr::mul(
+                            entries[i * m + column_index].clone(),
+                            entries[row_index * m + j].clone(),
+                        ),
+                    );
+                    entries[i * m + j] = exact_divide(&numerator, &previous, &variables);
+                }
+                entries[i * m + column_index] = Expr::num(0);
+            }
+            previous = pivot_entry;
+            row_index += 1;
+            column_index += 1;
+        }
+        rank
+    }
+
     /// The inverse via the adjugate over the determinant, carrying the det != 0 condition.
     ///
     /// A singular or non-square matrix returns no matrix, an empty condition set, and the
@@ -238,6 +325,126 @@ impl SymbolicMatrix {
             conditions,
             note: None,
         }
+    }
+
+    /// The inverse the reference's Inverse publishes: the adjugate over the determinant.
+    ///
+    /// None is the reference's InvalidOperationException. A singular or non-square matrix has no
+    /// inverse; [`Self::inverse_with_conditions`] publishes the same matrix and the refusal note.
+    pub fn inverse(&self) -> Option<SymbolicMatrix> {
+        self.inverse_with_conditions().matrix
+    }
+
+    /// The particular solution of A*x = b the reference's static Solve publishes.
+    ///
+    /// None is the reference's InvalidOperationException. A singular, non-square or
+    /// underdetermined system has no vector; [`Self::solve_with_conditions`] publishes the same
+    /// vector and the refusal note. The reference has no free-parameter representation: a
+    /// singular system is refused, not parametrized.
+    pub fn solve(&self, b: &[Expr]) -> Option<Vec<Expr>> {
+        self.solve_with_conditions(b).vector
+    }
+
+    /// Fraction-free solve A*x = b (augmented Bareiss elimination), carrying the det != 0
+    /// condition the reference publishes.
+    ///
+    /// The reference computes the determinant first, so a non-square matrix is refused with the
+    /// determinant note, and a provably-zero determinant is refused with the singular note and no
+    /// condition. Otherwise the result carries exactly the NonZero atom for the determinant. The
+    /// reference's throw for a failed pivot search is published as a note: since the determinant is
+    /// not provably zero, that branch is not reachable through this surface.
+    pub fn solve_with_conditions(&self, b: &[Expr]) -> MatrixSolveResult {
+        let Some(determinant) = self.det() else {
+            return MatrixSolveResult {
+                vector: None,
+                conditions: AssumptionSet::empty(),
+                note: Some("determinant requires a square matrix".to_string()),
+            };
+        };
+        if is_provably_zero(&determinant) {
+            return MatrixSolveResult {
+                vector: None,
+                conditions: AssumptionSet::empty(),
+                note: Some("matrix is singular".to_string()),
+            };
+        }
+        if b.len() != self.rows {
+            return MatrixSolveResult {
+                vector: None,
+                conditions: AssumptionSet::empty(),
+                note: Some("right-hand side length does not match the matrix".to_string()),
+            };
+        }
+        let conditions = AssumptionSet::from_atoms([Assumption::ExpressionProperty(
+            determinant,
+            SymbolPredicate::NonZero,
+        )]);
+        let Some(vector) = self.solve_core(b) else {
+            return MatrixSolveResult {
+                vector: None,
+                conditions: AssumptionSet::empty(),
+                note: Some("system is singular or underdetermined".to_string()),
+            };
+        };
+        MatrixSolveResult {
+            vector: Some(vector),
+            conditions,
+            note: None,
+        }
+    }
+
+    /// The reference's SolveCore: forward elimination on the augmented matrix over rows BELOW the
+    /// pivot, then back-substitution. Eliminating the rows above the pivot with the previous-pivot
+    /// division is not exact, which is why only the trailing submatrix is updated.
+    fn solve_core(&self, b: &[Expr]) -> Option<Vec<Expr>> {
+        let n = self.rows;
+        let stride = n + 1;
+        let variables = self.symbols();
+        let mut augmented = vec![Expr::num(0); n * stride];
+        for row in 0..n {
+            for column in 0..n {
+                augmented[row * stride + column] = self.data[row * n + column].clone();
+            }
+            augmented[row * stride + n] = b[row].clone();
+        }
+        let mut previous = Expr::num(1);
+        for k in 0..n {
+            let pivot = (k..n).find(|&row| !is_provably_zero(&augmented[row * stride + k]))?;
+            if pivot != k {
+                for column in k..=n {
+                    augmented.swap(k * stride + column, pivot * stride + column);
+                }
+            }
+            for i in k + 1..n {
+                for j in k + 1..=n {
+                    let numerator = Expr::sub(
+                        Expr::mul(
+                            augmented[i * stride + j].clone(),
+                            augmented[k * stride + k].clone(),
+                        ),
+                        Expr::mul(
+                            augmented[i * stride + k].clone(),
+                            augmented[k * stride + j].clone(),
+                        ),
+                    );
+                    augmented[i * stride + j] = exact_divide(&numerator, &previous, &variables);
+                }
+                augmented[i * stride + k] = Expr::num(0);
+            }
+            previous = augmented[k * stride + k].clone();
+        }
+        let mut solution = vec![Expr::num(0); n];
+        for i in (0..n).rev() {
+            let mut accumulator = augmented[i * stride + n].clone();
+            for j in i + 1..n {
+                accumulator = Expr::sub(
+                    accumulator,
+                    Expr::mul(augmented[i * stride + j].clone(), solution[j].clone()),
+                );
+            }
+            solution[i] = Expr::div(accumulator, augmented[i * stride + i].clone());
+        }
+        Some(solution)
     }
 
     fn minor(&self, skip_row: usize, skip_column: usize) -> SymbolicMatrix {

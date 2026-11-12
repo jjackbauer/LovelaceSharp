@@ -43633,10 +43633,11 @@ note = "Round 50: C# SuiteEngineTests.CaptureState_GivenVariablesAndFunctions_Re
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/CaptureState_IsImmutable#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round76_capture_events::capture_state_is_immutable"
+reason = "Round 76: the round-45 library-only block is lifted by the new SuiteEngine capture/event surface on Engine (capture_state, on_variable_changed, on_function_defined, set_variable, try_get_variable, remove_variable); the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineTests.cs:72 captures an empty SuiteEngine snapshot, calls SetVariable(\"x\", 1), then asserts snapshot.Variables.Count is unchanged and does not contain x. Rust: rust/lovelace-lang/src/round76_capture_events.rs:30 capture_state_is_immutable asserts the same two facts on Engine::capture_state after set_variable (count unchanged, x absent). See docs/goal-parity-contract/round-76/suite-capture.md sections 4-5."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/Evaluate_GivenAssignment_ExposesVariableInVariablesDictionary#0"
@@ -43704,10 +43705,11 @@ note = "Round 50: C# SuiteEngineTests.EvaluateAsync_GivenScript_RecordsElapsedTi
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/FunctionDefined_GivenDefinition_RaisesEvent#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round76_capture_events::function_defined_given_definition_raises_event"
+reason = "Round 76: the round-45 library-only block is lifted by the new SuiteEngine capture/event surface on Engine (capture_state, on_variable_changed, on_function_defined, set_variable, try_get_variable, remove_variable); the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineTests.cs:96 subscribes FunctionDefined, evaluates \"func g() { 1 }\", and asserts the defined name is g. Rust: rust/lovelace-lang/src/round76_capture_events.rs:67 function_defined_given_definition_raises_event subscribes on_function_defined, evaluates the same script, and asserts the definition name is g. See docs/goal-parity-contract/round-76/suite-capture.md sections 2.2, 4-5."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/Parse_GivenStatements_ReturnsProgram#0"
@@ -43730,18 +43732,20 @@ note = "C#: SuiteEngineTests.cs:142 asserts ParseExpression(\"1 + 2\") is a Bina
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/SetVariableAndRemoveVariable_Work#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round76_capture_events::set_variable_and_remove_variable_work"
+reason = "Round 76: the round-45 library-only block is lifted by the new SuiteEngine capture/event surface on Engine (capture_state, on_variable_changed, on_function_defined, set_variable, try_get_variable, remove_variable); the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineTests.cs:109 sets x = 5, asserts TryGetVariable returns true with value 5, RemoveVariable returns true, and Variables no longer contains x. Rust: rust/lovelace-lang/src/round76_capture_events.rs:83 set_variable_and_remove_variable_work sets Natural(5), asserts try_get_variable is Some with display \"5\", remove_variable returns true, and variables has no x. See docs/goal-parity-contract/round-76/suite-capture.md sections 2.3, 4-5."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineTests/VariableChanged_GivenAssignment_RaisesEvent#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine CaptureState, events and SetVariable/RemoveVariable API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round76_capture_events::variable_changed_given_assignment_raises_event"
+reason = "Round 76: the round-45 library-only block is lifted by the new SuiteEngine capture/event surface on Engine (capture_state, on_variable_changed, on_function_defined, set_variable, try_get_variable, remove_variable); the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/SuiteEngineTests.cs:84 subscribes VariableChanged, evaluates \"x = 7\", and asserts the captured names contain x. Rust: rust/lovelace-lang/src/round76_capture_events.rs:45 variable_changed_given_assignment_raises_event subscribes on_variable_changed, evaluates the same script, and asserts x is reported. See docs/goal-parity-contract/round-76/suite-capture.md sections 2.2, 4-5."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TimingScaleTests/OperationTiming_ExposesTheSameScaleAsItsDisplay#0"
@@ -51160,18 +51164,20 @@ note = "Round 55: C# MathIrTypingTests.Validate_RejectsWrongArity (MathIrTypingT
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/Inverse_Invertible_BehaviorPreserved#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round76_matrix::inverse_invertible_behavior_preserved"
+reason = "Round 76: the round-45 library-only block is lifted by the new SymbolicMatrix rank/inverse/solve/solve_with_conditions surface; the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/MatrixAdvanceTests.cs:86 asserts Inverse of [[x,1],[0,y]] is non-null and equal entry-for-entry to InverseWithConditions().Matrix. Rust: rust/lovelace-symbolics/src/round76_matrix.rs:188 inverse_invertible_behavior_preserved asserts the same equality, plus the concrete entries at (x,y) = (2,3). See docs/goal-parity-contract/round-76/matrix-rank-solve.md sections 2.2, 4-5."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/InverseWithConditions_NonSingular_MatchesInverse_And_CarriesCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round76_matrix::inverse_with_conditions_non_singular_matches_inverse_and_carries_condition"
+reason = "Round 76: the round-45 library-only block is lifted by the new SymbolicMatrix rank/inverse/solve/solve_with_conditions surface; the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/MatrixAdvanceTests.cs:40 asserts [[x,1],[0,y]] publishes a non-null Matrix, a null Note, non-empty Conditions, and a matrix equal entry-for-entry to Inverse. Rust: rust/lovelace-symbolics/src/round76_matrix.rs:71 inverse_with_conditions_non_singular_matches_inverse_and_carries_condition asserts the same facts, with exactly the determinant NonZero condition, on the same matrix. See docs/goal-parity-contract/round-76/matrix-rank-solve.md sections 2.2, 4-5."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/InverseWithConditions_Singular_ReturnsNullMatrix_And_Note#0"
@@ -51185,18 +51191,20 @@ note = "C#: MatrixAdvanceTests.cs:57 asserts a singular matrix publishes Matrix 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/Rank_GenericOverSymbols_And_Numeric#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round76_matrix::rank_generic_over_symbols_and_numeric"
+reason = "Round 76: the round-45 library-only block is lifted by the new SymbolicMatrix rank/inverse/solve/solve_with_conditions surface; the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/MatrixAdvanceTests.cs:16 (census sourceLine 17) asserts Rank 2 for [[x,1],[y,x]], 1 for the doubled symbolic rows, 1 for [[1,2],[2,4]], and 3 for the 3x3 identity. Rust: rust/lovelace-symbolics/src/round76_matrix.rs:30 rank_generic_over_symbols_and_numeric asserts the same four ranks on the same four matrices. See docs/goal-parity-contract/round-76/matrix-rank-solve.md sections 2.1, 4-5."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/SolveWithConditions_MatchesSolve_And_CarriesCondition#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round76_matrix::solve_with_conditions_matches_solve_and_carries_condition"
+reason = "Round 76: the round-45 library-only block is lifted by the new SymbolicMatrix rank/inverse/solve/solve_with_conditions surface; the mapped round76 test asserts this C# row directly."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/MatrixAdvanceTests.cs:67 solves [[x,1],[0,y]] with b = [1,1] and asserts a non-null Vector, a null Note, non-empty Conditions, and entry-for-entry equality with Solve. Rust: rust/lovelace-symbolics/src/round76_matrix.rs:129 solve_with_conditions_matches_solve_and_carries_condition asserts the same facts on the same system, with exactly the determinant NonZero condition. See docs/goal-parity-contract/round-76/matrix-rank-solve.md sections 2.3, 4-5."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/Cancel_ExpandsAnUnexpandedPowerOfASumBeforeReducing#0"

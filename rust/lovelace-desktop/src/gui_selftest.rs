@@ -9,16 +9,30 @@
 //!
 //! One line is printed per check. The process exits non-zero when any check fails.
 
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::app::LogLevel;
 use crate::engine::DEFAULT_PRECISION;
+use crate::keyboard::{WorkbenchCommand, command_for_shortcut};
 use crate::workbench::{RunOutcome, RunPhase, Workbench};
 
 type Check = fn() -> Result<String, String>;
 
 const RUN_TIMEOUT: Duration = Duration::from_secs(30);
 const CANCEL_TIMEOUT: Duration = Duration::from_secs(2);
+/// The display precision of the long-run script. `sqrt(2)` at this precision takes roughly
+/// 0.6 s per statement on the development machine, so the whole run is genuinely long while
+/// every single statement is short enough for the cancellation token to be observed well
+/// inside the two-second budget.
+const LONG_RUN_PRECISION: usize = 20_000;
+/// Statements after the `setprecision` line. Twelve of them make the run about seven seconds
+/// when it is not cancelled.
+const LONG_RUN_STATEMENTS: usize = 12;
+/// Budget for one nonblocking `ExecutionHost::next_event` call.
+const EVENT_LOOP_BUDGET: Duration = Duration::from_millis(50);
+/// How long the event-loop sample runs while the long computation is in flight.
+const EVENT_LOOP_SAMPLE: Duration = Duration::from_millis(300);
 
 /// Runs every GUI check, prints one line per check and returns the process exit code.
 pub fn run() -> i32 {
@@ -28,7 +42,11 @@ pub fn run() -> i32 {
         env!("CARGO_PKG_VERSION"),
         workbench.engine_name()
     );
-    let checks: [(&str, Check); 7] = [
+    println!(
+        "GUI_SELFTEST plot-dir {}",
+        crate::engine::default_plot_dir().display()
+    );
+    let checks: [(&str, Check); 10] = [
         ("two-tabs", check_two_tabs),
         ("arithmetic", check_arithmetic),
         ("print", check_print),
@@ -36,6 +54,9 @@ pub fn run() -> i32 {
         ("cancel", check_cancel),
         ("syntax-error", check_syntax_error),
         ("plot", check_plot),
+        ("plot-dir", check_plot_dir),
+        ("keyboard", check_keyboard),
+        ("long-run", check_long_run),
     ];
 
     let mut failed = 0usize;
@@ -127,13 +148,13 @@ fn check_two_tabs() -> Result<String, String> {
     }
     for document in workbench.documents() {
         if document.snapshot.is_some() || document.last_plot.is_some() {
-            return Err(format!(
-                "{} must start with empty panes",
-                document.title
-            ));
+            return Err(format!("{} must start with empty panes", document.title));
         }
         if document.phase != RunPhase::Idle {
-            return Err(format!("{} starts in phase {:?}", document.title, document.phase));
+            return Err(format!(
+                "{} starts in phase {:?}",
+                document.title, document.phase
+            ));
         }
     }
 
@@ -161,7 +182,13 @@ fn check_two_tabs() -> Result<String, String> {
     if !second_vars.iter().any(|(name, _)| name == "b") {
         return Err(format!("tab two variables were {second_vars:?}"));
     }
-    if first_vars != workbench.documents()[0].snapshot.as_ref().unwrap().variables {
+    if first_vars
+        != workbench.documents()[0]
+            .snapshot
+            .as_ref()
+            .unwrap()
+            .variables
+    {
         return Err("the run in tab two changed tab one's variables".to_string());
     }
     Ok(format!(
@@ -400,10 +427,7 @@ fn check_syntax_error() -> Result<String, String> {
 
 fn check_plot() -> Result<String, String> {
     let mut workbench = new_workbench();
-    workbench.set_source(
-        0,
-        "plot([1, 4, 2], [4, 5, 6], \"selftest\")\n".to_string(),
-    );
+    workbench.set_source(0, "plot([1, 4, 2], [4, 5, 6], \"selftest\")\n".to_string());
     run_to_idle(&mut workbench, "plot")?;
     let document = &workbench.documents()[0];
     let plot = document
@@ -435,5 +459,302 @@ fn check_plot() -> Result<String, String> {
         plot.title,
         parsed.polylines.len(),
         parsed.polylines[0].points.len()
+    ))
+}
+
+/// Resolves a path the same way the product does, for component-wise comparisons.
+fn canonical(path: &Path) -> PathBuf {
+    std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// True when `path` is `base` or a descendant of it.
+fn is_within(base: &Path, path: &Path) -> bool {
+    let base = canonical(base);
+    let path = canonical(path);
+    path.starts_with(&base)
+}
+
+/// The long script: a precision change followed by a genuine amount of work.
+///
+/// The engine checks the cancellation token between statements, so a long run with short
+/// statements is cancellable inside the two-second budget; see the report for why a single
+/// `sqrt(2)` at precision 200000 is not (that would need cancellation inside one evaluation,
+/// which the engine does not expose to this host).
+fn long_run_source() -> String {
+    let mut source = format!("setprecision({LONG_RUN_PRECISION})\n");
+    for _ in 0..LONG_RUN_STATEMENTS {
+        source.push_str("sqrt(2)\n");
+    }
+    source
+}
+
+fn check_plot_dir() -> Result<String, String> {
+    let cwd = std::env::current_dir()
+        .map_err(|error| format!("plot-dir: no current directory: {error}"))?;
+    let mut workbench = new_workbench();
+    let plot_root = workbench.plot_dir().to_path_buf();
+    let (prepared, creation_error) = crate::engine::prepare_plot_dir();
+    if prepared != plot_root {
+        return Err(format!(
+            "plot-dir: the workbench uses {} but the resolver returned {}",
+            plot_root.display(),
+            prepared.display()
+        ));
+    }
+    if let Some(message) = creation_error {
+        return Err(format!(
+            "plot-dir: the app-scoped directory is unusable: {message}"
+        ));
+    }
+    if !plot_root.is_dir() {
+        return Err(format!(
+            "plot-dir: {} does not exist after preparation",
+            plot_root.display()
+        ));
+    }
+    if is_within(&cwd, &plot_root) {
+        return Err(format!(
+            "plot-dir: resolved directory {} is under the working directory {}",
+            plot_root.display(),
+            cwd.display()
+        ));
+    }
+    if let Some(appdata) = std::env::var_os("APPDATA") {
+        let appdata = PathBuf::from(appdata);
+        if !is_within(&appdata, &plot_root) {
+            return Err(format!(
+                "plot-dir: {} is not under %APPDATA% ({})",
+                plot_root.display(),
+                appdata.display()
+            ));
+        }
+    }
+
+    workbench.set_source(0, "plot([1, 4, 2], [4, 5, 6], \"plotdir\")\n".to_string());
+    run_to_idle(&mut workbench, "plot-dir")?;
+    let plot = workbench.documents()[0]
+        .last_plot
+        .as_ref()
+        .ok_or("plot-dir: the engine produced no plot capture")?;
+    let written = PathBuf::from(&plot.path);
+    if !is_within(&plot_root, &written) {
+        return Err(format!(
+            "plot-dir: engine wrote {} outside the resolved directory {}",
+            written.display(),
+            plot_root.display()
+        ));
+    }
+    if !written.is_file() {
+        return Err(format!(
+            "plot-dir: engine reported {} but the file does not exist",
+            written.display()
+        ));
+    }
+    let on_disk = std::fs::read_to_string(&written)
+        .map_err(|error| format!("plot-dir: cannot read {}: {error}", written.display()))?;
+    if !on_disk.contains("<svg") || on_disk != plot.svg {
+        return Err(format!(
+            "plot-dir: {} does not hold the captured SVG ({} bytes on disk, {} captured)",
+            written.display(),
+            on_disk.len(),
+            plot.svg.len()
+        ));
+    }
+    expect_log(&workbench, 0, "plot-dir", |text| {
+        text.contains(&format!("Plot directory: {}.", plot_root.display()))
+    })?;
+
+    Ok(format!(
+        "resolved {} (outside cwd {}), plot file {} ({} bytes), logged at startup",
+        plot_root.display(),
+        cwd.display(),
+        written.display(),
+        on_disk.len()
+    ))
+}
+
+fn check_keyboard() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, long_run_source());
+
+    let run = command_for_shortcut(true, false, true)
+        .ok_or("keyboard: Ctrl+Enter did not map to a command")?;
+    if run != WorkbenchCommand::Run {
+        return Err(format!("keyboard: Ctrl+Enter mapped to {:?}", run.label()));
+    }
+    if !workbench.command(run) {
+        return Err("keyboard: Ctrl+Enter did not start a run".to_string());
+    }
+    // Let the worker publish RunStarted so the assertions below describe a run that really
+    // exists, not only the phase set on submit.
+    let started = Instant::now();
+    while workbench.documents()[0].total == 0 {
+        workbench.poll();
+        if Instant::now() - started >= CANCEL_TIMEOUT {
+            return Err("keyboard: the run never published RunStarted".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let running = workbench.status_text(1, 1);
+    if !running.contains("run Running") {
+        return Err(format!("keyboard: status strip was {running:?}"));
+    }
+    let toolbar = workbench.toolbar_state();
+    if toolbar.run_enabled || !toolbar.cancel_visible || !toolbar.cancel_enabled {
+        return Err(format!(
+            "keyboard: toolbar while running was {toolbar:?}; expected a disabled Run and a visible Cancel"
+        ));
+    }
+
+    let cancel =
+        command_for_shortcut(false, true, false).ok_or("keyboard: Esc did not map to a command")?;
+    if cancel != WorkbenchCommand::Cancel {
+        return Err(format!("keyboard: Esc mapped to {:?}", cancel.label()));
+    }
+    let cancel_at = Instant::now();
+    if !workbench.command(cancel) {
+        return Err("keyboard: Esc did not request cancellation".to_string());
+    }
+    if !workbench.wait_until_idle(CANCEL_TIMEOUT) {
+        return Err(format!(
+            "keyboard: the run did not reach a terminal state within {} ms",
+            CANCEL_TIMEOUT.as_millis()
+        ));
+    }
+    let elapsed = cancel_at.elapsed();
+    let document = &workbench.documents()[0];
+    if document.outcome != Some(RunOutcome::Cancelled) {
+        return Err(format!(
+            "keyboard: terminal outcome was {:?}, expected Cancelled",
+            document.outcome
+        ));
+    }
+    if !workbench.status_text(1, 1).contains("run Cancelled") {
+        return Err(format!(
+            "keyboard: status strip was {:?}",
+            workbench.status_text(1, 1)
+        ));
+    }
+    let idle = workbench.toolbar_state();
+    if !idle.run_enabled || idle.cancel_visible {
+        return Err(format!(
+            "keyboard: toolbar after the run was {idle:?}; expected Run enabled and no Cancel"
+        ));
+    }
+
+    Ok(format!(
+        "Ctrl+Enter -> Run (status \"run Running\", Run disabled, Cancel visible); Esc -> run Cancelled in {:.2} ms; toolbar restored",
+        elapsed.as_secs_f64() * 1000.0
+    ))
+}
+
+fn check_long_run() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, long_run_source());
+
+    let submit_started = Instant::now();
+    if !workbench.run_active() {
+        return Err("long-run: run_active returned false".to_string());
+    }
+    let submit = submit_started.elapsed();
+    if submit > EVENT_LOOP_BUDGET {
+        return Err(format!(
+            "long-run: submitting took {:.3} ms, the window would have frozen",
+            submit.as_secs_f64() * 1000.0
+        ));
+    }
+    if !workbench.active_is_running() {
+        return Err("long-run: the run was already terminal after submit".to_string());
+    }
+
+    // The window calls poll() once per frame; poll_report() is that same loop with the host
+    // call timed above. Sample it for 300 ms while the heavy statement is in flight and assert
+    // no single next-event call blocked for the frame budget.
+    let sample_started = Instant::now();
+    let mut calls = 0usize;
+    let mut applied = 0usize;
+    let mut max_event = Duration::ZERO;
+    let mut frames = 0usize;
+    while sample_started.elapsed() < EVENT_LOOP_SAMPLE {
+        let report = workbench.poll_report();
+        calls += report.calls;
+        applied += report.applied;
+        max_event = max_event.max(report.next_event_max);
+        frames += 1;
+        if !workbench.active_is_running() {
+            return Err(format!(
+                "long-run: the run finished {} ms into the 300 ms responsiveness sample",
+                sample_started.elapsed().as_millis()
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    if max_event > EVENT_LOOP_BUDGET {
+        return Err(format!(
+            "long-run: one next-event call blocked for {:.3} ms (budget {} ms)",
+            max_event.as_secs_f64() * 1000.0,
+            EVENT_LOOP_BUDGET.as_millis()
+        ));
+    }
+    if applied == 0 {
+        return Err("long-run: no typed event arrived during the sample".to_string());
+    }
+    let status_while_running = workbench.status_text(1, 1);
+    if !status_while_running.contains("run Running") {
+        return Err(format!(
+            "long-run: status strip while running was {status_while_running:?}"
+        ));
+    }
+
+    let cancel_started = Instant::now();
+    if !workbench.cancel_active() {
+        return Err("long-run: cancel_active returned false".to_string());
+    }
+    if !workbench.wait_until_idle(CANCEL_TIMEOUT) {
+        return Err(format!(
+            "long-run: cancellation did not reach a terminal state within {} ms",
+            CANCEL_TIMEOUT.as_millis()
+        ));
+    }
+    let cancel = cancel_started.elapsed();
+    if cancel >= CANCEL_TIMEOUT {
+        return Err(format!(
+            "long-run: cancellation took {:.3} ms",
+            cancel.as_secs_f64() * 1000.0
+        ));
+    }
+    let document = &workbench.documents()[0];
+    if document.outcome != Some(RunOutcome::Cancelled) {
+        return Err(format!(
+            "long-run: terminal outcome was {:?}, expected Cancelled",
+            document.outcome
+        ));
+    }
+    if document.phase != RunPhase::Idle {
+        return Err(format!(
+            "long-run: cancelled run left phase {:?}",
+            document.phase
+        ));
+    }
+    if !workbench.status_text(1, 1).contains("run Cancelled") {
+        return Err(format!(
+            "long-run: status strip was {:?}",
+            workbench.status_text(1, 1)
+        ));
+    }
+    expect_log(&workbench, 0, "long-run", |text| {
+        text.contains("Run cancelled after")
+    })?;
+
+    Ok(format!(
+        "submit returned in {} us; 300 ms sample: {} frames, {} next-event calls, {} applied, max {:.3} us; cancel terminal in {:.2} ms after {} of {} statements",
+        submit.as_micros(),
+        frames,
+        calls,
+        applied,
+        max_event.as_secs_f64() * 1_000_000.0,
+        cancel.as_secs_f64() * 1000.0,
+        document.committed,
+        document.total
     ))
 }

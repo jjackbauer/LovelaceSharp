@@ -26,16 +26,17 @@ mod app;
 mod engine;
 mod execution;
 mod gui_selftest;
+mod keyboard;
 mod netcheck;
 mod selftest;
 mod settings;
 mod statements;
 mod svg;
-mod workbench;
 #[cfg(windows)]
 mod ui;
 #[cfg(windows)]
 mod win32;
+mod workbench;
 
 #[cfg(windows)]
 fn main() {
@@ -87,13 +88,23 @@ fn usage() -> String {
     text.push_str("lovelace-desktop - a native IDE for the Lovelace scripting language\n\n");
     text.push_str("USAGE:\n");
     text.push_str("  lovelace-desktop [script.ls]        open the native workbench\n");
-    text.push_str("  lovelace-desktop --gui-selftest     headless acceptance of the workbench run path\n");
-    text.push_str("  lovelace-desktop --selftest         headless acceptance of the pre-cutover core\n");
+    text.push_str(
+        "  lovelace-desktop --gui-selftest     headless acceptance of the workbench run path\n",
+    );
+    text.push_str(
+        "  lovelace-desktop --selftest         headless acceptance of the pre-cutover core\n",
+    );
     text.push_str("  lovelace-desktop --legacy-win32 [script.ls]\n");
-    text.push_str("                                      open the old Win32 shell (explicit fallback only)\n");
+    text.push_str(
+        "                                      open the old Win32 shell (explicit fallback only)\n",
+    );
     text.push_str("  lovelace-desktop --help             this message\n");
     text.push_str("  lovelace-desktop --version          print the version\n\n");
     text.push_str("SHORTCUTS:\n");
-    text.push_str("  The workbench toolbar has Run, Cancel (while running) and the precision control.\n");
+    text.push_str("  Ctrl+Enter                          run the active document\n");
+    text.push_str("  Esc                                 cancel the in-flight run\n");
+    text.push_str(
+        "  The workbench toolbar has Run, Cancel (while running) and the precision control.\n",
+    );
     text
 }

@@ -14,10 +14,11 @@ use egui::{
 };
 
 use crate::app::LogLevel;
+use crate::keyboard;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::Workbench;
 
-use super::editor::TextEditor;
+use super::editor::{TextEditor, surface_id};
 use super::plot::Plot;
 
 /// Pane background.
@@ -112,10 +113,18 @@ pub fn compute_layout(
     let split_a = Rect::from_min_size(pos2(editor.right(), top_rect.top()), vec2(SPLIT, top_h));
     let plot = Rect::from_min_size(pos2(split_a.right(), top_rect.top()), vec2(plot_w, top_h));
     let split_b = Rect::from_min_size(pos2(plot.right(), top_rect.top()), vec2(SPLIT, top_h));
-    let workspace =
-        Rect::from_min_size(pos2(split_b.right(), top_rect.top()), vec2(workspace_w, top_h));
-    let split_c = Rect::from_min_size(pos2(full.left(), top_rect.bottom()), vec2(full.width(), SPLIT));
-    let logs = Rect::from_min_size(pos2(full.left(), split_c.bottom()), vec2(full.width(), logs_h));
+    let workspace = Rect::from_min_size(
+        pos2(split_b.right(), top_rect.top()),
+        vec2(workspace_w, top_h),
+    );
+    let split_c = Rect::from_min_size(
+        pos2(full.left(), top_rect.bottom()),
+        vec2(full.width(), SPLIT),
+    );
+    let logs = Rect::from_min_size(
+        pos2(full.left(), split_c.bottom()),
+        vec2(full.width(), logs_h),
+    );
 
     PaneLayout {
         editor,
@@ -140,6 +149,8 @@ pub struct WorkbenchApp {
     logs_frac: f32,
     filter: String,
     layout: Option<PaneLayout>,
+    /// True once the window has moved keyboard focus into the editor on its first frame.
+    focus_requested: bool,
 }
 
 impl WorkbenchApp {
@@ -149,6 +160,11 @@ impl WorkbenchApp {
         if let Some(path) = initial_path {
             let _ = workbench.load_file(0, &path);
         }
+        WorkbenchApp::with_workbench(workbench)
+    }
+
+    /// Creates the window over an existing workbench (also the test seam).
+    fn with_workbench(workbench: Workbench) -> WorkbenchApp {
         let editors = workbench
             .documents()
             .iter()
@@ -170,6 +186,7 @@ impl WorkbenchApp {
             logs_frac: 0.18,
             filter: String::new(),
             layout: None,
+            focus_requested: false,
         }
     }
 
@@ -183,10 +200,7 @@ impl WorkbenchApp {
             self.editors[active].load(&source);
             self.loaded_revisions[active] = revision;
         }
-        let current_svg = self
-            .workbench
-            .active_plot()
-            .map(|plot| plot.svg.clone());
+        let current_svg = self.workbench.active_plot().map(|plot| plot.svg.clone());
         if current_svg != self.loaded_plot_svg {
             match current_svg {
                 Some(svg) => {
@@ -202,6 +216,48 @@ impl WorkbenchApp {
     }
 
     fn ui_root(&mut self, ui: &mut Ui) {
+        // Start with keyboard focus in the editor so a typed script lands there without a click.
+        if !self.focus_requested {
+            ui.ctx()
+                .memory_mut(|memory| memory.request_focus(surface_id()));
+            self.focus_requested = true;
+        }
+
+        // Ctrl+Enter and Esc are window-global shortcuts: they work while any pane has focus.
+        // Read the key events themselves as well as the frame's modifier state, so a shortcut
+        // works even when the modifier tick and the key press arrive in the same frame.
+        let shortcut = ui.input(|input| {
+            let mut enter = false;
+            let mut escape = false;
+            let mut enter_command = false;
+            for event in &input.events {
+                if let egui::Event::Key {
+                    key,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } = event
+                {
+                    match key {
+                        Key::Enter => {
+                            enter = true;
+                            enter_command |= modifiers.command || modifiers.ctrl;
+                        }
+                        Key::Escape => escape = true,
+                        _ => {}
+                    }
+                }
+            }
+            keyboard::command_for_shortcut(
+                enter,
+                escape,
+                enter_command || input.modifiers.command || input.modifiers.ctrl,
+            )
+        });
+        if let Some(command) = shortcut {
+            self.workbench.command(command);
+        }
+
         self.sync();
 
         egui::Panel::top("toolbar").show(ui, |ui| self.toolbar(ui));
@@ -229,17 +285,25 @@ impl WorkbenchApp {
             ui.label(RichText::new(self.workbench.engine_name()).color(DIM));
             ui.separator();
 
-            let running = self.workbench.active_is_running();
+            let toolbar = self.workbench.toolbar_state();
             let run = ui
-                .add_enabled(!running, egui::Button::new(RichText::new("Run").strong()))
-                .on_hover_text("Evaluate the active document on a worker (the window never blocks)");
+                .add_enabled(
+                    toolbar.run_enabled,
+                    egui::Button::new(RichText::new("Run").strong()),
+                )
+                .on_hover_text(
+                    "Run (Ctrl+Enter): evaluate the active document on a worker (the window never blocks)",
+                );
             if run.clicked() {
                 self.workbench.run_active();
             }
-            if running {
+            if toolbar.cancel_visible {
                 let cancel = ui
-                    .button(RichText::new("Cancel").color(ERROR))
-                    .on_hover_text("Stop the active run at the next statement boundary");
+                    .add_enabled(
+                        toolbar.cancel_enabled,
+                        egui::Button::new(RichText::new("Cancel").color(ERROR)),
+                    )
+                    .on_hover_text("Cancel (Esc): stop the active run at the next statement boundary");
                 if cancel.clicked() {
                     self.workbench.cancel_active();
                 }
@@ -328,9 +392,7 @@ impl WorkbenchApp {
             ui.label(RichText::new(status).monospace().color(ACCENT));
             ui.separator();
             if let Some(document) = self.workbench.documents().get(active) {
-                ui.label(
-                    RichText::new(format!("{} ms last run", document.elapsed_ms)).color(DIM),
-                );
+                ui.label(RichText::new(format!("{} ms last run", document.elapsed_ms)).color(DIM));
             }
             if self.workbench.active_is_running() {
                 ui.separator();
@@ -350,7 +412,13 @@ impl WorkbenchApp {
         self.workspace_pane(ui, layout.workspace);
         self.logs_pane(ui, layout.logs);
 
-        let drag_a = splitter(ui, layout.split_a, "split_editor", true, "Editor / plot splitter");
+        let drag_a = splitter(
+            ui,
+            layout.split_a,
+            "split_editor",
+            true,
+            "Editor / plot splitter",
+        );
         let drag_b = splitter(
             ui,
             layout.split_b,
@@ -358,10 +426,17 @@ impl WorkbenchApp {
             true,
             "Plot / workspace splitter",
         );
-        let drag_c = splitter(ui, layout.split_c, "split_logs", false, "Workspace / logs splitter");
+        let drag_c = splitter(
+            ui,
+            layout.split_c,
+            "split_logs",
+            false,
+            "Workspace / logs splitter",
+        );
 
         if drag_a != 0.0 {
-            self.editor_frac = (self.editor_frac + drag_a / full.width().max(1.0)).clamp(0.02, 0.95);
+            self.editor_frac =
+                (self.editor_frac + drag_a / full.width().max(1.0)).clamp(0.02, 0.95);
         }
         if drag_b != 0.0 {
             self.workspace_frac =
@@ -463,11 +538,7 @@ impl WorkbenchApp {
 
     fn workspace_pane(&mut self, ui: &mut Ui, rect: Rect) {
         let (variables, functions, has_snapshot) = match self.workbench.active_snapshot() {
-            Some(snapshot) => (
-                snapshot.variables.clone(),
-                snapshot.functions.clone(),
-                true,
-            ),
+            Some(snapshot) => (snapshot.variables.clone(), snapshot.functions.clone(), true),
             None => (Vec::new(), Vec::new(), false),
         };
         let mut filter = self.filter.clone();
@@ -497,58 +568,58 @@ impl WorkbenchApp {
                     egui::ScrollArea::vertical()
                         .id_salt("workspace_scroll")
                         .show(ui, |ui| {
-                        ui.label(RichText::new("VARIABLES").small().color(DIM));
-                        let mut shown = 0usize;
-                        for (name, value) in &variables {
-                            if !filter.is_empty() && !name.contains(filter.as_str()) {
-                                continue;
+                            ui.label(RichText::new("VARIABLES").small().color(DIM));
+                            let mut shown = 0usize;
+                            for (name, value) in &variables {
+                                if !filter.is_empty() && !name.contains(filter.as_str()) {
+                                    continue;
+                                }
+                                shown += 1;
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(name).monospace().color(ACCENT));
+                                    ui.label(RichText::new("=").monospace().color(DIM));
+                                    ui.label(RichText::new(value).monospace().color(TEXT));
+                                });
                             }
-                            shown += 1;
-                            ui.horizontal(|ui| {
-                                ui.label(RichText::new(name).monospace().color(ACCENT));
-                                ui.label(RichText::new("=").monospace().color(DIM));
-                                ui.label(RichText::new(value).monospace().color(TEXT));
-                            });
-                        }
-                        if shown == 0 {
-                            let message = if !has_snapshot {
-                                "No run has published a workspace yet."
-                            } else if variables.is_empty() {
-                                "The last run defined no variables."
-                            } else {
-                                "No variables match the filter."
-                            };
-                            ui.label(RichText::new(message).color(DIM));
-                        }
-                        ui.add_space(8.0);
-                        ui.separator();
-                        ui.label(RichText::new("FUNCTIONS").small().color(DIM));
-                        let mut shown = 0usize;
-                        for (name, parameters) in &functions {
-                            if !filter.is_empty() && !name.contains(filter.as_str()) {
-                                continue;
+                            if shown == 0 {
+                                let message = if !has_snapshot {
+                                    "No run has published a workspace yet."
+                                } else if variables.is_empty() {
+                                    "The last run defined no variables."
+                                } else {
+                                    "No variables match the filter."
+                                };
+                                ui.label(RichText::new(message).color(DIM));
                             }
-                            shown += 1;
-                            ui.horizontal(|ui| {
-                                ui.label(RichText::new(name).monospace().color(ACCENT));
-                                ui.label(
-                                    RichText::new(format!("({})", parameters.join(", ")))
-                                        .monospace()
-                                        .color(TEXT),
-                                );
-                            });
-                        }
-                        if shown == 0 {
-                            let message = if !has_snapshot {
-                                "No run has published a workspace yet."
-                            } else if functions.is_empty() {
-                                "The last run defined no functions."
-                            } else {
-                                "No functions match the filter."
-                            };
-                            ui.label(RichText::new(message).color(DIM));
-                        }
-                    });
+                            ui.add_space(8.0);
+                            ui.separator();
+                            ui.label(RichText::new("FUNCTIONS").small().color(DIM));
+                            let mut shown = 0usize;
+                            for (name, parameters) in &functions {
+                                if !filter.is_empty() && !name.contains(filter.as_str()) {
+                                    continue;
+                                }
+                                shown += 1;
+                                ui.horizontal(|ui| {
+                                    ui.label(RichText::new(name).monospace().color(ACCENT));
+                                    ui.label(
+                                        RichText::new(format!("({})", parameters.join(", ")))
+                                            .monospace()
+                                            .color(TEXT),
+                                    );
+                                });
+                            }
+                            if shown == 0 {
+                                let message = if !has_snapshot {
+                                    "No run has published a workspace yet."
+                                } else if functions.is_empty() {
+                                    "The last run defined no functions."
+                                } else {
+                                    "No functions match the filter."
+                                };
+                                ui.label(RichText::new(message).color(DIM));
+                            }
+                        });
                 },
             );
         });
@@ -715,6 +786,11 @@ fn splitter(ui: &mut Ui, rect: Rect, salt: &str, horizontal_axis: bool, label: &
 
 /// Opens the native workbench window and runs it until the user closes it.
 pub fn run(initial_path: Option<PathBuf>) -> i32 {
+    // Printed at startup so a launch with redirected stderr shows where the engine will write.
+    eprintln!(
+        "lovelace-desktop: plot directory {}",
+        crate::engine::default_plot_dir().display()
+    );
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 800.0])
@@ -735,5 +811,151 @@ pub fn run(initial_path: Option<PathBuf>) -> i32 {
             eprintln!("lovelace-desktop: could not open the workbench window: {error}");
             1
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::engine::Evaluator;
+    use crate::workbench::{RunOutcome, Workbench};
+
+    /// An engine that sleeps in every evaluation, so a run stays in flight long enough for the
+    /// window to paint it and for a shortcut to reach it.
+    struct SlowEngine {
+        delay: Duration,
+    }
+
+    impl Evaluator for SlowEngine {
+        fn eval(&mut self, _src: &str) -> Result<String, String> {
+            std::thread::sleep(self.delay);
+            Ok("ok".to_string())
+        }
+
+        fn variables(&self) -> Vec<(String, String)> {
+            vec![("ran".to_string(), "yes".to_string())]
+        }
+    }
+
+    fn slow_workbench() -> Workbench {
+        Workbench::with_factory(Box::new(|| {
+            Box::new(SlowEngine {
+                delay: Duration::from_millis(30),
+            })
+        }))
+    }
+
+    fn key(key: Key, modifiers: egui::Modifiers) -> egui::Event {
+        egui::Event::Key {
+            key,
+            physical_key: Some(key),
+            pressed: true,
+            repeat: false,
+            modifiers,
+        }
+    }
+
+    fn frame(ctx: &egui::Context, app: &mut WorkbenchApp, events: Vec<egui::Event>) {
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 800.0))),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| app.ui_root(ui));
+        // A headless pass has no painter to upload the font texture to; mark the deltas handled.
+        output.textures_delta.clear();
+    }
+
+    #[test]
+    fn focus_starts_in_the_editor_and_typed_text_lands_without_a_click() {
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        let ctx = egui::Context::default();
+
+        frame(&ctx, &mut app, Vec::new());
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(surface_id()),
+            "the editor must own keyboard focus on the first frame"
+        );
+
+        let lines_before = app.editors[0].line_count();
+        frame(&ctx, &mut app, vec![egui::Event::Text("a = 1".to_string())]);
+
+        assert!(
+            app.workbench.documents()[0].source.starts_with("a = 1"),
+            "typed text did not reach the document: {:?}",
+            &app.workbench.documents()[0].source
+                [..20.min(app.workbench.documents()[0].source.len())]
+        );
+        assert_eq!(
+            app.editors[0].line_count(),
+            lines_before,
+            "plain text typed into the editor must not change the line count"
+        );
+    }
+
+    #[test]
+    fn ctrl_enter_runs_and_escape_cancels_with_the_visible_running_state() {
+        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+
+        let source_before = app.workbench.documents()[0].source.clone();
+        let ctrl = egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..Default::default()
+        };
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(ctrl), key(Key::Enter, ctrl)],
+        );
+
+        assert!(
+            app.workbench.active_is_running(),
+            "Ctrl+Enter did not start a run"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].source,
+            source_before,
+            "Ctrl+Enter must not also insert a newline into the document"
+        );
+        let toolbar = app.workbench.toolbar_state();
+        assert!(!toolbar.run_enabled, "Run must be disabled while running");
+        assert!(
+            toolbar.cancel_visible,
+            "Cancel must be visible while running"
+        );
+        assert!(
+            app.workbench.status_text(1, 1).contains("run Running"),
+            "status strip was {:?}",
+            app.workbench.status_text(1, 1)
+        );
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                egui::Event::ModifiersChanged(egui::Modifiers::default()),
+                key(Key::Escape, egui::Modifiers::default()),
+            ],
+        );
+        assert!(
+            app.workbench.wait_until_idle(Duration::from_secs(2)),
+            "the run did not reach a terminal state after Esc"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].outcome,
+            Some(RunOutcome::Cancelled)
+        );
+        assert!(
+            app.workbench.status_text(1, 1).contains("run Cancelled"),
+            "status strip was {:?}",
+            app.workbench.status_text(1, 1)
+        );
+        let toolbar = app.workbench.toolbar_state();
+        assert!(toolbar.run_enabled, "Run must return after the run stops");
+        assert!(!toolbar.cancel_visible, "Cancel must leave with the run");
     }
 }
