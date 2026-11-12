@@ -3,7 +3,7 @@
 //! Adapted from `rust/lovelace-desktop-spike/src/editor.rs` (unchanged behaviour) to edit one
 //! document buffer supplied by the workbench instead of owning a list of sample documents.
 //! The pane paints a line-number gutter, a current-line highlight, a caret and the syntax
-//! layouter from [`super::syntax`]; the 1-based line/column readout is derived from
+//! layouter from [`super::syntax`]; the 1-based line and UTF-16 column readout is derived from
 //! [`TextEditor::line_col_1based`].
 //!
 //! Why not `TextEdit`? `TextEdit::layouter` is handed the *whole* buffer once per pass and has
@@ -198,9 +198,23 @@ impl TextEditor {
             .unwrap_or(0)
     }
 
-    /// The caret as 1-based line and column.
+    /// The caret as 1-based line and 1-based **UTF-16** column.
+    ///
+    /// Columns count UTF-16 code units, the engine's and the diagnostic mapping's unit, so an
+    /// astral character is two columns wide. The caret itself is a 0-based char index (the
+    /// editor's cell unit); this converts at the readout boundary.
     pub fn line_col_1based(&self) -> (usize, usize) {
-        (self.caret_row + 1, self.caret_col + 1)
+        (self.caret_row + 1, self.caret_column_utf16() + 1)
+    }
+
+    /// The caret's 0-based UTF-16 code-unit column on its line.
+    ///
+    /// The caret is stored as a 0-based char index (the editor's cell unit), but the engine,
+    /// [`TextEditor::diagnostic_range`] and the status strip all count columns in UTF-16 code
+    /// units: an astral character is two units wide. This is the conversion at that boundary.
+    pub fn caret_column_utf16(&self) -> usize {
+        diagnostic_map::utf16_column(&self.lines, self.caret_row, self.caret_col)
+            .unwrap_or_default()
     }
 
     /// The active diagnostic resolved to a concrete line span, if its line is still in the buffer.
@@ -323,6 +337,18 @@ impl TextEditor {
     /// The selection as `(start, end)` buffer positions in reading order, when non-empty.
     pub fn selection_range(&self) -> Option<((usize, usize), (usize, usize))> {
         self.ordered_selection()
+    }
+
+    /// The selection as byte offsets in [`TextEditor::source`], when non-empty.
+    ///
+    /// [`TextEditor::selection_range`] is stored in char columns (the editor paints one char per
+    /// cell); the engine and the diagnostics use UTF-16 code units and the buffer is UTF-8. This
+    /// converts both endpoints from char space to byte space in one place, so the byte range
+    /// slices exactly the characters the editor highlights.
+    #[allow(dead_code)] // part of the editor surface; tests and a future find/replace read it
+    pub fn selection_bytes(&self) -> Option<(usize, usize)> {
+        let (start, end) = self.ordered_selection()?;
+        diagnostic_map::selection_byte_range(&self.lines, start, end)
     }
 
     /// The selected text, when a non-empty range is selected.
@@ -1550,6 +1576,53 @@ mod tests {
         );
         assert_eq!(editor.selected_text().as_deref(), Some("bcd"));
         assert_eq!(caret(&editor), (0, 4));
+    }
+
+    /// EDT-014 (2): an astral character is three selection chars but six bytes and four UTF-16
+    /// units. The byte range must slice exactly `a😀b`, and the caret readout must be the UTF-16
+    /// column (5, 1-based), not the 3-char editor cell.
+    #[test]
+    fn astral_selection_converts_to_exact_bytes_and_the_caret_utf16_column() {
+        let mut editor = TextEditor::from_source("a\u{1f600}b");
+        editor.select_to(0, 3); // the whole line in the editor's char cells
+        assert_eq!(
+            editor.selection_range(),
+            Some(((0, 0), (0, 3))),
+            "the selection is stored in char columns: 'a', the emoji and 'b'"
+        );
+
+        let (start, end) = editor.selection_bytes().expect("a non-empty selection");
+        assert_eq!(
+            (start, end),
+            (0, 6),
+            "'a' is 1 byte, U+1F600 is 4 bytes and 'b' is 1 byte"
+        );
+        assert_eq!(&editor.source()[start..end], "a\u{1f600}b");
+        assert_eq!(editor.selected_text().as_deref(), Some("a\u{1f600}b"));
+
+        // The caret sits after the selection, so it is four UTF-16 units into the line.
+        assert_eq!(editor.caret_column_utf16(), 4);
+        assert_eq!(
+            editor.line_col_1based(),
+            (1, 5),
+            "the readout column is 1-based UTF-16, not the 3-char caret column"
+        );
+    }
+
+    /// EDT-014: a combining mark is a second `char` in the same grapheme cluster. Selecting the
+    /// cluster must cover its full three UTF-8 bytes, not only the base character's one byte.
+    #[test]
+    fn a_combining_mark_selection_covers_the_whole_clusters_bytes() {
+        let mut editor = TextEditor::from_source("e\u{0301} = 1");
+        editor.select_to(0, 2); // 'e' plus U+0301: two chars, one grapheme on screen
+        let (start, end) = editor.selection_bytes().expect("a non-empty selection");
+        assert_eq!((start, end), (0, 3), "'e' is 1 byte and U+0301 is 2 bytes");
+        assert_eq!(&editor.source()[start..end], "e\u{0301}");
+        assert_eq!(
+            editor.caret_column_utf16(),
+            2,
+            "both code points are one UTF-16 unit, so the caret is at unit 2"
+        );
     }
 
     #[test]

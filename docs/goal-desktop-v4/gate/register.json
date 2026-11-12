@@ -1287,14 +1287,31 @@
                      "type":  "Q",
                      "requirement":  "Prevent Unicode offset corruption",
                      "acceptance":  "Diagnostic offsets, selections and source ranges correctly convert UTF-16 \u003c-\u003e Rust byte/grapheme positions on emoji, combining marks and newlines.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-21/unicode-offsets.md",
+                                          "sha256":  "93CBF0B57BBBDBC1CCD13E615717C415450A26BEF2FFFA9C1C1C735B1129C799",
+                                          "class":  "unit",
+                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/diagnostic_map.rs",
+                                          "sha256":  "59D7127641400D6C231CD4F912DAF4A4D8D4DF2AEA1667BD40AAE324B5A8E2F7",
+                                          "class":  "unit",
+                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/ui/editor.rs",
+                                          "sha256":  "AAB48E7D8CB698F274A0FB6D8BDFD32DA631BF3E598F8449AABD65D4E548DD55",
+                                          "class":  "unit",
+                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop combining|astral|crlf",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Combining-mark cluster, astral selection bytes (0,6)=a😀b, LF vs CRLF identical ranges, mixed CRLF script; fixed caret column to use UTF-16 units (was char count, 4 vs 5). 192 tests pass."
                  },
                  {
                      "id":  "EDT-015",
