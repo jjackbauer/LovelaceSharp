@@ -1093,9 +1093,10 @@ mod schemas;
 #[allow(dead_code)]
 mod script_source;
 
-// The additive plot surface (round 70): PlotValue, the exact model, renderer options and the
-// deterministic SVG / JSON serialisation. It is the reference Plotting.cs equivalent; the plot()
-// builtin keeps its own output, so no corpus or fixture byte moves.
+// The plot surface (round 70, moved to lovelace-lang in round 87): PlotValue, the exact model,
+// renderer options and the deterministic SVG / JSON serialisation. It is the reference
+// Plotting.cs equivalent and the renderer the plot() builtin now runs, so this module is the
+// runner-side view (a re-export) plus the surface's ported PlotTests rows.
 #[allow(dead_code)]
 mod plot_surface;
 

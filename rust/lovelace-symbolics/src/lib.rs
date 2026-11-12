@@ -899,17 +899,12 @@ impl Expr {
                     // Constants such as inf print as their name.
                     return name.clone();
                 }
-                if name == "and" || name == "or" {
-                    let joiner = if name == "and" { " and " } else { " or " };
-                    // Conjuncts render in a stable order even though the store keeps them as written.
-                    let mut parts: Vec<String> = args.iter().map(|a| a.to_string()).collect();
-                    parts.sort();
-                    return parts.join(joiner);
-                }
-                if name == "not" {
-                    // The empty-argument case returned above (a Function with no arguments prints
-                    // as its name), so args[0] is in range here even for canonical_parse input.
-                    return format!("not {}", args[0]);
+                // and/or/not are the reference's logical-operator NODES, not FunctionExpr calls:
+                // they print in infix form, with the operator precedence the reference's single
+                // table gives them (Or binds loosest, so it is the arm that parenthesises at top
+                // level). Everything else below keeps the ordinary call/function rendering.
+                if let Some(text) = self.logical_text(ROOT_PREC) {
+                    return text;
                 }
                 // The series tail: O(x^3) at zero, O((x - 1)^3) around a nonzero point, O(x) for a
                 // degree-one tail (the reference's OrderShape rule).
@@ -1505,6 +1500,76 @@ impl From<Rat> for Expr {
 impl std::fmt::Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.render())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The infix logical connectives. The reference models and/or/not as dedicated
+// nodes (AndExpr/OrExpr/NotExpr) whose operands are stored in the kernel's
+// total term order, and whose infix rendering goes through the same precedence
+// table as every other node: Or binds loosest, so it is the arm that is
+// parenthesised at top level; And binds at the relation level; Not renders its
+// operand at atom precedence.
+// ---------------------------------------------------------------------------
+
+const OR_PREC: i32 = -1;
+const AND_PREC: i32 = 0;
+const NOT_PREC: i32 = 4;
+/// The loosest rendering context: the root of the display form.
+const ROOT_PREC: i32 = 0;
+
+fn logical_delimit(text: String, parent_prec: i32, node_prec: i32) -> String {
+    if parent_prec > node_prec {
+        format!("({text})")
+    } else {
+        text
+    }
+}
+
+impl Expr {
+    /// One operand of a logical connective. The connectives recurse through the precedence
+    /// rule; every other node keeps its own rendering (a relation's arm never applies a
+    /// delimiter, which is why "not x > 0" has no parentheses).
+    fn logical_operand(&self, parent_prec: i32) -> String {
+        self.logical_text(parent_prec)
+            .unwrap_or_else(|| self.to_string())
+    }
+
+    /// The display form of a logical connective, or None for every other node. Operands are
+    /// ordered by the kernel's total term order, not by their rendered text: the reference
+    /// stores them sorted, so the display and the canonical form must agree on which operand
+    /// comes first.
+    fn logical_text(&self, parent_prec: i32) -> Option<String> {
+        let Expr::Fun(name, args) = self else {
+            return None;
+        };
+        match (name.as_str(), args.len()) {
+            ("and", n) if n >= 2 => {
+                let mut ordered = args.clone();
+                ordered.sort_by(canonical_order);
+                let text = ordered
+                    .iter()
+                    .map(|a| a.logical_operand(AND_PREC))
+                    .collect::<Vec<_>>()
+                    .join(" and ");
+                Some(logical_delimit(text, parent_prec, AND_PREC))
+            }
+            ("or", n) if n >= 2 => {
+                let mut ordered = args.clone();
+                ordered.sort_by(canonical_order);
+                let text = ordered
+                    .iter()
+                    .map(|a| a.logical_operand(OR_PREC))
+                    .collect::<Vec<_>>()
+                    .join(" or ");
+                Some(logical_delimit(text, parent_prec, OR_PREC))
+            }
+            ("not", 1) => {
+                let text = format!("not {}", args[0].logical_operand(NOT_PREC));
+                Some(logical_delimit(text, parent_prec, NOT_PREC))
+            }
+            _ => None,
+        }
     }
 }
 
@@ -2705,26 +2770,26 @@ pub fn collect(e: &Expr, var: &str) -> Expr {
     }
     coefficients.retain(|(_, c)| *c != Expr::num(0));
     coefficients.sort_by_key(|a| std::cmp::Reverse(a.0));
-    // Built directly rather than through the canonical adder: collect publishes the constant
-    // first, followed by descending powers.
-    let mut terms: Vec<Expr> = Vec::new();
+    // Fold through the canonical adder, exactly as the reference's Collect returns
+    // Exprs.Add(terms): that constructor FLATTENS a degree-0 coefficient that is itself a sum
+    // into the outer n-ary Add. Assembling Expr::Add(terms) directly left the constant
+    // coefficient of x*y + x + y + 1 (y + 1) nested, so the sum published
+    // x*(y + 1) + y + 1 instead of 1 + y + x*(y + 1) and counted one node too many (9 vs 8).
+    let mut total = Expr::num(0);
     for (degree, coefficient) in coefficients {
-        if degree == 0 {
-            terms.insert(0, coefficient);
-            continue;
-        }
-        let power = if degree == 1 {
-            Expr::sym(var)
+        let term = if degree == 0 {
+            coefficient
         } else {
-            Expr::pow(Expr::sym(var), Expr::num(degree))
+            let power = if degree == 1 {
+                Expr::sym(var)
+            } else {
+                Expr::pow(Expr::sym(var), Expr::num(degree))
+            };
+            Expr::mul(coefficient, power)
         };
-        terms.push(Expr::mul(coefficient, power));
+        total = Expr::add(total, term);
     }
-    match terms.len() {
-        0 => Expr::num(0),
-        1 => terms.pop().unwrap(),
-        _ => Expr::Add(terms),
-    }
+    total
 }
 
 fn divide_out(term: &Expr, var: &str, degree: i64) -> Expr {
@@ -4263,6 +4328,22 @@ impl Expr {
                     }
                 }
                 match (name.as_str(), args.len()) {
+                    // and/or/not are the reference's logical-operator nodes, so their canonical
+                    // tags are the operators themselves, and the operands are emitted in the
+                    // kernel's total term order (the And/Or constructors sort them).
+                    ("and", n) if n >= 2 => {
+                        let mut ordered = args.clone();
+                        ordered.sort_by(canonical_order);
+                        let parts: Vec<String> = ordered.iter().map(|a| a.canonical()).collect();
+                        format!("(and {})", parts.join(" "))
+                    }
+                    ("or", n) if n >= 2 => {
+                        let mut ordered = args.clone();
+                        ordered.sort_by(canonical_order);
+                        let parts: Vec<String> = ordered.iter().map(|a| a.canonical()).collect();
+                        format!("(or {})", parts.join(" "))
+                    }
+                    ("not", 1) => format!("(not {})", args[0].canonical()),
                     ("pi", 0) => "(pi)".to_string(),
                     ("e", 0) => "(e)".to_string(),
                     ("i", 0) => "(i)".to_string(),
@@ -4977,6 +5058,21 @@ impl CanonicalParser<'_> {
                 let args = self.parse_nodes_until_close()?;
                 Ok(Expr::Fun(name, args))
             }
+            "and" | "or" => {
+                let args = self.parse_nodes_until_close()?;
+                if args.len() < 2 {
+                    return Err(self.error(
+                        tag_position,
+                        format!("({tag}) needs at least two operands"),
+                    ));
+                }
+                Ok(Expr::Fun(tag, args))
+            }
+            "not" => {
+                let operand = self.parse_node()?;
+                self.expect_close()?;
+                Ok(Expr::Fun("not".to_string(), vec![operand]))
+            }
             "eq" => self.parse_relation(RelOp::Eq, "eq"),
             "ne" => self.parse_relation(RelOp::Ne, "ne"),
             "lt" => self.parse_relation(RelOp::Lt, "lt"),
@@ -5040,7 +5136,7 @@ impl CanonicalParser<'_> {
                     "the tag '{tag}' denotes a numeric literal this expression model has no leaf for"
                 ),
             )),
-            "der" | "pw" | "and" | "or" | "not" | "order" => Err(self.error(
+            "der" | "pw" | "order" => Err(self.error(
                 tag_position,
                 format!("the tag '{tag}' is not part of this crate's canonical vocabulary"),
             )),
@@ -5062,6 +5158,10 @@ fn canonical_rank(e: &Expr) -> u8 {
         }
         // The series tail sorts after every computed term: (add (rat 1 1) (sym x) (mul ...) (order ...)).
         Expr::Fun(name, args) if name == "order" && args.len() == 3 => 8,
+        // The reference's NodeKind ordinals: And=12, Or=13, Not=14.
+        Expr::Fun(name, args) if name == "and" && args.len() >= 2 => 12,
+        Expr::Fun(name, args) if name == "or" && args.len() >= 2 => 13,
+        Expr::Fun(name, args) if name == "not" && args.len() == 1 => 14,
         Expr::Fun(..) => 3,
         Expr::Pow(..) => 4,
         Expr::Mul(_) | Expr::Div(..) => 5,
@@ -5155,6 +5255,11 @@ pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
                 if let (Some(r1), Some(r2)) = (named_constant_rank(n1), named_constant_rank(n2)) {
                     return r1.cmp(&r2);
                 }
+            }
+            // An And/Or node stores its operands sorted, so two nodes with the same operator
+            // compare their operand SEQUENCES in canonical order, never in the stored order.
+            if n1 == n2 && matches!(n1.as_str(), "and" | "or") {
+                return seq(&canonical_sequence(a1), &canonical_sequence(a2));
             }
             n1.cmp(n2).then_with(|| seq(a1, a2))
         }
@@ -5524,6 +5629,42 @@ mod tests {
         let y = Expr::sym("y");
         let f = Expr::add(Expr::add(Expr::mul(x.clone(), y.clone()), x), Expr::num(2));
         assert_eq!(collect(&f, "x").to_string(), "2 + x*(y + 1)");
+    }
+
+    #[test]
+    fn Collect_GivenConstantTermThatIsASum_FlattensItIntoTheOuterAdd() {
+        // The published descriptor example collect(x*y + x + y + 1, x): the degree-0
+        // coefficient is itself the sum y + 1, and the reference's Exprs.Add flattens it into
+        // the outer n-ary Add. The NODE shape is the contract, not just the rendering: 1 and y
+        // must be direct terms of the root Add, and the only nested sum is x's coefficient.
+        // Building Expr::Add directly left the coefficient nested (x*(y + 1) + y + 1, 9 nodes).
+        let x = Expr::sym("x");
+        let y = Expr::sym("y");
+        let f = Expr::add(
+            Expr::add(
+                Expr::add(Expr::mul(x.clone(), y.clone()), x.clone()),
+                y.clone(),
+            ),
+            Expr::num(1),
+        );
+        let collected = collect(&f, "x");
+        assert_eq!(collected.to_string(), "1 + y + x*(y + 1)");
+        assert_eq!(
+            collected.canonical(),
+            "(add (rat 1 1) (sym y) (mul (sym x) (add (rat 1 1) (sym y))))"
+        );
+        assert_eq!(collected.node_count(), 8);
+        let Expr::Add(terms) = &collected else {
+            panic!("collect did not build an Add: {collected}");
+        };
+        assert_eq!(
+            terms.len(),
+            3,
+            "the constant coefficient y + 1 was not flattened: {collected}"
+        );
+        assert!(terms.contains(&Expr::num(1)));
+        assert!(terms.contains(&y));
+        assert!(terms.contains(&Expr::mul(x, Expr::add(Expr::num(1), Expr::sym("y")))));
     }
 
     #[test]

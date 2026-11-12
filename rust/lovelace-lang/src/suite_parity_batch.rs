@@ -2175,10 +2175,47 @@ fn descriptor_example_023_capabilities() {
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_026_compile_full.
 #[test]
 fn descriptor_example_026_compile_full() {
+    let script =
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); compile_full(x^2 + 1, [x])";
     check_typed(
-        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); compile_full(x^2 + 1, [x])",
+        script,
         "CompilationResult(ir: #!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3, parameters: [ParameterInfo(name: x, domain: complex)], result_domain: complex, result_type: Integer, precision_policy: caller_supplied, optimization_policy: none, target: mathir, mathir_version: 2, exact: True, diagnostics: []) (CompilationResult)",
     );
+    // compile_full is the arm that publishes the structured record; pin every field the oracle
+    // publishes, in the oracle's order, plus the exact IR text the record carries.
+    let (typed, j) = structured_of(script);
+    assert_eq!(field(&j, "kind"), Some("Record"), "{typed}");
+    assert_eq!(field(&j, "type"), Some("CompilationResult"), "{typed}");
+    let field_names: Vec<&str> = j
+        .get("fields")
+        .and_then(Json::as_arr)
+        .unwrap_or_else(|| panic!("compile_full published no fields ({typed})"))
+        .iter()
+        .map(|f| field(f, "name").expect("every record field has a name"))
+        .collect();
+    assert_eq!(
+        field_names,
+        vec![
+            "ir",
+            "parameters",
+            "result_domain",
+            "result_type",
+            "precision_policy",
+            "optimization_policy",
+            "target",
+            "mathir_version",
+            "exact",
+            "diagnostics",
+        ],
+        "compile_full record shape ({typed})"
+    );
+    let ir = j
+        .get("fields")
+        .and_then(Json::as_arr)
+        .and_then(|fields| fields.first())
+        .and_then(|f| f.get("value"))
+        .and_then(|v| field(v, "value"));
+    assert_eq!(ir, Some(COMPILE_X2_PLUS_1_IR), "compile_full ir ({typed})");
 }
 
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_027_complex.
@@ -2274,9 +2311,30 @@ fn descriptor_example_039_diff() {
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_004_and.
 #[test]
 fn descriptor_example_004_and() {
-    check_typed(
-        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 0); and(x > 0, x < 1)",
-        "x < 1 and x > 0 (Symbolic)",
+    let script =
+        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); assume(x > 0); and(x > 0, x < 1)";
+    check_typed(script, "x < 1 and x > 0 (Symbolic)");
+    // The descriptor example's ACTUAL published behaviour: and is a logical node, so the
+    // canonical tag is (and ...), not the ordinary-function (fn and ...), and its operands
+    // come out in the kernel's total term order (the Lt before the Gt).
+    let (typed, j) = structured_of(script);
+    assert_eq!(
+        field(&j, "canonical"),
+        Some("(and (lt (sym x) (rat 1 1)) (gt (sym x) (rat 0 1)))"),
+        "descriptor_example_004_and canonical ({typed})"
+    );
+    assert_eq!(
+        j.get("nodeCount").map(num_str).as_deref(),
+        Some("7"),
+        "descriptor_example_004_and nodeCount ({typed})"
+    );
+    let canonical = field(&j, "canonical").expect("canonical is published");
+    assert_eq!(
+        lovelace_symbolics::canonical_parse(canonical)
+            .expect("the canonical text parses")
+            .canonical(),
+        canonical,
+        "descriptor_example_004_and canonical round trip"
     );
 }
 
@@ -2325,12 +2383,38 @@ fn descriptor_example_045_evalir() {
     );
 }
 
+/// The exact IR source compile/compile_full emit for x^2 + 1 over [x]; the oracle publishes
+/// it as the Text result of compile and as the ir field of compile_full's record.
+const COMPILE_X2_PLUS_1_IR: &str = "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3";
+
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_046_evalir_batch.
 #[test]
 fn descriptor_example_046_evalir_batch() {
-    check_typed(
-        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)",
-        "[2, 5, 10] (Vector)",
+    let script = "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); k = compile(x^2 + 1, [x]); evalir_batch(k, [1, 2, 3], 40)";
+    check_typed(script, "[2, 5, 10] (Vector)");
+    // The batch result was already pinned; the k binding is the compile result and must be the
+    // IR Text the oracle publishes, not the structured record compile_full returns.
+    let mut e = engine();
+    e.eval(script).unwrap_or_else(|err| {
+        panic!(
+            "descriptor_example_046_evalir_batch failed: {}",
+            err.message
+        )
+    });
+    let k = e
+        .try_get_variable("k")
+        .unwrap_or_else(|| panic!("descriptor_example_046_evalir_batch did not bind k"));
+    assert_eq!(
+        e.format_typed(k),
+        COMPILE_X2_PLUS_1_IR,
+        "descriptor_example_046_evalir_batch k binding"
+    );
+    let j = crate::structured::project_value(&e, k, None);
+    assert_eq!(field(&j, "kind"), Some("Text"), "k structured kind");
+    assert_eq!(
+        field(&j, "value"),
+        Some(COMPILE_X2_PLUS_1_IR),
+        "k structured value"
     );
 }
 
@@ -2643,9 +2727,20 @@ fn descriptor_example_088_norm() {
 /// C# Lovelace.Suite.Tests/DescriptorExampleTests.cs:104 — descriptor_example_089_not.
 #[test]
 fn descriptor_example_089_not() {
-    check_typed(
-        "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); not(x > 0)",
-        "not x > 0 (Symbolic)",
+    let script = "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); not(x > 0)";
+    check_typed(script, "not x > 0 (Symbolic)");
+    // Not is a logical node: the canonical tag is (not ...) and the operand keeps the
+    // underlying relation's tag. nodeCount is the node plus its one operand.
+    let (typed, j) = structured_of(script);
+    assert_eq!(
+        field(&j, "canonical"),
+        Some("(not (gt (sym x) (rat 0 1)))"),
+        "descriptor_example_089_not canonical ({typed})"
+    );
+    assert_eq!(
+        j.get("nodeCount").map(num_str).as_deref(),
+        Some("4"),
+        "descriptor_example_089_not nodeCount ({typed})"
     );
 }
 

@@ -12,6 +12,7 @@ use lovelace_symbolics::assumptions::{
 use lovelace_symbolics::groebner::{MonomialOrder, Polynomial, groebner_basis};
 use lovelace_symbolics::parameter_domain::{ParameterDomain, parameter_domain_of};
 
+use crate::plot_surface::{PlotModel, PlotPoint, PlotSeries, PlotValue, SvgPlotRenderer};
 use crate::registry;
 use crate::syntax::BinOp;
 use crate::{Engine, ErrorSignature, LangError, PlotCapture, Value, cancelled_error};
@@ -1752,14 +1753,18 @@ pub fn call(
                 .result_type()
                 .map(|kind| kind.name().to_string())
                 .unwrap_or_else(|| "unknown".to_string());
-            let ir = program.ir_text();
+            // The reference declares TWO return kinds: compile answers the IR SOURCE as Text
+            // (Lovelace.MathIR/Evaluator.cs), while only compile_full publishes the structured
+            // CompilationResult. Sharing one record arm made compile's descriptor row diverge on
+            // kind, typed text and structured shape.
+            let ir = program.ir_text().trim_end_matches('\n').to_string();
+            if name == "compile" {
+                return Ok(Value::Text(ir));
+            }
             Ok(Value::Record(
                 "CompilationResult".to_string(),
                 vec![
-                    (
-                        "ir".to_string(),
-                        Value::Text(ir.trim_end_matches('\n').to_string()),
-                    ),
+                    ("ir".to_string(), Value::Text(ir)),
                     ("parameters".to_string(), Value::Vector(parameters)),
                     (
                         "result_domain".to_string(),
@@ -2997,7 +3002,11 @@ pub fn call(
                         let sub = Value::Symbolic(part);
                         let _ = call(engine, "assume", vec![sub], pos)?;
                     }
-                    return Ok(Value::Void);
+                    // The reference's assume() returns the relation it was handed (its
+                    // AssumeRecursive only RECORDS each conjunct); it does not swallow the
+                    // value. Returning Void here left the published example with no result and
+                    // no "_" binding, while the oracle publishes the conjunction.
+                    return Ok(args[0].clone());
                 }
                 if fname == "not" && parts.len() == 1 {
                     if let Sym::Rel(op, a, b) = &parts[0] {
@@ -3022,7 +3031,10 @@ pub fn call(
                         }
                         engine.record_assumption(&relation.to_string());
                         engine.record_assumption_atom(&relation);
-                        return Ok(Value::Symbolic(relation));
+                        // The negation is recorded, but the RESULT is the expression as written
+                        // (the reference returns its relation argument, so assume(not(x == 2))
+                        // publishes "not x = 2", not the derived "x != 2").
+                        return Ok(args[0].clone());
                     }
                 }
             }
@@ -4898,15 +4910,6 @@ fn inv_matrix_numeric(m: &[Vec<Value>]) -> Result<Value, LangError> {
 // Plotting
 // ---------------------------------------------------------------------------
 
-fn to_f64(v: &Value) -> f64 {
-    let text = v.display();
-    let plain = match text.find('(') {
-        Some(i) => text[..i].to_string(),
-        None => text,
-    };
-    plain.parse::<f64>().unwrap_or(0.0)
-}
-
 /// The reference's `RequirePlotVector`: `plot()` accepts only a rank-1 `Vector` (a scalar or
 /// symbolic argument is a typed `InvalidOperation`/`DomainError` refusal, never a coercion).
 fn plot_vector(value: &Value, argument: &str) -> Result<Vec<Value>, LangError> {
@@ -4914,19 +4917,6 @@ fn plot_vector(value: &Value, argument: &str) -> Result<Vec<Value>, LangError> {
         Value::Vector(items) => Ok(items.clone()),
         _ => Err(LangError::plain(format!(
             "{argument} must be a vector, but got '{}'.",
-            value.kind_name()
-        ))),
-    }
-}
-
-/// The reference's `PlotValue.ToReal` kind gate: a plot coordinate must be a numeric Value.
-fn plot_coordinate(value: &Value) -> Result<f64, LangError> {
-    match value {
-        Value::Natural(_) | Value::Integer(_) | Value::Real(_) | Value::RealClamped(_, _, _) => {
-            Ok(to_f64(value))
-        }
-        _ => Err(LangError::plain(format!(
-            "Cannot convert value of kind '{}' to a number for plotting.",
             value.kind_name()
         ))),
     }
@@ -4976,42 +4966,29 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
     if xs.is_empty() {
         return Err(LangError::plain("plot() cannot plot an empty vector."));
     }
-    let width = 640.0f64;
-    let height = 400.0f64;
-    let margin = 40.0f64;
-    let xv: Vec<f64> = xs.iter().map(plot_coordinate).collect::<Result<_, _>>()?;
-    let yv: Vec<f64> = ys.iter().map(plot_coordinate).collect::<Result<_, _>>()?;
-    let xmin = xv.iter().cloned().fold(f64::INFINITY, f64::min);
-    let xmax = xv.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let ymin = yv.iter().cloned().fold(f64::INFINITY, f64::min);
-    let ymax = yv.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let xr = if (xmax - xmin).abs() < 1e-12 {
-        1.0
-    } else {
-        xmax - xmin
-    };
-    let yr = if (ymax - ymin).abs() < 1e-12 {
-        1.0
-    } else {
-        ymax - ymin
-    };
-    let px = |x: f64| margin + (x - xmin) / xr * (width - 2.0 * margin);
-    let py = |y: f64| height - margin - (y - ymin) / yr * (height - 2.0 * margin);
-    let mut points = String::new();
-    for (i, (x, y)) in xv.iter().zip(yv.iter()).enumerate() {
-        if i > 0 {
-            points.push(' ');
-        }
-        points.push_str(&format!("{:.3},{:.3}", px(*x), py(*y)));
+    // The reference's `Interpreter.BuiltinPlot` builds a `PlotModel` whose coordinates are the
+    // EXACT `Real` promoted from each argument (`PlotValue.ToReal`), then renders it with the
+    // reference's `SvgPlotRenderer`: 800x600, a plot-area frame, axes, nice ticks with labels and
+    // a densely sampled spline polyline. Bounds, padding and normalisation stay exact until the
+    // renderer's final `[0,1] -> pixel` conversion. A non-numeric element is refused by
+    // `PlotValue::to_real` at the same point in the loop the reference reads it.
+    let mut series = PlotSeries::new();
+    for (x, y) in xs.iter().zip(ys.iter()) {
+        series.push(PlotPoint::new(
+            PlotValue::to_real(x)?,
+            PlotValue::to_real(y)?,
+        ));
     }
-    let svg = format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{w}\" height=\"{h}\" viewBox=\"0 0 {w} {h}\">\n<rect width=\"{w}\" height=\"{h}\" fill=\"#ffffff\"/>\n<text x=\"{mx}\" y=\"24\" font-family=\"sans-serif\" font-size=\"14\">{title}</text>\n<polyline fill=\"none\" stroke=\"#1f6feb\" stroke-width=\"1.5\" points=\"{points}\"/>\n</svg>\n",
-        w = width as i64,
-        h = height as i64,
-        mx = margin as i64,
-        title = escape_xml(&title),
-        points = points
-    );
+    let mut model = PlotModel::new();
+    // An absent title is `null` in the reference model, not an empty string element: the renderer
+    // emits a title `<text>` only for a non-empty title, exactly like `string.IsNullOrEmpty`.
+    model.title = if title.is_empty() {
+        None
+    } else {
+        Some(title.clone())
+    };
+    model.series.push(series);
+    let svg = SvgPlotRenderer::new().render(&model);
     let dir = engine.plot_dir();
     // The published path is ABSOLUTE and separator-normalised, like the reference's
     // Path.GetFullPath(Path.Combine(dir, file)): a caller that passed "tmp/x/plots" gets the
@@ -11439,10 +11416,4 @@ impl RewriteBudget {
     fn exhausted(&self) -> bool {
         self.exhausted
     }
-}
-
-fn escape_xml(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
 }

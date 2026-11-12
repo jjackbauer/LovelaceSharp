@@ -21,6 +21,7 @@ pub mod lexer;
 pub mod mathir;
 pub mod modus;
 pub mod numeric;
+pub mod plot_surface;
 pub mod registry;
 pub mod structural_equality;
 pub mod structured;
@@ -2464,3 +2465,11 @@ mod round84_evalir_multi;
 /// `sqrt(2)` at precision 200000 is documented as uninterruptible, not claimed as cancelled.
 #[cfg(test)]
 mod kernel_cancel_round9;
+
+/// Round-87 plot-SVG family: descriptor examples #97 (`plot([1, 2, 3])`) and #98
+/// (`plot([1, 2, 3], [1, 4, 9], "title")`) whose artefacts diverged 14,636/14,595 vs 326/331
+/// bytes. The tests pin the published structure per example — element kinds and counts, the
+/// 800x600 canvas, the plot-area frame, both axes, tick geometry and labels, the title text and
+/// the dense series polyline — not the byte string.
+#[cfg(test)]
+mod plot_structure_round87;

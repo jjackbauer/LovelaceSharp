@@ -5,6 +5,8 @@
 //! observable result (the typed rendering where the C# asserts kind/element, the structured
 //! `exact` flag where the C# asserts exactness, or the same failure taxonomy).
 
+use lovelace_symbolics::Expr as Sym;
+
 use crate::syntax::{Expr, Parser};
 use crate::{Engine, Value};
 
@@ -312,6 +314,10 @@ fn arithmetic_does_not_degrade_exactness() {
 
 const DESCRIPTOR_PRELUDE: &str = "x = symbol(\"x\"); y = symbol(\"y\"); t = symbol(\"t\"); ";
 
+/// The exact IR source the oracle publishes for compile(x^2 + 1, [x]); compile returns it as
+/// Text (there is no kind suffix on typed() for a Text value).
+const COMPILE_X2_PLUS_1_IR: &str = "#!mathir 2\nparam x\nconst (rat 1 1)\nconst (rat 2 1)\nConstant 0 0\nParameter 0 0\nConstant 0 1\nPowInt 0 1,2\nAdd 0 0,3";
+
 #[test]
 fn descriptor_examples_execute() {
     let examples: &[(&str, &str)] = &[
@@ -341,12 +347,118 @@ fn descriptor_examples_execute() {
         e.set_plot_file("doctest.svg");
         e.eval(DESCRIPTOR_PRELUDE)
             .unwrap_or_else(|err| panic!("descriptor prelude failed: {}", err.message));
-        e.eval(example).unwrap_or_else(|err| {
+        let value = e.eval(example).unwrap_or_else(|err| {
             panic!(
                 "the descriptor example for '{function}' does not execute: {example}: {}",
                 err.message
             )
         });
+        // The C# row only requires execution, but the published example's actual behaviour is
+        // the oracle's result payload. Pin the two rows this batch owns whose payload the
+        // compile/logical-node fixes changed: the example must not merely run.
+        match *function {
+            "compile" => {
+                assert_eq!(
+                    e.format_typed(&value),
+                    COMPILE_X2_PLUS_1_IR,
+                    "descriptor example for 'compile' is not the IR Text"
+                );
+                let j = crate::structured::project_value(&e, &value, None);
+                assert_eq!(
+                    j.get("kind").and_then(|v| v.as_str()),
+                    Some("Text"),
+                    "compile structured kind"
+                );
+                assert_eq!(
+                    j.get("value").and_then(|v| v.as_str()),
+                    Some(COMPILE_X2_PLUS_1_IR),
+                    "compile structured value"
+                );
+            }
+            "or" => {
+                assert_eq!(
+                    e.format_typed(&value),
+                    "(x < -1 or x > 0) (Symbolic)",
+                    "descriptor example for 'or' display"
+                );
+                let j = crate::structured::project_value(&e, &value, None);
+                assert_eq!(
+                    j.get("canonical").and_then(|v| v.as_str()),
+                    Some("(or (lt (sym x) (rat -1 1)) (gt (sym x) (rat 0 1)))"),
+                    "descriptor example for 'or' canonical"
+                );
+                assert_eq!(
+                    j.get("nodeCount").map(|v| v.to_string()).as_deref(),
+                    Some("7"),
+                    "descriptor example for 'or' nodeCount"
+                );
+            }
+            "assume" => {
+                // The oracle's assume() returns the relation it was handed; it does not answer
+                // Void. The example's real behaviour is therefore the published conjunction,
+                // and the typed assertion is what a Void result cannot satisfy.
+                assert_eq!(
+                    e.format_typed(&value),
+                    "x < 10 and x > 0 (Symbolic)",
+                    "descriptor example for 'assume' display"
+                );
+                let j = crate::structured::project_value(&e, &value, None);
+                assert_eq!(
+                    j.get("kind").and_then(|v| v.as_str()),
+                    Some("Symbolic"),
+                    "descriptor example for 'assume' kind"
+                );
+                assert_eq!(
+                    j.get("canonical").and_then(|v| v.as_str()),
+                    Some("(and (lt (sym x) (rat 10 1)) (gt (sym x) (rat 0 1)))"),
+                    "descriptor example for 'assume' canonical"
+                );
+                assert_eq!(
+                    j.get("nodeCount").map(|v| v.to_string()).as_deref(),
+                    Some("7"),
+                    "descriptor example for 'assume' nodeCount"
+                );
+            }
+            "collect" => {
+                assert_eq!(
+                    e.format_typed(&value),
+                    "1 + y + x*(y + 1) (Symbolic)",
+                    "descriptor example for 'collect' display"
+                );
+                let j = crate::structured::project_value(&e, &value, None);
+                assert_eq!(
+                    j.get("canonical").and_then(|v| v.as_str()),
+                    Some("(add (rat 1 1) (sym y) (mul (sym x) (add (rat 1 1) (sym y))))"),
+                    "descriptor example for 'collect' canonical"
+                );
+                assert_eq!(
+                    j.get("nodeCount").map(|v| v.to_string()).as_deref(),
+                    Some("8"),
+                    "descriptor example for 'collect' nodeCount"
+                );
+                // The node itself: the degree-0 coefficient y + 1 is FLATTENED into the outer
+                // n-ary Add, so the root has the three terms 1, y and x*(y + 1) and the only
+                // nested sum is x's coefficient. A nested coefficient would count 9 nodes.
+                match &value {
+                    Value::Symbolic(Sym::Add(terms)) => {
+                        assert_eq!(
+                            terms.len(),
+                            3,
+                            "collect root is not the flattened three-term sum: {}",
+                            value.display()
+                        );
+                        assert!(terms.contains(&Sym::num(1)));
+                        assert!(terms.contains(&Sym::sym("y")));
+                        assert!(terms.contains(&Sym::mul(
+                            Sym::sym("x"),
+                            Sym::add(Sym::num(1), Sym::sym("y")),
+                        )));
+                    }
+                    other => panic!("collect example is not a symbolic sum: {}", other.display()),
+                }
+            }
+            _ => {}
+        }
     }
 }
 
