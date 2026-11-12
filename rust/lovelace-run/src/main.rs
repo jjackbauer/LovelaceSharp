@@ -12,6 +12,8 @@ use std::io::{Read, Write};
 use lovelace_json::Json;
 use lovelace_lang::{Engine, registry, structured};
 
+use script_source::{ScriptSource, SourceIdentity, SourceOrigin};
+
 const PROTOCOL_VERSION: &str = "1";
 const SYMBOLIC_FORMAT_VERSION: &str = "#!lovelace-sym 1";
 const MATH_IR_VERSION: &str = "2";
@@ -24,6 +26,8 @@ enum Mode {
 
 struct Options {
     source: Option<String>,
+    /// Which host surface the script text came from, so a diagnostic can name its source.
+    origin: SourceOrigin,
     /// A script path to read after argument parsing, so an unreadable path can cross as the
     /// documented pre-engine failure envelope instead of a usage error on stderr.
     source_file: Option<String>,
@@ -68,6 +72,7 @@ fn usage() -> String {
 fn parse_args(args: &[String]) -> Result<Options, String> {
     let mut o = Options {
         source: None,
+        origin: SourceOrigin::Eval,
         source_file: None,
         plot_dir: None,
         plot_file: None,
@@ -93,10 +98,12 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
         match a.as_str() {
             "--eval" => {
                 o.source = Some(need(i)?);
+                o.origin = SourceOrigin::Eval;
                 i += 2;
             }
             "--file" => {
                 o.source_file = Some(need(i)?);
+                o.origin = SourceOrigin::File;
                 i += 2;
             }
             "--stdin" => {
@@ -110,6 +117,7 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
                 let text =
                     decode_stdin_bytes(bytes).map_err(|e| format!("cannot read stdin: {e}"))?;
                 o.source = Some(text);
+                o.origin = SourceOrigin::Stdin;
                 i += 1;
             }
             "--plot-dir" => {
@@ -203,6 +211,7 @@ fn parse_args(args: &[String]) -> Result<Options, String> {
     {
         if let Some(p) = bare {
             o.source_file = Some(p);
+            o.origin = SourceOrigin::File;
         }
     } else if bare.is_some() && (o.source.is_some() || o.source_file.is_some()) {
         return Err("a script path was given together with another source".to_string());
@@ -278,6 +287,17 @@ fn run() {
         opts.source.clone().unwrap_or_default()
     };
 
+    // The source identity is host metadata: the wire diagnostic keeps its four fields, but the
+    // Diagnostic value the envelope is built from names the surface the text came from.
+    let identity = match &opts.source_file {
+        Some(path) => SourceIdentity::file(path.clone()),
+        None => match opts.origin {
+            SourceOrigin::Stdin => SourceIdentity::stdin(),
+            _ => SourceIdentity::eval(),
+        },
+    };
+    let script = ScriptSource::new(identity, source);
+
     let mut engine = Engine::new();
     if let Some(dir) = &opts.plot_dir {
         engine.set_plot_dir(dir);
@@ -296,11 +316,11 @@ fn run() {
     if let Some(name) = &opts.plot_file {
         engine.set_plot_file(name);
     }
-    let execution = execute(&mut engine, &opts, &source);
+    let execution = execute(&mut engine, &opts, script.text());
 
     match (opts.mode, &execution) {
         (Mode::Json, _) => {
-            let (env, exit) = envelope_for(&mut engine, &opts, &source, execution);
+            let (env, exit) = envelope_for(&mut engine, &opts, &script, execution);
             print_json(&env);
             if exit != 0 {
                 std::process::exit(1);
@@ -378,7 +398,7 @@ fn execute(engine: &mut Engine, opts: &Options, source: &str) -> Execution {
 fn envelope_for(
     engine: &mut Engine,
     opts: &Options,
-    source: &str,
+    script: &ScriptSource,
     execution: Execution,
 ) -> (Json, i32) {
     let Execution {
@@ -388,15 +408,15 @@ fn envelope_for(
     } = execution;
     match outcome {
         Ok(value) => (
-            success_envelope(engine, &value, opts, source, elapsed, elapsed_ms),
+            success_envelope(engine, &value, opts, script, elapsed, elapsed_ms),
             0,
         ),
         Err(err) if err.code == "Cancelled" => (
-            cancelled_envelope(engine, opts, source, &err, elapsed, elapsed_ms),
+            cancelled_envelope(engine, opts, script, &err, elapsed, elapsed_ms),
             1,
         ),
         Err(err) => (
-            failure_envelope(engine, &err, source, elapsed, elapsed_ms, opts),
+            failure_envelope(engine, &err, script, elapsed, elapsed_ms, opts),
             1,
         ),
     }
@@ -613,12 +633,11 @@ fn overrun_diagnostic(
     budget: u64,
     elapsed_ms: f64,
     position: usize,
-    source: &str,
+    script: &ScriptSource,
     stopped: bool,
     completed: bool,
 ) -> Json {
     let excess = (elapsed_ms - budget as f64).max(0.0);
-    let (line, column) = line_col(source, position);
     let outcome = if stopped {
         "the deadline was observed, but only after the excess had already been spent"
     } else if completed {
@@ -626,28 +645,25 @@ fn overrun_diagnostic(
     } else {
         "the evaluation then failed for another reason"
     };
-    Json::obj(vec![
-        (
-            "message",
-            Json::Str(format!(
+    script
+        .diagnostic(
+            format!(
                 "cancellation deadline exceeded: --cancel-after {} ms, elapsed {} ms ({} ms over budget); {}.",
                 budget,
                 format_ms(elapsed_ms),
                 format_ms(excess),
                 outcome
-            )),
-        ),
-        ("position", Json::Num(position.to_string())),
-        ("line", Json::Num(line.to_string())),
-        ("column", Json::Num(column.to_string())),
-    ])
+            ),
+            position,
+        )
+        .to_json()
 }
 
 fn success_envelope(
     engine: &mut Engine,
     value: &lovelace_lang::Value,
     opts: &Options,
-    source: &str,
+    script: &ScriptSource,
     elapsed: std::time::Duration,
     elapsed_ms: f64,
 ) -> Json {
@@ -723,7 +739,7 @@ fn success_envelope(
             fields.push((
                 "diagnostics",
                 Json::Arr(vec![overrun_diagnostic(
-                    budget_ms, elapsed_ms, position, source, false, true,
+                    budget_ms, elapsed_ms, position, script, false, true,
                 )]),
             ));
         }
@@ -742,7 +758,7 @@ fn success_envelope(
 fn cancelled_envelope(
     engine: &mut Engine,
     opts: &Options,
-    source: &str,
+    script: &ScriptSource,
     error: &lovelace_lang::LangError,
     elapsed: std::time::Duration,
     elapsed_ms: f64,
@@ -765,7 +781,7 @@ fn cancelled_envelope(
             budget,
             elapsed_ms,
             engine.last_completed_position(),
-            source,
+            script,
             true,
             false,
         )]
@@ -801,7 +817,7 @@ fn cancelled_envelope(
 fn failure_envelope(
     engine: &mut Engine,
     err: &lovelace_lang::LangError,
-    source: &str,
+    script: &ScriptSource,
     elapsed: std::time::Duration,
     elapsed_ms: f64,
     opts: &Options,
@@ -818,20 +834,18 @@ fn failure_envelope(
         "recoverable",
         Json::Bool(err.category != "InternalInvariantFailure"),
     ));
-    let (line, column) = line_col(source, err.position);
-    let mut diagnostics = vec![Json::obj(vec![
-        ("message", Json::Str(err.message.clone())),
-        ("position", Json::Num(err.position.to_string())),
-        ("line", Json::Num(line.to_string())),
-        ("column", Json::Num(column.to_string())),
-    ])];
+    let mut diagnostics = vec![
+        script
+            .diagnostic(err.message.clone(), err.position)
+            .to_json(),
+    ];
     if let Some(budget) = opts.cancel_after {
         if (elapsed_ms - budget as f64) > 0.0 {
             diagnostics.push(overrun_diagnostic(
                 budget,
                 elapsed_ms,
                 err.position,
-                source,
+                script,
                 false,
                 false,
             ));
@@ -981,32 +995,6 @@ fn registry_query(opts: &Options) {
     print_json(&Json::obj(fields));
 }
 
-/// Converts a UTF-16 code-unit offset into a 1-based line and column.
-fn line_col(source: &str, position: usize) -> (usize, usize) {
-    let units: Vec<u16> = source.encode_utf16().collect();
-    let upto = units.len().min(position);
-    let mut line = 1usize;
-    let mut col = 1usize;
-    let mut i = 0usize;
-    while i < upto {
-        let u = units[i];
-        if u == 13u16 {
-            if i + 1 < upto && units[i + 1] == 10u16 {
-                i += 1;
-            }
-            line += 1;
-            col = 1;
-        } else if u == 10u16 {
-            line += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-        i += 1;
-    }
-    (line, col)
-}
-
 /// The `--stdin` surface's text: the characters the reader produced. The process's standard
 /// input is UTF-8 (the reference's Console.In encoding), and a leading byte-order mark is kept as
 /// the U+FEFF character it is so the engine can strip it and map positions back.
@@ -1085,6 +1073,13 @@ fn decode_utf32(bytes: &[u8], little_endian: bool) -> Result<String, String> {
 // record_schema_batch ports consume it today. Kept outside cfg(test) so it is production code.
 #[allow(dead_code)]
 mod schemas;
+
+// The host-side script source: the caller text, its normalised form, the map back, and the source
+// identity a diagnostic names. Additive - the wire envelope is unchanged; the runner uses the
+// diagnostic builder, so a failure is always paired with the surface it came from. The normaliser
+// and engine-offset map are the host-facing half of the surface and have no wire consumer yet.
+#[allow(dead_code)]
+mod script_source;
 
 #[cfg(test)]
 mod parity_batch;

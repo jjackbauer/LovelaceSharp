@@ -84,9 +84,18 @@ pub fn run_args(args: &[&str]) -> RunResult {
         engine.set_plot_file(name);
     }
     // The engine run and the envelope are the SAME two functions `main` uses, so a wire
-    // assertion here cannot pass on a flow the binary does not run.
-    let execution = execute(&mut engine, &opts, &source);
-    let (env, exit) = envelope_for(&mut engine, &opts, &source, execution);
+    // assertion here cannot pass on a flow the binary does not run. The script identity mirrors
+    // the surface main would name for the same argv.
+    let identity = match &opts.source_file {
+        Some(path) => SourceIdentity::file(path.clone()),
+        None => match opts.origin {
+            SourceOrigin::Stdin => SourceIdentity::stdin(),
+            _ => SourceIdentity::eval(),
+        },
+    };
+    let script = ScriptSource::new(identity, source);
+    let execution = execute(&mut engine, &opts, script.text());
+    let (env, exit) = envelope_for(&mut engine, &opts, &script, execution);
     RunResult {
         exit,
         stdout: env.to_string(),

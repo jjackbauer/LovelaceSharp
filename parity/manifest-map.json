@@ -30959,39 +30959,46 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenBlock_PreservesNewlinesInsideBraces#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_block_preserves_newlines_inside_braces",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenBlock_PreservesNewlinesInsideBraces (ScriptSourceTests.cs:24) asserts newlines inside braces are preserved; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_block_preserves_newlines_inside_braces asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenCrlf_NormalizesLineEndings#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_crlf_normalizes_line_endings",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenCrlf_NormalizesLineEndings (ScriptSourceTests.cs:16) asserts CRLF and lone CR are normalised to LF; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_crlf_normalizes_line_endings asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenLeadingBom_StripsIt#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_leading_bom_strips_it",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenLeadingBom_StripsIt (ScriptSourceTests.cs:56) asserts one leading BOM is stripped; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_leading_bom_strips_it asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenNewlineAfterBlock_EmitsSemicolon#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_newline_after_block_emits_semicolon",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenNewlineAfterBlock_EmitsSemicolon (ScriptSourceTests.cs:32) asserts a newline after a block becomes a semicolon; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_newline_after_block_emits_semicolon asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenNewlineSeparatedStatements_JoinsWithSemicolons#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_newline_separated_statements_joins_with_semicolons",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenNewlineSeparatedStatements_JoinsWithSemicolons (ScriptSourceTests.cs:8) asserts newline-separated statements become semicolon-joined text; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_newline_separated_statements_joins_with_semicolons asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenStringWithNewline_PreservesIt#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_string_with_newline_preserves_it",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenStringWithNewline_PreservesIt (ScriptSourceTests.cs:40) asserts a newline inside a double-quoted string is preserved; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_string_with_newline_preserves_it asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenTrailingSemicolon_SuppressesBlankSeparator#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ScriptSource.ToSemicolonStatements source normaliser; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::script_source::tests::to_semicolon_statements_given_trailing_semicolon_suppresses_blank_separator",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# ScriptSourceTests.ToSemicolonStatements_GivenTrailingSemicolon_SuppressesBlankSeparator (ScriptSourceTests.cs:48) asserts a trailing semicolon suppresses the blank separator; rust/lovelace-run/src/script_source.rs to_semicolon_statements_given_trailing_semicolon_suppresses_blank_separator asserts the same literal. See docs/goal-parity-contract/round-59/script-source.md sections 2 and 4."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SharedPluginInstanceAssumptionIsolationTests/CallerInstalledAssumptionScope_KeepsPrecedenceInsideAnEngineEvaluation#0": {
     "disposition": "deferred",
@@ -32014,39 +32021,46 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/Budget_CountsAppliedRewrites_AndStopsFurtherGroups#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::budget_counts_applied_rewrites_and_stops_further_groups",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.Budget_CountsAppliedRewrites_AndStopsFurtherGroups asserts transform(x/x, MaxSteps: 0) is BudgetExceeded with kind rewrite_steps, no steps and an unchanged expression; rust/lovelace-symbolics/src/rewrite_registry.rs budget_counts_applied_rewrites_and_stops_further_groups asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/DomainSpecificRule_DeclaresItsCondition#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::domain_specific_rule_declares_its_condition",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.DomainSpecificRule_DeclaresItsCondition asserts with x in Real, sqrt(x^2) becomes abs(x) with one pow.sqrt-square-real step classified DomainSpecific and non-empty conditions; rust/lovelace-symbolics/src/rewrite_registry.rs domain_specific_rule_declares_its_condition asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/EveryRule_HasAStableUniqueId_AndUniversalRulesAreUnconditional#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::every_rule_has_a_stable_unique_id_and_universal_rules_are_unconditional",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.EveryRule_HasAStableUniqueId_AndUniversalRulesAreUnconditional asserts the nine rules have distinct stable ids in registration order and Universal rules carry no declared conditions or condition builder; rust/lovelace-symbolics/src/rewrite_registry.rs every_rule_has_a_stable_unique_id_and_universal_rules_are_unconditional asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/RuleEvaluationException_IsTheOnlyCaughtState#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::rule_evaluation_exception_is_the_only_caught_state",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.RuleEvaluationException_IsTheOnlyCaughtState asserts the declared-undecidable probe is caught, the expression is unchanged and the matched attempt is Unknown with the probe message; rust/lovelace-symbolics/src/rewrite_registry.rs rule_evaluation_exception_is_the_only_caught_state asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/ThrowingPrecondition_Propagates#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::throwing_precondition_propagates",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.ThrowingPrecondition_Propagates asserts a non-RuleEvaluationException defect propagates out of apply and never becomes NotApplicable; rust/lovelace-symbolics/src/rewrite_registry.rs throwing_precondition_propagates asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/TraceDisabled_KeepsConditionsAndAllocatesNoSteps#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::trace_disabled_keeps_conditions_and_allocates_no_steps",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.TraceDisabled_KeepsConditionsAndAllocatesNoSteps asserts x/x becomes 1 with empty steps and non-empty x != 0 conditions; rust/lovelace-symbolics/src/rewrite_registry.rs trace_disabled_keeps_conditions_and_allocates_no_steps asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RewriteProtocolTests/UnknownApplicability_NeverFires#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing rewrite rule registry with preconditions and trace API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::rewrite_registry::tests::unknown_applicability_never_fires",
+    "reason": "Round 59 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location).",
+    "note": "Round 59: C# RewriteProtocolTests.UnknownApplicability_NeverFires asserts a rule that answers Unknown leaves the node unchanged; rust/lovelace-symbolics/src/rewrite_registry.rs unknown_applicability_never_fires asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#0": {
     "disposition": "deferred",

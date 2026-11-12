@@ -11,6 +11,7 @@ use super::*;
 fn run_envelope(script: &str) -> (Json, i32) {
     let opts = Options {
         source: Some(script.to_string()),
+        origin: SourceOrigin::Eval,
         source_file: None,
         plot_dir: None,
         plot_file: None,
@@ -24,9 +25,10 @@ fn run_envelope(script: &str) -> (Json, i32) {
         describe_function: None,
         function_limit: 50,
     };
+    let script = ScriptSource::new(SourceIdentity::eval(), script);
     let mut engine = Engine::new();
-    let execution = execute(&mut engine, &opts, script);
-    envelope_for(&mut engine, &opts, script, execution)
+    let execution = execute(&mut engine, &opts, script.text());
+    envelope_for(&mut engine, &opts, &script, execution)
 }
 
 fn field<'a>(value: &'a Json, name: &str) -> &'a Json {

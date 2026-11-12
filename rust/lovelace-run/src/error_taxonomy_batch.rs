@@ -364,10 +364,11 @@ fn cancelled_envelope_carries_the_committed_lines_in_both_arrays() {
     let mut engine = Engine::new();
     engine.eval("print(\"hello\"); 1").unwrap();
     let error = lovelace_lang::cancelled_error();
+    let script = ScriptSource::new(SourceIdentity::eval(), "print(\"hello\"); 1");
     let env = cancelled_envelope(
         &mut engine,
         &opts,
-        "print(\"hello\"); 1",
+        &script,
         &error,
         std::time::Duration::from_millis(5),
         5.0,
