@@ -479,3 +479,11 @@
   the user the run is uninterruptible — a gap for RUN-018/LOG-009.
 - **Confidence**: Medium (agent-measured; I verified the cancel path that *does* work, not this one)
 - **Related**: DEV-008, OQ-003, RUN-008, RUN-006, ARC-009
+
+### OBS-014: Six of seven log kinds are proven in the window; echo has no producer
+
+- **Source**: `docs/goal-desktop-v4/round-22/log-kinds-logs.png`; `cargo test -p lovelace-desktop` (197 passed)
+- **Fact**: the product log pane renders distinct markers for `[info]`, `[progress]`, `[result]`, `[timing]`, `[stdout]` and `[diagnostic]`, all visible in one two-run capture (result/timing from `6 * 7`; stdout/progress/diagnostic/timing from `print("hi")` and `1 / 0`). `[echo]` renders and is unit-tested but no product path emits it, because the egui workbench has no quick-eval input.
+- **Implications**: LOG-002 enumerates echo among the kinds, so it stays NOT_TESTED: six of seven proven in the window is not seven. The missing producer is RUN-002/LOG-003 (quick eval); wiring quick eval closes both.
+- **Confidence**: High — **Agent**: implementer round 22 — **Verified by**: the crop read class by class and the 197-test run
+- **Related**: LOG-002, RUN-002, LOG-003, EVD-057

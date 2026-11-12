@@ -3066,7 +3066,7 @@
                                   ],
                      "test":  "",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Six of seven kinds proven in the window (round-22 capture); echo has no producer because quick eval is unwired (RUN-002). Hold until quick eval lands."
                  },
                  {
                      "id":  "LOG-003",

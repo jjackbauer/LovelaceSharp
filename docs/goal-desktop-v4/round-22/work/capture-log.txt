@@ -1,0 +1,37 @@
+﻿14:28:11.644 workspace=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\work appdata=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\appdata temp=C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp exe=C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\debug\lovelace-desktop.exe out=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22
+14:28:12.467 launch pid=21172 document=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\work\log-kinds.lv compat_layer=DPIUNAWARE
+14:28:13.328 dpi=96 requested=3888x4500 (1296x1500 logical at 300%)
+14:28:14.141 resized rect=3888x4500 alive=True
+14:28:14.652 scriptA='6 * 7' appendedB='print("hi")\n1 / 0'
+14:28:15.760 typed A editor='Script editor, 1 lines, caret line 1 column 6'
+14:28:18.014 run A status=Finished editor='Script editor, 1 lines, caret line 1 column 6'
+14:28:21.412 appended B editor='Script editor, 3 lines, caret line 3 column 6'
+14:28:23.642 run B status=Failed
+14:28:24.804 capture label=log-kinds path=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\log-kinds.png rect=3888x4500 bytes=1180230 printwindow=True log_top=3672 attempt=1
+14:28:25.325 uia log lines=17
+14:28:25.328 uia log[0] Text | [info] Lovelace Desktop ready. Engine: lovelace-lang. Two documents open. | id= | focusable=False | enabled=True
+14:28:25.334 uia log[1] Text | [info] Plot directory: C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-desktop\plots. | id= | focusable=False | enabled=True
+14:28:25.342 uia log[2] Text | [info] Opened C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\work\log-kinds.lv. | id= | focusable=False | enabled=True
+14:28:25.348 uia log[3] Text | [info] Run queued (revision 6, run 1). | id= | focusable=False | enabled=True
+14:28:25.354 uia log[4] Text | [info] Run started: 1 statements, engine lovelace-lang, precision 1000. | id= | focusable=False | enabled=True
+14:28:25.361 uia log[5] Text | [progress] statement 1/1: 6 * 7 | id= | focusable=False | enabled=True
+14:28:25.367 uia log[6] Text | [result] = 42 | id= | focusable=False | enabled=True
+14:28:25.374 uia log[7] Text | [timing] Run finished: 1 statements committed in 7 ms. | id= | focusable=False | enabled=True
+14:28:25.389 uia log[8] Text | [info] The displayed result is stale: the source changed after it finished. | id= | focusable=False | enabled=True
+14:28:25.397 uia log[9] Text | [info] Run queued (revision 21, run 2). | id= | focusable=False | enabled=True
+14:28:25.403 uia log[10] Text | [info] Run started: 3 statements, engine lovelace-lang, precision 1000. | id= | focusable=False | enabled=True
+14:28:25.409 uia log[11] Text | [progress] statement 1/3: 6 * 7 | id= | focusable=False | enabled=True
+14:28:25.416 uia log[12] Text | [progress] statement 2/3: print("hi") | id= | focusable=False | enabled=True
+14:28:25.424 uia log[13] Text | [stdout] hi | id= | focusable=False | enabled=True
+14:28:25.431 uia log[14] Text | [progress] statement 3/3: 1 / 0 | id= | focusable=False | enabled=True
+14:28:25.437 uia log[15] Text | [diagnostic] Diagnostic: line 3, column 1: Cannot divide by zero. | id= | focusable=False | enabled=True
+14:28:25.443 uia log[16] Text | [timing] Run failed after 2 committed statements in 5 ms; the committed prefix remains in the workspace. | id= | focusable=False | enabled=True
+14:28:25.591 detail crop path=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\log-kinds-logs.png bytes=196448 source=0,3672,2280x794
+14:28:25.632 palette info #8B98A9 pixels=1541
+14:28:25.635 palette stdout #D8DEE9 pixels=17
+14:28:25.642 palette result #4EC9B0 pixels=29
+14:28:25.649 palette diagnostic #FF7B72 pixels=102
+14:28:25.664 palette timing #D7BA7D pixels=317
+14:28:25.666 palette progress #7FB0D8 pixels=274
+14:28:25.844 close graceful=True
+14:28:25.845 SUMMARY png=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\log-kinds.png bytes=1180230 logs_detail=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-22\log-kinds-logs.png log_lines=17 markers=6
