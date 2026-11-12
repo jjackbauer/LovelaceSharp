@@ -6,8 +6,11 @@ platform file dialogs. Retire the raw Win32/GDI shell as the product UI: it cann
 editor, a UI Automation tree, or theme tokens without hand-writing all three.
 
 **Status:** the Windows half of the spike is complete and measured. The Linux half is deferred by
-DEC-006. Competitor prototypes are minimal (DEV-007) and are recorded below as criteria-based
-rejections, not as measurements.
+DEC-006. The competitor comparison now rests on real probes: iced 0.14.0 and slint 1.18.1 were each
+built and opened a native window on this machine, and their accessibility, text-widget and image
+surfaces were verified against the published crate sources (`round-2/ui-candidates.md`, EVD-050).
+What remains criteria-based is only the *feature depth* of those two candidates (no 5 000-line
+editor, typing or IME measurement was taken for them).
 
 ## What the spike actually demonstrated
 
@@ -27,9 +30,9 @@ rejections, not as measurements.
 | Candidate | Deciding factor | Strength of evidence |
 |---|---|---|
 | Raw Win32 + GDI (incumbent) | No UIA provider, no rich-text decorations, no theming in `shell.rs`/`ffi.rs`; every editor feature would be hand-written on top of an `EDIT` control | Verified by census (EVD-004..006, OBS-006) |
-| iced | Text editor widget exists but was not prototyped here; no run evidence for accessibility or a 5 000-line document | Criteria-based only (probe report pending, DEV-007) |
-| slint | Declarative UI; text input is basic and no 5 000-line editor evidence; not prototyped here | Criteria-based only (DEV-007) |
-| GPUI | Not evaluated beyond documentation; no stable public API story for this product | Not evaluated |
+| iced 0.14.0 | **Rejected on a contract criterion**: the published crates ship no accessibility feature and no AccessKit dependency (0 `accesskit` entries in the probe's `Cargo.lock`), so A11Y-002 (a P0 row) cannot be met without inventing an accessibility layer. It builds (46.8 s) and opens a window; its `TextEditor` is multi-line; image loading needs a non-default feature | Prototyped: build + window + source citations (EVD-050) |
+| slint 1.18.1 | Viable and accessible by default (AccessKit via `accesskit_winit`, 28 `accesskit*` entries in the probe lock), but its built-in `TextEdit` has no demonstrated 5 000-line virtualisation, syntax layouter or completion surface, and it was not measured for typing latency. Unproven against EDT-001/EDT-016, which the egui spike did measure | Prototyped: build + window + source citations (EVD-050) |
+| GPUI | Not evaluated; no stable public API story for this product | Not evaluated |
 | Tauri | Excluded by the contract: it embeds a system webview and keeps a JavaScript UI runtime | Contract (ARC-002) |
 
 ## Risks this decision carries

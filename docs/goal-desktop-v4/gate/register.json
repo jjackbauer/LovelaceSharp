@@ -226,18 +226,24 @@
                                           "path":  "docs/goal-desktop-v4/round-2/spike-bench.json",
                                           "sha256":  "9B1BDC7AC74E4FA6145F5BC9F97AE3C06837F7380C7495DF133CA2CF6C56709A",
                                           "class":  "perf",
-                                          "at_head":  "9807f108064ee252c3a483f677f9a49a39fe9017"
+                                          "at_head":  "2fe17924427321ae555d21105a8a4c2eaead8415"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-2/arc-001-decision.md",
-                                          "sha256":  "33315C74299D180D8D6500FD42EAB679DAB1C2B561B810C6EEEE9EBA3B03FC29",
+                                          "sha256":  "82EF8935CF233C756F1C2D6B4174858457AF157FF4423830FCD7AF547C73DC73",
                                           "class":  "perf",
-                                          "at_head":  "9807f108064ee252c3a483f677f9a49a39fe9017"
+                                          "at_head":  "2fe17924427321ae555d21105a8a4c2eaead8415"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-2/ui-candidates.md",
+                                          "sha256":  "A77006C0C7413CA29BA767C83D74B86EC18F93195C874C2A6C528464DF203AEC",
+                                          "class":  "perf",
+                                          "at_head":  "2fe17924427321ae555d21105a8a4c2eaead8415"
                                       }
                                   ],
                      "test":  "spike --bench",
                      "waiver":  "",
-                     "scope_note":  "Windows spike measured; Linux half deferred by DEC-006; IME composition not driven."
+                     "scope_note":  "Windows spike + iced/slint probes measured; Linux half deferred by DEC-006; IME composition not driven."
                  },
                  {
                      "id":  "ARC-002",

@@ -467,3 +467,10 @@
 - **Decision**: KEEP. It is a parity fix toward the reference, disclosed rather than smuggled, and it is covered by existing atan/atan2 tests.
 - **Confidence**: High
 - **Related**: OBS-031, round-46/falsification-api.md
+
+### RISK-002: A second goal session is editing the same worktree
+
+- **Condition**: rust/lovelace-desktop/src/execution.rs and statements.rs (untracked, 09:12-09:13) plus docs/goal-desktop-v4/ appeared mid-round; 9 execution::tests fail under `cargo test -p lovelace-desktop`, so `cargo test --workspace` exits 101 and parity/gen-rust-tests cannot produce a green inventory.
+- **Impact**: parity integration is blocked until that session's tree is green; the arity mappings (5 ids) can be written but cannot be gated or counted.
+- **Mitigation**: parity lanes are told not to touch desktop files; mapping proceeds without a gate claim; I re-run gen-rust-tests when the desktop session settles. If the collision persists, the parity gate needs an agreed crate scope rather than a silent exclusion.
+- **Related**: OQ-018 (inventory discrepancies), the earlier add -A note in round-73
