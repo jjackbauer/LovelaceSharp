@@ -2986,14 +2986,31 @@
                      "type":  "W",
                      "requirement":  "Capture print output exactly once",
                      "acceptance":  "Repeated polls/events, reruns and cancellation never duplicate print lines or change order; byte-sensitive tests cover line endings.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-19/output-integrity.md",
+                                          "sha256":  "29C4101EF22EBF92A8234DAF8AB96C91B8A9AA5BB771FC56D05287B220EA6197",
+                                          "class":  "unit",
+                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/workbench.rs",
+                                          "sha256":  "399D2C6D8675229B8902D5DA62DA0F5D9AD4DEE6EAD94D62F4BAEE57AE12A10C",
+                                          "class":  "unit",
+                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/execution.rs",
+                                          "sha256":  "4D489395194DD0B23E90D01F86599AFB861FD98654840BFB3FBC7806C6940166",
+                                          "class":  "unit",
+                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop t10_output_events|replayed_events|cancelling_after|rerunning",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Byte-exact CRLF/LF/CR preserved (61 0D 0A 62 63 0A 64 65 0D 66); replay watermark stops duplicate log lines; cancel and rerun keep each line exactly once; 174 tests pass."
                  },
                  {
                      "id":  "LOG-002",

@@ -1664,6 +1664,81 @@ mod tests {
         }
     }
 
+    /// LOG-001 byte clause: print() text containing CRLF, LF and a bare CR must reach the typed
+    /// Output events byte-for-byte, in order, with no normalisation or separator added by the
+    /// desktop.
+    ///
+    /// The three control bytes are embedded literally in the script's string literals, so the
+    /// engine stores them verbatim and the slicer (which only splits outside strings) preserves
+    /// them. The expected bytes come from a second FakeEngine evaluating the same script: the
+    /// assertion is event bytes == engine bytes, not a hand-written rendering of them.
+    #[test]
+    fn t10_output_events_preserve_crlf_lf_and_bare_cr_bytes_in_order() {
+        let source = "print(\"a\r\nb\")\nprint(\"c\nd\")\nprint(\"e\rf\")\n";
+        let mut reference = crate::engine::FakeEngine::new();
+        reference.eval(source).expect("the byte script evaluates");
+        let expected = reference.take_output();
+        assert_eq!(
+            expected
+                .iter()
+                .map(|line| line.as_bytes())
+                .collect::<Vec<_>>(),
+            vec![b"a\r\nb".as_slice(), b"c\nd".as_slice(), b"e\rf".as_slice()],
+            "the engine itself must hold the control bytes verbatim"
+        );
+
+        let host = ExecutionHost::new(Box::new(|| {
+            Box::new(crate::engine::FakeEngine::new()) as Box<dyn Evaluator>
+        }));
+        let _handle = host
+            .submit(DocumentId(12), SourceRevision(1), source.to_string(), 1000)
+            .expect("submit");
+        let events = drain_until_terminal(&host, Duration::from_secs(5));
+        assert!(
+            matches!(
+                events.last().map(|event| &event.event),
+                Some(DesktopEvent::Finished { .. })
+            ),
+            "terminal event was {:?}, expected Finished",
+            summaries(&events)
+        );
+
+        let actual = events
+            .iter()
+            .filter_map(|event| match &event.event {
+                DesktopEvent::Output { text, .. } => Some(text.as_bytes().to_vec()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "one Output event per printed line"
+        );
+        for (index, (actual, expected)) in actual.iter().zip(expected.iter()).enumerate() {
+            assert_eq!(
+                actual.as_slice(),
+                expected.as_bytes(),
+                "Output event {index} must be the engine's line byte-for-byte"
+            );
+        }
+
+        let actual_bytes = actual.iter().flatten().copied().collect::<Vec<u8>>();
+        let expected_bytes = expected
+            .iter()
+            .flat_map(|line| line.bytes())
+            .collect::<Vec<u8>>();
+        assert_eq!(
+            actual_bytes, expected_bytes,
+            "the concatenated Output bytes must equal the engine's output bytes in order"
+        );
+        assert_eq!(
+            actual_bytes,
+            b"a\r\nbc\nde\rf".to_vec(),
+            "CRLF, LF and the bare CR must survive unchanged and no separator may be added"
+        );
+    }
+
     #[test]
     fn diagnostic_position_is_translated_back_to_the_full_source() {
         let source = "first = 1\nsecond = 2\nthird = 3\nfourth = 4\n";

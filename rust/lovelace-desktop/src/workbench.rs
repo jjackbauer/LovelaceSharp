@@ -117,6 +117,13 @@ pub struct WorkbenchDocument {
     diagnostic_revision: Option<SourceRevision>,
     /// The explicit run state and its transition log.
     run_state: RunStateMachine,
+    /// Highest event delivery sequence this document has applied.
+    ///
+    /// [`ExecutionHost`] numbers every event it hands out, strictly increasing, and this
+    /// workbench is the consumer. An event at or below this watermark has already been applied,
+    /// so a repeated delivery is ignored instead of appending a second log line or publishing
+    /// the same snapshot twice.
+    last_sequence: u64,
     /// Number of statements committed by the current or last run.
     pub committed: usize,
     /// Number of statements the current or last run will visit.
@@ -712,6 +719,13 @@ impl Workbench {
         let Some(index) = self.docs.iter().position(|doc| doc.id == id) else {
             return false;
         };
+        // Idempotent consumption: the host numbers events in delivery order, so an event at or
+        // below the document's watermark has already been applied. Ignoring it here is what
+        // keeps a repeated delivery from duplicating an Output log line or a snapshot.
+        if sequenced.sequence <= self.docs[index].last_sequence {
+            return false;
+        }
+        self.docs[index].last_sequence = sequenced.sequence;
         let Some(tracked_run) = self.docs[index].run.as_ref().map(|handle| handle.run()) else {
             return false;
         };
@@ -1026,6 +1040,7 @@ impl WorkbenchDocument {
             diagnostic: None,
             diagnostic_revision: None,
             run_state: RunStateMachine::new(),
+            last_sequence: 0,
             committed: 0,
             total: 0,
             elapsed_ms: 0,
@@ -1176,6 +1191,70 @@ mod tests {
         }
     }
 
+    /// Prints one line per evaluation, after a delay, so the test can replay a real Output event
+    /// to the consumer while the run is still in flight.
+    struct SlowPrintEngine {
+        pending: Vec<String>,
+        delay: Duration,
+        calls: usize,
+    }
+
+    impl Evaluator for SlowPrintEngine {
+        fn eval(&mut self, _src: &str) -> Result<String, String> {
+            self.calls += 1;
+            std::thread::sleep(self.delay);
+            self.pending.push(format!("line{}", self.calls));
+            Ok(format!("v{}", self.calls))
+        }
+
+        fn take_output(&mut self) -> Vec<String> {
+            std::mem::take(&mut self.pending)
+        }
+    }
+
+    /// Prints `one`, `two` and `three` for the three print statements, then blocks inside one
+    /// kernel call that polls the live cancellation seam. The kernel never reaches a statement
+    /// boundary, so only the flag `ExecutionHost::cancel` sets can stop it.
+    struct CancellableKernelEngine {
+        pending: Vec<String>,
+        cancel: Option<Arc<AtomicBool>>,
+        kernel_entered: Arc<AtomicBool>,
+    }
+
+    impl Evaluator for CancellableKernelEngine {
+        fn eval(&mut self, src: &str) -> Result<String, String> {
+            for line in ["one", "two", "three"] {
+                if src.contains(&format!("print(\"{line}\")")) {
+                    self.pending.push(line.to_string());
+                    return Ok("Void".to_string());
+                }
+            }
+            self.kernel_entered.store(true, Ordering::SeqCst);
+            let deadline = Instant::now() + Duration::from_secs(10);
+            loop {
+                if self
+                    .cancel
+                    .as_ref()
+                    .map_or(false, |flag| flag.load(Ordering::Acquire))
+                {
+                    return Err("Cancelled inside the kernel.".to_string());
+                }
+                if Instant::now() >= deadline {
+                    return Err("The kernel observed no cancellation within 10 s.".to_string());
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
+
+        fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
+            self.cancel = flag;
+        }
+
+        fn take_output(&mut self) -> Vec<String> {
+            std::mem::take(&mut self.pending)
+        }
+    }
+
     /// An engine that reports a plot only after its first evaluation, then reports none. This
     /// mirrors `lovelace_lang::Engine`, which resets its captured plot at the start of every
     /// `eval`; the execution core evaluates one statement at a time.
@@ -1292,6 +1371,270 @@ mod tests {
                 .logs
                 .iter()
                 .any(|line| line.level == LogLevel::Output && line.text == "x")
+        );
+    }
+
+    /// LOG-001 byte clause, consumer side: the log line and the snapshot's output entry must be
+    /// the engine's bytes, not a trimmed or re-joined rendering of them.
+    #[test]
+    fn print_output_reaches_the_log_and_snapshot_byte_for_byte() {
+        let source = "print(\"a\r\nb\")\nprint(\"c\nd\")\nprint(\"e\rf\")\n";
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, source.to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        let logged = document
+            .logs
+            .iter()
+            .filter(|line| line.level == LogLevel::Output)
+            .map(|line| line.text.as_bytes().to_vec())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            logged,
+            vec![b"a\r\nb".to_vec(), b"c\nd".to_vec(), b"e\rf".to_vec()],
+            "the log holds exactly the three printed lines, byte-for-byte"
+        );
+
+        let snapshot = document.snapshot.as_ref().expect("a finished snapshot");
+        let snapshot_output = snapshot
+            .output
+            .iter()
+            .map(|line| line.as_bytes().to_vec())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            snapshot_output, logged,
+            "the snapshot output and the log lines must be the same bytes in the same order"
+        );
+
+        let concatenated = logged.iter().flatten().copied().collect::<Vec<u8>>();
+        assert_eq!(
+            concatenated,
+            b"a\r\nbc\nde\rf".to_vec(),
+            "no desktop layer may normalise CRLF/CR or insert a separator"
+        );
+    }
+
+    /// LOG-001 repeated-delivery clause: the consumer must be idempotent. Replaying a real
+    /// Output event (and then the terminal event) must not append a second log line, re-draining
+    /// a finished run must change nothing, and the snapshot output must stay exactly once.
+    #[test]
+    fn replayed_events_do_not_duplicate_log_lines_or_snapshot_output() {
+        let mut workbench = Workbench::with_named_factory(
+            Box::new(|| {
+                Box::new(SlowPrintEngine {
+                    pending: Vec::new(),
+                    delay: Duration::from_millis(120),
+                    calls: 0,
+                })
+            }),
+            "slow-print",
+        );
+        workbench.set_source(0, "a = 1\nb = 2\n".to_string());
+        assert!(workbench.run_active());
+
+        let mut replayed_output = false;
+        let deadline = Instant::now() + Duration::from_secs(5);
+        loop {
+            assert!(
+                Instant::now() < deadline,
+                "the run did not deliver its terminal event within 5 s"
+            );
+            let event = workbench
+                .host
+                .next_event(Duration::from_secs(5))
+                .expect("the worker must publish its events");
+            let is_output = matches!(event.event, DesktopEvent::Output { .. });
+            let is_terminal = matches!(
+                event.event,
+                DesktopEvent::Finished { .. }
+                    | DesktopEvent::Cancelled { .. }
+                    | DesktopEvent::Failed { .. }
+            );
+            assert!(
+                workbench.apply_event(&event),
+                "the first delivery of {:?} must be applied",
+                event.event
+            );
+            if is_output && !replayed_output {
+                replayed_output = true;
+                // The very same SequencedEvent, delivered a second time to the same consumer.
+                assert!(
+                    !workbench.apply_event(&event),
+                    "a repeated Output delivery must be ignored, not logged twice"
+                );
+            }
+            if is_terminal {
+                assert!(
+                    !workbench.apply_event(&event),
+                    "a repeated terminal delivery must be ignored"
+                );
+                break;
+            }
+        }
+        assert!(replayed_output, "no Output event was delivered");
+
+        // Re-draining after the run finished must not append anything either.
+        for _ in 0..3 {
+            assert!(
+                !workbench.poll(),
+                "an idle queue must yield no applied events"
+            );
+        }
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
+
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        assert_eq!(document.terminal_run_event_count(), 1);
+        let logged = document
+            .logs
+            .iter()
+            .filter(|line| line.level == LogLevel::Output)
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            logged,
+            vec!["line1", "line2"],
+            "each printed line must appear exactly once, in order"
+        );
+        let snapshot = document.snapshot.as_ref().expect("a finished snapshot");
+        assert_eq!(
+            snapshot.output,
+            vec!["line1".to_string(), "line2".to_string()],
+            "the snapshot output must not duplicate the replayed line"
+        );
+    }
+
+    /// LOG-001 cancellation clause: the three print statements commit before the run blocks in
+    /// the kernel. Cancelling while it is blocked must keep each printed line exactly once, in
+    /// order, publish the same output in the snapshot, and end in exactly one `Cancelled`.
+    #[test]
+    fn cancelling_after_the_first_print_keeps_each_printed_line_exactly_once() {
+        let kernel_entered = Arc::new(AtomicBool::new(false));
+        let entered = Arc::clone(&kernel_entered);
+        let mut workbench = Workbench::with_named_factory(
+            Box::new(move || {
+                Box::new(CancellableKernelEngine {
+                    pending: Vec::new(),
+                    cancel: None,
+                    kernel_entered: Arc::clone(&entered),
+                })
+            }),
+            "cancellable-kernel",
+        );
+        workbench.set_source(
+            0,
+            "print(\"one\")\nprint(\"two\")\nprint(\"three\")\nspin()\n".to_string(),
+        );
+        assert!(workbench.run_active());
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while !workbench.documents()[0]
+            .logs
+            .iter()
+            .any(|line| line.level == LogLevel::Output && line.text == "one")
+        {
+            workbench.poll();
+            assert!(
+                Instant::now() < deadline,
+                "the first print was never observed; logs: {:?}",
+                workbench.documents()[0].logs
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        // Cancel only once the run is inside the kernel: the three prints are committed by then,
+        // so a re-emitted prefix line would be visible in the final log.
+        while !kernel_entered.load(Ordering::SeqCst) {
+            workbench.poll();
+            assert!(Instant::now() < deadline, "the kernel was never entered");
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert!(
+            workbench.cancel_active(),
+            "cancel must be accepted while the kernel runs"
+        );
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelling);
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
+
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Cancelled);
+        assert_eq!(document.terminal_run_event_count(), 1);
+        let logged = document
+            .logs
+            .iter()
+            .filter(|line| line.level == LogLevel::Output)
+            .map(|line| line.text.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            logged,
+            vec!["one", "two", "three"],
+            "each printed line must appear exactly once, in order"
+        );
+        for line in ["one", "two", "three"] {
+            assert_eq!(
+                logged.iter().filter(|text| **text == line).count(),
+                1,
+                "{line} was duplicated in the log"
+            );
+        }
+        let snapshot = document
+            .snapshot
+            .as_ref()
+            .expect("a cancelled run publishes its committed snapshot");
+        assert_eq!(
+            snapshot.output,
+            vec!["one".to_string(), "two".to_string(), "three".to_string()],
+            "the cancelled snapshot must carry the same once-only output"
+        );
+        assert_eq!(snapshot.committed_steps, 3);
+        assert!(
+            document
+                .logs
+                .iter()
+                .any(|line| line.text.starts_with("Run cancelled after")),
+            "logs were {:?}",
+            document.logs
+        );
+    }
+
+    /// LOG-001 rerun clause: one print statement run twice yields exactly two log occurrences and
+    /// a one-line snapshot after each run - never three or four.
+    #[test]
+    fn rerunning_the_same_printing_script_logs_exactly_one_line_per_run() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "print(\"tick\")\n".to_string());
+        for run in 1..=2 {
+            assert!(workbench.run_active(), "run {run} must be accepted");
+            assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+            let document = &workbench.documents()[0];
+            assert_eq!(document.state(), RunState::Finished);
+            let snapshot = document.snapshot.as_ref().expect("a finished snapshot");
+            assert_eq!(
+                snapshot.output,
+                vec!["tick".to_string()],
+                "run {run}'s snapshot must contain exactly its own print"
+            );
+        }
+        let occurrences = workbench.documents()[0]
+            .logs
+            .iter()
+            .filter(|line| line.level == LogLevel::Output && line.text == "tick")
+            .count();
+        assert_eq!(
+            occurrences, 2,
+            "two runs with one print each must produce exactly two log occurrences, not {occurrences}"
+        );
+        assert_eq!(
+            workbench.documents()[0]
+                .snapshot
+                .as_ref()
+                .expect("the second run's snapshot")
+                .output
+                .len(),
+            1,
+            "the second run's snapshot must not accumulate the first run's output"
         );
     }
 
