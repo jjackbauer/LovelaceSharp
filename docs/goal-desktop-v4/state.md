@@ -1,47 +1,57 @@
 # Harness State — desktop-v4
 
-- **Round**: 2 of 40 (round 1 census complete; round 2 ARC-001 spike in flight)
+- **Round**: 3 of 40 (round 1 census done; round 2 spike measured; round 3 execution core in flight)
 - **Goal**: Lovelace Desktop ships as a native Rust scientific scripting workbench that satisfies every
   P0 row of the v4.0 contract with fresh, source-bound GUI evidence and passes all 22 mandatory
   journeys.
-- **Definition of done**: 0/19 dimensions MET (0/171 P0 PASS; 1 waived)
-- **Stop criteria**: (1) `-Verify` exit 0, all dimensions MET — **unmet**; (2) round 40 — not
-  reached; (3) same blocking condition 3 rounds — not triggered.
+- **Definition of done**: 0/19 dimensions MET; 9/171 P0 rows PASS, 1 waived (TST-012), 0 FAIL,
+  161 NOT_TESTED.
+- **Stop criteria**: (1) `-Verify` exit 0, all dimensions MET — unmet; (2) round 40 — not reached;
+  (3) same blocking condition 3 rounds — not triggered.
 
-## Gate status
+## Gate status (last run)
 
 | Gate | Status | Detail |
 |---|---|---|
-| G1 Evidence | PASS | 28 EVD rows; every claim resolves to a file:line, a command, or an observed output |
-| G2 Falsification | PASS | VAL-001 falsified the v1 contract's "no replacement" claim; contract repaired, 0 open falsified rows |
-| G3 Coverage | FAIL (expected) | 0/19 dimensions MET; the census supplies current-state facts but no requirement row has an acceptance test yet |
-| G4 Reproduction | PASS | desktop build + `--selftest` reproduced; eframe probe built, launched, captured and UIA-dumped by the orchestrator |
-| G5 Honesty | PASS | every observer's "could not determine" list is retained in its artifact; OQ-002 and RISK-004/005 recorded |
+| G1 Evidence | PASS | 45 EVD rows; every PASS row carries a hash-bound artifact of its required class |
+| G2 Falsification | PASS | VAL-001 falsified the v1 contract; repaired. 0 open falsified rows |
+| G3 Coverage | FAIL | 0/19 dimensions MET; 9/171 P0 PASS. Expected at round 3 |
+| G4 Reproduction | PASS | desktop build, `--selftest`, spike bench, GUI harness, oracle capture and gate modes all re-run by the orchestrator |
+| G5 Honesty | PASS | every observer/implementer "could not verify" item is retained; OD-1/OD-2 and the flaky spike bench are recorded |
+
+## Scorecard (from `gate/gate.json`)
+
+| Gate | Rows | PASS | MET |
+|---|---|---|---|
+| functional (unit/file/static) | 53 | 8 | no |
+| visual (gui) | 98 | 0 | no |
+| performance (perf) | 20 | 0 | no |
 
 ## Objective ledger
 
 | Round | Objective | Mode | Agents | New EVD | Falsified | Gates | Outcome |
 |---|---|---|---|---|---|---|---|
-| 0 | Contract the goal, freeze the baseline, build a fail-closed gate | Probe | 0 | 18 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | gate skeleton live; baseline pinned |
-| 1 | Census current implementation + web reference for all 17 groups | Survey | 1 auditor + 5 observers | 10 | 1 (6 claims) | G1✓ G2✓ G3✗ G4✓ G5✓ | 784 OBS rows across 5 artifacts; audit forced contract repair; DEC-006 |
-| 2 | ARC-001 framework/editor spike with measured scenarios | Adversarial (Implementer → orchestrator falsifies) | 1 implementer | in flight | — | — | in flight |
+| 0 | Contract, baseline, fail-closed gate | Probe | 0 | 18 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | gate live |
+| 1 | Census all 17 groups + web reference | Survey | 1 auditor + 5 observers + 1 synthesizer | 10 | 1 (6 claims) | G1✓ G2✓ G3✗ G4✓ G5✓ | 784 OBS; register 229/229; contract repaired; DEC-006 |
+| 2 | ARC-001 spike, measured | Implementer → orchestrator | 1 implementer + 1 candidate prober | 12 | 2 (flaky bench, mojibake) | G1✓ G2✓ G3✗ G4✓ G5✓ | working workbench measured; bench flakiness fixed by watchdog (pending report) |
+| 3 | Async execution core with typed events and cancellation | Implementer → orchestrator | 1 implementer | in flight | — | — | in flight |
+
+## Contract rows closed this run
+
+CON-001 baseline · CON-002 parity register · CON-003 behavioural parity note · CON-004 single engine ·
+CON-005 fail-closed gate · CON-006 deviations register · CON-008 three-gate scorecard · CON-009
+platform matrix · TST-017 visible status vocabulary. Each carries a class-correct, hash-bound
+artifact; see `gate/register.json`.
 
 ## Coverage (definition-of-done dimensions)
 
-All 19 at **None** except D01 partial: CON-001 baseline is pinned (EVD-001/019) and CON-002 has the
-register skeleton + census, but no row is PASS yet.
-
-## Round-1 census artifacts (verified by the orchestrator)
-
-| Artifact | OBS rows | Key verified facts |
-|---|---|---|
-| `round-1/census-web.md` | 107 (+23 capability rows) | plot arrives as SVG string; structured result tree; no tabs; session = browser tab (EVD-023/024) |
-| `round-1/census-core.md` | 238 | 14 commands; synchronous `run_blocking`; string-only `RunOutput`; no cancel token (EVD-025) |
-| `round-1/census-gui.md` | 322 | 5 child controls; plain EDIT editor; no UIA, DPI, theme integration; 9 shortcuts (EVD-004..006) |
-| `round-1/census-render-engine.md` | 117 (+34 SVG, 53 engine rows) | parser covers text+polyline only; engine exposes `variable_values`/`structured::project_value` (EVD-026/027) |
-| `round-1/census-tests.md` | 60 | 15 selftests; no GUI/screenshot/perf/a11y automation; CI has no Rust job (EVD-016/018) |
+D01 CON 8/9 P0 PASS (CON-007 open: golden desktop journeys need the product). D02..D19: no dimension
+MET yet. D05 EDT and D12 PLT have strong prototype evidence but no product row has a GUI artifact at
+a product window, which is the standard the gate enforces.
 
 ## Next objective
 
-Round 2 (in flight): verify the ARC-001 spike itself — build it, run `--bench`, capture its window,
-dump its UIA tree, and falsify every measurement it reports before recording the framework decision.
+Round 4 (after round 3 lands): cut the tested execution core and the prototype shell together into
+`lovelace-desktop`, so the shipped binary opens the new workbench, runs the real engine on a worker,
+and emits the typed event stream — then certify EDT-001/002/015, LAY-002/008, VIS-002/010 and
+RUN-001/004/009/011 with screenshots and the GUI driver.

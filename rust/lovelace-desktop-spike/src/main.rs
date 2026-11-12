@@ -18,16 +18,20 @@ use std::time::{Duration, Instant};
 
 use app::{SpikeApp, WindowBenchResult};
 
-fn native_options(title: &str) -> eframe::NativeOptions {
+fn native_options(title: &str, position: Option<[f32; 2]>) -> eframe::NativeOptions {
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_inner_size([1280.0, 800.0])
+        .with_min_inner_size([900.0, 600.0])
+        .with_title(title);
+    if let Some(p) = position {
+        viewport = viewport.with_position(p);
+    }
     eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1280.0, 800.0])
-            .with_min_inner_size([900.0, 600.0])
-            .with_title(title),
+        viewport,
         ..Default::default()
+
     }
 }
-
 fn main() -> eframe::Result<()> {
     let bench_mode = std::env::args().any(|a| a == "--bench");
 
@@ -37,7 +41,7 @@ fn main() -> eframe::Result<()> {
         let for_app = shared.clone();
         let window_result = match eframe::run_native(
             "Lovelace Desktop Spike (bench)",
-            native_options("Lovelace Desktop Spike (bench)"),
+            native_options("Lovelace Desktop Spike (bench)", Some([16.0, 16.0])),
             Box::new(move |cc| {
                 cc.egui_ctx.set_visuals(egui::Visuals::dark());
                 // Watchdog: if the app cannot close itself (a missed repaint, a stuck
@@ -76,7 +80,7 @@ fn main() -> eframe::Result<()> {
 
     eframe::run_native(
         "Lovelace Desktop Spike",
-        native_options("Lovelace Desktop Spike - eframe/egui 0.37"),
+        native_options("Lovelace Desktop Spike - eframe/egui 0.37", None),
         Box::new(|cc| {
             cc.egui_ctx.set_visuals(egui::Visuals::dark());
             Ok(Box::new(SpikeApp::new(None)))

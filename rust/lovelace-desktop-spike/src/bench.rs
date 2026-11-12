@@ -424,7 +424,7 @@ fn s6_scenario(ctx: &Context, app: &mut SpikeApp, t: &mut f64, screen: Rect) -> 
         proportions_match_config,
     }
 }
-pub fn run_headless(window: Option<WindowBenchResult>, bench_total_ms: f64) -> String {
+pub fn run_headless() -> HeadlessReport {
     let mut root = Json::new();
     root.str("schema", "lovelace-desktop-spike/1")
         .str("os", std::env::consts::OS)
@@ -438,7 +438,7 @@ pub fn run_headless(window: Option<WindowBenchResult>, bench_total_ms: f64) -> S
             "dev profile with opt-level=2 (cargo build, not --release)",
         )
         .str("screen_points", "1280x800")
-        .f("bench_total_ms", bench_total_ms);
+        .str("measurement_phase", "headless S1-S6");
 
     let mut deps = Json::new();
     deps.str("eframe", "0.37.0")
@@ -882,8 +882,27 @@ pub fn run_headless(window: Option<WindowBenchResult>, bench_total_ms: f64) -> S
         );
     root.obj("s6", s6);
 
-    // ---- S7: startup and idle (windowed phase) ---------------------------------------
-    let win = window.unwrap_or_default();
+    HeadlessReport { root }
+}
+
+/// Everything measured without a window. S7 is added once the window phase ends.
+#[derive(Clone)]
+pub struct HeadlessReport {
+    pub root: Json,
+}
+
+fn limits() -> Vec<String> {
+    vec![
+        "typing latency is CPU-side (UI build + tessellation), not GPU present/swap".to_string(),
+        "IME composition was not driven; only the field and event counter are verified".to_string(),
+        "crispness at 1.5x/2.0x is asserted from ppp/physical glyph sizes, not pixel diffing".to_string(),
+        "UIA tree enumeration is done by the orchestrator against the open window".to_string(),
+        "one machine, one GPU backend (wgpu), dev profile with opt-level=2".to_string(),
+        "the windowed phase's self-close path is flaky in this environment; a watchdog can print the headless S1-S6 JSON alone".to_string(),
+    ]
+}
+
+fn s7_json(win: &WindowBenchResult) -> Json {
     let mut s7 = Json::new();
     s7.f(
         "startup_first_ui_pass_ms",
@@ -907,30 +926,67 @@ pub fn run_headless(window: Option<WindowBenchResult>, bench_total_ms: f64) -> S
         "startup_metric",
         "ms from OS process creation (GetProcessTimes) to the first App::ui pass / to the start of pass 2 (first frame submitted)",
     );
-    if let Some(err) = win.window_error {
-        s7.str("window_error", &err);
+    if let Some(err) = &win.window_error {
+        s7.str("window_error", err);
     }
+    s7
+}
+
+/// Complete line: headless S1-S6 + windowed S7 (the normal path).
+pub fn finalize(
+    report: HeadlessReport,
+    window: Option<WindowBenchResult>,
+    bench_total_ms: f64,
+) -> String {
+    let mut root = report.root;
+    root.f("bench_total_ms", bench_total_ms);
+    let win = window.unwrap_or_default();
+    let timeout = win.startup_first_paint_ms.is_none();
+    let mut s7 = s7_json(&win);
+    s7.bool("window_timeout", false).bool("window_closed", !timeout);
     root.obj("s7", s7);
-
-    // ---- honest limits ---------------------------------------------------------------
-    root.arr_str(
-        "limits",
-        &[
-            "typing latency is CPU-side (UI build + tessellation), not GPU present/swap".to_string(),
-            "IME composition was not driven; only the field and event counter are verified".to_string(),
-            "crispness at 1.5x/2.0x is asserted from ppp/physical glyph sizes, not pixel diffing".to_string(),
-            "UIA tree dump is done by the orchestrator against the open window".to_string(),
-            "one machine, one GPU backend (wgpu), dev profile with opt-level=2".to_string(),
-        ],
-    );
-
+    root.bool("window_closed", !timeout);
+    root.bool("window_timeout", false);
+    let mut ls = limits();
+    if timeout {
+        ls.push("window phase ended without startup/idle numbers".to_string());
+    }
+    root.arr_str("limits", &ls);
     root.finish()
 }
 
-
-
-
-
-
-
-
+/// Fallback printed by the watchdog when the window never closes: every headless S1-S6
+/// number is intact, S7 is explicitly null and the timeout is flagged.
+pub fn window_timeout_line(report: &HeadlessReport, bench_total_ms: f64, reason: &str) -> String {
+    let mut root = report.root.clone();
+    root.f("bench_total_ms", bench_total_ms);
+    let mut s7 = Json::new();
+    s7.bool("window_timeout", true)
+        .bool("window_closed", false)
+        .str("window_error", reason)
+        .f("startup_first_ui_pass_ms", f64::NAN)
+        .f("startup_first_ui_build_ms", f64::NAN)
+        .f("startup_first_paint_ms", f64::NAN)
+        .f("idle_wall_ms", f64::NAN)
+        .f("idle_cpu_ms", f64::NAN)
+        .f("idle_cpu_pct", f64::NAN)
+        .int("idle_frames", 0)
+        .str(
+            "idle_window",
+            "not measured: the window did not close before the watchdog deadline",
+        )
+        .str(
+            "startup_metric",
+            "not measured: the window did not close before the watchdog deadline",
+        );
+    root.obj("s7", s7);
+    root.bool("window_closed", false).bool("window_timeout", true);
+    let mut ls = limits();
+    ls.push(reason.to_string());
+    ls.push(
+        "windowed metrics (S7) are null because the window never closed; S1-S6 are complete"
+            .to_string(),
+    );
+    root.arr_str("limits", &ls);
+    root.finish()
+}

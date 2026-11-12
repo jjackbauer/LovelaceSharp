@@ -27,7 +27,7 @@ pub fn num(v: f64) -> String {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Json {
     s: String,
 }

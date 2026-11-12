@@ -1,0 +1,20 @@
+command: rust/target-desktop/debug/lovelace-desktop.exe --selftest (TMP redirected to rust/target-desktop/tmp)
+exit_code: 0
+
+SELFTEST lovelace-desktop 0.1.0 engine=lovelace-lang
+SELFTEST ok new-document
+SELFTEST ok insert-text
+SELFTEST ok open-file
+SELFTEST ok run
+SELFTEST ok cancel
+SELFTEST ok precision
+SELFTEST ok save-round-trip
+SELFTEST ok tab-isolation
+SELFTEST ok undo-redo
+SELFTEST ok settings-round-trip
+SELFTEST ok settings-corrupt
+SELFTEST ok log-cap
+SELFTEST ok svg-parse
+SELFTEST ok engine-plot
+SELFTEST ok no-network-imports
+SELFTEST summary checks=15 failed=0

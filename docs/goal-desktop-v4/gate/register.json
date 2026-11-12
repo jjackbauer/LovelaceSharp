@@ -219,14 +219,25 @@
                      "type":  "D",
                      "requirement":  "Choose and validate a native rendering stack",
                      "acceptance":  "Run a time-boxed spike comparing candidate Rust UI frameworks against real editor, accessibility, text/IME, plotting and docking acceptance scenarios; record choice.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-2/spike-bench.json",
+                                          "sha256":  "9B1BDC7AC74E4FA6145F5BC9F97AE3C06837F7380C7495DF133CA2CF6C56709A",
+                                          "class":  "perf",
+                                          "at_head":  "ab849c44fbd67542698d9d43eb88c4d09130e060"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-2/arc-001-decision.md",
+                                          "sha256":  "FBB16CF7D1F5E089F8665E455495FE8907BFA83F80828263D04307A4D775D4C1",
+                                          "class":  "perf",
+                                          "at_head":  "ab849c44fbd67542698d9d43eb88c4d09130e060"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "spike --bench",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Windows spike measured (typing p95 0.64ms, 5000 lines, AccessKit 120 nodes, SVG raster 6-21ms, docking, HiDPI). Linux half deferred by DEC-006; IME composition not driven (EDT-017 remains open)."
                  },
                  {
                      "id":  "ARC-002",
@@ -235,14 +246,25 @@
                      "type":  "D",
                      "requirement":  "No browser/runtime dependency",
                      "acceptance":  "Production desktop has no embedded webview, JavaScript engine or mandatory localhost service; application operates with all network interfaces disabled.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "static",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/census-gui.md",
+                                          "sha256":  "2518F5C6ECDCFC3EB564E11E5B7AF6A093418A266E37FD3635F1C5E0A3023841",
+                                          "class":  "static",
+                                          "at_head":  "ab849c44fbd67542698d9d43eb88c4d09130e060"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-1/selftest.txt",
+                                          "sha256":  "D06EC2D02A6F80031729CDA002F38266B206889979CBCFE14735EB5C0864AA28",
+                                          "class":  "static",
+                                          "at_head":  "ab849c44fbd67542698d9d43eb88c4d09130e060"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "--selftest no-network-imports",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Production binary links only user32/gdi32/comctl32/comdlg32/kernel32; selftest no-network-imports inspects the PE import table."
                  },
                  {
                      "id":  "ARC-003",

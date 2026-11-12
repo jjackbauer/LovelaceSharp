@@ -88,3 +88,8 @@ parity/build/
 rust/target-spike/
 rust/target-desktop/
 
+rust/target-desktop/
+rust/target-spike/
+rust/target-probe-iced/
+rust/target-probe-slint/
+
