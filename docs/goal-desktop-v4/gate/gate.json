@@ -1,11 +1,11 @@
 {
     "schema":  1,
     "mode":  "readiness",
-    "generated_at":  "2026-11-12T09:13:45.0680569-03:00",
+    "generated_at":  "2026-11-12T09:13:53.2865782-03:00",
     "verdict":  "FAIL",
     "provenance":  {
-                       "head_sha":  "6a59326cda7ddb86907fa203788a4e7c9865b1f7",
-                       "dirty_paths":  14
+                       "head_sha":  "9807f108064ee252c3a483f677f9a49a39fe9017",
+                       "dirty_paths":  10
                    },
     "p0_total":  171,
     "p0_pass":  11,
@@ -175,7 +175,6 @@
                   },
     "problems":  [
                      "CON-007: P0 status NOT_TESTED",
-                     "ARC-001: stale evidence hash: docs/goal-desktop-v4/round-2/arc-001-decision.md",
                      "ARC-003: P0 status NOT_TESTED",
                      "ARC-004: P0 status NOT_TESTED",
                      "ARC-005: P0 status NOT_TESTED",
