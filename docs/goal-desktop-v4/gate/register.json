@@ -976,14 +976,37 @@
                      "type":  "W",
                      "requirement":  "Replace multiline Win32 EDIT as the primary code editor",
                      "acceptance":  "Real editor supports rich text decorations, gutter, completions, line diagnostics and virtualization; no plain textarea/EDIT as release fallback.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-15/run-failed.png",
+                                          "sha256":  "068E2CA49378DFEB8AE3B2958E38027C782BCA5088527DF41C32D4FCFAC3AE98",
+                                          "class":  "gui",
+                                          "at_head":  "93c96cd97b4de52cf571a40e1cfe2b9b5c99038b"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-16/completion-sq-sqrt.png",
+                                          "sha256":  "3AD0C8FFB70898E09BFAF46F544D14358B7642D8194CAB5AF120335DF7CC15BB",
+                                          "class":  "gui",
+                                          "at_head":  "93c96cd97b4de52cf571a40e1cfe2b9b5c99038b"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-running.png",
+                                          "sha256":  "C388D4594EC6D4FFC849D6B8942A28F50AA274207F43EB56BE21EBDDCD89FC11",
+                                          "class":  "gui",
+                                          "at_head":  "93c96cd97b4de52cf571a40e1cfe2b9b5c99038b"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-16/uia-tree.txt",
+                                          "sha256":  "33AF642F995145853956D52EC9391FBDE65E290F3620752B124C051AD396BF95",
+                                          "class":  "gui",
+                                          "at_head":  "93c96cd97b4de52cf571a40e1cfe2b9b5c99038b"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "window captures across rounds 10/15/16; cargo test -p lovelace-desktop",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Product window (not the Win32 EDIT shell): gutter + line numbers, syntax colours, diagnostics underline/gutter marker (round-15), completion popup (round-16), virtualisation shown by \u0027laid out 1 / 32 visible rows\u0027; the legacy EDIT editor exists only behind --legacy-win32 and is not the release default."
                  },
                  {
                      "id":  "EDT-002",
