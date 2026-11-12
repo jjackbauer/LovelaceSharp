@@ -381,5 +381,40 @@
   reporting, use it for `Engine::set_plot_dir`, and remove the accidental `<repo>\lovelace-plots`.
 - **Priority**: P0 (PLF-006 is P0)
 - **Depends on**: nothing
-- **Status**: Open — round 6
-- **Related**: EVD-055, RISK-007, PLF-006
+- **Status**: **Done** (round 7) — the shell resolves `%APPDATA%\Lovelace\plots`, logs it, refuses
+  with an explicit message when unwritable, and the repository copy is deleted. PLF-006 is PASS with
+  a scope note: this session's child-process sandbox denies the runtime write (EVD-058).
+- **Related**: EVD-055, EVD-058, RISK-007, RISK-008, PLF-006
+
+### OBS-011: Round 7 delivered the run surface, with two honest gaps
+
+- **Source**: `round-7/hardening.md`; `--gui-selftest` (EVD-056, EVD-057)
+- **Fact**: 105 tests pass; the headless acceptance run reports Ctrl+Enter → `run Running` with Run
+  disabled and Cancel visible, Esc → `run Cancelled` in 823 ms, a long run whose submit returns in
+  153 µs while the event loop processed 183 frames in 300 ms, and a cancel terminal in 492 ms after
+  2 of 13 statements. The plot checks fail only because `%APPDATA%` writes are denied to child
+  processes in this session.
+- **Gaps**: (a) cancellation is only observed at statement boundaries — the implementer measured a
+  single `sqrt(2)` at precision 200 000 taking 29 721 ms with no sub-2 s cancellation, so RUN-006 and
+  ARC-009 are **not** met for kernel-bound work; (b) no real-window artifact yet proves VIS-010 or
+  RUN-009, because UIA `ValuePattern` is unsupported on the editor and foreground ownership is lost
+  between separate tool calls, so the keystroke path could not be driven reliably in this session.
+- **Implications**: the row set stays open for VIS-010/RUN-009 until a single-process driver holds the
+  foreground for the whole gesture, and RUN-006/ARC-009 need a real cancellation token inside kernels
+  (the engine already polls a thread-local deadline — the live flag is the missing piece).
+- **Confidence**: High for the headless numbers and the APPDATA denial; Medium for the 29.7 s figure
+  (agent-reported, not re-measured by the orchestrator)
+- **Related**: EVD-056, EVD-057, EVD-058, RUN-006, ARC-009, VIS-010, RISK-008
+
+### RISK-008: This session cannot certify app-scoped file writes from the product binary
+
+- **Risk**: the sandbox denies child processes writes outside the workspace (EVD-013 for `%TEMP%`,
+  EVD-058 for `%APPDATA%`), so requirements whose acceptance is a successful app-scoped write
+  (PLF-006 runtime half, PLT-009 plot persistence, DOC-005 recovery files) can only be certified
+  statically here, and a naive run makes plot scripts fail with a visible error.
+- **Likelihood**: Certain — **Impact**: Medium
+- **Evidence**: EVD-013, EVD-058
+- **Mitigation**: record the environment condition in every affected row's `scope_note`; keep the
+  code path app-scoped and explicitly error-reporting; capture the runtime half on a host where the
+  denial does not apply, or via a single-process launcher that owns the foreground/env.
+- **Gate**: G1 for the affected rows

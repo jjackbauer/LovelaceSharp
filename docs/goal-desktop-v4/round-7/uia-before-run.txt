@@ -1,0 +1,45 @@
+﻿UIA pid=35668 window=Lovelace Desktop
+root | Lovelace Desktop | ControlType.Window
+Pane |  | id= | focusable=False | enabled=True
+  Text | Lovelace Desktop | id= | focusable=False | enabled=True
+  Text | lovelace-lang | id= | focusable=False | enabled=True
+  Button | Run | id= | focusable=True | enabled=True
+  Text | Precision | id= | focusable=False | enabled=True
+  Spinner |  | id= | focusable=True | enabled=True
+  Text | 1000 digits | id= | focusable=False | enabled=True
+  Text | 6 lines / 114 bytes | id= | focusable=False | enabled=True
+  Text | laid out 6 / 32 visible rows | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Button | welcome.lv | id= | focusable=True | enabled=True
+  Button | untitled.lv | id= | focusable=True | enabled=True
+  Text | document 1 · revision 0 | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Text | welcome.lv  |  rev 0  |  precision 1000  |  Ln 1, Col 1  |  run Idle | id= | focusable=False | enabled=True
+  Text | 0 ms last run | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Pane | Editor - welcome.lv | id= | focusable=False | enabled=True
+    Text | welcome.lv | id= | focusable=False | enabled=True
+    Text | 6 lines / 114 bytes | id= | focusable=False | enabled=True
+    Edit | Script editor, 6 lines, caret line 1 column 1 | id= | focusable=True | enabled=True
+  Pane | Plot - engine SVG | id= | focusable=False | enabled=True
+    Button | Fit | id= | focusable=True | enabled=True
+    Button | 1.0x | id= | focusable=True | enabled=True
+    Button | 1.5x | id= | focusable=True | enabled=True
+    Button | 2.0x | id= | focusable=True | enabled=True
+    Text | no engine plot | id= | focusable=False | enabled=True
+  Pane | Workspace | id= | focusable=False | enabled=True
+    Text | Filter | id= | focusable=False | enabled=True
+    Edit | Filter | id= | focusable=True | enabled=True
+    Text | 0 variables · 0 functions | id= | focusable=False | enabled=True
+    Text | VARIABLES | id= | focusable=False | enabled=True
+    Text | No run has published a workspace yet. | id= | focusable=False | enabled=True
+    Text | FUNCTIONS | id= | focusable=False | enabled=True
+    Text | No run has published a workspace yet. | id= | focusable=False | enabled=True
+  Pane | Logs | id= | focusable=False | enabled=True
+    Text | run log · caret Ln 1, Col 1 · engine lovelace-lang | id= | focusable=False | enabled=True
+    Text | [info] Lovelace Desktop ready. Engine: lovelace-lang. Two documents open. | id= | focusable=False | enabled=True
+    Text | [info] Plot directory: C:\Users\ricar\AppData\Roaming\Lovelace\plots. | id= | focusable=False | enabled=True
+    Text | [error] Cannot write in the plot directory C:\Users\ricar\AppData\Roaming\Lovelace\plots: Access is denied. (os error 5). Plot statements will fail until it is writable. | id= | focusable=False | enabled=True
+  Separator | Editor / plot splitter | id= | focusable=True | enabled=True
+  Separator | Plot / workspace splitter | id= | focusable=True | enabled=True
+  Separator | Workspace / logs splitter | id= | focusable=True | enabled=True

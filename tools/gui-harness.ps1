@@ -21,7 +21,7 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state', 'focus', 'typeinto')]
+    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state', 'focus', 'typeinto', 'setvalue')]
     [string]$Action,
     [string]$Exe = '',
     [string[]]$Arguments = @(),
@@ -231,6 +231,25 @@ switch ($Action) {
         Write-Log "focus pid=$($p.Id) hwnd=$($p.MainWindowHandle) ok=$ok"
         Write-Output "FOCUSED=$ok"
         if (-not $ok) { exit 1 }
+        break
+    }
+    'setvalue' {
+        # Set a text control's value through UI Automation: no foreground ownership needed, so this
+        # is reliable from a tool call that does not hold the keyboard focus.
+        if ($Name -eq '') { throw 'setvalue needs -Name' }
+        $p = Get-AppProcess
+        $p.Refresh()
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$p.MainWindowHandle)
+        $edits = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Edit)))
+        $target = $null
+        foreach ($e in $edits) { if ($e.Current.Name -like "$Name*") { $target = $e; break } }
+        if (-not $target) { throw "no Edit whose name starts with '$Name'" }
+        $pattern = $target.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+        $pattern.SetValue($Keys)
+        Write-Log "setvalue pid=$($p.Id) element='$($target.Current.Name)' chars=$($Keys.Length)"
+        Write-Output "SET=$($Keys.Length)"
         break
     }
     'typeinto' {

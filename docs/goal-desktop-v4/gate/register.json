@@ -3209,14 +3209,31 @@
                      "type":  "D",
                      "requirement":  "Use app-scoped settings locations",
                      "acceptance":  "Windows APPDATA, Linux XDG, macOS Application Support are used; no writes to installed binary directory by default.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/engine.rs",
+                                          "sha256":  "89F63934B2B5664BB26EDD97400BE4F5369D3C430DE6556F4CA1A5408430A825",
+                                          "class":  "static",
+                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-7/hardening.md",
+                                          "sha256":  "5C0FB4A64B8CDB5DE0CE1A8EE4F80E9790CC916274D075CCACC7D63C5BCE37A5",
+                                          "class":  "static",
+                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
+                                          "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
+                                          "class":  "static",
+                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "--gui-selftest plot-dir",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "App-scoped %APPDATA%\\\\Lovelace\\\\plots is resolved and the refusal is explicit; runtime write is denied to child processes in this session (EVD-058), so no successful APPDATA write can be shown here."
                  },
                  {
                      "id":  "PLF-007",

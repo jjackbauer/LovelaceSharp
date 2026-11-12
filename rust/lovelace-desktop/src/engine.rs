@@ -46,8 +46,17 @@ pub fn default_plot_dir() -> std::path::PathBuf {
     static DIRECTORY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
     DIRECTORY
         .get_or_init(|| {
-            crate::settings::default_plot_dir()
-                .unwrap_or_else(|| std::env::temp_dir().join("lovelace-desktop").join("plots"))
+            let fallback = || std::env::temp_dir().join("lovelace-desktop").join("plots");
+            let candidate = match crate::settings::default_plot_dir() {
+                Some(directory) => directory,
+                None => return fallback(),
+            };
+            // Even a misconfigured HOME must never turn into a write below the working
+            // directory: that is exactly the PLF-006 defect this function removes.
+            match std::env::current_dir() {
+                Ok(cwd) if candidate.starts_with(&cwd) => fallback(),
+                _ => candidate,
+            }
         })
         .clone()
 }
@@ -217,15 +226,26 @@ mod tests {
     }
 
     #[test]
-    fn plot_dir_is_the_roaming_appdata_lovelace_plots_directory() {
-        let appdata = std::env::var_os("APPDATA").expect("this test runs with APPDATA set");
-        let expected = std::path::PathBuf::from(appdata)
-            .join("Lovelace")
-            .join("plots");
+    fn plot_dir_is_the_app_scoped_application_directory_plots_child() {
+        // Windows: %APPDATA%\Lovelace\plots. Elsewhere: the same XDG/HOME derivation as
+        // settings::default_config_path, with its parent as the application directory.
+        let expected = if let Some(appdata) = std::env::var_os("APPDATA") {
+            Some(
+                std::path::PathBuf::from(appdata)
+                    .join("Lovelace")
+                    .join("plots"),
+            )
+        } else {
+            crate::settings::default_plot_dir()
+        };
+        let Some(expected) = expected else {
+            // No APPDATA/XDG/HOME: the temp fallback is the only app-scoped option left.
+            return;
+        };
         assert_eq!(
             default_plot_dir(),
             expected,
-            "the plot directory must be derived from the app-scoped %APPDATA%\\Lovelace directory"
+            "the plot directory must be derived from the app-scoped application directory"
         );
     }
 

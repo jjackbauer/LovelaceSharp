@@ -48,6 +48,9 @@ assertion `left == right` failed: the plot directory must be derived from the ap
 test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 90 filtered out
 ```
 
+The test was later renamed `plot_dir_is_the_app_scoped_application_directory_plots_child` and made
+cross-platform (APPDATA, else the settings XDG/HOME derivation); the assertion is the same.
+
 Baseline before this round (same environment):
 
 ```text
@@ -60,7 +63,7 @@ New tests (15):
 settings::tests::app_dir_prefers_appdata_then_xdg_then_home
 settings::tests::plot_dir_is_derived_from_the_settings_application_directory
 settings::tests::default_plot_dir_matches_default_config_path_parent
-engine::tests::plot_dir_is_the_roaming_appdata_lovelace_plots_directory
+engine::tests::plot_dir_is_the_app_scoped_application_directory_plots_child
 engine::tests::plot_dir_is_never_under_the_working_directory
 engine::tests::prepare_plot_dir_creates_the_resolved_directory_and_reports_failure
 keyboard::tests::ctrl_enter_runs_and_escape_cancels
@@ -94,12 +97,12 @@ $env:CARGO_TARGET_DIR="$repo\rust\target-desktop"
 Observed (exit 0; full logs: `A1-cargo-test.out.log`, `A1-cargo-test.err.log`):
 
 ```text
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.29s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.57s
      Running unittests src\main.rs (rust\target-desktop\debug\deps\lovelace_desktop-dd274d469d4bf684.exe)
 
 running 105 tests
 ...
-test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
 ```
 
 ### A2 - `cargo build -p lovelace-desktop` - PASS
@@ -111,11 +114,11 @@ test result: ok. 105 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fi
 Observed (exit 0; `A2-cargo-build.err.log`):
 
 ```text
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.27s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 7.46s
 ```
 
-Artifact: `rust\target-desktop\debug\lovelace-desktop.exe`, 64,000,000 bytes,
-SHA256 `F7E42DC8E7F6F238315BFDFBB38E5262F47B8E9E7808B04A90387A63E9789DAB`.
+Artifact: `rust\target-desktop\debug\lovelace-desktop.exe`, 64,001,024 bytes,
+SHA256 `885B94C34ADC31F9CDEE200867BC4AD472E4F3CEEC2D2E31563766155A804097`.
 
 **Harness write-sandbox caveat (observed, not a product failure).** This session's command
 sandbox allows commands to write inside the workspace and its mapped temp only. A binary that
@@ -132,8 +135,8 @@ Get-FileHash "$repo\rust\target-desktop\debug\lovelace-desktop.exe","$dest\lovel
 Both hashes:
 
 ```text
-F7E42DC8E7F6F238315BFDFBB38E5262F47B8E9E7808B04A90387A63E9789DAB  ...\rust\target-desktop\debug\lovelace-desktop.exe
-F7E42DC8E7F6F238315BFDFBB38E5262F47B8E9E7808B04A90387A63E9789DAB  ...\Local\Temp\lovelace-desktop-acceptance\lovelace-desktop.exe
+885B94C34ADC31F9CDEE200867BC4AD472E4F3CEEC2D2E31563766155A804097  ...\rust\target-desktop\debug\lovelace-desktop.exe
+885B94C34ADC31F9CDEE200867BC4AD472E4F3CEEC2D2E31563766155A804097  ...\Local\Temp\lovelace-desktop-acceptance\lovelace-desktop.exe
 ```
 
 The in-tree failure was also observed and is preserved in `A3-intree-sandbox.txt`. It fails only
@@ -160,12 +163,12 @@ GUI_SELFTEST ok two-tabs: document ids DocumentId(1)/DocumentId(2), precision 10
 GUI_SELFTEST ok arithmetic: result 12, steps 3, b = 12 (Natural), status [welcome.lv  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Finished]
 GUI_SELFTEST ok print: output ["x"], result 2, committed 2
 GUI_SELFTEST ok precision: pi at 8 = 3.14159265, at 20 = 3.14159265358979323846 (engine set_precision via submit)
-GUI_SELFTEST ok cancel: cancelled after 2 of 50 statements in 1.55 ms (first committed 1)
+GUI_SELFTEST ok cancel: cancelled after 3 of 50 statements in 1.54 ms (first committed 1)
 GUI_SELFTEST ok syntax-error: line 2, column 4: Unexpected token '' at position 3: expected a number, string, identifier, '[', or '('. (outcome Some(Failed), phase Idle)
 GUI_SELFTEST ok plot: 334 SVG bytes, title "selftest", 1 polyline with 3 points
 GUI_SELFTEST ok plot-dir: resolved C:\Users\ricar\AppData\Roaming\Lovelace\plots (outside cwd C:\Users\ricar\dev\LovelaceSharp), plot file C:\Users\ricar\AppData\Roaming\Lovelace\plots\run-1\plot.svg (333 bytes), logged at startup
-GUI_SELFTEST ok keyboard: Ctrl+Enter -> Run (status "run Running", Run disabled, Cancel visible); Esc -> run Cancelled in 417.99 ms; toolbar restored
-GUI_SELFTEST ok long-run: submit returned in 65 us; 300 ms sample: 197 frames, 202 next-event calls, 5 applied, max 3.800 us; cancel terminal in 98.17 ms after 2 of 13 statements
+GUI_SELFTEST ok keyboard: Ctrl+Enter -> Run (status "run Running", Run disabled, Cancel visible); Esc -> run Cancelled in 388.03 ms; toolbar restored
+GUI_SELFTEST ok long-run: submit returned in 51 us; 300 ms sample: 201 frames, 206 next-event calls, 5 applied, max 3.600 us; cancel terminal in 76.49 ms after 2 of 13 statements
 GUI_SELFTEST summary checks=10 failed=0
 ```
 
@@ -244,7 +247,7 @@ $p.Refresh()
 Observed:
 
 ```text
-LEGACY_PID=35580 EXITED=False TITLE=Lovelace Desktop - Untitled 1 HWND=20712520 RESPONDING=True
+LEGACY_PID=28168 EXITED=False TITLE=Lovelace Desktop - Untitled 1 HWND=22285498 RESPONDING=True
 STOPPED_AFTER_5S
 ```
 
@@ -262,14 +265,14 @@ Observed on this machine:
 
 | Measurement | Observed |
 |---|---|
-| `run_active()` / submit latency | **65 us** (also 43-412 us across runs; the budget is 50 ms) |
-| 300 ms sample | 197 frames, 202 nonblocking next-event calls, 5 typed events applied |
-| longest single `ExecutionHost::next_event(Duration::ZERO)` | **3.800 us** (budget 50 ms) |
-| cancel request to terminal `Cancelled` | **98.17 ms** (budget 2 s) |
+| `run_active()` / submit latency | **51 us** (also 43-412 us across runs; the budget is 50 ms) |
+| 300 ms sample | 201 frames, 206 nonblocking next-event calls, 5 typed events applied |
+| longest single `ExecutionHost::next_event(Duration::ZERO)` | **3.600 us** (budget 50 ms) |
+| cancel request to terminal `Cancelled` | **76.49 ms** (budget 2 s) |
 | committed prefix at cancellation | 2 of 13 statements |
-| `keyboard` check Esc -> `run Cancelled` | **417.99 ms** |
-| real window: whole run to `Finished` | 7,865 ms / 13 statements |
-| real window: Esc -> `run Cancelled` | 2,291 ms total run wall time, 7 statements committed |
+| `keyboard` check Esc -> `run Cancelled` | **388.03 ms** |
+| real window: whole run to `Finished` | 7,865 ms / 13 statements (same window code; only the plot-dir guard changed in the final rebuild) |
+| real window: Esc -> `run Cancelled` | 2,291 ms total run wall time, 7 statements committed (same window code) |
 
 The full run is genuinely long with respect to the UI (7.9 s on this machine). A single
 `sqrt(2)` at precision 200000 was also measured independently through the engine: **29,721 ms**
