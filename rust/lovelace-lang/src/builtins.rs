@@ -172,8 +172,43 @@ fn significant_digits(text: &str) -> usize {
     }
 }
 
-fn is_symbolic_zero(e: &Sym) -> bool {
-    matches!(e, Sym::Num(r) if r.is_zero())
+/// The reference's APPROXIMATE constant fold (Evaluation.FoldFunction's `!allExact` arm): an
+/// elementary function applied to an inexact real CONSTANT is evaluated at the system's
+/// computation precision — the plugin's standard 30 places until `setprecision` moves it — and
+/// truncated there, so the answer carries the precision the argument carried and not the
+/// precision the caller happened to ask for. Returns the folded decimal, or `None` when the
+/// function has no numeric value at this argument (a pole, a branch cut, a domain edge): such a
+/// node stays symbolic instead of inventing a number.
+fn fold_real_constant(engine: &Engine, name: &str, text: &str) -> Option<String> {
+    let value = Real::from_str(text)?;
+    let places = engine.dsp_precision().max(1);
+    let folded = match name {
+        "exp" => value.exp(places),
+        "log" => value.ln(places)?,
+        "sin" => value.sin(places),
+        "cos" => value.cos(places),
+        "tan" => value.tan(places)?,
+        "asin" => value.asin(places)?,
+        "acos" => value.acos(places)?,
+        "atan" => value.atan(places),
+        "sinh" => value.sinh(places),
+        "cosh" => value.cosh(places),
+        "tanh" => value.tanh(places),
+        "asinh" => value.asinh(places),
+        "acosh" => value.acosh(places)?,
+        "atanh" => value.atanh(places)?,
+        _ => return None,
+    };
+    // The reference bounds the folded value back to the ambient window (TruncateFrac) and the
+    // leaf's text is a decimal a parser reads back, so a trailing fractional zero is not a digit
+    // the answer carries — except for the ZERO the window itself produced, which carries the
+    // window's scale (sin(pi(30)) is 0.000…0 at the ambient 30 places, not a bare 0).
+    let bounded = lovelace_real::transcendental::truncate_frac(&folded, places);
+    if bounded.is_zero() {
+        return Some(format!("0.{}", "0".repeat(places)));
+    }
+    let normalised = Real::from_str(&bounded.to_string()).unwrap_or(bounded);
+    Some(normalised.to_string())
 }
 
 fn symbolic_pow(a: &Value, b: &Value) -> Option<Value> {
@@ -1346,18 +1381,28 @@ pub fn call(
             let e = as_expr(&args[0]).ok_or_else(|| {
                 LangError::plain(format!("{} needs a number or an expression.", name))
             })?;
-            // The inverse hyperbolics fold at their defining point, exactly as sin(0) does:
-            // asinh(0), acosh(1) and atanh(0) are the Symbolic 0, not an unevaluated node.
-            let folds = match name {
-                "asinh" => is_symbolic_zero(&e),
-                "acosh" => matches!(&e, Sym::Num(r) if r.is_one()),
-                "atanh" => is_symbolic_zero(&e),
-                _ => false,
-            };
-            if folds {
-                return Ok(Value::Symbolic(Sym::num(0)));
+            // The exact special points fold at construction, exactly as the reference's
+            // FoldFunction table does: sin(0), tan(0), atan(0), asin(0), sinh(0), tanh(0),
+            // asinh(0) and atanh(0) are the exact 0, cos(0), exp(0) and cosh(0) the exact 1,
+            // acos(1) the exact 0 and log(1) the exact 0. The fold belongs to the ARGUMENT's
+            // tier: only an exact constant folds here, so an approximation's zero stays an
+            // approximation (exp of a zero that only approximately zero is not an exact 1).
+            let folded = fold_unary(name, &e);
+            if !matches!(&folded, Sym::Fun(_, _)) {
+                return Ok(Value::Symbolic(folded));
             }
-            Ok(Value::Symbolic(Sym::Fun(name.to_string(), vec![e])))
+            // An INEXACT real constant is a number the engine already computed at a finite
+            // precision (pi(30), pi/6, a subs result). The reference's APPROXIMATE fold
+            // evaluates the elementary function on it at the system's computation precision and
+            // keeps the answer as a real constant leaf, so the value never claims digits the
+            // argument did not carry: evalf(sin(pi(30)), 40) is the 0 that fold produces, not a
+            // 40-place reconstruction of sin(pi(30)).
+            if let Sym::Real(text) = &e {
+                if let Some(folded) = fold_real_constant(engine, name, text) {
+                    return Ok(Value::Symbolic(Sym::real(&folded)));
+                }
+            }
+            Ok(Value::Symbolic(folded))
         }
         "symbol" => {
             if args.is_empty() {
@@ -3081,9 +3126,11 @@ pub fn call(
         }
         "pi" | "e" => {
             let digits = if args.is_empty() {
-                // The engine default is the DISPLAY precision (100 until setprecision moves it),
-                // exactly as pi() with no argument uses Real.DisplayDecimalPlaces.
-                engine.display_precision()
+                // The value is COMPUTED at the engine's computation precision (1000 until
+                // setprecision moves it) and rendered at the display precision by the wire
+                // projection, exactly as the reference's Real.Pi: pi() crosses with 1000 stored
+                // fractional digits and a 100-digit display, so a wider evalf can be served.
+                engine.precision_value()
             } else {
                 arity(1)?;
                 let max = engine.precision_value().max(1);
@@ -3684,17 +3731,21 @@ fn evalf_value(engine: &Engine, arg: &Value, digits: usize) -> Result<Value, Lan
                     return Ok(Value::Integer(i));
                 }
             }
-            // An inexact value that already fits the request is returned untouched
-            // (evalf(pi(30), 40) keeps its 30 digits and its inexact flag).
-            if !r.is_exact() && stored_fraction_digits(r) <= places {
-                return Ok(Value::Real(r.clone()));
-            }
-            let text = r.to_decimal_fixed(places);
+            // The published value is the value's OWN stored digits bounded to the request — never
+            // the display-truncated rendering. A request the value can answer in full keeps every
+            // digit it stores (evalf(pi(30), 40) keeps its 30, evalf(pi, 1000) keeps all 1000), a
+            // narrower request cuts it, and the digits that survive are read back as a decimal so
+            // the stored scale is the number's own: a trailing fractional zero is not a digit the
+            // answer carries (the reference re-materialises through RationalReal.ToReal, which
+            // parses the digits back).
+            let stored = stored_fraction_digits(r);
+            let keep = stored.min(places);
+            let text = r.to_decimal_fixed(keep);
             let parsed = Real::from_str(&text).unwrap_or_else(|| r.clone());
             // A truncated decimal string of at least the plugin's computation budget is the
             // residue of an approximation, not an exact rational (Real.Parse rule).
             let boundary = engine.dsp_precision().clamp(1, 1000);
-            let cut = stored_fraction_digits(&parsed) >= boundary;
+            let cut = keep >= boundary && keep < stored;
             Ok(Value::Real(if !r.is_exact() || cut {
                 parsed.mark_inexact()
             } else {
@@ -7452,6 +7503,12 @@ fn fold_unary(name: &str, arg: &Sym) -> Sym {
             "atan" if r.is_zero() => Some(Sym::num(0)),
             "asin" if r.is_zero() => Some(Sym::num(0)),
             "acos" if r.is_one() => Some(Sym::num(0)),
+            "sinh" if r.is_zero() => Some(Sym::num(0)),
+            "cosh" if r.is_zero() => Some(Sym::num(1)),
+            "tanh" if r.is_zero() => Some(Sym::num(0)),
+            "asinh" if r.is_zero() => Some(Sym::num(0)),
+            "acosh" if r.is_one() => Some(Sym::num(0)),
+            "atanh" if r.is_zero() => Some(Sym::num(0)),
             _ => None,
         };
         if let Some(folded) = fold {

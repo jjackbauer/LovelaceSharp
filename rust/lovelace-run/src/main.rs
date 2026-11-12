@@ -1169,6 +1169,11 @@ mod record_schema_batch;
 #[cfg(test)]
 mod round75_probe;
 
+/// Round-82 evalf-precision family at the wire: the at-the-cap request that is honoured in full,
+/// the 1000-digit payload that crosses whole under a 100-place display, and the cap boundary.
+#[cfg(test)]
+mod round82_evalf_precision;
+
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
     let text = format!("{:.3}", ms);

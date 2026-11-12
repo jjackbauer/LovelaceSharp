@@ -1423,10 +1423,14 @@ impl Engine {
             Expr::Var(name, _pos) => match self.vars.get(name) {
                 Some(v) => Ok(v.clone()),
                 // Mathematical constants, resolved after the variable store so a user
-                // assignment shadows them; `pi` and `e` render at the display precision.
-                None if name == "pi" => Ok(Value::Real(Real::pi(self.display_precision()))),
+                // assignment shadows them. The value is COMPUTED at the engine's computation
+                // precision (1000 until setprecision moves it) and only RENDERED at the display
+                // precision, exactly as the reference's Real.Pi: the machine payload carries
+                // every stored digit (`pi` crosses with 1000 fractional digits and a 100-digit
+                // display), and a wider `evalf` request can be served from them.
+                None if name == "pi" => Ok(Value::Real(Real::pi(self.precision_value()))),
                 None if name == "e" => {
-                    Ok(Value::Real(builtins::e_constant(self.display_precision())))
+                    Ok(Value::Real(builtins::e_constant(self.precision_value())))
                 }
                 None if name == "inf" => {
                     Ok(Value::Symbolic(Sym::Fun("inf".to_string(), Vec::new())))
@@ -2434,6 +2438,19 @@ mod round78_structural_equality;
 /// real domain, substitution at a negative value, and the structured DomainCondition payload).
 #[cfg(test)]
 mod round80_abs_rewrite;
+
+/// Round-82 series Laurent-tail family: the four deferred `SeriesLaurentAndBranchPointTests`
+/// rows (a pole's negative leading power, a second-order pole, sin(x)/x's hidden x^2 term and the
+/// kink-resolved branch-point source) plus the truncation-order and negative-exponent boundaries.
+#[cfg(test)]
+mod round82_series_laurent;
+
+/// Round-82 evalf-precision family: the two `Lovelace.Symbolics.Tests` census rows (the exact
+/// controls the truncation repair must not sweep up, and the below-the-cap values that stay
+/// inexact zeros), the approximate constant fold that produces those zeros, and the 1000-place
+/// digit-cap boundary.
+#[cfg(test)]
+mod round82_evalf_precision;
 
 /// Round-9 desktop kernel cancellation: a live flag set from another thread stops ONE long
 /// polling kernel (`matmul`) with the structured `Cancelled` failure inside 2 s. The opaque

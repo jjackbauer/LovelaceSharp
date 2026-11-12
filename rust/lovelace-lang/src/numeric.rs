@@ -590,7 +590,13 @@ impl Num {
                     Ok(Value::Real(rational_to_published(&r, places)))
                 }
             }
-            Num::Real(r) => Ok(Value::Real(truncate_frac(&r, places))),
+            // The published count is a plain truncation of the value's own digits (the
+            // reference's BoundDecimalPlaces through RationalReal.ToReal): a magnitude below the
+            // window is flushed to zero at the requested resolution, not carried at the window's
+            // significant digits. TruncateFrac's significant-digit rescue belongs to the
+            // COMPUTATION (a folded constant keeps the digits the ambient window sits above);
+            // the payload bound does not rescue.
+            Num::Real(r) => Ok(Value::Real(r.truncated_frac(places))),
             Num::Complex(z) => Ok(Value::Complex(
                 truncate_frac(z.re(), places),
                 truncate_frac(z.im(), places),

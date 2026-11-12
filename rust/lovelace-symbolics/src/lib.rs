@@ -2125,7 +2125,7 @@ fn series_inv(a: &Series, order: i64) -> Option<Series> {
     }
     // 1/(c0 x^e0) * 1/(1 + u) where u has positive exponents.
     let inv_c0 = Rat::one().div(&c0)?;
-    let mut u: Series = a[1..]
+    let u: Series = a[1..]
         .iter()
         .map(|(e, c)| (e - e0, c.mul(&inv_c0)))
         .collect();
@@ -2143,7 +2143,6 @@ fn series_inv(a: &Series, order: i64) -> Option<Series> {
                 None => acc.push((*target, c.neg())),
             }
         }
-        u = term.clone();
     }
     // 1/(c0 x^e0) * sum: the exponent shifts DOWN by e0.
     acc = acc

@@ -21,9 +21,10 @@ recorded coverage was:
 (5,262 listed / 5,261 passed, 0 `round82_*` names), so the gate's freshness check cannot pass —
 the stale `sourcesSha256` 2f34… is not the current source walk.**
 
-The fresh inventory lists 16 more tests than the stale one: the two round-82 blocks' 14 (6 series
-+ 4 language evalf + 4 runner evalf) plus two desktop `ui::app::tests` regression tests already in
-the shared tree. The stale hash and the 14 missing `round82_*` names are what made the pre-regen
+The first fresh inventory listed 16 more tests than the stale one: the two round-82 blocks' 14
+(6 series + 4 language evalf + 4 runner evalf) plus two desktop `ui::app::tests` regression tests
+already in the shared tree. The final inventory lists 29 more because the desktop lane kept adding
+tests (§2.1). The stale hash and the 14 missing `round82_*` names are what made the pre-regen
 inventory untruthful.
 
 ## 2. First regeneration — re-established baseline
@@ -54,13 +55,29 @@ crates=11 tests=5278 suiteExit=0 passed=5277 failed=0
 PASS (structural): 6209 test cases dispositioned; 5979 claim Rust coverage (96.3%).
 ```
 
-The fresh inventory (`generatedAtUtc 2026-11-12T14:37:32Z`, suite exit 0,
+The first fresh inventory (`generatedAtUtc 2026-11-12T14:37:32Z`, suite exit 0,
 `sourcesSha256 be18e365d9754376c6d15bd9dc18ac69943b635da899d5cb731f819a9e6f8bde`) lists 5,278
 tests: 5,277 passed plus the workspace's one ignored test
 (`property_assertions::mathir_evaluates_like_symbolic`, the only entry of
-`cargo test --workspace -- --ignored --list`). All 14 `round82_*` names are present. The baseline
-is truthful but coverage is unchanged: **5,979/6,209 (96.30 %), 118 excluded, 112 deferred, gate
-PASS**.
+`cargo test --workspace -- --ignored --list`). All 14 `round82_*` names are present. The first
+regenerated baseline was truthful for its moment but coverage was unchanged: **5,979/6,209
+(96.30 %), 118 excluded, 112 deferred, gate PASS**. It was superseded by the final inventory in
+§4 because the concurrent desktop lane kept editing `rust/lovelace-desktop` after 14:37Z (§2.1).
+
+### 2.1 Concurrent desktop edits (why the final gate was delayed)
+
+The tree was quiescent for parity but not globally. The desktop lane wrote
+`rust/lovelace-desktop/src` repeatedly around and after the 14:37:32Z inventory: `app.rs` (11:27:06, 11:43:23,
+11:55:05), `gui_selftest.rs` (11:23:31, 11:43:06, 11:57:17), `workbench.rs` (11:41:28, 11:41:41,
+11:42:05, 11:44:29, 11:55:05), `main.rs` (11:40:35), `run_state.rs` (11:40:32, 11:44:29, 11:58:32),
+with `execution.rs` (11:31:50) and `run_trace.rs` (11:31:47) already changed at the start. The
+parity gate hashes every `.rs` under `rust/`, so each edit made the 14:37Z inventory stale; the
+first post-flip gate failed only on `rust-tests.json is stale`. A first quiescence-gated rerun was
+then discarded because the workspace suite hung inside the concurrently rebuilt `lovelace_desktop`
+test binary (pid 21608, started 11:50:23, killed after about four minutes without progress). The
+desktop lane then edited and rebuilt again; after 90 s of source quiescence the final run below
+completed green at 15:04:35Z with the desktop tests included. No Rust file was edited by this
+round.
 
 ## 3. The eight mappings
 
@@ -90,13 +107,25 @@ The map reasons record the block lift (the Laurent-aware series path; the comput
 constants and inexact-constant fold) and the notes cite the C# line, the Rust test line and the
 round-82 report section (`series-laurent.md` / `evalf-precision.md` section 6).
 
-## 4. Second regeneration — 8/8 resolve
+## 4. Final regeneration — 8/8 resolve
+
+The map flip itself was clean on its first write; the retries were inventory freshness, not map
+edits. The final measured lines (`generatedAtUtc 2026-11-12T15:04:35Z`,
+`sourcesSha256 792b64e921c0536210bfcbea4515bd58329b2830e61cdae3dc2e998543016376`):
+
+```
+crates=11 tests=5291 suiteExit=0 passed=5290 failed=0
+```
+
+5,291 listed = 5,290 passed + the workspace's one ignored
+`property_assertions::mathir_evaluates_like_symbolic`.
 
 The map was re-read immediately before writing and guarded by its expected sha256
 `9058e5e628f97f7abe35077e87d0b67932c4f83b174f8b984ce81c90cd27ab4b`; the write produced
 `4f27a7f6a81787f47aee21c572c6b4aab8dcd01301b5fb3c47595b5cdd213d8e`. Exactly the 8 keys changed
 and no other key was touched, verified by comparing every parsed entry before and after; each new
-`rust` id was confirmed to exist in the fresh inventory. `node parity/gen-manifest.mjs`,
+`rust` id was confirmed to exist in the then-fresh inventory and all eight still resolve in the
+final 5,291-test inventory. `node parity/gen-manifest.mjs`,
 `parity/gate-manifest.ps1` and `node parity/tools/coverage-report.mjs` were run again:
 
 ```
@@ -108,7 +137,7 @@ and no other key was touched, verified by comparing every parsed entry before an
     "deferred": 104
   },
   "coveragePercent": 96.42,
-  "rustTests": 5278
+  "rustTests": 5291
 }
 ```
 

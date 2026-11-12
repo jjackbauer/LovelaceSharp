@@ -26047,9 +26047,10 @@
     "note": "Round 48: C# RealTrigFastPathTests.ToInteger_BinaryShift_MatchesTheDigitPadding expects the binary magnitude shift to equal parsing digits padded with zeros; rust/lovelace-real/src/fast_path_tests.rs to_integer_binary_shift_matches_the_digit_padding asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalfWorkingPrecisionHonoursRequestedDecimalsTests/ValuesBelowTheComputationCap_StayInexact#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'evalf-precision': $.result.display: evalf(sin(pi(30)),40) is 0.0000000000000000000000000000005028... in Rust vs 0 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_evalf_precision::evalf_values_below_the_computation_cap_stay_inexact_zeros",
+    "reason": "Round 82: sin of an inexact real constant folds at the system computation precision and the published bound is a plain truncation, so evalf(sin(pi(30)), 40) is 0 and stays inexact with no rational form; the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/EvalfWorkingPrecisionHonoursRequestedDecimalsTests.cs:174 ValuesBelowTheComputationCap_StayInexact loops evalf(1/(3*10^1000), 30), evalf(1/(3*10^1001), 30) and evalf(sin(pi(30)), 40), asserting Real, value 0, exact false and no numerator/denominator. Rust: rust/lovelace-lang/src/round82_evalf_precision.rs:114 lovelace-lang::round82_evalf_precision::evalf_values_below_the_computation_cap_stay_inexact_zeros asserts the same three through structured::project_value. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.TruncatingEvaluationStaysInexactTests/FunctionOfATruncatedValue_PublishesExactFalse_AndNoRationalForm#0": {
     "disposition": "ported",
@@ -26112,9 +26113,10 @@
     "note": "C# ExactControls_StayExact: sqrt(4), 1/17, (-4)^(1/2) and dft([1,2,3])[0] stay exact with their rational forms."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.EvalfTruncatedConstantExactnessTests/ExactControls_AreUntouched#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'evalf-precision': $.result.display: sin(0) stays sin(0) in Rust vs the exact 0 the row pins",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_evalf_precision::evalf_exact_controls_are_untouched_after_the_precision_repair",
+    "reason": "Round 82: sin now folds the exact special points (sin(0) becomes the exact rational 0) while the evalf payload bound only truncates, so the exact controls keep their form; the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/EvalfTruncatedConstantExactnessTests.cs:125 ExactControls_AreUntouched asserts evalf(1/2, 40) is Real 0.5 exact with numerator 1 denominator 2, 2+3 is the exact 5, sin(0) is exact Symbolic with pretty 0, and evalf(sqrt(2), 40) is inexact with no rational form. Rust: rust/lovelace-lang/src/round82_evalf_precision.rs:65 lovelace-lang::round82_evalf_precision::evalf_exact_controls_are_untouched_after_the_precision_repair asserts the same through structured::project_value and additionally canonical (rat 0 1), domain rational and nodeCount 1. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.SolveSessionAssumptionTests/Solve_DoesNotPublishARootTheSessionAssumptionExcludes#0": {
     "disposition": "ported",
@@ -30650,9 +30652,10 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.EvalfDigitCapHonestyTests/ARequestAtTheCap_IsNotMarked#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'evalf-precision': $.result.structured.value: evalf(pi,1000) publishes 100 fractional digits in Rust vs 1000 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round82_evalf_precision::a_request_at_the_cap_is_honoured_in_full_and_unmarked",
+    "reason": "Round 82: pi and e are materialised at the computation precision and an at-cap request is honoured in full, so evalf(pi, 1000) carries 1000 fractional digits and publishes no truncated/truncationReason/budget; the mapped round-82 runner test asserts this C# row directly.",
+    "note": "C# Lovelace.Run.Tests/EvalfDigitCapHonestyTests.cs:93 ARequestAtTheCap_IsNotMarked asserts Cap decimals and null truncated/truncationReason/budget for evalf(pi, 1000). Rust: rust/lovelace-run/src/round82_evalf_precision.rs:87 lovelace-run::round82_evalf_precision::a_request_at_the_cap_is_honoured_in_full_and_unmarked drives the runner's own parity_batch::run_args and asserts the same, plus the 100-place display and the variables[_] entry carrying the same digits. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.GoldenFixtureRecorder/RecordGoldenFixtures#0": {
     "disposition": "deferred",
@@ -30688,9 +30691,10 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.StructuredRealPrecisionTests/EvalfCountAboveTheAmbientDisplayPrecision_CrossesInFull#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'evalf-precision': $.result.structured.value: evalf(pi,1000) publishes 100 fractional digits in Rust vs 1000 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round82_evalf_precision::evalf_count_above_the_ambient_display_precision_crosses_in_full",
+    "reason": "Round 82: a count the machine API was asked for is part of the value, so evalf(pi, 1000) stores 1000 digits under the default 100-place display and both the payload and the variables[_] entry cross in full; the mapped round-82 runner test asserts this C# row directly.",
+    "note": "C# Lovelace.Run.Tests/StructuredRealPrecisionTests.cs:100 EvalfCountAboveTheAmbientDisplayPrecision_CrossesInFull asserts 1000 decimals, the 3.+PiFirst60 prefix, the Pi981To1000 suffix and that variables[_] matches. Rust: rust/lovelace-run/src/round82_evalf_precision.rs:128 lovelace-run::round82_evalf_precision::evalf_count_above_the_ambient_display_precision_crosses_in_full asserts the same through parity_batch::run_args. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayAllocationRefusalTests/TheSuiteDeclaresTheAllocationRefusalTheRunnerClassifies#0": {
     "disposition": "deferred",
@@ -32140,24 +32144,28 @@
     "note": "Round 59: C# RewriteProtocolTests.UnknownApplicability_NeverFires asserts a rule that answers Unknown leaves the node unchanged; rust/lovelace-symbolics/src/rewrite_registry.rs unknown_applicability_never_fires asserts the same. See docs/goal-parity-contract/round-59/rewrite-registry.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'series': $.result.display: series at a pole/branch point - 1/x: 0 vs x^-1 + O(x^2); 1/x^2: 0 vs x^-2 + O(x^2); sin(x)/x: 1 + O(x^3) vs 1 - 1/6*x^2 + O(x^3); sqrt(abs(x)): sqrt(abs(x)) vs sqrt(x)",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_series_laurent::series_across_a_pole_keeps_the_laurent_leading_power",
+    "reason": "Round 82: the Laurent-aware series path (rust/lovelace-symbolics/src/series_kink.rs) keeps the denominator's negative leading power instead of dropping it, so series(1/x, x, 0, 2) publishes x^-1 + O(x^2); the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/SeriesLaurentAndBranchPointTests.cs:54 Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion with series(1/x, x, 0, 2) expects x^-1 + O(x^2) and rejects sqrt(0) or /0 anywhere in the envelope. Rust: rust/lovelace-lang/src/round82_series_laurent.rs:46 lovelace-lang::round82_series_laurent::series_across_a_pole_keeps_the_laurent_leading_power drives the same script through Engine::eval and asserts the same display plus canonical (add (pow (sym x) (rat -1 1)) (order (sym x) (rat 0 1) (rat 2 1))). See docs/goal-parity-contract/round-82/series-laurent.md section 1."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#1": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'series': $.result.display: series at a pole/branch point - 1/x: 0 vs x^-1 + O(x^2); 1/x^2: 0 vs x^-2 + O(x^2); sin(x)/x: 1 + O(x^3) vs 1 - 1/6*x^2 + O(x^3); sqrt(abs(x)): sqrt(abs(x)) vs sqrt(x)",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_series_laurent::series_across_a_second_order_pole_keeps_two_negative_powers",
+    "reason": "Round 82: leading_index_within probes far enough that a denominator whose leading term sits beyond the requested order still contributes, so series(1/x^2, x, 0, 2) publishes x^-2 + O(x^2); the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/SeriesLaurentAndBranchPointTests.cs:54 Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion with series(1/x^2, x, 0, 2) expects x^-2 + O(x^2). Rust: rust/lovelace-lang/src/round82_series_laurent.rs:59 lovelace-lang::round82_series_laurent::series_across_a_second_order_pole_keeps_two_negative_powers drives the same script through Engine::eval and asserts the same display plus canonical (add (pow (sym x) (rat -2 1)) (order (sym x) (rat 0 1) (rat 2 1))). See docs/goal-parity-contract/round-82/series-laurent.md section 1."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#2": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'series': $.result.display: series at a pole/branch point - 1/x: 0 vs x^-1 + O(x^2); 1/x^2: 0 vs x^-2 + O(x^2); sin(x)/x: 1 + O(x^3) vs 1 - 1/6*x^2 + O(x^3); sqrt(abs(x)): sqrt(abs(x)) vs sqrt(x)",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_series_laurent::series_at_a_removable_singularity_keeps_the_hidden_quadratic_term",
+    "reason": "Round 82: the numerator is expanded to order + max(lb, 0), so sin(x)'s hidden x^3 coefficient survives the quotient and series(sin(x)/x, x, 0, 3) publishes 1 - 1/6*x^2 + O(x^3); the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/SeriesLaurentAndBranchPointTests.cs:54 Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion with series(sin(x)/x, x, 0, 3) expects 1 - 1/6*x^2 + O(x^3). Rust: rust/lovelace-lang/src/round82_series_laurent.rs:72 lovelace-lang::round82_series_laurent::series_at_a_removable_singularity_keeps_the_hidden_quadratic_term drives the same script through Engine::eval and asserts the same display plus canonical (add (rat 1 1) (mul (rat -1 6) (pow (sym x) (rat 2 1))) (order (sym x) (rat 0 1) (rat 3 1))). See docs/goal-parity-contract/round-82/series-laurent.md section 1."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion#4": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'series': $.result.display: series at a pole/branch point - 1/x: 0 vs x^-1 + O(x^2); 1/x^2: 0 vs x^-2 + O(x^2); sin(x)/x: 1 + O(x^3) vs 1 - 1/6*x^2 + O(x^3); sqrt(abs(x)): sqrt(abs(x)) vs sqrt(x)",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round82_series_laurent::series_at_a_branch_point_publishes_the_kink_resolved_source",
+    "reason": "Round 82: at a branch point the kink-resolved source is published instead of the unresolved input, so series(sqrt(abs(x)), x, 0, 2) publishes sqrt(x) with no abs and no division by sqrt(0); the mapped round-82 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/SeriesLaurentAndBranchPointTests.cs:54 Series_AcrossAPoleOrABranchPoint_PublishesTheExpansion with series(sqrt(abs(x)), x, 0, 2) expects sqrt(x) and its body rejects sqrt(0) and /0 anywhere in the envelope. Rust: rust/lovelace-lang/src/round82_series_laurent.rs:85 lovelace-lang::round82_series_laurent::series_at_a_branch_point_publishes_the_kink_resolved_source asserts the same display, canonical (pow (sym x) (rat 1 2)), and the absence of abs, sqrt(0) and /0. See docs/goal-parity-contract/round-82/series-laurent.md section 1."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SeriesLaurentAndBranchPointTests/Series_OfARemovableDenominator_IsUnchanged#0": {
     "disposition": "ported",
