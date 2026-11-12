@@ -5,6 +5,7 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_symbolics::Expr as Sym;
+use lovelace_symbolics::Rat;
 use lovelace_symbolics::assumptions::{
     Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate,
 };
@@ -1544,11 +1545,19 @@ pub fn call(
                         } else {
                             (false, "")
                         };
+                        // The reference names the tier that produced the closed form. The
+                        // substitution tier is probed independently so a result reached through
+                        // it reports "substitution" rather than the table token.
+                        let method = if integrate_by_substitution(&f, &var).is_some() {
+                            "substitution"
+                        } else {
+                            "table"
+                        };
                         (
                             "SolvedExact",
                             verified,
                             Value::Symbolic(a.clone()),
-                            "table",
+                            method,
                             verification,
                             "Exact",
                         )
@@ -6387,6 +6396,114 @@ fn linear_parts(u: &Sym, var: &str) -> Option<(Sym, Sym)> {
     Some((a, constant))
 }
 
+/// Splits a canonical term into its numeric coefficient and remainder, the reference's
+/// `Exprs.SplitTerm`. A canonical product carries the coefficient first; a bare constant has
+/// remainder 1.
+fn split_numeric_coefficient(e: &Sym) -> Option<(Rat, Sym)> {
+    match e {
+        Sym::Num(r) => Some((r.clone(), Sym::num(1))),
+        Sym::Mul(factors) => match factors.split_first() {
+            Some((Sym::Num(r), rest)) => {
+                Some((r.clone(), rest.iter().cloned().fold(Sym::num(1), Sym::mul)))
+            }
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// The reference's `MatchDerivative`: the scale s such that gp == s * g', if one exists.
+fn match_integration_derivative(g: &Sym, gp: &Sym, var: &str) -> Option<Sym> {
+    let derivative = lovelace_symbolics::diff(g, var);
+    if derivative == *gp {
+        return Some(Sym::num(1));
+    }
+    let (coefficient, remainder) = split_numeric_coefficient(&derivative)?;
+    if remainder == *gp && !coefficient.is_zero() {
+        return Some(Sym::div(Sym::num(1), Sym::Num(coefficient)));
+    }
+    None
+}
+
+/// The reference's `TableWithArg`: the table integral of f(g) with the chain factor consumed.
+fn integrate_table_with_arg(name: &str, g: &Sym) -> Option<Sym> {
+    let call = |function: &str| Sym::Fun(function.to_string(), vec![g.clone()]);
+    match name {
+        "sin" => Some(Sym::neg(call("cos"))),
+        "cos" => Some(call("sin")),
+        "exp" => Some(call("exp")),
+        "sinh" => Some(call("cosh")),
+        "cosh" => Some(call("sinh")),
+        _ => None,
+    }
+}
+
+/// The reference's `TrySubstitution` tier (Calculus/Integrate.cs:398-444): on a product, try each
+/// single factor and each factor pair as the chain-rule derivative gp of an inner g, with the
+/// remaining factors as either g^n (pattern A) or a table function f(g) (pattern B).
+///
+/// The motivating row is the C# PropertyTests corpus integrand x^2*sin(x^3): g = x^3,
+/// g' = 3*x^2, gp = x^2, so the scale is 1/3 and the antiderivative is -cos(x^3)/3.
+fn integrate_by_substitution(e: &Sym, var: &str) -> Option<Sym> {
+    let Sym::Mul(factors) = e else {
+        return None;
+    };
+    if factors.len() < 2 {
+        return None;
+    }
+    let mut candidates: Vec<(Sym, Sym)> = Vec::new();
+    for (index, factor) in factors.iter().enumerate() {
+        let rest: Vec<Sym> = factors
+            .iter()
+            .enumerate()
+            .filter(|(other, _)| *other != index)
+            .map(|(_, value)| value.clone())
+            .collect();
+        candidates.push((factor.clone(), rest.into_iter().fold(Sym::num(1), Sym::mul)));
+    }
+    for first in 0..factors.len() {
+        for second in (first + 1)..factors.len() {
+            let rest: Vec<Sym> = factors
+                .iter()
+                .enumerate()
+                .filter(|(other, _)| *other != first && *other != second)
+                .map(|(_, value)| value.clone())
+                .collect();
+            candidates.push((
+                Sym::mul(factors[first].clone(), factors[second].clone()),
+                rest.into_iter().fold(Sym::num(1), Sym::mul),
+            ));
+        }
+    }
+    for (gp, rest) in candidates {
+        // Pattern A: rest = g^n, n != -1.
+        if let Sym::Pow(base, exponent) = &rest {
+            if let Sym::Num(n) = exponent.as_ref() {
+                if let Some(scale) = match_integration_derivative(base, &gp, var) {
+                    let next = n.add(&Rat::one());
+                    if !next.is_zero() {
+                        let power = Sym::pow((**base).clone(), Sym::Num(next.clone()));
+                        let antiderivative =
+                            Sym::mul(power, Sym::pow(Sym::Num(next), Sym::num(-1)));
+                        return Some(Sym::mul(scale, antiderivative));
+                    }
+                }
+            }
+        }
+        // Pattern B: rest = f(g) for a table function f.
+        if let Sym::Fun(name, args) = &rest {
+            if args.len() == 1 {
+                if let Some(scale) = match_integration_derivative(&args[0], &gp, var) {
+                    if let Some(antiderivative) = integrate_table_with_arg(name, &args[0]) {
+                        return Some(Sym::mul(scale, antiderivative));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Integrates the shapes the documentation exercises: powers, constant multiples and the
 /// chain-rule case 2*x*f(x^2).
 fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
@@ -6473,6 +6590,11 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
             let inner = integrate_basic(&rest[0], var)?;
             return Some(Sym::mul(constant, inner));
         }
+    }
+    // By-substitution: g'(x)*f(g(x)) and g'(x)*g(x)^n, the reference's tier between the table
+    // and integration by parts. The C# PropertyTests corpus needs x^2*sin(x^3) here.
+    if let Some(substituted) = integrate_by_substitution(e, var) {
+        return Some(substituted);
     }
     // x * exp(a*x + b): integration by parts, exp(u) * (x/a - 1/a^2). This is the table's
     // x*exp(x) -> exp(x)*(x - 1) row.

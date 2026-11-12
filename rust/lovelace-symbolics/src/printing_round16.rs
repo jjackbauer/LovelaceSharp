@@ -370,3 +370,116 @@ fn canonical_order_is_the_same_order_debug_and_canonical_use() {
     assert_eq!(sum.debug_print(), ordered.debug_print());
     let _ = w();
 }
+
+/// Round 64: the fixed corpus for the canonical-text normal-form property.
+///
+/// It is the whole shape corpus plus the cases where the canonical ORDER used to depend on the
+/// Rust node that stored the value:
+///   * item 49 of the C# CanonicalText corpus, a product of two sums whose constructors store the
+///     terms in display order (degree first), and
+///   * a quotient against the multiply-by-reciprocal shape, and a square root against the half
+///     power, both of which a canonical parse reconstructs as a different node kind.
+fn canonical_round64_corpus() -> Vec<Expr> {
+    let x_var = x();
+    // CanonicalText item 49, built exactly as the generated corpus builds it: the first sum is
+    // stored as [product, constant] (display order) and the second as [exp, exp], so the old
+    // comparator read the first terms as product-vs-function and printed the second sum first.
+    let item_49 = Expr::Mul(vec![
+        Expr::Add(vec![
+            Expr::Mul(vec![
+                rational(-1, 1),
+                call("sin", vec![Expr::mul(Expr::num(2), x_var.clone())]),
+            ]),
+            rational(-5, 1),
+        ]),
+        Expr::Add(vec![
+            call("exp", vec![call("abs", vec![x_var.clone()])]),
+            call("exp", vec![Expr::Add(vec![x_var.clone(), rational(-5, 1)])]),
+        ]),
+    ]);
+    // A square root is printed as the half power and parses back as a power, so ordering the sqrt
+    // Function by kind (3) instead of by the power it prints (4) flips the sum after a parse.
+    let sqrt_vs_power = Expr::Add(vec![call("sqrt", vec![z()]), Expr::pow(a(), Expr::num(2))]);
+    // A quotient is printed as multiply-by-reciprocal and parses back as a product. The two
+    // factors compared Equal while one was a Div and the other a Mul, so the stored order won and
+    // the reprint reordered the sum.
+    let quotient_vs_product = Expr::Add(vec![
+        Expr::Div(Box::new(y()), Box::new(x())),
+        Expr::mul(x(), Expr::pow(y(), Expr::num(-1))),
+    ]);
+    let mut cases = vec![
+        item_49,
+        sqrt_vs_power,
+        quotient_vs_product,
+        Expr::Mul(vec![
+            Expr::Add(vec![Expr::mul(Expr::num(-1), x()), Expr::num(2)]),
+            Expr::Add(vec![call("exp", vec![x()]), Expr::num(3)]),
+        ]),
+        Expr::Add(vec![
+            Expr::Mul(vec![rational(2, 3), x()]),
+            Expr::Mul(vec![rational(5, 7), Expr::pow(y(), Expr::num(2))]),
+        ]),
+        // A binding node and a sqrt-inside-product: both print a parseable form the comparator
+        // must order the same way as the expression it reconstructs.
+        Expr::Fun(
+            "integrate".to_string(),
+            vec![Expr::pow(x(), Expr::num(2)), x()],
+        ),
+        Expr::Mul(vec![call("sqrt", vec![y()]), Expr::pow(x(), Expr::num(2))]),
+    ];
+    cases.extend(corpus());
+    cases
+}
+
+/// The C# CanonicalText corpus contract on a fixed corpus: parsing an expression's canonical text
+/// and printing that back canonically must reproduce the text byte for byte. This is the normal
+/// form the reference's expression interning relies on; without it the same value would have two
+/// canonical spellings.
+#[test]
+fn canonical_text_is_idempotent_for_a_fixed_corpus() {
+    for expression in canonical_round64_corpus() {
+        let text = expression.canonical();
+        let reparsed = canonical_parse(&text)
+            .unwrap_or_else(|error| panic!("canonical parse failed for {text}: {error}"));
+        assert_eq!(
+            reparsed.canonical(),
+            text,
+            "canonical text is not idempotent for {text}"
+        );
+    }
+}
+
+/// The two spellings of the same value (stored and reparsed) must compare the same against every
+/// other expression; otherwise the operand order - and therefore the text - depends on history.
+#[test]
+fn canonical_order_is_invariant_under_canonical_parse() {
+    let expressions = canonical_round64_corpus();
+    let reparsed: Vec<Expr> = expressions
+        .iter()
+        .map(|expression| {
+            canonical_parse(&expression.canonical()).expect("round-64 corpus canonical parse")
+        })
+        .collect();
+    for (i, original) in expressions.iter().enumerate() {
+        for (j, other) in expressions.iter().enumerate() {
+            assert_eq!(
+                canonical_order(original, other),
+                canonical_order(&reparsed[i], &reparsed[j]),
+                "canonical order changed across parse: {} vs {}",
+                original.canonical(),
+                other.canonical()
+            );
+        }
+    }
+}
+
+/// The exact regression the round-62 report recorded: item 49 before the fix printed the exp sum
+/// first, after the fix it prints the oracle's rat sum first.
+#[test]
+fn canonical_item_49_prints_the_oracle_order() {
+    let item_49 = &canonical_round64_corpus()[0];
+    assert_eq!(
+        item_49.canonical(),
+        "(mul (add (rat -5 1) (mul (rat -1 1) (fn sin (mul (rat 2 1) (sym x))))) (add (fn exp (fn abs (sym x))) (fn exp (add (rat -5 1) (sym x)))))"
+    );
+}

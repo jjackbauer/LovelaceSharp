@@ -12,7 +12,7 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_real::transcendental::truncate_frac;
-use lovelace_symbolics::{Expr as Sym, Rat};
+use lovelace_symbolics::{Expr as Sym, Rat, RelOp};
 
 use crate::LangError;
 use crate::complex::Complex;
@@ -67,16 +67,143 @@ pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
             let exponent = evaluate(exponent, places)?;
             base.pow(&exponent, places)
         }
+        // A bare relation has no numeric value in the reference either: RelationExpr is
+        // deliberately absent from Evaluation.EvaluateToNum, and the oracle refuses with
+        // "Node of kind Relation cannot be evaluated numerically." A relation is readable only
+        // as a condition (a piecewise guard or a logical operand), through evaluate_condition.
         Sym::Rel(..) => Err(LangError::plain(
             "A relation has no numeric value; evaluate a number or an expression.",
         )),
         Sym::Fun(name, args) => {
+            // The reference's PiecewiseExpr arm (Evaluation.cs:487-499): take the first branch
+            // whose guard is numerically TRUE, skip the FALSE ones, and refuse an UNKNOWN guard
+            // rather than guessing a branch. The otherwise value applies when every guard is
+            // FALSE. This is what makes d/dx abs(u) evaluable away from the kink.
+            if name == "piecewise" {
+                if let Some((branches, otherwise)) = expression.as_piecewise() {
+                    for (guard, value) in branches {
+                        match evaluate_condition(&guard, places)? {
+                            Tristate::True => return evaluate(&value, places),
+                            Tristate::False => continue,
+                            Tristate::Unknown => {
+                                return Err(LangError::plain(
+                                    "Piecewise guard cannot be decided numerically.",
+                                ));
+                            }
+                        }
+                    }
+                    return evaluate(&otherwise, places);
+                }
+            }
+            // And/Or/Not lower to boolean-valued nodes; the reference's EvaluateToNum arm
+            // (Evaluation.cs:500-506) answers the exact integers 1/0 and refuses Unknown.
+            if matches!(name.as_str(), "and" | "or" | "not") {
+                return match evaluate_condition(expression, places)? {
+                    Tristate::True => Ok(Num::Exact(Rat::one())),
+                    Tristate::False => Ok(Num::Exact(Rat::zero())),
+                    Tristate::Unknown => Err(LangError::plain(
+                        "Logical condition cannot be decided numerically.",
+                    )),
+                };
+            }
             let mut values = Vec::with_capacity(args.len());
             for arg in args {
                 values.push(evaluate(arg, places)?);
             }
             evaluate_function(name, &values, places)
         }
+    }
+}
+
+/// The reference's three-valued (Kleene) logic result, `Tristate`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Tristate {
+    True,
+    False,
+    Unknown,
+}
+
+/// `Evaluation.EvaluateCondition` (Evaluation.cs:537-617): relations, And/Or/Not and the exact
+/// constants 0/1. True/False only when decided; Unknown is never coerced to False. Numeric
+/// evaluation failures inside a guard are Unknown, exactly as the reference catches
+/// `EvaluationException` there.
+fn evaluate_condition(condition: &Sym, places: usize) -> Result<Tristate, LangError> {
+    match condition {
+        Sym::Num(r) if r.is_zero() => Ok(Tristate::False),
+        Sym::Num(r) if r.is_one() => Ok(Tristate::True),
+        Sym::Rel(op, left, right) => {
+            let left = match evaluate(left, places) {
+                Ok(value) => value,
+                Err(_) => return Ok(Tristate::Unknown),
+            };
+            let right = match evaluate(right, places) {
+                Ok(value) => value,
+                Err(_) => return Ok(Tristate::Unknown),
+            };
+            let Some(ordering) = try_compare(&left, &right, places) else {
+                return Ok(Tristate::Unknown);
+            };
+            let truth = match op {
+                RelOp::Eq => ordering == Ordering::Equal,
+                RelOp::Ne => ordering != Ordering::Equal,
+                RelOp::Lt => ordering == Ordering::Less,
+                RelOp::Le => ordering != Ordering::Greater,
+                RelOp::Gt => ordering == Ordering::Greater,
+                RelOp::Ge => ordering != Ordering::Less,
+            };
+            Ok(if truth {
+                Tristate::True
+            } else {
+                Tristate::False
+            })
+        }
+        Sym::Fun(name, args) if name == "not" && args.len() == 1 => {
+            Ok(match evaluate_condition(&args[0], places)? {
+                Tristate::True => Tristate::False,
+                Tristate::False => Tristate::True,
+                Tristate::Unknown => Tristate::Unknown,
+            })
+        }
+        Sym::Fun(name, args) if name == "and" => {
+            let mut unknown = false;
+            for operand in args {
+                match evaluate_condition(operand, places)? {
+                    Tristate::False => return Ok(Tristate::False),
+                    Tristate::Unknown => unknown = true,
+                    Tristate::True => {}
+                }
+            }
+            Ok(if unknown {
+                Tristate::Unknown
+            } else {
+                Tristate::True
+            })
+        }
+        Sym::Fun(name, args) if name == "or" => {
+            let mut unknown = false;
+            for operand in args {
+                match evaluate_condition(operand, places)? {
+                    Tristate::True => return Ok(Tristate::True),
+                    Tristate::Unknown => unknown = true,
+                    Tristate::False => {}
+                }
+            }
+            Ok(if unknown {
+                Tristate::Unknown
+            } else {
+                Tristate::False
+            })
+        }
+        _ => Ok(Tristate::Unknown),
+    }
+}
+
+/// `NumOps.TryCompare`: an unordered (complex) pair reports None instead of throwing.
+fn try_compare(left: &Num, right: &Num, places: usize) -> Option<Ordering> {
+    match (left, right) {
+        (Num::Complex(_), _) | (_, Num::Complex(_)) => None,
+        (Num::Exact(a), Num::Exact(b)) => Some(a.cmp(b)),
+        _ => Some(left.to_real(places)?.cmp(&right.to_real(places)?)),
     }
 }
 
@@ -592,6 +719,28 @@ fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, L
                 Num::Real(r) => Ok(Num::Real(r.abs())),
                 Num::Complex(z) => Ok(Num::Real(z.magnitude(places))),
             }
+        }
+        // `NumOps.Sign`: the derivative of abs(u) carries sign(u) on its non-kink branch, so the
+        // numeric tier must answer it or the reference's own Diff row cannot evaluate its output.
+        // Exact/real arguments answer the exact integers; a complex argument answers z/|z|.
+        "sign" => {
+            let x = unary(name, values)?;
+            if x.is_zero() {
+                return Ok(Num::Exact(Rat::zero()));
+            }
+            let negative = match x {
+                Num::Exact(r) => r.is_negative(),
+                Num::Real(r) => r.cmp(&Real::zero()) == Ordering::Less,
+                Num::Complex(z) => {
+                    let magnitude = z.magnitude(places);
+                    return Num::Complex(z.clone()).div(&Num::Real(magnitude), places);
+                }
+            };
+            Ok(Num::Exact(if negative {
+                Rat::from_i64(-1)
+            } else {
+                Rat::one()
+            }))
         }
         _ => Err(LangError::plain(format!(
             "Function '{}' has no numeric evaluator.",

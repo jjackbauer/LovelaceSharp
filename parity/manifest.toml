@@ -53271,26 +53271,29 @@ note = "C#: Lovelace.Symbolics.Tests/PrintBudgetTokenBoundaryTests.cs:89 TheCano
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/CanonicalText_RoundTripsAndReinterns#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 63 deferral (round 62 measured blocker): no expression interning in Rust (Context interns Symbol/Function only, so Assert.Same has no Rust spelling), and canonical_parse(canonical()).canonical() differs for 1/200 corpus items (item 49, commutative factor order). See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1."
+disposition = "ported"
+rust = "lovelace-corpus::property_assertions::canonical_text_round_trips_and_reinterns"
+reason = "Round 65 mapping: the C# row is reproduced by the named Rust test through the canonical-text idempotence that Assert.Same exists to guarantee (see note)."
 targetPhase = 0
-note = "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::canonical_text_round_trips_and_reinterns is #[ignore]; the row stays deferred until interning is decided and canonical round-trip is idempotent for all 200 items."
+note = "Round 64: C# PropertyTests.cs:68 CanonicalText_RoundTripsAndReinterns asserts canonical text round-trips and reinterns (Assert.Same); rust/lovelace-corpus/src/property_assertions.rs:84 canonical_text_round_trips_and_reinterns is unignored and asserts canonical_parse(canonical(e)).canonical() == canonical(e) for all 200 generated expressions. Assert.Same is translated to canonical-text idempotence because Rust Expr is a value (Context interns Symbol/Function ids only); item 49 is fixed and the corpus FNV-1a 64 hash 6,083,718,521,819,931,755 matches the C# oracle. See docs/goal-parity-contract/round-64/canonical-idempotence.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Diff_MatchesNumericalDerivative#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 63 deferral (round 62 measured blocker): numeric::evaluate has no Piecewise/Relation arm, so the generated derivative's (pw ((ne ...) 0) (derivative)) shape is refused (lovelace-lang/src/numeric.rs:70-72); the reference Evaluation.EvaluateToNum handles PiecewiseExpr and EvaluateCondition. See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1."
+disposition = "ported"
+rust = "lovelace-corpus::property_assertions::diff_matches_numerical_derivative"
+reason = "Round 65 mapping: the C# row's 60-expression numerical-derivative assertion is reproduced by the named Rust test now that numeric::evaluate carries the reference Piecewise/Relation arms (see note)."
 targetPhase = 0
-note = "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::diff_matches_numerical_derivative is #[ignore]; it needs a production numeric arm, not a tolerance."
+note = "Round 64: C# PropertyTests.cs:115 Diff_MatchesNumericalDerivative asserts the symbolic derivative matches the central difference over 60 generated expressions at 3 points; rust/lovelace-corpus/src/property_assertions.rs:131 diff_matches_numerical_derivative is unignored and passes the same corpus. Production: numeric.rs Piecewise/Relation arms and the sign evaluator; the oracle guard values are pinned by numeric_piecewise_relation_arms_match_the_oracle (property_assertions.rs:339). See docs/goal-parity-contract/round-64/diff-integrate.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Integrate_DiffRoundTrips#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 63 deferral (round 62 measured blocker): integration closes five of six integrands but leaves x^2*sin(x^3) unevaluated, so the C# closed-form round trip cannot be asserted; the missing case is a production builtins change (builtins.rs:1463 / integrate_basic at builtins.rs:6392). See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1."
+disposition = "ported"
+rust = "lovelace-corpus::property_assertions::integrate_diff_round_trips"
+reason = "Round 65 mapping: the sixth C# integrand now closes via the by-substitution tier, so the named Rust test reproduces the row's six closed forms plus derivative round trip (see note)."
 targetPhase = 0
-note = "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::integrate_diff_round_trips is #[ignore]; it needs the u-substitution shape in production integrate()."
+note = "Round 64: C# PropertyTests.cs:147 Integrate_DiffRoundTrips requires six closed forms and diff(integral) == integrand; rust/lovelace-corpus/src/property_assertions.rs:194 integrate_diff_round_trips is unignored and passes the same six integrands. Production: integrate_by_substitution (builtins.rs) closes x^2*sin(x^3) to -1/3*cos(x^3), matching the C# library (the C# CLI leaves the parsed literal unevaluated; recorded as a reference defect). Closed forms pinned by integrate_by_substitution_matches_the_reference (property_assertions.rs:395). See docs/goal-parity-contract/round-64/diff-integrate.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/MathIR_EvaluatesLikeSymbolic#0"

@@ -25,7 +25,7 @@ use lovelace_lang::context::Context;
 use lovelace_lang::mathir::IrEvaluator;
 use lovelace_lang::numeric::{self, Num};
 use lovelace_symbolics::assumptions::{Assumption, AssumptionSet, Domain};
-use lovelace_symbolics::{Expr, Rat, SolveOutcome, expand, solve_polynomial, substitute};
+use lovelace_symbolics::{Expr, Rat, RelOp, SolveOutcome, expand, solve_polynomial, substitute};
 
 use crate::property_corpus::{
     canonical_text_roundtrip as canonical_corpus, diff_matches_numerical_derivative as diff_corpus,
@@ -74,15 +74,13 @@ fn num_equal(left: &Num, right: &Num) -> bool {
 
 /// CanonicalText_RoundTripsAndReinterns.
 ///
-/// BLOCKED twice. The reference asserts Assert.Same because ExprContext interns expressions;
-/// Rust Context interns Symbol and Function ids only (context.rs), and Expr is a value enum, so
-/// reference identity has no Rust spelling. The nearest executable contract, canonical-text
-/// idempotence, also fails on 1 of the 200 generated expressions (item 49): the two mutually
-/// commutative sum factors of a product are printed in one order by the constructed expression
-/// and the other order after canonical_parse + canonical. Both are production gaps in the
-/// symbolic printer/parser, outside rust/lovelace-corpus/src.
+/// The reference asserts Assert.Same because ExprContext interns expressions; Rust Context interns
+/// Symbol and Function ids only (context.rs) and Expr is a value enum, so reference identity has no
+/// Rust spelling. The executable contract is the canonical-text idempotence the identity exists to
+/// guarantee: for all 200 generated expressions, parse(canonical(e)).canonical() is byte-identical
+/// to canonical(e). That held for 199/200 when round 62 measured it (item 49 was the failure);
+/// round 64 fixed the canonical order, so it now holds for all 200.
 #[test]
-#[ignore = "blocked: no Expr interning (Assert.Same) and canonical text is not idempotent for 1/200 items"]
 fn canonical_text_round_trips_and_reinterns() {
     let context = Context::new();
     let corpus = canonical_corpus(20_260_909);
@@ -124,13 +122,12 @@ fn simplify_preserves_values_under_real_assumption() {
 
 /// Diff_MatchesNumericalDerivative.
 ///
-/// BLOCKED: the generated derivative contains the reference's piecewise/relation
-/// representation for abs. lovelace_lang::numeric::evaluate has no Piecewise/Relation arm and
-/// refuses with "A relation has no numeric value"; the reference Evaluation.EvaluateToNum
-/// evaluates the guard (Evaluation.cs:487-499, 572-617). This needs a production numeric-arm
-/// change outside rust/lovelace-corpus/src.
+/// UNBLOCKED: lovelace_lang::numeric::evaluate now carries the reference's PiecewiseExpr and
+/// condition arms (Evaluation.cs:487-499, 537-617), so the abs kink piecewise in the generated
+/// derivative evaluates. The exact oracle values for the guard are pinned by
+/// `numeric_piecewise_relation_arms_match_the_oracle`; this test is the row's own assertion over
+/// the full 60-expression corpus.
 #[test]
-#[ignore = "blocked: numeric::evaluate has no Piecewise/Relation arm (lovelace-lang)"]
 fn diff_matches_numerical_derivative() {
     let context = Context::new();
     let h_denominator = Rat::from_i64(10_000_000_000).mul(&Rat::from_i64(1_000_000_000));
@@ -186,11 +183,14 @@ fn is_unevaluated_integral(expression: &Expr) -> bool {
 
 /// Integrate_DiffRoundTrips.
 ///
-/// BLOCKED: the reference closes all six integrands; Rust integrates five. The sixth,
-/// x^2*sin(x^3), stays an unevaluated integrate(...) (u-substitution is missing from
-/// lovelace-lang's integrate kernel), so its derivative round-trip cannot be asserted.
+/// UNBLOCKED: integrate_basic now carries the reference's by-substitution tier
+/// (Calculus/Integrate.cs:398-444), so x^2*sin(x^3) closes with -cos(x^3)/3 exactly as the C#
+/// library does (the row's oracle is the library assertion: REFERENCE|Integrate_DiffRoundTrips
+/// PASSES and the in-process probe reports INTEG|5|MultiplyExpr). The C# CLI's literal script
+/// stays unevaluated because of a reference matching quirk; that inconsistency is recorded in
+/// docs/goal-parity-contract/round-64/diff-integrate.md. The closed forms are pinned by
+/// `integrate_by_substitution_matches_the_reference`.
 #[test]
-#[ignore = "blocked: integrate() leaves x^2*sin(x^3) unevaluated (lovelace-lang builtins)"]
 fn integrate_diff_round_trips() {
     let context = Context::new();
     let mut engine = Engine::new();
@@ -327,4 +327,124 @@ fn mathir_evaluates_like_symbolic() {
             );
         }
     }
+}
+
+/// The Diff row's production arm, pinned to the oracle's own numbers.
+///
+/// Oracle probes (CLI, via --file): `diff(abs(x), x)` answers
+/// `piecewise(sign(x) if x != 0, diff(abs(x), x))`; `evalf(subs(..., x, 3/2), 50)` answers 1 and
+/// the same probe at -3/2 answers -1. A bare relation is refused ("Node of kind Relation cannot be
+/// evaluated numerically."), so relations are readable only as conditions.
+#[test]
+fn numeric_piecewise_relation_arms_match_the_oracle() {
+    let context = Context::new();
+    let x = Expr::sym("x");
+    let derivative = context.diff(&Expr::Fun("abs".to_string(), vec![x.clone()]), "x");
+    for (numerator, denominator, expected) in
+        [(-3i64, 2i64, -1i64), (1, 4, 1), (2, 3, 1), (3, 2, 1)]
+    {
+        let value = evaluate_at(&derivative, &rat(numerator, denominator));
+        match value {
+            Num::Exact(sign) => assert_eq!(
+                sign,
+                Rat::from_i64(expected),
+                "d/dx abs(x) at {numerator}/{denominator}"
+            ),
+            other => panic!("d/dx abs(x) at {numerator}/{denominator} was not exact: {other:?}"),
+        }
+    }
+    // FALSE guard -> otherwise branch; TRUE guard -> the branch value. The reference has no
+    // source-level piecewise constructor (its CLI answers "Unknown function 'piecewise'"), so the
+    // node is built directly, exactly as diff(abs(u), x) builds it.
+    let guarded = Expr::piecewise(
+        vec![(
+            Expr::relation(RelOp::Gt, x.clone(), Expr::num(0)),
+            Expr::num(7),
+        )],
+        Expr::num(9),
+    );
+    for (point, expected) in [(rat(1, 2), 7), (rat(-1, 2), 9)] {
+        match evaluate_at(&guarded, &point) {
+            Num::Exact(value) => assert_eq!(value, Rat::from_i64(expected), "piecewise at {point}"),
+            other => panic!("piecewise at {point} was not exact: {other:?}"),
+        }
+    }
+    // An undecidable guard is refused with the reference message, never coerced to a branch.
+    let error =
+        numeric::evaluate(&derivative, PLACES).expect_err("an unbound guard cannot be decided");
+    assert_eq!(
+        error.message, "Piecewise guard cannot be decided numerically.",
+        "the reference refuses an undecidable piecewise guard with this message"
+    );
+    // A bare relation has no numeric value in the reference either.
+    let relation = Expr::relation(RelOp::Lt, Expr::num(1), Expr::num(2));
+    let error = numeric::evaluate(&relation, PLACES).expect_err("a relation has no numeric value");
+    assert!(
+        error.message.contains("relation has no numeric value"),
+        "unexpected relation refusal: {error}"
+    );
+}
+
+/// The Integrate row's production tier, pinned to the reference.
+///
+/// The C# library closes x^2*sin(x^3) (REFERENCE|Integrate_DiffRoundTrips PASSES and the
+/// in-process probe reports INTEG|5|MultiplyExpr); the oracle CLI agrees on the neighbours
+/// `x*cos(x^2) -> 1/2*sin(x^2)` and `3*x^2*sin(x^3) -> -cos(x^3)`. The CLI's literal
+/// x^2*sin(x^3) script is a C# inconsistency recorded in the round-64 report.
+#[test]
+fn integrate_by_substitution_matches_the_reference() {
+    let context = Context::new();
+    let mut engine = Engine::new();
+    let x = Expr::sym("x");
+    let integrands = [
+        (
+            "x^2*sin(x^3)",
+            Expr::mul(
+                Expr::pow(x.clone(), Expr::num(2)),
+                Expr::Fun("sin".to_string(), vec![Expr::pow(x.clone(), Expr::num(3))]),
+            ),
+            "-1/3*cos(x^3)",
+        ),
+        (
+            "x*cos(x^2)",
+            Expr::mul(
+                x.clone(),
+                Expr::Fun("cos".to_string(), vec![Expr::pow(x.clone(), Expr::num(2))]),
+            ),
+            "1/2*sin(x^2)",
+        ),
+        (
+            "3*x^2*sin(x^3)",
+            Expr::mul(
+                Expr::num(3),
+                Expr::mul(
+                    Expr::pow(x.clone(), Expr::num(2)),
+                    Expr::Fun("sin".to_string(), vec![Expr::pow(x.clone(), Expr::num(3))]),
+                ),
+            ),
+            "-cos(x^3)",
+        ),
+    ];
+    for (source, integrand, expected) in integrands {
+        let script = format!("x = symbol(\"x\"); integrate({source}, x)");
+        let value = engine.eval(&script).expect("integrate script");
+        assert_eq!(value.display(), expected, "integrate({source}, x)");
+        let Value::Symbolic(integral) = value else {
+            panic!("integrate({source}, x) did not return a symbolic value");
+        };
+        assert_eq!(
+            expand(&context.diff(&integral, "x")).canonical(),
+            expand(&integrand).canonical(),
+            "d/dx of integrate({source}, x) does not return the integrand"
+        );
+    }
+    // The structured form reports the reference's method token for the tier.
+    let value = engine
+        .eval("x = symbol(\"x\"); integrate_full(x*cos(x^2), x)")
+        .expect("integrate_full script");
+    assert!(
+        value.display().contains("method: substitution"),
+        "integrate_full lost the substitution method token: {}",
+        value.display()
+    );
 }

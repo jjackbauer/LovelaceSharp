@@ -39,20 +39,6 @@ impl Corpus {
         crate::fnv1a64(&self.items.join("\n"))
     }
 
-    /// The canonical hash with one item omitted, for the two corpora whose sole divergence from
-    /// the C# canonical printer is the commutative order of a product's two sum factors.
-    pub fn canonical_fnv_without(&self, skip: usize) -> u64 {
-        let joined = self
-            .items
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| *index != skip)
-            .map(|(_, item)| item.as_str())
-            .collect::<Vec<_>>()
-            .join("\n");
-        crate::fnv1a64(&joined)
-    }
-
     /// The first canonical item, for diagnostics.
     pub fn first_item(&self) -> Option<&str> {
         self.items.first().map(String::as_str)
@@ -320,13 +306,14 @@ mod tests {
             Some("(fn sin (pow (sym x) (rat 3 1)))")
         );
         assert_eq!(corpus.last_item(), Some("(fn exp (fn exp (rat -1 1)))"));
-        // 199/200 canonical items are byte-identical. Item 49 is the same product with its two
-        // sum factors in the other (commutative) order; the Rust canonical-order table ranks the
-        // exp-shaped sum first. The C# string is recorded in the round-62 report.
-        assert_eq!(corpus.canonical_fnv_without(49), 4_531_804_520_641_619_424);
+        // All 200 canonical items are byte-identical to the C# oracle. Item 49 is the product
+        // whose two commutative sum factors the round-62 report recorded as ordered the other way;
+        // the canonical order now compares the canonical operand sequences, so it is the oracle's
+        // order (the C# string is recorded in that report).
+        assert_eq!(corpus.canonical_fnv(), 6_083_718_521_819_931_755);
         assert_eq!(
             corpus.items[49],
-            "(mul (add (fn exp (fn abs (sym x))) (fn exp (add (rat -5 1) (sym x)))) (add (rat -5 1) (mul (rat -1 1) (fn sin (mul (rat 2 1) (sym x))))))"
+            "(mul (add (rat -5 1) (mul (rat -1 1) (fn sin (mul (rat 2 1) (sym x))))) (add (fn exp (fn abs (sym x))) (fn exp (add (rat -5 1) (sym x)))))"
         );
     }
 
@@ -414,12 +401,12 @@ mod tests {
         assert_eq!(corpus.transcript_fnv(), 9_870_694_799_073_714_841);
         assert_eq!(corpus.first_item(), Some("(fn sin (fn sin (rat -5 3)))"));
         assert_eq!(corpus.last_item(), Some("(pow (sym x) (rat 3 1))"));
-        // 59/60 canonical items are byte-identical. Item 35 is the same product with its two
-        // sum factors in the other (commutative) order.
-        assert_eq!(corpus.canonical_fnv_without(35), 4_510_438_081_264_261_151);
+        // All 60 canonical items are byte-identical to the C# oracle; item 35 is the second
+        // product the round-62 report recorded with its commutative sum factors the other way.
+        assert_eq!(corpus.canonical_fnv(), 6_946_605_504_391_048_442);
         assert_eq!(
             corpus.items[35],
-            "(mul (add (fn exp (sym x)) (mul (rat -1 1) (sym x))) (add (rat -1 1) (mul (rat -4 1) (sym x))))"
+            "(mul (add (rat -1 1) (mul (rat -4 1) (sym x))) (add (fn exp (sym x)) (mul (rat -1 1) (sym x))))"
         );
     }
 }

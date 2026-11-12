@@ -12,6 +12,7 @@
 //! strings in the last test were captured from the pinned C# Printing class for the same
 //! expressions (see docs/goal-parity-contract/round-16/symbolics-printing.md).
 
+use crate::context::Context;
 use crate::{Engine, Value};
 use lovelace_symbolics::{Expr as Sym, PrintMode, canonical_parse};
 
@@ -495,4 +496,74 @@ fn print_builtin_keeps_the_reference_behaviour_for_non_mode_calls() {
             .unwrap_or_else(|err| panic!("{script} failed: {}", err.message));
         assert_eq!(e.take_output().join("\n"), *expected, "script: {script}");
     }
+}
+
+/// Round 64: canonical text is a normal form on the language path.
+///
+/// This is the CanonicalText corpus row's contract (Printing.CanonicalPrint then
+/// Printing.CanonicalParse) applied to a fixed corpus: the 48 pretty-corpus sources plus the
+/// order-sensitive shapes. It also builds item 49 of the generated corpus exactly, because that
+/// was the one expression the round-62 report measured as not round-tripping: the two commutative
+/// sum factors of the product were printed exp-sum first by the constructed value and rat-sum
+/// first after a parse.
+#[test]
+fn canonical_text_is_idempotent_through_the_context_on_a_fixed_corpus() {
+    let context = Context::new();
+    // sqrt(z) + a^2 used to sort as function-vs-power before the parse and power-vs-power after
+    // it; the product-of-sums source exercises the display-order-versus-canonical-order split.
+    let sources = [
+        "(-5 - sin(2*x)) * (exp(abs(x)) + exp(x - 5))",
+        "sqrt(z) + a^2",
+        "exp(-x^2) + sqrt(x + y)",
+        "x/y + (x/y)*y/x",
+    ];
+    for source in PRETTY_CORPUS.iter().copied().chain(sources) {
+        let expr = symbolic(source);
+        let canonical = expr.canonical();
+        let reparsed = context
+            .canonical_parse(&canonical)
+            .unwrap_or_else(|err| panic!("{source}: canonical parse of {canonical} failed: {err}"));
+        assert_eq!(
+            reparsed.canonical(),
+            canonical,
+            "{source}: canonical text is not idempotent"
+        );
+    }
+
+    // CanonicalText item 49, constructed exactly as the corpus generator builds it: the first sum
+    // is stored [product, constant] and the second [exp, exp].
+    let x = Sym::sym("x");
+    let item_49 = Sym::Mul(vec![
+        Sym::Add(vec![
+            Sym::Mul(vec![
+                Sym::num(-1),
+                Sym::Fun("sin".to_string(), vec![Sym::mul(Sym::num(2), x.clone())]),
+            ]),
+            Sym::num(-5),
+        ]),
+        Sym::Add(vec![
+            Sym::Fun(
+                "exp".to_string(),
+                vec![Sym::Fun("abs".to_string(), vec![x.clone()])],
+            ),
+            Sym::Fun(
+                "exp".to_string(),
+                vec![Sym::Add(vec![x.clone(), Sym::num(-5)])],
+            ),
+        ]),
+    ]);
+    let canonical = item_49.canonical();
+    assert_eq!(
+        canonical,
+        "(mul (add (rat -5 1) (mul (rat -1 1) (fn sin (mul (rat 2 1) (sym x))))) (add (fn exp (fn abs (sym x))) (fn exp (add (rat -5 1) (sym x)))))",
+        "item 49 must print in the oracle's canonical order"
+    );
+    let reparsed = context
+        .canonical_parse(&canonical)
+        .expect("item-49 canonical parse");
+    assert_eq!(
+        reparsed.canonical(),
+        canonical,
+        "item 49: canonical text is not idempotent"
+    );
 }

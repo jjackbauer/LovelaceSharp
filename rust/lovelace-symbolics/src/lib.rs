@@ -5002,9 +5002,49 @@ fn named_constant_rank(name: &str) -> Option<u8> {
     }
 }
 
+/// The shape the canonical printer emits for a node whose printed form is another kind's shape:
+/// a quotient prints as multiply-by-reciprocal and a square root prints as the half power.
+///
+/// This is the shape a canonical parse reconstructs, so ordering must use it too; otherwise the
+/// order of a node depends on which Rust variant represents the same text.
+fn canonical_shape(e: &Expr) -> Option<Expr> {
+    match e {
+        Expr::Div(a, b) => Some(Expr::Mul(vec![
+            (**a).clone(),
+            Expr::Pow(
+                Box::new((**b).clone()),
+                Box::new(Expr::Num(Rat::from_i64(-1))),
+            ),
+        ])),
+        Expr::Fun(name, args) if name == "sqrt" && args.len() == 1 => Some(Expr::Pow(
+            Box::new(args[0].clone()),
+            Box::new(Expr::Num(Rat::new(Int::from_i64(1), Nat::from_u64(2)))),
+        )),
+        _ => None,
+    }
+}
+
 /// The kernel's total order over canonical expressions, used for Add and Multiply operand order.
+///
+/// The comparison is over the CANONICAL SHAPE, not over the node that stores it. Two properties
+/// follow, and both are needed for the canonical text to be a normal form:
+///
+/// * an Add's terms and a Multiply's factors are stored in the constructors' DISPLAY order
+///   (degree first), which is not the canonical order. Comparing the stored sequences would make
+///   the canonical text depend on how the value was built: the two commutative sum factors of the
+///   item-49 product were ordered one way by the constructed expression and the other way after
+///   parsing its own text. The sequences are therefore sorted by this same order before they are
+///   compared.
+/// * a quotient is a multiply-by-reciprocal and a square root is a half power once parsed, so the
+///   order compares those printed shapes rather than the Div/sqrt variants that produced them.
 pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     use std::cmp::Ordering;
+    // Compare the shape the canonical printer emits.
+    let a_shape = canonical_shape(a);
+    let b_shape = canonical_shape(b);
+    if a_shape.is_some() || b_shape.is_some() {
+        return canonical_order(a_shape.as_ref().unwrap_or(a), b_shape.as_ref().unwrap_or(b));
+    }
     let (ra, rb) = (canonical_rank(a), canonical_rank(b));
     if ra != rb {
         return ra.cmp(&rb);
@@ -5017,6 +5057,13 @@ pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
             }
         }
         a.len().cmp(&b.len())
+    }
+    /// The stored sequence in canonical order. The sum and product constructors keep display
+    /// order, so canonical order has to be applied here as well as in the printer.
+    fn canonical_sequence(items: &[Expr]) -> Vec<Expr> {
+        let mut ordered = items.to_vec();
+        ordered.sort_by(canonical_order);
+        ordered
     }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
@@ -5034,11 +5081,13 @@ pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
         (Expr::Pow(b1, e1), Expr::Pow(b2, e2)) => {
             canonical_order(b1, b2).then_with(|| canonical_order(e1, e2))
         }
-        (Expr::Mul(f1), Expr::Mul(f2)) => seq(f1, f2),
+        (Expr::Mul(f1), Expr::Mul(f2)) => seq(&canonical_sequence(f1), &canonical_sequence(f2)),
         (Expr::Div(a1, b1), Expr::Div(a2, b2)) => {
+            // Unreachable while canonical_shape normalises every Div, but kept so the comparator
+            // remains total if a future printer stops collapsing quotients.
             canonical_order(a1, a2).then_with(|| canonical_order(b1, b2))
         }
-        (Expr::Add(t1), Expr::Add(t2)) => seq(t1, t2),
+        (Expr::Add(t1), Expr::Add(t2)) => seq(&canonical_sequence(t1), &canonical_sequence(t2)),
         (Expr::Rel(o1, l1, r1), Expr::Rel(o2, l2, r2)) => {
             let rank = |o: &RelOp| match o {
                 RelOp::Eq => 0,
