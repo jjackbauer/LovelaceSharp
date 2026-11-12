@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T03:43:48Z",
+    "generatedAtUtc":  "2026-11-12T11:15:37Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5136,
+                  "passed":  5146,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5137
+                   "tests":  5147
                },
-    "sourcesSha256":  "ae3d36e3ee7ea8575f2363005dd33fc5a49ef614f88fc789a7df8856a9a7b109",
+    "sourcesSha256":  "6d5bec3ed075569a6a7f8d235e34455c0040d36a48d7e2adab3794e05fa33599",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3035,6 +3035,8 @@
                                      "panic_sweep_round23::collect_leaves_the_huge_power_alone",
                                      "panic_sweep_round23::huge_exponent_degree_saturates_instead_of_multiplying_with_overflow",
                                      "panic_sweep_round23::poly_coeffs_refuses_a_degree_it_cannot_materialize",
+                                     "parameter_domain::tests::every_declared_arm_projects_to_the_integer_domain",
+                                     "parameter_domain::tests::undeclared_ordinal_is_refused_with_the_reference_message",
                                      "printing_round16::canonical_item_49_prints_the_oracle_order",
                                      "printing_round16::canonical_order_is_invariant_under_canonical_parse",
                                      "printing_round16::canonical_order_is_the_same_order_debug_and_canonical_use",
@@ -3109,6 +3111,11 @@
                                      "round67_polynomial_algebra::resultant_tracks_the_leading_coefficient_sign_and_scale",
                                      "round67_polynomial_algebra::square_free_normalises_non_monic_and_negative_inputs",
                                      "round67_polynomial_algebra::square_free_of_a_constant_is_the_unit",
+                                     "round69_parameter_domain::declared_arms_are_the_reference_enumeration",
+                                     "round69_parameter_domain::integers_arm_maps_to_the_integer_domain",
+                                     "round69_parameter_domain::non_negative_integers_arm_maps_to_the_integer_domain",
+                                     "round69_parameter_domain::parameter_domain_of_maps_every_declared_arm",
+                                     "round69_parameter_domain::undeclared_values_are_refused",
                                      "symbolic_matrix::tests::a_singular_matrix_publishes_no_inverse_and_the_reference_note",
                                      "symbolic_matrix::tests::determinant_of_a_non_square_matrix_is_refused",
                                      "symbolic_matrix::tests::inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check",
@@ -3810,6 +3817,9 @@
                                      "round67_modus::registered_builtin_that_coerces_its_argument_is_attributed_to_the_position",
                                      "round67_modus::scalar_result_boolean_and_text_return_values",
                                      "round67_modus::variadic_removes_the_upper_bound_and_honours_the_lower_one",
+                                     "round69_parameter_domain::modus_seam_maps_every_declared_arm_to_the_integer_domain_payload",
+                                     "round69_parameter_domain::modus_seam_refuses_an_undeclared_parameter_domain",
+                                     "round69_parameter_domain::solve_full_family_parameter_domain_is_the_projected_integer_domain",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",

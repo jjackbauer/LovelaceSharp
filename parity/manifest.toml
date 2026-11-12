@@ -45951,10 +45951,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:209 OptimizeFul
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/ParameterDomainOf_MapsEveryDeclaredArm#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicsPlugin.ParameterDomainOf; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round69_parameter_domain::parameter_domain_of_maps_every_declared_arm"
+reason = "Round 70 mapping: the row's total projection is reproduced by the named Rust test in the measured inventory (see note). Round 69 implementation: parameter_domain.rs + round69_parameter_domain.rs"
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 69: C# DxStructuredResultsTests.cs:562 ParameterDomainOf_MapsEveryDeclaredArm pins both declared ParameterDomain arms (Integers, NonNegativeIntegers) to MathDomain.Integer, requires the pinned table to be the whole Enum.GetValues<ParameterDomain>(), and requires (ParameterDomain)99 to throw ArgumentOutOfRangeException. Rust: rust/lovelace-symbolics/src/round69_parameter_domain.rs parameter_domain_of_maps_every_declared_arm asserts the whole-enum table, each arm -> Dom::Integer through parameter_domain_of and parameter_domain_of_ordinal, and ordinal 99 refused as UndeclaredParameterDomain { ordinal: 99 } with the reference message; the production mapping is rust/lovelace-symbolics/src/parameter_domain.rs. See docs/goal-parity-contract/round-70/parameter-domain-porting.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/SimplifyFull_CarriesConditionsAndSteps#0"

@@ -10,6 +10,7 @@ use lovelace_symbolics::assumptions::{
     Assumption, Domain as AssumptionDomain, SymbolPredicate, Tristate,
 };
 use lovelace_symbolics::groebner::{MonomialOrder, Polynomial, groebner_basis};
+use lovelace_symbolics::parameter_domain::{ParameterDomain, parameter_domain_of};
 
 use crate::registry;
 use crate::syntax::BinOp;
@@ -7379,7 +7380,13 @@ fn add_terms(terms: Vec<Sym>) -> Sym {
 /// A SolutionFamily record. The template is built with the raw Add/Mul constructors in the
 /// reference's published order: the family builder is the ONE place the term order is chosen, so a
 /// canonicalizing rebuild would reorder a template the contract fixes.
-fn solution_family(template: Sym, parameter: &str, period: Sym, conditions: Vec<Sym>) -> Value {
+fn solution_family(
+    template: Sym,
+    parameter: &str,
+    period: Sym,
+    domain: ParameterDomain,
+    conditions: Vec<Sym>,
+) -> Value {
     Value::Record(
         "SolutionFamily".to_string(),
         vec![
@@ -7391,7 +7398,7 @@ fn solution_family(template: Sym, parameter: &str, period: Sym, conditions: Vec<
             ("period".to_string(), Value::Symbolic(period)),
             (
                 "parameter_domain".to_string(),
-                Value::Domain("integer".to_string()),
+                Value::Domain(parameter_domain_of(domain).name().to_string()),
             ),
             (
                 "conditions".to_string(),
@@ -7434,7 +7441,13 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
         let template = add_terms(vec![principal, Sym::mul(kexpr, pi.clone())]);
         return SolveBranch::Set {
             solutions: Vec::new(),
-            families: vec![solution_family(template, &k, pi, Vec::new())],
+            families: vec![solution_family(
+                template,
+                &k,
+                pi,
+                ParameterDomain::Integers,
+                Vec::new(),
+            )],
         };
     }
     // sin/cos: classify |c| against 1.
@@ -7463,7 +7476,13 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
         };
         return SolveBranch::Set {
             solutions: Vec::new(),
-            families: vec![solution_family(template, &k, pi, Vec::new())],
+            families: vec![solution_family(
+                template,
+                &k,
+                pi,
+                ParameterDomain::Integers,
+                Vec::new(),
+            )],
         };
     }
     if cmp_one == std::cmp::Ordering::Equal {
@@ -7471,7 +7490,13 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
         let template = add_terms(vec![principal, Sym::mul(kexpr, two_pi.clone())]);
         return SolveBranch::Set {
             solutions: Vec::new(),
-            families: vec![solution_family(template, &k, two_pi, Vec::new())],
+            families: vec![solution_family(
+                template,
+                &k,
+                two_pi,
+                ParameterDomain::Integers,
+                Vec::new(),
+            )],
         };
     }
     // |c| < 1: two families, one per branch.
@@ -7494,8 +7519,14 @@ fn solve_periodic(name: &str, u: &Sym, c: &Sym, var: &str, domain: &str) -> Solv
     SolveBranch::Set {
         solutions: Vec::new(),
         families: vec![
-            solution_family(first, &k, two_pi.clone(), Vec::new()),
-            solution_family(second, &k, two_pi, Vec::new()),
+            solution_family(
+                first,
+                &k,
+                two_pi.clone(),
+                ParameterDomain::Integers,
+                Vec::new(),
+            ),
+            solution_family(second, &k, two_pi, ParameterDomain::Integers, Vec::new()),
         ],
     }
 }
@@ -7545,7 +7576,13 @@ fn solve_exponential_family(h: &Sym, u: &Sym, c: &Sym, var: &str) -> SolveBranch
     }
     SolveBranch::Set {
         solutions: Vec::new(),
-        families: vec![solution_family(template, &k, period, conditions)],
+        families: vec![solution_family(
+            template,
+            &k,
+            period,
+            ParameterDomain::Integers,
+            conditions,
+        )],
     }
 }
 

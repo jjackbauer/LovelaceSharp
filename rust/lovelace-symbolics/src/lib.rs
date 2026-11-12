@@ -12,6 +12,7 @@ use lovelace_nat::Nat;
 pub mod assumptions;
 pub mod cancel;
 pub mod groebner;
+pub mod parameter_domain;
 pub mod polynomials;
 pub mod rational_functions;
 pub mod real_literal;
@@ -5164,6 +5165,10 @@ mod round39_residue;
 
 #[cfg(test)]
 mod round66_resweep;
+
+/// Round-69 ParameterDomain census row: the declared-arm mapping and the undeclared-value refusal.
+#[cfg(test)]
+mod round69_parameter_domain;
 
 #[cfg(test)]
 mod round67_polynomial_algebra;

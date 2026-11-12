@@ -21,6 +21,9 @@ use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_symbolics::Expr as Sym;
 use lovelace_symbolics::assumptions::AssumptionSet;
+use lovelace_symbolics::parameter_domain::{
+    ParameterDomain, UndeclaredParameterDomain, parameter_domain_of, parameter_domain_of_ordinal,
+};
 
 use crate::context::Context;
 use crate::registry;
@@ -279,6 +282,17 @@ impl Payload {
         })
     }
 
+    /// Wraps a declared parameter domain as the `Domain` payload of its projected kernel domain.
+    ///
+    /// This is the Modus channel's form of the reference's `SymbolicsPlugin.ParameterDomainOf`:
+    /// both declared arms project to the integer domain, which is what a plugin receives for a
+    /// solution family's `parameter_domain`. The raw ordinal form is
+    /// [`parameter_domain_payload_of_ordinal`], which refuses an undeclared value before a payload
+    /// exists.
+    pub fn from_parameter_domain(domain: ParameterDomain) -> Payload {
+        Payload::Domain(parameter_domain_of(domain).name().to_string())
+    }
+
     fn mismatch(&self, expected: &str) -> PluginError {
         PluginError::shape(expected, self.kind_name())
     }
@@ -371,6 +385,18 @@ impl Payload {
             other => Err(other.mismatch("a domain")),
         }
     }
+}
+
+/// The Modus-channel projection of a raw parameter-domain ordinal.
+///
+/// An undeclared ordinal — the reference's `(ParameterDomain)99` — is refused with the reference
+/// message, so a plugin can never receive a `Domain` payload the kernel lattice does not declare.
+pub fn parameter_domain_payload_of_ordinal(
+    ordinal: i32,
+) -> Result<Payload, UndeclaredParameterDomain> {
+    Ok(Payload::Domain(
+        parameter_domain_of_ordinal(ordinal)?.name().to_string(),
+    ))
 }
 
 /// The typed return channel: the reference's `ScalarResult`.

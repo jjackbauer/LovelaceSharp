@@ -2008,6 +2008,10 @@ mod round66_resweep;
 #[cfg(test)]
 mod round67_modus;
 
+/// Round-69 ParameterDomain row: the Modus-seam projection and the solution-family wire field.
+#[cfg(test)]
+mod round69_parameter_domain;
+
 #[cfg(test)]
 mod dsp_round20;
 
