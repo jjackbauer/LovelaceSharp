@@ -15,7 +15,8 @@ use std::time::{Duration, Instant};
 use crate::app::LogLevel;
 use crate::engine::DEFAULT_PRECISION;
 use crate::keyboard::{WorkbenchCommand, command_for_shortcut};
-use crate::workbench::{RunOutcome, RunPhase, Workbench};
+use crate::run_state::RunState;
+use crate::workbench::{Workbench, WorkbenchDocument};
 
 type Check = fn() -> Result<String, String>;
 
@@ -46,7 +47,7 @@ pub fn run() -> i32 {
         "GUI_SELFTEST plot-dir {}",
         crate::engine::default_plot_dir().display()
     );
-    let checks: [(&str, Check); 10] = [
+    let checks: [(&str, Check); 14] = [
         ("two-tabs", check_two_tabs),
         ("arithmetic", check_arithmetic),
         ("print", check_print),
@@ -57,6 +58,10 @@ pub fn run() -> i32 {
         ("plot-dir", check_plot_dir),
         ("keyboard", check_keyboard),
         ("long-run", check_long_run),
+        ("run-state-fast", check_run_state_fast),
+        ("run-state-cancel", check_run_state_cancel),
+        ("run-state-fail", check_run_state_fail),
+        ("run-state-stale", check_run_state_stale),
     ];
 
     let mut failed = 0usize;
@@ -130,6 +135,69 @@ fn expect_log(
     }
 }
 
+/// The observed state sequence since `from` (a transition-log index taken before the run),
+/// starting with the state the first logged transition came from.
+fn state_sequence(document: &WorkbenchDocument, from: usize) -> Vec<RunState> {
+    let transitions = document.transitions();
+    let start = transitions
+        .get(from)
+        .map(|transition| transition.from)
+        .unwrap_or_else(|| document.state());
+    let mut sequence = vec![start];
+    if from < transitions.len() {
+        sequence.extend(
+            transitions[from..]
+                .iter()
+                .map(|transition| transition.to),
+        );
+    }
+    sequence
+}
+
+/// The sequence rendered as the exact status-strip labels, joined by ` -> `.
+fn state_labels(sequence: &[RunState]) -> String {
+    sequence
+        .iter()
+        .map(|state| state.label())
+        .collect::<Vec<_>>()
+        .join(" -> ")
+}
+
+fn expect_state_sequence(
+    document: &WorkbenchDocument,
+    from: usize,
+    expected: &[RunState],
+    label: &str,
+) -> Result<Vec<RunState>, String> {
+    let observed = state_sequence(document, from);
+    if observed != expected {
+        return Err(format!(
+            "{label}: expected sequence {}, observed {}",
+            state_labels(expected),
+            state_labels(&observed)
+        ));
+    }
+    Ok(observed)
+}
+
+/// Number of terminal run events (Finished/Cancelled/Failed) logged since `from`.
+fn terminal_run_events(document: &WorkbenchDocument, from: usize) -> usize {
+    document
+        .transitions()
+        .iter()
+        .skip(from.min(document.transitions().len()))
+        .filter(|transition| transition.to.is_terminal_run_event())
+        .count()
+}
+
+/// The measured duration of an adjacent state pair, or a readable "not observed".
+fn duration_text(document: &WorkbenchDocument, from: RunState, to: RunState) -> String {
+    match document.duration_between(from, to) {
+        Some(duration) => format!("{:.3} ms", duration.as_secs_f64() * 1000.0),
+        None => "not observed".to_string(),
+    }
+}
+
 fn check_two_tabs() -> Result<String, String> {
     let mut workbench = new_workbench();
     if workbench.documents().len() != 2 {
@@ -146,14 +214,21 @@ fn check_two_tabs() -> Result<String, String> {
     if workbench.active() != 0 {
         return Err(format!("active tab is {}", workbench.active()));
     }
+    let idle_status = workbench.status_text(1, 1);
+    if !idle_status.contains("run Idle") {
+        return Err(format!(
+            "the no-run state must show \"run Idle\": {idle_status:?}"
+        ));
+    }
     for document in workbench.documents() {
         if document.snapshot.is_some() || document.last_plot.is_some() {
             return Err(format!("{} must start with empty panes", document.title));
         }
-        if document.phase != RunPhase::Idle {
+        if document.state() != RunState::Idle {
             return Err(format!(
-                "{} starts in phase {:?}",
-                document.title, document.phase
+                "{} starts in state {:?}",
+                document.title,
+                document.state()
             ));
         }
     }
@@ -202,8 +277,8 @@ fn check_arithmetic() -> Result<String, String> {
     workbench.set_source(0, "a = 2\nb = a + 10\nb\n".to_string());
     run_to_idle(&mut workbench, "arithmetic")?;
     let document = &workbench.documents()[0];
-    if document.outcome != Some(RunOutcome::Finished) {
-        return Err(format!("outcome was {:?}", document.outcome));
+    if document.state() != RunState::Finished {
+        return Err(format!("state was {:?}", document.state()));
     }
     let snapshot = snapshot(&workbench, "arithmetic")?;
     if snapshot.result != "12" {
@@ -319,10 +394,10 @@ fn check_cancel() -> Result<String, String> {
     let deadline = Instant::now() + RUN_TIMEOUT;
     while workbench.documents()[0].committed == 0 {
         workbench.poll();
-        if workbench.documents()[0].phase == RunPhase::Idle {
+        if workbench.documents()[0].state() == RunState::Idle {
             return Err(format!(
-                "the 50-statement run finished before a statement could be cancelled (outcome {:?})",
-                workbench.documents()[0].outcome
+                "the 50-statement run finished before a statement could be cancelled (state {:?})",
+                workbench.documents()[0].state()
             ));
         }
         if Instant::now() >= deadline {
@@ -335,19 +410,22 @@ fn check_cancel() -> Result<String, String> {
     if !workbench.cancel_active() {
         return Err("cancel_active returned false".to_string());
     }
+    if workbench.documents()[0].state() != RunState::Cancelling {
+        return Err(format!(
+            "cancel request left state {:?}, expected Cancelling",
+            workbench.documents()[0].state()
+        ));
+    }
     if !workbench.wait_until_idle(CANCEL_TIMEOUT) {
         return Err("the cancelled run did not reach a terminal state within 2 s".to_string());
     }
     let elapsed = cancel_at.elapsed();
     let document = &workbench.documents()[0];
-    if document.outcome != Some(RunOutcome::Cancelled) {
+    if document.state() != RunState::Cancelled {
         return Err(format!(
-            "terminal outcome was {:?}, expected Cancelled",
-            document.outcome
+            "terminal state was {:?}, expected Cancelled",
+            document.state()
         ));
-    }
-    if document.phase != RunPhase::Idle {
-        return Err(format!("cancelled run left phase {:?}", document.phase));
     }
     if elapsed >= CANCEL_TIMEOUT {
         return Err(format!("cancel took {elapsed:?}, expected under 2 s"));
@@ -393,14 +471,11 @@ fn check_syntax_error() -> Result<String, String> {
     workbench.set_source(0, "a = 2\n1 +\n".to_string());
     run_to_idle(&mut workbench, "syntax-error")?;
     let document = &workbench.documents()[0];
-    if document.outcome != Some(RunOutcome::Failed) {
+    if document.state() != RunState::Failed {
         return Err(format!(
-            "outcome was {:?}, expected Failed",
-            document.outcome
+            "state was {:?}, expected Failed",
+            document.state()
         ));
-    }
-    if document.phase != RunPhase::Idle {
-        return Err(format!("failed run left phase {:?}", document.phase));
     }
     let snapshot = snapshot(&workbench, "syntax-error")?;
     let diagnostic = snapshot
@@ -420,8 +495,8 @@ fn check_syntax_error() -> Result<String, String> {
         return Err("the workbench did not return to idle".to_string());
     }
     Ok(format!(
-        "{diagnostic} (outcome {:?}, phase {:?})",
-        document.outcome, document.phase
+        "{diagnostic} (state {:?}, no run in flight)",
+        document.state()
     ))
 }
 
@@ -568,6 +643,10 @@ fn check_plot_dir() -> Result<String, String> {
 fn check_keyboard() -> Result<String, String> {
     let mut workbench = new_workbench();
     workbench.set_source(0, long_run_source());
+    // The run-start breakdown printed below comes from the same marks the native window writes
+    // with LOVELACE_RUN_TRACE; in-memory mode keeps the selftest output self-contained.
+    crate::run_trace::reset();
+    crate::run_trace::enable_memory();
 
     let run = command_for_shortcut(true, false, true)
         .ok_or("keyboard: Ctrl+Enter did not map to a command")?;
@@ -615,10 +694,10 @@ fn check_keyboard() -> Result<String, String> {
     }
     let elapsed = cancel_at.elapsed();
     let document = &workbench.documents()[0];
-    if document.outcome != Some(RunOutcome::Cancelled) {
+    if document.state() != RunState::Cancelled {
         return Err(format!(
-            "keyboard: terminal outcome was {:?}, expected Cancelled",
-            document.outcome
+            "keyboard: terminal state was {:?}, expected Cancelled",
+            document.state()
         ));
     }
     if !workbench.status_text(1, 1).contains("run Cancelled") {
@@ -634,8 +713,11 @@ fn check_keyboard() -> Result<String, String> {
         ));
     }
 
+    let breakdown = crate::run_trace::breakdown_from("command_run_enter")
+        .unwrap_or_else(|| "no run-start marks were recorded".to_string());
+    crate::run_trace::reset();
     Ok(format!(
-        "Ctrl+Enter -> Run (status \"run Running\", Run disabled, Cancel visible); Esc -> run Cancelled in {:.2} ms; toolbar restored",
+        "Ctrl+Enter -> Run (status \"run Running\", Run disabled, Cancel visible); Esc -> run Cancelled in {:.2} ms; toolbar restored; run-start trace [{breakdown}]",
         elapsed.as_secs_f64() * 1000.0
     ))
 }
@@ -716,16 +798,10 @@ fn check_long_run() -> Result<String, String> {
         ));
     }
     let document = &workbench.documents()[0];
-    if document.outcome != Some(RunOutcome::Cancelled) {
+    if document.state() != RunState::Cancelled {
         return Err(format!(
-            "long-run: terminal outcome was {:?}, expected Cancelled",
-            document.outcome
-        ));
-    }
-    if document.phase != RunPhase::Idle {
-        return Err(format!(
-            "long-run: cancelled run left phase {:?}",
-            document.phase
+            "long-run: terminal state was {:?}, expected Cancelled",
+            document.state()
         ));
     }
     if !workbench.status_text(1, 1).contains("run Cancelled") {
@@ -748,5 +824,304 @@ fn check_long_run() -> Result<String, String> {
         cancel.as_secs_f64() * 1000.0,
         document.committed,
         document.total
+    ))
+}
+
+/// (a) A fast successful run: Idle -> Queued -> Running -> Finished, one terminal event.
+fn check_run_state_fast() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, "a = 2\nb = a + 10\nb\n".to_string());
+    let from = workbench.documents()[0].transition_count();
+    if !workbench.run_active() {
+        return Err("run-state-fast: run_active returned false".to_string());
+    }
+    if workbench.documents()[0].state() != RunState::Queued {
+        return Err(format!(
+            "run-state-fast: submit accepted but state was {:?}, expected Queued",
+            workbench.documents()[0].state()
+        ));
+    }
+    let queued_status = workbench.status_text(1, 1);
+    if !queued_status.contains("run Queued") {
+        return Err(format!(
+            "run-state-fast: status strip after submit was {queued_status:?}"
+        ));
+    }
+    if !workbench.wait_until_idle(RUN_TIMEOUT) {
+        return Err("run-state-fast: the run did not reach a terminal state".to_string());
+    }
+    let document = &workbench.documents()[0];
+    if document.state() != RunState::Finished {
+        return Err(format!(
+            "run-state-fast: terminal state was {:?}, expected Finished",
+            document.state()
+        ));
+    }
+    let sequence = expect_state_sequence(
+        document,
+        from,
+        &[
+            RunState::Idle,
+            RunState::Queued,
+            RunState::Running,
+            RunState::Finished,
+        ],
+        "run-state-fast",
+    )?;
+    if terminal_run_events(document, from) != 1 {
+        return Err(format!(
+            "run-state-fast: observed {} terminal run events, expected exactly 1",
+            terminal_run_events(document, from)
+        ));
+    }
+    expect_log(&workbench, 0, "run-state-fast", |text| {
+        text.contains("Run finished")
+    })?;
+    Ok(format!(
+        "sequence {}; Queued {}; Running {}; terminal run events 1",
+        state_labels(&sequence),
+        duration_text(document, RunState::Queued, RunState::Running),
+        duration_text(document, RunState::Running, RunState::Finished)
+    ))
+}
+
+/// (b) A cancelled long run: Idle -> Queued -> Running -> Cancelling -> Cancelled.
+fn check_run_state_cancel() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, long_run_source());
+    let from = workbench.documents()[0].transition_count();
+    if !workbench.run_active() {
+        return Err("run-state-cancel: run_active returned false".to_string());
+    }
+    if workbench.documents()[0].state() != RunState::Queued {
+        return Err(format!(
+            "run-state-cancel: submit accepted but state was {:?}, expected Queued",
+            workbench.documents()[0].state()
+        ));
+    }
+
+    // Wait until the worker's RunStarted has been applied, then let the single long kernel
+    // start so the cancellation lands inside it rather than at a statement boundary.
+    let deadline = Instant::now() + RUN_TIMEOUT;
+    while workbench.documents()[0].state() == RunState::Queued {
+        workbench.poll();
+        if Instant::now() >= deadline {
+            return Err("run-state-cancel: the worker never reported RunStarted".to_string());
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    if workbench.documents()[0].state() != RunState::Running {
+        return Err(format!(
+            "run-state-cancel: state before cancel was {:?}, expected Running",
+            workbench.documents()[0].state()
+        ));
+    }
+    std::thread::sleep(Duration::from_millis(100));
+    if workbench.documents()[0].state() != RunState::Running {
+        return Err("run-state-cancel: the long run finished before it could be cancelled".to_string());
+    }
+
+    let cancel_started = Instant::now();
+    if !workbench.cancel_active() {
+        return Err("run-state-cancel: cancel_active returned false".to_string());
+    }
+    if workbench.documents()[0].state() != RunState::Cancelling {
+        return Err(format!(
+            "run-state-cancel: cancel request left state {:?}, expected Cancelling",
+            workbench.documents()[0].state()
+        ));
+    }
+    let cancelling_status = workbench.status_text(1, 1);
+    if !cancelling_status.contains("run Cancelling") {
+        return Err(format!(
+            "run-state-cancel: status strip after cancel was {cancelling_status:?}"
+        ));
+    }
+    if !workbench.wait_until_idle(CANCEL_TIMEOUT) {
+        return Err("run-state-cancel: the cancelled run did not reach a terminal state".to_string());
+    }
+    let cancel_wall = cancel_started.elapsed();
+    let document = &workbench.documents()[0];
+    if document.state() != RunState::Cancelled {
+        return Err(format!(
+            "run-state-cancel: terminal state was {:?}, expected Cancelled",
+            document.state()
+        ));
+    }
+    let sequence = expect_state_sequence(
+        document,
+        from,
+        &[
+            RunState::Idle,
+            RunState::Queued,
+            RunState::Running,
+            RunState::Cancelling,
+            RunState::Cancelled,
+        ],
+        "run-state-cancel",
+    )?;
+    if terminal_run_events(document, from) != 1 {
+        return Err(format!(
+            "run-state-cancel: observed {} terminal run events, expected exactly 1",
+            terminal_run_events(document, from)
+        ));
+    }
+    if document
+        .duration_between(RunState::Cancelling, RunState::Cancelled)
+        .is_none()
+    {
+        return Err("run-state-cancel: the Cancelling transition was not logged".to_string());
+    }
+    expect_log(&workbench, 0, "run-state-cancel", |text| {
+        text.contains("Run cancelled after")
+    })?;
+    Ok(format!(
+        "sequence {}; Queued {}; Running {}; Cancelling {} (wall {:.3} ms); terminal run events 1",
+        state_labels(&sequence),
+        duration_text(document, RunState::Queued, RunState::Running),
+        duration_text(document, RunState::Running, RunState::Cancelling),
+        duration_text(document, RunState::Cancelling, RunState::Cancelled),
+        cancel_wall.as_secs_f64() * 1000.0
+    ))
+}
+
+/// (c) A failed run: Idle -> Queued -> Running -> Failed, one terminal event.
+fn check_run_state_fail() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, "a = 2\n1 +\n".to_string());
+    let from = workbench.documents()[0].transition_count();
+    if !workbench.run_active() {
+        return Err("run-state-fail: run_active returned false".to_string());
+    }
+    if workbench.documents()[0].state() != RunState::Queued {
+        return Err(format!(
+            "run-state-fail: submit accepted but state was {:?}, expected Queued",
+            workbench.documents()[0].state()
+        ));
+    }
+    if !workbench.wait_until_idle(RUN_TIMEOUT) {
+        return Err("run-state-fail: the run did not reach a terminal state".to_string());
+    }
+    let document = &workbench.documents()[0];
+    if document.state() != RunState::Failed {
+        return Err(format!(
+            "run-state-fail: terminal state was {:?}, expected Failed",
+            document.state()
+        ));
+    }
+    let sequence = expect_state_sequence(
+        document,
+        from,
+        &[
+            RunState::Idle,
+            RunState::Queued,
+            RunState::Running,
+            RunState::Failed,
+        ],
+        "run-state-fail",
+    )?;
+    if terminal_run_events(document, from) != 1 {
+        return Err(format!(
+            "run-state-fail: observed {} terminal run events, expected exactly 1",
+            terminal_run_events(document, from)
+        ));
+    }
+    if !workbench.status_text(1, 1).contains("run Failed") {
+        return Err(format!(
+            "run-state-fail: status strip was {:?}",
+            workbench.status_text(1, 1)
+        ));
+    }
+    expect_log(&workbench, 0, "run-state-fail", |text| {
+        text.contains("Diagnostic:") && text.contains("Run failed")
+    })?;
+    Ok(format!(
+        "sequence {}; Queued {}; Running {}; status \"run Failed\"; terminal run events 1",
+        state_labels(&sequence),
+        duration_text(document, RunState::Queued, RunState::Running),
+        duration_text(document, RunState::Running, RunState::Failed)
+    ))
+}
+
+/// (d) An edit after a successful run: Idle -> Queued -> Running -> Finished -> Stale, and a
+/// second edit keeps Stale without adding another transition or resurrecting Finished.
+fn check_run_state_stale() -> Result<String, String> {
+    let mut workbench = new_workbench();
+    workbench.set_source(0, "a = 1\na\n".to_string());
+    let from = workbench.documents()[0].transition_count();
+    if !workbench.run_active() {
+        return Err("run-state-stale: run_active returned false".to_string());
+    }
+    if !workbench.wait_until_idle(RUN_TIMEOUT) {
+        return Err("run-state-stale: the run did not reach a terminal state".to_string());
+    }
+    if workbench.documents()[0].state() != RunState::Finished {
+        return Err(format!(
+            "run-state-stale: state after the run was {:?}, expected Finished",
+            workbench.documents()[0].state()
+        ));
+    }
+
+    workbench.set_source(0, "a = 2\na\n".to_string());
+    if workbench.documents()[0].state() != RunState::Stale {
+        return Err(format!(
+            "run-state-stale: an edit after Finished left state {:?}, expected Stale",
+            workbench.documents()[0].state()
+        ));
+    }
+    let stale_status = workbench.status_text(1, 1);
+    if !stale_status.contains("run Stale") {
+        return Err(format!(
+            "run-state-stale: status strip after the edit was {stale_status:?}"
+        ));
+    }
+    let after_first_edit = workbench.documents()[0].transition_count();
+    workbench.set_source(0, "a = 3\na\n".to_string());
+    if workbench.documents()[0].state() != RunState::Stale {
+        return Err(format!(
+            "run-state-stale: a second edit left state {:?}, expected Stale",
+            workbench.documents()[0].state()
+        ));
+    }
+    if workbench.documents()[0].transition_count() != after_first_edit {
+        return Err("run-state-stale: a second edit added another transition".to_string());
+    }
+
+    let document = &workbench.documents()[0];
+    let sequence = expect_state_sequence(
+        document,
+        from,
+        &[
+            RunState::Idle,
+            RunState::Queued,
+            RunState::Running,
+            RunState::Finished,
+            RunState::Stale,
+        ],
+        "run-state-stale",
+    )?;
+    if terminal_run_events(document, from) != 1 {
+        return Err(format!(
+            "run-state-stale: observed {} terminal run events, expected exactly 1",
+            terminal_run_events(document, from)
+        ));
+    }
+    let stale_index = document
+        .transitions()
+        .iter()
+        .position(|transition| transition.to == RunState::Stale)
+        .ok_or("run-state-stale: the Stale transition is missing")?;
+    if document.transitions()[stale_index + 1..]
+        .iter()
+        .any(|transition| transition.to == RunState::Finished)
+    {
+        return Err("run-state-stale: Finished reappeared after Stale".to_string());
+    }
+    Ok(format!(
+        "sequence {}; Queued {}; Running {}; Finished displayed {} before the edit; second edit kept Stale and added no transition; terminal run events 1",
+        state_labels(&sequence),
+        duration_text(document, RunState::Queued, RunState::Running),
+        duration_text(document, RunState::Running, RunState::Finished),
+        duration_text(document, RunState::Finished, RunState::Stale)
     ))
 }

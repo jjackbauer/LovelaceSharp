@@ -1,0 +1,29 @@
+Failed-run status and log
+=========================
+
+Extracted verbatim from the window's UI Automation tree captured by
+tools/gui-harness.ps1 -Action scenario at the `run Failed` state
+(run-failed-uia.txt, capture match 31.6 ms after Ctrl+Enter).
+
+status_at_capture:
+  untitled.lv  |  rev 13  |  precision 1000  |  Ln 1, Col 13  |  run Failed
+
+editor accessible name:
+  Script editor, 2 lines, caret line 1 column 13
+
+editor pane header:
+  Diagnostic Ln 1, Col 8: Cannot divide by zero.
+
+log lines:
+  [info] Run queued (revision 13, run 1).
+  [info] Run started: 2 statements, engine lovelace-lang, precision 1000.
+  [error] Diagnostic: line 1, column 8: Cannot divide by zero.
+  [error] Run failed after 1 committed statements in 8 ms; the committed prefix remains in the workspace.
+
+Source typed in the scenario (the harness types one line, then Enter):
+  a = 1; 1 / 0
+
+The failing statement is the second top-level statement, "1 / 0", at byte offset 7
+(1-based line 1, column 8). The editor draws the underline from column 8 to
+end-of-line and a gutter marker on line 1; the hover tooltip shows the same
+message and position.

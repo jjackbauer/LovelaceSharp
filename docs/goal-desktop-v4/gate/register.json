@@ -1056,14 +1056,37 @@
                      "type":  "W",
                      "requirement":  "Correct error underlining and positioning",
                      "acceptance":  "Errors show underlines and gutter markers at exact reported range with hover tooltip and keyboard navigation, including UTF-16 astral cases.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-15/run-failed.png",
+                                          "sha256":  "068E2CA49378DFEB8AE3B2958E38027C782BCA5088527DF41C32D4FCFAC3AE98",
+                                          "class":  "gui",
+                                          "at_head":  "5add4a62a7c5bbf0eccad123026a64a8d5f9ea65"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-15/run-failed-uia.txt",
+                                          "sha256":  "E652256C31CFAC1FD2D9F7FFC12613660BEAAA62F3EB85AA3874D8CF209B2036",
+                                          "class":  "gui",
+                                          "at_head":  "5add4a62a7c5bbf0eccad123026a64a8d5f9ea65"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-15/status-and-log.txt",
+                                          "sha256":  "C6444F2176A0EA8BE5F4562DEA221E8CF3D37958F17A06649E930D27D8D58160",
+                                          "class":  "gui",
+                                          "at_head":  "5add4a62a7c5bbf0eccad123026a64a8d5f9ea65"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-15/diagnostics.md",
+                                          "sha256":  "ADF9F1D8FA2FF4E53E3D4C99EE083A7E300C4C4855FE1FD90CF590CC405D6308",
+                                          "class":  "gui",
+                                          "at_head":  "5add4a62a7c5bbf0eccad123026a64a8d5f9ea65"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness scenario; cargo test diagnostic_map",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Window capture: red underline from reported column to EOL, red gutter bar, header \u0027Diagnostic Ln 1, Col 8\u0027, tooltip; F8/gutter click moves the caret; 7 mapping tests incl. astral and CRLF; 130 tests pass."
                  },
                  {
                      "id":  "EDT-007",

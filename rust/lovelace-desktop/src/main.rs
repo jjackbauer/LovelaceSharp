@@ -23,11 +23,15 @@
 #![cfg_attr(not(windows), forbid(unsafe_code))]
 
 mod app;
+#[cfg(windows)]
+mod diagnostic_map;
 mod engine;
 mod execution;
 mod gui_selftest;
 mod keyboard;
 mod netcheck;
+mod run_state;
+mod run_trace;
 mod selftest;
 mod settings;
 mod statements;
@@ -103,6 +107,9 @@ fn usage() -> String {
     text.push_str("SHORTCUTS:\n");
     text.push_str("  Ctrl+Enter                          run the active document\n");
     text.push_str("  Esc                                 cancel the in-flight run\n");
+    text.push_str(
+        "  F8                                  jump to the last failed run's diagnostic\n",
+    );
     text.push_str(
         "  The workbench toolbar has Run, Cancel (while running) and the precision control.\n",
     );

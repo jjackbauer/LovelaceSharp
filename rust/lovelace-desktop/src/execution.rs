@@ -145,8 +145,8 @@ pub enum DesktopEvent {
         document: DocumentId,
         /// The run's identity.
         run: RunId,
-        /// The engine message, prefixed with its position in the full source.
-        diagnostic: String,
+        /// The structured failure: message plus its position in the full source.
+        diagnostic: Diagnostic,
     },
 }
 
@@ -220,11 +220,12 @@ pub struct Diagnostic {
 impl Diagnostic {
     /// Builds a diagnostic for a statement, translating an engine position when the message has one.
     ///
-    /// The engine reports a position as a zero-based byte offset inside the source it was given.
-    /// When the message names one (for example "at position 6.") the offset is added to the
-    /// statement's absolute offset, clamped to the statement text so an out-of-range position
-    /// can never point outside the full source. A message without a position points at the
-    /// statement start.
+    /// The engine reports a position as a **zero-based UTF-16 code-unit offset** inside the source
+    /// it was given (`lovelace_lang::LangError::position`). When the message names one (for
+    /// example "at position 6.") the code-unit offset is converted to a byte offset inside the
+    /// statement and added to the statement's absolute offset. The conversion clamps to the
+    /// statement text so an out-of-range position can never point outside the full source. A
+    /// message without a position points at the statement start.
     pub fn for_statement(
         statement: &Statement,
         source: &str,
@@ -232,7 +233,7 @@ impl Diagnostic {
     ) -> Diagnostic {
         let message = message.into();
         let relative = position_in_message(&message)
-            .map(|position| position.min(statement.text().len()))
+            .map(|position| byte_offset_utf16(statement.text(), position))
             .unwrap_or(0);
         let byte_offset = statement.byte_offset() + relative;
         let (line, column) = crate::statements::line_column(source, byte_offset);
@@ -246,13 +247,32 @@ impl Diagnostic {
         }
     }
 
-    /// Renders the diagnostic for a [DesktopEvent::Failed] payload.
+    /// Renders the diagnostic for a [WorkspaceSnapshot] and the log pane.
     pub fn render(&self) -> String {
         format!(
             "line {}, column {}: {}",
             self.line, self.column, self.message
         )
     }
+}
+
+/// Converts a zero-based UTF-16 code-unit offset into a byte offset in `text`.
+///
+/// An offset inside a surrogate pair clamps back to the start of that code point; an offset past
+/// the end clamps to the text length.
+fn byte_offset_utf16(text: &str, units: usize) -> usize {
+    let mut consumed = 0usize;
+    for (byte_index, character) in text.char_indices() {
+        if consumed >= units {
+            return byte_index;
+        }
+        let next = consumed + character.len_utf16();
+        if units < next {
+            return byte_index;
+        }
+        consumed = next;
+    }
+    text.len()
 }
 
 /// The first decimal number following "position" in an engine message, when there is one.
@@ -385,6 +405,7 @@ impl ExecutionHost {
         source: String,
         precision: usize,
     ) -> Result<RunHandle, SubmitError> {
+        crate::run_trace::mark("submit_enter", format!("document={}", document.0));
         let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
         if state.active.contains_key(&document) {
             return Err(SubmitError::Busy);
@@ -416,13 +437,19 @@ impl ExecutionHost {
             .name(format!("lovelace-run-{}-{}", document.0, run.0))
             .spawn(move || worker.run());
         match spawned {
-            Ok(_detached) => Ok(RunHandle {
-                document,
-                run,
-                revision,
-                control,
-                cancel_flag,
-            }),
+            Ok(_detached) => {
+                crate::run_trace::mark(
+                    "submit_exit",
+                    format!("document={} run={}", document.0, run.0),
+                );
+                Ok(RunHandle {
+                    document,
+                    run,
+                    revision,
+                    control,
+                    cancel_flag,
+                })
+            }
             Err(error) => {
                 let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
                 if let Some((active_run, _)) = state.active.get(&document) {
@@ -545,19 +572,22 @@ struct RunWorker {
 impl RunWorker {
     /// Runs the whole script, turning every exit path into exactly one terminal event.
     fn run(self) {
+        crate::run_trace::mark(
+            "worker_start",
+            format!("document={} run={}", self.document.0, self.run.0),
+        );
         let mut progress = Progress::default();
         match panic::catch_unwind(AssertUnwindSafe(|| self.execute(&mut progress))) {
             Ok(()) => {}
             Err(payload) => {
                 if !progress.ended {
                     let diagnostic = self.diagnostic_for(progress.current, panic_text(payload));
-                    let rendered = diagnostic.render();
-                    self.publish(self.snapshot(&progress, Some(rendered.clone())));
+                    self.publish(self.snapshot(&progress, Some(diagnostic.render())));
                     self.retire();
                     self.emit(DesktopEvent::Failed {
                         document: self.document,
                         run: self.run,
-                        diagnostic: rendered,
+                        diagnostic,
                     });
                 }
             }
@@ -585,6 +615,7 @@ impl RunWorker {
 
     /// Evaluates every statement, publishing typed events on the way.
     fn execute(&self, progress: &mut Progress) {
+        crate::run_trace::mark("engine_build_enter", "engine factory");
         let engine = match panic::catch_unwind(AssertUnwindSafe(|| (self.factory)())) {
             Ok(engine) => engine,
             Err(payload) => {
@@ -593,6 +624,7 @@ impl RunWorker {
                 return;
             }
         };
+        crate::run_trace::mark("engine_constructed", "engine factory returned");
         let mut engine = engine;
         let _ = panic::catch_unwind(AssertUnwindSafe(|| engine.set_precision(self.precision)));
         // The live kernel seam: the engine keeps this handle for the whole run and its kernels
@@ -607,6 +639,14 @@ impl RunWorker {
             revision: self.revision,
             total: self.statements.len(),
         });
+        crate::run_trace::mark(
+            "run_started_emitted",
+            format!(
+                "total={} document={}",
+                self.statements.len(),
+                self.document.0
+            ),
+        );
 
         for (index, statement) in self.statements.iter().enumerate() {
             progress.current = index;
@@ -706,13 +746,12 @@ impl RunWorker {
 
     /// Publishes a final snapshot and the single Failed event for the run.
     fn fail(&self, progress: &mut Progress, diagnostic: Diagnostic) {
-        let rendered = diagnostic.render();
-        self.publish(self.snapshot(progress, Some(rendered.clone())));
+        self.publish(self.snapshot(progress, Some(diagnostic.render())));
         self.retire();
         self.emit(DesktopEvent::Failed {
             document: self.document,
             run: self.run,
-            diagnostic: rendered,
+            diagnostic,
         });
         progress.ended = true;
     }
@@ -940,7 +979,7 @@ mod tests {
             } => {
                 format!("Cancelled({committed_steps})")
             }
-            DesktopEvent::Failed { diagnostic, .. } => format!("Failed({diagnostic})"),
+            DesktopEvent::Failed { diagnostic, .. } => format!("Failed({})", diagnostic.render()),
         }
     }
 
@@ -1470,12 +1509,12 @@ mod tests {
             ),
         };
         assert!(
-            diagnostic.contains("boom"),
-            "diagnostic must carry the panic message: {diagnostic}"
+            diagnostic.message.contains("boom"),
+            "diagnostic must carry the panic message: {diagnostic:?}"
         );
         assert!(
-            diagnostic.contains("line 1"),
-            "diagnostic must point into the full source: {diagnostic}"
+            diagnostic.render().contains("line 1"),
+            "diagnostic must point into the full source: {diagnostic:?}"
         );
         let after_panic = host
             .last_snapshot(doc)
@@ -1624,6 +1663,32 @@ mod tests {
         assert_eq!(fallback.byte_offset, statement.byte_offset());
         assert_eq!(fallback.line, 3);
         assert_eq!(fallback.column, 1);
+    }
+
+    #[test]
+    fn diagnostic_position_is_a_utf16_offset_not_a_byte_offset() {
+        // "s = \"<emoji>\" + x": the emoji is four UTF-8 bytes but two UTF-16 code units, so the
+        // engine's position 11 for 'x' is byte 13 and column 12 (1-based code units).
+        let source = "s = \"\u{1f600}\" + x\n";
+        let statements = crate::statements::slice(source);
+        assert_eq!(statements.len(), 1);
+        assert_eq!(statements[0].text(), "s = \"\u{1f600}\" + x");
+
+        let diagnostic = Diagnostic::for_statement(
+            &statements[0],
+            source,
+            "Unexpected token 'x' at position 11.",
+        );
+        assert_eq!(diagnostic.byte_offset, 13);
+        assert_eq!(diagnostic.line, 1);
+        assert_eq!(diagnostic.column, 12);
+        assert_eq!(byte_offset_utf16("s = \"\u{1f600}\" + x", 11), 13);
+        assert_eq!(byte_offset_utf16("\u{1f600}x", 99), 5, "clamped to the end");
+        assert_eq!(
+            byte_offset_utf16("\u{1f600}x", 1),
+            0,
+            "inside a surrogate pair clamps to the character start"
+        );
     }
 
     #[test]

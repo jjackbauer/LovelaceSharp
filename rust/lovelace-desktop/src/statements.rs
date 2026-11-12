@@ -123,7 +123,11 @@ pub fn slice(source: &str) -> Vec<Statement> {
 
 /// Returns the 1-based line and column of a byte offset in `source`.
 ///
-/// Columns count Unicode scalar values, matching the engine's user-facing editor positions.
+/// Columns count **UTF-16 code units**, the convention the engine publishes
+/// (`lovelace_lang::LangError::position` is a UTF-16 code-unit offset) and the editor maps with
+/// [`crate::diagnostic_map`]. That makes an astral character two columns wide, exactly as it is
+/// two `char` units in the engine. Lines are split on `\n`, so a CRLF pair ends one line and the
+/// `\r` is not counted as a column.
 pub fn line_column(source: &str, byte_offset: usize) -> (usize, usize) {
     let mut offset = byte_offset.min(source.len());
     while !source.is_char_boundary(offset) {
@@ -134,7 +138,7 @@ pub fn line_column(source: &str, byte_offset: usize) -> (usize, usize) {
     let column = before
         .rsplit('\n')
         .next()
-        .map(|tail| tail.chars().count() + 1)
+        .map(|tail| tail.encode_utf16().count() + 1)
         .unwrap_or(1);
     (line, column)
 }
@@ -303,5 +307,24 @@ mod tests {
         let statements = slice("alpha = 1\nbeta = 2\n");
         assert_eq!(statements[0].label(), "alpha = 1");
         assert_eq!(statements[1].label(), "beta = 2");
+    }
+
+    #[test]
+    fn line_column_counts_utf16_code_units_and_crlf_once() {
+        // "ab\n<emoji>x\n": the emoji starts line 2 at byte 3, and 'x' starts at byte 7.
+        let source = "ab\n\u{1f600}x\n";
+        assert_eq!(line_column(source, 3), (2, 1));
+        assert_eq!(
+            line_column(source, 7),
+            (2, 3),
+            "the emoji is two UTF-16 units"
+        );
+        assert_eq!(line_column(source, source.len()), (3, 1));
+
+        // A CRLF pair ends exactly one line; the column restarts after the LF.
+        let crlf = "ab\r\ncd";
+        assert_eq!(line_column(crlf, 3), (1, 4), "the LF is column 4 of line 1");
+        assert_eq!(line_column(crlf, 4), (2, 1));
+        assert_eq!(line_column(crlf, 5), (2, 2));
     }
 }

@@ -27,10 +27,11 @@ use std::time::{Duration, Instant};
 use crate::app::LogLevel;
 use crate::engine::{self, DEFAULT_PRECISION, PlotCapture};
 use crate::execution::{
-    DesktopEvent, DocumentId, EvaluatorFactory, EventSink, ExecutionHost, RunHandle,
-    SequencedEvent, SourceRevision, SubmitError, WorkspaceSnapshot,
+    DesktopEvent, Diagnostic, DocumentId, EvaluatorFactory, EventSink, ExecutionHost, RunHandle,
+    RunId, SequencedEvent, SourceRevision, SubmitError, WorkspaceSnapshot,
 };
 use crate::keyboard::WorkbenchCommand;
+use crate::run_state::{RunState, RunStateMachine, RunStateTransition};
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 
 /// Maximum number of log entries retained per document; the oldest are evicted first.
@@ -55,50 +56,6 @@ pub struct LogLine {
     pub text: String,
 }
 
-/// Whether a run is in flight for the document.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunPhase {
-    /// No run is in flight.
-    Idle,
-    /// A run was submitted and has not delivered its terminal event.
-    Running,
-    /// Cancellation was accepted and the terminal event has not arrived yet.
-    Cancelling,
-}
-
-impl RunPhase {
-    /// The word shown in the status strip for this phase.
-    pub fn label(self) -> &'static str {
-        match self {
-            RunPhase::Idle => "Idle",
-            RunPhase::Running => "Running",
-            RunPhase::Cancelling => "Cancelling",
-        }
-    }
-}
-
-/// The terminal result of the document's last run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RunOutcome {
-    /// The run evaluated every statement.
-    Finished,
-    /// The run stopped on its cancellation token.
-    Cancelled,
-    /// A statement failed (or the engine panicked).
-    Failed,
-}
-
-impl RunOutcome {
-    /// The word shown in the status strip after the run.
-    pub fn label(self) -> &'static str {
-        match self {
-            RunOutcome::Finished => "Finished",
-            RunOutcome::Cancelled => "Cancelled",
-            RunOutcome::Failed => "Failed",
-        }
-    }
-}
-
 /// Which toolbar controls the window must show for the active document's state.
 ///
 /// The window builds its toolbar from this value, and `--gui-selftest` asserts on the same
@@ -110,7 +67,7 @@ pub struct ToolbarState {
     pub run_enabled: bool,
     /// Cancel is on screen; true while a run is in flight.
     pub cancel_visible: bool,
-    /// Cancel is clickable.
+    /// Cancel is clickable. It is false in `Cancelling`, where the request is already in.
     pub cancel_enabled: bool,
 }
 
@@ -148,10 +105,16 @@ pub struct WorkbenchDocument {
     pub last_plot: Option<PlotCapture>,
     /// The document's log, oldest first.
     pub logs: Vec<LogLine>,
-    /// Whether a run is in flight.
-    pub phase: RunPhase,
-    /// The terminal result of the last run, if one has completed.
-    pub outcome: Option<RunOutcome>,
+    /// The structured diagnostic of the last failed run, with its source revision.
+    ///
+    /// It is kept only while [`Workbench::diagnostic`] can prove the revision still describes
+    /// the buffer; an edit therefore hides the editor decoration instead of letting it point at
+    /// text the failure never named.
+    diagnostic: Option<Diagnostic>,
+    /// The source revision the failure was produced for.
+    diagnostic_revision: Option<SourceRevision>,
+    /// The explicit run state and its transition log.
+    run_state: RunStateMachine,
     /// Number of statements committed by the current or last run.
     pub committed: usize,
     /// Number of statements the current or last run will visit.
@@ -167,6 +130,42 @@ impl WorkbenchDocument {
     /// True when the buffer differs from the text last saved or loaded.
     pub fn dirty(&self) -> bool {
         self.source != self.saved_source
+    }
+
+    /// The current run state.
+    pub fn state(&self) -> RunState {
+        self.run_state.state()
+    }
+
+    /// The run currently in flight, or the run whose terminal result is displayed.
+    #[allow(dead_code)] // host-facing identity accessor used by the workbench tests
+    pub fn run_id(&self) -> Option<crate::execution::RunId> {
+        self.run_state.run()
+    }
+
+    /// Every accepted run-state transition, oldest first.
+    pub fn transitions(&self) -> &[RunStateTransition] {
+        self.run_state.transitions()
+    }
+
+    /// Number of run-state transitions retained.
+    pub fn transition_count(&self) -> usize {
+        self.run_state.transition_count()
+    }
+
+    /// Number of accepted terminal run events in the transition log.
+    #[allow(dead_code)] // invariant accessor exercised by the workbench tests
+    pub fn terminal_run_event_count(&self) -> usize {
+        self.run_state.terminal_run_event_count()
+    }
+
+    /// Duration of the first adjacent `from -> to` transition pair, when present.
+    pub fn duration_between(
+        &self,
+        from: RunState,
+        to: RunState,
+    ) -> Option<std::time::Duration> {
+        self.run_state.duration_between(from, to)
     }
 }
 
@@ -272,18 +271,22 @@ impl Workbench {
 
     /// The toolbar controls the window must show for the active document right now.
     pub fn toolbar_state(&self) -> ToolbarState {
-        let running = self.active_is_running();
+        let state = self.docs[self.active].state();
+        let in_flight = state.is_in_flight();
         ToolbarState {
-            run_enabled: !running,
-            cancel_visible: running,
-            cancel_enabled: running,
+            run_enabled: !in_flight,
+            cancel_visible: in_flight,
+            cancel_enabled: matches!(state, RunState::Queued | RunState::Running),
         }
     }
 
     /// Applies one keyboard command (Ctrl+Enter or Esc) to the active document.
     pub fn command(&mut self, command: WorkbenchCommand) -> bool {
         match command {
-            WorkbenchCommand::Run => self.run_active(),
+            WorkbenchCommand::Run => {
+                crate::run_trace::mark("command_run_enter", "Ctrl+Enter command");
+                self.run_active()
+            }
             WorkbenchCommand::Cancel => self.cancel_active(),
         }
     }
@@ -322,8 +325,13 @@ impl Workbench {
 
     /// Replaces a document's source and bumps its source revision.
     ///
-    /// Editing while a run is in flight cancels that run: its results describe text that no
-    /// longer exists, and the worker must not publish them as the current document's state.
+    /// The source revision advancing drives two state-machine edges:
+    ///
+    /// - while a run is `Queued` or `Running`, the edit cancels it and moves to `Cancelling`; its
+    ///   terminal event will arrive but the result describes text that no longer exists, so it is
+    ///   discarded and the run ends in `Cancelled`;
+    /// - while `Finished`, the displayed result no longer describes the buffer, so the state
+    ///   becomes `Stale`. A second edit while `Stale` is a no-op: it cannot resurrect `Finished`.
     pub fn set_source(&mut self, index: usize, source: String) {
         let Some(doc) = self.docs.get_mut(index) else {
             return;
@@ -333,22 +341,41 @@ impl Workbench {
         }
         doc.source = source;
         doc.revision = doc.revision.saturating_add(1);
-        let cancelled = if doc.phase == RunPhase::Running {
-            match doc.run.as_ref() {
-                Some(handle) if self.host.cancel(handle) => {
-                    doc.phase = RunPhase::Cancelling;
-                    true
+        let state = doc.state();
+        let run = doc.run_state.run();
+        let mut cancelled = false;
+        let mut staled = false;
+        match state {
+            RunState::Queued | RunState::Running => {
+                if let Some(handle) = doc.run.as_ref() {
+                    let _ = self.host.cancel(handle);
                 }
-                _ => false,
+                if let Some(run) = run {
+                    cancelled = doc
+                        .run_state
+                        .cancel(run, "source changed while the run was in flight");
+                }
             }
-        } else {
-            false
-        };
+            RunState::Finished => {
+                if let Some(run) = run {
+                    staled = doc
+                        .run_state
+                        .stale(run, "source revision advanced after a finished result");
+                }
+            }
+            _ => {}
+        }
         if cancelled {
             self.log(
                 index,
                 LogLevel::Warn,
                 "The source changed while the run was in flight; the run was cancelled.",
+            );
+        } else if staled {
+            self.log(
+                index,
+                LogLevel::Info,
+                "The displayed result is stale: the source changed after it finished.",
             );
         }
     }
@@ -373,6 +400,14 @@ impl Workbench {
         let Some(doc) = self.docs.get_mut(index) else {
             return Err("No document tab to open the file in.".to_string());
         };
+        if doc.state().is_in_flight() {
+            if let Some(handle) = doc.run.as_ref() {
+                let _ = self.host.cancel(handle);
+            }
+            doc.run = None;
+            doc.started = None;
+        }
+        let was_active = doc.state() != RunState::Idle;
         doc.title = title.clone();
         doc.path = Some(path.to_path_buf());
         doc.source = text;
@@ -380,7 +415,12 @@ impl Workbench {
         doc.revision = doc.revision.saturating_add(1);
         doc.snapshot = None;
         doc.last_plot = None;
-        doc.outcome = None;
+        doc.committed = 0;
+        doc.total = 0;
+        doc.elapsed_ms = 0;
+        if was_active {
+            doc.run_state.reset("document loaded from disk");
+        }
         self.log(index, LogLevel::Info, format!("Opened {}.", path.display()));
         Ok(())
     }
@@ -416,13 +456,15 @@ impl Workbench {
     /// Requests a run of the active document.
     ///
     /// This only calls [`ExecutionHost::submit`], which spawns the worker and returns: no source
-    /// is evaluated on the caller's thread and the window never blocks.
+    /// is evaluated on the caller's thread and the window never blocks. When `submit` is accepted
+    /// the state machine enters [`RunState::Queued`] synchronously; [`RunState::Running`] follows
+    /// when the typed `RunStarted` event is polled.
     pub fn run_active(&mut self) -> bool {
         let index = self.active;
         let Some(doc) = self.docs.get(index) else {
             return false;
         };
-        if doc.phase != RunPhase::Idle {
+        if doc.state().is_in_flight() {
             self.log(index, LogLevel::Warn, "A run is already in progress.");
             return false;
         }
@@ -440,18 +482,26 @@ impl Workbench {
         match self.host.submit(doc.id, revision, source, precision) {
             Ok(handle) => {
                 let run_id = handle.run();
-                let doc = &mut self.docs[index];
-                doc.run = Some(handle);
-                doc.phase = RunPhase::Running;
-                doc.outcome = None;
-                doc.committed = 0;
-                doc.total = 0;
-                doc.elapsed_ms = 0;
-                doc.started = Some(Instant::now());
+                {
+                    let doc = &mut self.docs[index];
+                    doc.run = Some(handle);
+                    doc.committed = 0;
+                    doc.total = 0;
+                    doc.elapsed_ms = 0;
+                    doc.started = Some(Instant::now());
+                    let queued = doc.run_state.begin(run_id, "submit accepted");
+                    debug_assert!(queued, "a submit must enter Queued");
+                    if crate::run_trace::enabled() {
+                        crate::run_trace::mark(
+                            "run_phase_set",
+                            format!("document={} run={} phase=Queued", doc.id.0, run_id.0),
+                        );
+                    }
+                }
                 self.log(
                     index,
                     LogLevel::Info,
-                    format!("Run requested (revision {}, run {}).", revision.0, run_id.0),
+                    format!("Run queued (revision {}, run {}).", revision.0, run_id.0),
                 );
                 true
             }
@@ -475,33 +525,49 @@ impl Workbench {
     }
 
     /// Requests cancellation of the active document's run.
+    ///
+    /// The state moves to [`RunState::Cancelling`] synchronously when the host accepts the
+    /// request; the terminal `Cancelled` event is applied by a later [`Workbench::poll`].
     pub fn cancel_active(&mut self) -> bool {
         let index = self.active;
-        let Some(doc) = self.docs.get_mut(index) else {
-            return false;
-        };
-        let Some(handle) = doc.run.as_ref() else {
-            return false;
-        };
-        if !handle.is_active() {
-            return false;
+        let cancellation_requested;
+        {
+            let Some(doc) = self.docs.get_mut(index) else {
+                return false;
+            };
+            let Some(handle) = doc.run.as_ref() else {
+                return false;
+            };
+            if !handle.is_active() {
+                return false;
+            }
+            if !matches!(doc.state(), RunState::Queued | RunState::Running) {
+                return false;
+            }
+            if !self.host.cancel(handle) {
+                return false;
+            }
+            let Some(run) = doc.run_state.run() else {
+                return false;
+            };
+            cancellation_requested = doc.run_state.cancel(run, "cancellation requested");
         }
-        if !self.host.cancel(handle) {
-            return false;
+        if cancellation_requested {
+            self.log(index, LogLevel::Info, "Cancellation requested.");
         }
-        doc.phase = RunPhase::Cancelling;
-        self.log(index, LogLevel::Info, "Cancellation requested.");
-        true
+        cancellation_requested
     }
 
     /// True while any run is in flight.
     pub fn is_running(&self) -> bool {
-        self.docs.iter().any(|doc| doc.phase != RunPhase::Idle)
+        self.docs
+            .iter()
+            .any(|doc| doc.state().is_in_flight())
     }
 
     /// True while the active document's run is in flight.
     pub fn active_is_running(&self) -> bool {
-        self.docs[self.active].phase != RunPhase::Idle
+        self.docs[self.active].state().is_in_flight()
     }
 
     /// Drains every queued event without blocking and applies it to its document.
@@ -557,8 +623,10 @@ impl Workbench {
         let Some(index) = self.docs.iter().position(|doc| doc.id == id) else {
             return false;
         };
-        let tracked_run = self.docs[index].run.as_ref().map(|handle| handle.run());
-        if tracked_run != Some(sequenced.event.run()) {
+        let Some(tracked_run) = self.docs[index].run.as_ref().map(|handle| handle.run()) else {
+            return false;
+        };
+        if tracked_run != sequenced.event.run() {
             return false;
         }
         // A run whose source revision is older than the document's current revision describes
@@ -567,12 +635,36 @@ impl Workbench {
 
         match &sequenced.event {
             DesktopEvent::RunStarted { total, .. } => {
-                let detail = format!(
-                    "Run started: {} statements, engine {}, precision {}.",
-                    total, self.engine_name, self.docs[index].precision
+                crate::run_trace::mark(
+                    "run_started_applied",
+                    format!("total={} document={}", total, id.0),
                 );
-                self.docs[index].total = *total;
-                self.log(index, LogLevel::Info, detail);
+                let mut started = false;
+                let mut cancellation_pending = false;
+                {
+                    let doc = &mut self.docs[index];
+                    if doc.state() == RunState::Queued {
+                        started =
+                            doc.run_state
+                                .started(tracked_run, "worker reported RunStarted");
+                    } else if doc.state() == RunState::Cancelling {
+                        cancellation_pending = true;
+                    }
+                    doc.total = *total;
+                }
+                if started {
+                    let detail = format!(
+                        "Run started: {} statements, engine {}, precision {}.",
+                        total, self.engine_name, self.docs[index].precision
+                    );
+                    self.log(index, LogLevel::Info, detail);
+                } else if cancellation_pending {
+                    self.log(
+                        index,
+                        LogLevel::Warn,
+                        "Run started while cancellation was pending; waiting for the terminal event.",
+                    );
+                }
                 true
             }
             DesktopEvent::StepStarted { .. } => true,
@@ -589,18 +681,38 @@ impl Workbench {
             DesktopEvent::SubProgress { .. } => true,
             DesktopEvent::Finished { snapshot, .. } => {
                 if stale {
-                    self.finish_stale(index);
-                    return true;
+                    return self.discard_terminal(
+                        index,
+                        tracked_run,
+                        "the source changed while the run was in flight.",
+                    );
+                }
+                if !self.docs[index].state().is_in_flight() {
+                    return false;
                 }
                 let accepted = self.docs[index].sink.apply(sequenced);
                 if !accepted {
-                    self.finish_stale(index);
-                    return true;
+                    return self.discard_terminal(
+                        index,
+                        tracked_run,
+                        "the result did not belong to the document's current revision.",
+                    );
                 }
                 self.publish_snapshot(index, snapshot.clone());
-                let doc = &mut self.docs[index];
-                doc.outcome = Some(RunOutcome::Finished);
-                doc.committed = snapshot.committed_steps;
+                {
+                    let doc = &mut self.docs[index];
+                    // A successful run is the only outcome that clears the failure decoration:
+                    // the buffer it describes is still current and now evaluates cleanly.
+                    doc.diagnostic = None;
+                    doc.diagnostic_revision = None;
+                    doc.committed = snapshot.committed_steps;
+                    let transitioned = doc.run_state.finish(
+                        tracked_run,
+                        RunState::Finished,
+                        "Finished event applied",
+                    );
+                    debug_assert!(transitioned, "a terminal event must end the in-flight run");
+                }
                 let elapsed = self.close_run(index);
                 let result = snapshot.result.clone();
                 self.log(index, LogLevel::Result, format!("= {result}"));
@@ -618,16 +730,30 @@ impl Workbench {
                 committed_steps, ..
             } => {
                 if stale {
-                    self.finish_stale(index);
-                    return true;
+                    return self.discard_terminal(
+                        index,
+                        tracked_run,
+                        "the source changed while the run was in flight.",
+                    );
+                }
+                if !self.docs[index].state().is_in_flight() {
+                    return false;
                 }
                 let snapshot = self.host.last_snapshot(id);
                 if let Some(snapshot) = snapshot {
                     self.publish_snapshot(index, snapshot);
                 }
+                {
+                    let doc = &mut self.docs[index];
+                    doc.committed = *committed_steps;
+                    let transitioned = doc.run_state.finish(
+                        tracked_run,
+                        RunState::Cancelled,
+                        "Cancelled event applied",
+                    );
+                    debug_assert!(transitioned, "a terminal event must end the in-flight run");
+                }
                 let elapsed = self.close_run(index);
-                self.docs[index].outcome = Some(RunOutcome::Cancelled);
-                self.docs[index].committed = *committed_steps;
                 self.log(
                     index,
                     LogLevel::Info,
@@ -640,16 +766,34 @@ impl Workbench {
             }
             DesktopEvent::Failed { diagnostic, .. } => {
                 if stale {
-                    self.finish_stale(index);
-                    return true;
+                    return self.discard_terminal(
+                        index,
+                        tracked_run,
+                        "the source changed while the run was in flight.",
+                    );
+                }
+                if !self.docs[index].state().is_in_flight() {
+                    return false;
                 }
                 let snapshot = self.host.last_snapshot(id);
                 if let Some(snapshot) = snapshot {
                     self.publish_snapshot(index, snapshot);
                 }
+                {
+                    let doc = &mut self.docs[index];
+                    doc.diagnostic = Some(diagnostic.clone());
+                    doc.diagnostic_revision = Some(sequenced.revision);
+                    let transitioned =
+                        doc.run_state
+                            .finish(tracked_run, RunState::Failed, "Failed event applied");
+                    debug_assert!(transitioned, "a terminal event must end the in-flight run");
+                }
                 let elapsed = self.close_run(index);
-                self.docs[index].outcome = Some(RunOutcome::Failed);
-                self.log(index, LogLevel::Error, format!("Diagnostic: {diagnostic}"));
+                self.log(
+                    index,
+                    LogLevel::Error,
+                    format!("Diagnostic: {}", diagnostic.render()),
+                );
                 self.log(
                     index,
                     LogLevel::Error,
@@ -664,6 +808,9 @@ impl Workbench {
     }
 
     /// Closes the current run, records its wall time and returns the elapsed milliseconds.
+    ///
+    /// The run state is intentionally not touched here: the caller has already applied the one
+    /// terminal state transition (or the abandoned-run transition).
     fn close_run(&mut self, index: usize) -> u64 {
         let doc = &mut self.docs[index];
         let elapsed = doc
@@ -672,19 +819,34 @@ impl Workbench {
             .map(|started| started.elapsed().as_millis() as u64)
             .unwrap_or(0);
         doc.elapsed_ms = elapsed;
-        doc.phase = RunPhase::Idle;
         doc.run = None;
         elapsed
     }
 
-    /// Retires a stale run without publishing its snapshot.
-    fn finish_stale(&mut self, index: usize) {
-        self.close_run(index);
+    /// Retires a run whose terminal event cannot be published, without publishing its snapshot.
+    ///
+    /// The run was in flight and is now over, so the state machine still accepts exactly one
+    /// terminal transition. `Cancelled` is the truthful state: the run was abandoned by the
+    /// source edit (or its result failed the revision check), not completed for this buffer.
+    fn discard_terminal(&mut self, index: usize, run: RunId, reason: &str) -> bool {
+        if !self.docs[index].state().is_in_flight() {
+            return false;
+        }
+        let transitioned = self.docs[index].run_state.finish(
+            run,
+            RunState::Cancelled,
+            "terminal event not published; the run was abandoned",
+        );
+        if !transitioned {
+            return false;
+        }
+        let _ = self.close_run(index);
         self.log(
             index,
             LogLevel::Warn,
-            "Run result discarded: the source changed while the run was in flight.",
+            format!("Run result discarded: {reason}"),
         );
+        true
     }
 
     /// Records a snapshot and adopts its plot, if it produced one.
@@ -712,14 +874,14 @@ impl Workbench {
     /// The status strip: document, revision, precision, cursor and run state.
     pub fn status_text(&self, line: usize, column: usize) -> String {
         let doc = &self.docs[self.active];
-        let run = if doc.phase == RunPhase::Idle {
-            doc.outcome.map(RunOutcome::label).unwrap_or("Idle")
-        } else {
-            doc.phase.label()
-        };
         format!(
             "{}  |  rev {}  |  precision {}  |  Ln {}, Col {}  |  run {}",
-            doc.title, doc.revision, doc.precision, line, column, run
+            doc.title,
+            doc.revision,
+            doc.precision,
+            line,
+            column,
+            doc.state().label()
         )
     }
 
@@ -737,6 +899,26 @@ impl Workbench {
     pub fn active_snapshot(&self) -> Option<&WorkspaceSnapshot> {
         self.docs[self.active].snapshot.as_ref()
     }
+
+    /// The active document's failure diagnostic, while it still describes the buffer.
+    pub fn active_diagnostic(&self) -> Option<&Diagnostic> {
+        self.diagnostic(self.active)
+    }
+
+    /// A document's failure diagnostic, while its revision is the document's current revision.
+    ///
+    /// The revision check is what makes the editor decoration honest: a diagnostic names a line
+    /// and column in the text that was run, so an edit (including deleting the offending line)
+    /// makes it inapplicable. The log line remains, but no marker can point at stale text and no
+    /// marker can point past the shortened buffer.
+    pub fn diagnostic(&self, index: usize) -> Option<&Diagnostic> {
+        let document = self.docs.get(index)?;
+        let revision = document.diagnostic_revision?;
+        if revision != SourceRevision(document.revision) {
+            return None;
+        }
+        document.diagnostic.as_ref()
+    }
 }
 
 impl WorkbenchDocument {
@@ -752,8 +934,9 @@ impl WorkbenchDocument {
             snapshot: None,
             last_plot: None,
             logs: Vec::new(),
-            phase: RunPhase::Idle,
-            outcome: None,
+            diagnostic: None,
+            diagnostic_revision: None,
+            run_state: RunStateMachine::new(),
             committed: 0,
             total: 0,
             elapsed_ms: 0,
@@ -783,7 +966,7 @@ fn plot_scoped_factory(inner: EvaluatorFactory, root: PathBuf) -> EvaluatorFacto
 mod tests {
     use super::*;
     use crate::engine::{Evaluator, FakeEngine};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
     fn fake_workbench() -> Workbench {
         Workbench::with_factory(Box::new(|| Box::new(FakeEngine::new())))
@@ -864,7 +1047,21 @@ mod tests {
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
 
         let document = &workbench.documents()[0];
-        assert_eq!(document.outcome, Some(RunOutcome::Finished));
+        assert_eq!(document.state(), RunState::Finished);
+        assert_eq!(
+            document
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [
+                RunState::Queued,
+                RunState::Running,
+                RunState::Finished
+            ],
+            "a finished run must log Queued, Running and exactly one Finished"
+        );
+        assert_eq!(document.terminal_run_event_count(), 1);
         let snapshot = document.snapshot.as_ref().expect("a finished snapshot");
         assert_eq!(snapshot.result, "12");
         assert_eq!(snapshot.committed_steps, 3);
@@ -932,14 +1129,33 @@ mod tests {
         }
         let cancel_at = Instant::now();
         assert!(workbench.cancel_active());
-        assert_eq!(workbench.documents()[0].phase, RunPhase::Cancelling);
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelling);
+        assert!(
+            workbench.status_text(1, 1).contains("run Cancelling"),
+            "status strip was {:?}",
+            workbench.status_text(1, 1)
+        );
         assert!(workbench.wait_until_idle(Duration::from_secs(2)));
         let elapsed = cancel_at.elapsed();
         assert!(elapsed < Duration::from_secs(2), "cancel took {elapsed:?}");
 
         let document = &workbench.documents()[0];
-        assert_eq!(document.outcome, Some(RunOutcome::Cancelled));
-        assert_eq!(document.phase, RunPhase::Idle);
+        assert_eq!(document.state(), RunState::Cancelled);
+        assert_eq!(
+            document
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [
+                RunState::Queued,
+                RunState::Running,
+                RunState::Cancelling,
+                RunState::Cancelled
+            ],
+            "a cancelled run must log Queued, Running, Cancelling and exactly one Cancelled"
+        );
+        assert_eq!(document.terminal_run_event_count(), 1);
         assert!(document.committed >= 1);
         assert!(document.committed < 50);
         let snapshot = document.snapshot.as_ref().expect("cancelled snapshot");
@@ -964,11 +1180,35 @@ mod tests {
         assert!(workbench.run_active());
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
         let document = &workbench.documents()[0];
-        assert_eq!(document.outcome, Some(RunOutcome::Failed));
-        assert_eq!(document.phase, RunPhase::Idle);
+        assert_eq!(document.state(), RunState::Failed);
+        assert_eq!(
+            document
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [RunState::Queued, RunState::Running, RunState::Failed],
+            "a failed run must log Queued, Running and exactly one Failed"
+        );
+        assert_eq!(document.terminal_run_event_count(), 1);
         let snapshot = document.snapshot.as_ref().expect("failed snapshot");
         assert_eq!(snapshot.committed_steps, 1);
         assert!(snapshot.diagnostic.is_some());
+        // The editor decoration is driven by the structured diagnostic, not by the log text.
+        let diagnostic = workbench
+            .diagnostic(0)
+            .expect("a failed run must publish its structured diagnostic");
+        assert_eq!(
+            diagnostic.line, 2,
+            "the failing second statement starts on line 2"
+        );
+        assert_eq!(diagnostic.column, 1);
+        assert_eq!(diagnostic.statement_index, 1);
+        assert_eq!(diagnostic.byte_offset, 6);
+        assert_eq!(
+            diagnostic.message, "Cannot divide by zero.",
+            "the engine message must be carried verbatim"
+        );
         assert!(
             document
                 .logs
@@ -976,6 +1216,82 @@ mod tests {
                 .any(|line| line.level == LogLevel::Error && line.text.starts_with("Diagnostic:"))
         );
         assert!(workbench.status_text(1, 1).contains("Failed"));
+    }
+
+    #[test]
+    fn a_successful_run_clears_the_failure_decoration_and_an_edit_hides_it() {
+        // A stateful engine that fails once and then succeeds, so the second run can prove the
+        // success-clears rule without changing the source (a source edit hides the decoration for
+        // a different reason: the revision no longer matches).
+        struct FailOnceEngine {
+            calls: Arc<AtomicU64>,
+        }
+        impl Evaluator for FailOnceEngine {
+            fn eval(&mut self, _src: &str) -> Result<String, String> {
+                let call = self.calls.fetch_add(1, Ordering::SeqCst);
+                if call == 1 {
+                    Err("Cannot divide by zero.".to_string())
+                } else {
+                    Ok("ok".to_string())
+                }
+            }
+        }
+
+        let calls = Arc::new(AtomicU64::new(0));
+        let counter = Arc::clone(&calls);
+        let mut workbench = Workbench::with_factory(Box::new(move || {
+            Box::new(FailOnceEngine {
+                calls: Arc::clone(&counter),
+            })
+        }));
+        workbench.set_source(0, "y = 4\n1 / 0\n".to_string());
+
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Failed);
+        assert_eq!(
+            workbench.diagnostic(0).map(|d| d.line),
+            Some(2),
+            "the first run's diagnostic is drawn"
+        );
+
+        // The same source now runs successfully; a success is the one outcome that clears the
+        // decoration while the buffer has not changed.
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+        assert_eq!(
+            workbench.diagnostic(0),
+            None,
+            "a successful run clears the failure decoration"
+        );
+        assert!(
+            workbench.documents()[0]
+                .logs
+                .iter()
+                .any(|line| line.level == LogLevel::Error),
+            "the failed run's log line remains even though the decoration cleared"
+        );
+
+        // Deleting the offending line is a source edit: the diagnostic is gated on the revision
+        // it was produced for, so it can never point at the shortened buffer.
+        let mut edited = fake_workbench();
+        edited.set_source(0, "y = 4\n1 / 0\nthird = 3\n".to_string());
+        let failed_revision = edited.documents()[0].revision;
+        assert!(edited.run_active());
+        assert!(edited.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(edited.documents()[0].state(), RunState::Failed);
+        assert!(edited.diagnostic(0).is_some());
+        edited.set_source(0, "y = 4\nthird = 3\n".to_string());
+        assert!(
+            edited.documents()[0].revision > failed_revision,
+            "an edit must advance the revision the diagnostic was gated on"
+        );
+        assert_eq!(
+            edited.diagnostic(0),
+            None,
+            "deleting the offending line hides the marker instead of retargeting it"
+        );
     }
 
     #[test]
@@ -1043,7 +1359,7 @@ mod tests {
         assert!(workbench.run_active());
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
         let document = &workbench.documents()[0];
-        assert_eq!(document.outcome, Some(RunOutcome::Finished));
+        assert_eq!(document.state(), RunState::Finished);
         let snapshot = document.snapshot.as_ref().expect("finished snapshot");
         assert_eq!(snapshot.committed_steps, 3);
         let plot = snapshot
@@ -1072,6 +1388,26 @@ mod tests {
         assert!(!idle.cancel_enabled);
 
         assert!(workbench.run_active());
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Queued,
+            "submit must enter Queued synchronously"
+        );
+        assert!(
+            workbench.status_text(1, 1).contains("run Queued"),
+            "status strip after submit was {:?}",
+            workbench.status_text(1, 1)
+        );
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while workbench.documents()[0].state() == RunState::Queued {
+            workbench.poll();
+            assert!(
+                Instant::now() < deadline,
+                "the worker never reported RunStarted"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(workbench.documents()[0].state(), RunState::Running);
         let running = workbench.toolbar_state();
         assert!(!running.run_enabled, "Run must be disabled while running");
         assert!(
@@ -1089,14 +1425,16 @@ mod tests {
         );
 
         assert!(workbench.cancel_active());
-        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
-        assert_eq!(
-            workbench.documents()[0].outcome,
-            Some(RunOutcome::Cancelled)
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelling);
+        assert!(
+            !workbench.toolbar_state().cancel_enabled,
+            "Cancel must be disabled once the request is already in"
         );
-        let finished = workbench.toolbar_state();
-        assert!(finished.run_enabled, "Run returns after a run is terminal");
-        assert!(!finished.cancel_visible, "Cancel leaves with the run");
+        assert!(workbench.wait_until_idle(Duration::from_secs(2)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelled);
+        let cancelled = workbench.toolbar_state();
+        assert!(cancelled.run_enabled, "Run returns after a run is terminal");
+        assert!(!cancelled.cancel_visible, "Cancel leaves with the run");
         assert!(workbench.status_text(1, 1).contains("run Cancelled"));
     }
 
@@ -1108,10 +1446,7 @@ mod tests {
         assert!(workbench.active_is_running());
         assert!(workbench.command(crate::keyboard::WorkbenchCommand::Cancel));
         assert!(workbench.wait_until_idle(Duration::from_secs(2)));
-        assert_eq!(
-            workbench.documents()[0].outcome,
-            Some(RunOutcome::Cancelled)
-        );
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelled);
         assert!(
             !workbench.command(crate::keyboard::WorkbenchCommand::Cancel),
             "cancelling an idle document is a no-op"
@@ -1192,12 +1527,20 @@ mod tests {
         );
         workbench.set_source(0, "a = 1\nb = 2\n".to_string());
         assert!(workbench.run_active());
+        assert_eq!(workbench.documents()[0].state(), RunState::Queued);
         workbench.set_source(0, "c = 3\n".to_string());
+        assert_eq!(workbench.documents()[0].state(), RunState::Cancelling);
         assert!(workbench.wait_until_idle(Duration::from_secs(5)));
         assert!(
             workbench.documents()[0].snapshot.is_none(),
             "a run whose source was replaced must not publish its snapshot"
         );
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Cancelled,
+            "an abandoned run must still end in exactly one terminal state"
+        );
+        assert_eq!(workbench.documents()[0].terminal_run_event_count(), 1);
         let texts = workbench.documents()[0]
             .logs
             .iter()
@@ -1209,5 +1552,134 @@ mod tests {
                 .any(|text| text.contains("Run result discarded")),
             "logs were {texts:?}"
         );
+    }
+
+    #[test]
+    fn queued_running_finished_are_all_logged_with_distinct_labels() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.run_active());
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Queued,
+            "submit must enter Queued synchronously"
+        );
+        assert!(
+            workbench.status_text(1, 1).contains("run Queued"),
+            "status strip was {:?}",
+            workbench.status_text(1, 1)
+        );
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Finished);
+        assert_eq!(
+            document
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [
+                RunState::Queued,
+                RunState::Running,
+                RunState::Finished
+            ]
+        );
+        assert!(document.duration_between(RunState::Queued, RunState::Running).is_some());
+        assert!(document.duration_between(RunState::Running, RunState::Finished).is_some());
+    }
+
+    #[test]
+    fn editing_a_finished_result_marks_it_stale_and_a_second_edit_keeps_it_stale() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        let before = workbench.documents()[0].transition_count();
+        workbench.set_source(0, "a = 2\n".to_string());
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Stale,
+            "an edit after a finished result must mark the result stale"
+        );
+        assert_eq!(workbench.documents()[0].transition_count(), before + 1);
+        assert!(
+            workbench.status_text(1, 1).contains("run Stale"),
+            "status strip was {:?}",
+            workbench.status_text(1, 1)
+        );
+
+        let stale_count = workbench.documents()[0].transition_count();
+        workbench.set_source(0, "a = 3\n".to_string());
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Stale,
+            "a second edit must not move away from Stale"
+        );
+        assert_eq!(
+            workbench.documents()[0].transition_count(),
+            stale_count,
+            "a second edit must not add another transition"
+        );
+        let document = &workbench.documents()[0];
+        assert_eq!(
+            document
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [
+                RunState::Queued,
+                RunState::Running,
+                RunState::Finished,
+                RunState::Stale
+            ]
+        );
+        let stale_index = document
+            .transitions()
+            .iter()
+            .position(|transition| transition.to == RunState::Stale)
+            .expect("the Stale transition");
+        assert!(
+            document.transitions()[stale_index + 1..]
+                .iter()
+                .all(|transition| transition.to != RunState::Finished),
+            "Finished must never reappear after Stale"
+        );
+        assert_eq!(document.terminal_run_event_count(), 1);
+    }
+
+    #[test]
+    fn a_duplicate_terminal_event_cannot_produce_a_second_terminal_transition() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let document = &workbench.documents()[0];
+        let run = document.run_id().expect("the finished run id is retained");
+        let snapshot = document.snapshot.clone().expect("finished snapshot");
+        let document_id = document.id;
+        let revision = SourceRevision(document.revision);
+        let transitions = document.transition_count();
+        assert_eq!(document.terminal_run_event_count(), 1);
+
+        let duplicate = SequencedEvent {
+            sequence: 999,
+            revision,
+            event: DesktopEvent::Finished {
+                document: document_id,
+                run,
+                snapshot,
+            },
+        };
+        assert!(
+            !workbench.apply_event(&duplicate),
+            "a terminal event for a closed run must be refused"
+        );
+        let document = &workbench.documents()[0];
+        assert_eq!(document.transition_count(), transitions);
+        assert_eq!(document.terminal_run_event_count(), 1);
+        assert_eq!(document.state(), RunState::Finished);
     }
 }

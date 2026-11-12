@@ -14,13 +14,13 @@ use egui::{
 };
 
 use crate::app::LogLevel;
+use crate::execution::Diagnostic;
 use crate::keyboard;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::Workbench;
 
 use super::editor::{TextEditor, surface_id};
 use super::plot::Plot;
-
 /// Pane background.
 pub const PANE_BG: Color32 = Color32::from_rgb(0x17, 0x1b, 0x21);
 /// Pane header background.
@@ -151,6 +151,10 @@ pub struct WorkbenchApp {
     layout: Option<PaneLayout>,
     /// True once the window has moved keyboard focus into the editor on its first frame.
     focus_requested: bool,
+    /// True between handling Ctrl+Enter and the end of that frame (RUN-001 trace only).
+    trace_pending: bool,
+    /// True until the frame that follows the painted Running frame starts (trace only).
+    trace_after_paint: bool,
 }
 
 impl WorkbenchApp {
@@ -187,12 +191,19 @@ impl WorkbenchApp {
             filter: String::new(),
             layout: None,
             focus_requested: false,
+            trace_pending: false,
+            trace_after_paint: false,
         }
     }
 
     /// Applies queued events and re-loads the active editor if its document changed elsewhere.
     fn sync(&mut self) {
         self.workbench.poll();
+        // The workbench gates a diagnostic on the revision it was produced for; copying it here
+        // makes every editor decoration appear with the failure and disappear on the next edit.
+        for (index, editor) in self.editors.iter_mut().enumerate() {
+            editor.diagnostic = self.workbench.diagnostic(index).cloned();
+        }
         let active = self.workbench.active();
         let revision = self.workbench.documents()[active].revision;
         if self.loaded_revisions[active] != revision {
@@ -216,6 +227,22 @@ impl WorkbenchApp {
     }
 
     fn ui_root(&mut self, ui: &mut Ui) {
+        // RUN-001 trace: the frame after the Running frame begins only once that frame has been
+        // painted and presented, so its start bounds the paint time.
+        if self.trace_after_paint {
+            crate::run_trace::mark(
+                "frame_after_paint_begin",
+                format!("pass={}", ui.ctx().cumulative_pass_nr()),
+            );
+            self.trace_after_paint = false;
+        }
+        if crate::run_trace::enabled() && !self.workbench.is_running() {
+            crate::run_trace::mark(
+                "frame_begin",
+                format!("pass={}", ui.ctx().cumulative_pass_nr()),
+            );
+        }
+
         // Start with keyboard focus in the editor so a typed script lands there without a click.
         if !self.focus_requested {
             ui.ctx()
@@ -255,22 +282,58 @@ impl WorkbenchApp {
             )
         });
         if let Some(command) = shortcut {
+            if command == keyboard::WorkbenchCommand::Run && crate::run_trace::enabled() {
+                // Trace mode only: measure this frame to its painted end.
+                crate::run_trace::mark("key_event_handled", "Ctrl+Enter");
+                self.trace_pending = true;
+            }
             self.workbench.command(command);
         }
 
         self.sync();
+        if self.trace_pending {
+            crate::run_trace::mark("sync_done", "event queue polled and document synced");
+        }
+
+        // F8 is window-global keyboard navigation to the last failure: it works whether the
+        // caret is in the editor or focus sits on the toolbar. The jump is revision-gated by the
+        // workbench, so it can never move the caret to a line that no longer exists.
+        if ui.input(|input| input.key_pressed(Key::F8)) {
+            let active = self.workbench.active();
+            if self.editors[active].jump_to_diagnostic() {
+                ui.ctx()
+                    .memory_mut(|memory| memory.request_focus(surface_id()));
+            }
+        }
 
         egui::Panel::top("toolbar").show(ui, |ui| self.toolbar(ui));
+        if self.trace_pending {
+            crate::run_trace::mark("toolbar_drawn", "");
+        }
         egui::Panel::top("tabstrip").show(ui, |ui| self.tab_strip(ui));
         egui::Panel::bottom("status").show(ui, |ui| self.status_bar(ui));
         egui::CentralPanel::default().show(ui, |ui| {
             let full = ui.available_rect_before_wrap();
             self.panes(ui, full);
         });
+        if self.trace_pending {
+            crate::run_trace::mark("panes_drawn", "");
+        }
 
         if self.workbench.is_running() {
             // Poll again soon so a fast worker's terminal event is applied promptly.
             ui.ctx().request_repaint_after(Duration::from_millis(16));
+        }
+        if self.trace_pending {
+            let active = self.workbench.active();
+            let (line, column) = self.editors[active].line_col_1based();
+            let status = self.workbench.status_text(line, column);
+            crate::run_trace::mark("frame_end_after_key", format!("status={status:?}"));
+            // Mark "drawn": no trace work remains in this frame after this point. Ask for an
+            // immediate repaint so the next frame start proves the paint completed.
+            self.trace_pending = false;
+            self.trace_after_paint = true;
+            ui.ctx().request_repaint();
         }
     }
 
@@ -389,6 +452,9 @@ impl WorkbenchApp {
             let active = self.workbench.active();
             let (line, column) = self.editors[active].line_col_1based();
             let status = self.workbench.status_text(line, column);
+            if self.trace_pending {
+                crate::run_trace::mark("status_bar_drawn", format!("status={status:?}"));
+            }
             ui.label(RichText::new(status).monospace().color(ACCENT));
             ui.separator();
             if let Some(document) = self.workbench.documents().get(active) {
@@ -455,15 +521,30 @@ impl WorkbenchApp {
         };
         let lines = self.editors[active].line_count();
         let bytes = self.editors[active].bytes();
+        // A run failure is also stated in the pane header, so the position and message are
+        // readable (and visible to accessibility clients) without hovering the underline.
+        let diagnostic = self.workbench.active_diagnostic().cloned();
         let pane_title = format!("Editor - {title}");
         with_pane(ui, rect, &pane_title, |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
                 ui.label(RichText::new(&title).color(ACCENT).monospace());
                 ui.label(RichText::new(format!("{lines} lines / {bytes} bytes")).color(DIM));
+                if let Some(diagnostic) = &diagnostic {
+                    ui.separator();
+                    ui.label(
+                        RichText::new(diagnostic_summary(diagnostic))
+                            .monospace()
+                            .color(ERROR),
+                    )
+                    .on_hover_text(diagnostic.render());
+                }
             });
             let before = self.editors[active].edits;
             let metrics = self.editors[active].ui(ui, body);
             if self.editors[active].edits != before {
+                // An edit makes the old position describe text that is gone. Drop it now, not
+                // only on the next frame, so the paint pass cannot show a stale underline.
+                self.editors[active].diagnostic = None;
                 let source = self.editors[active].source();
                 self.workbench.set_source(active, source);
                 self.loaded_revisions[active] = self.workbench.documents()[active].revision;
@@ -688,6 +769,19 @@ fn header_ui(header: Rect) -> UiBuilder {
         .layout(Layout::left_to_right(Align::Center))
 }
 
+/// One-line summary of a failed run's diagnostic for the editor pane header.
+fn diagnostic_summary(diagnostic: &Diagnostic) -> String {
+    let message = diagnostic.message.lines().next().unwrap_or_default();
+    let mut short: String = message.chars().take(70).collect();
+    if message.chars().count() > 70 {
+        short.push('…');
+    }
+    format!(
+        "Diagnostic Ln {}, Col {}: {}",
+        diagnostic.line, diagnostic.column, short
+    )
+}
+
 fn with_pane<R>(
     ui: &mut Ui,
     rect: Rect,
@@ -818,7 +912,10 @@ pub fn run(initial_path: Option<PathBuf>) -> i32 {
 mod tests {
     use super::*;
     use crate::engine::Evaluator;
-    use crate::workbench::{RunOutcome, Workbench};
+    use crate::run_state::RunState;
+    use crate::workbench::Workbench;
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::time::Instant;
 
     /// An engine that sleeps in every evaluation, so a run stays in flight long enough for the
     /// window to paint it and for a shortcut to reach it.
@@ -843,6 +940,43 @@ mod tests {
                 delay: Duration::from_millis(30),
             })
         }))
+    }
+
+    /// A gate the worker's engine factory waits on, so the first frame after Ctrl+Enter can
+    /// deterministically observe `run Queued` before the worker reports `RunStarted`.
+    #[derive(Default)]
+    struct Gate {
+        open: Mutex<bool>,
+        condvar: Condvar,
+    }
+
+    impl Gate {
+        fn wait(&self) {
+            let mut open = self.open.lock().expect("gate");
+            while !*open {
+                open = self.condvar.wait(open).expect("gate wait");
+            }
+        }
+
+        fn release(&self) {
+            let mut open = self.open.lock().expect("gate");
+            *open = true;
+            self.condvar.notify_all();
+        }
+    }
+
+    fn gated_workbench(gate: Arc<Gate>) -> Workbench {
+        // `with_factory` calls the factory once to learn the engine name; use the named variant
+        // so the gate blocks the run worker only, not the test thread.
+        Workbench::with_named_factory(
+            Box::new(move || {
+                gate.wait();
+                Box::new(SlowEngine {
+                    delay: Duration::from_millis(200),
+                })
+            }),
+            "gated-slow",
+        )
     }
 
     fn key(key: Key, modifiers: egui::Modifiers) -> egui::Event {
@@ -968,9 +1102,77 @@ mod tests {
         );
     }
 
+    /// Builds an app whose editor holds `source` and whose engine is the deterministic fake.
+    fn fake_app_with_source(source: &str) -> WorkbenchApp {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::FakeEngine::new())));
+        workbench.set_source(0, source.to_string());
+        WorkbenchApp::with_workbench(workbench)
+    }
+
+    #[test]
+    fn failed_run_decorates_the_reported_line_and_f8_jumps_to_it_and_an_edit_clears_it() {
+        let mut app = fake_app_with_source("alpha = 1\n1 / 0\ngamma = 3\n");
+        let ctx = egui::Context::default();
+        assert!(app.workbench.run_active());
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(app.workbench.documents()[0].state(), RunState::Failed);
+
+        frame(&ctx, &mut app, Vec::new());
+        let diagnostic = app.editors[0]
+            .diagnostic
+            .as_ref()
+            .expect("the failed run's diagnostic must reach the editor");
+        assert_eq!((diagnostic.line, diagnostic.column), (2, 1));
+        let range = app.editors[0]
+            .diagnostic_range()
+            .expect("the offending line is in the buffer");
+        assert_eq!(
+            (range.line, range.start_char, range.end_char),
+            (2, 0, 5),
+            "the underline covers line 2 from the reported column to end-of-line"
+        );
+        assert_eq!(
+            (range.start_byte, range.end_byte),
+            (0, 5),
+            "the range is byte-exact for the ASCII line"
+        );
+
+        // F8 is the keyboard path to the failure: caret on the exact 1-based line and column.
+        app.editors[0].set_caret(0, 0);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::F8, egui::Modifiers::default())],
+        );
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (2, 1),
+            "F8 must jump to the reported position"
+        );
+
+        // Delete the line break before the offending line: the buffer changes and the old
+        // diagnostic must not be painted over the joined text.
+        app.editors[0].set_caret(1, 0);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Backspace, egui::Modifiers::default())],
+        );
+        assert!(
+            app.editors[0].diagnostic.is_none(),
+            "an edit clears the decoration in the same pass"
+        );
+        assert!(
+            app.workbench.diagnostic(0).is_none(),
+            "the workbench also hides a diagnostic whose revision is no longer current"
+        );
+    }
+
     #[test]
     fn ctrl_enter_runs_and_escape_cancels_with_the_visible_running_state() {
-        let mut app = WorkbenchApp::with_workbench(slow_workbench());
+        let gate = Arc::new(Gate::default());
+        let mut app = WorkbenchApp::with_workbench(gated_workbench(Arc::clone(&gate)));
         let ctx = egui::Context::default();
         frame(&ctx, &mut app, Vec::new());
 
@@ -991,16 +1193,44 @@ mod tests {
             "Ctrl+Enter did not start a run"
         );
         assert_eq!(
+            app.workbench.documents()[0].state(),
+            RunState::Queued,
+            "the frame that pressed Ctrl+Enter must submit and show Queued"
+        );
+        assert!(
+            app.workbench.status_text(1, 1).contains("run Queued"),
+            "status strip after submit was {:?}",
+            app.workbench.status_text(1, 1)
+        );
+        assert_eq!(
             app.workbench.documents()[0].source,
             source_before,
             "Ctrl+Enter must not also insert a newline into the document"
         );
         let toolbar = app.workbench.toolbar_state();
-        assert!(!toolbar.run_enabled, "Run must be disabled while running");
+        assert!(!toolbar.run_enabled, "Run must be disabled while queued");
         assert!(
             toolbar.cancel_visible,
-            "Cancel must be visible while running"
+            "Cancel must be visible while queued"
         );
+
+        // Release the worker and let the window apply the typed RunStarted event.
+        gate.release();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while app.workbench.documents()[0].state() == RunState::Queued {
+            app.workbench.poll();
+            assert!(
+                Instant::now() < deadline,
+                "the worker never reported RunStarted"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        assert_eq!(
+            app.workbench.documents()[0].state(),
+            RunState::Running,
+            "RunStarted must move Queued to Running"
+        );
+        frame(&ctx, &mut app, Vec::new());
         assert!(
             app.workbench.status_text(1, 1).contains("run Running"),
             "status strip was {:?}",
@@ -1015,18 +1245,39 @@ mod tests {
                 key(Key::Escape, egui::Modifiers::default()),
             ],
         );
+        assert_eq!(
+            app.workbench.documents()[0].state(),
+            RunState::Cancelling,
+            "Esc must move the visible state to Cancelling immediately"
+        );
+        assert!(
+            app.workbench.status_text(1, 1).contains("run Cancelling"),
+            "status strip after Esc was {:?}",
+            app.workbench.status_text(1, 1)
+        );
         assert!(
             app.workbench.wait_until_idle(Duration::from_secs(2)),
             "the run did not reach a terminal state after Esc"
         );
-        assert_eq!(
-            app.workbench.documents()[0].outcome,
-            Some(RunOutcome::Cancelled)
-        );
+        assert_eq!(app.workbench.documents()[0].state(), RunState::Cancelled);
         assert!(
             app.workbench.status_text(1, 1).contains("run Cancelled"),
             "status strip was {:?}",
             app.workbench.status_text(1, 1)
+        );
+        assert_eq!(
+            app.workbench.documents()[0]
+                .transitions()
+                .iter()
+                .map(|transition| transition.to)
+                .collect::<Vec<_>>(),
+            [
+                RunState::Queued,
+                RunState::Running,
+                RunState::Cancelling,
+                RunState::Cancelled
+            ],
+            "the window's own frame loop must log the whole visible sequence"
         );
         let toolbar = app.workbench.toolbar_state();
         assert!(toolbar.run_enabled, "Run must return after the run stops");

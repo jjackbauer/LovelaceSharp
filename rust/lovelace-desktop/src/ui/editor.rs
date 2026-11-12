@@ -12,7 +12,12 @@
 
 use std::time::Instant;
 
-use egui::{Align2, Color32, CursorIcon, FontId, Rect, Sense, Stroke, TextStyle, Ui, pos2, vec2};
+use egui::{
+    Align2, Color32, CursorIcon, FontId, Rect, RichText, Sense, Stroke, TextStyle, Ui, pos2, vec2,
+};
+
+use crate::diagnostic_map::{self, DiagnosticRange};
+use crate::execution::Diagnostic;
 
 use super::syntax;
 
@@ -26,6 +31,10 @@ pub const CURRENT_LINE: Color32 = Color32::from_rgb(0x1f, 0x2a, 0x33);
 pub const GUTTER_TEXT: Color32 = Color32::from_rgb(0x5c, 0x6b, 0x7d);
 /// Caret colour.
 pub const CARET: Color32 = Color32::from_rgb(0xf0, 0xf4, 0xf8);
+/// Diagnostic underline colour.
+pub const DIAGNOSTIC_UNDERLINE: Color32 = Color32::from_rgb(0xff, 0x7b, 0x72);
+/// Diagnostic gutter-marker colour; a little deeper than the underline so it reads as a marker.
+pub const DIAGNOSTIC_MARKER: Color32 = Color32::from_rgb(0xe0, 0x4b, 0x45);
 
 /// What one editor pass laid out, for the status strip and for measurement.
 #[allow(dead_code)] // the benchmark-side fields stay part of the measured editor surface
@@ -63,6 +72,12 @@ pub struct TextEditor {
     pub last_ui_ms: f64,
     /// Number of source-mutating edits, used by the window to detect a changed buffer.
     pub edits: u64,
+    /// The failed run's diagnostic to decorate, while it describes the current buffer.
+    ///
+    /// The window copies this from [`crate::workbench::Workbench::diagnostic`], which is already
+    /// revision-gated; the editor additionally drops it on the same pass as an edit and refuses
+    /// to paint a line past the buffer.
+    pub diagnostic: Option<Diagnostic>,
 }
 
 /// The stable egui id of the editor surface.
@@ -89,6 +104,7 @@ impl TextEditor {
             metrics: EditorMetrics::default(),
             last_ui_ms: 0.0,
             edits: 0,
+            diagnostic: None,
         }
     }
 
@@ -128,6 +144,25 @@ impl TextEditor {
     /// The caret as 1-based line and column.
     pub fn line_col_1based(&self) -> (usize, usize) {
         (self.caret_row + 1, self.caret_col + 1)
+    }
+
+    /// The active diagnostic resolved to a concrete line span, if its line is still in the buffer.
+    pub fn diagnostic_range(&self) -> Option<DiagnosticRange> {
+        let diagnostic = self.diagnostic.as_ref()?;
+        diagnostic_map::range_for(&self.lines, diagnostic.line, diagnostic.column)
+    }
+
+    /// Moves the caret to the diagnostic's reported position and returns true when one was drawn.
+    ///
+    /// This is the gutter-marker click and F8 action: it puts the editor's caret on the exact
+    /// 1-based line and UTF-16 column the engine named, not merely somewhere on the line.
+    pub fn jump_to_diagnostic(&mut self) -> bool {
+        let Some(range) = self.diagnostic_range() else {
+            return false;
+        };
+        self.caret_row = range.line - 1;
+        self.caret_col = range.start_char;
+        true
     }
 
     /// Moves the caret, clamping row and column into the buffer.
@@ -257,8 +292,7 @@ impl TextEditor {
         char_w: f32,
     ) {
         let total = self.line_count().max(1);
-        let row = (((position.y - body.top() + self.scroll_y) / row_h).floor() as isize)
-            .clamp(0, total as isize - 1) as usize;
+        let row = row_at(body, self.scroll_y, row_h, total, position.y);
         let col = (((position.x - text_left) / char_w).round() as isize)
             .clamp(0, self.line_chars(row) as isize) as usize;
         self.caret_row = row;
@@ -268,6 +302,7 @@ impl TextEditor {
     /// Draws and edits the buffer inside `rect`.
     pub fn ui(&mut self, ui: &mut Ui, rect: Rect) -> EditorMetrics {
         let started = Instant::now();
+        let edits_before = self.edits;
         let font = FontId::monospace(13.0);
         let row_h = ui.text_style_height(&TextStyle::Monospace) + 3.0;
         let char_w = ui
@@ -286,9 +321,6 @@ impl TextEditor {
         let response = ui.interact(rect, id, Sense::click_and_drag());
         if response.clicked() {
             response.request_focus();
-            if let Some(position) = response.interact_pointer_pos() {
-                self.set_caret_from_pos(position, rect, row_h, text_left, char_w);
-            }
         }
         let focused = ui.memory(|memory| memory.has_focus(id));
         if focused {
@@ -351,12 +383,45 @@ impl TextEditor {
             }
         }
 
+        // An edit invalidates the diagnostic's coordinates: it names a line and column in the
+        // text that was run. Drop it in this same pass so a deleted line cannot be decorated and
+        // no marker is ever painted against text the failure never named.
+        if self.edits != edits_before {
+            self.diagnostic = None;
+        }
+
         // Editing shrinks or grows the buffer (Backspace at a line start removes a line). The
         // loop above may have changed `lines`, so recompute the bounds this pass paints with;
         // the values captured at the top of the pass describe the pre-edit buffer and would let
         // the paint loop index a line that no longer exists (DEF-001).
         let total = self.line_count();
         let max_scroll = (total as f32 * row_h - rect.height()).max(0.0);
+
+        // Resolve the diagnostic against the post-edit buffer. `range_for` refuses a line past
+        // the buffer, so the decoration can never outlive the text it describes.
+        let decoration: Option<(DiagnosticRange, String)> =
+            self.diagnostic.as_ref().and_then(|diagnostic| {
+                diagnostic_map::range_for(&self.lines, diagnostic.line, diagnostic.column)
+                    .map(|range| (range, diagnostic.render()))
+            });
+
+        // A click in the gutter marker jumps to the reported line and column; any other click
+        // positions the caret as before. This is checked after the key events so the caret the
+        // paint pass uses is the final one.
+        if response.clicked() {
+            if let Some(position) = response.interact_pointer_pos() {
+                let row = row_at(rect, self.scroll_y, row_h, total, position.y);
+                let on_marker = position.x < text_left
+                    && decoration
+                        .as_ref()
+                        .is_some_and(|(range, _)| range.line == row + 1);
+                if on_marker {
+                    self.jump_to_diagnostic();
+                } else {
+                    self.set_caret_from_pos(position, rect, row_h, text_left, char_w);
+                }
+            }
+        }
 
         // Keep the caret inside the viewport.
         let caret_y = self.caret_row as f32 * row_h;
@@ -405,6 +470,58 @@ impl TextEditor {
                 FontId::monospace(11.0),
                 GUTTER_TEXT,
             );
+            if let Some((range, _)) = &decoration {
+                if range.line == row + 1 {
+                    // Underline the offending span, from the reported column to end-of-line.
+                    // An empty span (column at EOL) still gets one cell so the failure is visible.
+                    let x0 = text_left + range.start_char as f32 * char_w;
+                    let cells = range.end_char.saturating_sub(range.start_char).max(1);
+                    let x1 = x0 + cells as f32 * char_w;
+                    painter.rect_filled(
+                        Rect::from_min_max(pos2(x0, y + row_h - 3.0), pos2(x1, y + row_h - 1.0)),
+                        1.0,
+                        DIAGNOSTIC_UNDERLINE,
+                    );
+                    // A distinct gutter marker on the same line: a solid bar at the gutter edge,
+                    // clear of the right-aligned line number.
+                    painter.rect_filled(
+                        Rect::from_min_max(
+                            pos2(rect.left() + 2.0, y + 2.0),
+                            pos2(rect.left() + 6.0, y + row_h - 2.0),
+                        ),
+                        1.0,
+                        DIAGNOSTIC_MARKER,
+                    );
+                }
+            }
+        }
+
+        // Hovering the underlined line (or its gutter marker) shows the diagnostic message. This
+        // is a tooltip attached to the pointer, not a widget, so it cannot steal the editor's
+        // click or its keyboard focus.
+        if response.hovered() {
+            if let (Some((range, message)), Some(pointer)) = (
+                decoration.as_ref(),
+                ui.input(|input| input.pointer.hover_pos()),
+            ) {
+                let row = row_at(rect, self.scroll_y, row_h, total, pointer.y);
+                let row_top = rect.top() - self.scroll_y + row as f32 * row_h;
+                let on_decorated_line =
+                    range.line == row + 1 && pointer.y >= row_top && pointer.y < row_top + row_h;
+                if on_decorated_line {
+                    let _ = egui::Tooltip::always_open(
+                        ui.ctx().clone(),
+                        ui.layer_id(),
+                        egui::Id::unique("editor_diagnostic_tooltip"),
+                        egui::PopupAnchor::Pointer,
+                    )
+                    .at_pointer()
+                    .show(|ui| {
+                        ui.set_max_width(520.0);
+                        ui.label(RichText::new(message).monospace());
+                    });
+                }
+            }
         }
 
         if focused {
@@ -453,4 +570,10 @@ fn byte_index(line: &str, char_col: usize) -> usize {
         .nth(char_col)
         .map(|(index, _)| index)
         .unwrap_or(line.len())
+}
+
+/// The 0-based buffer row under a screen `y` position, clamped into a one-line-minimum buffer.
+fn row_at(rect: Rect, scroll_y: f32, row_h: f32, total: usize, y: f32) -> usize {
+    (((y - rect.top() + scroll_y) / row_h).floor() as isize).clamp(0, total.max(1) as isize - 1)
+        as usize
 }
