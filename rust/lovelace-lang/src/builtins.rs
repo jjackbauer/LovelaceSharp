@@ -6767,8 +6767,9 @@ fn integrate_basic(e: &Sym, var: &str) -> Option<Sym> {
     None
 }
 
+/// The limit side the additive `evaluation_boundary::limit` wrapper selects.
 #[derive(Clone, Copy, PartialEq)]
-enum Side {
+pub(crate) enum Side {
     Left,
     Right,
     Both,
@@ -7023,7 +7024,13 @@ fn exponential_family_limit(
     }
 }
 
-fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) -> Value {
+pub(crate) fn limit_result(
+    f: &Sym,
+    var: &str,
+    point: &Sym,
+    at_infinity: bool,
+    side: Side,
+) -> Value {
     use lovelace_symbolics::Series;
     // Step 1 of the reference's LimitCore: DIRECT SUBSTITUTION. A value at the point IS the limit
     // when the function is defined there — limit(abs(x), x, 0) = 0 and limit(sqrt(x), x, 0) = 0 are
@@ -7236,7 +7243,7 @@ fn limit_result(f: &Sym, var: &str, point: &Sym, at_infinity: bool, side: Side) 
     }
 }
 
-fn limit_value_record(value: Value) -> Value {
+pub(crate) fn limit_value_record(value: Value) -> Value {
     limit_record(
         "Value",
         Value::Boolean(true),
@@ -11419,6 +11426,37 @@ fn simplify_traced(
                                 before: rebuilt.clone(),
                                 after: after.clone(),
                                 required_conditions: vec![Value::Symbolic(condition)],
+                            });
+                            return (after, steps);
+                        }
+                    }
+                }
+            }
+        }
+        // power: sqrt(w^2) -> |w| when w is provably real but not known nonnegative. The
+        // identity without a sign premise is domain-specific: it is what makes |w| the
+        // published form of sqrt(w^2) under a real domain assumption, and it carries that
+        // assumption as its DomainCondition. Firing it unguarded would define sqrt((-1)^2)
+        // as -1.
+        if fname == "sqrt" && fargs.len() == 1 {
+            if let Sym::Pow(base, exp) = &fargs[0] {
+                if is_square_exp(exp) {
+                    if let Sym::Sym(s) = base.as_ref() {
+                        if !engine.is_positive(s)
+                            && engine.assumptions().provably_real(base)
+                            && budget.step()
+                        {
+                            let after = Sym::Fun("abs".to_string(), vec![base.as_ref().clone()]);
+                            let condition = assumption_condition_leaf(&Assumption::SymbolDomain(
+                                s.clone(),
+                                AssumptionDomain::Real,
+                            ));
+                            steps.push(RewriteStepData {
+                                rule_id: "pow.sqrt-square-real",
+                                classification: "DomainSpecific",
+                                before: rebuilt.clone(),
+                                after: after.clone(),
+                                required_conditions: vec![condition],
                             });
                             return (after, steps);
                         }

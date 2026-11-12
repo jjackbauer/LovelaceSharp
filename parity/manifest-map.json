@@ -31292,9 +31292,10 @@
     "note": "Round 54: C# ValueTests.WidenPair_GivenSameKind_ReturnsUnchanged (ValueTests.cs:135) widens Natural 5 and Natural 3 together and asserts both Kind Natural; rust/lovelace-lang/src/value_widen.rs:378 widen_pair_given_same_kind_returns_unchanged asserts both kinds and pins payloads 5 and 3. See docs/goal-parity-contract/round-53/value-widen.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AbsSymbolicRoundTripTests/Abs_Of_Symbol_Matches_The_Rewriters_Own_Abs_Node#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'abs-rewrite': $.result.display: simplify_full(sqrt(x^2)).expression is expression: sqrt(x^2) in Rust vs expression: abs(x) in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_abs_rewrite::abs_of_symbol_matches_the_rewriters_own_abs_node",
+    "reason": "Round 80: the real-domain pow.sqrt-square-real rewrite now fires in the traced simplify_full path (rust/lovelace-lang/src/builtins.rs), so simplify_full(sqrt(x^2)).expression is the rewriter's own abs node; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/AbsSymbolicRoundTripTests.cs:24 Abs_Of_Symbol_Matches_The_Rewriters_Own_Abs_Node asserts abs(x) prints abs(x), that simplify_full(sqrt(x^2)).expression is canonically equal to it under x real, and that the applied node equals Exprs.Function(abs, Symbol x). Rust: rust/lovelace-lang/src/round80_abs_rewrite.rs:53 lovelace-lang::round80_abs_rewrite::abs_of_symbol_matches_the_rewriters_own_abs_node asserts the same display and canonical form and structural equality with Expr::Fun(\"abs\", [x]). See docs/goal-parity-contract/round-80/abs-rewrite.md section 3."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AbsSymbolicRoundTripTests/Diff_Of_Abs_Symbolic_Does_Not_Throw#0": {
     "disposition": "ported",
@@ -31302,14 +31303,16 @@
     "note": "Round 45: diff(abs(x),x) publishes exactly the C# guarded piecewise and its canonical form."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AbsSymbolicRoundTripTests/Simplify_Sqrt_Square_Under_Real_Is_Still_Abs_X#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'abs-rewrite': $.result.display: simplify_full(sqrt(x^2)) is expression: sqrt(x^2), changed: False in Rust vs expression: abs(x) in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_abs_rewrite::simplify_sqrt_square_under_real_is_still_abs_x",
+    "reason": "Round 80: the real-domain pow.sqrt-square-real rewrite now fires in the traced simplify_full path (rust/lovelace-lang/src/builtins.rs) with the reference's DomainCondition and RewriteStep payload; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/AbsSymbolicRoundTripTests.cs:88 Simplify_Sqrt_Square_Under_Real_Is_Still_Abs_X asserts type(simplify_full(sqrt(x^2))) is TransformResult and that its expression prints abs(x). Rust: rust/lovelace-lang/src/round80_abs_rewrite.rs:76 lovelace-lang::round80_abs_rewrite::simplify_sqrt_square_under_real_is_still_abs_x asserts the same and additionally changed True, conditions [DomainCondition(variable: x, domain: real)] and exactly one step with rule_id pow.sqrt-square-real and classification DomainSpecific. See docs/goal-parity-contract/round-80/abs-rewrite.md section 3."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AbsSymbolicRoundTripTests/Subs_Abs_Symbolic_At_Negative_Value_Gives_Three#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'abs-rewrite': $.result.display: subs(abs(x),x,-3) is abs(-3) in Rust vs 3 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_abs_rewrite::subs_abs_symbolic_at_negative_value_gives_three",
+    "reason": "Round 80: substitute now rebuilds function applications through the reference constructor's exact constant fold (rust/lovelace-symbolics/src/lib.rs), so abs(-3) folds to the exact rational 3; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/AbsSymbolicRoundTripTests.cs:73 Subs_Abs_Symbolic_At_Negative_Value_Gives_Three asserts subs(abs(x), x, -3) prints 3, is canonically (rat 3 1) and has no free symbols. Rust: rust/lovelace-lang/src/round80_abs_rewrite.rs:113 lovelace-lang::round80_abs_rewrite::subs_abs_symbolic_at_negative_value_gives_three asserts the same display, canonical form and empty free_symbols. See docs/goal-parity-contract/round-80/abs-rewrite.md section 3."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Hessian_Computes#0": {
     "disposition": "ported",
@@ -31622,24 +31625,28 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/EvaluateToExpr_ApproximateArgument_ThrowingEvaluatorPropagates#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Evaluation.EvaluateToNum/EvaluateToExpr with a throwing evaluator; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_throwing_evaluator::evaluate_to_expr_approximate_argument_throwing_evaluator_propagates",
+    "reason": "Round 80: the additive evaluation_boundary::evaluate_to_expr propagates the same defect from the approximate-argument fold branch; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/ExpectedFailureBoundaryTests.cs:46 EvaluateToExpr_ApproximateArgument_ThrowingEvaluatorPropagates builds 0. followed by 25 ones and asserts the same InvalidOperationException message. Rust: rust/lovelace-lang/src/round80_throwing_evaluator.rs:109 lovelace-lang::round80_throwing_evaluator::evaluate_to_expr_approximate_argument_throwing_evaluator_propagates uses the same 25-digit Real and asserts the same kind and message. See docs/goal-parity-contract/round-80/throwing-evaluator.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/EvaluateToExpr_ExactArgument_ThrowingEvaluatorPropagates#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Evaluation.EvaluateToNum/EvaluateToExpr with a throwing evaluator; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_throwing_evaluator::evaluate_to_expr_exact_argument_throwing_evaluator_propagates",
+    "reason": "Round 80: the additive evaluation_boundary::evaluate_to_expr reproduces the reference's narrow catch, so an InvalidOperationException from the registered evaluator escapes the exact-argument fold; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/ExpectedFailureBoundaryTests.cs:35 EvaluateToExpr_ExactArgument_ThrowingEvaluatorPropagates asserts Evaluation.EvaluateToExpr(boom(2)) throws InvalidOperationException with 'boom: deliberately unexpected failure'. Rust: rust/lovelace-lang/src/round80_throwing_evaluator.rs:94 lovelace-lang::round80_throwing_evaluator::evaluate_to_expr_exact_argument_throwing_evaluator_propagates asserts the same kind and message through evaluation_boundary::evaluate_to_expr. See docs/goal-parity-contract/round-80/throwing-evaluator.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/Limit_ThrowingEvaluatorPropagates#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Evaluation.EvaluateToNum/EvaluateToExpr with a throwing evaluator; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_throwing_evaluator::limit_throwing_evaluator_propagates",
+    "reason": "Round 80: the additive evaluation_boundary::limit propagates the defect from the direct-substitution step instead of treating it as a mathematical non-answer; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/ExpectedFailureBoundaryTests.cs:63 Limit_ThrowingEvaluatorPropagates asserts Limits.Limit(boom(x), x, 0, TwoSided) throws InvalidOperationException with 'boom: deliberately unexpected failure'. Rust: rust/lovelace-lang/src/round80_throwing_evaluator.rs:125 lovelace-lang::round80_throwing_evaluator::limit_throwing_evaluator_propagates asserts the same kind and message through evaluation_boundary::limit. See docs/goal-parity-contract/round-80/throwing-evaluator.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ExpectedFailureBoundaryTests/TryCompare_ReportsUnorderedInsteadOfThrowing#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Evaluation.EvaluateToNum/EvaluateToExpr with a throwing evaluator; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_throwing_evaluator::try_compare_reports_unordered_instead_of_throwing",
+    "reason": "Round 80: the additive evaluation_boundary::try_compare/compare reproduce the reference's unordered-complex handling and its complex-to-real refusal; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/ExpectedFailureBoundaryTests.cs:94 TryCompare_ReportsUnorderedInsteadOfThrowing asserts NumOps.TryCompare orders 2 vs 3, reports 2 vs 1+1i as false/0, and NumOps.Compare(2, 1+1i) throws InvalidOperationException. Rust: rust/lovelace-lang/src/round80_throwing_evaluator.rs:146 lovelace-lang::round80_throwing_evaluator::try_compare_reports_unordered_instead_of_throwing asserts the same ordering, a None unordered pair, and the exact complex-to-real refusal message. See docs/goal-parity-contract/round-80/throwing-evaluator.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FactorMetamorphicTests/Factor_ExpandsBackToItsInput_OverTheWholeCorpus#0": {
     "disposition": "ported",
@@ -32188,9 +32195,10 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/SimplifyFull_DomainCondition_CarriesADomainValueNotText#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'abs-rewrite': $.result.display: simplify_full(sqrt(x^2)) does not rewrite to abs(x) with a DomainCondition",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round80_abs_rewrite::simplify_full_domain_condition_carries_a_domain_value_not_text",
+    "reason": "Round 80: the real-domain pow.sqrt-square-real rewrite lifts its DomainCondition leaf (a Symbolic variable and a Domain value, not text) into the TransformResult conditions; the mapped round-80 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/UnsatisfiablePropagationTests.cs:80 SimplifyFull_DomainCondition_CarriesADomainValueNotText asserts conditions[0] is a DomainCondition record with fields variable (Symbolic) and domain (Domain Real) and that no SymbolDomainAssumption rendering appears. Rust: rust/lovelace-lang/src/round80_abs_rewrite.rs:128 lovelace-lang::round80_abs_rewrite::simplify_full_domain_condition_carries_a_domain_value_not_text asserts the same record shape and kinds, canonical (sym x), domain display real and the absence of SymbolDomainAssumption. See docs/goal-parity-contract/round-80/abs-rewrite.md section 3."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementConsistentWithAssumptions_KeepsItsConditions#0": {
     "disposition": "ported",

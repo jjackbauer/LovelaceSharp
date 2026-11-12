@@ -23,8 +23,8 @@
 //! observe it.
 
 use std::cell::{Cell, RefCell};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 /// Iterations between clock reads. 64 keeps the check below 0.1 % of a loop whose body is one
@@ -238,10 +238,7 @@ mod tests {
             "the inner flag must not leak into the outer scope"
         );
         outer.store(true, Ordering::Release);
-        assert!(
-            expired(),
-            "the outer flag is installed again and now set"
-        );
+        assert!(expired(), "the outer flag is installed again and now set");
         drop(outer_scope);
         let _disarmed = arm(None);
         assert!(!expired(), "scope drop must restore the un-armed state");

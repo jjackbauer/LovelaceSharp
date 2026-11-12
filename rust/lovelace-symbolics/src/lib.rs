@@ -2252,6 +2252,78 @@ fn series_inner(e: &Expr, var: &str, order: i64) -> Option<Series> {
     }
 }
 
+/// The reference's `Exprs.Function` constant-fold table over exact rational arguments: a total
+/// function of constants folds as the node is constructed. `substitute` rebuilds every function
+/// application through that constructor, so `subs(abs(x), x, -3)` is the exact rational `3`,
+/// never the unreduced node `abs(-3)` — the reference's `Exprs.Function` folds `abs` exactly the
+/// same way. `floor`/`ceil`/`min`/`max` are total too, so they fold here as well.
+fn fold_exact_function(name: &str, args: &[Expr]) -> Option<Expr> {
+    if args.len() == 2 && (name == "min" || name == "max") {
+        let (Expr::Num(a), Expr::Num(b)) = (&args[0], &args[1]) else {
+            return None;
+        };
+        let picked = match (name, a.cmp(b)) {
+            ("min", Ordering::Greater) => b,
+            ("max", Ordering::Less) => b,
+            _ => a,
+        };
+        return Some(Expr::Num(picked.clone()));
+    }
+    if args.len() != 1 {
+        return None;
+    }
+    let Expr::Num(value) = &args[0] else {
+        return None;
+    };
+    let folded = match name {
+        "exp" if value.is_zero() => Rat::one(),
+        "sin" if value.is_zero() => Rat::zero(),
+        "cos" if value.is_zero() => Rat::one(),
+        "tan" if value.is_zero() => Rat::zero(),
+        "log" if value.is_one() => Rat::zero(),
+        "atan" if value.is_zero() => Rat::zero(),
+        "asin" if value.is_zero() => Rat::zero(),
+        "acos" if value.is_one() => Rat::zero(),
+        "sinh" if value.is_zero() => Rat::zero(),
+        "cosh" if value.is_zero() => Rat::one(),
+        "tanh" if value.is_zero() => Rat::zero(),
+        "asinh" if value.is_zero() => Rat::zero(),
+        "acosh" if value.is_one() => Rat::zero(),
+        "atanh" if value.is_zero() => Rat::zero(),
+        "abs" => value.abs(),
+        "sign" => {
+            if value.is_zero() {
+                Rat::zero()
+            } else if value.is_negative() {
+                Rat::from_i64(-1)
+            } else {
+                Rat::one()
+            }
+        }
+        "floor" => rat_integer(value, true),
+        "ceil" => rat_integer(value, false),
+        _ => return None,
+    };
+    Some(Expr::Num(folded))
+}
+
+/// The integral `floor` (true) or `ceil` (false) of a rational, as an exact rational.
+fn rat_integer(value: &Rat, floor: bool) -> Rat {
+    let one = Nat::from_u64(1);
+    let (quotient, remainder) = value
+        .numerator()
+        .div_rem(value.denominator())
+        .expect("a rational denominator is never zero");
+    let rounded = if floor && remainder.is_negative() {
+        quotient.sub(&Int::from_i64(1))
+    } else if !floor && !remainder.is_negative() && !remainder.is_zero() {
+        quotient.add(&Int::from_i64(1))
+    } else {
+        quotient
+    };
+    Rat::from_parts(rounded, one)
+}
+
 /// Substitutes a symbol with an expression, leaving everything else alone.
 pub fn substitute(e: &Expr, var: &str, replacement: &Expr) -> Expr {
     if cancel::check() {
@@ -2278,12 +2350,13 @@ pub fn substitute(e: &Expr, var: &str, replacement: &Expr) -> Expr {
             substitute(a, var, replacement),
             substitute(b, var, replacement),
         ),
-        Expr::Fun(n, args) => Expr::Fun(
-            n.clone(),
-            args.iter()
+        Expr::Fun(n, args) => {
+            let args: Vec<Expr> = args
+                .iter()
                 .map(|a| substitute(a, var, replacement))
-                .collect(),
-        ),
+                .collect();
+            fold_exact_function(n, &args).unwrap_or_else(|| Expr::Fun(n.clone(), args))
+        }
         Expr::Div(a, b) => Expr::Div(
             Box::new(substitute(a, var, replacement)),
             Box::new(substitute(b, var, replacement)),

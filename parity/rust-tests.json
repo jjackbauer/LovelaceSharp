@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T13:39:41Z",
+    "generatedAtUtc":  "2026-11-12T14:06:03Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5247,
+                  "passed":  5261,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5248
+                   "tests":  5262
                },
-    "sourcesSha256":  "ecf34e701143d9c11e93f1c1cd6396c121755de980bedef81f3091a5571e005e",
+    "sourcesSha256":  "2f346250f7456e6cac672beea4a2509e850c830f237c3d38e5b4ce6b22eef012",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3866,6 +3866,20 @@
                                      "round78_structural_equality::same_display_different_kinds_are_unequal",
                                      "round78_structural_equality::symbolic_equality_is_by_canonical_form_not_pretty_text",
                                      "round78_structural_equality::void_and_clamped_reals_follow_the_reference_kinds",
+                                     "round80_abs_rewrite::abs_of_symbol_matches_the_rewriters_own_abs_node",
+                                     "round80_abs_rewrite::simplify_full_domain_condition_carries_a_domain_value_not_text",
+                                     "round80_abs_rewrite::simplify_sqrt_square_under_real_is_still_abs_x",
+                                     "round80_abs_rewrite::subs_abs_symbolic_at_negative_value_gives_three",
+                                     "round80_throwing_evaluator::evaluate_to_expr_approximate_argument_throwing_evaluator_propagates",
+                                     "round80_throwing_evaluator::evaluate_to_expr_exact_argument_throwing_evaluator_propagates",
+                                     "round80_throwing_evaluator::evaluate_to_num_propagates_both_kinds",
+                                     "round80_throwing_evaluator::evaluate_to_num_reports_the_typed_domain_vocabulary",
+                                     "round80_throwing_evaluator::limit_of_a_two_sided_pole_still_reports_opposing_sides",
+                                     "round80_throwing_evaluator::limit_of_the_same_expression_succeeds_when_the_evaluator_answers",
+                                     "round80_throwing_evaluator::limit_throwing_evaluator_propagates",
+                                     "round80_throwing_evaluator::the_fold_absorbs_the_domain_kind_and_leaves_the_node_symbolic",
+                                     "round80_throwing_evaluator::the_same_expression_succeeds_when_the_evaluator_does_not_throw",
+                                     "round80_throwing_evaluator::try_compare_reports_unordered_instead_of_throwing",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",

@@ -354,7 +354,8 @@ fn try_compare(left: &Num, right: &Num, places: usize) -> Option<Ordering> {
 }
 
 impl Num {
-    fn is_zero(&self) -> bool {
+    /// True when the value is zero at every tier (the reference's `NumOps.IsZero`).
+    pub fn is_zero(&self) -> bool {
         match self {
             Num::Exact(r) => r.is_zero(),
             Num::Real(r) => r.is_zero(),
@@ -709,7 +710,11 @@ fn unary<'a>(name: &str, values: &'a [Num]) -> Result<&'a Num, LangError> {
     Ok(&values[0])
 }
 
-fn evaluate_function(name: &str, values: &[Num], places: usize) -> Result<Num, LangError> {
+pub(crate) fn evaluate_function(
+    name: &str,
+    values: &[Num],
+    places: usize,
+) -> Result<Num, LangError> {
     // The reference folds total functions at their exact special points BEFORE evaluation can
     // see them (Exp 0 = 1, Sin 0 = 0, ...); the folded value is exact.
     if let [Num::Exact(r)] = values {

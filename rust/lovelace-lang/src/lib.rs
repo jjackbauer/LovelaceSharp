@@ -14,6 +14,7 @@ pub mod builtins;
 pub mod complex;
 pub mod complex_math;
 pub mod context;
+pub mod evaluation_boundary;
 pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
@@ -2420,10 +2421,19 @@ mod round76_capture_events;
 #[cfg(test)]
 mod round78_scoped_eval;
 
+#[cfg(test)]
+mod round80_throwing_evaluator;
+
 /// Round-78 StructuralEquality surface: the four deferred `Suite.StructuralEqualityTests` rows
 /// (nested-field path, kind, shape and canonical-symbolic equality).
 #[cfg(test)]
 mod round78_structural_equality;
+
+/// Round-80 abs-rewrite family: the four deferred `AbsSymbolicRoundTripTests` and
+/// `UnsatisfiablePropagationTests` rows (the rewriter's own `abs` node, `sqrt(x^2)` under a
+/// real domain, substitution at a negative value, and the structured DomainCondition payload).
+#[cfg(test)]
+mod round80_abs_rewrite;
 
 /// Round-9 desktop kernel cancellation: a live flag set from another thread stops ONE long
 /// polling kernel (`matmul`) with the structured `Cancelled` failure inside 2 s. The opaque
