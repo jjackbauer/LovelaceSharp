@@ -6,7 +6,7 @@
 //! and sample SVG.
 
 mod app;
-mod editor;
+pub(crate) mod editor;
 mod plot;
 mod syntax;
 

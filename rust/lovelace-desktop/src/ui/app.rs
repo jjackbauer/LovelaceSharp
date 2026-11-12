@@ -1524,4 +1524,252 @@ mod tests {
             "a comment must suppress completion"
         );
     }
+
+    fn ctrl_modifiers() -> egui::Modifiers {
+        egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..Default::default()
+        }
+    }
+
+    fn ctrl_z() -> egui::Event {
+        key(Key::Z, ctrl_modifiers())
+    }
+
+    fn ctrl_y() -> egui::Event {
+        key(Key::Y, ctrl_modifiers())
+    }
+
+    fn ctrl_shift_z() -> egui::Event {
+        key(
+            Key::Z,
+            egui::Modifiers {
+                shift: true,
+                ..ctrl_modifiers()
+            },
+        )
+    }
+
+    #[test]
+    fn ctrl_z_undoes_a_typing_burst_and_ctrl_y_redoes_it() {
+        let mut app = app_with_source("", 0, 0);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus the editor
+
+        // Three character events, one per pass: they are one burst because nothing else
+        // happened between them and the pause is far below the coalescing gap.
+        frame(&ctx, &mut app, vec![egui::Event::Text("a".to_string())]);
+        frame(&ctx, &mut app, vec![egui::Event::Text("b".to_string())]);
+        frame(&ctx, &mut app, vec![egui::Event::Text("c".to_string())]);
+        assert_eq!(app.editors[0].source(), "abc");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 4));
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(
+            app.editors[0].source(),
+            "",
+            "Ctrl+Z restores the empty buffer"
+        );
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (1, 1),
+            "with the caret at 0"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].source,
+            "",
+            "the document must be committed from the undone buffer"
+        );
+
+        frame(&ctx, &mut app, vec![ctrl_y()]);
+        assert_eq!(app.editors[0].source(), "abc", "Ctrl+Y restores the burst");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 4));
+        assert_eq!(app.workbench.documents()[0].source, "abc");
+
+        // Ctrl+Shift+Z is the second redo spelling.
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.editors[0].source(), "");
+        frame(&ctx, &mut app, vec![ctrl_shift_z()]);
+        assert_eq!(app.editors[0].source(), "abc");
+    }
+
+    #[test]
+    fn a_letter_key_event_does_not_split_a_typing_burst_but_an_arrow_does() {
+        let mut app = app_with_source("", 0, 0);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus the editor
+
+        // A real backend delivers a Key event and the character it produced. The Key event for
+        // a letter is not a non-typing action, so it must not split the burst; only the Text
+        // events are the edits.
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                key(Key::A, egui::Modifiers::default()),
+                egui::Event::Text("a".to_string()),
+            ],
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                key(Key::B, egui::Modifiers::default()),
+                egui::Event::Text("b".to_string()),
+            ],
+        );
+        assert_eq!(app.editors[0].source(), "ab");
+        assert_eq!(
+            app.editors[0].history.undo_steps(),
+            1,
+            "letter Key events must not split a typing burst"
+        );
+
+        // A caret move is a non-typing action and does start a new step.
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowLeft, egui::Modifiers::default())],
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                key(Key::X, egui::Modifiers::default()),
+                egui::Event::Text("X".to_string()),
+            ],
+        );
+        assert_eq!(app.editors[0].source(), "aXb");
+        assert_eq!(app.editors[0].history.undo_steps(), 2);
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.editors[0].source(), "ab");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 2));
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.editors[0].source(), "");
+    }
+
+    #[test]
+    fn ctrl_z_restores_a_deleted_selection() {
+        let mut app = app_with_source("abcdef", 0, 1);
+        app.editors[0].select_to(0, 4);
+        assert_eq!(app.editors[0].selected_text().as_deref(), Some("bcd"));
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus the editor
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Delete, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].source(), "aef");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 2));
+        assert_eq!(app.workbench.documents()[0].source, "aef");
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.editors[0].source(), "abcdef");
+        assert_eq!(
+            app.editors[0].selection_range(),
+            Some(((0, 1), (0, 4))),
+            "the undo restores the selection, not only the deleted text"
+        );
+        assert_eq!(app.editors[0].selected_text().as_deref(), Some("bcd"));
+        assert_eq!(app.workbench.documents()[0].source, "abcdef");
+    }
+
+    #[test]
+    fn ctrl_z_restores_a_backspace_line_join() {
+        let mut app = app_with_source("a\nb", 1, 0);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus the editor
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Backspace, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].source(), "ab");
+        assert_eq!(app.workbench.documents()[0].source, "ab");
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.editors[0].source(), "a\nb");
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (2, 1),
+            "the caret is back at the start of line 2"
+        );
+        assert_eq!(app.workbench.documents()[0].source, "a\nb");
+    }
+
+    #[test]
+    fn undo_in_one_document_never_changes_the_other() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::FakeEngine::new())));
+        workbench.set_source(0, String::new());
+        workbench.set_source(1, String::new());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus document A
+
+        frame(&ctx, &mut app, vec![egui::Event::Text("abc".to_string())]);
+        assert_eq!(app.workbench.documents()[0].source, "abc");
+
+        // Switch to document B: its editor has its own history.
+        app.workbench.set_active(1);
+        frame(&ctx, &mut app, Vec::new());
+        frame(&ctx, &mut app, vec![egui::Event::Text("xy".to_string())]);
+        assert_eq!(app.workbench.documents()[1].source, "xy");
+        assert_eq!(app.workbench.documents()[0].source, "abc");
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.workbench.documents()[1].source, "");
+        assert_eq!(
+            app.workbench.documents()[0].source,
+            "abc",
+            "an undo in B must not change A"
+        );
+
+        // Switch back to A: its own history still holds its typing burst.
+        app.workbench.set_active(0);
+        frame(&ctx, &mut app, Vec::new());
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(app.workbench.documents()[0].source, "");
+        assert_eq!(app.workbench.documents()[1].source, "");
+    }
+
+    #[test]
+    fn a_completion_insertion_is_its_own_undo_step_in_the_window() {
+        let mut app = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // focus the editor
+        frame(&ctx, &mut app, vec![egui::Event::Text("sq".to_string())]);
+        assert!(app.editors[0].completion.is_open());
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].source(), "sqrt");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 5));
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(
+            app.editors[0].source(),
+            "sq",
+            "one undo removes only the completion insertion"
+        );
+        assert_eq!(app.editors[0].line_col_1based(), (1, 3));
+        assert!(!app.editors[0].completion.is_open());
+        assert_eq!(app.workbench.documents()[0].source, "sq");
+
+        frame(&ctx, &mut app, vec![ctrl_z()]);
+        assert_eq!(
+            app.editors[0].source(),
+            "",
+            "the typing that produced the prefix is the next step"
+        );
+        assert_eq!(app.workbench.documents()[0].source, "");
+    }
 }

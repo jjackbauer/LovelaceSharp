@@ -29,6 +29,7 @@ mod completion;
 mod engine;
 mod execution;
 mod gui_selftest;
+mod history;
 mod keyboard;
 mod language;
 mod netcheck;
@@ -109,6 +110,8 @@ fn usage() -> String {
     text.push_str("SHORTCUTS:\n");
     text.push_str("  Ctrl+Enter                          run the active document\n");
     text.push_str("  Esc                                 cancel the in-flight run\n");
+    text.push_str("  Ctrl+Z                              undo the active document's last edit\n");
+    text.push_str("  Ctrl+Y, Ctrl+Shift+Z                redo the last undone edit\n");
     text.push_str(
         "  F8                                  jump to the last failed run's diagnostic\n",
     );

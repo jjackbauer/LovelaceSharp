@@ -19,6 +19,7 @@ use egui::{
 use crate::completion::{self, CaretContext, CompletionItem, CompletionKind, CompletionSession};
 use crate::diagnostic_map::{self, DiagnosticRange};
 use crate::execution::Diagnostic;
+use crate::history::{self, Caret, EditKind, History, HistoryCommand, Snapshot};
 
 use super::syntax;
 
@@ -32,6 +33,8 @@ pub const CURRENT_LINE: Color32 = Color32::from_rgb(0x1f, 0x2a, 0x33);
 pub const GUTTER_TEXT: Color32 = Color32::from_rgb(0x5c, 0x6b, 0x7d);
 /// Caret colour.
 pub const CARET: Color32 = Color32::from_rgb(0xf0, 0xf4, 0xf8);
+/// Selection highlight, painted behind the selected text.
+pub const SELECTION: Color32 = Color32::from_rgb(0x28, 0x4a, 0x5c);
 /// Diagnostic underline colour.
 pub const DIAGNOSTIC_UNDERLINE: Color32 = Color32::from_rgb(0xff, 0x7b, 0x72);
 /// Diagnostic gutter-marker colour; a little deeper than the underline so it reads as a marker.
@@ -98,6 +101,17 @@ pub struct TextEditor {
     pub diagnostic: Option<Diagnostic>,
     /// The live completion popup: filtered entries, highlight and the prefix acceptance replaces.
     pub completion: CompletionSession,
+    /// This document's undo/redo history.
+    ///
+    /// The window owns one editor per tab, so the history belongs to exactly one document: an
+    /// undo in one tab can never pop a step recorded in another. A typing burst is coalesced by
+    /// [`self::history`], and every step restores the buffer, the caret and the selection.
+    pub history: History,
+    /// The fixed end of the current selection; the caret is the moving end.
+    ///
+    /// `None` means no selection. When this equals the caret position the selection is empty and
+    /// [`TextEditor::selection_range`] reports none.
+    pub selection: Option<(usize, usize)>,
 }
 
 /// The stable egui id of the editor surface.
@@ -126,15 +140,22 @@ impl TextEditor {
             edits: 0,
             diagnostic: None,
             completion: CompletionSession::default(),
+            history: History::new(),
+            selection: None,
         }
     }
 
     /// Replaces the buffer from an external source (file load, tab switch back after a reload).
+    ///
+    /// The history is discarded: its snapshots name rows and columns of the text that was just
+    /// replaced, so keeping them would let an undo move the caret into unrelated text.
     pub fn load(&mut self, source: &str) {
         self.lines = split_lines(source);
         self.caret_row = self.caret_row.min(self.line_count().saturating_sub(1));
         self.caret_col = self.caret_col.min(self.line_chars(self.caret_row));
         self.scroll_y = 0.0;
+        self.selection = None;
+        self.history.reset();
         self.completion.dismiss();
     }
 
@@ -184,21 +205,216 @@ impl TextEditor {
         };
         self.caret_row = range.line - 1;
         self.caret_col = range.start_char;
+        self.selection = None;
+        self.history.break_burst();
         true
     }
 
-    /// Moves the caret, clamping row and column into the buffer.
+    /// Moves the caret, clamping row and column into the buffer and clearing any selection.
     #[allow(dead_code)] // part of the editor surface; the window reads the caret instead of setting it
     pub fn set_caret(&mut self, row: usize, col: usize) {
         self.caret_row = row.min(self.line_count().saturating_sub(1));
         self.caret_col = col.min(self.line_chars(self.caret_row));
+        self.selection = None;
+        self.history.break_burst();
     }
 
-    /// Inserts text at the caret, splitting on newlines.
+    /// The caret as a [`Caret`] value.
+    pub fn caret(&self) -> Caret {
+        Caret {
+            row: self.caret_row,
+            col: self.caret_col,
+        }
+    }
+
+    /// The current editor state, which is exactly what one undo step stores.
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            lines: self.lines.clone(),
+            caret: self.caret(),
+            selection: self.selection.map(|(row, col)| Caret { row, col }),
+        }
+    }
+
+    /// Restores one history snapshot: the text, the caret and the selection together.
+    ///
+    /// The snapshot was a valid editor state, but the row/column clamps are still applied so a
+    /// future edit to the snapshot format can never point past the buffer. The completion popup
+    /// is dismissed because the caret it was positioned for has moved.
+    fn restore_snapshot(&mut self, snapshot: Snapshot) {
+        self.lines = snapshot.lines;
+        self.caret_row = snapshot.caret.row.min(self.line_count().saturating_sub(1));
+        self.caret_col = snapshot.caret.col.min(self.line_chars(self.caret_row));
+        self.selection = snapshot.selection.map(|anchor| {
+            let row = anchor.row.min(self.line_count().saturating_sub(1));
+            (row, anchor.col.min(self.line_chars(row)))
+        });
+        if self.selection == Some((self.caret_row, self.caret_col)) {
+            self.selection = None;
+        }
+        self.completion.dismiss();
+        self.edits += 1;
+    }
+
+    /// Starts one undoable edit, recording the pre-edit state when it opens a new step.
+    ///
+    /// A coalesced typing character records nothing: the open burst's step already holds the
+    /// state the run started from, so typing does not clone the buffer per keystroke.
+    fn begin_edit(&mut self, kind: EditKind) {
+        self.begin_edit_at(kind, Instant::now());
+    }
+
+    /// [`TextEditor::begin_edit`] with an explicit clock, for deterministic burst tests.
+    fn begin_edit_at(&mut self, kind: EditKind, now: Instant) {
+        if self.history.begin(kind, now) {
+            let before = self.snapshot();
+            self.history.push(before);
+        }
+    }
+
+    /// Applies one undo or redo command. Returns true when the buffer changed.
+    pub fn command(&mut self, command: HistoryCommand) -> bool {
+        match command {
+            HistoryCommand::Undo => self.undo(),
+            HistoryCommand::Redo => self.redo(),
+        }
+    }
+
+    /// Restores the state before the last edit. Returns false when there is nothing to undo.
+    pub fn undo(&mut self) -> bool {
+        if self.history.undo_steps() == 0 {
+            return false;
+        }
+        let current = self.snapshot();
+        let Some(previous) = self.history.undo(current) else {
+            return false;
+        };
+        self.restore_snapshot(previous);
+        true
+    }
+
+    /// Restores the state the last undo replaced. Returns false when there is nothing to redo.
+    pub fn redo(&mut self) -> bool {
+        if self.history.redo_steps() == 0 {
+            return false;
+        }
+        let current = self.snapshot();
+        let Some(next) = self.history.redo(current) else {
+            return false;
+        };
+        self.restore_snapshot(next);
+        true
+    }
+
+    /// The selection as `(start, end)` buffer positions in reading order, when non-empty.
+    pub fn selection_range(&self) -> Option<((usize, usize), (usize, usize))> {
+        self.ordered_selection()
+    }
+
+    /// The selected text, when a non-empty range is selected.
+    #[allow(dead_code)] // part of the editor surface; tests and a future find/replace read it
+    pub fn selected_text(&self) -> Option<String> {
+        let ((start_row, start_col), (end_row, end_col)) = self.ordered_selection()?;
+        if start_row == end_row {
+            let line = self.lines.get(start_row)?;
+            return Some(
+                line.chars()
+                    .skip(start_col)
+                    .take(end_col - start_col)
+                    .collect(),
+            );
+        }
+        let mut parts = vec![
+            self.lines
+                .get(start_row)?
+                .chars()
+                .skip(start_col)
+                .collect::<String>(),
+        ];
+        for row in start_row + 1..end_row {
+            parts.push(self.lines.get(row)?.clone());
+        }
+        parts.push(
+            self.lines
+                .get(end_row)?
+                .chars()
+                .take(end_col)
+                .collect::<String>(),
+        );
+        Some(parts.join("\n"))
+    }
+
+    /// Selects from the caret to `(row, col)` (shift-click semantics) and moves the caret there.
+    ///
+    /// The existing anchor is kept when a selection is already active, so a second shift-click
+    /// extends from the original fixed end rather than from the moved caret.
+    pub fn select_to(&mut self, row: usize, col: usize) {
+        let anchor = self.selection.unwrap_or((self.caret_row, self.caret_col));
+        let row = row.min(self.line_count().saturating_sub(1));
+        let col = col.min(self.line_chars(row));
+        self.caret_row = row;
+        self.caret_col = col;
+        self.selection = if anchor == (row, col) {
+            None
+        } else {
+            Some(anchor)
+        };
+        self.completion.dismiss();
+        self.history.break_burst();
+    }
+
+    /// The selection ordered from the start of the buffer to its end, when non-empty.
+    fn ordered_selection(&self) -> Option<((usize, usize), (usize, usize))> {
+        let anchor = self.selection?;
+        let caret = (self.caret_row, self.caret_col);
+        if anchor == caret {
+            return None;
+        }
+        Some(if anchor < caret {
+            (anchor, caret)
+        } else {
+            (caret, anchor)
+        })
+    }
+
+    /// Removes the selected range as part of the caller's edit. Returns true when it removed one.
+    fn delete_selection(&mut self) -> bool {
+        let Some(((start_row, start_col), (end_row, end_col))) = self.ordered_selection() else {
+            return false;
+        };
+        let prefix: String = self.lines[start_row].chars().take(start_col).collect();
+        let suffix: String = self.lines[end_row].chars().skip(end_col).collect();
+        self.lines
+            .splice(start_row..=end_row, [format!("{prefix}{suffix}")]);
+        self.caret_row = start_row;
+        self.caret_col = start_col;
+        self.selection = None;
+        true
+    }
+
+    /// Inserts typed text at the caret, splitting on newlines.
+    ///
+    /// Consecutive typed insertions coalesce into one undo step until a pause or a non-typing
+    /// action. A non-empty selection is replaced as part of the same step.
     pub fn insert_str(&mut self, text: &str) {
+        self.insert_text(text, EditKind::Typing);
+    }
+
+    /// Inserts `text` as one undoable edit of `kind`.
+    fn insert_text(&mut self, text: &str, kind: EditKind) {
+        self.insert_text_at(text, kind, Instant::now());
+    }
+
+    /// [`TextEditor::insert_text`] with an explicit clock, for deterministic burst tests.
+    fn insert_text_at(&mut self, text: &str, kind: EditKind, now: Instant) {
+        if text.is_empty() && self.ordered_selection().is_none() {
+            return;
+        }
+        self.begin_edit_at(kind, now);
+        self.delete_selection();
         for (index, part) in text.split('\n').enumerate() {
             if index > 0 {
-                self.newline();
+                self.split_line_at_caret();
             }
             if part.is_empty() {
                 continue;
@@ -212,8 +428,8 @@ impl TextEditor {
         self.edits += 1;
     }
 
-    /// Splits the current line at the caret.
-    pub fn newline(&mut self) {
+    /// Splits the current line at the caret without touching the history or the edit counter.
+    fn split_line_at_caret(&mut self) {
         let col = self.caret_col;
         let row = self.caret_row;
         let line = &mut self.lines[row];
@@ -222,11 +438,30 @@ impl TextEditor {
         self.lines.insert(row + 1, tail);
         self.caret_row = row + 1;
         self.caret_col = 0;
+    }
+
+    /// Splits the current line at the caret as its own undoable edit.
+    pub fn newline(&mut self) {
+        self.begin_edit(EditKind::Atomic);
+        self.delete_selection();
+        self.split_line_at_caret();
         self.edits += 1;
     }
 
     /// Deletes the character before the caret (or joins with the previous line).
     pub fn backspace(&mut self) {
+        if self.ordered_selection().is_some() {
+            self.begin_edit(EditKind::Atomic);
+            self.delete_selection();
+            self.edits += 1;
+            return;
+        }
+        if self.caret_col == 0 && self.caret_row == 0 {
+            // Nothing to delete, but the key press still ends an open typing burst.
+            self.history.break_burst();
+            return;
+        }
+        self.begin_edit(EditKind::Atomic);
         if self.caret_col > 0 {
             let col = self.caret_col;
             let line = &mut self.lines[self.caret_row];
@@ -251,8 +486,20 @@ impl TextEditor {
 
     /// Deletes the character after the caret (or joins with the next line).
     pub fn delete_forward(&mut self) {
+        if self.ordered_selection().is_some() {
+            self.begin_edit(EditKind::Atomic);
+            self.delete_selection();
+            self.edits += 1;
+            return;
+        }
         let row = self.caret_row;
         let col = self.caret_col;
+        let can_delete = col < self.line_chars(row) || row + 1 < self.line_count();
+        if !can_delete {
+            self.history.break_burst();
+            return;
+        }
+        self.begin_edit(EditKind::Atomic);
         if col < self.line_chars(row) {
             let line = &mut self.lines[row];
             let start = byte_index(line, col);
@@ -269,24 +516,41 @@ impl TextEditor {
         self.edits += 1;
     }
 
-    /// Moves the caret up one row.
+    /// Extends the selection back to where the caret was, or collapses it when they meet.
+    ///
+    /// This is the Shift+arrow / Shift+Home / Shift+End rule: the first extended move makes the
+    /// old caret the anchor, and every following one moves only the caret.
+    fn extend_selection_from(&mut self, before: (usize, usize)) {
+        if self.selection.is_none() {
+            self.selection = Some(before);
+        }
+        if self.selection == Some((self.caret_row, self.caret_col)) {
+            self.selection = None;
+        }
+        self.history.break_burst();
+    }
+
+    /// Moves the caret up one row. A caret move ends an open typing burst.
     pub fn move_up(&mut self) {
+        self.history.break_burst();
         if self.caret_row > 0 {
             self.caret_row -= 1;
             self.caret_col = self.caret_col.min(self.line_chars(self.caret_row));
         }
     }
 
-    /// Moves the caret down one row.
+    /// Moves the caret down one row. A caret move ends an open typing burst.
     pub fn move_down(&mut self) {
+        self.history.break_burst();
         if self.caret_row + 1 < self.line_count() {
             self.caret_row += 1;
             self.caret_col = self.caret_col.min(self.line_chars(self.caret_row));
         }
     }
 
-    /// Moves the caret left, wrapping at the start of a line.
+    /// Moves the caret left, wrapping at the start of a line. A caret move ends a typing burst.
     pub fn move_left(&mut self) {
+        self.history.break_burst();
         if self.caret_col > 0 {
             self.caret_col -= 1;
         } else if self.caret_row > 0 {
@@ -295,8 +559,9 @@ impl TextEditor {
         }
     }
 
-    /// Moves the caret right, wrapping at the end of a line.
+    /// Moves the caret right, wrapping at the end of a line. A caret move ends a typing burst.
     pub fn move_right(&mut self) {
+        self.history.break_burst();
         if self.caret_col < self.line_chars(self.caret_row) {
             self.caret_col += 1;
         } else if self.caret_row + 1 < self.line_count() {
@@ -339,13 +604,22 @@ impl TextEditor {
     }
 
     /// Accepts the highlighted entry, replacing exactly the identifier prefix.
+    ///
+    /// The acceptance is one atomic undo step: the snapshot is taken before the prefix is
+    /// touched, so one Ctrl+Z restores the typed prefix and its caret and does not also undo the
+    /// typing that produced it.
     fn accept_completion(&mut self) {
+        let before = self.snapshot();
         if let Some((row, col)) =
             self.completion
                 .accept(&mut self.lines, self.caret_row, self.caret_col)
         {
+            if self.history.begin(EditKind::Atomic, Instant::now()) {
+                self.history.push(before);
+            }
             self.caret_row = row;
             self.caret_col = col;
+            self.selection = None;
             self.edits += 1;
         }
     }
@@ -367,6 +641,23 @@ impl TextEditor {
         ))
     }
 
+    /// The buffer position under a pointer position, clamped into the buffer.
+    fn caret_at(
+        &self,
+        position: egui::Pos2,
+        body: Rect,
+        row_h: f32,
+        text_left: f32,
+        char_w: f32,
+    ) -> (usize, usize) {
+        let total = self.line_count().max(1);
+        let row = row_at(body, self.scroll_y, row_h, total, position.y);
+        let col = (((position.x - text_left) / char_w).round() as isize)
+            .clamp(0, self.line_chars(row) as isize) as usize;
+        (row, col)
+    }
+
+    /// Places the caret under a pointer position and clears any selection.
     fn set_caret_from_pos(
         &mut self,
         position: egui::Pos2,
@@ -375,12 +666,10 @@ impl TextEditor {
         text_left: f32,
         char_w: f32,
     ) {
-        let total = self.line_count().max(1);
-        let row = row_at(body, self.scroll_y, row_h, total, position.y);
-        let col = (((position.x - text_left) / char_w).round() as isize)
-            .clamp(0, self.line_chars(row) as isize) as usize;
+        let (row, col) = self.caret_at(position, body, row_h, text_left, char_w);
         self.caret_row = row;
         self.caret_col = col;
+        self.selection = None;
     }
 
     /// Draws and edits the buffer inside `rect`.
@@ -439,6 +728,8 @@ impl TextEditor {
             }
             let mut swallow_space = explicit;
             if explicit {
+                // Ctrl+Space is a non-typing action: it ends an open typing burst.
+                self.history.break_burst();
                 self.open_completion(catalogue);
             }
             for event in events {
@@ -452,7 +743,8 @@ impl TextEditor {
                         self.refresh_completion(catalogue);
                     }
                     egui::Event::Paste(text) => {
-                        self.insert_str(&text);
+                        // A paste is one atomic step: it never joins an open typing burst.
+                        self.insert_text(&text, EditKind::Atomic);
                         self.completion.dismiss();
                     }
                     egui::Event::Key {
@@ -460,70 +752,137 @@ impl TextEditor {
                         pressed: true,
                         modifiers,
                         ..
-                    } => match key {
-                        egui::Key::Backspace => {
+                    } => {
+                        // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y are the editor's own history
+                        // shortcuts. They are read through the shared mapping so the window
+                        // and `--gui-selftest` exercise the same rule.
+                        if let Some(command) = history::command_for_shortcut(
+                            matches!(key, egui::Key::Z),
+                            matches!(key, egui::Key::Y),
+                            modifiers.shift,
+                            modifiers.command || modifiers.ctrl,
+                        ) {
+                            self.command(command);
                             self.completion.dismiss();
-                            self.backspace();
+                            continue;
                         }
-                        egui::Key::Delete => {
-                            self.completion.dismiss();
-                            self.delete_forward();
-                        }
-                        egui::Key::Enter => {
-                            // Ctrl+Enter is the workbench's Run shortcut; it must not also
-                            // insert a newline into the document, and it never accepts a
-                            // completion.
-                            if !(modifiers.command || modifiers.ctrl) {
+                        // Only keys the editor treats as actions end a typing burst. A letter
+                        // key also arrives as a Key event, but its Text event is the typing
+                        // edit: breaking on the Key would split every typed word.
+                        match key {
+                            egui::Key::Backspace => {
+                                self.completion.dismiss();
+                                self.backspace();
+                            }
+                            egui::Key::Delete => {
+                                self.completion.dismiss();
+                                self.delete_forward();
+                            }
+                            egui::Key::Enter => {
+                                // A command or a newline both end the typing burst; Ctrl+Enter
+                                // (Run) must not let the next typed character join it.
+                                self.history.break_burst();
+                                // Ctrl+Enter is the workbench's Run shortcut; it must not also
+                                // insert a newline into the document, and it never accepts a
+                                // completion.
+                                if !(modifiers.command || modifiers.ctrl) {
+                                    if self.completion.is_open() {
+                                        self.accept_completion();
+                                    } else {
+                                        self.newline();
+                                    }
+                                }
+                            }
+                            egui::Key::Tab => {
                                 if self.completion.is_open() {
                                     self.accept_completion();
                                 } else {
-                                    self.newline();
+                                    // Indentation is its own atomic step, not part of a typing
+                                    // burst, so one undo removes the whole two-space indent.
+                                    self.insert_text("  ", EditKind::Atomic);
                                 }
                             }
-                        }
-                        egui::Key::Tab => {
-                            if self.completion.is_open() {
-                                self.accept_completion();
-                            } else {
-                                self.insert_str("  ");
+                            egui::Key::Escape => {
+                                // Dismiss only: the buffer and the caret stay exactly as they
+                                // were.
+                                self.history.break_burst();
+                                self.completion.dismiss();
                             }
-                        }
-                        egui::Key::Escape => {
-                            // Dismiss only: the buffer and the caret stay exactly as they were.
-                            self.completion.dismiss();
-                        }
-                        egui::Key::ArrowLeft => {
-                            self.completion.dismiss();
-                            self.move_left();
-                        }
-                        egui::Key::ArrowRight => {
-                            self.completion.dismiss();
-                            self.move_right();
-                        }
-                        egui::Key::ArrowUp => {
-                            if self.completion.is_open() {
-                                self.completion.move_selection(-1);
-                            } else {
-                                self.move_up();
+                            egui::Key::ArrowLeft => {
+                                self.history.break_burst();
+                                self.completion.dismiss();
+                                let before = (self.caret_row, self.caret_col);
+                                self.move_left();
+                                if modifiers.shift {
+                                    self.extend_selection_from(before);
+                                } else {
+                                    self.selection = None;
+                                }
                             }
-                        }
-                        egui::Key::ArrowDown => {
-                            if self.completion.is_open() {
-                                self.completion.move_selection(1);
-                            } else {
-                                self.move_down();
+                            egui::Key::ArrowRight => {
+                                self.history.break_burst();
+                                self.completion.dismiss();
+                                let before = (self.caret_row, self.caret_col);
+                                self.move_right();
+                                if modifiers.shift {
+                                    self.extend_selection_from(before);
+                                } else {
+                                    self.selection = None;
+                                }
                             }
+                            egui::Key::ArrowUp => {
+                                self.history.break_burst();
+                                if self.completion.is_open() {
+                                    self.completion.move_selection(-1);
+                                } else {
+                                    let before = (self.caret_row, self.caret_col);
+                                    self.move_up();
+                                    if modifiers.shift {
+                                        self.extend_selection_from(before);
+                                    } else {
+                                        self.selection = None;
+                                    }
+                                }
+                            }
+                            egui::Key::ArrowDown => {
+                                self.history.break_burst();
+                                if self.completion.is_open() {
+                                    self.completion.move_selection(1);
+                                } else {
+                                    let before = (self.caret_row, self.caret_col);
+                                    self.move_down();
+                                    if modifiers.shift {
+                                        self.extend_selection_from(before);
+                                    } else {
+                                        self.selection = None;
+                                    }
+                                }
+                            }
+                            egui::Key::Home => {
+                                self.history.break_burst();
+                                self.completion.dismiss();
+                                let before = (self.caret_row, self.caret_col);
+                                self.caret_col = 0;
+                                if modifiers.shift {
+                                    self.extend_selection_from(before);
+                                } else {
+                                    self.selection = None;
+                                }
+                            }
+                            egui::Key::End => {
+                                self.history.break_burst();
+                                self.completion.dismiss();
+                                let before = (self.caret_row, self.caret_col);
+                                self.caret_col = self.line_chars(self.caret_row);
+                                if modifiers.shift {
+                                    self.extend_selection_from(before);
+                                } else {
+                                    self.selection = None;
+                                }
+                            }
+                            _ => {}
                         }
-                        egui::Key::Home => {
-                            self.completion.dismiss();
-                            self.caret_col = 0;
-                        }
-                        egui::Key::End => {
-                            self.completion.dismiss();
-                            self.caret_col = self.line_chars(self.caret_row);
-                        }
-                        _ => {}
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -582,6 +941,7 @@ impl TextEditor {
         if response.clicked() {
             if let Some(position) = response.interact_pointer_pos() {
                 self.completion.dismiss();
+                self.history.break_burst();
                 let row = row_at(rect, self.scroll_y, row_h, total, position.y);
                 let on_marker = position.x < text_left
                     && decoration
@@ -589,10 +949,40 @@ impl TextEditor {
                         .is_some_and(|(range, _)| range.line == row + 1);
                 if on_marker {
                     self.jump_to_diagnostic();
+                } else if ui.input(|input| input.modifiers.shift) {
+                    // Shift+click extends the selection from its fixed end (or from the old
+                    // caret when none was selected).
+                    let (row, col) = self.caret_at(position, rect, row_h, text_left, char_w);
+                    self.select_to(row, col);
                 } else {
                     self.set_caret_from_pos(position, rect, row_h, text_left, char_w);
                 }
             }
+        }
+
+        // A pointer drag selects text: the press origin is the fixed end and the moving pointer
+        // the caret. A plain click (no drag) positions the caret and clears the selection above.
+        if response.drag_started() {
+            if let Some(origin) = ui.input(|input| input.pointer.press_origin()) {
+                let (row, col) = self.caret_at(origin, rect, row_h, text_left, char_w);
+                self.completion.dismiss();
+                self.selection = Some((row, col));
+                self.caret_row = row;
+                self.caret_col = col;
+                self.history.break_burst();
+            }
+        }
+        if response.dragged() {
+            if let Some(position) = response.interact_pointer_pos() {
+                let (row, col) = self.caret_at(position, rect, row_h, text_left, char_w);
+                self.caret_row = row;
+                self.caret_col = col;
+                self.history.break_burst();
+            }
+        }
+        if response.drag_stopped() && self.selection == Some((self.caret_row, self.caret_col)) {
+            // A press that never moved past the drag threshold is not a selection.
+            self.selection = None;
         }
 
         // Keep the caret inside the viewport.
@@ -625,10 +1015,33 @@ impl TextEditor {
         );
 
         let mut laid_out = 0usize;
+        // The selection is painted under the text, one row at a time, so a multi-line range
+        // reads as one continuous highlight and never covers a glyph.
+        let selection = self.selection_range();
         for row in first_row..last_row {
             let y = rect.top() - self.scroll_y + row as f32 * row_h;
             if y + row_h < rect.top() || y > rect.bottom() {
                 continue;
+            }
+            if let Some((start, end)) = selection {
+                if row >= start.0 && row <= end.0 {
+                    let from = if row == start.0 { start.1 } else { 0 };
+                    let to = if row == end.0 {
+                        end.1
+                    } else {
+                        self.line_chars(row)
+                    };
+                    if to > from {
+                        painter.rect_filled(
+                            Rect::from_min_max(
+                                pos2(text_left + from as f32 * char_w, y + 1.0),
+                                pos2(text_left + to as f32 * char_w, y + row_h - 1.0),
+                            ),
+                            1.0,
+                            SELECTION,
+                        );
+                    }
+                }
             }
             let line = &self.lines[row];
             let job = syntax::job(line, font.clone(), &syntax::DARK);
@@ -899,4 +1312,215 @@ fn byte_index(line: &str, char_col: usize) -> usize {
 fn row_at(rect: Rect, scroll_y: f32, row_h: f32, total: usize, y: f32) -> usize {
     (((y - rect.top() + scroll_y) / row_h).floor() as isize).clamp(0, total.max(1) as isize - 1)
         as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::completion::build_catalogue;
+    use crate::engine::EngineFunction;
+    use std::time::Duration;
+
+    fn builtin(name: &str, parameters: &[&str]) -> EngineFunction {
+        EngineFunction {
+            name: name.to_string(),
+            parameters: parameters.iter().map(|p| p.to_string()).collect(),
+            is_builtin: true,
+        }
+    }
+
+    fn caret(editor: &TextEditor) -> (usize, usize) {
+        (editor.caret_row, editor.caret_col)
+    }
+
+    #[test]
+    fn typing_burst_is_one_step_and_undo_redo_restore_the_caret() {
+        let mut editor = TextEditor::from_source("");
+        editor.insert_str("a");
+        editor.insert_str("b");
+        editor.insert_str("c");
+
+        assert_eq!(editor.source(), "abc");
+        assert_eq!(caret(&editor), (0, 3));
+        assert_eq!(
+            editor.history.undo_steps(),
+            1,
+            "three typed characters in one burst are one undo step"
+        );
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "", "Ctrl+Z restores the empty buffer");
+        assert_eq!(caret(&editor), (0, 0), "and the caret at 0");
+
+        assert!(editor.redo());
+        assert_eq!(editor.source(), "abc", "Ctrl+Y restores the burst");
+        assert_eq!(caret(&editor), (0, 3), "and the caret after the text");
+    }
+
+    #[test]
+    fn a_pause_starts_a_new_typing_step() {
+        let mut editor = TextEditor::from_source("");
+        let start = Instant::now();
+        editor.insert_text_at("ab", EditKind::Typing, start);
+        editor.insert_text_at("cd", EditKind::Typing, start + Duration::from_millis(300));
+        assert_eq!(
+            editor.history.undo_steps(),
+            1,
+            "characters within the burst gap coalesce"
+        );
+
+        let after_pause = start
+            + Duration::from_millis(300)
+            + history::TYPING_BURST_GAP
+            + Duration::from_millis(1);
+        editor.insert_text_at("ef", EditKind::Typing, after_pause);
+        assert_eq!(
+            editor.history.undo_steps(),
+            2,
+            "a pause longer than the gap starts a new step"
+        );
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "abcd");
+        assert_eq!(caret(&editor), (0, 4));
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "");
+    }
+
+    #[test]
+    fn a_non_typing_action_starts_a_new_step() {
+        let mut editor = TextEditor::from_source("");
+        editor.insert_str("ab");
+        editor.newline();
+        editor.insert_str("cd");
+        assert_eq!(editor.source(), "ab\ncd");
+        assert_eq!(editor.history.undo_steps(), 3);
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "ab\n", "the second burst is its own step");
+        assert_eq!(caret(&editor), (1, 0));
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "ab");
+        assert_eq!(caret(&editor), (0, 2));
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "");
+    }
+
+    #[test]
+    fn backspace_line_join_undo_restores_the_caret_on_line_two() {
+        let mut editor = TextEditor::from_source("a\nb");
+        editor.set_caret(1, 0);
+        editor.backspace();
+        assert_eq!(editor.source(), "ab");
+        assert_eq!(caret(&editor), (0, 1));
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "a\nb", "the joined newline is restored");
+        assert_eq!(caret(&editor), (1, 0), "the caret is back on line 2");
+        assert_eq!(editor.line_col_1based(), (2, 1));
+    }
+
+    #[test]
+    fn a_caret_move_between_typing_runs_starts_a_new_step() {
+        let mut editor = TextEditor::from_source("");
+        editor.insert_str("ab");
+        editor.move_left();
+        editor.insert_str("X");
+        assert_eq!(editor.source(), "aXb");
+        assert_eq!(caret(&editor), (0, 2));
+        assert_eq!(editor.history.undo_steps(), 2);
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "ab", "the second run is its own step");
+        assert_eq!(caret(&editor), (0, 1), "the moved caret is restored");
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "");
+    }
+
+    #[test]
+    fn deleting_a_selection_undoes_to_the_text_and_the_selection() {
+        let mut editor = TextEditor::from_source("abcdef");
+        editor.set_caret(0, 1);
+        editor.select_to(0, 4);
+        assert_eq!(editor.selected_text().as_deref(), Some("bcd"));
+
+        editor.delete_forward();
+        assert_eq!(editor.source(), "aef");
+        assert_eq!(caret(&editor), (0, 1));
+        assert!(editor.selection_range().is_none());
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "abcdef", "the deleted text is restored");
+        assert_eq!(
+            editor.selection_range(),
+            Some(((0, 1), (0, 4))),
+            "the selection is restored with the text"
+        );
+        assert_eq!(editor.selected_text().as_deref(), Some("bcd"));
+        assert_eq!(caret(&editor), (0, 4));
+    }
+
+    #[test]
+    fn a_multiline_paste_is_one_undo_step() {
+        let mut editor = TextEditor::from_source("x");
+        editor.set_caret(0, 1);
+        // `Event::Paste` calls exactly this atomic insertion.
+        editor.insert_text("a\nb", EditKind::Atomic);
+        assert_eq!(editor.source(), "xa\nb");
+        assert_eq!(caret(&editor), (1, 1));
+        assert_eq!(editor.history.undo_steps(), 1);
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "x", "the whole paste is one step");
+        assert_eq!(caret(&editor), (0, 1));
+    }
+
+    #[test]
+    fn a_completion_insertion_is_its_own_undo_step() {
+        let mut editor = TextEditor::from_source("");
+        let catalogue = build_catalogue(&[], &[builtin("sqrt", &["x"])], &[]);
+        editor.insert_str("sq");
+        assert!(editor.completion.show(&catalogue, "sq", 0));
+
+        editor.accept_completion();
+        assert_eq!(editor.source(), "sqrt");
+        assert_eq!(caret(&editor), (0, 4));
+        assert!(
+            !editor.completion.is_open(),
+            "acceptance dismisses the popup"
+        );
+
+        assert!(editor.undo());
+        assert_eq!(
+            editor.source(),
+            "sq",
+            "one undo removes the insertion without the typing that produced the prefix"
+        );
+        assert_eq!(caret(&editor), (0, 2));
+        assert!(!editor.completion.is_open());
+
+        assert!(editor.undo());
+        assert_eq!(editor.source(), "", "the typing is the next step back");
+    }
+
+    #[test]
+    fn each_editor_has_its_own_history() {
+        let mut first = TextEditor::from_source("");
+        let mut second = TextEditor::from_source("");
+        first.insert_str("alpha");
+        second.insert_str("beta");
+
+        assert!(first.undo());
+        assert_eq!(first.source(), "");
+        assert_eq!(
+            second.source(),
+            "beta",
+            "an undo in one document never changes another document"
+        );
+        assert!(second.undo());
+        assert_eq!(second.source(), "");
+        assert!(
+            !second.undo(),
+            "the other document's history was never shared"
+        );
+    }
 }

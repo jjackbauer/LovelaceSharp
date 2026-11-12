@@ -1215,14 +1215,31 @@
                      "type":  "W",
                      "requirement":  "Provide robust undo/redo semantics",
                      "acceptance":  "Burst typing is coalesced; selection/caret positions restored; all editing actions, replacements and auto-format are undoable per document.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-18/undo.md",
+                                          "sha256":  "5F3DE9661A0AC9F18E5B652DC6B39963AAB7D3653B8BA193CAA4917F2DAF851B",
+                                          "class":  "unit",
+                                          "at_head":  "6e242ab96ed819656296bcbd6a1babb36709c36c"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-18/verify-selftest.txt",
+                                          "sha256":  "70E3D047529B92B9AFA5CCB6EB18E6643346C397FEDC073B9AFBD661A891F503",
+                                          "class":  "unit",
+                                          "at_head":  "6e242ab96ed819656296bcbd6a1babb36709c36c"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/history.rs",
+                                          "sha256":  "A978E08A2749A57A2BC8101EF05E6BA0CF0B5657964A7FDC782A7FF66A7220A9",
+                                          "class":  "unit",
+                                          "at_head":  "6e242ab96ed819656296bcbd6a1babb36709c36c"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop undo; --gui-selftest undo-redo",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document 128-step history with 600 ms burst coalescing; Ctrl+Z/Y/Shift+Z; undo restores text+caret+selection; 169 tests pass; selftest shows ab / ab\\\\n / ab\\\\ncd round trips at the exact carets."
                  },
                  {
                      "id":  "EDT-013",

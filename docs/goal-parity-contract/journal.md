@@ -485,3 +485,11 @@
 - **Capability**: a live SymPy session for the 8 SymPy-oracle census rows.
 - **Check**: `python -c "import sympy"` -> "Python was not found; run without arguments to install from the Microsoft Store..." (the Windows Store execution alias). No interpreter, so no SymPy.
 - **Result**: the 8 rows are blocked by an absent external capability. They stay deferred and are not excluded (an exclusion needs owner approval).
+
+### VAL-004: Nine "ported" descriptor rows are weak mappings
+
+- **Source**: docs/goal-parity-contract/round-86/descriptor-examples.md, orchestrator verification of its table
+- **Fact**: all 141 descriptor examples were probed; 132 match and nine diverge, and ALL NINE census rows are disposition=ported: and(#4) canonical (and...) vs (fn and...), display-only test; assume(#10) result absent/Void, execution-only; collect(#24) display/canonical/nodeCount 8 vs 9, execution-only; compile(#25) Text vs CompilationResult record, execution-only; evalir_batch(#46) k variable Text vs record, result-only; not(#89) canonical (not...) vs (fn not...), display-only; or(#94) display parens + canonical, execution-only; plot(#97,#98) SVG 14636/14595 vs 326/331 bytes, execution-only.
+- **Verdict**: Falsified for the claim "these rows are equivalent". They are mapped, and the mapped tests do not assert the example's behaviour. Under VER-002/VER-008 they are weak mappings.
+- **Consequence**: they are re-opened as "weak mapping under review"; they stay counted as mapped (the ledger counts mapping) but the final acceptance report must list them as not-yet-equivalent, and the divergences are dispatched as production work (canonical and/or/not forms; plot SVG; compile result shape).
+- **Related**: VAL-003, the round-75 classification

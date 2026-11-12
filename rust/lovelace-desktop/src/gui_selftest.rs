@@ -63,9 +63,18 @@ pub fn run() -> i32 {
         ("run-state-fail", check_run_state_fail),
         ("run-state-stale", check_run_state_stale),
     ];
+    // The editor's own history is a Windows-only surface (egui is a Windows dependency), so the
+    // check joins the list exactly when that surface is compiled in.
+    #[cfg(windows)]
+    let checks: Vec<(&str, Check)> = checks
+        .into_iter()
+        .chain([("undo-redo", check_undo_redo as Check)])
+        .collect();
+    #[cfg(not(windows))]
+    let checks: Vec<(&str, Check)> = checks.into_iter().collect();
 
     let mut failed = 0usize;
-    for (name, check) in checks {
+    for &(name, check) in &checks {
         match check() {
             Ok(detail) => println!("GUI_SELFTEST ok {name}: {detail}"),
             Err(reason) => {
@@ -719,6 +728,148 @@ fn check_keyboard() -> Result<String, String> {
     Ok(format!(
         "Ctrl+Enter -> Run (status \"run Running\", Run disabled, Cancel visible); Esc -> run Cancelled in {:.2} ms; toolbar restored; run-start trace [{breakdown}]",
         elapsed.as_secs_f64() * 1000.0
+    ))
+}
+
+/// EDT-012: the native editor's per-document undo/redo, driven through the same shortcut
+/// mapping and command entry point the window's editor uses.
+///
+/// The check performs two typed edits with a newline between them (so they are two separate
+/// bursts and the buffer is `ab\ncd`), then a Ctrl+Z / Ctrl+Y round trip and a second
+/// Ctrl+Z / Ctrl+Shift+Z round trip. Every step prints the observed buffer and 0-based caret.
+#[cfg(windows)]
+fn check_undo_redo() -> Result<String, String> {
+    use crate::history::{HistoryCommand, command_for_shortcut};
+    use crate::ui::editor::TextEditor;
+
+    let mut editor = TextEditor::from_source("");
+    let mut steps: Vec<String> = Vec::new();
+    let snap = |label: &str, editor: &TextEditor| {
+        format!(
+            "{label}: buffer {:?}, caret ({}, {})",
+            editor.source(),
+            editor.caret_row,
+            editor.caret_col
+        )
+    };
+
+    editor.insert_str("ab");
+    steps.push(snap("type \"ab\"", &editor));
+    editor.newline();
+    steps.push(snap("Enter", &editor));
+    editor.insert_str("cd");
+    steps.push(snap("type \"cd\"", &editor));
+
+    if editor.source() != "ab\ncd" || (editor.caret_row, editor.caret_col) != (1, 2) {
+        return Err(format!(
+            "undo-redo: typing `ab`, Enter and `cd` produced {:?} at caret ({}, {}); expected {:?} at (1, 2)",
+            editor.source(),
+            editor.caret_row,
+            editor.caret_col,
+            "ab\ncd"
+        ));
+    }
+    if editor.history.undo_steps() != 3 {
+        return Err(format!(
+            "undo-redo: two typed bursts plus Enter made {} undo steps, expected 3",
+            editor.history.undo_steps()
+        ));
+    }
+
+    let undo = command_for_shortcut(true, false, false, true)
+        .ok_or("undo-redo: Ctrl+Z did not map to a history command")?;
+    if undo != HistoryCommand::Undo {
+        return Err(format!("undo-redo: Ctrl+Z mapped to {}", undo.label()));
+    }
+    if !editor.command(undo) {
+        return Err("undo-redo: Ctrl+Z found nothing to undo".to_string());
+    }
+    steps.push(snap("Ctrl+Z", &editor));
+    if editor.source() != "ab\n" || (editor.caret_row, editor.caret_col) != (1, 0) {
+        return Err(format!(
+            "undo-redo: Ctrl+Z left {:?} at caret ({}, {}); expected {:?} at (1, 0)",
+            editor.source(),
+            editor.caret_row,
+            editor.caret_col,
+            "ab\n"
+        ));
+    }
+    if editor.history.redo_steps() != 1 {
+        return Err(format!(
+            "undo-redo: Ctrl+Z left {} redo steps, expected 1",
+            editor.history.redo_steps()
+        ));
+    }
+
+    let redo = command_for_shortcut(false, true, false, true)
+        .ok_or("undo-redo: Ctrl+Y did not map to a history command")?;
+    if redo != HistoryCommand::Redo {
+        return Err(format!("undo-redo: Ctrl+Y mapped to {}", redo.label()));
+    }
+    if !editor.command(redo) {
+        return Err("undo-redo: Ctrl+Y found nothing to redo".to_string());
+    }
+    steps.push(snap("Ctrl+Y", &editor));
+    if editor.source() != "ab\ncd" || (editor.caret_row, editor.caret_col) != (1, 2) {
+        return Err(format!(
+            "undo-redo: Ctrl+Y left {:?} at caret ({}, {}); expected {:?} at (1, 2)",
+            editor.source(),
+            editor.caret_row,
+            editor.caret_col,
+            "ab\ncd"
+        ));
+    }
+
+    // The second undo spelling: Ctrl+Shift+Z must redo what Ctrl+Z undid.
+    if !editor.command(undo) {
+        return Err("undo-redo: the second Ctrl+Z found nothing to undo".to_string());
+    }
+    steps.push(snap("Ctrl+Z (again)", &editor));
+    let redo_shift = command_for_shortcut(true, false, true, true)
+        .ok_or("undo-redo: Ctrl+Shift+Z did not map to a history command")?;
+    if redo_shift != HistoryCommand::Redo {
+        return Err(format!(
+            "undo-redo: Ctrl+Shift+Z mapped to {}",
+            redo_shift.label()
+        ));
+    }
+    if !editor.command(redo_shift) {
+        return Err("undo-redo: Ctrl+Shift+Z found nothing to redo".to_string());
+    }
+    steps.push(snap("Ctrl+Shift+Z", &editor));
+    if editor.source() != "ab\ncd" || (editor.caret_row, editor.caret_col) != (1, 2) {
+        return Err(format!(
+            "undo-redo: Ctrl+Shift+Z left {:?} at caret ({}, {})",
+            editor.source(),
+            editor.caret_row,
+            editor.caret_col
+        ));
+    }
+
+    // A per-document history never crosses editors: undoing in a second editor leaves this
+    // one's buffer and its still-available steps untouched.
+    let editor_before = editor.source();
+    let mut other = TextEditor::from_source("");
+    other.insert_str("other");
+    if !other.undo() {
+        return Err("undo-redo: the second editor had nothing to undo".to_string());
+    }
+    if other.source() != "" || editor.source() != editor_before || editor.history.undo_steps() != 3
+    {
+        return Err(format!(
+            "undo-redo: undo in the second editor changed the first (second {:?}, first {:?}, {} steps left)",
+            other.source(),
+            editor.source(),
+            editor.history.undo_steps()
+        ));
+    }
+
+    for step in &steps {
+        println!("GUI_SELFTEST undo-redo {step}");
+    }
+    Ok(format!(
+        "two typed bursts around Enter, 3 steps; Ctrl+Z -> {:?} caret (1,0); Ctrl+Y -> {:?} caret (1,2); Ctrl+Z/Ctrl+Shift+Z round trip; per-editor histories independent",
+        "ab\n", "ab\ncd"
     ))
 }
 
