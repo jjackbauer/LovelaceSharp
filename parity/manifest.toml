@@ -29412,10 +29412,11 @@ note = "C#: Lovelace.Representation.Tests/DigitStoreTrimLeadingZerosTests.cs:123
 [[test]]
 id = "Lovelace.Representation.Tests/Lovelace.Representation.Tests.UnitTest1/Test1#0"
 project = "Lovelace.Representation.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Lovelace.Representation crate (the C# case has an empty body and no observable); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "excluded"
+reason = "The C# source is a template placeholder with an empty body: `public class UnitTest1 { [Fact] public void Test1() { } }` (Lovelace.Representation.Tests/UnitTest1.cs:7-9 is `{`, a blank line, `}` with no statements). It asserts no observable behaviour, so there is nothing to reproduce; a vacuous Rust test that asserts nothing would violate the rule that every test must be able to fail. Excluded under the user's delegated authority of 2026-11-10 (\"do the most reasonable choices and go on\")."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Delegated exclusion; reversible by the user. Lovelace.Representation.Tests"
+owner = "user"
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.AllocationRefusalEnvelopeTests/HugeZeros_CrossesAsARecoverableBudgetRefusal#0"
@@ -45548,50 +45549,56 @@ note = "C#: Lovelace.Symbolics.Tests/DiagnosticContractTests.cs:190 Lovelace.Sym
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Derivatives_Agree#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_derivatives_agree"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:26 SympyOracle_Derivatives_Agree compares 6 derivatives at three rational points against a live SymPy session (canonical print, reparse, numeric at RealTolerance 1e-13, both parts). Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:284 sympyoracle_derivatives_agree embeds the SymPy 1.14.0 values for the same 6 expressions x 3 points and asserts both parts at 1e-13."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Factorization_Agrees#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_factorization_agrees"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:148 SympyOracle_Factorization_Agrees compares 9 polynomials' sorted degree:multiplicity profile against sympy.factor_list and requires the factorization to expand back to the input. Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:575 sympyoracle_factorization_agrees embeds the SymPy 1.14.0 profiles and asserts the same profile and expansion identity."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Limits_Agree#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_limits_agree"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:170 SympyOracle_Limits_Agree compares 24 limits against sympy.limit: finite values at TightTolerance 1e-20, oo/-oo by status, and a two-sided DoesNotExist carrying both one-sided values. Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:789 sympyoracle_limits_agree embeds the SymPy 1.14.0 values/statuses and asserts the same rules."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_MatrixOperations_Agree#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_matrixoperations_agree"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:196 SympyOracle_MatrixOperations_Agree compares 13 matrix cases against SymPy: 3 determinants, 2 traces and 3 inverses at the corpus points at RealTolerance 1e-13, and 5 ranks exactly. Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:1010 sympyoracle_matrixoperations_agree embeds the SymPy 1.14.0 values and applies the same 1e-13 numeric and exact-rank rule."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Roots_Agree#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_roots_agree"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:89 SympyOracle_Roots_Agree compares 8 polynomials' distinct real values against sympy.real_roots at TightTolerance 1e-20, and substitutes closed forms back exactly. Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:455 sympyoracle_roots_agree embeds the SymPy 1.14.0 distinct real values and applies the same 1e-20 and exact-substitution rule."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DifferentialOracleTests/SympyOracle_Solve_Agrees#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round98_differential_oracle::sympyoracle_solve_agrees"
+reason = "Ported by round 98: the differential-oracle row now resolves to the embedded SymPy 1.14.0 Rust test (see note; docs/goal-parity-contract/round-98/differential-oracle.md)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/DifferentialOracleTests.cs:45 SympyOracle_Solve_Agrees compares 7 equations by distinct canonical-root count against sympy.solve, substitutes every kernel root back to an exact zero, and requires the declared non-answer (sqrt(x) + 2) to be Unevaluated/incomplete. Rust: rust/lovelace-lang/src/round98_differential_oracle.rs:352 sympyoracle_solve_agrees embeds the SymPy 1.14.0 distinct-root counts (1,2,3,4,2,2,0) and applies the same substitution and status rule."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DocsSyncTests/Every_CSharpSnippet_AppearsInUsageExamples#0"

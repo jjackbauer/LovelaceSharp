@@ -208,6 +208,18 @@ impl SymbolicMatrix {
         })
     }
 
+    /// The trace: the sum of the diagonal entries (the reference's `Trace`).
+    ///
+    /// A rectangular matrix traces over the shorter dimension, the reference's row/column bound.
+    pub fn trace(&self) -> Expr {
+        let n = self.rows.min(self.columns);
+        let mut total = Expr::num(0);
+        for index in 0..n {
+            total = Expr::add(total, self.data[index * self.columns + index].clone());
+        }
+        total
+    }
+
     /// The generic rank over the rational-function field, by fraction-free (Bareiss) elimination
     /// with full pivoting.
     ///

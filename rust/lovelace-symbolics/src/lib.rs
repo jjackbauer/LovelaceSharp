@@ -2458,6 +2458,29 @@ fn series_inner(e: &Expr, var: &str, order: i64) -> Option<Series> {
                         out.push((k, if sign > 0 { fact.clone() } else { fact.neg() }));
                     }
                 }
+                // tan(x) = x + x^3/3 + 2*x^5/15 + 17*x^7/315 + ... The reference's series
+                // engine differentiates the function's template; the limit tan(x)/x = 1 is
+                // decided by this expansion.
+                "tan" => {
+                    // The hard-coded expansion is complete through x^7; a larger order is
+                    // refused rather than published as a silently truncated series.
+                    if order > 8 {
+                        return None;
+                    }
+                    let third = Rat::one().div(&Rat::from_i64(3))?;
+                    let two_fifteenths = Rat::from_i64(2).div(&Rat::from_i64(15))?;
+                    let seventeen_315 = Rat::from_i64(17).div(&Rat::from_i64(315))?;
+                    for (k, coefficient) in [
+                        (1i64, Rat::one()),
+                        (3, third),
+                        (5, two_fifteenths),
+                        (7, seventeen_315),
+                    ] {
+                        if k < order {
+                            out.push((k, coefficient));
+                        }
+                    }
+                }
                 _ => return None,
             }
             out.retain(|(_, c)| !c.is_zero());
@@ -4351,6 +4374,9 @@ pub fn diff(e: &Expr, var: &str) -> Expr {
                 "exp" => Expr::Fun("exp".to_string(), vec![u.clone()]),
                 "log" => Expr::div(Expr::num(1), u.clone()),
                 "sqrt" => Expr::div(Expr::num(1), Expr::mul(Expr::num(2), Expr::sqrt(u.clone()))),
+                // d tan(u)/dx = cos(u)^-2 * u', the reference's DerivativeTemplate
+                // (Functions.cs Add("tan", ..., cos(a)^-2)).
+                "tan" => Expr::pow(Expr::Fun("cos".to_string(), vec![u.clone()]), Expr::num(-2)),
                 _ => return Expr::num(0),
             };
             Expr::mul(outer, du)

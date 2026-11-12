@@ -187,6 +187,24 @@ pub fn solve_polynomial_set(coeffs: &[Rat], var: &str, domain: SolveDomain) -> S
             SolutionSet::new(SolveStatus::NoSolutions, domain, Vec::new())
                 .with_note("no real solutions")
         }
+        // Over the REALS a complex radical is not a solution (x^2 + 1 has none), and the
+        // RootOf values the solver represents ARE the complete real set (C# HighDegreeRoots:
+        // "over the reals the count real roots ARE the complete solution set").
+        SolveOutcome::RootExpressions(expressions) if domain == SolveDomain::Real => {
+            let real: Vec<Expr> = expressions
+                .into_iter()
+                .filter(|expression| !expression.has_imaginary_unit())
+                .collect();
+            if real.is_empty() {
+                SolutionSet::new(SolveStatus::NoSolutions, domain, Vec::new())
+                    .with_note("no real solutions")
+            } else {
+                SolutionSet::new(SolveStatus::Solved, domain, real)
+            }
+        }
+        SolveOutcome::RootExpressionsCount(expressions, _) if domain == SolveDomain::Real => {
+            SolutionSet::new(SolveStatus::Solved, domain, expressions)
+        }
         SolveOutcome::RootExpressions(expressions) => {
             SolutionSet::new(SolveStatus::Solved, domain, expressions)
         }

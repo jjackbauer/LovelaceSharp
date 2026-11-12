@@ -2967,3 +2967,8 @@ mod round93_eval_print;
 /// Round-97 final tail: the last twelve mappable deferred census rows.
 #[cfg(test)]
 mod round97_tail;
+
+/// Round-98 differential oracle: the six DifferentialOracleTests census rows, with the SymPy
+/// 1.14.0 ground truth embedded as literals.
+#[cfg(test)]
+mod round98_differential_oracle;

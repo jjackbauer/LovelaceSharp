@@ -7486,6 +7486,24 @@ pub(crate) fn limit_result(
     side: Side,
 ) -> Value {
     use lovelace_symbolics::Series;
+    // The reference's RationalInfinity: at ±infinity a rational function (including a plain
+    // polynomial) is decided by exact degree comparison BEFORE the series substitution. The
+    // sign of the answer depends on which infinity was named: x^3 - 2*x is +oo at +oo and -oo
+    // at -oo, while the t = 1/x series alone would report the same pole for both.
+    let infinity_by_degree = if at_infinity {
+        rational_infinity(f, var, !is_negative_infinity(point))
+    } else {
+        None
+    };
+    if let Some(value) = infinity_by_degree {
+        if value == Sym::Fun("inf".to_string(), Vec::new()) {
+            return limit_infinity_record(true);
+        }
+        if value == Sym::neg(Sym::Fun("inf".to_string(), Vec::new())) {
+            return limit_infinity_record(false);
+        }
+        return limit_value_record(Value::Symbolic(value));
+    }
     // Step 1 of the reference's LimitCore: DIRECT SUBSTITUTION. A value at the point IS the limit
     // when the function is defined there — limit(abs(x), x, 0) = 0 and limit(sqrt(x), x, 0) = 0 are
     // the value at 0, not a series coefficient. Only an EXACT value is taken here: 0/0 must not fold
@@ -7695,6 +7713,78 @@ pub(crate) fn limit_result(
             Vec::new(),
         ),
     }
+}
+
+/// The LimitResult for a limit that diverges to +infinity or -infinity (the reference's
+/// LimitResult.PlusInf / MinusInf): exists, the signed infinity value, both sides empty.
+fn limit_infinity_record(positive: bool) -> Value {
+    let infinity = Sym::Fun("inf".to_string(), Vec::new());
+    let value = if positive {
+        infinity
+    } else {
+        Sym::neg(infinity)
+    };
+    limit_record(
+        if positive {
+            "PlusInfinity"
+        } else {
+            "MinusInfinity"
+        },
+        Value::Boolean(true),
+        Value::Symbolic(value),
+        Value::Void,
+        Vec::new(),
+        Value::Void,
+        Vec::new(),
+        Vec::new(),
+        Value::Text("Exact".to_string()),
+        Vec::new(),
+    )
+}
+
+/// True when the limit point is the NEGATIVE infinity node (-1*inf), as opposed to +inf.
+fn is_negative_infinity(e: &Sym) -> bool {
+    *e == Sym::neg(Sym::Fun("inf".to_string(), Vec::new()))
+}
+
+/// The reference's RationalInfinity: the exact limit of a rational function at +infinity or
+/// -infinity by degree comparison, including the sign the direction contributes.
+fn rational_infinity(f: &Sym, var: &str, plus: bool) -> Option<Sym> {
+    let (numerator, denominator) = match f {
+        Sym::Div(numerator, denominator) => ((**numerator).clone(), (**denominator).clone()),
+        _ => lovelace_symbolics::split_quotient(f).unwrap_or_else(|| (f.clone(), Sym::num(1))),
+    };
+    let numerator = lovelace_symbolics::poly_coeffs(&numerator, var)?;
+    let denominator = lovelace_symbolics::poly_coeffs(&denominator, var)?;
+    if numerator.is_empty() || denominator.is_empty() {
+        return None;
+    }
+    let degree_numerator = numerator.len() - 1;
+    let degree_denominator = denominator.len() - 1;
+    if degree_numerator < degree_denominator {
+        return Some(Sym::num(0));
+    }
+    let leading_numerator = numerator.last()?.clone();
+    let leading_denominator = denominator.last()?.clone();
+    let ratio = leading_numerator.div(&leading_denominator)?;
+    if degree_numerator > degree_denominator {
+        let difference = (degree_numerator - degree_denominator) as i64;
+        // x -> +oo: sign(ratio); x -> -oo: sign(ratio)*(-1)^difference.
+        let positive = if plus {
+            !ratio.is_negative()
+        } else if ratio.is_negative() {
+            difference % 2 == 1
+        } else {
+            difference % 2 == 0
+        };
+        let infinity = Sym::Fun("inf".to_string(), Vec::new());
+        return Some(if positive {
+            infinity
+        } else {
+            Sym::neg(infinity)
+        });
+    }
+    Some(Sym::Num(ratio))
 }
 
 pub(crate) fn limit_value_record(value: Value) -> Value {
@@ -10632,39 +10722,28 @@ fn factor_expr(e: &Sym) -> Sym {
     if coeffs.len() < 3 {
         return e.clone();
     }
-    let outcome = lovelace_symbolics::solve_polynomial(&coeffs);
-    let roots = match outcome {
-        lovelace_symbolics::SolveOutcome::Roots(r) => r,
-        _ => return e.clone(),
-    };
-    // A repeated root is one FACTOR with a multiplicity: x^2 - 2x + 1 = (x - 1)^2, never a list
-    // of duplicate binomials.
-    let total: u64 = roots.iter().map(|root| root.multiplicity).sum();
-    if total + 1 != coeffs.len() as u64 {
-        return e.clone();
+    // The reference's Factoring.FactorPoly: rational content, Yun's square-free decomposition,
+    // and one monic linear factor per rational root; a residual factor is returned whole. The
+    // solver's RootExpressions cannot drive this: a complex quadratic remainder is a REFUSAL for
+    // solve() but an irreducible FACTOR here ((x + 1)*(x^2 - x + 1) for x^3 + 1).
+    let factored = lovelace_symbolics::polynomials::factor(&coeffs);
+    let mut out: Vec<Sym> = Vec::new();
+    if !factored.content.is_one() {
+        out.push(Sym::Num(factored.content));
     }
-    let mut factors: Vec<Sym> = Vec::new();
-    let mut sorted = roots.clone();
-    sorted.sort_by(|a, b| b.value.cmp(&a.value));
-    for r in sorted {
-        let binomial = Sym::add(Sym::sym(&var), Sym::Num(r.value.neg()));
-        if r.multiplicity == 1 {
-            factors.push(binomial);
+    for (coefficients, multiplicity) in factored.factors {
+        let polynomial = lovelace_symbolics::poly_to_expr(&coefficients, &var);
+        if multiplicity == 1 {
+            out.push(polynomial);
         } else {
-            factors.push(Sym::pow(binomial, Sym::num(r.multiplicity as i64)));
+            out.push(Sym::pow(polynomial, Sym::num(multiplicity as i64)));
         }
     }
-    // Leading coefficient, when it is not one.
-    let leading = coeffs
-        .last()
-        .cloned()
-        .unwrap_or_else(lovelace_symbolics::Rat::one);
-    let mut out: Vec<Sym> = Vec::new();
-    if !leading.is_one() {
-        out.push(Sym::Num(leading));
+    match out.len() {
+        0 => e.clone(),
+        1 => out.pop().expect("one factor"),
+        _ => Sym::Mul(out),
     }
-    out.extend(factors);
-    Sym::Mul(out)
 }
 
 /// Splits `num * den^-1` into its two parts.
