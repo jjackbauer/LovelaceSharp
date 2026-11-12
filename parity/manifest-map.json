@@ -21804,9 +21804,9 @@
     "note": "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:59 asserts x^4-5x^2+4 factors to (x-2)(x-1)(x+1)(x+2) and expands back. Rust: rust/lovelace-lang/src/suite_parity_batch.rs acceptancetests_factor_squaresdifference_fullyfactors."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/PrintParse_RoundTrips#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::acceptance_canonical_print_parse_round_trips",
+    "note": "C#: SmokeTests.cs:224 asserts canonical print then canonical parse returns the expression (Assert.Equal and Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:31 asserts the canonical-form identity the interning implements - the parsed text re-canonicalises to the parsed text, and canonical parse is idempotent."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Series_SinOverX_GivesExpectedCoefficients#0": {
     "disposition": "ported",
@@ -24899,7 +24899,8 @@
     "rust": "lovelace-corpus::property_assertions::canonical_text_round_trips_and_reinterns",
     "reason": "Round 65 mapping: the C# row is reproduced by the named Rust test through the canonical-text idempotence that Assert.Same exists to guarantee (see note).",
     "note": "Round 64: C# PropertyTests.cs:68 CanonicalText_RoundTripsAndReinterns asserts canonical text round-trips and reinterns (Assert.Same); rust/lovelace-corpus/src/property_assertions.rs:84 canonical_text_round_trips_and_reinterns is unignored and asserts canonical_parse(canonical(e)).canonical() == canonical(e) for all 200 generated expressions. Assert.Same is translated to canonical-text idempotence because Rust Expr is a value (Context interns Symbol/Function ids only); item 49 is fixed and the corpus FNV-1a 64 hash 6,083,718,521,819,931,755 matches the C# oracle. See docs/goal-parity-contract/round-64/canonical-idempotence.md."
-  },  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Assume_ConjunctionAndNegation_ThroughEngine#0": {
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Assume_ConjunctionAndNegation_ThroughEngine#0": {
     "disposition": "ported",
     "rust": "lovelace-lang::suite_parity_batch::relationsandfamiliestests_assume_conjunctionandnegation_throughengine",
     "note": "C#: RelationsAndFamiliesTests.cs:107 asserts the assumptions() display is 'x > 0; x < 5' with 2 atoms, then 'x > 0; x < 5; x != 2' with 3, and and(x>0,x<1) renders canonical operand order. Rust: same record fields and rendering."
@@ -25506,9 +25507,9 @@
     "reason": "Ported: the pretty rendering is the exact C# string (see note)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_4_CanonicalTextRoundTrip#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::usage_snippet_16_4_canonical_text_round_trip",
+    "note": "C#: UsageExamples.cs:50 asserts x^2 + 2*x + 1 prints canonically and parses back to the same expression (Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:57 asserts the canonical text round-trip."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigCertifiedPrefixTests/Sin_OfOne_PublishesTheDigitsItClaims#0": {
     "disposition": "ported",
@@ -30477,9 +30478,9 @@
     "note": "Round 52: C# DspTests.Filter_GivenIir_MatchesImpulseResponseConvolution (DspTests.cs:156) filters a=[1,-0.5], b=[1], x=[1,1,1,1] and asserts the Convolve(x, ImpulseResponse(a,b,len)) prefix; rust/lovelace-lang/src/dispatcher_guard_round51.rs filter_signal_and_impulse_forms_match_the_reference_arithmetic asserts filter([1, -0.5], [1], [1, 1, 1, 1]) == \"[1, 1.5, 1.75, 1.875] (Vector)\". See docs/goal-parity-contract/round-51/dispatcher-gap.md section 5 row 8."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/ImpulseResponse_GivenFirstOrderIir_MatchesHandComputed#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing DspMath.Sequence/Product/Sum and DspMath.Filter/ImpulseResponse library API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round66_resweep::dsp_impulse_response_of_a_first_order_iir_matches_the_hand_computed_sequence",
+    "note": "C#: DspTests.cs:109 asserts the first-order IIR y[n] = 0.1x[n] + 0.9y[n-1] has impulse response [0.1, 0.09, 0.081, 0.0729]. Rust: rust/lovelace-run/src/round66_resweep.rs:48 asserts the same four Complex samples from filter([1,-0.9],[0.1],4); the oracle publishes the same normalised envelope (measured this round)."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/Product_GivenImpulseAndStep_MultipliesPointwise#0": {
     "disposition": "deferred",
@@ -31273,14 +31274,14 @@
     "note": "Round 45: the Hessian of (x^2+y^2)*exp(-(x+y)) is a 2x2 matrix and its two mixed partials are the same symbolic node (canonical form included)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Interning_EqualStructureSharesReference#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::acceptance_interned_equal_structure_is_the_same_value",
+    "note": "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:245 asserts Add(Power(x,2), x) and Add(x, Power(x,2)) are the same expression (Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:19 asserts the value-language translation - Expr is a value, so canonical construction is asserted as structural equality of the two construction orders."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Inverse_SymbolicMatrix_TimesOriginalIsIdentity#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round66_resweep::acceptance_inverse_times_original_is_identity",
+    "note": "C#: SmokeTests.cs:158 asserts A times A-inverse is the identity, verified numerically at x = 3, y = 2. Rust: rust/lovelace-lang/src/round66_resweep.rs:16 builds the inverse through SymbolicMatrix::inverse_with_conditions, multiplies, substitutes the same point and evaluates every entry exactly with numeric::evaluate."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionScopeIsolationTests/NestedScopes_RestoreTheEnclosingScopeOnDispose#0": {
     "disposition": "ported",
@@ -31504,14 +31505,14 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_BudgetExceeded_IsReported#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::dx_semantic_transform_budget_exceeded_is_reported",
+    "note": "C#: DxSemanticClosureTests.cs:146 asserts Simplify.Transform with MaxSteps 0 reports BudgetExceeded. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:199 asserts the same on rewrite_registry::transform with max_steps 0."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_TraceIsOptIn_ButConditionsAlwaysSurvive#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::dx_semantic_transform_trace_is_opt_in_but_conditions_always_survive",
+    "note": "C#: DxSemanticClosureTests.cs:134 asserts a default Transform has empty Steps, still carries the x != 0 condition (Tristate.True) and did not exceed its budget. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:221 asserts the same three facts."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_AcceptsNestedRowValues#0": {
     "disposition": "deferred",
@@ -31846,9 +31847,9 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/InverseWithConditions_Singular_ReturnsNullMatrix_And_Note#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::matrix_inverse_with_conditions_singular_reports_no_matrix_and_the_note",
+    "note": "C#: MatrixAdvanceTests.cs:57 asserts a singular matrix publishes Matrix null, Note \"matrix is singular\" and empty Conditions. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:96 asserts the same three facts on MatrixInverseResult (matrix None, note, empty condition set)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/Rank_GenericOverSymbols_And_Numeric#0": {
     "disposition": "deferred",
@@ -31959,21 +31960,23 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/SquareFree_X2Times_XMinus1#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::polynomials_square_free_of_x_squared_times_x_minus_one",
+    "note": "C#: PolynomialsApiTests.cs:70 asserts x^3 - x^2 decomposes into (x - 1) with multiplicity 1 and x with multiplicity 2. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:114 asserts the same two factors as ascending coefficient vectors with their multiplicities."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Diff_MatchesNumericalDerivative#0": {
     "disposition": "ported",
     "rust": "lovelace-corpus::property_assertions::diff_matches_numerical_derivative",
     "reason": "Round 65 mapping: the C# row's 60-expression numerical-derivative assertion is reproduced by the named Rust test now that numeric::evaluate carries the reference Piecewise/Relation arms (see note).",
     "note": "Round 64: C# PropertyTests.cs:115 Diff_MatchesNumericalDerivative asserts the symbolic derivative matches the central difference over 60 generated expressions at 3 points; rust/lovelace-corpus/src/property_assertions.rs:131 diff_matches_numerical_derivative is unignored and passes the same corpus. Production: numeric.rs Piecewise/Relation arms and the sign evaluator; the oracle guard values are pinned by numeric_piecewise_relation_arms_match_the_oracle (property_assertions.rs:339). See docs/goal-parity-contract/round-64/diff-integrate.md."
-  },  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Integrate_DiffRoundTrips#0": {
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Integrate_DiffRoundTrips#0": {
     "disposition": "ported",
     "rust": "lovelace-corpus::property_assertions::integrate_diff_round_trips",
     "reason": "Round 65 mapping: the sixth C# integrand now closes via the by-substitution tier, so the named Rust test reproduces the row's six closed forms plus derivative round trip (see note).",
     "note": "Round 64: C# PropertyTests.cs:147 Integrate_DiffRoundTrips requires six closed forms and diff(integral) == integrand; rust/lovelace-corpus/src/property_assertions.rs:194 integrate_diff_round_trips is unignored and passes the same six integrands. Production: integrate_by_substitution (builtins.rs) closes x^2*sin(x^3) to -1/3*cos(x^3), matching the C# library (the C# CLI leaves the parsed literal unevaluated; recorded as a reference defect). Closed forms pinned by integrate_by_substitution_matches_the_reference (property_assertions.rs:395). See docs/goal-parity-contract/round-64/diff-integrate.md."
-  },  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/MathIR_EvaluatesLikeSymbolic#0": {
+  },
+  "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/MathIR_EvaluatesLikeSymbolic#0": {
     "disposition": "deferred",
     "reason": "Round 63 deferral (round 62 measured blocker): numeric::evaluate and IrEvaluator differ by 1 in the 50th decimal place at x=1/3 on expression 2, while the C# row asserts exact NumOps.Compare(direct, lowered) == 0; a tolerance would weaken the row. See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1.",
     "note": "Corpus is exact (59/60 canonical items; item 35 differs only by commutative factor order). The blocker probe lovelace-corpus::property_assertions::mathir_evaluates_like_symbolic is #[ignore]; it needs exact 50-place agreement between the two evaluators."
@@ -32104,9 +32107,9 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/LanguageStatuses_ReportExactlyWhatTheMappingReturns#5": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SolveCompletenessMapping.Of API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round66_resweep::solve_language_statuses_publish_the_unevaluated_pair",
+    "note": "C#: SolveCompletenessMappingTests.cs:67 row 5 (x^4 + 1 == 0) asserts the record publishes Unevaluated / complete false / Unknown. Rust: rust/lovelace-run/src/round66_resweep.rs:21 asserts the same triple on the runner envelope; the oracle publishes the same normalised envelope (measured this round)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/EverySolveStatus_PublishesTheDocumentedPair_OnBothRecords#0": {
     "disposition": "deferred",
@@ -32129,28 +32132,28 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementConsistentWithAssumptions_KeepsItsConditions#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Simplify.Transform with caller assumptions; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::transform_requirement_consistent_with_assumptions_keeps_its_conditions",
+    "note": "C#: UnsatisfiablePropagationTests.cs:46 asserts Simplify.Transform(Divide(x,x)) under x > 5 keeps its conditions and requires x != 0 (NonZero). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:139 asserts the same on rewrite_registry::transform with the caller assumption set."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementRefutedByAssumptions_IsUnsatisfiable#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Simplify.Transform with caller assumptions; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::transform_requirement_refuted_by_assumptions_is_unsatisfiable",
+    "note": "C#: UnsatisfiablePropagationTests.cs:31 asserts the same rewrite under x == 0 is an unsatisfiable branch. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:171 asserts conditions.is_unsatisfiable()."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_2_EqualityAndHashConsing#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::usage_snippet_16_2_equality_and_hash_consing",
+    "note": "C#: UsageExamples.cs:27 (the published snippet) asserts the two construction orders are the same expression. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:47 asserts equality (the value-language form of Assert.Same)."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_8_ExactnessDiscipline#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-symbolics::round66_resweep::usage_snippet_16_8_exactness_discipline",
+    "note": "C#: UsageExamples.cs:96 asserts the exactness discipline: an exact rational, a radical of an exact base and a closed form are exact, the Real leaf is not. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:75 asserts the same four claims on Expr::is_exact."
   },
   "precbench.Tests/PrecBench.Tests.AccuracyTests/WithPrecision_GivenScope_RestoresGlobalState#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing global Real precision-scope state (WithPrecision restores MaxComputationDecimalPlaces); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::round66_resweep::with_precision_scope_restores_the_global_state",
+    "note": "C#: precbench.Tests/AccuracyTests.cs:76 asserts that a WithPrecision(7, ...) scope restores Real.MaxComputationDecimalPlaces and Real.DisplayDecimalPlaces to the values that were active before it. Rust: rust/lovelace-real/src/round66_resweep.rs:10 opens the same RAII scope (Real::with_precision), computes sqrt(2) inside it, and asserts the two published values are restored."
   }
 }

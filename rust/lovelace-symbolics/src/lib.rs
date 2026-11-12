@@ -5156,6 +5156,9 @@ mod tail_round34;
 mod round39_residue;
 
 #[cfg(test)]
+mod round66_resweep;
+
+#[cfg(test)]
 mod printing_round16;
 
 #[cfg(test)]

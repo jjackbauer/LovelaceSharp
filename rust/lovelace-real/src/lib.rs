@@ -1138,6 +1138,9 @@ mod real_parity_round7;
 mod real_parity_round10;
 
 #[cfg(test)]
+mod round66_resweep;
+
+#[cfg(test)]
 mod transcendental_round25;
 
 #[cfg(test)]

@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T02:39:50Z",
+    "generatedAtUtc":  "2026-11-12T03:06:54Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5083,
+                  "passed":  5098,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5084
+                   "tests":  5099
                },
-    "sourcesSha256":  "54de681835d576e582946eb7e93b6fea3da2754cd936217feb3162020a98c456",
+    "sourcesSha256":  "353d7478c61cfa2fed232532e5f1696d5d2b16de1ba7c7ccbf778e6d89ca6c37",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -2883,6 +2883,7 @@
                                      "round39_real_tests::try_format_given_insufficient_buffer_returns_false",
                                      "round39_real_tests::try_format_given_sufficient_buffer_returns_true_and_writes_correctly",
                                      "round39_real_tests::try_parse_given_null_string_returns_false",
+                                     "round66_resweep::with_precision_scope_restores_the_global_state",
                                      "tests::Add_GivenTwoTenthsAndTwoTenths_IsExact",
                                      "tests::Add_GivenTwoThirds_ProducesRepeatingSixth",
                                      "tests::Cmp_GivenDifferentScales_OrdersNumerically",
@@ -3081,6 +3082,17 @@
                                      "round39_residue::rootof_evaluates_the_quadratic_radicals",
                                      "round39_residue::rootof_no_real_roots_fails_explicitly",
                                      "round39_residue::yun_square_free_multiplicities_are_correct",
+                                     "round66_resweep::acceptance_canonical_print_parse_round_trips",
+                                     "round66_resweep::acceptance_interned_equal_structure_is_the_same_value",
+                                     "round66_resweep::dx_semantic_transform_budget_exceeded_is_reported",
+                                     "round66_resweep::dx_semantic_transform_trace_is_opt_in_but_conditions_always_survive",
+                                     "round66_resweep::matrix_inverse_with_conditions_singular_reports_no_matrix_and_the_note",
+                                     "round66_resweep::polynomials_square_free_of_x_squared_times_x_minus_one",
+                                     "round66_resweep::transform_requirement_consistent_with_assumptions_keeps_its_conditions",
+                                     "round66_resweep::transform_requirement_refuted_by_assumptions_is_unsatisfiable",
+                                     "round66_resweep::usage_snippet_16_2_equality_and_hash_consing",
+                                     "round66_resweep::usage_snippet_16_4_canonical_text_round_trip",
+                                     "round66_resweep::usage_snippet_16_8_exactness_discipline",
                                      "symbolic_matrix::tests::a_singular_matrix_publishes_no_inverse_and_the_reference_note",
                                      "symbolic_matrix::tests::determinant_of_a_non_square_matrix_is_refused",
                                      "symbolic_matrix::tests::inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check",
@@ -3759,6 +3771,7 @@
                                      "round46_token_kind::tokenize_given_v1_punctuation_returns_the_appended_kinds",
                                      "round46_token_kind::tokenize_given_whitespace_skips_whitespace_preserves_positions",
                                      "round46_token_kind::tokenizer_type_exposes_the_reference_facade",
+                                     "round66_resweep::acceptance_inverse_times_original_is_identity",
                                      "suite_engine_batch::abs_given_complex_returns_magnitude",
                                      "suite_engine_batch::arithmetic_does_not_degrade_exactness",
                                      "suite_engine_batch::concurrent_engines_capture_their_own_print_output",
@@ -4964,6 +4977,8 @@
                                      "round50_resweep::atanh_descriptor_is_complete_and_cross_references_tanh",
                                      "round50_resweep::capabilities_is_one_registered_builtin_with_complete_metadata",
                                      "round50_resweep::capture_state_publishes_variables_and_user_functions",
+                                     "round66_resweep::dsp_impulse_response_of_a_first_order_iir_matches_the_hand_computed_sequence",
+                                     "round66_resweep::solve_language_statuses_publish_the_unevaluated_pair",
                                      "script_source::tests::diagnostic_at_engine_offset_translates_before_it_names_the_line",
                                      "script_source::tests::diagnostic_names_its_source_and_keeps_the_four_field_wire_shape",
                                      "script_source::tests::empty_source_has_no_offset_a_script_can_name",

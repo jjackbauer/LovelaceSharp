@@ -1826,6 +1826,9 @@ mod cancellation_round18;
 mod round19_batch;
 
 #[cfg(test)]
+mod round66_resweep;
+
+#[cfg(test)]
 mod dsp_round20;
 
 #[cfg(test)]

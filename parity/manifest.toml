@@ -1938,10 +1938,11 @@ note = "C#: DspTests.cs:116 ImpulseResponse([1],[1,2,3],5) == [1,2,3,0,0]. Rust:
 [[test]]
 id = "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/ImpulseResponse_GivenFirstOrderIir_MatchesHandComputed#0"
 project = "Lovelace.Dsp.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round66_resweep::dsp_impulse_response_of_a_first_order_iir_matches_the_hand_computed_sequence"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing DspMath.Sequence/Product/Sum and DspMath.Filter/ImpulseResponse library API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: DspTests.cs:109 asserts the first-order IIR y[n] = 0.1x[n] + 0.9y[n-1] has impulse response [0.1, 0.09, 0.081, 0.0729]. Rust: rust/lovelace-run/src/round66_resweep.rs:48 asserts the same four Complex samples from filter([1,-0.9],[0.1],4); the oracle publishes the same normalised envelope (measured this round)."
 
 [[test]]
 id = "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/ImpulseResponse_GivenUnitFilter_PassesImpulse#0"
@@ -44748,18 +44749,20 @@ note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs Integrate_Table_AllVerify ass
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Interning_EqualStructureSharesReference#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::acceptance_interned_equal_structure_is_the_same_value"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/SmokeTests.cs:245 asserts Add(Power(x,2), x) and Add(x, Power(x,2)) are the same expression (Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:19 asserts the value-language translation - Expr is a value, so canonical construction is asserted as structural equality of the two construction orders."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Inverse_SymbolicMatrix_TimesOriginalIsIdentity#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-lang::round66_resweep::acceptance_inverse_times_original_is_identity"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: SmokeTests.cs:158 asserts A times A-inverse is the identity, verified numerically at x = 3, y = 2. Rust: rust/lovelace-lang/src/round66_resweep.rs:16 builds the inverse through SymbolicMatrix::inverse_with_conditions, multiplies, substitutes the same point and evaluates every entry exactly with numeric::evaluate."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Limit_SinOverX_AtZero_IsOne#0"
@@ -44782,10 +44785,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/PrintParse_RoundTrips#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::acceptance_canonical_print_parse_round_trips"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs/SymbolicMatrix construction API (Hessian, interning identity); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: SmokeTests.cs:224 asserts canonical print then canonical parse returns the expression (Assert.Equal and Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:31 asserts the canonical-form identity the interning implements - the parsed text re-canonicalises to the parsed text, and canonical parse is idempotent."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AcceptanceTests/Rational_NormalizationAndArithmetic#0"
@@ -45750,10 +45754,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxSemanticClosureTests.cs Solve_QuarticWith
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_BudgetExceeded_IsReported#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::dx_semantic_transform_budget_exceeded_is_reported"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: DxSemanticClosureTests.cs:146 asserts Simplify.Transform with MaxSteps 0 reports BudgetExceeded. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:199 asserts the same on rewrite_registry::transform with max_steps 0."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_ExpLog_CarriesFiniteLogCondition#0"
@@ -45767,10 +45772,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_TraceIsOptIn_ButConditionsAlwaysSurvive#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::dx_semantic_transform_trace_is_opt_in_but_conditions_always_survive"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Domains.DomainOf / Solvers.Solve / Simplify.Transform internals; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: DxSemanticClosureTests.cs:134 asserts a default Transform has empty Steps, still carries the x != 0 condition (Tristate.True) and did not exceed its budget. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:221 asserts the same three facts."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxSemanticClosureTests/Transform_XOverX_CarriesNonZeroCondition#0"
@@ -51130,10 +51136,11 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/InverseWithConditions_Singular_ReturnsNullMatrix_And_Note#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::matrix_inverse_with_conditions_singular_reports_no_matrix_and_the_note"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymbolicMatrix inverse/solve-with-conditions API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: MatrixAdvanceTests.cs:57 asserts a singular matrix publishes Matrix null, Note \"matrix is singular\" and empty Conditions. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:96 asserts the same three facts on MatrixInverseResult (matrix None, note, empty condition set)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/Rank_GenericOverSymbols_And_Numeric#0"
@@ -51387,10 +51394,11 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/SquareFree_X2Times_XMinus1#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::polynomials_square_free_of_x_squared_times_x_minus_one"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing content/gcd/square-free/resultant/discriminant polynomial API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: PolynomialsApiTests.cs:70 asserts x^3 - x^2 decomposes into (x - 1) with multiplicity 1 and x with multiplicity 2. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:114 asserts the same two factors as ascending coefficient vectors with their multiplicities."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/CanonicalMode_StillRoundTripsThroughCanonicalParse#0"
@@ -53978,10 +53986,11 @@ note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessMappingTests.cs:65 row 4 a
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessMappingTests/LanguageStatuses_ReportExactlyWhatTheMappingReturns#5"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-run::round66_resweep::solve_language_statuses_publish_the_unevaluated_pair"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SolveCompletenessMapping.Of API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: SolveCompletenessMappingTests.cs:67 row 5 (x^4 + 1 == 0) asserts the record publishes Unevaluated / complete false / Unknown. Rust: rust/lovelace-run/src/round66_resweep.rs:21 asserts the same triple on the runner envelope; the oracle publishes the same normalised envelope (measured this round)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/EverySolveStatus_PublishesTheDocumentedPair_OnBothRecords#0"
@@ -54566,18 +54575,20 @@ note = "C#: Lovelace.Symbolics.Tests/UnsatisfiablePropagationTests.cs:64 Lovelac
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementConsistentWithAssumptions_KeepsItsConditions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::transform_requirement_consistent_with_assumptions_keeps_its_conditions"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Simplify.Transform with caller assumptions; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: UnsatisfiablePropagationTests.cs:46 asserts Simplify.Transform(Divide(x,x)) under x > 5 keeps its conditions and requires x != 0 (NonZero). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:139 asserts the same on rewrite_registry::transform with the caller assumption set."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UnsatisfiablePropagationTests/Transform_RequirementRefutedByAssumptions_IsUnsatisfiable#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::transform_requirement_refuted_by_assumptions_is_unsatisfiable"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Simplify.Transform with caller assumptions; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: UnsatisfiablePropagationTests.cs:31 asserts the same rewrite under x == 0 is an unsatisfiable branch. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:171 asserts conditions.is_unsatisfiable()."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageDocumentationTests/DocumentedExample_MatchesEngine#0"
@@ -55518,10 +55529,11 @@ note = "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:16 Snippet_16_1_ContextSym
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_2_EqualityAndHashConsing#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::usage_snippet_16_2_equality_and_hash_consing"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: UsageExamples.cs:27 (the published snippet) asserts the two construction orders are the same expression. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:47 asserts equality (the value-language form of Assert.Same)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_3_AssumptionsDriveSimplification#0"
@@ -55535,10 +55547,11 @@ note = "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:38 asserts sqrt(x^2) is un
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_4_CanonicalTextRoundTrip#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::usage_snippet_16_4_canonical_text_round_trip"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: UsageExamples.cs:50 asserts x^2 + 2*x + 1 prints canonically and parses back to the same expression (Assert.Same). Rust: rust/lovelace-symbolics/src/round66_resweep.rs:57 asserts the canonical text round-trip."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_5_NumericEvaluationAtPrecision#0"
@@ -55570,10 +55583,11 @@ note = "C#: Lovelace.Symbolics.Tests/UsageExamples.cs:85 asserts det([[x, 1], [y
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.UsageExamples/Snippet_16_8_ExactnessDiscipline#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-symbolics::round66_resweep::usage_snippet_16_8_exactness_discipline"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs hash-consing/reference-identity API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: UsageExamples.cs:96 asserts the exactness discipline: an exact rational, a radical of an exact base and a closed form are exact, the Real leaf is not. Rust: rust/lovelace-symbolics/src/round66_resweep.rs:75 asserts the same four claims on Expr::is_exact."
 
 [[test]]
 id = "precbench.Tests/PrecBench.Tests.AccuracyTests/Add_GivenPointOneAndPointTwo_IsExactlyPointThree#0"
@@ -55686,7 +55700,8 @@ note = "C#: precbench.Tests/AccuracyTests.cs:88 asserts sqrt(2) at 7 and 15 digi
 [[test]]
 id = "precbench.Tests/PrecBench.Tests.AccuracyTests/WithPrecision_GivenScope_RestoresGlobalState#0"
 project = "precbench.Tests"
-disposition = "deferred"
+disposition = "ported"
+rust = "lovelace-real::round66_resweep::with_precision_scope_restores_the_global_state"
 reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing global Real precision-scope state (WithPrecision restores MaxComputationDecimalPlaces); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: precbench.Tests/AccuracyTests.cs:76 asserts that a WithPrecision(7, ...) scope restores Real.MaxComputationDecimalPlaces and Real.DisplayDecimalPlaces to the values that were active before it. Rust: rust/lovelace-real/src/round66_resweep.rs:10 opens the same RAII scope (Real::with_precision), computes sqrt(2) inside it, and asserts the two published values are restored."
