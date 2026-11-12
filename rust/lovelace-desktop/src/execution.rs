@@ -317,6 +317,10 @@ pub struct RunHandle {
     #[allow(dead_code)]
     revision: SourceRevision,
     control: Arc<RunControl>,
+    /// The live flag this run's engine polls inside a long kernel. [`ExecutionHost::cancel`] sets
+    /// it together with the statement-boundary token, so one kernel that never reaches a
+    /// statement boundary still stops.
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl RunHandle {
@@ -387,6 +391,9 @@ impl ExecutionHost {
         }
         let run = RunId(self.next_run.fetch_add(1, Ordering::SeqCst) + 1);
         let control = Arc::new(RunControl::new());
+        // One live flag per run: the worker gives it to its engine, the handle keeps a clone so
+        // `cancel()` can set it from the UI thread while the kernel is running.
+        let cancel_flag = Arc::new(AtomicBool::new(false));
         state.active.insert(document, (run, Arc::clone(&control)));
         drop(state);
 
@@ -403,6 +410,7 @@ impl ExecutionHost {
             precision,
             statements,
             control: Arc::clone(&control),
+            cancel_flag: Arc::clone(&cancel_flag),
         };
         let spawned = thread::Builder::new()
             .name(format!("lovelace-run-{}-{}", document.0, run.0))
@@ -413,6 +421,7 @@ impl ExecutionHost {
                 run,
                 revision,
                 control,
+                cancel_flag,
             }),
             Err(error) => {
                 let mut state = self.state.lock().unwrap_or_else(|error| error.into_inner());
@@ -429,8 +438,9 @@ impl ExecutionHost {
 
     /// Requests cancellation of a run.
     ///
-    /// Returns true when the token was accepted, false when the run already finished or was
-    /// already cancelled.
+    /// Sets both cancellation seams: the statement-boundary token and the live flag the engine
+    /// polls inside a long kernel. Returns true when the token was accepted, false when the run
+    /// already finished or was already cancelled.
     pub fn cancel(&self, handle: &RunHandle) -> bool {
         if handle.control.is_finished() {
             return false;
@@ -441,6 +451,7 @@ impl ExecutionHost {
                 if *run == handle.run && !control.is_finished() && !control.is_cancelled() =>
             {
                 control.cancelled.store(true, Ordering::Release);
+                handle.cancel_flag.store(true, Ordering::Release);
                 true
             }
             _ => false,
@@ -526,6 +537,9 @@ struct RunWorker {
     precision: usize,
     statements: Vec<Statement>,
     control: Arc<RunControl>,
+    /// The live flag handed to the engine for this run; [`ExecutionHost::cancel`] sets the other
+    /// clone.
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl RunWorker {
@@ -550,6 +564,25 @@ impl RunWorker {
         }
     }
 
+    /// True when either cancellation seam has been signalled for this run.
+    fn cancel_requested(&self) -> bool {
+        self.control.is_cancelled() || self.cancel_flag.load(Ordering::Acquire)
+    }
+
+    /// Ends the run as cancelled: publishes the committed snapshot, retires the document and
+    /// emits exactly one terminal `Cancelled` event.
+    fn finish_cancelled(&self, progress: &mut Progress) {
+        let snapshot = self.snapshot(progress, None);
+        self.publish(snapshot);
+        self.retire();
+        self.emit(DesktopEvent::Cancelled {
+            document: self.document,
+            run: self.run,
+            committed_steps: progress.committed,
+        });
+        progress.ended = true;
+    }
+
     /// Evaluates every statement, publishing typed events on the way.
     fn execute(&self, progress: &mut Progress) {
         let engine = match panic::catch_unwind(AssertUnwindSafe(|| (self.factory)())) {
@@ -562,6 +595,12 @@ impl RunWorker {
         };
         let mut engine = engine;
         let _ = panic::catch_unwind(AssertUnwindSafe(|| engine.set_precision(self.precision)));
+        // The live kernel seam: the engine keeps this handle for the whole run and its kernels
+        // poll it beside their deadline, so Cancel does not have to wait for a statement boundary.
+        let cancel_flag = Arc::clone(&self.cancel_flag);
+        let _ = panic::catch_unwind(AssertUnwindSafe(|| {
+            engine.set_cancel_flag(Some(cancel_flag));
+        }));
         self.emit(DesktopEvent::RunStarted {
             document: self.document,
             run: self.run,
@@ -571,16 +610,8 @@ impl RunWorker {
 
         for (index, statement) in self.statements.iter().enumerate() {
             progress.current = index;
-            if self.control.is_cancelled() {
-                let snapshot = self.snapshot(progress, None);
-                self.publish(snapshot);
-                self.retire();
-                self.emit(DesktopEvent::Cancelled {
-                    document: self.document,
-                    run: self.run,
-                    committed_steps: progress.committed,
-                });
-                progress.ended = true;
+            if self.cancel_requested() {
+                self.finish_cancelled(progress);
                 return;
             }
             self.emit(DesktopEvent::StepStarted {
@@ -628,6 +659,13 @@ impl RunWorker {
                 }
                 Ok(Err(message)) => {
                     self.drain_output(&mut engine, progress);
+                    // The engine reports a kernel that observed the live flag as an ordinary
+                    // statement error; the host knows the run was cancelled, so publish the
+                    // terminal `Cancelled` the caller requested instead of a failure.
+                    if self.cancel_requested() {
+                        self.finish_cancelled(progress);
+                        return;
+                    }
                     let diagnostic = Diagnostic::for_statement(statement, &self.source, message);
                     self.fail(progress, diagnostic);
                     return;
@@ -1187,6 +1225,128 @@ mod tests {
             other => panic!(
                 "terminal after cancel was {}, expected Cancelled",
                 event_summary(other)
+            ),
+        }
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| matches!(event.event, DesktopEvent::Finished { .. }))
+                .count(),
+            0,
+            "a cancelled run must not also finish: {:?}",
+            summaries(&events)
+        );
+    }
+
+    /// The actual desktop defect: Cancel while the worker is inside ONE kernel call.
+    ///
+    /// `matmul(eye(400), eye(400))` is a single statement whose whole cost is one array kernel
+    /// (a triple loop that polls the cancellation seam); there is no statement boundary to
+    /// observe for many seconds. Cancel must reach the engine's live flag and the run must
+    /// publish a terminal `Cancelled` inside the two-second budget. The measured latency is
+    /// printed. A single opaque primitive with no poll seam (`sqrt(2)` at precision 200000) is
+    /// budgeted as uninterruptible and documented in `docs/goal-desktop-v4/round-9/kernel-cancel.md`.
+    #[cfg(feature = "real-engine")]
+    #[test]
+    fn t9_cancel_inside_one_kernel_is_terminal_within_two_seconds() {
+        let host = ExecutionHost::new(Box::new(|| {
+            Box::new(crate::engine::RealEngine::new()) as Box<dyn Evaluator>
+        }));
+        let document = DocumentId(9);
+        let handle = host
+            .submit(
+                document,
+                SourceRevision(1),
+                "matmul(eye(400), eye(400))".to_string(),
+                1000,
+            )
+            .expect("submit");
+        // Wait for the worker to enter the kernel statement (the only statement), then give the
+        // kernel 200 ms so Cancel cannot win at a boundary the run does not reach anyway.
+        let mut events = Vec::new();
+        loop {
+            let event = host.next_event(Duration::from_secs(5)).unwrap_or_else(|| {
+                panic!(
+                    "no StepStarted event for the kernel statement; collected {:?}",
+                    summaries(&events)
+                )
+            });
+            let entered_kernel =
+                matches!(event.event, DesktopEvent::StepStarted { index: 0, .. });
+            events.push(event);
+            if entered_kernel {
+                break;
+            }
+        }
+        thread::sleep(Duration::from_millis(200));
+        assert!(
+            handle.is_active(),
+            "the one long kernel finished before it could be cancelled"
+        );
+
+        let cancel_sent = Instant::now();
+        assert!(
+            host.cancel(&handle),
+            "cancel must be accepted while the kernel is running"
+        );
+        let deadline = cancel_sent + Duration::from_secs(2);
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                panic!(
+                    "no terminal event within 2 s after cancel; collected {:?}",
+                    summaries(&events)
+                );
+            }
+            match host.next_event(remaining) {
+                Some(event) => {
+                    let terminal = matches!(
+                        event.event,
+                        DesktopEvent::Finished { .. }
+                            | DesktopEvent::Cancelled { .. }
+                            | DesktopEvent::Failed { .. }
+                    );
+                    events.push(event);
+                    if terminal {
+                        break;
+                    }
+                }
+                None => panic!(
+                    "no terminal event within 2 s after cancel; collected {:?}",
+                    summaries(&events)
+                ),
+            }
+        }
+        let elapsed = cancel_sent.elapsed();
+        eprintln!(
+            "T9 single-kernel cancel-to-terminal took {:.3} ms",
+            elapsed.as_secs_f64() * 1000.0
+        );
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "single-kernel cancellation took {elapsed:?}, expected under 2 s"
+        );
+        let terminal = events.last().expect("a terminal event was appended");
+        match &terminal.event {
+            DesktopEvent::Cancelled {
+                document: stopped,
+                run,
+                committed_steps,
+            } => {
+                assert_eq!(*stopped, document);
+                assert_eq!(*run, handle.run());
+                assert_eq!(*committed_steps, 0, "the one kernel statement did not commit");
+                let snapshot = host
+                    .last_snapshot(document)
+                    .expect("a cancelled run must publish its last snapshot");
+                assert_eq!(snapshot.committed_steps, 0);
+                assert_eq!(snapshot.result, "Void");
+                assert_eq!(snapshot.revision, SourceRevision(1));
+            }
+            other => panic!(
+                "terminal after cancel was {}, expected Cancelled; collected {:?}",
+                event_summary(other),
+                summaries(&events)
             ),
         }
         assert_eq!(

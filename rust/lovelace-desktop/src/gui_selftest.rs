@@ -21,14 +21,14 @@ type Check = fn() -> Result<String, String>;
 
 const RUN_TIMEOUT: Duration = Duration::from_secs(30);
 const CANCEL_TIMEOUT: Duration = Duration::from_secs(2);
-/// The display precision of the long-run script. `sqrt(2)` at this precision takes roughly
-/// 0.6 s per statement on the development machine, so the whole run is genuinely long while
-/// every single statement is short enough for the cancellation token to be observed well
-/// inside the two-second budget.
-const LONG_RUN_PRECISION: usize = 20_000;
-/// Statements after the `setprecision` line. Twelve of them make the run about seven seconds
-/// when it is not cancelled.
-const LONG_RUN_STATEMENTS: usize = 12;
+/// The single long kernel the long-run and keyboard checks cancel.
+///
+/// It is ONE statement whose whole cost is an array triple loop (64 million exact multiply-adds
+/// on 400x400 identity matrices, roughly 18 s unbudgeted in a debug build), and that loop polls
+/// the cancellation seam. The cancel proof is therefore about work inside one kernel call, not
+/// about statement boundaries. A single opaque primitive such as `sqrt(2)` at precision 200000
+/// has no poll seam and is budgeted as uninterruptible in the round-9 report.
+const LONG_RUN_SOURCE: &str = "matmul(eye(400), eye(400))";
 /// Budget for one nonblocking `ExecutionHost::next_event` call.
 const EVENT_LOOP_BUDGET: Duration = Duration::from_millis(50);
 /// How long the event-loop sample runs while the long computation is in flight.
@@ -474,18 +474,10 @@ fn is_within(base: &Path, path: &Path) -> bool {
     path.starts_with(&base)
 }
 
-/// The long script: a precision change followed by a genuine amount of work.
-///
-/// The engine checks the cancellation token between statements, so a long run with short
-/// statements is cancellable inside the two-second budget; see the report for why a single
-/// `sqrt(2)` at precision 200000 is not (that would need cancellation inside one evaluation,
-/// which the engine does not expose to this host).
+/// The long script: ONE genuine long kernel, so the cancel check exercises cancellation inside a
+/// kernel call rather than between statements.
 fn long_run_source() -> String {
-    let mut source = format!("setprecision({LONG_RUN_PRECISION})\n");
-    for _ in 0..LONG_RUN_STATEMENTS {
-        source.push_str("sqrt(2)\n");
-    }
-    source
+    LONG_RUN_SOURCE.to_string()
 }
 
 fn check_plot_dir() -> Result<String, String> {

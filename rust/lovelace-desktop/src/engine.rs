@@ -16,6 +16,9 @@
 //! The trait keeps the engine call shape from the contract exactly:
 //! eval(source) -> Result<String, String>, where the string is the value's display form.
 
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+
 // The fake engine is the fallback for --no-default-features builds and the deterministic engine
 // used by the tests; with the real engine enabled the only non-test use is the factory below.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -141,6 +144,14 @@ pub trait Evaluator {
 
     /// Sets the display precision, in decimal places.
     fn set_precision(&mut self, _decimals: usize) {}
+
+    /// Installs (or clears) the live cancellation flag the engine polls inside long kernels.
+    ///
+    /// The execution core creates one flag per run and sets it from [`crate::execution::ExecutionHost::cancel`],
+    /// so a run whose work is one long kernel stops without waiting for a statement boundary. An
+    /// engine that has no kernel polling seam ignores it; the statement-boundary token still
+    /// applies, so the default is a no-op rather than an error.
+    fn set_cancel_flag(&mut self, _flag: Option<Arc<AtomicBool>>) {}
 
     /// Sets the directory the engine writes plot files to.
     ///

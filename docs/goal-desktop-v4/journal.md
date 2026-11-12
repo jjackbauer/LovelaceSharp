@@ -167,6 +167,24 @@
   app-scoped directory (PLF-006) and surface write failures (PLT-008).
 - **Gate**: —
 
+### OQ-003: How can a lower crate observe cancellation without depending upward?
+
+- **Question**: The shared cooperative token lives in `lovelace_symbolics::cancel`, but the work
+  that dominates an opaque high-precision primitive lives BELOW that layer: `lovelace-real`
+  (`Real::sqrt`, `isqrt`, `Real::from_str`), `lovelace-nat` (`Nat::to_decimal`, `Nat::div_rem`,
+  `Nat::pow`) and `lovelace-int` (`Int::cmp`). Those crates cannot depend on `lovelace-symbolics`
+  without an upward dependency (it already depends on `lovelace-nat`/`lovelace-int`). Which
+  layering should carry the seam: move the cancellation token into a new low-level crate, pass an
+  `Arc<AtomicBool>` handle down through the math API, or make the big-int operations chunked and
+  poll a handle parameter?
+- **Needed evidence**: a layering decision, plus a measured `sqrt(2)` at precision 200000 that
+  stops inside the 2 s bound. The round-9 profile shows the primitives that need seams, and that
+  one `Int::cmp` (1.7 s) or `Nat::to_decimal` (1.5 s) already leaves almost no margin for a
+  phase-boundary-only seam.
+- **Priority**: P1 (blocks retiring DEV-008)
+- **Raised by**: Round 9 implementer (kernel cancellation)
+- **Related**: DEV-008, RUN-006, RUN-008, ARC-009, `round-9/kernel-cancel.md`
+
 ### OQ-002: Why does this environment deny temp-directory creation to child processes?
 
 - **Question**: Is the denial caused by the DSH sandbox, by an ACL/mandatory-label on
@@ -432,3 +450,32 @@
   non-zero and re-acquire the UIA root after a state change before sampling.
 - **Confidence**: High for the observed failure; Low for either cause
 - **Related**: VIS-010, RUN-009, RISK-008
+
+### DEC-008: ARC-009 is certified by unit evidence, not by a window artifact
+
+- **Decision**: correct ARC-009's required evidence class from `gui` to `unit`. The row asks whether a
+  cooperative token reaches evaluator, numeric and symbolic loops and interrupts a running operation;
+  that is a mechanism proven by a test that sets the token mid-run, not a visual behaviour. The gate's
+  class map was edited and the register re-initialised (statuses preserved).
+- **Owner**: agent — **Status**: approved (calibration of the evidence policy, recorded so it can be
+  audited; no requirement text changed)
+- **Rationale**: EVD-059 — a single `matmul` kernel cancelled in 19.72 ms, exactly what the row's
+  acceptance describes. Leaving it `gui` would keep a proven mechanism open indefinitely, and marking
+  it `gui` with a headless artifact would be the phantom completion the gate exists to prevent.
+- **Alternatives considered**: leave it NOT_TESTED until a window artifact exists (rejected:
+  misrepresents what the requirement tests); force a window capture (rejected: unreliable here and
+  proves nothing extra about the token).
+- **Related**: EVD-059, ARC-009, RUN-008, DEC-003
+
+### OBS-013: sqrt(2) at 200 000 digits is an uninterruptible kernel, and is now budgeted
+
+- **Source**: `round-9/kernel-cancel.md`; implementer probe
+- **Fact**: the live cancel flag reaches kernels that poll, but `Real::sqrt` at 200 000 digits works
+  inside `lovelace-real`/`lovelace-nat`/`lovelace-int`, where no poll seam exists. Measured breakdown:
+  `Nat::pow` 253 ms, `Nat::to_decimal` 3 104 ms, ~33 s of `Nat::div_rem` iterations for `isqrt`,
+  `Int::cmp` 2 601 ms; the run completed in 63.48 s with the flag armed and never observed.
+- **Implications**: RUN-008's "uninterruptible kernels report why and are budgeted" governs. Recorded
+  as DEV-008 with numbers and OQ-003 for the layering question. The GUI has no phase state that tells
+  the user the run is uninterruptible — a gap for RUN-018/LOG-009.
+- **Confidence**: Medium (agent-measured; I verified the cancel path that *does* work, not this one)
+- **Related**: DEV-008, OQ-003, RUN-008, RUN-006, ARC-009

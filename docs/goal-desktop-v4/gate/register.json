@@ -375,14 +375,31 @@
                      "type":  "W",
                      "requirement":  "Cancellation tokens reach long operations",
                      "acceptance":  "Worker passes a cooperative token into evaluator, high-precision math and symbolic loops; cancellation interrupts a test operation rather than only setting UI state.",
-                     "status":  "NOT_TESTED",
-                     "evidence_class":  "gui",
+                     "status":  "PASS",
+                     "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-9/kernel-cancel.md",
+                                          "sha256":  "A8DEA6D11F7CE0B1283FA016B0BD9E04D7C2AB470FCFB7FD93CA253E1695930E",
+                                          "class":  "unit",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/execution.rs",
+                                          "sha256":  "6F5B2AED1C1A363A79635F6594DEA67C4D0A3053896DBBADEBEAE7AFAB8079B8",
+                                          "class":  "unit",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
+                                          "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
+                                          "class":  "unit",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop t9; --gui-selftest long-run",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Live Arc\u003cAtomicBool\u003e in lovelace_symbolics::cancel, armed per evaluation; single matmul kernel cancelled in 19.72 ms (gui-selftest) / 126 ms (desktop t9). Evidence class corrected from gui to unit (DEC-008): the requirement is a mechanism, not a window behaviour."
                  },
                  {
                      "id":  "ARC-010",
@@ -1608,14 +1625,31 @@
                      "type":  "Q",
                      "requirement":  "Use bounded cancellation latency",
                      "acceptance":  "Representative cancellation-aware loops stop within 2 s after request on reference hardware; uninterruptible kernels report why and are budgeted.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-9/kernel-cancel.md",
+                                          "sha256":  "A8DEA6D11F7CE0B1283FA016B0BD9E04D7C2AB470FCFB7FD93CA253E1695930E",
+                                          "class":  "perf",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      },
+                                      {
+                                          "path":  "rust/lovelace-desktop/src/execution.rs",
+                                          "sha256":  "6F5B2AED1C1A363A79635F6594DEA67C4D0A3053896DBBADEBEAE7AFAB8079B8",
+                                          "class":  "perf",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
+                                          "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
+                                          "class":  "perf",
+                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "--gui-selftest long-run",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Measured cancel terminal: 19.72 ms (single kernel, gui-selftest), 126.344 ms (desktop t9); bound is 2000 ms. sqrt(2)@200k remains uninterruptible and is budgeted in DEV-008."
                  },
                  {
                      "id":  "RUN-009",

@@ -21,6 +21,7 @@ pub mod mathir;
 pub mod modus;
 pub mod numeric;
 pub mod registry;
+pub mod structural_equality;
 pub mod structured;
 pub mod syntax;
 pub mod value_widen;
@@ -32,6 +33,8 @@ pub mod cancel {
 }
 
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
 use lovelace_array::{Field, NdArray};
@@ -588,6 +591,10 @@ pub struct Engine {
     call_units: usize,
     /// The caller's deadline, when one was armed for the next evaluation (--cancel-after).
     cancel_after: Option<Duration>,
+    /// The live cancellation flag the host may set while an evaluation is in flight (the desktop
+    /// Cancel button). It is passed into the per-evaluation cancellation scope beside the
+    /// deadline, so one long kernel stops without waiting for a statement boundary.
+    cancel_flag: Option<Arc<AtomicBool>>,
     /// Whether a kernel observed the armed deadline during the last evaluation.
     cancelled: bool,
     /// The top-level statement that is running, so a cancellation raised at the end of a kernel
@@ -649,6 +656,7 @@ impl Engine {
             timings: Vec::new(),
             call_units: 0,
             cancel_after: None,
+            cancel_flag: None,
             cancelled: false,
             current_position: 0,
             last_completed_position: 0,
@@ -846,6 +854,17 @@ impl Engine {
     /// The armed deadline, if any.
     pub fn cancel_after(&self) -> Option<Duration> {
         self.cancel_after
+    }
+
+    /// Installs (or clears) the live cancellation flag the next evaluation polls.
+    ///
+    /// Unlike [`Engine::set_cancel_after`], which only bounds the run from the inside, this flag
+    /// may be set by another thread WHILE the evaluation is running — it is the desktop Cancel
+    /// button. The engine clones the handle into the per-evaluation cancellation scope, so
+    /// setting it stops the current kernel at its next poll seam with the same structured
+    /// `Cancelled` failure a spent deadline produces. `None` restores the deadline-only path.
+    pub fn set_cancel_flag(&mut self, flag: Option<Arc<AtomicBool>>) {
+        self.cancel_flag = flag;
     }
 
     /// Whether the deadline stopped the last evaluation (the token every kernel polls).
@@ -1082,13 +1101,14 @@ impl Engine {
 
     /// Evaluates a script and returns its final value.
     ///
-    /// The deadline is armed for exactly this evaluation (and restored on the way out, so a
-    /// second run on the same engine starts un-budgeted unless the caller arms one again). A
-    /// kernel that observed it unwinds early; whatever value it returned is discarded and the
-    /// structured cancellation failure is published instead.
+    /// The deadline and the live cancellation flag are armed for exactly this evaluation (and
+    /// restored on the way out, so a second run on the same engine starts un-budgeted unless the
+    /// caller arms one again). A kernel that observed either unwinds early; whatever value it
+    /// returned is discarded and the structured cancellation failure is published instead.
     pub fn eval(&mut self, source: &str) -> Result<Value, LangError> {
         let deadline = self.cancel_after.map(|after| Instant::now() + after);
-        let scope = lovelace_symbolics::cancel::arm(deadline);
+        let flag = self.cancel_flag.clone();
+        let scope = lovelace_symbolics::cancel::arm_with_flag(deadline, flag);
         self.cancelled = false;
         // A caller-installed plugin scope takes precedence INSIDE this evaluation, and the
         // engine's own session set is restored when the evaluation ends (the reference's
@@ -2394,3 +2414,19 @@ mod dsp_family_round61;
 /// `CaptureState`, `VariableChanged`, `FunctionDefined` and `SetVariable`/`RemoveVariable`.
 #[cfg(test)]
 mod round76_capture_events;
+
+/// Round-78 assumption-scoped numeric evaluation: the four deferred `PiecewiseAssumptionTests`
+/// rows for `EvaluateToNum` under a caller-supplied `AssumptionSet`.
+#[cfg(test)]
+mod round78_scoped_eval;
+
+/// Round-78 StructuralEquality surface: the four deferred `Suite.StructuralEqualityTests` rows
+/// (nested-field path, kind, shape and canonical-symbolic equality).
+#[cfg(test)]
+mod round78_structural_equality;
+
+/// Round-9 desktop kernel cancellation: a live flag set from another thread stops ONE long
+/// polling kernel (`matmul`) with the structured `Cancelled` failure inside 2 s. The opaque
+/// `sqrt(2)` at precision 200000 is documented as uninterruptible, not claimed as cancelled.
+#[cfg(test)]
+mod kernel_cancel_round9;

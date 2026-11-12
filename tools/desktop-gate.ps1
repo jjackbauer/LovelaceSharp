@@ -61,7 +61,7 @@ $script:GroupClass = @{
 }
 $script:ClassOverride = @{
     'CON-007' = 'file'; 'CON-009' = 'file'
-    'ARC-001' = 'perf'; 'ARC-002' = 'static'; 'ARC-003' = 'static'; 'ARC-012' = 'perf'
+    'ARC-001' = 'perf'; 'ARC-002' = 'static'; 'ARC-003' = 'static'; 'ARC-009' = 'unit'; 'ARC-012' = 'perf'
     'VIS-009' = 'perf'
     'EDT-012' = 'unit'; 'EDT-013' = 'file'; 'EDT-014' = 'unit'; 'EDT-016' = 'perf'
     'DOC-001' = 'unit'; 'DOC-008' = 'unit'; 'DOC-009' = 'unit'; 'DOC-014' = 'unit'

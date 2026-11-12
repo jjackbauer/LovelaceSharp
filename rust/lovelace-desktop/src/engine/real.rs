@@ -50,6 +50,10 @@ impl Evaluator for RealEngine {
         self.engine.set_precision(decimals);
     }
 
+    fn set_cancel_flag(&mut self, flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>) {
+        self.engine.set_cancel_flag(flag);
+    }
+
     fn set_plot_dir(&mut self, dir: &str) {
         self.engine.set_plot_dir(dir);
     }
