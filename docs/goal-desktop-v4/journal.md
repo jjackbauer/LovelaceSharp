@@ -418,3 +418,17 @@
   code path app-scoped and explicitly error-reporting; capture the runtime half on a host where the
   denial does not apply, or via a single-process launcher that owns the foreground/env.
 - **Gate**: G1 for the affected rows
+
+### OBS-012: The single-process gesture runner did not produce evidence (round 8 attempt)
+
+- **Source**: `tools/gui-harness.ps1 -Action scenario`; `round-8/scenario.log`
+- **Fact**: the scenario action launched the product window, typed 134 characters, sent Ctrl+Enter,
+  then sampled UI Automation for 9 s and recorded **0 status states**; the final capture was a
+  **136-byte PNG** (effectively empty). No run was observed and no screenshot of a running state was
+  produced. The window was closed. Artifacts: `round-8/scenario.log`, `round-8/scenario-final.png`.
+- **Implications**: VIS-010 and RUN-009 remain NOT_TESTED. The two candidate causes are (a) a stale
+  UIA root taken before the window finished creating its tree, and (b) a zero-size window rect making
+  the screen capture empty. Neither is proven; the next attempt must assert the window rect is
+  non-zero and re-acquire the UIA root after a state change before sampling.
+- **Confidence**: High for the observed failure; Low for either cause
+- **Related**: VIS-010, RUN-009, RISK-008

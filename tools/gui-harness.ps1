@@ -21,7 +21,7 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state', 'focus', 'typeinto', 'setvalue')]
+    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state', 'focus', 'typeinto', 'setvalue', 'scenario')]
     [string]$Action,
     [string]$Exe = '',
     [string[]]$Arguments = @(),
@@ -231,6 +231,74 @@ switch ($Action) {
         Write-Log "focus pid=$($p.Id) hwnd=$($p.MainWindowHandle) ok=$ok"
         Write-Output "FOCUSED=$ok"
         if (-not $ok) { exit 1 }
+        break
+    }
+    'scenario' {
+        # One process owns the foreground for the whole gesture: launch -> focus -> type -> run ->
+        # sample -> cancel -> sample -> capture -> close. Separate tool calls lose the foreground,
+        # which is why the keyboard path cannot be driven across them.
+        if ($Keys -eq '') { throw 'scenario needs -Keys (the script to type)' }
+        $p = Start-Process -FilePath $Exe -PassThru
+        Write-Log "scenario launch pid=$($p.Id) exe=$Exe"
+        $h = [IntPtr]::Zero
+        for ($i = 0; $i -lt 100; $i++) { $p.Refresh(); if ($p.MainWindowHandle -ne 0) { $h = [IntPtr]$p.MainWindowHandle; break }; Start-Sleep -Milliseconds 100 }
+        if ($h -eq [IntPtr]::Zero) { throw 'scenario: no window appeared' }
+        if (-not (Focus-Window $h)) { throw 'scenario: could not take the foreground' }
+        Assert-Foreground $h 'scenario'
+        if (-not $OutDir) { $OutDir = '.' }
+        New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+        Start-Sleep -Milliseconds 400
+        [System.Windows.Forms.SendKeys]::SendWait('^a')
+        [System.Windows.Forms.SendKeys]::SendWait($Keys)
+        Start-Sleep -Milliseconds 400
+        Write-Log "scenario typed chars=$($Keys.Length)"
+        [System.Windows.Forms.SendKeys]::SendWait('^{ENTER}')
+        Write-Log 'scenario sent ctrl+enter'
+        $states = New-Object System.Collections.Generic.List[string]
+        $capturedRunning = $false
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+        function Get-StatusText($rootEl) {
+            $texts = $rootEl.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Text)))
+            foreach ($t in $texts) { if ($t.Current.Name -match '\|\s+run (Idle|Running|Cancelling|Cancelled|Finished|Failed)\b') { return $t.Current.Name } }
+            return ''
+        }
+        for ($i = 0; $i -lt 60; $i++) {
+            $s = Get-StatusText $root
+            if ($s -ne '' -and ($states.Count -eq 0 -or $states[$states.Count - 1] -ne $s)) { $states.Add($s); Write-Log "scenario state=$s" }
+            if ($s -match 'run Running' -and -not $capturedRunning) {
+                $r = New-Object GuiRect; [GuiNative]::GetWindowRect($h, [ref]$r) | Out-Null
+                $bmp = New-Object System.Drawing.Bitmap(($r.Right - $r.Left), ($r.Bottom - $r.Top))
+                $g = [System.Drawing.Graphics]::FromImage($bmp)
+                $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size(($r.Right - $r.Left), ($r.Bottom - $r.Top))))
+                $bmp.Save((Join-Path $OutDir 'scenario-running.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+                $g.Dispose(); $bmp.Dispose(); $capturedRunning = $true
+                Write-Log 'scenario captured running state'
+            }
+            if ($s -match 'run (Finished|Cancelled|Failed)') { break }
+            Start-Sleep -Milliseconds 150
+        }
+        if ($states.Count -gt 0 -and $states[$states.Count - 1] -match 'run Running') {
+            [System.Windows.Forms.SendKeys]::SendWait('{ESC}')
+            Write-Log 'scenario sent escape'
+            for ($i = 0; $i -lt 40; $i++) {
+                Start-Sleep -Milliseconds 150
+                $s = Get-StatusText $root
+                if ($s -ne '' -and $states[$states.Count - 1] -ne $s) { $states.Add($s); Write-Log "scenario state=$s" }
+                if ($s -match 'run (Cancelled|Finished|Failed)') { break }
+            }
+        }
+        $r = New-Object GuiRect; [GuiNative]::GetWindowRect($h, [ref]$r) | Out-Null
+        $bmp = New-Object System.Drawing.Bitmap(($r.Right - $r.Left), ($r.Bottom - $r.Top))
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.CopyFromScreen($r.Left, $r.Top, 0, 0, (New-Object System.Drawing.Size(($r.Right - $r.Left), ($r.Bottom - $r.Top))))
+        $bmp.Save((Join-Path $OutDir 'scenario-final.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+        $g.Dispose(); $bmp.Dispose()
+        $states | Set-Content -LiteralPath (Join-Path $OutDir 'scenario-states.txt') -Encoding UTF8
+        Write-Log "scenario states=$($states.Count) final=$($states[$states.Count-1])"
+        $p.CloseMainWindow() | Out-Null; if (-not $p.WaitForExit(4000)) { Stop-Process -Id $p.Id -Force }
+        Write-Output "SCENARIO_STATES=$($states.Count) FINAL=$($states[$states.Count-1])"
         break
     }
     'setvalue' {

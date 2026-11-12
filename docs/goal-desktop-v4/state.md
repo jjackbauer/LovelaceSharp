@@ -38,6 +38,8 @@
 | 4 | ARC-001 candidate comparison completed (iced, slint) | Probe | 1 implementer | 1 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | iced rejected (no accessibility); slint viable but unmeasured for 5k lines |
 | 5 | Cut the core + prototype into the product binary | Implementer → orchestrator | 1 implementer | 3 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | default binary is the new workbench; 90 tests, `--gui-selftest` 7/7, legacy shell behind a flag |
 | 6 | Verify the product window and record GUI rows | Orchestrator probe | 0 | 2 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | real engine run observed from the window; LAY-008 + PLT-011 PASS; plot-directory defect found |
+| 7 | Harden the product surface (plot path, run/cancel, long run) | Implementer → orchestrator | 1 implementer | 3 | 1 | G1✓ G2✓ G3✗ G4✓ G5✓ | 105 tests; PLF-006 PASS; gui-selftest 8/10 (plot checks env-blocked); kernel cancel gap recorded |
+| 8 | Real-window gesture proof (single-process runner) | Orchestrator | 0 | 0 | 0 | G1✓ G2✓ G3✗ G4✗ G5✓ | **attempt failed**: 0 state samples, 136-byte capture; VIS-010/RUN-009 stay open |
 
 ## Contract rows closed this run
 
