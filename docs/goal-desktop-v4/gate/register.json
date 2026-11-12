@@ -1750,25 +1750,49 @@
                      "type":  "W",
                      "requirement":  "Distinguish statuses",
                      "acceptance":  "Queued, Running, Cancelling, Completed, Cancelled, Failed and Stale states have distinct labels and terminal events.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
                                       {
-                                          "path":  "docs/goal-desktop-v4/round-13/run-states.md",
-                                          "sha256":  "4F24EFA3F09DDE2082D0E2F32E1E913A24514B5F0EE340BA864EAFA5648F1626",
+                                          "path":  "docs/goal-desktop-v4/round-14/cancel/run-cancelling.png",
+                                          "sha256":  "DA04BEC04448F01611CD6A7DBDD759950AF01BEB6D521A3E05BE080C71C3A81D",
                                           "class":  "gui",
-                                          "at_head":  "8d8df679bdbe27d0d75de7d16261c870b0705e77"
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
                                       },
                                       {
-                                          "path":  "docs/goal-desktop-v4/round-13/verify-gui-selftest.txt",
-                                          "sha256":  "90784DB99765EF4CC8929D498260A7DA0D540460B3D0FFA0D93DE3CE490AA079",
+                                          "path":  "docs/goal-desktop-v4/round-14/cancel/run-cancelling-uia.txt",
+                                          "sha256":  "82E79E14550E63AE25F200EE7694AC0C95DD275B859FA373F7C4FD35CA649A53",
                                           "class":  "gui",
-                                          "at_head":  "8d8df679bdbe27d0d75de7d16261c870b0705e77"
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-14/stale/run-stale.png",
+                                          "sha256":  "A31C44414136C4AA691D7ED78B5AAF80C53AB204C341EE01480660D4D70062D3",
+                                          "class":  "gui",
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-14/stale/run-stale-uia.txt",
+                                          "sha256":  "4B4EA51DC5F8B700DB9FA0EA9E75DBB4E1ADD86B00ED34E49C8B216B43C34361",
+                                          "class":  "gui",
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-14/queued/run-queued.png",
+                                          "sha256":  "1FA92CAD84EAC91EFE5112F0AA315949995CFFF295045D5843A30E461E101504",
+                                          "class":  "gui",
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-14/transient-states.md",
+                                          "sha256":  "F7456AA9F90BB05FEF0F7D05922B182B6A8C0CACE0BD01A99D88B87D76B0E4CC",
+                                          "class":  "gui",
+                                          "at_head":  "8316ff3009298c747708c7f3acf4f95cd95a8e61"
                                       }
                                   ],
-                     "test":  "--gui-selftest run-state-*; gui-harness scenario",
+                     "test":  "gui-harness -Action scenario -CaptureStates",
                      "waiver":  "",
-                     "scope_note":  "State machine verified headlessly (four sequences, one terminal event each); no window artifact for Queued/Cancelling/Stale exists, so the gui-class row is NOT_TESTED. Capture before claiming."
+                     "scope_note":  "Window artifacts: run Cancelling (28.3 ms trace), run Stale (persistent), run Queued (8.9 ms); plus Running/Cancelled/Finished/Failed from rounds 10/12. UIA dumps carry the matching status text."
                  },
                  {
                      "id":  "RUN-010",
