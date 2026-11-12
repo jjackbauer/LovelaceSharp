@@ -1561,14 +1561,31 @@
                      "type":  "D",
                      "requirement":  "Support recent files and reopen session",
                      "acceptance":  "Recent files list deduplicates and removes missing paths; relaunch restores tab order/path and active tab.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/appdata/Lovelace/desktop.json",
+                                          "sha256":  "6E7E8BBB7AFC0C5F4DE490E3A79B943AF3EB28A5CAD999FBF806E235CA3BADAC",
+                                          "class":  "file",
+                                          "at_head":  "ba315fbb561dbbdba24178fe3b3e20b6640cade7"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/launched-uia.txt",
+                                          "sha256":  "8BE595AC89B7321C9273E12437834FF24838094DBAD52EFF18A3ACFC8A45BEEA",
+                                          "class":  "file",
+                                          "at_head":  "ba315fbb561dbbdba24178fe3b3e20b6640cade7"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/session-recovery.md",
+                                          "sha256":  "0D178503D6B0CA1DD3AABF44BBF5B74ED8D70540E6BE520E343705B44CAD11E5",
+                                          "class":  "file",
+                                          "at_head":  "ba315fbb561dbbdba24178fe3b3e20b6640cade7"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop settings|recovery; relaunch capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Settings v1 carries an optional session (tab paths + ids in order + active); launch re-reads each path without executing or writing; recent list dedups, moves to top and prunes missing paths; 347 tests."
                  },
                  {
                      "id":  "DOC-005",
