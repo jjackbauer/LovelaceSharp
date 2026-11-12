@@ -1,0 +1,43 @@
+﻿UIA gesture-before hwnd=38472892
+root | Lovelace Desktop | ControlType.Window
+Pane |  | focusable=False | enabled=True
+  Text | Lovelace Desktop | focusable=False | enabled=True
+  Text | lovelace-lang | focusable=False | enabled=True
+  Button | Run | focusable=True | enabled=True
+  Text | Precision | focusable=False | enabled=True
+  Spinner |  | focusable=True | enabled=True
+  Text | 1000 digits | focusable=False | enabled=True
+  Text | 2 lines / 3 bytes | focusable=False | enabled=True
+  Text | laid out 2 / 32 visible rows | focusable=False | enabled=True
+Pane |  | focusable=False | enabled=True
+  Button | welcome.lv | focusable=True | enabled=True
+  Button | untitled.lv * | focusable=True | enabled=True
+  Text | document 2 · revision 3 | focusable=False | enabled=True
+Pane |  | focusable=False | enabled=True
+  Text | untitled.lv  |  rev 3  |  precision 1000  |  Ln 2, Col 1  |  run Idle | focusable=False | enabled=True
+  Text | 0 ms last run | focusable=False | enabled=True
+Pane |  | focusable=False | enabled=True
+  Pane | Editor - untitled.lv | focusable=False | enabled=True
+    Text | untitled.lv | focusable=False | enabled=True
+    Text | 2 lines / 3 bytes | focusable=False | enabled=True
+    Edit | Script editor, 2 lines, caret line 2 column 1 | focusable=True | enabled=True
+  Pane | Plot - engine SVG | focusable=False | enabled=True
+    Button | Fit | focusable=True | enabled=True
+    Button | 1.0x | focusable=True | enabled=True
+    Button | 1.5x | focusable=True | enabled=True
+    Button | 2.0x | focusable=True | enabled=True
+    Text | no engine plot | focusable=False | enabled=True
+  Pane | Workspace | focusable=False | enabled=True
+    Text | Filter | focusable=False | enabled=True
+    Edit | Filter | focusable=True | enabled=True
+    Text | 0 variables · 0 functions | focusable=False | enabled=True
+    Text | VARIABLES | focusable=False | enabled=True
+    Text | No run has published a workspace yet. | focusable=False | enabled=True
+    Text | FUNCTIONS | focusable=False | enabled=True
+    Text | No run has published a workspace yet. | focusable=False | enabled=True
+  Pane | Logs | focusable=False | enabled=True
+    Text | run log · caret Ln 2, Col 1 · engine lovelace-lang | focusable=False | enabled=True
+    Text | No log entries yet. Run the document. | focusable=False | enabled=True
+  Separator | Editor / plot splitter | focusable=True | enabled=True
+  Separator | Plot / workspace splitter | focusable=True | enabled=True
+  Separator | Workspace / logs splitter | focusable=True | enabled=True

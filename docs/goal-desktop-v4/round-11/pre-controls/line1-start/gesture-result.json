@@ -1,0 +1,19 @@
+﻿{
+    "gesture":  "backspace-line1-start",
+    "exe":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\rust\\target-desktop\\debug\\lovelace-desktop.exe",
+    "pid":  29416,
+    "window":  "56167926",
+    "alive_after_gesture":  true,
+    "window_gone":  false,
+    "exit_code":  null,
+    "editor_before":  "Script editor, 2 lines, caret line 1 column 1",
+    "size_before":  "2 lines / 3 bytes",
+    "uia_keyboard_focus_before":  true,
+    "editor_after":  "Script editor, 2 lines, caret line 1 column 1",
+    "size_after":  "2 lines / 3 bytes",
+    "uia_keyboard_focus_after":  true,
+    "final_png_bytes":  125933,
+    "final_uia_nodes":  41,
+    "stderr":  "",
+    "stdout":  ""
+}

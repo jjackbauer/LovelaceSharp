@@ -291,6 +291,23 @@ impl TextEditor {
             }
         }
         let focused = ui.memory(|memory| memory.has_focus(id));
+        if focused {
+            // Keep the arrow keys for the caret. egui's focus system otherwise treats a bare
+            // arrow as "move keyboard focus to the closest widget in that direction" before the
+            // editor can consume it, which drops focus out of the editor after one Up/Down
+            // (DEF-002). The lock is stored for the next pass; the editor itself reads the keys
+            // below. Tab and Escape are left to egui so focus navigation and Cancel still work.
+            ui.memory_mut(|memory| {
+                memory.set_focus_lock_filter(
+                    id,
+                    egui::EventFilter {
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        ..Default::default()
+                    },
+                );
+            });
+        }
         if response.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Text);
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
@@ -333,6 +350,13 @@ impl TextEditor {
                 }
             }
         }
+
+        // Editing shrinks or grows the buffer (Backspace at a line start removes a line). The
+        // loop above may have changed `lines`, so recompute the bounds this pass paints with;
+        // the values captured at the top of the pass describe the pre-edit buffer and would let
+        // the paint loop index a line that no longer exists (DEF-001).
+        let total = self.line_count();
+        let max_scroll = (total as f32 * row_h - rect.height()).max(0.0);
 
         // Keep the caret inside the viewport.
         let caret_y = self.caret_row as f32 * row_h;

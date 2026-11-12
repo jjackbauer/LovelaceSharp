@@ -894,6 +894,80 @@ mod tests {
         );
     }
 
+    /// Builds an app whose editor holds `source`, with the caret placed at `(row, col)`.
+    fn app_with_source(source: &str, row: usize, col: usize) -> WorkbenchApp {
+        let mut workbench = slow_workbench();
+        workbench.set_source(0, source.to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        app.editors[0].set_caret(row, col);
+        app
+    }
+
+    #[test]
+    fn backspace_that_joins_two_lines_keeps_the_paint_pass_in_bounds() {
+        // DEF-001: pressing Backspace at the start of line 2 joins it with line 1. The line
+        // count shrank, and the paint loop used to index `lines[1]` of a one-line buffer.
+        let mut app = app_with_source("a\nb", 1, 0);
+        let ctx = egui::Context::default();
+
+        frame(&ctx, &mut app, Vec::new()); // gives the editor keyboard focus
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Backspace, egui::Modifiers::default())],
+        );
+
+        assert_eq!(
+            app.editors[0].source(),
+            "ab",
+            "Backspace at the start of line 2 must join it with line 1"
+        );
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (1, 2),
+            "the caret must sit after the joined text"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].source,
+            "ab",
+            "the joined buffer must be the document's committed source"
+        );
+    }
+
+    #[test]
+    fn arrow_up_moves_the_caret_without_surrendering_editor_focus() {
+        // DEF-002: egui's cardinal focus navigation moves focus on a bare Up arrow before the
+        // editor can consume it; the editor must lock the arrow keys while it has focus.
+        let mut app = app_with_source("a\nb", 1, 0);
+        let ctx = egui::Context::default();
+
+        frame(&ctx, &mut app, Vec::new()); // gives the editor keyboard focus
+        frame(&ctx, &mut app, Vec::new()); // lets the focus lock filter install
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (1, 1),
+            "Up must move the caret to line 1"
+        );
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(surface_id()),
+            "Up must not move keyboard focus out of the editor"
+        );
+
+        frame(&ctx, &mut app, vec![egui::Event::Text("c".to_string())]);
+        assert_eq!(
+            app.editors[0].source(),
+            "ca\nb",
+            "typing immediately after Up must land in the editor"
+        );
+    }
+
     #[test]
     fn ctrl_enter_runs_and_escape_cancels_with_the_visible_running_state() {
         let mut app = WorkbenchApp::with_workbench(slow_workbench());

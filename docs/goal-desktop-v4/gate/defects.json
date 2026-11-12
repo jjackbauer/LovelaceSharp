@@ -1,24 +1,26 @@
 ﻿{
     "defects":  [
                     {
-                        "summary":  "Backspace that joins two lines crashes the desktop application",
+                        "summary":  "Backspace that joins two lines crashed the application (panic at editor.rs:372, exit 101)",
                         "id":  "DEF-001",
-                        "owner":  "agent",
-                        "status":  "open",
+                        "fix":  "recompute total/max_scroll after the event loop in TextEditor::ui",
+                        "evidence":  "docs/goal-desktop-v4/round-11/crash-fix.md; regression test backspace_that_joins_two_lines_keeps_the_paint_pass_in_bounds; suite 108/108 observed by the orchestrator",
                         "severity":  1,
+                        "verified_by":  "orchestrator: cargo test -p lovelace-desktop 108 passed; the named regression test passes in isolation",
+                        "owner":  "agent",
                         "area":  "editor",
-                        "evidence":  "round-10/scenario-summary.md (implementer observation); not yet reproduced by the orchestrator",
-                        "next":  "reproduce with the scenario driver, then fix and add a regression test"
+                        "status":  "fixed"
                     },
                     {
-                        "summary":  "Up arrow leaves the editor without keyboard focus; a refocus click is required before further typing",
+                        "summary":  "Arrow keys left the editor without keyboard focus, so typing was ignored",
                         "id":  "DEF-002",
-                        "owner":  "agent",
-                        "status":  "open",
+                        "fix":  "set_focus_lock_filter with horizontal/vertical arrows while focused",
+                        "evidence":  "docs/goal-desktop-v4/round-11/crash-fix.md; regression test arrow_up_moves_the_caret_without_surrendering_editor_focus",
                         "severity":  3,
+                        "verified_by":  "orchestrator: suite includes the named test, 108/108",
+                        "owner":  "agent",
                         "area":  "editor focus",
-                        "evidence":  "round-10/scenario-summary.md",
-                        "next":  "keep focus in the editor for navigation keys"
+                        "status":  "fixed"
                     }
                 ],
     "schema":  1

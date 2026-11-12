@@ -1,0 +1,19 @@
+﻿{
+    "gesture":  "backspace-join",
+    "exe":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\rust\\target-desktop\\debug\\lovelace-desktop.exe",
+    "pid":  33380,
+    "window":  "16912162",
+    "alive_after_gesture":  false,
+    "window_gone":  true,
+    "exit_code":  101,
+    "editor_before":  "Script editor, 2 lines, caret line 2 column 1",
+    "size_before":  "2 lines / 3 bytes",
+    "uia_keyboard_focus_before":  true,
+    "editor_after":  "",
+    "size_after":  "",
+    "uia_keyboard_focus_after":  false,
+    "final_png_bytes":  0,
+    "final_uia_nodes":  0,
+    "stderr":  "lovelace-desktop: plot directory C:\\Users\\ricar\\AppData\\Roaming\\Lovelace\\plots\n\nthread \u0027main\u0027 (31152) panicked at lovelace-desktop\\src\\ui\\editor.rs:372:35:\nindex out of bounds: the len is 1 but the index is 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+    "stdout":  ""
+}
