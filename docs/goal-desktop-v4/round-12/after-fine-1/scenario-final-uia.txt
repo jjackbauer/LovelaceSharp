@@ -1,0 +1,46 @@
+﻿UIA scenario-final hwnd=3215328 pid=27752 window='Lovelace Desktop'
+root | Lovelace Desktop | ControlType.Window
+Pane |  | id= | focusable=False | enabled=True
+  Text | Lovelace Desktop | id= | focusable=False | enabled=True
+  Text | lovelace-lang | id= | focusable=False | enabled=True
+  Button | Run | id= | focusable=True | enabled=True
+  Text | Precision | id= | focusable=False | enabled=True
+  Spinner |  | id= | focusable=True | enabled=True
+  Text | 1000 digits | id= | focusable=False | enabled=True
+  Text | 2 lines / 27 bytes | id= | focusable=False | enabled=True
+  Text | laid out 2 / 32 visible rows | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Button | welcome.lv | id= | focusable=True | enabled=True
+  Button | untitled.lv * | id= | focusable=True | enabled=True
+  Text | document 2 · revision 27 | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Text | untitled.lv  |  rev 27  |  precision 1000  |  Ln 1, Col 27  |  run Cancelled | id= | focusable=False | enabled=True
+  Text | 763 ms last run | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Pane | Editor - untitled.lv | id= | focusable=False | enabled=True
+    Text | untitled.lv | id= | focusable=False | enabled=True
+    Text | 2 lines / 27 bytes | id= | focusable=False | enabled=True
+    Edit | Script editor, 2 lines, caret line 1 column 27 | id= | focusable=True | enabled=True
+  Pane | Plot - engine SVG | id= | focusable=False | enabled=True
+    Button | Fit | id= | focusable=True | enabled=True
+    Button | 1.0x | id= | focusable=True | enabled=True
+    Button | 1.5x | id= | focusable=True | enabled=True
+    Button | 2.0x | id= | focusable=True | enabled=True
+    Text | no engine plot | id= | focusable=False | enabled=True
+  Pane | Workspace | id= | focusable=False | enabled=True
+    Text | Filter | id= | focusable=False | enabled=True
+    Edit | Filter | id= | focusable=True | enabled=True
+    Text | 0 variables · 0 functions | id= | focusable=False | enabled=True
+    Text | VARIABLES | id= | focusable=False | enabled=True
+    Text | The last run defined no variables. | id= | focusable=False | enabled=True
+    Text | FUNCTIONS | id= | focusable=False | enabled=True
+    Text | The last run defined no functions. | id= | focusable=False | enabled=True
+  Pane | Logs | id= | focusable=False | enabled=True
+    Text | run log · caret Ln 1, Col 27 · engine lovelace-lang | id= | focusable=False | enabled=True
+    Text | [info] Run requested (revision 27, run 1). | id= | focusable=False | enabled=True
+    Text | [info] Run started: 1 statements, engine lovelace-lang, precision 1000. | id= | focusable=False | enabled=True
+    Text | [info] Cancellation requested. | id= | focusable=False | enabled=True
+    Text | [info] Run cancelled after 0 statements in 763 ms; the committed statements remain in the workspace. | id= | focusable=False | enabled=True
+  Separator | Editor / plot splitter | id= | focusable=True | enabled=True
+  Separator | Plot / workspace splitter | id= | focusable=True | enabled=True
+  Separator | Workspace / logs splitter | id= | focusable=True | enabled=True

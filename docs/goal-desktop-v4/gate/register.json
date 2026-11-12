@@ -1559,14 +1559,37 @@
                      "type":  "W",
                      "requirement":  "Run whole script asynchronously",
                      "acceptance":  "Ctrl/Cmd+Enter starts a background run and reports running state within 100 ms even when evaluation lasts 30 seconds.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/trace.log",
+                                          "sha256":  "E3C5970D8D8E9D91A13502EB8A8A78452E7BB52BD1C944C1F8107E9B5367CD20",
+                                          "class":  "gui",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/scenario-summary.md",
+                                          "sha256":  "6D6E635EFC2E16E506EB01F74FB6456F6ABCA1B5A9E10977027F2FEBCA250019",
+                                          "class":  "gui",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/scenario-running.png",
+                                          "sha256":  "7E388443C33ABCF0ED1FDC766B531FCADCF3471EDA8C81EBD7D44AF56EF90EDF",
+                                          "class":  "gui",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/run-start.md",
+                                          "sha256":  "0259D99550D9609C3A14BE05E7DDA718953BA6BBC1DCB943E668CC08C7466EC4",
+                                          "class":  "gui",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario -FastStatus",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Real window reports run Running in 72 ms (57.2/57.5/68.4 in three runs); trace: status drawn +1.0 ms, frame end +4.99 ms, engine built on the worker thread."
                  },
                  {
                      "id":  "RUN-002",
@@ -3473,14 +3496,37 @@
                      "type":  "Q",
                      "requirement":  "Set run-start latency budget",
                      "acceptance":  "Run button/shortcut acknowledges within 100 ms; worker scheduling not blocked by rendering or queued logs.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/trace.log",
+                                          "sha256":  "E3C5970D8D8E9D91A13502EB8A8A78452E7BB52BD1C944C1F8107E9B5367CD20",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/scenario-summary.md",
+                                          "sha256":  "6D6E635EFC2E16E506EB01F74FB6456F6ABCA1B5A9E10977027F2FEBCA250019",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/scenario-running.png",
+                                          "sha256":  "7E388443C33ABCF0ED1FDC766B531FCADCF3471EDA8C81EBD7D44AF56EF90EDF",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/run-start.md",
+                                          "sha256":  "0259D99550D9609C3A14BE05E7DDA718953BA6BBC1DCB943E668CC08C7466EC4",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario -FastStatus",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Run acknowledgement 72 ms measured, bound 100 ms; submit 96 microseconds and worker scheduling not blocked by render (engine_build_enter on worker at +393 microseconds)."
                  },
                  {
                      "id":  "PERF-005",
@@ -3489,14 +3535,31 @@
                      "type":  "Q",
                      "requirement":  "Set cancel acknowledgement budget",
                      "acceptance":  "Cancel action updates visible state within 100 ms and invokes token immediately; termination meets RUN cancellation bound for cooperative workloads.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/verify/scenario-summary.md",
+                                          "sha256":  "6D6E635EFC2E16E506EB01F74FB6456F6ABCA1B5A9E10977027F2FEBCA250019",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-summary.md",
+                                          "sha256":  "495AF83AD02CBD876281C223BB1A33B30CB0036C0B368331379005F2FB8A83D6",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-12/run-start.md",
+                                          "sha256":  "0259D99550D9609C3A14BE05E7DDA718953BA6BBC1DCB943E668CC08C7466EC4",
+                                          "class":  "perf",
+                                          "at_head":  "bd67c368ec4f498e89c90f1126967c28500b9440"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Esc -\u003e run Cancelled in 48.3 ms (this run), 70.8 and 72.5 ms earlier; bound 100 ms for visible acknowledgement, 2 s for termination."
                  },
                  {
                      "id":  "PERF-006",
