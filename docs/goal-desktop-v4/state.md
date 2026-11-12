@@ -1,11 +1,11 @@
 # Harness State — desktop-v4
 
-- **Round**: 3 of 40 (round 1 census done; round 2 spike measured; round 3 execution core in flight)
+- **Round**: 3 of 40 (round 3 red and re-dispatched; round 4 cutover not started)
 - **Goal**: Lovelace Desktop ships as a native Rust scientific scripting workbench that satisfies every
   P0 row of the v4.0 contract with fresh, source-bound GUI evidence and passes all 22 mandatory
   journeys.
-- **Definition of done**: 0/19 dimensions MET; 9/171 P0 rows PASS, 1 waived (TST-012), 0 FAIL,
-  161 NOT_TESTED.
+- **Definition of done**: 0/19 dimensions MET; 11/171 P0 rows PASS, 1 waived (TST-012), 0 FAIL,
+  159 NOT_TESTED.
 - **Stop criteria**: (1) `-Verify` exit 0, all dimensions MET — unmet; (2) round 40 — not reached;
   (3) same blocking condition 3 rounds — not triggered.
 
@@ -34,7 +34,7 @@
 | 0 | Contract, baseline, fail-closed gate | Probe | 0 | 18 | 0 | G1✓ G2✓ G3✗ G4✓ G5✓ | gate live |
 | 1 | Census all 17 groups + web reference | Survey | 1 auditor + 5 observers + 1 synthesizer | 10 | 1 (6 claims) | G1✓ G2✓ G3✗ G4✓ G5✓ | 784 OBS; register 229/229; contract repaired; DEC-006 |
 | 2 | ARC-001 spike, measured | Implementer → orchestrator | 1 implementer + 1 candidate prober | 12 | 2 (flaky bench, mojibake) | G1✓ G2✓ G3✗ G4✓ G5✓ | working workbench measured; bench flakiness fixed by watchdog (pending report) |
-| 3 | Async execution core with typed events and cancellation | Implementer → orchestrator | 1 implementer | in flight | — | — | in flight |
+| 3 | Async execution core with typed events and cancellation | Implementer → orchestrator | 1 implementer (stopped) + 1 repairer | 2 | 1 (red suite) | G1✓ G2✓ G3✗ G4✗ G5✓ | code written, **14/81 tests red**; slicer returned zero statements; repair re-dispatched with the observed failures |
 
 ## Contract rows closed this run
 

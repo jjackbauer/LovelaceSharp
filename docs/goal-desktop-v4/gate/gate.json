@@ -1,16 +1,16 @@
 {
     "schema":  1,
     "mode":  "readiness",
-    "generated_at":  "2026-11-12T09:10:09.8634073-03:00",
+    "generated_at":  "2026-11-12T09:13:45.0680569-03:00",
     "verdict":  "FAIL",
     "provenance":  {
-                       "head_sha":  "a17be2a466d9798b99221181fe2d5817b19347c2",
-                       "dirty_paths":  18
+                       "head_sha":  "6a59326cda7ddb86907fa203788a4e7c9865b1f7",
+                       "dirty_paths":  14
                    },
     "p0_total":  171,
-    "p0_pass":  8,
+    "p0_pass":  11,
     "p0_fail":  0,
-    "p0_not_tested":  162,
+    "p0_not_tested":  159,
     "p0_blocked":  1,
     "p0_deviation":  0,
     "p0_waived":  1,
@@ -22,14 +22,14 @@
                        {
                            "id":  "D01",
                            "group":  "CON",
-                           "pass":  7,
+                           "pass":  8,
                            "total":  9,
                            "met":  false
                        },
                        {
                            "id":  "D02",
                            "group":  "ARC",
-                           "pass":  0,
+                           "pass":  2,
                            "total":  10,
                            "met":  false
                        },
@@ -148,7 +148,7 @@
                        {
                            "id":  "D19",
                            "group":  "EVIDENCE",
-                           "pass":  1,
+                           "pass":  2,
                            "total":  3,
                            "met":  false
                        }
@@ -156,7 +156,7 @@
     "scorecard":  {
                       "functional":  {
                                          "rows":  53,
-                                         "pass":  8,
+                                         "pass":  10,
                                          "met":  false,
                                          "note":  "engine and state semantics: unit/file/static evidence only"
                                      },
@@ -168,16 +168,14 @@
                                  },
                       "performance":  {
                                           "rows":  20,
-                                          "pass":  0,
+                                          "pass":  1,
                                           "met":  false,
                                           "note":  "measured numeric budgets on this machine"
                                       }
                   },
     "problems":  [
                      "CON-007: P0 status NOT_TESTED",
-                     "CON-008: P0 status NOT_TESTED",
-                     "ARC-001: P0 status NOT_TESTED",
-                     "ARC-002: P0 status NOT_TESTED",
+                     "ARC-001: stale evidence hash: docs/goal-desktop-v4/round-2/arc-001-decision.md",
                      "ARC-003: P0 status NOT_TESTED",
                      "ARC-004: P0 status NOT_TESTED",
                      "ARC-005: P0 status NOT_TESTED",

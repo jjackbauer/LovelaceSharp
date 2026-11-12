@@ -313,3 +313,28 @@
 - **Depends on**: the first GUI rows existing, so gate-owned rows can point at real tests
 - **Status**: Open
 - **Related**: CON-002, EVD-040
+
+### OBS-009: The execution core is written but red
+
+- **Source**: `rust/lovelace-desktop/src/statements.rs:102,198`; `rust/lovelace-desktop/src/execution.rs`;
+  `cargo test -p lovelace-desktop`
+- **Fact**: the modules exist (7 297 B and 40 519 B) but the test run reports 67 passed / 14 failed.
+  Every slicer test fails because `split()` returns an empty vector for a normal three-statement
+  source, and the nine execution tests fail downstream of it.
+- **Implications**: round 3 has produced code but no verified capability. ARC-005 (no evaluation on
+  the UI thread), RUN-001/006 and the typed event stream remain NOT_TESTED. The round is a gate
+  failure on G4 until the tests are green and re-run by the orchestrator.
+- **Confidence**: High — **Agent**: none; orchestrator's own run — **Verified by**: EVD-047
+- **Related**: EVD-047, ARC-005, RUN-001, RUN-006
+
+### RISK-006: A round can consume its whole budget without a verified result
+
+- **Risk**: the round-3 implementer wrote the modules and then went quiet while the tests were red;
+  the round nearly ended with code that could not be trusted and no report.
+- **Likelihood**: Medium — **Impact**: High (a red artifact presented as delivered would be phantom
+  completion)
+- **Evidence**: EVD-047
+- **Mitigation**: the orchestrator re-runs every test command before recording a row; a red test run
+  is recorded as FAIL/NOT_TESTED, never as delivery; the round's objective is re-dispatched with the
+  observed failure output rather than the same prompt.
+- **Gate**: G4

@@ -34,8 +34,9 @@ rejections, not as measurements.
 
 ## Risks this decision carries
 
-1. **Idle repaint**: 2.8 % CPU / 153 frames per 5 s exceeds PERF-008's 2 % ceiling. The product must
-   request repaints only on change (and prove it), or the budget fails.
+1. **Idle repaint**: the first build burned 2.8 % of one core (153 frames in 5 s), above PERF-008's
+   2 % ceiling. The rebuilt app with explicit repaint scheduling measures **0.934 %** (EVD-048), so the
+   budget is met in the spike. The product must keep that property and prove it after integration.
 2. **High-DPI minimum sizes**: at 1280x800 with 1.5x/2.0 zoom the configured pane fractions cannot be
    held because minimum sizes bind (EVD-045). VIS-016/A11Y-004 need a layout strategy for that case.
 3. **First full-buffer layout**: one 244 ms pass over a 500 KB buffer at open. Acceptable once, but it
