@@ -24,7 +24,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::app::LogLevel;
 use crate::completion::{self, CompletionItem};
 use crate::engine::{self, DEFAULT_PRECISION, EngineState, PlotCapture};
 use crate::execution::{
@@ -33,6 +32,7 @@ use crate::execution::{
 };
 use crate::keyboard::WorkbenchCommand;
 use crate::language;
+use crate::log_kind::{LogKind, LogLine};
 use crate::run_state::{RunState, RunStateMachine, RunStateTransition};
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 
@@ -48,15 +48,6 @@ a = 2
 b = a + 10
 b
 ";
-
-/// One line in a document's log pane.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LogLine {
-    /// Severity, reusing the headless application's vocabulary.
-    pub level: LogLevel,
-    /// Message text without a trailing newline.
-    pub text: String,
-}
 
 /// Which toolbar controls the window must show for the active document's state.
 ///
@@ -105,7 +96,8 @@ pub struct WorkbenchDocument {
     pub snapshot: Option<WorkspaceSnapshot>,
     /// The most recent plot produced by the engine; kept until a newer plot replaces it.
     pub last_plot: Option<PlotCapture>,
-    /// The document's log, oldest first.
+    /// The document's log, oldest first. Every line carries its [`LogKind`] and renders the
+    /// kind's visible marker (see [`LogLine::render`]).
     pub logs: Vec<LogLine>,
     /// The structured diagnostic of the last failed run, with its source revision.
     ///
@@ -131,6 +123,13 @@ pub struct WorkbenchDocument {
     /// Wall-clock time from submit to terminal, in milliseconds.
     pub elapsed_ms: u64,
     run: Option<RunHandle>,
+    /// The in-flight run was submitted by the quick-eval input rather than by Run.
+    ///
+    /// The run uses the same document identity, revision and precision, but its source is the
+    /// one-line expression, not the editor buffer. Its terminal snapshot therefore must not
+    /// replace the document's workspace snapshot and a failure must not decorate the editor with
+    /// coordinates from text the failure never named.
+    quick_eval_run: Option<RunId>,
     started: Option<Instant>,
     saved_source: String,
 }
@@ -169,11 +168,7 @@ impl WorkbenchDocument {
     }
 
     /// Duration of the first adjacent `from -> to` transition pair, when present.
-    pub fn duration_between(
-        &self,
-        from: RunState,
-        to: RunState,
-    ) -> Option<std::time::Duration> {
+    pub fn duration_between(&self, from: RunState, to: RunState) -> Option<std::time::Duration> {
         self.run_state.duration_between(from, to)
     }
 }
@@ -216,11 +211,11 @@ impl Workbench {
             Workbench::with_plot_root(factory, engine_name, plot_root.clone(), engine_state);
         workbench.log(
             0,
-            LogLevel::Info,
+            LogKind::Info,
             format!("Plot directory: {}.", plot_root.display()),
         );
         if let Some(message) = plot_error {
-            workbench.log(0, LogLevel::Error, message);
+            workbench.log(0, LogKind::Diagnostic, message);
         }
         workbench
     }
@@ -245,11 +240,11 @@ impl Workbench {
         );
         workbench.log(
             0,
-            LogLevel::Info,
+            LogKind::Info,
             format!("Plot directory: {}.", plot_root.display()),
         );
         if let Some(message) = plot_error {
-            workbench.log(0, LogLevel::Error, message);
+            workbench.log(0, LogKind::Diagnostic, message);
         }
         workbench
     }
@@ -291,7 +286,7 @@ impl Workbench {
         };
         workbench.log(
             0,
-            LogLevel::Info,
+            LogKind::Info,
             format!(
                 "Lovelace Desktop ready. Engine: {}. Two documents open.",
                 engine_name
@@ -369,11 +364,8 @@ impl Workbench {
                 }
             }
         }
-        state.variables
-            .sort_by(|a, b| a.name.cmp(&b.name));
-        state
-            .functions
-            .sort_by(|a, b| a.name.cmp(&b.name));
+        state.variables.sort_by(|a, b| a.name.cmp(&b.name));
+        state.functions.sort_by(|a, b| a.name.cmp(&b.name));
         state
     }
 
@@ -468,13 +460,13 @@ impl Workbench {
         if cancelled {
             self.log(
                 index,
-                LogLevel::Warn,
+                LogKind::Info,
                 "The source changed while the run was in flight; the run was cancelled.",
             );
         } else if staled {
             self.log(
                 index,
-                LogLevel::Info,
+                LogKind::Info,
                 "The displayed result is stale: the source changed after it finished.",
             );
         }
@@ -489,7 +481,7 @@ impl Workbench {
             Ok(text) => text,
             Err(error) => {
                 let message = format!("Cannot open {}: {error}", path.display());
-                self.log(index, LogLevel::Error, message.clone());
+                self.log(index, LogKind::Diagnostic, message.clone());
                 return Err(message);
             }
         };
@@ -505,6 +497,7 @@ impl Workbench {
                 let _ = self.host.cancel(handle);
             }
             doc.run = None;
+            doc.quick_eval_run = None;
             doc.started = None;
         }
         let was_active = doc.state() != RunState::Idle;
@@ -521,7 +514,7 @@ impl Workbench {
         if was_active {
             doc.run_state.reset("document loaded from disk");
         }
-        self.log(index, LogLevel::Info, format!("Opened {}.", path.display()));
+        self.log(index, LogKind::Info, format!("Opened {}.", path.display()));
         Ok(())
     }
 
@@ -543,7 +536,7 @@ impl Workbench {
         let title = doc.title.clone();
         self.log(
             index,
-            LogLevel::Info,
+            LogKind::Info,
             format!("Precision for {title} set to {decimals} digits."),
         );
     }
@@ -565,42 +558,23 @@ impl Workbench {
             return false;
         };
         if doc.state().is_in_flight() {
-            self.log(index, LogLevel::Warn, "A run is already in progress.");
+            self.log(index, LogKind::Info, "A run is already in progress.");
             return false;
         }
         if doc.source.trim().is_empty() {
             self.log(
                 index,
-                LogLevel::Warn,
+                LogKind::Info,
                 "Nothing to run: the document is empty.",
             );
             return false;
         }
-        let revision = SourceRevision(doc.revision);
         let source = doc.source.clone();
-        let precision = doc.precision;
-        match self.host.submit(doc.id, revision, source, precision) {
-            Ok(handle) => {
-                let run_id = handle.run();
-                {
-                    let doc = &mut self.docs[index];
-                    doc.run = Some(handle);
-                    doc.committed = 0;
-                    doc.total = 0;
-                    doc.elapsed_ms = 0;
-                    doc.started = Some(Instant::now());
-                    let queued = doc.run_state.begin(run_id, "submit accepted");
-                    debug_assert!(queued, "a submit must enter Queued");
-                    if crate::run_trace::enabled() {
-                        crate::run_trace::mark(
-                            "run_phase_set",
-                            format!("document={} run={} phase=Queued", doc.id.0, run_id.0),
-                        );
-                    }
-                }
+        match self.begin_run(index, source) {
+            Ok((run_id, revision)) => {
                 self.log(
                     index,
-                    LogLevel::Info,
+                    LogKind::Info,
                     format!("Run queued (revision {}, run {}).", revision.0, run_id.0),
                 );
                 true
@@ -608,7 +582,7 @@ impl Workbench {
             Err(SubmitError::Busy) => {
                 self.log(
                     index,
-                    LogLevel::Warn,
+                    LogKind::Info,
                     "The execution host is still finishing the previous run.",
                 );
                 false
@@ -616,12 +590,110 @@ impl Workbench {
             Err(SubmitError::Spawn(message)) => {
                 self.log(
                     index,
-                    LogLevel::Error,
+                    LogKind::Diagnostic,
                     format!("Could not start the run worker: {message}"),
                 );
                 false
             }
         }
+    }
+
+    /// Requests a quick evaluation of `expression` in the active document.
+    ///
+    /// RUN-002: this goes through exactly the same [`ExecutionHost::submit`] call as
+    /// [`Workbench::run_active`], with the active document's id, source revision and precision,
+    /// but the submitted source is the one-line expression instead of the editor buffer. The
+    /// buffer and its revision are never touched.
+    ///
+    /// LOG-003: the field is the caller's, so this only reports whether the request was accepted;
+    /// the window clears its input only on `true`. A refusal while a run is in flight leaves the
+    /// expression unlogged, because no run was submitted to echo.
+    ///
+    /// The run is log-and-status only for the document panes: every run constructs a fresh
+    /// engine, so its snapshot describes the expression and cannot replace the workspace snapshot
+    /// of a document whose source was never evaluated. The `[echo]`, `[result]`, `[stdout]`,
+    /// `[diagnostic]` and `[timing]` lines still come from the normal typed event stream.
+    pub fn quick_eval_active(&mut self, expression: &str) -> bool {
+        let expression = expression.trim();
+        if expression.is_empty() {
+            return false;
+        }
+        let index = self.active;
+        if self.docs[index].state().is_in_flight() {
+            self.log(
+                index,
+                LogKind::Info,
+                "Quick eval not submitted: a run is already in progress; the expression was kept.",
+            );
+            return false;
+        }
+        let expression = expression.to_string();
+        match self.begin_run(index, expression.clone()) {
+            Ok((run_id, revision)) => {
+                self.docs[index].quick_eval_run = Some(run_id);
+                self.log(index, LogKind::Echo, format!(">> {expression}"));
+                self.log(
+                    index,
+                    LogKind::Info,
+                    format!(
+                        "Quick eval queued (revision {}, run {}).",
+                        revision.0, run_id.0
+                    ),
+                );
+                true
+            }
+            Err(SubmitError::Busy) => {
+                self.log(
+                    index,
+                    LogKind::Info,
+                    "Quick eval not submitted: the execution host is still finishing the previous run; the expression was kept.",
+                );
+                false
+            }
+            Err(SubmitError::Spawn(message)) => {
+                self.log(
+                    index,
+                    LogKind::Diagnostic,
+                    format!("Could not start the quick-eval worker: {message}"),
+                );
+                false
+            }
+        }
+    }
+
+    /// Submits `source` for document `index` through the one [`ExecutionHost`] entry point both
+    /// Run and quick eval use, and records the accepted run on the document.
+    ///
+    /// The caller has already validated the request (non-empty source, no run in flight) and is
+    /// responsible for the log line describing what it submitted.
+    fn begin_run(
+        &mut self,
+        index: usize,
+        source: String,
+    ) -> Result<(RunId, SourceRevision), SubmitError> {
+        let doc = &self.docs[index];
+        let revision = SourceRevision(doc.revision);
+        let precision = doc.precision;
+        let handle = self.host.submit(doc.id, revision, source, precision)?;
+        let run_id = handle.run();
+        {
+            let doc = &mut self.docs[index];
+            doc.run = Some(handle);
+            doc.quick_eval_run = None;
+            doc.committed = 0;
+            doc.total = 0;
+            doc.elapsed_ms = 0;
+            doc.started = Some(Instant::now());
+            let queued = doc.run_state.begin(run_id, "submit accepted");
+            debug_assert!(queued, "a submit must enter Queued");
+            if crate::run_trace::enabled() {
+                crate::run_trace::mark(
+                    "run_phase_set",
+                    format!("document={} run={} phase=Queued", doc.id.0, run_id.0),
+                );
+            }
+        }
+        Ok((run_id, revision))
     }
 
     /// Requests cancellation of the active document's run.
@@ -653,16 +725,14 @@ impl Workbench {
             cancellation_requested = doc.run_state.cancel(run, "cancellation requested");
         }
         if cancellation_requested {
-            self.log(index, LogLevel::Info, "Cancellation requested.");
+            self.log(index, LogKind::Info, "Cancellation requested.");
         }
         cancellation_requested
     }
 
     /// True while any run is in flight.
     pub fn is_running(&self) -> bool {
-        self.docs
-            .iter()
-            .any(|doc| doc.state().is_in_flight())
+        self.docs.iter().any(|doc| doc.state().is_in_flight())
     }
 
     /// True while the active document's run is in flight.
@@ -739,6 +809,11 @@ impl Workbench {
         // A run whose source revision is older than the document's current revision describes
         // text the user has already edited away. Discard its result rather than publishing it.
         let stale = sequenced.revision < SourceRevision(self.docs[index].revision);
+        // A quick-eval run carries the document's id and revision but evaluated the one-line
+        // expression, not the buffer. Its terminal snapshot and diagnostic must not claim the
+        // editor's text; both panes stay tied to the document's own run. The log lines are the
+        // same normal typed events as any other run.
+        let quick_eval = self.docs[index].quick_eval_run == Some(tracked_run);
 
         match &sequenced.event {
             DesktopEvent::RunStarted { total, .. } => {
@@ -751,9 +826,9 @@ impl Workbench {
                 {
                     let doc = &mut self.docs[index];
                     if doc.state() == RunState::Queued {
-                        started =
-                            doc.run_state
-                                .started(tracked_run, "worker reported RunStarted");
+                        started = doc
+                            .run_state
+                            .started(tracked_run, "worker reported RunStarted");
                     } else if doc.state() == RunState::Cancelling {
                         cancellation_pending = true;
                     }
@@ -764,17 +839,33 @@ impl Workbench {
                         "Run started: {} statements, engine {}, precision {}.",
                         total, self.engine_name, self.docs[index].precision
                     );
-                    self.log(index, LogLevel::Info, detail);
+                    self.log(index, LogKind::Info, detail);
                 } else if cancellation_pending {
                     self.log(
                         index,
-                        LogLevel::Warn,
+                        LogKind::Info,
                         "Run started while cancellation was pending; waiting for the terminal event.",
                     );
                 }
                 true
             }
-            DesktopEvent::StepStarted { .. } => true,
+            DesktopEvent::StepStarted {
+                index: statement,
+                label,
+                ..
+            } => {
+                // LOG-002 progress: the workbench already receives one StepStarted per
+                // top-level statement, so the log routes that existing event instead of
+                // inventing progress. StepCommitted/SubProgress are not logged separately:
+                // they describe the same statement and would duplicate every progress line.
+                let total = self.docs[index].total;
+                self.log(
+                    index,
+                    LogKind::Progress,
+                    format!("statement {}/{}: {}", statement + 1, total, label),
+                );
+                true
+            }
             DesktopEvent::StepCommitted {
                 index: statement, ..
             } => {
@@ -782,7 +873,7 @@ impl Workbench {
                 true
             }
             DesktopEvent::Output { text, .. } => {
-                self.log(index, LogLevel::Output, text.clone());
+                self.log(index, LogKind::Stdout, text.clone());
                 true
             }
             DesktopEvent::SubProgress { .. } => true,
@@ -805,13 +896,19 @@ impl Workbench {
                         "the result did not belong to the document's current revision.",
                     );
                 }
-                self.publish_snapshot(index, snapshot.clone());
+                if !quick_eval {
+                    self.publish_snapshot(index, snapshot.clone());
+                }
                 {
                     let doc = &mut self.docs[index];
-                    // A successful run is the only outcome that clears the failure decoration:
-                    // the buffer it describes is still current and now evaluates cleanly.
-                    doc.diagnostic = None;
-                    doc.diagnostic_revision = None;
+                    // A successful document run is the only outcome that clears the failure
+                    // decoration: the buffer it describes is still current and now evaluates
+                    // cleanly. A quick eval did not evaluate the buffer, so the decoration for
+                    // the document's last failed run remains truthful.
+                    if !quick_eval {
+                        doc.diagnostic = None;
+                        doc.diagnostic_revision = None;
+                    }
                     doc.committed = snapshot.committed_steps;
                     let transitioned = doc.run_state.finish(
                         tracked_run,
@@ -822,10 +919,10 @@ impl Workbench {
                 }
                 let elapsed = self.close_run(index);
                 let result = snapshot.result.clone();
-                self.log(index, LogLevel::Result, format!("= {result}"));
+                self.log(index, LogKind::Result, format!("= {result}"));
                 self.log(
                     index,
-                    LogLevel::Info,
+                    LogKind::Timing,
                     format!(
                         "Run finished: {} statements committed in {} ms.",
                         snapshot.committed_steps, elapsed
@@ -846,9 +943,11 @@ impl Workbench {
                 if !self.docs[index].state().is_in_flight() {
                     return false;
                 }
-                let snapshot = self.host.last_snapshot(id);
-                if let Some(snapshot) = snapshot {
-                    self.publish_snapshot(index, snapshot);
+                if !quick_eval {
+                    let snapshot = self.host.last_snapshot(id);
+                    if let Some(snapshot) = snapshot {
+                        self.publish_snapshot(index, snapshot);
+                    }
                 }
                 {
                     let doc = &mut self.docs[index];
@@ -861,14 +960,18 @@ impl Workbench {
                     debug_assert!(transitioned, "a terminal event must end the in-flight run");
                 }
                 let elapsed = self.close_run(index);
-                self.log(
-                    index,
-                    LogLevel::Info,
+                let text = if quick_eval {
+                    format!(
+                        "Run cancelled after {} statements in {} ms.",
+                        committed_steps, elapsed
+                    )
+                } else {
                     format!(
                         "Run cancelled after {} statements in {} ms; the committed statements remain in the workspace.",
                         committed_steps, elapsed
-                    ),
-                );
+                    )
+                };
+                self.log(index, LogKind::Timing, text);
                 true
             }
             DesktopEvent::Failed { diagnostic, .. } => {
@@ -882,14 +985,20 @@ impl Workbench {
                 if !self.docs[index].state().is_in_flight() {
                     return false;
                 }
-                let snapshot = self.host.last_snapshot(id);
-                if let Some(snapshot) = snapshot {
-                    self.publish_snapshot(index, snapshot);
+                if !quick_eval {
+                    let snapshot = self.host.last_snapshot(id);
+                    if let Some(snapshot) = snapshot {
+                        self.publish_snapshot(index, snapshot);
+                    }
                 }
                 {
                     let doc = &mut self.docs[index];
-                    doc.diagnostic = Some(diagnostic.clone());
-                    doc.diagnostic_revision = Some(sequenced.revision);
+                    // A failed quick eval names a position in the expression, not in the
+                    // document; it is logged but must not decorate the editor.
+                    if !quick_eval {
+                        doc.diagnostic = Some(diagnostic.clone());
+                        doc.diagnostic_revision = Some(sequenced.revision);
+                    }
                     let transitioned =
                         doc.run_state
                             .finish(tracked_run, RunState::Failed, "Failed event applied");
@@ -898,17 +1007,21 @@ impl Workbench {
                 let elapsed = self.close_run(index);
                 self.log(
                     index,
-                    LogLevel::Error,
+                    LogKind::Diagnostic,
                     format!("Diagnostic: {}", diagnostic.render()),
                 );
-                self.log(
-                    index,
-                    LogLevel::Error,
+                let text = if quick_eval {
+                    format!(
+                        "Run failed after {} committed statements in {} ms.",
+                        self.docs[index].committed, elapsed
+                    )
+                } else {
                     format!(
                         "Run failed after {} committed statements in {} ms; the committed prefix remains in the workspace.",
                         self.docs[index].committed, elapsed
-                    ),
-                );
+                    )
+                };
+                self.log(index, LogKind::Timing, text);
                 true
             }
         }
@@ -927,6 +1040,7 @@ impl Workbench {
             .unwrap_or(0);
         doc.elapsed_ms = elapsed;
         doc.run = None;
+        doc.quick_eval_run = None;
         elapsed
     }
 
@@ -950,7 +1064,7 @@ impl Workbench {
         let _ = self.close_run(index);
         self.log(
             index,
-            LogLevel::Warn,
+            LogKind::Info,
             format!("Run result discarded: {reason}"),
         );
         true
@@ -964,18 +1078,15 @@ impl Workbench {
         self.docs[index].snapshot = Some(snapshot);
     }
 
-    /// Appends a log line, enforcing [`LOG_CAP`].
-    fn log(&mut self, index: usize, level: LogLevel, text: impl Into<String>) {
+    /// Appends a log line of `kind`, enforcing [`LOG_CAP`].
+    fn log(&mut self, index: usize, kind: LogKind, text: impl Into<String>) {
         let Some(doc) = self.docs.get_mut(index) else {
             return;
         };
         if doc.logs.len() >= LOG_CAP {
             doc.logs.remove(0);
         }
-        doc.logs.push(LogLine {
-            level,
-            text: text.into(),
-        });
+        doc.logs.push(LogLine::new(kind, text));
     }
 
     /// The status strip: document, revision, precision, cursor and run state.
@@ -1049,6 +1160,7 @@ impl WorkbenchDocument {
             total: 0,
             elapsed_ms: 0,
             run: None,
+            quick_eval_run: None,
             started: None,
             saved_source: source.to_string(),
         }
@@ -1079,6 +1191,30 @@ mod tests {
 
     fn fake_workbench() -> Workbench {
         Workbench::with_factory(Box::new(|| Box::new(FakeEngine::new())))
+    }
+
+    /// The log lines a run produced, from its own "Run queued" line onward.
+    ///
+    /// The constructor's plot-directory line is environment-dependent (a read-only APPDATA adds
+    /// a startup [`LogKind::Diagnostic`]), so the event-sequence tests slice at the run boundary
+    /// instead of pinning the whole startup log.
+    fn run_log(document: &WorkbenchDocument) -> &[LogLine] {
+        let start = document
+            .logs
+            .iter()
+            .position(|line| line.text.starts_with("Run queued"))
+            .expect("a run must log its queue line");
+        &document.logs[start..]
+    }
+
+    /// The lines a quick-eval submission produced, from its own echo line onward.
+    fn quick_eval_log(document: &WorkbenchDocument) -> &[LogLine] {
+        let start = document
+            .logs
+            .iter()
+            .rposition(|line| line.kind == LogKind::Echo)
+            .expect("an accepted quick eval must log its echo line");
+        &document.logs[start..]
     }
 
     fn builtin(name: &str, parameters: &[&str]) -> EngineFunction {
@@ -1136,9 +1272,8 @@ mod tests {
     #[test]
     #[cfg(feature = "real-engine")]
     fn completion_catalogue_offers_the_real_registry_and_a_script_defined_function() {
-        let mut workbench = Workbench::with_factory(Box::new(|| {
-            Box::new(crate::engine::RealEngine::new())
-        }));
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
         // Before any run the registry alone supplies the functions (and their signatures).
         let before = workbench.completion_catalogue();
         assert!(
@@ -1324,11 +1459,7 @@ mod tests {
                 .iter()
                 .map(|transition| transition.to)
                 .collect::<Vec<_>>(),
-            [
-                RunState::Queued,
-                RunState::Running,
-                RunState::Finished
-            ],
+            [RunState::Queued, RunState::Running, RunState::Finished],
             "a finished run must log Queued, Running and exactly one Finished"
         );
         assert_eq!(document.terminal_run_event_count(), 1);
@@ -1358,6 +1489,101 @@ mod tests {
         );
     }
 
+    /// LOG-002: a known successful run fed through the real `ExecutionHost` event path must
+    /// yield the expected kind sequence, in order, with no kind silently dropped. The run slice
+    /// starts at its queue line, then start, one progress line per statement, the print's stdout
+    /// line, the result and the terminal timing line.
+    #[test]
+    fn a_successful_run_logs_the_expected_kind_sequence_in_order() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "print(\"hi\")\n6 * 7\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        let document = &workbench.documents()[0];
+        let logs = run_log(document);
+        let kinds = logs.iter().map(|line| line.kind).collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            vec![
+                LogKind::Info,
+                LogKind::Info,
+                LogKind::Progress,
+                LogKind::Stdout,
+                LogKind::Progress,
+                LogKind::Result,
+                LogKind::Timing,
+            ],
+            "logs were {:?}",
+            document.logs
+        );
+        assert_eq!(logs[2].text, "statement 1/2: print(\"hi\")");
+        assert_eq!(logs[3].text, "hi");
+        assert_eq!(logs[4].text, "statement 2/2: 6 * 7");
+        assert_eq!(logs[5].text, "= 42");
+        assert!(
+            logs[6].text.starts_with("Run finished:"),
+            "the timing line was {:?}",
+            logs[6]
+        );
+        assert!(logs[6].text.contains(" ms."));
+        for line in &document.logs {
+            assert!(
+                line.render().starts_with(line.kind.marker()),
+                "the painted line lost its marker: {line:?}"
+            );
+        }
+    }
+
+    /// LOG-002: a deliberate error must append exactly one diagnostic line followed by the
+    /// timing line, after the progress and stdout lines from the statements that did commit.
+    #[test]
+    fn a_failing_run_logs_diagnostic_and_timing_after_progress_and_stdout() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "print(\"hi\")\n1 / 0\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Failed);
+
+        let document = &workbench.documents()[0];
+        let logs = run_log(document);
+        let kinds = logs.iter().map(|line| line.kind).collect::<Vec<_>>();
+        assert_eq!(
+            kinds,
+            vec![
+                LogKind::Info,
+                LogKind::Info,
+                LogKind::Progress,
+                LogKind::Stdout,
+                LogKind::Progress,
+                LogKind::Diagnostic,
+                LogKind::Timing,
+            ],
+            "logs were {:?}",
+            document.logs
+        );
+        assert_eq!(logs[3].text, "hi");
+        assert!(
+            logs[5].text.starts_with("Diagnostic: ")
+                && logs[5].text.contains("Cannot divide by zero."),
+            "the diagnostic line was {:?}",
+            logs[5]
+        );
+        assert!(
+            logs[6]
+                .text
+                .starts_with("Run failed after 1 committed statements in "),
+            "the failed timing line was {:?}",
+            logs[6]
+        );
+        assert!(
+            logs[6].text.contains(" ms;"),
+            "the failed timing line was {:?}",
+            logs[6]
+        );
+    }
+
     #[test]
     fn print_output_reaches_the_log_and_the_snapshot() {
         let mut workbench = fake_workbench();
@@ -1374,7 +1600,7 @@ mod tests {
             workbench.documents()[0]
                 .logs
                 .iter()
-                .any(|line| line.level == LogLevel::Output && line.text == "x")
+                .any(|line| line.kind == LogKind::Stdout && line.text == "x")
         );
     }
 
@@ -1393,7 +1619,7 @@ mod tests {
         let logged = document
             .logs
             .iter()
-            .filter(|line| line.level == LogLevel::Output)
+            .filter(|line| line.kind == LogKind::Stdout)
             .map(|line| line.text.as_bytes().to_vec())
             .collect::<Vec<_>>();
         assert_eq!(
@@ -1495,7 +1721,7 @@ mod tests {
         let logged = document
             .logs
             .iter()
-            .filter(|line| line.level == LogLevel::Output)
+            .filter(|line| line.kind == LogKind::Stdout)
             .map(|line| line.text.as_str())
             .collect::<Vec<_>>();
         assert_eq!(
@@ -1538,7 +1764,7 @@ mod tests {
         while !workbench.documents()[0]
             .logs
             .iter()
-            .any(|line| line.level == LogLevel::Output && line.text == "one")
+            .any(|line| line.kind == LogKind::Stdout && line.text == "one")
         {
             workbench.poll();
             assert!(
@@ -1568,7 +1794,7 @@ mod tests {
         let logged = document
             .logs
             .iter()
-            .filter(|line| line.level == LogLevel::Output)
+            .filter(|line| line.kind == LogKind::Stdout)
             .map(|line| line.text.as_str())
             .collect::<Vec<_>>();
         assert_eq!(
@@ -1624,7 +1850,7 @@ mod tests {
         let occurrences = workbench.documents()[0]
             .logs
             .iter()
-            .filter(|line| line.level == LogLevel::Output && line.text == "tick")
+            .filter(|line| line.kind == LogKind::Stdout && line.text == "tick")
             .count();
         assert_eq!(
             occurrences, 2,
@@ -1744,10 +1970,9 @@ mod tests {
             "the engine message must be carried verbatim"
         );
         assert!(
-            document
-                .logs
-                .iter()
-                .any(|line| line.level == LogLevel::Error && line.text.starts_with("Diagnostic:"))
+            document.logs.iter().any(
+                |line| line.kind == LogKind::Diagnostic && line.text.starts_with("Diagnostic:")
+            )
         );
         assert!(workbench.status_text(1, 1).contains("Failed"));
     }
@@ -1803,7 +2028,7 @@ mod tests {
             workbench.documents()[0]
                 .logs
                 .iter()
-                .any(|line| line.level == LogLevel::Error),
+                .any(|line| line.kind == LogKind::Diagnostic),
             "the failed run's log line remains even though the decoration cleared"
         );
 
@@ -2112,14 +2337,18 @@ mod tests {
                 .iter()
                 .map(|transition| transition.to)
                 .collect::<Vec<_>>(),
-            [
-                RunState::Queued,
-                RunState::Running,
-                RunState::Finished
-            ]
+            [RunState::Queued, RunState::Running, RunState::Finished]
         );
-        assert!(document.duration_between(RunState::Queued, RunState::Running).is_some());
-        assert!(document.duration_between(RunState::Running, RunState::Finished).is_some());
+        assert!(
+            document
+                .duration_between(RunState::Queued, RunState::Running)
+                .is_some()
+        );
+        assert!(
+            document
+                .duration_between(RunState::Running, RunState::Finished)
+                .is_some()
+        );
     }
 
     #[test]
@@ -2215,5 +2444,198 @@ mod tests {
         assert_eq!(document.transition_count(), transitions);
         assert_eq!(document.terminal_run_event_count(), 1);
         assert_eq!(document.state(), RunState::Finished);
+    }
+
+    /// RUN-002: a quick eval submits through the same `ExecutionHost` entry point as Run, for
+    /// the active document and with its precision, but never writes the editor buffer or bumps
+    /// its revision. The expression's result reaches the log.
+    #[test]
+    fn quick_eval_runs_against_the_active_document_without_touching_its_buffer_or_revision() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\n".to_string());
+        workbench.set_active(1);
+        workbench.set_source(1, "b = 2\n".to_string());
+        workbench.set_active_precision(250);
+        let source_before = workbench.documents()[1].source.clone();
+        let revision_before = workbench.documents()[1].revision;
+        let inactive_revision = workbench.documents()[0].revision;
+
+        assert!(workbench.quick_eval_active("6 * 7"));
+        assert!(
+            workbench.wait_until_idle(Duration::from_secs(5)),
+            "the quick-eval run must reach a terminal state"
+        );
+
+        let document = &workbench.documents()[1];
+        assert_eq!(
+            document.source, source_before,
+            "quick eval must not change the active document's buffer"
+        );
+        assert_eq!(
+            document.revision, revision_before,
+            "quick eval must not advance the active document's revision"
+        );
+        assert_eq!(
+            workbench.documents()[0].revision, inactive_revision,
+            "quick eval must not touch the inactive document"
+        );
+        assert_eq!(document.state(), RunState::Finished);
+        assert!(
+            document.snapshot.is_none(),
+            "an expression-only run must not replace the document's workspace snapshot"
+        );
+
+        let echoes: Vec<&LogLine> = document
+            .logs
+            .iter()
+            .filter(|line| line.kind == LogKind::Echo)
+            .collect();
+        assert_eq!(echoes.len(), 1, "one submission must log one echo");
+        assert_eq!(echoes[0].text, ">> 6 * 7");
+        assert_eq!(echoes[0].render(), "[echo] >> 6 * 7");
+        let run = quick_eval_log(document);
+        assert!(
+            run.iter()
+                .any(|line| line.kind == LogKind::Result && line.text == "= 42"),
+            "quick-eval log was {run:?}"
+        );
+        assert!(
+            run.iter().any(|line| {
+                line.kind == LogKind::Timing && line.text.starts_with("Run finished: 1 statements")
+            }),
+            "quick-eval log was {run:?}"
+        );
+        assert!(
+            run.iter()
+                .any(|line| line.kind == LogKind::Info && line.text.contains("precision 250")),
+            "the run must carry the active document's current precision: {run:?}"
+        );
+        assert!(
+            !workbench.documents()[0]
+                .logs
+                .iter()
+                .any(|line| line.kind == LogKind::Echo),
+            "the inactive document must not receive the quick-eval log lines"
+        );
+    }
+
+    /// A failed quick eval logs its structured diagnostic like any run, but must not decorate
+    /// the editor: the diagnostic's line and column name the expression, not the document text.
+    #[test]
+    fn a_failing_quick_eval_logs_its_diagnostic_without_decorating_the_document() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.quick_eval_active("1 / 0"));
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+
+        let document = &workbench.documents()[0];
+        assert_eq!(document.state(), RunState::Failed);
+        assert!(
+            document.snapshot.is_none(),
+            "the expression snapshot must not become the document workspace"
+        );
+        assert!(
+            workbench.active_diagnostic().is_none(),
+            "the expression's position must not decorate the editor"
+        );
+        assert!(
+            document.logs.iter().any(|line| {
+                line.kind == LogKind::Diagnostic && line.text.contains("Cannot divide by zero.")
+            }),
+            "logs were {:?}",
+            document.logs
+        );
+        assert!(
+            document.logs.iter().any(|line| {
+                line.kind == LogKind::Timing
+                    && line.text.starts_with("Run failed after")
+                    && line.text.ends_with(" ms.")
+                    && !line.text.contains("workspace")
+            }),
+            "an expression-only failure must not claim a workspace prefix: {:?}",
+            document.logs
+        );
+        assert_eq!(
+            document
+                .logs
+                .iter()
+                .filter(|line| line.kind == LogKind::Echo)
+                .count(),
+            1
+        );
+    }
+
+    /// LOG-003 / LOG-002: every accepted submission emits exactly one echo line carrying the
+    /// submitted text, in submission order. Two submissions therefore produce two echoes, each
+    /// once, and each result follows its own echo.
+    #[test]
+    fn each_quick_eval_submission_emits_exactly_one_echo_line_for_its_own_text() {
+        let mut workbench = fake_workbench();
+        assert!(workbench.quick_eval_active("6 * 7"));
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert!(workbench.quick_eval_active("2 + 3"));
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+
+        let document = &workbench.documents()[0];
+        let echoes: Vec<&str> = document
+            .logs
+            .iter()
+            .filter(|line| line.kind == LogKind::Echo)
+            .map(|line| line.text.as_str())
+            .collect();
+        assert_eq!(echoes, [">> 6 * 7", ">> 2 + 3"]);
+        for expression in [">> 6 * 7", ">> 2 + 3"] {
+            assert_eq!(
+                echoes.iter().filter(|text| **text == expression).count(),
+                1,
+                "{expression} must be echoed exactly once"
+            );
+        }
+        let results: Vec<&str> = document
+            .logs
+            .iter()
+            .filter(|line| line.kind == LogKind::Result)
+            .map(|line| line.text.as_str())
+            .collect();
+        assert_eq!(results, ["= 42", "= 5"]);
+    }
+
+    /// LOG-003: a submit refused because a run is in flight must not clear the caller's field,
+    /// must not fake an echo line for a run the host never accepted, and must log an `[info]`
+    /// advisory that the expression was kept.
+    #[test]
+    fn a_quick_eval_refused_while_busy_keeps_the_expression_and_logs_an_info_advisory() {
+        let mut workbench = slow_workbench(Duration::from_millis(20));
+        workbench.set_source(0, "a = 1\n".to_string());
+        assert!(workbench.run_active());
+        assert_eq!(workbench.documents()[0].state(), RunState::Queued);
+
+        assert!(
+            !workbench.quick_eval_active("6 * 7"),
+            "a busy execution host must refuse the quick eval"
+        );
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Queued,
+            "a refused quick eval must not disturb the in-flight run"
+        );
+        let document = &workbench.documents()[0];
+        assert!(
+            !document
+                .logs
+                .iter()
+                .any(|line| line.kind == LogKind::Echo),
+            "a refused submission has no run to echo"
+        );
+        assert!(
+            document.logs.iter().any(|line| {
+                line.kind == LogKind::Info
+                    && line.text.contains("Quick eval not submitted")
+                    && line.text.contains("kept")
+            }),
+            "logs were {:?}",
+            document.logs
+        );
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
     }
 }

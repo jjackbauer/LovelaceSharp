@@ -13,9 +13,10 @@ use egui::{
     StrokeKind, Ui, UiBuilder, Vec2, pos2, vec2,
 };
 
-use crate::app::LogLevel;
 use crate::execution::Diagnostic;
 use crate::keyboard;
+use crate::log_kind::LogKind;
+use crate::quick_eval::QuickEval;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::Workbench;
 
@@ -41,6 +42,10 @@ pub const SPLIT_HOT: Color32 = Color32::from_rgb(0x2b, 0x4a, 0x47);
 pub const WARN: Color32 = Color32::from_rgb(0xd7, 0xba, 0x7d);
 /// Error text.
 pub const ERROR: Color32 = Color32::from_rgb(0xff, 0x7b, 0x72);
+/// Echo marker text (the quiet, low-contrast lavender of a prompt echo).
+pub const LOG_ECHO: Color32 = Color32::from_rgb(0xc8, 0xb6, 0xff);
+/// Progress marker text (a calm blue, distinct from the accent teal).
+pub const LOG_PROGRESS: Color32 = Color32::from_rgb(0x7f, 0xb0, 0xd8);
 
 /// Width of a splitter, in pixels.
 pub const SPLIT: f32 = 6.0;
@@ -148,6 +153,10 @@ pub struct WorkbenchApp {
     workspace_frac: f32,
     logs_frac: f32,
     filter: String,
+    /// The one-line quick-eval input's text and submitted-expression history.
+    quick_eval: QuickEval,
+    /// The quick-eval field's last painted rectangle, used by the pointer-focus test.
+    quick_eval_rect: Option<Rect>,
     layout: Option<PaneLayout>,
     /// True once the window has moved keyboard focus into the editor on its first frame.
     focus_requested: bool,
@@ -189,6 +198,8 @@ impl WorkbenchApp {
             workspace_frac: 0.20,
             logs_frac: 0.18,
             filter: String::new(),
+            quick_eval: QuickEval::new(),
+            quick_eval_rect: None,
             layout: None,
             focus_requested: false,
             trace_pending: false,
@@ -250,6 +261,37 @@ impl WorkbenchApp {
             self.focus_requested = true;
         }
 
+        // LOG-003: Ctrl+Shift+E is the keyboard way into the quick-eval field. The field is also
+        // focusable by clicking it (it is an ordinary egui `TextEdit`); this shortcut only moves
+        // keyboard focus, it never submits or edits. The editor's completion popup is dismissed
+        // so it cannot linger over a field it no longer owns.
+        if ui.input(|input| {
+            input.events.iter().any(|event| {
+                matches!(
+                    event,
+                    egui::Event::Key {
+                        key: Key::E,
+                        pressed: true,
+                        modifiers,
+                        ..
+                    } if (modifiers.ctrl || modifiers.command)
+                        && modifiers.shift
+                        && !modifiers.alt
+                )
+            })
+        }) {
+            for editor in &mut self.editors {
+                editor.completion.dismiss();
+            }
+            ui.ctx()
+                .memory_mut(|memory| memory.request_focus(quick_eval_id()));
+        }
+
+        // While the quick-eval field owns focus, Esc means "leave the field", not "cancel the
+        // document's run". The field itself surrenders focus later in this same frame.
+        let quick_eval_focused =
+            ui.ctx().memory(|memory| memory.focused()) == Some(quick_eval_id());
+
         // Ctrl+Enter and Esc are window-global shortcuts: they work while any pane has focus.
         // Read the key events themselves as well as the frame's modifier state, so a shortcut
         // works even when the modifier tick and the key press arrive in the same frame.
@@ -278,10 +320,15 @@ impl WorkbenchApp {
             // An open completion popup owns Escape for dismissal; it must not also cancel the
             // document's run. The editor closes the popup later in this same frame.
             let completion_open = self.editors[self.workbench.active()].completion.is_open();
+            // While the quick-eval field owns focus, a bare Enter belongs to the field, not to
+            // Run. The fallback to the frame's modifier state is only for the editor/other
+            // panes: a stale Ctrl bit must not turn the field's submit key into Ctrl+Enter.
+            let command_modifier = enter_command
+                || (!quick_eval_focused && (input.modifiers.command || input.modifiers.ctrl));
             keyboard::command_for_shortcut(
                 enter,
-                escape && !completion_open,
-                enter_command || input.modifiers.command || input.modifiers.ctrl,
+                escape && !completion_open && !quick_eval_focused,
+                command_modifier,
             )
         });
         if let Some(command) = shortcut {
@@ -734,6 +781,7 @@ impl WorkbenchApp {
 
     fn logs_pane(&mut self, ui: &mut Ui, rect: Rect) {
         let active = self.workbench.active();
+        let legend = log_kind_legend();
         with_pane(ui, rect, "Logs", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
                 let (line, column) = self.editors[active].line_col_1based();
@@ -743,16 +791,23 @@ impl WorkbenchApp {
                         self.workbench.engine_name()
                     ))
                     .color(DIM),
-                );
+                )
+                .on_hover_text(format!("Log kinds: {legend}"));
             });
             ui.scope_builder(
                 UiBuilder::new()
                     .max_rect(body.shrink2(vec2(10.0, 4.0)))
                     .layout(Layout::top_down(Align::Min)),
                 |ui| {
+                    // RUN-002: the quick-eval one-liner lives above the log list, so it stays
+                    // visible with an empty log and cannot be confused with a history row.
+                    self.quick_eval_row(ui);
                     let logs = self.workbench.active_logs();
                     if logs.is_empty() {
                         ui.label(RichText::new("No log entries yet. Run the document.").color(DIM));
+                        // The legend names every kind and marker before the first line exists,
+                        // so the vocabulary is discoverable even in an empty pane.
+                        ui.label(RichText::new(legend.clone()).small().color(DIM));
                         return;
                     }
                     egui::ScrollArea::vertical()
@@ -760,25 +815,114 @@ impl WorkbenchApp {
                         .stick_to_bottom(true)
                         .show(ui, |ui| {
                             for entry in logs {
-                                let tag = entry.level.tag();
-                                let color = match entry.level {
-                                    LogLevel::Error => ERROR,
-                                    LogLevel::Warn => WARN,
-                                    LogLevel::Info => DIM,
-                                    LogLevel::Output => TEXT,
-                                    LogLevel::Result => ACCENT,
+                                // LOG-002: the marker is part of the line's rendered model, so
+                                // the pane paints exactly the string the unit tests pin.
+                                let color = match entry.kind {
+                                    LogKind::Echo => LOG_ECHO,
+                                    LogKind::Stdout => TEXT,
+                                    LogKind::Result => ACCENT,
+                                    LogKind::Diagnostic => ERROR,
+                                    LogKind::Timing => WARN,
+                                    LogKind::Progress => LOG_PROGRESS,
+                                    LogKind::Info => DIM,
                                 };
-                                let text = if tag.is_empty() {
-                                    entry.text.clone()
-                                } else {
-                                    format!("[{tag}] {}", entry.text)
-                                };
-                                ui.label(RichText::new(text).monospace().color(color));
+                                ui.label(RichText::new(entry.render()).monospace().color(color));
                             }
                         });
                 },
             );
         });
+    }
+
+    /// The one-line quick-eval field and its keyboard contract (RUN-002 / LOG-003).
+    ///
+    /// The label is visible and the hint text is the reference placeholder. Enter submits; Esc
+    /// leaves the field without submitting and without editing the document; Up/Down restore
+    /// submitted expressions newest first. Only an accepted submission clears the field.
+    fn quick_eval_row(&mut self, ui: &mut Ui) {
+        let mut submit = false;
+        let mut navigate: i8 = 0;
+        ui.horizontal(|ui| {
+            let label = ui.label(RichText::new("Quick eval").strong().color(TEXT));
+            let id = quick_eval_id();
+            let response = ui
+                .add(
+                    egui::TextEdit::singleline(self.quick_eval.text_mut())
+                        .id(id)
+                        .hint_text("quick eval — one-liner, press Enter")
+                        .desired_width(340.0),
+                )
+                .labelled_by(label.id);
+            self.quick_eval_rect = Some(response.rect);
+
+            if response.has_focus() {
+                // Keep Up/Down and Esc for this field. Otherwise egui's focus navigation would
+                // move focus before the history handler below can act, and Esc could surrender
+                // focus without the field observing it (the DEF-002 class the editor locks its
+                // own arrows for). The filter applies to the NEXT pass, so it is installed as
+                // soon as the field holds focus.
+                ui.memory_mut(|memory| {
+                    memory.set_focus_lock_filter(
+                        id,
+                        egui::EventFilter {
+                            tab: false,
+                            escape: true,
+                            horizontal_arrows: true,
+                            vertical_arrows: true,
+                        },
+                    );
+                });
+                if ui.input(|input| input.key_pressed(Key::Escape)) {
+                    // Esc leaves the field without submitting and without clearing its text.
+                    response.surrender_focus();
+                } else if key_pressed_without_modifiers(ui, Key::ArrowUp) {
+                    navigate = -1;
+                } else if key_pressed_without_modifiers(ui, Key::ArrowDown) {
+                    navigate = 1;
+                }
+            }
+
+            // A single-line egui TextEdit surrenders focus on a bare Enter, so `lost_focus` plus
+            // the Enter key is the submit edge. Ctrl+Enter keeps focus and remains the global
+            // Run shortcut, which is why this looks at the key event's own modifiers.
+            if response.lost_focus() && key_pressed_without_modifiers(ui, Key::Enter) {
+                submit = true;
+            }
+
+            ui.label(RichText::new("Ctrl+Shift+E").small().color(DIM))
+                .on_hover_text("Focus quick eval");
+            ui.label(
+                RichText::new("Enter runs · Esc leaves the field")
+                    .small()
+                    .color(DIM),
+            );
+        });
+
+        if navigate < 0 {
+            self.quick_eval.navigate_up();
+        } else if navigate > 0 {
+            self.quick_eval.navigate_down();
+        }
+        if submit {
+            self.submit_quick_eval();
+            // Enter already surrendered the TextEdit's focus; return it so a sequence of quick
+            // evaluations needs no click and a refused expression stays editable.
+            ui.ctx()
+                .memory_mut(|memory| memory.request_focus(quick_eval_id()));
+        }
+        ui.add_space(2.0);
+    }
+
+    /// Submits the field's expression; clears it only when the workbench accepted the request.
+    fn submit_quick_eval(&mut self) {
+        let Some(expression) = self.quick_eval.expression().map(str::to_string) else {
+            return;
+        };
+        if self.workbench.quick_eval_active(&expression) {
+            self.quick_eval.accept(&expression);
+        }
+        // On refusal the workbench already logged its [info] advisory; the field is left exactly
+        // as typed so the expression can be retried.
     }
 }
 
@@ -788,10 +932,48 @@ impl eframe::App for WorkbenchApp {
     }
 }
 
+/// The stable egui id of the one-line quick-eval field.
+///
+/// The window uses it for the Ctrl+Shift+E focus shortcut and for the focus-lock filter that
+/// keeps Up/Down in the field for history navigation; the unit tests use it to assert focus.
+pub fn quick_eval_id() -> Id {
+    Id::unique("quick_eval_input")
+}
+
+/// True when this pass contains a press of `key` carrying no modifiers.
+///
+/// The key event's own modifier mask is used, not the frame's aggregate state: a modifier that
+/// was pressed for the focus shortcut and is released in the same pass must not make a later
+/// bare Enter look like Ctrl+Enter, and the event mask is what describes the key press itself.
+fn key_pressed_without_modifiers(ui: &Ui, key: Key) -> bool {
+    ui.input(|input| {
+        input.events.iter().any(|event| {
+            matches!(
+                event,
+                egui::Event::Key {
+                    key: pressed_key,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } if *pressed_key == key && !modifiers.any()
+            )
+        })
+    })
+}
+
 fn header_ui(header: Rect) -> UiBuilder {
     UiBuilder::new()
         .max_rect(header.shrink2(vec2(8.0, 3.0)))
         .layout(Layout::left_to_right(Align::Center))
+}
+
+/// The kind vocabulary, as `label: marker` pairs, for the pane header hover and the empty pane.
+fn log_kind_legend() -> String {
+    LogKind::ALL
+        .iter()
+        .map(|kind| format!("{}: {}", kind.label(), kind.marker()))
+        .collect::<Vec<_>>()
+        .join(" · ")
 }
 
 /// One-line summary of a failed run's diagnostic for the editor pane header.
@@ -938,6 +1120,7 @@ mod tests {
     use super::*;
     use crate::completion::CompletionKind;
     use crate::engine::{EngineFunction, EngineState, Evaluator};
+    use crate::log_kind::LogLine;
     use crate::run_state::RunState;
     use crate::workbench::Workbench;
     use std::sync::{Arc, Condvar, Mutex};
@@ -1324,7 +1507,12 @@ mod tests {
 
     /// An app whose editor holds `source`, with the caret at `(row, col)` and a registry that
     /// only contains the functions the test names.
-    fn completion_app(source: &str, row: usize, col: usize, functions: Vec<EngineFunction>) -> WorkbenchApp {
+    fn completion_app(
+        source: &str,
+        row: usize,
+        col: usize,
+        functions: Vec<EngineFunction>,
+    ) -> WorkbenchApp {
         let mut workbench = slow_workbench();
         workbench.set_engine_state(EngineState {
             variables: Vec::new(),
@@ -1455,7 +1643,11 @@ mod tests {
             vec![key(Key::Escape, egui::Modifiers::default())],
         );
         assert!(!app.editors[0].completion.is_open(), "Esc must dismiss");
-        assert_eq!(app.editors[0].source(), "sq", "Esc must not edit the buffer");
+        assert_eq!(
+            app.editors[0].source(),
+            "sq",
+            "Esc must not edit the buffer"
+        );
         assert_eq!(app.editors[0].line_col_1based(), (1, 3));
         assert_eq!(app.workbench.documents()[0].source, "sq");
 
@@ -1489,7 +1681,10 @@ mod tests {
             "Ctrl+Space must open the popup even with no typed prefix"
         );
         assert_eq!(
-            app.editors[0].completion.selected().map(|item| item.label.as_str()),
+            app.editors[0]
+                .completion
+                .selected()
+                .map(|item| item.label.as_str()),
             Some("break"),
             "with an empty prefix the catalogue starts at the first keyword in name order"
         );
@@ -1501,7 +1696,11 @@ mod tests {
                 .any(|item| item.label == "sqrt" && item.detail == "sqrt(x)"),
             "the whole catalogue includes the engine's registered functions"
         );
-        assert_eq!(app.editors[0].source(), "", "Ctrl+Space must not insert a space");
+        assert_eq!(
+            app.editors[0].source(),
+            "",
+            "Ctrl+Space must not insert a space"
+        );
 
         // Inside a string literal the popup stays closed.
         let mut quoted = completion_app("", 0, 0, vec![sqrt_function()]);
@@ -1778,5 +1977,326 @@ mod tests {
             "the typing that produced the prefix is the next step"
         );
         assert_eq!(app.workbench.documents()[0].source, "");
+    }
+
+    fn ctrl_shift_modifiers() -> egui::Modifiers {
+        egui::Modifiers {
+            ctrl: true,
+            shift: true,
+            command: true,
+            ..Default::default()
+        }
+    }
+
+    /// RUN-002 / LOG-003: Ctrl+Shift+E puts keyboard focus in the one-line field, typing there
+    /// does not touch the editor buffer, and Enter submits the expression, clears the field only
+    /// after the request was accepted, and leaves the document's source and revision unchanged.
+    #[test]
+    fn quick_eval_shortcut_focuses_the_field_and_enter_runs_without_editing_the_buffer() {
+        let mut app = fake_app_with_source("a = 1\n");
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // editor focus on the first frame
+        let source_before = app.workbench.documents()[0].source.clone();
+        let revision_before = app.workbench.documents()[0].revision;
+
+        let shortcut = ctrl_shift_modifiers();
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                egui::Event::ModifiersChanged(shortcut),
+                key(Key::E, shortcut),
+            ],
+        );
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(quick_eval_id()),
+            "Ctrl+Shift+E must focus the quick-eval field"
+        );
+        // Release the shortcut's modifiers before using Enter, as the real backend does.
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(egui::Modifiers::default())],
+        );
+
+        frame(&ctx, &mut app, vec![egui::Event::Text("6 * 7".to_string())]);
+        assert_eq!(app.quick_eval.text(), "6 * 7");
+        assert_eq!(
+            app.editors[0].source(),
+            "a = 1\n",
+            "typing in quick eval must not reach the editor"
+        );
+        assert_eq!(app.workbench.documents()[0].source, source_before);
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert_eq!(
+            app.quick_eval.text(),
+            "",
+            "an accepted submission clears the field"
+        );
+        assert!(
+            app.workbench.active_is_running(),
+            "Enter in the field must submit a run"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].source, source_before,
+            "quick eval must not change the document buffer"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].revision, revision_before,
+            "quick eval must not bump the document revision"
+        );
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(app.workbench.documents()[0].state(), RunState::Finished);
+
+        let document = &app.workbench.documents()[0];
+        let echoes: Vec<&LogLine> = document
+            .logs
+            .iter()
+            .filter(|line| line.kind == LogKind::Echo)
+            .collect();
+        assert_eq!(echoes.len(), 1, "exactly one echo line per submission");
+        assert_eq!(echoes[0].render(), "[echo] >> 6 * 7");
+        assert!(document
+            .logs
+            .iter()
+            .any(|line| line.kind == LogKind::Result && line.text == "= 42"));
+    }
+
+    /// LOG-003: Up/Down on the focused field walk accepted submissions newest first and stop at
+    /// the oldest; the restored text really lands back in the field.
+    #[test]
+    fn quick_eval_history_returns_previous_expressions_newest_first_and_stops_at_the_oldest() {
+        let mut app = fake_app_with_source("a = 1\n");
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+
+        let shortcut = ctrl_shift_modifiers();
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                egui::Event::ModifiersChanged(shortcut),
+                key(Key::E, shortcut),
+            ],
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(egui::Modifiers::default())],
+        );
+        frame(&ctx, &mut app, vec![egui::Event::Text("6 * 7".to_string())]);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        frame(&ctx, &mut app, Vec::new()); // repaint the cleared field and install its key lock
+
+        frame(&ctx, &mut app, vec![egui::Event::Text("2 + 3".to_string())]);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        frame(&ctx, &mut app, Vec::new());
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(quick_eval_id()),
+            "the field keeps focus after a submission"
+        );
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+        assert_eq!(app.quick_eval.text(), "2 + 3", "the first Up is the newest");
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+        assert_eq!(app.quick_eval.text(), "6 * 7");
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+        assert_eq!(
+            app.quick_eval.text(),
+            "6 * 7",
+            "Up at the oldest keeps the oldest expression"
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowDown, egui::Modifiers::default())],
+        );
+        assert_eq!(app.quick_eval.text(), "2 + 3");
+        assert_eq!(
+            app.editors[0].source(),
+            "a = 1\n",
+            "history navigation must not edit the editor"
+        );
+    }
+
+    /// RUN-002: the field is also focusable by pointer, not only by its shortcut.
+    #[test]
+    fn the_quick_eval_field_takes_keyboard_focus_from_a_mouse_click() {
+        let mut app = fake_app_with_source("a = 1\n");
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+        let rect = app
+            .quick_eval_rect
+            .expect("the quick-eval field was painted on the first frame");
+        let pos = rect.center();
+        frame(&ctx, &mut app, vec![egui::Event::PointerMoved(pos)]);
+        for pressed in [true, false] {
+            frame(
+                &ctx,
+                &mut app,
+                vec![egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    modifiers: egui::Modifiers::default(),
+                }],
+            );
+        }
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(quick_eval_id()),
+            "clicking the field must give it keyboard focus"
+        );
+    }
+
+    /// LOG-003: Esc leaves the quick-eval field without submitting, without clearing its text
+    /// and without starting a run.
+    #[test]
+    fn escape_leaves_the_quick_eval_field_without_submitting_or_clearing_it() {
+        let mut app = fake_app_with_source("a = 1\n");
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+
+        let shortcut = ctrl_shift_modifiers();
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                egui::Event::ModifiersChanged(shortcut),
+                key(Key::E, shortcut),
+            ],
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(egui::Modifiers::default())],
+        );
+        frame(&ctx, &mut app, vec![egui::Event::Text("6 * 7".to_string())]);
+        assert_eq!(app.quick_eval.text(), "6 * 7");
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Escape, egui::Modifiers::default())],
+        );
+
+        assert_eq!(
+            app.quick_eval.text(),
+            "6 * 7",
+            "Esc must leave the text in the field"
+        );
+        assert_ne!(
+            ctx.memory(|memory| memory.focused()),
+            Some(quick_eval_id()),
+            "Esc must clear focus from the field"
+        );
+        assert_eq!(
+            app.workbench.documents()[0].state(),
+            RunState::Idle,
+            "Esc in the field must not start a run"
+        );
+        assert!(
+            !app.workbench.active_logs().iter().any(|line| line.kind == LogKind::Echo),
+            "Esc must not echo or submit"
+        );
+        assert_eq!(app.editors[0].source(), "a = 1\n");
+    }
+
+    /// LOG-003: when the host refuses (a run is in flight), the typed expression stays in the
+    /// field, no echo line is faked, and the `[info]` advisory is logged.
+    #[test]
+    fn a_refused_quick_eval_keeps_the_typed_text_and_logs_info_without_an_echo() {
+        let gate = Arc::new(Gate::default());
+        let mut app = WorkbenchApp::with_workbench(gated_workbench(Arc::clone(&gate)));
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+
+        let ctrl = ctrl_modifiers();
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(ctrl), key(Key::Enter, ctrl)],
+        );
+        assert_eq!(
+            app.workbench.documents()[0].state(),
+            RunState::Queued,
+            "the document run must be in flight"
+        );
+
+        let shortcut = ctrl_shift_modifiers();
+        frame(
+            &ctx,
+            &mut app,
+            vec![
+                egui::Event::ModifiersChanged(shortcut),
+                key(Key::E, shortcut),
+            ],
+        );
+        assert_eq!(
+            ctx.memory(|memory| memory.focused()),
+            Some(quick_eval_id())
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(egui::Modifiers::default())],
+        );
+        frame(&ctx, &mut app, vec![egui::Event::Text("6 * 7".to_string())]);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+
+        assert_eq!(
+            app.quick_eval.text(),
+            "6 * 7",
+            "a refused submission must keep the input text"
+        );
+        let logs = app.workbench.active_logs();
+        assert!(
+            !logs.iter().any(|line| line.kind == LogKind::Echo),
+            "a refused submission must not fake an echo line"
+        );
+        assert!(
+            logs.iter().any(|line| {
+                line.kind == LogKind::Info
+                    && line.text.contains("Quick eval not submitted")
+                    && line.text.contains("kept")
+            }),
+            "logs were {logs:?}"
+        );
+
+        gate.release();
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
     }
 }

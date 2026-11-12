@@ -12,9 +12,9 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use crate::app::LogLevel;
 use crate::engine::DEFAULT_PRECISION;
 use crate::keyboard::{WorkbenchCommand, command_for_shortcut};
+use crate::log_kind::LogKind;
 use crate::run_state::RunState;
 use crate::workbench::{Workbench, WorkbenchDocument};
 
@@ -154,11 +154,7 @@ fn state_sequence(document: &WorkbenchDocument, from: usize) -> Vec<RunState> {
         .unwrap_or_else(|| document.state());
     let mut sequence = vec![start];
     if from < transitions.len() {
-        sequence.extend(
-            transitions[from..]
-                .iter()
-                .map(|transition| transition.to),
-        );
+        sequence.extend(transitions[from..].iter().map(|transition| transition.to));
     }
     sequence
 }
@@ -337,7 +333,7 @@ fn check_print() -> Result<String, String> {
     let logs = &workbench.documents()[0].logs;
     if !logs
         .iter()
-        .any(|line| line.level == LogLevel::Output && line.text == "x")
+        .any(|line| line.kind == LogKind::Stdout && line.text == "x")
     {
         return Err(format!("the print line is missing from the log: {logs:?}"));
     }
@@ -481,10 +477,7 @@ fn check_syntax_error() -> Result<String, String> {
     run_to_idle(&mut workbench, "syntax-error")?;
     let document = &workbench.documents()[0];
     if document.state() != RunState::Failed {
-        return Err(format!(
-            "state was {:?}, expected Failed",
-            document.state()
-        ));
+        return Err(format!("state was {:?}, expected Failed", document.state()));
     }
     let snapshot = snapshot(&workbench, "syntax-error")?;
     let diagnostic = snapshot
@@ -1069,7 +1062,9 @@ fn check_run_state_cancel() -> Result<String, String> {
     }
     std::thread::sleep(Duration::from_millis(100));
     if workbench.documents()[0].state() != RunState::Running {
-        return Err("run-state-cancel: the long run finished before it could be cancelled".to_string());
+        return Err(
+            "run-state-cancel: the long run finished before it could be cancelled".to_string(),
+        );
     }
 
     let cancel_started = Instant::now();
@@ -1089,7 +1084,9 @@ fn check_run_state_cancel() -> Result<String, String> {
         ));
     }
     if !workbench.wait_until_idle(CANCEL_TIMEOUT) {
-        return Err("run-state-cancel: the cancelled run did not reach a terminal state".to_string());
+        return Err(
+            "run-state-cancel: the cancelled run did not reach a terminal state".to_string(),
+        );
     }
     let cancel_wall = cancel_started.elapsed();
     let document = &workbench.documents()[0];

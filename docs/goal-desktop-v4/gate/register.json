@@ -1718,14 +1718,31 @@
                      "type":  "W",
                      "requirement":  "Support quick evaluation",
                      "acceptance":  "Logs input executes a one-liner in active document engine, appends result, and does not change editor source.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval-logs.png",
+                                          "sha256":  "904E129C82F3B70508214E6BEA910A6410787477D1F64691584C8D56AAB074CE",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval-uia.txt",
+                                          "sha256":  "A17F3B85CFA08327D20D3E4B5FF3DDE5947696C07F645CC7AF391B0AD9F3A72D",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval.md",
+                                          "sha256":  "B71BA6AC2A9300AD0356537F97D3451430C1A5A1AC070913481616ECB1C7ADEC",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop quick_eval; PrintWindow capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Quick eval field (Ctrl+Shift+E/Enter/Esc, Up/Down history) submits through the same ExecutionHost path; buffer and revision unchanged (rev 1); echo + result + timing in the log; 210 tests."
                  },
                  {
                      "id":  "RUN-003",
@@ -3059,14 +3076,31 @@
                      "type":  "W",
                      "requirement":  "Show chronological typed event lines",
                      "acceptance":  "Logs distinguish echo, stdout, result, diagnostic, timing and progress with readable icons, text and timestamps optional.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval-logs.png",
+                                          "sha256":  "904E129C82F3B70508214E6BEA910A6410787477D1F64691584C8D56AAB074CE",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-22/log-kinds-logs.png",
+                                          "sha256":  "52B0BC901D090EB3D9A4672BD8C46E9245B2288ABB2366D5BF683286E3066C56",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-22/log-kinds-uia.txt",
+                                          "sha256":  "D2C933AAA0C2C83F42A91644624B02939F3A45EC234A9885EDA207BB5BE8A605",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "round-22 and round-23 captures",
                      "waiver":  "",
-                     "scope_note":  "Six of seven kinds proven in the window (round-22 capture); echo has no producer because quick eval is unwired (RUN-002). Hold until quick eval lands."
+                     "scope_note":  "All seven kinds now have real producers: echo (quick eval), stdout, result, diagnostic, timing, progress, info; markers and order visible across the two captures."
                  },
                  {
                      "id":  "LOG-003",
@@ -3075,14 +3109,31 @@
                      "type":  "W",
                      "requirement":  "Include quick eval input",
                      "acceptance":  "Enter executes active session command and clears input only after accepting request; previous commands are navigable with keyboard.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval-logs.png",
+                                          "sha256":  "904E129C82F3B70508214E6BEA910A6410787477D1F64691584C8D56AAB074CE",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval-uia.txt",
+                                          "sha256":  "A17F3B85CFA08327D20D3E4B5FF3DDE5947696C07F645CC7AF391B0AD9F3A72D",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-23/quick-eval.md",
+                                          "sha256":  "B71BA6AC2A9300AD0356537F97D3451430C1A5A1AC070913481616ECB1C7ADEC",
+                                          "class":  "gui",
+                                          "at_head":  "632ff4b4357e722f3e1653fd3dde9ec3c7aebb8a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop quick_eval",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Input clears only after acceptance; busy refusal keeps text and logs an advisory; previous commands navigable newest-first; echo emitted exactly once per submission."
                  },
                  {
                      "id":  "LOG-004",

@@ -1,0 +1,28 @@
+﻿14:52:27.347 workspace=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\work appdata=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\appdata temp=C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp exe=C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\debug\lovelace-desktop.exe out=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23
+14:52:29.035 launch pid=35540 document=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\work\quick-eval.lv compat_layer=DPIUNAWARE
+14:52:29.841 window hwnd=18485056 foreground=18485056 locked=False
+14:52:30.058 dpi=96 requested=3888x4500 (1296x1500 logical at 300%)
+14:52:30.880 resized rect=3888x4500 alive=True
+14:52:31.817 initial status='quick-eval.lv  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Idle' editor='Script editor, 1 lines, caret line 1 column 1' revision='1' quick_eval=''
+14:52:32.329 quick-eval focus set name='Quick eval' focusable=True
+14:52:33.050 typed quick_eval='12 - 5'
+14:52:33.772 after Enter status='quick-eval.lv  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Finished' editor='Script editor, 1 lines, caret line 1 column 1' revision='1' quick_eval=''
+14:52:34.345 uia log lines=9
+14:52:34.348 uia log[0] Text | [info] Lovelace Desktop ready. Engine: lovelace-lang. Two documents open. | id= | focusable=False | enabled=True
+14:52:34.355 uia log[1] Text | [info] Plot directory: C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-desktop\plots. | id= | focusable=False | enabled=True
+14:52:34.364 uia log[2] Text | [info] Opened C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\work\quick-eval.lv. | id= | focusable=False | enabled=True
+14:52:34.371 uia log[3] Text | [echo] >> 12 - 5 | id= | focusable=False | enabled=True
+14:52:34.377 uia log[4] Text | [info] Quick eval queued (revision 1, run 1). | id= | focusable=False | enabled=True
+14:52:34.385 uia log[5] Text | [info] Run started: 1 statements, engine lovelace-lang, precision 1000. | id= | focusable=False | enabled=True
+14:52:34.392 uia log[6] Text | [progress] statement 1/1: 12 - 5 | id= | focusable=False | enabled=True
+14:52:34.400 uia log[7] Text | [result] = 7 | id= | focusable=False | enabled=True
+14:52:34.408 uia log[8] Text | [timing] Run finished: 1 statements committed in 8 ms. | id= | focusable=False | enabled=True
+14:52:35.584 capture label=quick-eval path=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\quick-eval.png rect=3888x4500 bytes=1146641 printwindow=True log_top=3672 attempt=1
+14:52:35.745 detail crop path=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\quick-eval-logs.png bytes=170116 source=0,3672,2280x828
+14:52:35.788 palette echo #C8B6FF pixels=41
+14:52:35.790 palette result #4EC9B0 pixels=20
+14:52:35.798 palette info #8B98A9 pixels=1101
+14:52:35.807 palette timing #D7BA7D pixels=116
+14:52:35.815 palette progress #7FB0D8 pixels=72
+14:52:36.054 close graceful=True
+14:52:36.056 SUMMARY png=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\quick-eval.png bytes=1146641 detail=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-23\quick-eval-logs.png log_lines=9 echoes=1 expression='12 - 5'

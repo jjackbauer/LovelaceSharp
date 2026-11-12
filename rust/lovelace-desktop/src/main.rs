@@ -23,16 +23,18 @@
 #![cfg_attr(not(windows), forbid(unsafe_code))]
 
 mod app;
+mod completion;
 #[cfg(windows)]
 mod diagnostic_map;
-mod completion;
 mod engine;
 mod execution;
 mod gui_selftest;
 mod history;
 mod keyboard;
 mod language;
+mod log_kind;
 mod netcheck;
+mod quick_eval;
 mod run_state;
 mod run_trace;
 mod selftest;
