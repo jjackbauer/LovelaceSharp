@@ -33,6 +33,51 @@ pub use real::RealEngine;
 /// Default display precision, in decimal places.
 pub const DEFAULT_PRECISION: usize = 1000;
 
+/// Returns a directory the engine can actually write plot files into.
+///
+/// The engine's own default is the process temp directory, which is not writable for the
+/// desktop process in every environment (the round-5 window run observed `Access is denied`
+/// there). We prefer a per-user application directory, prove it is writable with a probe file,
+/// and fall back to a temp subdirectory or a named directory under the working directory.
+///
+/// The result is computed once per process; every document and every run shares the root.
+pub fn default_plot_dir() -> std::path::PathBuf {
+    static DIRECTORY: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+    DIRECTORY.get_or_init(probe_plot_dir).clone()
+}
+
+fn probe_plot_dir() -> std::path::PathBuf {
+    let mut candidates = Vec::new();
+    if let Some(local) = std::env::var_os("LOCALAPPDATA") {
+        candidates.push(std::path::PathBuf::from(local).join("Lovelace").join("plots"));
+    }
+    if let Some(roaming) = std::env::var_os("APPDATA") {
+        candidates.push(std::path::PathBuf::from(roaming).join("Lovelace").join("plots"));
+    }
+    if let Some(profile) = std::env::var_os("USERPROFILE") {
+        candidates.push(std::path::PathBuf::from(profile).join("Lovelace").join("plots"));
+    }
+    candidates.push(std::env::temp_dir().join("lovelace-desktop-plots"));
+    // The process may be confined to its working directory (for example a sandboxed build
+    // agent). Keep the fallback named so it is obvious what the directory is.
+    candidates.push(
+        std::env::current_dir()
+            .unwrap_or_else(|_| std::path::PathBuf::from("."))
+            .join("lovelace-plots"),
+    );
+    for candidate in candidates {
+        if std::fs::create_dir_all(&candidate).is_err() {
+            continue;
+        }
+        let probe = candidate.join(".write-probe");
+        if std::fs::write(&probe, b"probe").is_ok() {
+            let _ = std::fs::remove_file(&probe);
+            return candidate;
+        }
+    }
+    std::path::PathBuf::from("lovelace-plots")
+}
+
 /// A plot produced by an evaluation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PlotCapture {
@@ -82,6 +127,13 @@ pub trait Evaluator {
 
     /// Sets the display precision, in decimal places.
     fn set_precision(&mut self, _decimals: usize) {}
+
+    /// Sets the directory the engine writes plot files to.
+    ///
+    /// The engine's default is the process temp directory, which is not necessarily writable
+    /// for the desktop process. The workbench points each run at its own writable directory so
+    /// a plot statement cannot fail for a reason the user cannot see or fix.
+    fn set_plot_dir(&mut self, _dir: &str) {}
 
     /// Returns the display precision, in decimal places.
     fn precision(&self) -> usize {

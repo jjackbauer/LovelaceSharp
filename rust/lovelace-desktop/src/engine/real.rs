@@ -50,6 +50,10 @@ impl Evaluator for RealEngine {
         self.engine.set_precision(decimals);
     }
 
+    fn set_plot_dir(&mut self, dir: &str) {
+        self.engine.set_plot_dir(dir);
+    }
+
     fn precision(&self) -> usize {
         self.engine.precision()
     }

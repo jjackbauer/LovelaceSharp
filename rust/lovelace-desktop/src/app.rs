@@ -237,6 +237,9 @@ impl Document {
     pub fn new(engine: Box<dyn Evaluator>, precision: usize) -> Document {
         let mut engine = engine;
         let precision = precision.clamp(MIN_PRECISION, MAX_PRECISION);
+        // The process temp directory is not writable everywhere; give this document's engine
+        // the same probed, writable plot directory the workbench uses.
+        engine.set_plot_dir(&crate::engine::default_plot_dir().to_string_lossy());
         engine.set_precision(precision);
         Document {
             path: None,

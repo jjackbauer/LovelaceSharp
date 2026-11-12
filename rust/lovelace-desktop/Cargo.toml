@@ -13,6 +13,15 @@ lovelace-json = { path = "../lovelace-json" }
 # engine::FakeEngine; the default feature set wires the real engine behind engine::Evaluator.
 lovelace-lang = { path = "../lovelace-lang", optional = true }
 
+# The new native workbench (round-5 cutover) reuses the measured eframe/egui 0.37 and
+# resvg 0.50 stack from rust/lovelace-desktop-spike. These are Windows-only because the
+# shipped product is the Windows desktop binary; the headless modes and the execution
+# core stay dependency-free on every platform.
+[target.'cfg(windows)'.dependencies]
+eframe = "0.37"
+egui = "0.37"
+resvg = "0.50"
+
 [features]
 default = ["real-engine"]
 # Enables engine::real::RealEngine, the adapter over lovelace_lang::Engine (CONTRACT.md).

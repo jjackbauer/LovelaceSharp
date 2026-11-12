@@ -29643,10 +29643,11 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.ArityPropertyTests/EveryBuiltin_RefusesEveryCountOutsideItsDeclaredArity_WithTheOneDocumentedShape#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'arity-shape': $.category: min() is DomainError in Rust vs TypeMismatch, so the whole-registry sweep finds a violation"
+disposition = "ported"
+rust = "lovelace-lang::arity_taxonomy_round73::every_builtin_refuses_every_count_outside_its_declared_arity"
+reason = "Round 74 mapping: the row's whole-registry arity property is reproduced by the named Rust test, including its 558 probes and the print-only assertion (see note). Round 73 implementation: the registry-driven validator at builtins::call."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Round 74: C# ArityPropertyTests.EveryBuiltin_RefusesEveryCountOutsideItsDeclaredArity_WithTheOneDocumentedShape (ArityPropertyTests.cs:102) drives every registered builtin with every count 0..=Parameters.Count+2 and requires the one documented InvalidArgument/TypeMismatch sentence outside [MinArity, Parameters.Count], no arity-shaped refusal inside, and `print` as the only declaration that covers every count. rust/lovelace-lang/src/arity_taxonomy_round73.rs:76 every_builtin_refuses_every_count_outside_its_declared_arity asserts the same property in-process: 558 probes (408 outside, 150 inside) over the live registry, the exact expected message, and the same `print`-only assertion. Focused run 2026-11-12: 5 passed; 0 failed. See docs/goal-parity-contract/round-74/arity-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.ArityValidationTests/DeclaredArgumentCount_StillSucceeds#0"
@@ -29687,26 +29688,29 @@ note = "C# asserts solve/type/dft shorter forms evaluate; repeated here."
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.ArityValidationTests/TooFewArguments_IsATypedStructuralError_NeverAnInternalFailure#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'arity-shape': $.category: compile_full(x^2+1) is DomainError in Rust vs TypeMismatch; the message shape follows"
+disposition = "ported"
+rust = "lovelace-lang::arity_taxonomy_round73::too_few_arguments_is_a_typed_structural_error"
+reason = "Round 74 mapping: the too-few compile_full row is reproduced by the named Rust test with the reference sentence, position and declared signature (see note). Round 73 implementation: the registry-driven validator at builtins::call."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Round 74: C# ArityValidationTests.TooFewArguments_IsATypedStructuralError_NeverAnInternalFailure (ArityValidationTests.cs:26) runs `x = symbol(\"x\"); compile_full(x^2 + 1)` and requires exit 1, ok false, not InternalError/InternalInvariantFailure, recoverable true, and message `compile_full(): expected 2 arguments; got 1.`. rust/lovelace-lang/src/arity_taxonomy_round73.rs:157 too_few_arguments_is_a_typed_structural_error asserts InvalidArgument/TypeMismatch, the same sentence, position 17, and the declared signature (function compile_full, parameters [f, params], expectedMin 2, expectedMax 2, variadic false, actual 1). See docs/goal-parity-contract/round-74/arity-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/EveryWrongShapedArgument_IsNeverAnInternalFailure_AndEveryArgumentRefusalNamesTheBuiltinAndThePosition#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'arity-shape': $.diagnostics[0].message: the wrong-shape sweep hits the filter/min taxonomy divergences"
+disposition = "ported"
+rust = "lovelace-lang::arity_taxonomy_round73::every_wrong_shaped_argument_is_a_typed_refusal_naming_the_position"
+reason = "Round 74 mapping: the three-shape wrong-argument sweep is reproduced by the named Rust test, including the two pinned classifications (see note). Round 73 implementation: the arity/shape guard and the reduce/compile shape checks."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Round 74: C# BuiltinArgumentShapeSweepTests.EveryWrongShapedArgument_IsNeverAnInternalFailure_AndEveryArgumentRefusalNamesTheBuiltinAndThePosition (BuiltinArgumentShapeSweepTests.cs:112) drives the 115 positional builtins x 3 audit shapes (345 probes): a caller-side mistake may never be an internal failure/unrecoverable/raw framework text, and every InvalidArgument refusal must carry TypeMismatch and name the builtin, the 1-based position (inside the declaration), the expectation and what arrived. rust/lovelace-lang/src/arity_taxonomy_round73.rs:192 asserts the same sweep (345 probes) and pins the two classifications the deferred family measured: `min(1, 1)` is `min(): argument 1 must be an array or vector; got Natural.` with signature position 1/parameter a, and `compile_full(x, x)` is the argument-2 list refusal (InvalidOperation/DomainError). See docs/goal-parity-contract/round-74/arity-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/EveryWrongShapedArgument_OverAWiderShapeLattice_IsStillNeverAnInternalFailure#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'arity-shape': $.diagnostics[0].message: the wide shape lattice hits the filter/min taxonomy divergences"
+disposition = "ported"
+rust = "lovelace-lang::arity_taxonomy_round73::every_wrong_shaped_argument_over_the_wider_lattice_is_still_typed"
+reason = "Round 74 mapping: the wider eight-shape lattice is reproduced by the named Rust test, including the Record-reduction and Text-compile pins (see note). Round 73 implementation: the reduce/compile shape checks."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Round 74: C# BuiltinArgumentShapeSweepTests.EveryWrongShapedArgument_OverAWiderShapeLattice_IsStillNeverAnInternalFailure (BuiltinArgumentShapeSweepTests.cs:228) widens the lattice to eight shapes over the 115 positional builtins (920 probes) and unconditionally forbids an internal invariant failure, an unrecoverable refusal, raw framework text and a non-1 exit. rust/lovelace-lang/src/arity_taxonomy_round73.rs:306 asserts the same 920-probe lattice and pins `min(inspect(1), inspect(1))` -> `min(): argument 1 must be an array or vector; got Record.` and `compile_full(\"x\", \"x\")` -> `Expected a symbolic expression.` (InvalidOperation/DomainError). See docs/goal-parity-contract/round-74/arity-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.BuiltinArgumentShapeSweepTests/TheAuditsFiveReproductions_CrossAsTheDocumentedArgumentError#0"
@@ -30008,10 +30012,11 @@ note = "C# asserts det(1) publishes position/parameter/expectedShape/arrivedKind
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.CallSignatureDiagnosticsTests/EveryArityRefusalAgreesWithTheRegistryEntry#0"
 project = "Lovelace.Run.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'arity-shape': $.category: filter([1],[1]) is UnsupportedOperation in Rust vs TypeMismatch; the five-probe row fails on it"
+disposition = "ported"
+rust = "lovelace-lang::arity_taxonomy_round73::every_arity_refusal_agrees_with_the_registry_entry"
+reason = "Round 74 mapping: the five-probe signature-agreement row is reproduced by the named Rust test against the same registry declaration (see note)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Round 74: C# CallSignatureDiagnosticsTests.EveryArityRefusalAgreesWithTheRegistryEntry (CallSignatureDiagnosticsTests.cs:78) drives five too-few calls (`matmul([1, 2])`, `cross([1, 2, 3])`, `append([1, 2])`, `conv([1, 2])`, `filter([1], [1])`) and requires each published signature's function/expectedMin/variadic to equal the registry entry's declaration and actual < declared min. rust/lovelace-lang/src/arity_taxonomy_round73.rs:389 asserts the same five probes against registry::find and additionally checks expectedMin/expectedMax (None when variadic), the rendered message and the parameter list. See docs/goal-parity-contract/round-74/arity-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Run.Tests/Lovelace.Run.Tests.CancellationBudgetTests/Run_GivenADeadline_ReportsItsVerdictConsistently#0"
@@ -44977,10 +44982,11 @@ note = "C# IntervalBounds: a symbolic bound is Unknown; the pi bounds decide Tru
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/PropertyAndRelationAtoms_Contradict#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing AssumptionSet contradiction API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-symbolics::round75_probe::property_and_relation_atoms_contradict_for_the_five_pairs"
+reason = "Round 75 mapping: the C# body's four property-then-relation contradictions (Positive/Le, Negative/Ge, NonNegative/Lt, NonZero/Eq) and the reverse Le-then-Positive order are reproduced by the named test against the public AssumptionSet::add path. The row was UNRUNNABLE in round 45 because the contradiction API was not exposed; the both-orders fix and the public add API now decide it."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Measured 2026-11-12: the new test passes (1 passed, 0 failed) and all five pairs return Err(Contradiction). See docs/goal-parity-contract/round-75/probe-classification.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/RealValuedBounds_ParticipateInReasoning#0"
@@ -45038,10 +45044,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/ExactnessBestEffort_IsBackedByLiveRefusalsTheListDoesNotCarry#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'capability-advertisement': $.exitCode: max(1,2) and sum(x,5) answer in Rust vs the oracle refusing them; the unenumerated-refusal list is not backed"
+disposition = "ported"
+rust = "lovelace-run::round75_probe::exactness_best_effort_is_backed_by_live_refusals_the_list_does_not_carry"
+reason = "Round 75 mapping: capabilities().exactness is BestEffort; the five live refusals mean(1), max(1,2), sum(x,5), '1 +', 0^-1 are refused and absent from the advertised unsupported-operations list, with at least one InvalidArgument/TypeMismatch and no InternalError/InternalInvariantFailure. The round-45 capability-advertisement divergence for these scripts was repaired by the later surface work."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "Measured 2026-11-12: all five scripts matched the oracle byte-for-byte after normalisation and are not advertised; the new test passes. The sibling AdvertisedCodesAndCategories row remains STILL-DIFFERENT (six message divergences). See docs/goal-parity-contract/round-75/probe-classification.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CapabilitiesBuiltinTests/IntegrationRefusal_IsTypedStructuredAndClassLevel#0"
@@ -47533,10 +47540,11 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.FactorMetamorphicTests/Factor_ExpandsBackToItsInput_OverTheWholeCorpus#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing factor/expand corpus API (expand(factor(p)) == p); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-run::round75_probe::factor_expands_back_to_its_input_over_the_whole_corpus"
+reason = "Round 75 mapping: the C# row's 18-polynomial corpus (nine negative-leading cases) is driven through the runner's factor/expand path; for every polynomial expand(factor(p)) has the same canonical form as expand(p). All 36 oracle envelopes (18 factor-expand, 18 expand) matched the Rust runner before the mapping."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Measured 2026-11-12: 18/18 factor-expand and 18/18 expand envelopes matched the oracle; the new test passes (2 passed in the module). See docs/goal-parity-contract/round-75/probe-classification.md."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.Falsification.FalsificationLoopTests/Classifier_NamesEachClass_AndNeverFoldsADefectIntoOne#0"

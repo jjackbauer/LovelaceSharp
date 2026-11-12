@@ -5173,6 +5173,10 @@ mod round69_parameter_domain;
 #[cfg(test)]
 mod round67_polynomial_algebra;
 
+/// Round-75 probing of the deferred assumption-pair census row.
+#[cfg(test)]
+mod round75_probe;
+
 #[cfg(test)]
 mod printing_round16;
 

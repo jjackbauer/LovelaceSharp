@@ -1173,6 +1173,25 @@ pub fn call(
     // The call boundary is the coarse cancellation seam: a deadline that fired while the engine
     // was outside an inner loop stops the run before another builtin starts.
     checkpoint()?;
+    // The DECLARED arity is enforced here, at the one call site, before any body can read a
+    // missing argument or silently ignore a trailing one. The registry is the same declaration
+    // the wire's `functions` array, `--functions` and `--function` publish (the reference's
+    // BuiltinDescriptor): a count outside [MinArity, Parameters.Count] — the upper bound removed
+    // when Variadic — is the documented recoverable argument error, not a per-builtin accident.
+    // This is what makes the taxonomy a PROPERTY: min(), sum(), compile_full(x^2 + 1),
+    // plot(), fft(...) and every future entry answer the one documented shape.
+    if let Some(info) = registry::find(name) {
+        let outside =
+            args.len() < info.min_arity || (!info.variadic && args.len() > info.parameter_count);
+        if outside {
+            let (message, signature) = arity_failure(name, args.len());
+            let mut error = LangError::coded(message, pos, "InvalidArgument", "TypeMismatch");
+            if let Some(signature) = signature {
+                error = error.with_signature(signature);
+            }
+            return Err(error);
+        }
+    }
     let arity = |n: usize| -> Result<(), LangError> {
         if args.len() == n {
             Ok(())
@@ -1502,6 +1521,14 @@ pub fn call(
             if name == "not" {
                 arity(1)?;
             }
+            // A single BOOLEAN argument is the prefix operator's domain: `not(0 == 1)` negates
+            // the value, exactly as `not 0 == 1` does. Everything else is carried into the
+            // expression tree (the reference's logical-operator nodes).
+            if name == "not" {
+                if let Some(Value::Boolean(flag)) = args.first() {
+                    return Ok(Value::Boolean(!flag));
+                }
+            }
             let mut args_out = Vec::new();
             for a in &args {
                 args_out.push(
@@ -1629,14 +1656,25 @@ pub fn call(
             ))
         }
         "compile" | "compile_full" => {
-            if args.len() < 2 {
-                return Err(LangError::plain(
-                    "compile needs an expression and parameters.",
-                ));
-            }
-            let f = as_expr(&args[0])
-                .ok_or_else(|| LangError::plain("compile needs an expression."))?;
-            let params = flatten_values(&args[1])?;
+            // The declared arity (2..=2) is checked at the call boundary, so the body always has
+            // both positions. Position 1 is a SYMBOLIC expression in the reference — a bare number
+            // is refused by the coercion's own sentence — and position 2 is a LIST of parameter
+            // symbols: a scalar is the list-shape refusal and an element that is not a symbol is
+            // the element refusal. Both are the reference's DomainError sentences.
+            let f = match &args[0] {
+                Value::Symbolic(e) => e.clone(),
+                _ => return Err(LangError::plain("Expected a symbolic expression.")),
+            };
+            let params = match &args[1] {
+                Value::Vector(items) => items.clone(),
+                Value::Array(array) => array.iter().cloned().collect(),
+                other => {
+                    return Err(LangError::plain(format!(
+                        "{name}(): argument 2 must be a list of parameter symbols, e.g. [x]; got {}.",
+                        other.kind_name()
+                    )));
+                }
+            };
             let mut names: Vec<String> = Vec::new();
             let mut parameters: Vec<Value> = Vec::new();
             for p in &params {
@@ -1651,7 +1689,12 @@ pub fn call(
                             ],
                         ));
                     }
-                    _ => return Err(LangError::plain("compile needs parameter symbols.")),
+                    other => {
+                        return Err(LangError::plain(format!(
+                            "{name}(): argument 2 must contain parameter symbols; got {}.",
+                            other.kind_name()
+                        )));
+                    }
                 }
             }
             Ok(Value::Record(
@@ -4323,6 +4366,13 @@ fn reduce_along_axis(
 fn reduce(engine: &mut Engine, name: &str, args: &[Value]) -> Result<Value, LangError> {
     if args.is_empty() {
         return Err(LangError::plain("Reduction needs a value."));
+    }
+    // The reference reduction reads position 1 as an ARRAY or VECTOR even when no axis is
+    // supplied: a scalar is the documented shape refusal, never a one-element reduction. The
+    // refusal names the position, the parameter and the kind that arrived (mean/norm already
+    // publish the same sentence through reduction_builtin).
+    if array_like_parts(&args[0]).is_none() {
+        return Err(shape_failure(name, 1, "an array or vector", &args[0]));
     }
     if args.len() >= 2 {
         // axis reduction: the axis is an integer-semantic argument, so a Text or fractional Real

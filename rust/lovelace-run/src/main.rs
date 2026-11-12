@@ -1165,6 +1165,10 @@ mod plot_surface_wire;
 #[cfg(test)]
 mod record_schema_batch;
 
+/// Round-75 probing of the deferred capability/factor census rows.
+#[cfg(test)]
+mod round75_probe;
+
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
     let text = format!("{:.3}", ms);

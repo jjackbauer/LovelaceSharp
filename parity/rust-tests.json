@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T11:50:10Z",
+    "generatedAtUtc":  "2026-11-12T12:46:11Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5160,
+                  "passed":  5191,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5161
+                   "tests":  5192
                },
-    "sourcesSha256":  "3041213a903f8f0a1e56bce4e5c03b69e26b1fdca8dd61c2ebc1db6d74c9a1bb",
+    "sourcesSha256":  "6732e537ba2a617dabb29c26729090fc3358e95beddd60e20621a230f6df69f5",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3116,6 +3116,7 @@
                                      "round69_parameter_domain::non_negative_integers_arm_maps_to_the_integer_domain",
                                      "round69_parameter_domain::parameter_domain_of_maps_every_declared_arm",
                                      "round69_parameter_domain::undeclared_values_are_refused",
+                                     "round75_probe::property_and_relation_atoms_contradict_for_the_five_pairs",
                                      "symbolic_matrix::tests::a_singular_matrix_publishes_no_inverse_and_the_reference_note",
                                      "symbolic_matrix::tests::determinant_of_a_non_square_matrix_is_refused",
                                      "symbolic_matrix::tests::inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check",
@@ -3167,6 +3168,11 @@
                        "name":  "lovelace-lang",
                        "version":  "0.1.0",
                        "tests":  [
+                                     "arity_taxonomy_round73::every_arity_refusal_agrees_with_the_registry_entry",
+                                     "arity_taxonomy_round73::every_builtin_refuses_every_count_outside_its_declared_arity",
+                                     "arity_taxonomy_round73::every_wrong_shaped_argument_is_a_typed_refusal_naming_the_position",
+                                     "arity_taxonomy_round73::every_wrong_shaped_argument_over_the_wider_lattice_is_still_typed",
+                                     "arity_taxonomy_round73::too_few_arguments_is_a_typed_structural_error",
                                      "assumptions_round35::assume_clear_empties_the_session",
                                      "assumptions_round35::assumption_atoms_are_published_in_canonical_order_regardless_of_insertion",
                                      "assumptions_round35::assumptions_publish_domain_property_and_relation_atoms",
@@ -5041,6 +5047,8 @@
                                      "round50_resweep::capture_state_publishes_variables_and_user_functions",
                                      "round66_resweep::dsp_impulse_response_of_a_first_order_iir_matches_the_hand_computed_sequence",
                                      "round66_resweep::solve_language_statuses_publish_the_unevaluated_pair",
+                                     "round75_probe::exactness_best_effort_is_backed_by_live_refusals_the_list_does_not_carry",
+                                     "round75_probe::factor_expands_back_to_its_input_over_the_whole_corpus",
                                      "script_source::tests::diagnostic_at_engine_offset_translates_before_it_names_the_line",
                                      "script_source::tests::diagnostic_names_its_source_and_keeps_the_four_field_wire_shape",
                                      "script_source::tests::empty_source_has_no_offset_a_script_can_name",
@@ -5215,6 +5223,15 @@
                                      "engine::tests::eval_full_snapshots_output_and_variables_in_one_step",
                                      "engine::tests::eval_full_still_snapshots_state_when_the_run_fails",
                                      "engine::tests::trait_defaults_are_sane",
+                                     "execution::tests::diagnostic_position_is_translated_back_to_the_full_source",
+                                     "execution::tests::real_engine_executes_sliced_statements_and_snapshots_variables",
+                                     "execution::tests::t2_submit_does_not_block_and_run_started_arrives_quickly",
+                                     "execution::tests::t3_events_are_sequenced_and_ordered_with_run_identity",
+                                     "execution::tests::t4_cancellation_stops_a_real_run_and_keeps_the_committed_snapshot",
+                                     "execution::tests::t5_duplicate_submit_is_busy_and_other_documents_run_concurrently",
+                                     "execution::tests::t6_panicking_engine_fails_one_run_and_the_host_stays_usable",
+                                     "execution::tests::t7_stale_finished_events_are_ignored_by_the_sink",
+                                     "execution::tests::t8_output_events_are_exactly_the_printed_lines_and_do_not_accumulate_across_runs",
                                      "netcheck::tests::a_harmless_dll_is_not_flagged",
                                      "netcheck::tests::crate_sources_never_reference_networking_apis",
                                      "netcheck::tests::reads_the_import_directory_of_a_synthetic_image",
@@ -5229,6 +5246,11 @@
                                      "settings::tests::recent_files_deduplicate_and_cap",
                                      "settings::tests::save_and_load_round_trip_on_disk",
                                      "settings::tests::settings_round_trip_through_json",
+                                     "statements::tests::t1_a_brace_block_and_a_semicolon_string_are_each_one_statement",
+                                     "statements::tests::t1_crlf_source_slices_without_carriage_returns_in_statement_text",
+                                     "statements::tests::t1_empty_and_comment_only_sources_have_no_statements",
+                                     "statements::tests::t1_slicer_yields_three_statements_that_reconstruct_the_input",
+                                     "statements::tests::t1_statement_labels_name_the_first_line",
                                      "svg::tests::escape_xml_round_trips_through_parse",
                                      "svg::tests::generated_plot_round_trips_through_the_reader",
                                      "svg::tests::parse_ignores_nested_tspan_markup",
@@ -5238,7 +5260,16 @@
                                      "svg::tests::parse_uses_view_box_when_size_is_absent",
                                      "win32::shell::tests::maps_utf16_offsets_to_byte_offsets",
                                      "win32::shell::tests::maps_utf16_offsets_to_line_and_column",
-                                     "win32::shell::tests::surrogate_pairs_count_as_one_column"
+                                     "win32::shell::tests::surrogate_pairs_count_as_one_column",
+                                     "workbench::tests::a_failed_run_yields_a_diagnostic_and_returns_to_idle",
+                                     "workbench::tests::a_finished_run_publishes_result_steps_variables_and_logs",
+                                     "workbench::tests::a_plot_from_an_earlier_statement_survives_later_statements",
+                                     "workbench::tests::cancellation_keeps_the_committed_prefix",
+                                     "workbench::tests::precision_is_document_scoped_and_clamped",
+                                     "workbench::tests::print_output_reaches_the_log_and_the_snapshot",
+                                     "workbench::tests::stale_events_from_an_abandoned_run_are_discarded",
+                                     "workbench::tests::starts_with_two_independent_document_tabs",
+                                     "workbench::tests::tab_isolation_running_one_document_does_not_touch_the_other"
                                  ]
                    }
                ]

@@ -849,7 +849,15 @@ impl Parser {
             return inner;
         }
         if let Tok::Ident(k) = self.peek().clone() {
-            if k == "not" {
+            // `not` is the one builtin that is also a prefix operator. A parenthesised list after
+            // the name is the reference's CALL form, so the argument count reaches the builtin's
+            // declared-arity validator: `not()` and `not(a, b)` are arity refusals, not parse
+            // errors. The bare prefix form (`not x`) stays a parser operator.
+            let parenthesised = matches!(
+                self.toks.get(self.i + 1).map(|token| &token.tok),
+                Some(Tok::Punct(p)) if p == "("
+            );
+            if k == "not" && !parenthesised {
                 self.bump();
                 self.enter("expression nesting")?;
                 let inner = self.unary();

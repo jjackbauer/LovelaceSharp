@@ -2002,6 +2002,12 @@ mod round19_batch;
 #[cfg(test)]
 mod round66_resweep;
 
+/// Round-73 arity-taxonomy family: the five deferred census rows for the reference's declared
+/// argument-count classification (the one documented arity refusal and the call signature it
+/// publishes).
+#[cfg(test)]
+mod arity_taxonomy_round73;
+
 /// Round-67 Modus plugin-seam member map: the 22 deferred census rows whose contract is the
 /// registration surface, the payload channel, load-time refusals, kernel dispatch, descriptor
 /// arity and the plugin-instance assumption scope.
