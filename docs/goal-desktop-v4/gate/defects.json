@@ -1,0 +1,25 @@
+﻿{
+    "defects":  [
+                    {
+                        "summary":  "Backspace that joins two lines crashes the desktop application",
+                        "id":  "DEF-001",
+                        "owner":  "agent",
+                        "status":  "open",
+                        "severity":  1,
+                        "area":  "editor",
+                        "evidence":  "round-10/scenario-summary.md (implementer observation); not yet reproduced by the orchestrator",
+                        "next":  "reproduce with the scenario driver, then fix and add a regression test"
+                    },
+                    {
+                        "summary":  "Up arrow leaves the editor without keyboard focus; a refocus click is required before further typing",
+                        "id":  "DEF-002",
+                        "owner":  "agent",
+                        "status":  "open",
+                        "severity":  3,
+                        "area":  "editor focus",
+                        "evidence":  "round-10/scenario-summary.md",
+                        "next":  "keep focus in the editor for navigation keys"
+                    }
+                ],
+    "schema":  1
+}

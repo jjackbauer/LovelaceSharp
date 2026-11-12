@@ -600,14 +600,37 @@
                      "type":  "D",
                      "requirement":  "Design unmistakable primary action",
                      "acceptance":  "Run is discoverable in toolbar and menu; Cancel visibly replaces or accompanies Run while active and communicates progress.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-running.png",
+                                          "sha256":  "C388D4594EC6D4FFC849D6B8942A28F50AA274207F43EB56BE21EBDDCD89FC11",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-final.png",
+                                          "sha256":  "25A92A6E6161DC65C0F551AB31C6B3EB6D6C7223C5D119B120A8F39ECB7B53E2",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-summary.md",
+                                          "sha256":  "495AF83AD02CBD876281C223BB1A33B30CB0036C0B368331379005F2FB8A83D6",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-driver.log",
+                                          "sha256":  "796777451BF01F60CA17AB7A816D9579213AC08E5607E3CDA148D3D5420D9D9D",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Running screenshot: Run disabled, Cancel enabled, status \u0027run Running\u0027, log \u0027Run started\u0027; final screenshot: \u0027run Cancelled\u0027."
                  },
                  {
                      "id":  "VIS-011",
@@ -1177,14 +1200,37 @@
                      "type":  "W",
                      "requirement":  "Show accurate line and column",
                      "acceptance":  "Always 1-based source line/column (as in web Studio); moving cursor and selecting text updates promptly.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-running.png",
+                                          "sha256":  "C388D4594EC6D4FFC849D6B8942A28F50AA274207F43EB56BE21EBDDCD89FC11",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-final.png",
+                                          "sha256":  "25A92A6E6161DC65C0F551AB31C6B3EB6D6C7223C5D119B120A8F39ECB7B53E2",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-summary.md",
+                                          "sha256":  "495AF83AD02CBD876281C223BB1A33B30CB0036C0B368331379005F2FB8A83D6",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-driver.log",
+                                          "sha256":  "796777451BF01F60CA17AB7A816D9579213AC08E5607E3CDA148D3D5420D9D9D",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Caret 1-based: \u0027Ln 1, Col 27\u0027 after typing; Home -\u003e column 1; Shift+End -\u003e column 27, read from the editor\u0027s UIA name and the status strip."
                  },
                  {
                      "id":  "EDT-016",
@@ -1593,14 +1639,37 @@
                      "type":  "W",
                      "requirement":  "Implement working cancellation",
                      "acceptance":  "Cancelling a real long-running script ends work cooperatively, returns UI to idle and never requires terminating the application.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-running.png",
+                                          "sha256":  "C388D4594EC6D4FFC849D6B8942A28F50AA274207F43EB56BE21EBDDCD89FC11",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-final.png",
+                                          "sha256":  "25A92A6E6161DC65C0F551AB31C6B3EB6D6C7223C5D119B120A8F39ECB7B53E2",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-summary.md",
+                                          "sha256":  "495AF83AD02CBD876281C223BB1A33B30CB0036C0B368331379005F2FB8A83D6",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-10/scenario-driver.log",
+                                          "sha256":  "796777451BF01F60CA17AB7A816D9579213AC08E5607E3CDA148D3D5420D9D9D",
+                                          "class":  "gui",
+                                          "at_head":  "3ff589dd17ccda77903eb0e8027cfe366ee694ec"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness -Action scenario",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Esc during one matmul kernel -\u003e run Cancelled in 72.5 ms (reproduced: 70.3-78.0 ms), window alive, committed prefix retained."
                  },
                  {
                      "id":  "RUN-007",

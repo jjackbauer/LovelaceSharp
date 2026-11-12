@@ -103,7 +103,7 @@ of `without_assumptions_the_guard_is_still_undecidable`.
 
 ## 4. Tests and the census ids they unblock
 
-`rust/lovelace-lang/src/round78_scoped_eval.rs` (registered at `lib.rs:2402`) contains:
+`rust/lovelace-lang/src/round78_scoped_eval.rs` (registered at `lib.rs:2421`) contains:
 
 | Census id (appendix 9, `probe-classification.md:357-360`) | Rust test id | What it asserts |
 |---|---|---|
@@ -143,12 +143,12 @@ test result: ok. 5 passed; 0 failed; 0 ignored; 1562 filtered out
 | Corpus | `cargo run --release -p lovelace-corpus` (rust/) | `corpus: 214 passed, 0 failed, 214 total` | 0 |
 | Fixtures | `node parity/tools/gate-fixtures.mjs` (repo root) | `oracle: 20/20`, `rust: 20/20`, `PASS` | 0 |
 | CLI | `node parity/tools/gate-cli.mjs` (repo root) | `CLI matrix: 16/16`, `PASS` | 0 |
-| Differential | `node parity/diff/run.mjs --cases 200 --seed 1` (repo root) | generated **200 match / 0 mismatch / 0 error**; replayed **1758 match / 0 mismatch / 0 error**; `firstDifferenceHistogram: []`; harness exit 0 | 0 |
+| Differential | `node parity/diff/run.mjs --cases 200 --seed 1` (repo root) | generated **200 match / 0 mismatch / 0 error**; replayed **1758 match / 0 mismatch / 0 error**; `stillMismatching=0`, `resolved=1758`, `new=0`; `firstDifferenceHistogram: []`; harness exit 0 | 0 |
 | Workspace | `cargo test --workspace` (rust/) | **5,247 passed; 0 failed; 1 ignored** over 21 result blocks (5,219 + 28 from the concurrent lanes and this lane's 5), exit 0 | 0 |
 | Clippy (workspace minus desktop) | `cargo clippy --workspace --all-targets --exclude lovelace-desktop -- -D warnings` (rust/) | no diagnostics, `Finished` | 0 |
 | Clippy (library) | `cargo clippy -p lovelace-lang --lib -- -D warnings` (rust/) | no diagnostics, `Finished` | 0 |
 | Format (files) | `rustfmt --edition 2024 --check src/numeric.rs src/round78_scoped_eval.rs` (rust/lovelace-lang/) | no diff | 0 |
-| Format (workspace) | `cargo fmt --all -- --check` (rust/) | fails only in concurrent lanes' files: `lovelace-desktop/src/engine.rs`, `lovelace-desktop/src/execution.rs`, `lovelace-symbolics/src/cancel.rs`; no scoped-eval file appears | external |
+| Format (workspace) | `cargo fmt --all -- --check` (rust/) | exit 1, diffs only in concurrent lanes' files: `lovelace-desktop/src/engine.rs`, `lovelace-desktop/src/execution.rs`, `lovelace-symbolics/src/cancel.rs`; no scoped-eval file appears | 1 (other lanes) |
 
 ## 7. Boundaries and residual
 
