@@ -7,8 +7,8 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
 
-use crate::ast::BinOp;
 use crate::LangError;
+use crate::ast::BinOp;
 
 /// A first-class complex number with exact real and imaginary parts.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,7 +27,10 @@ impl Complex {
 
     /// The complex zero.
     pub fn zero() -> Complex {
-        Complex { re: Real::zero(), im: Real::zero() }
+        Complex {
+            re: Real::zero(),
+            im: Real::zero(),
+        }
     }
 
     /// The magnitude `|z| = sqrt(re^2 + im^2)`.
@@ -39,7 +42,10 @@ impl Complex {
 
     /// Complex addition.
     pub fn add(&self, other: &Complex) -> Complex {
-        Complex { re: self.re.add(&other.re), im: self.im.add(&other.im) }
+        Complex {
+            re: self.re.add(&other.re),
+            im: self.im.add(&other.im),
+        }
     }
 
     /// Complex multiplication.
@@ -52,7 +58,10 @@ impl Complex {
 
     /// Multiplies by an exact real scalar.
     pub fn scale(&self, factor: &Real) -> Complex {
-        Complex { re: self.re.mul(factor), im: self.im.mul(factor) }
+        Complex {
+            re: self.re.mul(factor),
+            im: self.im.mul(factor),
+        }
     }
 }
 
@@ -68,7 +77,10 @@ pub struct RecordValue {
 impl RecordValue {
     /// Looks up a field by name.
     pub fn get(&self, name: &str) -> Option<&Value> {
-        self.fields.iter().find(|(field, _)| field == name).map(|(_, value)| value)
+        self.fields
+            .iter()
+            .find(|(field, _)| field == name)
+            .map(|(_, value)| value)
     }
 }
 
@@ -179,7 +191,10 @@ fn widen_error(from: &str, to: &str) -> LangError {
 }
 
 fn unsupported(op: BinOp, kind: &str) -> LangError {
-    LangError::new(format!("Operator '{}' is not supported for type '{kind}'.", op.symbol()))
+    LangError::new(format!(
+        "Operator '{}' is not supported for type '{kind}'.",
+        op.symbol()
+    ))
 }
 
 /// The full kind order used when widening a numeric value against a non-numeric one.
@@ -265,14 +280,22 @@ fn nat_pow10(power: usize) -> Nat {
 }
 
 /// Renders a non-negative integer/natural ratio as an exact Real.
-fn real_ratio_nat(num: &Nat, den: &Nat, precision: usize, negative: bool) -> Result<Real, LangError> {
-    let value = Real::from_fraction(num, den, precision).ok_or_else(|| LangError::new("Cannot divide by zero."))?;
+fn real_ratio_nat(
+    num: &Nat,
+    den: &Nat,
+    precision: usize,
+    negative: bool,
+) -> Result<Real, LangError> {
+    let value = Real::from_fraction(num, den, precision)
+        .ok_or_else(|| LangError::new("Cannot divide by zero."))?;
     Ok(if negative { value.neg() } else { value })
 }
 
 /// Converts a natural to a `u64` or reports an overflow.
 fn nat_to_u64(value: &Nat, what: &str) -> Result<u64, LangError> {
-    value.to_u64().ok_or_else(|| LangError::new(format!("{what} is too large.")))
+    value
+        .to_u64()
+        .ok_or_else(|| LangError::new(format!("{what} is too large.")))
 }
 
 /// Converts a natural to a non-negative `usize`.
@@ -364,10 +387,17 @@ pub(crate) fn apply_scalar(
             BinOp::Add => Ok(Value::Real(a.add(b))),
             BinOp::Subtract => Ok(Value::Real(a.sub(b))),
             BinOp::Multiply => Ok(Value::Real(a.mul(b))),
-            BinOp::Divide => a
-                .div(b, precision)
-                .map(Value::Real)
-                .ok_or_else(|| LangError::new("Cannot divide by zero.")),
+            // The Real divide is the reference's Real.Divide, whose zero refusal names the Real
+            // path: "Cannot divide a Real by zero." (Real.cs:915). The exact Rational/Natural
+            // divide keeps the generic sentence.
+            BinOp::Divide => a.div(b, precision).map(Value::Real).ok_or_else(|| {
+                LangError::coded(
+                    "Cannot divide a Real by zero.",
+                    0,
+                    "DivisionByZero",
+                    "DomainError",
+                )
+            }),
             BinOp::Power => {
                 let exponent = b
                     .to_int_exact()
@@ -411,11 +441,7 @@ pub(crate) fn compare_values(left: &Value, right: &Value) -> Result<Ordering, La
 }
 
 /// Applies a comparison operator.
-pub(crate) fn apply_comparison(
-    op: BinOp,
-    left: &Value,
-    right: &Value,
-) -> Result<Value, LangError> {
+pub(crate) fn apply_comparison(op: BinOp, left: &Value, right: &Value) -> Result<Value, LangError> {
     let ordering = compare_values(left, right)?;
     let result = match op {
         BinOp::Equal => ordering == Ordering::Equal,
@@ -456,7 +482,9 @@ pub(crate) fn factorial_value(value: &Value) -> Result<Value, LangError> {
                 .map_err(|_| LangError::new("Factorial is not supported for negative numbers."))?;
             Ok(Value::Integer(Int::factorial(n)))
         }
-        Value::Real(_) => Err(LangError::new("Factorial is not supported for Real numbers.")),
+        Value::Real(_) => Err(LangError::new(
+            "Factorial is not supported for Real numbers.",
+        )),
         _ => Err(LangError::new(format!(
             "Factorial is not supported for type '{}'.",
             value.kind_name()
@@ -539,8 +567,16 @@ fn broadcast_shape(a: &[usize], b: &[usize]) -> Result<Vec<usize>, LangError> {
     let rank = a.len().max(b.len());
     let mut result = vec![1usize; rank];
     for dim in 0..rank {
-        let sa = if dim < rank - a.len() { 1 } else { a[dim - (rank - a.len())] };
-        let sb = if dim < rank - b.len() { 1 } else { b[dim - (rank - b.len())] };
+        let sa = if dim < rank - a.len() {
+            1
+        } else {
+            a[dim - (rank - a.len())]
+        };
+        let sb = if dim < rank - b.len() {
+            1
+        } else {
+            b[dim - (rank - b.len())]
+        };
         result[dim] = if sa == sb {
             sa
         } else if sa == 1 {
@@ -596,7 +632,11 @@ pub(crate) fn apply_array_binary(
             for flat in 0..numel {
                 let mut remainder = flat;
                 for axis in (0..shape.len()).rev() {
-                    coords[axis] = if shape[axis] == 0 { 0 } else { remainder % shape[axis] };
+                    coords[axis] = if shape[axis] == 0 {
+                        0
+                    } else {
+                        remainder % shape[axis]
+                    };
                     if shape[axis] != 0 {
                         remainder /= shape[axis];
                     }

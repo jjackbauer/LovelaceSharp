@@ -32,6 +32,7 @@ fn sexpr(e: &Expr) -> String {
         }
         Expr::Binary(op, left, right) => format!("{op:?}({}, {})", sexpr(left), sexpr(right)),
         Expr::Neg(inner) => format!("neg({})", sexpr(inner)),
+        Expr::Plus(inner) => format!("plus({})", sexpr(inner)),
         Expr::Not(inner) => format!("not({})", sexpr(inner)),
         Expr::Fact(inner) => format!("fact({})", sexpr(inner)),
         Expr::List(items) => {

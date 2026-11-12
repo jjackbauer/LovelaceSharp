@@ -479,6 +479,18 @@ impl Expr {
 
     /// Canonical power.
     pub fn pow(base: Expr, exp: Expr) -> Expr {
+        // The reference's Power constructor normalizes every NUMERIC exponent to a rational
+        // constant before it builds the node (Constructors.Power:477, NumericToRational). A
+        // decimal Real leaf such as 1.5 therefore becomes the rational 3/2 at construction, which
+        // is why x^1.5 and x^(3/2) are the same node and both exact. Without this step the Real
+        // leaf stays in the exponent and the node is a different tree that IsExact calls inexact.
+        let exp = match exp {
+            Expr::Real(text) => match real_text_to_rational(&text) {
+                Some(value) => Expr::Num(value),
+                None => Expr::Real(text),
+            },
+            other => other,
+        };
         if exp == Expr::num(0) {
             return Expr::num(1);
         }
@@ -575,6 +587,82 @@ impl Expr {
     /// A relation between two expressions.
     pub fn relation(op: RelOp, a: Expr, b: Expr) -> Expr {
         Expr::Rel(op, Box::new(a), Box::new(b))
+    }
+
+    /// Canonical conjunction: the reference's `Exprs.And` (Constructors.cs:646).
+    ///
+    /// A nested `and` is flattened, the exact constants fold (0 is the annihilator, 1 the
+    /// identity), duplicate operands collapse, and the operands are stored in the kernel's total
+    /// canonical order. An empty conjunction is the exact 1 and a one-operand conjunction is its
+    /// operand, exactly as the reference constructor returns.
+    pub fn and_all(operands: Vec<Expr>) -> Expr {
+        Expr::logical_connective("and", operands)
+    }
+
+    /// Canonical disjunction: the reference's `Exprs.Or` (Constructors.cs:681). The dual of
+    /// [`Expr::and_all`]: 1 is the annihilator, 0 the identity, and an empty disjunction is 0.
+    pub fn or_all(operands: Vec<Expr>) -> Expr {
+        Expr::logical_connective("or", operands)
+    }
+
+    /// Canonical negation: the reference's `Exprs.Not` (Constructors.cs:716).
+    ///
+    /// The exact constants fold (not 0 = 1, not 1 = 0) and a double negation collapses to its
+    /// operand; every other node becomes a `not` node.
+    pub fn logical_not(operand: Expr) -> Expr {
+        match operand {
+            Expr::Num(value) if value.is_zero() => Expr::num(1),
+            Expr::Num(value) if value.is_one() => Expr::num(0),
+            Expr::Fun(name, args) if name == "not" && args.len() == 1 => {
+                args.into_iter().next().expect("one operand")
+            }
+            other => Expr::Fun("not".to_string(), vec![other]),
+        }
+    }
+
+    fn logical_connective(name: &str, operands: Vec<Expr>) -> Expr {
+        // `and` folds 0 to the annihilator and 1 to the identity; `or` is the dual.
+        let conjunction = name == "and";
+        let mut flat: Vec<Expr> = Vec::new();
+        for operand in operands {
+            match operand {
+                Expr::Fun(inner, args) if inner == name && args.len() >= 2 => flat.extend(args),
+                other => flat.push(other),
+            }
+        }
+        let mut set: Vec<Expr> = Vec::new();
+        for operand in flat {
+            match &operand {
+                Expr::Num(value) if value.is_zero() => {
+                    if conjunction {
+                        return Expr::num(0);
+                    }
+                    continue;
+                }
+                Expr::Num(value) if value.is_one() => {
+                    if conjunction {
+                        continue;
+                    }
+                    return Expr::num(1);
+                }
+                _ => {}
+            }
+            if !set.contains(&operand) {
+                set.push(operand);
+            }
+        }
+        if set.is_empty() {
+            return if conjunction {
+                Expr::num(1)
+            } else {
+                Expr::num(0)
+            };
+        }
+        if set.len() == 1 {
+            return set.pop().expect("one operand");
+        }
+        set.sort_by(canonical_order);
+        Expr::Fun(name.to_string(), set)
     }
 
     /// A piecewise expression: one or more (guard, value) branches plus the otherwise value.
@@ -5323,6 +5411,64 @@ fn numeric_rational(e: &Expr) -> Option<Rat> {
     }
 }
 
+/// The exact rational value of a FINITE decimal rendering, when the text is one.
+///
+/// This is the Rust spelling of the reference's `RealLiteral.ToRational()` (Expr.cs:124): the
+/// digits and the decimal exponent are the whole of the value, so every finite decimal is an
+/// exact rational however it is written (`1.5`, `15e-1`, `0.15e1` all mean 3/2). The reference
+/// uses it when a numeric exponent enters the Power constructor; keeping the same conversion
+/// here makes the Rust tree carry the same node and the same exactness flag.
+///
+/// `None` for anything that is not a finite decimal, and for a digit budget no caller can use:
+/// the text comes from a value, so a pathological spelling is a refusal rather than a hang.
+fn real_text_to_rational(text: &str) -> Option<Rat> {
+    let text = text.trim();
+    let (negative, rest) = match text.strip_prefix('-') {
+        Some(rest) => (true, rest),
+        None => (false, text.strip_prefix('+').unwrap_or(text)),
+    };
+    let (mantissa, exponent_text) = match rest.find(['e', 'E']) {
+        Some(index) => (&rest[..index], Some(&rest[index + 1..])),
+        None => (rest, None),
+    };
+    let exponent: i64 = match exponent_text {
+        Some(text) => text.parse().ok()?,
+        None => 0,
+    };
+    let (whole, fraction) = match mantissa.find('.') {
+        Some(index) => (&mantissa[..index], &mantissa[index + 1..]),
+        None => (mantissa, ""),
+    };
+    if (whole.is_empty() && fraction.is_empty())
+        || !whole.chars().all(|c| c.is_ascii_digit())
+        || !fraction.chars().all(|c| c.is_ascii_digit())
+    {
+        return None;
+    }
+    let digits = format!("{whole}{fraction}");
+    if digits.len() > 10_000 {
+        return None;
+    }
+    let mut numerator = Int::from_decimal(&digits)?;
+    if negative {
+        numerator = numerator.negate();
+    }
+    // value = digits * 10^(exponent - fraction.len()); move the scale into the numerator or the
+    // denominator so the rational holds the exact value.
+    let scale = exponent - fraction.len() as i64;
+    if scale.unsigned_abs() > 10_000 {
+        return None;
+    }
+    if scale >= 0 {
+        let factor = Nat::from_u64(10).pow(scale as u64);
+        numerator = numerator.mul(&Int::from_decimal(&factor.to_decimal())?);
+        Some(Rat::new(numerator, Nat::from_u64(1)))
+    } else {
+        let denominator = Nat::from_u64(10).pow((-scale) as u64);
+        Some(Rat::new(numerator, denominator))
+    }
+}
+
 #[cfg(test)]
 mod panic_sweep_round23;
 
@@ -5357,6 +5503,10 @@ mod round75_probe;
 /// Round-76 MatrixAdvanceTests rank/inverse/solve census rows.
 #[cfg(test)]
 mod round76_matrix;
+
+/// Round-90 logical constructors and the exactness leaf-rule census rows.
+#[cfg(test)]
+mod round90_symbolic_families;
 
 #[cfg(test)]
 mod printing_round16;

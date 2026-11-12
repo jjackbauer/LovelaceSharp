@@ -1175,6 +1175,11 @@ mod round75_probe;
 #[cfg(test)]
 mod round82_evalf_precision;
 
+/// Round-90 PlotFileWriteRefusal rows at the wire: the empty plot file and the missing parent
+/// directory, including the exact CLR sentence the reference's typed refusal publishes.
+#[cfg(test)]
+mod round90_runner_families;
+
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
     let text = format!("{:.3}", ms);

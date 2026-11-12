@@ -112,6 +112,8 @@ pub enum Expr {
     Binary(BinOp, Box<Expr>, Box<Expr>),
     /// Unary minus.
     Neg(Box<Expr>),
+    /// Unary plus (the identity; kept as a node because the reference's parser does).
+    Plus(Box<Expr>),
     /// Logical not.
     Not(Box<Expr>),
     /// Factorial.
@@ -669,15 +671,6 @@ impl Parser {
                 }
                 _ => {}
             }
-            // Assignment?
-            if let Tok::Punct(p) = &self.toks[(self.i + 1).min(self.toks.len() - 1)].tok {
-                if p == "=" && name != "=" {
-                    self.bump();
-                    self.bump();
-                    let value = self.expression()?;
-                    return Ok(Stmt::Expr(Expr::Assign(name, Box::new(value)), pos));
-                }
-            }
         }
         if self.eat_punct("{") {
             let mut stmts = Vec::new();
@@ -709,9 +702,29 @@ impl Parser {
     /// Parses an expression.
     pub fn expression(&mut self) -> Result<Expr, LangError> {
         self.enter("expression nesting")?;
-        let result = self.comparison();
+        let result = self.assignment();
         self.leave();
         result
+    }
+
+    /// Parses an assignment (right-associative), or the next precedence level.
+    ///
+    /// The reference's ParseAssignment admits an assignment anywhere an expression is parsed,
+    /// not only as a whole statement: x = y = 5 nests to Assign(x, Assign(y, 5)), and an
+    /// assignment also works as a call argument, a list element or a parenthesised expression.
+    fn assignment(&mut self) -> Result<Expr, LangError> {
+        if let Tok::Ident(name) = self.peek().clone() {
+            if matches!(
+                self.toks.get(self.i + 1).map(|token| &token.tok),
+                Some(Tok::Punct(p)) if p == "="
+            ) {
+                self.bump();
+                self.bump();
+                let value = self.expression()?;
+                return Ok(Expr::Assign(name, Box::new(value)));
+            }
+        }
+        self.comparison()
     }
 
     fn comparison(&mut self) -> Result<Expr, LangError> {
@@ -784,12 +797,12 @@ impl Parser {
                 if negative {
                     Expr::Neg(Box::new(inner))
                 } else {
-                    inner
+                    Expr::Plus(Box::new(inner))
                 }
             } else if negative {
                 Expr::Neg(Box::new(operand))
             } else {
-                operand
+                Expr::Plus(Box::new(operand))
             };
             if matches!(self.peek(), Tok::Punct(p) if p == "..") {
                 let ranged = self.range_tail(signed)?;
@@ -841,12 +854,13 @@ impl Parser {
             return Ok(Expr::Neg(Box::new(inner?)));
         }
         if self.eat_punct("+") {
-            // Unary plus is the identity; it is still a consumed prefix operator (one nesting
+            // Unary plus is the identity but is still a node the reference's AST carries
+            // (UnaryExpr with UnaryOp.Plus), and a consumed prefix operator (one nesting
             // level), exactly as the reference's ParseUnary charges it.
             self.enter("expression nesting")?;
             let inner = self.unary();
             self.leave();
-            return inner;
+            return Ok(Expr::Plus(Box::new(inner?)));
         }
         if let Tok::Ident(k) = self.peek().clone() {
             // `not` is the one builtin that is also a prefix operator. A parenthesised list after

@@ -286,6 +286,18 @@ fn divide_by_zero() -> LangError {
     LangError::coded("Cannot divide by zero.", 0, "DivisionByZero", "DomainError")
 }
 
+/// The Real path's zero refusal: `Real.Divide` names the tier it refuses in
+/// ("Cannot divide a Real by zero.", Real.cs:915), while the exact integer/rational path keeps
+/// the generic sentence. The taxonomy (DivisionByZero / DomainError) is the same on both.
+fn divide_by_zero_real() -> LangError {
+    LangError::coded(
+        "Cannot divide a Real by zero.",
+        0,
+        "DivisionByZero",
+        "DomainError",
+    )
+}
+
 /// Divides two values. Two integer scalars whose quotient is exact narrow back to their integer
 /// kind (`100 / 5` is Natural 20, `-6 / 2` is Integer -3); an inexact quotient is Real. A
 /// container result follows D2: when EVERY element is an exact integer the whole result narrows
@@ -316,7 +328,17 @@ pub fn div(a: &Value, b: &Value, precision: usize) -> Result<Value, LangError> {
                     v.period_length() > 0 && v.period_start() + v.period_length() > places as i64;
                 Ok(Value::Real(if beyond { v.mark_inexact() } else { v }))
             }
-            None => Err(divide_by_zero()),
+            // The tier decides the sentence: a Real operand took the Real.Divide path, whose
+            // refusal names the Real; two exact operands keep the generic Rational/Natural text.
+            None => {
+                let real_operand = matches!(x, Value::Real(_) | Value::RealClamped(_, _, _))
+                    || matches!(y, Value::Real(_) | Value::RealClamped(_, _, _));
+                Err(if real_operand {
+                    divide_by_zero_real()
+                } else {
+                    divide_by_zero()
+                })
+            }
         }
     })?;
     if container {
@@ -1575,14 +1597,21 @@ pub fn call(
                     return Ok(Value::Boolean(!flag));
                 }
             }
-            let mut args_out = Vec::new();
+            let mut operands = Vec::with_capacity(args.len());
             for a in &args {
-                args_out.push(
+                operands.push(
                     as_expr(a)
                         .ok_or_else(|| LangError::plain("Logical operators need expressions."))?,
                 );
             }
-            Ok(Value::Symbolic(Sym::Fun(name.to_string(), args_out)))
+            // The reference's Exprs.And/Or/Not constructors fold here: a nested same-kind node
+            // flattens, the exact 0/1 constants fold, and `not` collapses a double negation. The
+            // language-level result therefore publishes the same tree the library constructor
+            // builds (round-90 LogicalCanonicalization family).
+            Ok(Value::Symbolic(match name {
+                "and" | "or" => logical_node(name, operands),
+                _ => Sym::logical_not(operands.into_iter().next().expect("not has one operand")),
+            }))
         }
         "integrate_full" => {
             arity(2)?;
@@ -1594,7 +1623,7 @@ pub fn call(
                 _ => return Err(LangError::plain("integrate needs a variable.")),
             };
             let antiderivative = integrate_basic(&f, &var);
-            let (status, verified, expression, method, verification, exactness) =
+            let (status, verified, expression, method, verification, exactness, conditions) =
                 match &antiderivative {
                     Some(a) => {
                         // Verification is the reference's ordered pair of equivalence tests:
@@ -1627,13 +1656,24 @@ pub fn call(
                         } else {
                             "table"
                         };
+                        // log(f) antiderivatives are real-valued only where f > 0: the reference
+                        // collects the argument of every log in the candidate (Integrate.cs:62-72)
+                        // and publishes the result as SolvedConditional with those atoms. A
+                        // candidate with no log has no condition and stays SolvedExact.
+                        let conditions = log_condition_values(a);
+                        let status = if conditions.is_empty() {
+                            "SolvedExact"
+                        } else {
+                            "SolvedConditional"
+                        };
                         (
-                            "SolvedExact",
+                            status,
                             verified,
                             Value::Symbolic(a.clone()),
                             method,
                             verification,
                             "Exact",
+                            conditions,
                         )
                     }
                     None => {
@@ -1654,6 +1694,7 @@ pub fn call(
                             "",
                             "",
                             exactness,
+                            Vec::new(),
                         )
                     }
                 };
@@ -1686,7 +1727,7 @@ pub fn call(
                         enum_value("IntegrationStatus", status),
                     ),
                     ("expression".to_string(), expression),
-                    ("conditions".to_string(), Value::Vector(Vec::new())),
+                    ("conditions".to_string(), Value::Vector(conditions)),
                     ("verified".to_string(), Value::Boolean(verified)),
                     ("method".to_string(), Value::Text(method.to_string())),
                     (
@@ -4992,28 +5033,13 @@ fn builtins_plot(engine: &mut Engine, args: Vec<Value>) -> Result<Value, LangErr
     let dir = engine.plot_dir();
     // The published path is ABSOLUTE and separator-normalised, like the reference's
     // Path.GetFullPath(Path.Combine(dir, file)): a caller that passed "tmp/x/plots" gets the
-    // same spelling in result, plot and artifacts.
-    let joined = std::path::Path::new(&dir).join(engine.plot_file());
-    let mut path = std::path::absolute(&joined)
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| joined.to_string_lossy().into_owned());
-    #[cfg(windows)]
-    {
-        path = path.replace('/', "\\");
-    }
-    // The reference's PlotFileWriteException: a caller-supplied output path that cannot be
-    // written is a caller-level failure whose message NAMES the path the caller asked for (the
-    // plot directory joined with the plot file name, before GetFullPath). The parent is not
-    // created here: the reference writes exactly the combined path, and a missing directory is
-    // the refusal this row measures.
-    std::fs::write(&path, &svg).map_err(|e| {
-        LangError::coded(
-            format!("Cannot write the plot file '{}': {e}", joined.display()),
-            0,
-            "PlotFileError",
-            "TypeMismatch",
-        )
-    })?;
+    // same spelling in result, plot and artifacts. The write itself is the reference's
+    // File.WriteAllText site: a caller-supplied path that cannot be written is the typed
+    // PlotFileWriteException, classified as PlotFileError/TypeMismatch with the caller's path
+    // in the message (the parent is not created here).
+    let plot_file = engine.plot_file();
+    let path = crate::plot_file::write_plot_file(&dir, &plot_file, &svg)
+        .map_err(|failure| failure.to_lang_error())?;
     engine.capture_plot(PlotCapture {
         path: path.clone(),
         title,
@@ -6596,6 +6622,104 @@ fn integrate_simple_fraction(term: &Sym, var: &str) -> Option<Sym> {
         return Some(Sym::mul(a, Sym::Fun("log".to_string(), vec![den])));
     }
     integrate_basic(term, var)
+}
+
+/// Every `log(f)` argument in an antiderivative, the reference's `Integration.LogArguments`
+/// walk (Integrate.cs:86): a log pushes its argument and then walks it too, so a nested log
+/// contributes both of its arguments; Add/Mul/Pow and every other function's arguments are
+/// traversed.
+fn log_arguments(expression: &Sym) -> Vec<Sym> {
+    fn walk(expression: &Sym, out: &mut Vec<Sym>) {
+        match expression {
+            Sym::Fun(name, args) if name == "log" && args.len() == 1 => {
+                out.push(args[0].clone());
+                walk(&args[0], out);
+            }
+            Sym::Add(items) | Sym::Mul(items) => {
+                for item in items {
+                    walk(item, out);
+                }
+            }
+            Sym::Pow(left, right) | Sym::Div(left, right) => {
+                walk(left, out);
+                walk(right, out);
+            }
+            Sym::Fun(_, args) => {
+                for argument in args {
+                    walk(argument, out);
+                }
+            }
+            Sym::Num(_) | Sym::Sym(_) | Sym::Real(_) | Sym::Rel(..) => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(expression, &mut out);
+    out
+}
+
+/// The language-level And/Or node. The reference's constructors flatten a nested same-kind node,
+/// fold the exact 0/1 constants and sort the operands; its duplicate check, however, compares
+/// `RelationExpr`s whose children are compared with reference `==`, so two separately evaluated
+/// `x > 0` nodes are not duplicates and the engine publishes `and(x > 0, x > 0)` with both. This
+/// helper reproduces that measured observable (no deduplication). The LIBRARY constructor
+/// `Expr::and_all` keeps the constructor's structural dedupe, which is what the C#
+/// `LogicalCanonicalization` row asserts when it passes the SAME `gt` node twice.
+fn logical_node(name: &str, operands: Vec<Sym>) -> Sym {
+    let conjunction = name == "and";
+    let mut flat: Vec<Sym> = Vec::new();
+    for operand in operands {
+        match operand {
+            Sym::Fun(inner, args) if inner == name && args.len() >= 2 => flat.extend(args),
+            other => flat.push(other),
+        }
+    }
+    let mut operands: Vec<Sym> = Vec::new();
+    for operand in flat {
+        match &operand {
+            Sym::Num(value) if value.is_zero() => {
+                if conjunction {
+                    return Sym::num(0);
+                }
+                continue;
+            }
+            Sym::Num(value) if value.is_one() => {
+                if conjunction {
+                    continue;
+                }
+                return Sym::num(1);
+            }
+            _ => {}
+        }
+        operands.push(operand);
+    }
+    if operands.is_empty() {
+        return if conjunction {
+            Sym::num(1)
+        } else {
+            Sym::num(0)
+        };
+    }
+    if operands.len() == 1 {
+        return operands.pop().expect("one operand");
+    }
+    operands.sort_by(lovelace_symbolics::canonical_order);
+    Sym::Fun(name.to_string(), operands)
+}
+
+/// The `conditions` field for an integration result: one `f > 0` relation per `log(f)` in the
+/// antiderivative, in collection order and without duplicates (an assumption set is a set).
+fn log_condition_values(expression: &Sym) -> Vec<Value> {
+    let mut conditions: Vec<Value> = Vec::new();
+    for argument in log_arguments(expression) {
+        let relation = Sym::relation(lovelace_symbolics::RelOp::Gt, argument, Sym::num(0));
+        if !conditions
+            .iter()
+            .any(|existing| matches!(existing, Value::Symbolic(e) if *e == relation))
+        {
+            conditions.push(Value::Symbolic(relation));
+        }
+    }
+    conditions
 }
 
 /// The linear decomposition of `u` in `var`: Some((a, b)) when u = a*var + b with `a` free of

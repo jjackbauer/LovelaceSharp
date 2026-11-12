@@ -506,16 +506,24 @@ pub fn evaluate_to_num(
 
 /// The three-valued condition result the reference's `EvaluateCondition` uses.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Tristate {
+pub enum Tristate {
+    /// The condition is true under the bindings.
     True,
+    /// The condition is false under the bindings.
     False,
+    /// At least one operand could not be decided; never coerced to either truth value.
     Unknown,
 }
 
 /// `Evaluation.EvaluateCondition` over the empty assumption scope: relations, And/Or/Not, and
 /// the exact constants 0/1. A typed numeric failure inside a guard is Unknown (the reference
 /// catches `EvaluationException` there); a defect propagates.
-fn evaluate_condition(
+///
+/// Public because it is the row-level surface of the reference's Kleene evaluation: a host can
+/// read the True/False/Unknown answer directly instead of inferring it from the 1/0 that
+/// `EvaluateToNum` publishes, and the distinction is the whole contract (Unknown must never be
+/// coerced to False).
+pub fn evaluate_condition(
     condition: &Expr,
     places: usize,
     bindings: &[(&str, Num)],

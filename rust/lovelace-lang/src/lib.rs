@@ -14,6 +14,7 @@ pub mod builtins;
 pub mod complex;
 pub mod complex_math;
 pub mod context;
+pub mod display_format;
 pub mod evaluation_boundary;
 pub mod fixed_dsp;
 pub mod help;
@@ -21,8 +22,10 @@ pub mod lexer;
 pub mod mathir;
 pub mod modus;
 pub mod numeric;
+pub mod plot_file;
 pub mod plot_surface;
 pub mod registry;
+pub mod signals;
 pub mod structural_equality;
 pub mod structured;
 pub mod syntax;
@@ -1481,10 +1484,13 @@ impl Engine {
                 let v = self.eval_expr(inner)?;
                 builtins::neg(&v)
             }
+            // Unary plus is the identity value; the node exists so the parsed shape matches the
+            // reference's UnaryExpr(UnaryOp.Plus) without changing any evaluation result.
+            Expr::Plus(inner) => self.eval_expr(inner),
             Expr::Not(inner) => {
                 let v = self.eval_expr(inner)?;
                 match v {
-                    Value::Symbolic(e) => Ok(Value::Symbolic(Sym::Fun("not".to_string(), vec![e]))),
+                    Value::Symbolic(e) => Ok(Value::Symbolic(Sym::logical_not(e))),
                     Value::Boolean(b) => Ok(Value::Boolean(!b)),
                     other => Err(LangError::plain(format!(
                         "not needs a Boolean, but got '{}'.",
@@ -2037,7 +2043,7 @@ fn ast_depth(program: &[Stmt]) -> Option<usize> {
                     stack.push((AstNode::Expr(left), next));
                     stack.push((AstNode::Expr(right), next));
                 }
-                Expr::Neg(inner) | Expr::Not(inner) | Expr::Fact(inner) => {
+                Expr::Neg(inner) | Expr::Plus(inner) | Expr::Not(inner) | Expr::Fact(inner) => {
                     stack.push((AstNode::Expr(inner), next));
                 }
                 Expr::Call(_, args, _) => {
@@ -2473,3 +2479,15 @@ mod kernel_cancel_round9;
 /// the dense series polyline — not the byte string.
 #[cfg(test)]
 mod plot_structure_round87;
+
+/// Round-90 runner/DSP families: the 13 deferred rows across PlotFileWriteRefusal, Dsp,
+/// DenseArrayComplex, IntegerToString and Parser. Each test names its census id and asserts the
+/// C# case's own observable (typed refusal, signal sample, array metadata, TryFormat buffer, or
+/// parser AST shape).
+#[cfg(test)]
+mod round90_runner_families;
+
+/// Round-90 symbolic families: DomainFailureVocabulary, RelationsAndFamilies, IntegerPow and
+/// the solver half of ExactnessFlag. One test per closed rows' observable.
+#[cfg(test)]
+mod round90_symbolic_families;

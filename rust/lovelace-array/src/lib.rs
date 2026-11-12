@@ -12,6 +12,10 @@
 
 #![forbid(unsafe_code)]
 
+pub mod dense;
+
+pub use dense::{DType, DenseArray, Precision};
+
 use std::fmt;
 
 /// An exact arithmetic field used by the generic constructors and reductions.

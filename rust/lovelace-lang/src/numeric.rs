@@ -142,8 +142,13 @@ fn evaluate_with(
                             // The reference's PiecewiseExpr arm takes True, skips False, and
                             // refuses everything else - Unknown and the no-model sentinel alike.
                             Tristate::Unknown | Tristate::Unsatisfiable => {
-                                return Err(LangError::plain(
+                                // The reference raises EvaluationException here (Evaluation.cs:496),
+                                // so the runner publishes EvaluationError/DomainError.
+                                return Err(LangError::coded(
                                     "Piecewise guard cannot be decided numerically.",
+                                    0,
+                                    "EvaluationError",
+                                    "DomainError",
                                 ));
                             }
                         }
@@ -158,8 +163,11 @@ fn evaluate_with(
                     Tristate::True => Ok(Num::Exact(Rat::one())),
                     // The reference throws only for Unknown; every other answer maps to 1/0.
                     Tristate::False | Tristate::Unsatisfiable => Ok(Num::Exact(Rat::zero())),
-                    Tristate::Unknown => Err(LangError::plain(
+                    Tristate::Unknown => Err(LangError::coded(
                         "Logical condition cannot be decided numerically.",
+                        0,
+                        "EvaluationError",
+                        "DomainError",
                     )),
                 };
             }
@@ -508,7 +516,16 @@ impl Num {
         if self.is_zero()
             && matches!(exponent, Num::Exact(r) if r.is_integer() && r.numerator().sign() <= 0)
         {
-            return Err(LangError::plain("0 raised to a non-positive power."));
+            // The reference's EvaluateToNum raises its typed `EvaluationException` here
+            // (Evaluation.cs:472), which the runner publishes as EvaluationError/DomainError.
+            // A plain LangError is InvalidOperation/DomainError instead: same message, wrong
+            // vocabulary, so a host reading the code cannot tell a domain refusal from a defect.
+            return Err(LangError::coded(
+                "0 raised to a non-positive power.",
+                0,
+                "EvaluationError",
+                "DomainError",
+            ));
         }
         // Zero raised to a POSITIVE power is exactly zero at every tier: 0^(1/2) = 0, not a
         // complex principal branch and not an approximation. The non-positive exponents were
@@ -606,6 +623,44 @@ impl Num {
 }
 
 use crate::Value;
+
+/// `Integer.Pow(Integer)`: the reference's CHECKED integer power (Integer.cs:414).
+///
+/// The reference has TWO integer powers with different contracts. The language operator is
+/// total at its special points (`2^0` is 1, `0^3` is 0), but `Integer.Pow` refuses a zero base
+/// and a non-positive exponent with `ArgumentOutOfRangeException`. The refusal is an ARGUMENT
+/// error, not a domain failure: the runner publishes it as InvalidArgument/TypeMismatch. The
+/// checks run in the reference's order (base first, then exponent), so `0.Pow(0)` names the base.
+///
+/// Rust's [`Int::pow`] takes a `u64`, so it cannot express either refusal; this checked entry is
+/// the additive surface the row asserts.
+pub fn integer_pow(base: &Int, exponent: &Int) -> Result<Int, LangError> {
+    if base.is_zero() {
+        return Err(LangError::coded(
+            "Base cannot be zero. (Parameter 'base')",
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    if exponent.sign() <= 0 {
+        return Err(LangError::coded(
+            "Exponent must be positive. (Parameter 'exponent')",
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    let magnitude = exponent.magnitude().to_u64().ok_or_else(|| {
+        LangError::coded(
+            "Exponent is too large.",
+            0,
+            "ArithmeticError",
+            "DomainError",
+        )
+    })?;
+    Ok(base.pow(magnitude))
+}
 
 fn integer_digits_of_real(value: &Real) -> usize {
     if value.is_zero() {

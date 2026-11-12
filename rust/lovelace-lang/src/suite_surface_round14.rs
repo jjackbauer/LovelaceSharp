@@ -103,16 +103,20 @@ fn unary_plus_is_the_identity_and_binds_looser_than_power() {
     assert_eq!(typed("+2^2"), "4 (Natural)");
     assert_eq!(typed("+2^3^2"), "512 (Natural)");
     assert_eq!(typed("+1..2"), "[1, 2] (Vector)");
-    // The AST shape keeps the power under the (identity) sign position: no parse failure.
+    // The AST shape is the reference's UnaryExpr(Plus, Power(2, 2)): the sign is a node,
+    // and the power stays under it (no parse failure).
     let expr = {
         let tokens = tokenize("+2^2").expect("tokenize");
         let mut parser = Parser::new(tokens);
         parser.single_expression().expect("parse")
     };
-    assert!(
-        matches!(expr, Expr::Binary(..)),
-        "unexpected expression: {expr:?}"
-    );
+    match expr {
+        Expr::Plus(inner) => assert!(
+            matches!(*inner, Expr::Binary(crate::syntax::BinOp::Pow, _, _)),
+            "the power is not under the plus: {inner:?}"
+        ),
+        other => panic!("not a unary plus: {other:?}"),
+    }
 }
 
 // ---------------------------------------------------------------------------
