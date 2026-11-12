@@ -338,3 +338,26 @@
   is recorded as FAIL/NOT_TESTED, never as delivery; the round's objective is re-dispatched with the
   observed failure output rather than the same prompt.
 - **Gate**: G4
+
+### OBS-010: The execution core is green but not yet driving any window
+
+- **Source**: `rust/lovelace-desktop/src/execution.rs`, `statements.rs`; `cargo test -p lovelace-desktop`
+- **Fact**: 81 tests pass (0 failed). The core spawns a worker per run, emits typed sequenced events
+  with document/run/revision identity, cancels through a token checked between statements, gates
+  stale revisions in the sink, isolates panics and preserves the committed snapshot. Submit returns in
+  154 µs and a cancel reaches a terminal event in 20.21 ms. Neither module references a window handle.
+- **Implications**: the architectural invariants (ARC-006/007/008) and the cooperative cancel are now
+  demonstrable headlessly, but no P0 row may be marked PASS on that basis: ARC-005 and RUN-001/009 are
+  about what the *shipped window* does. The gap is integration, not correctness.
+- **Confidence**: High — **Agent**: repair implementer — **Verified by**: EVD-052, EVD-053
+- **Related**: EVD-052, EVD-053, ARC-005, ARC-006, ARC-008, RUN-001
+
+### TODO-004: Wire the core into the product window
+
+- **Task**: make `lovelace-desktop` open the new egui workbench by default, run the real engine through
+  `ExecutionHost` on a worker, and consume the typed event stream; keep the Win32 shell behind an
+  explicit flag until parity.
+- **Priority**: P0
+- **Depends on**: the green execution core (done) and the spike modules
+- **Status**: Open — round 5 objective
+- **Related**: OBS-010, ARC-003, ARC-005, RUN-001, RUN-004, RUN-009
