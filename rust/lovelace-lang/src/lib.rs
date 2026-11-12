@@ -2452,6 +2452,13 @@ mod round82_series_laurent;
 #[cfg(test)]
 mod round82_evalf_precision;
 
+/// Round-84 evalir-multi family: the four deferred `DxStructuredResultsTests` census rows whose
+/// contract needs a MULTI-PARAMETER kernel (row-shaped batch input, flat whole-row input, the
+/// row-width refusal and the whole-rows refusal, plus `compile_full`'s `unknown` result type),
+/// with the zero-, one- and duplicate-parameter boundaries.
+#[cfg(test)]
+mod round84_evalir_multi;
+
 /// Round-9 desktop kernel cancellation: a live flag set from another thread stops ONE long
 /// polling kernel (`matmul`) with the structured `Cancelled` failure inside 2 s. The opaque
 /// `sqrt(2)` at precision 200000 is documented as uninterruptible, not claimed as cancelled.

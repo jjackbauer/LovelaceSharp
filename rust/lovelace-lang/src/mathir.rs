@@ -423,10 +423,28 @@ impl IrProgram {
     /// parameter, an unsupported function, an order term, a relation and a malformed piecewise
     /// guard all refuse with the reference's sentences.
     pub fn lower(expr: &Sym, parameters: &[String]) -> Result<IrProgram, LangError> {
+        IrProgram::lower_with(expr, parameters, false)
+    }
+
+    /// Lowers with the LANGUAGE SURFACE's operand order: Add/Multiply children are emitted in
+    /// the reference's canonical term order, not in this crate's display-ordered storage order.
+    /// The reference stores an Add's terms canonically ("1 + x") and prints them display-ordered
+    /// ("x + 1"); Rust Sym stores display order, so the language's lower/compile output needs the
+    /// explicit canonical sort to stay byte-identical to the reference. Deserialize validation
+    /// is applied by the caller (compile_ordered), exactly as Compilation.Compile does.
+    pub fn lower_ordered(expr: &Sym, parameters: &[String]) -> Result<IrProgram, LangError> {
+        IrProgram::lower_with(expr, parameters, true)
+    }
+
+    fn lower_with(
+        expr: &Sym,
+        parameters: &[String],
+        ordered: bool,
+    ) -> Result<IrProgram, LangError> {
         let mut program = IrProgram::new();
         program.parameters = parameters.to_vec();
         let mut cache: Vec<(Sym, usize)> = Vec::new();
-        emit(expr, parameters, &mut program, &mut cache)?;
+        emit(expr, parameters, &mut program, &mut cache, ordered)?;
         Ok(program)
     }
 }
@@ -653,6 +671,26 @@ pub fn compile(expr: &Sym, parameters: &[String]) -> Result<CompilationResult, L
         ));
     }
     let program = IrProgram::lower(expr, parameters)?;
+    IrTyping::validate(&program)?;
+    Ok(CompilationResult {
+        program,
+        parameters: parameters.to_vec(),
+    })
+}
+
+/// Compiles with the LANGUAGE SURFACE's operand order (see `IrProgram::lower_ordered`), applying
+/// the same zero-parameter and IrTyping.Validate refusals as compile. The reader and the
+/// compiler must agree on operand order: the reference's IR text is what evalir reads back.
+pub fn compile_ordered(expr: &Sym, parameters: &[String]) -> Result<CompilationResult, LangError> {
+    if parameters.is_empty() {
+        return Err(LangError::coded(
+            "Compilation requires at least one parameter. (Parameter 'parameters')",
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    let program = IrProgram::lower_ordered(expr, parameters)?;
     IrTyping::validate(&program)?;
     Ok(CompilationResult {
         program,
@@ -984,15 +1022,19 @@ fn emit(
     parameters: &[String],
     program: &mut IrProgram,
     cache: &mut Vec<(Sym, usize)>,
+    ordered: bool,
 ) -> Result<usize, LangError> {
     if let Some((_, index)) = cache.iter().find(|(key, _)| key == expr) {
         return Ok(*index);
     }
     let index = match expr {
         Sym::Sym(name) => {
+            // The reference's name -> index dictionary is filled in declaration order, so a
+            // repeated parameter name binds to its LAST position (and later validation refuses
+            // the resulting out-of-range operand when the node list is shorter).
             let position = parameters
                 .iter()
-                .position(|parameter| parameter == name)
+                .rposition(|parameter| parameter == name)
                 .ok_or_else(|| LangError::plain("Node kind Symbol cannot be lowered to MathIR."))?;
             add_node(program, IrOpKind::Parameter, vec![position], 0)
         }
@@ -1004,22 +1046,24 @@ fn emit(
             let pool = add_constant(program, &format!("(real {text})"));
             add_node(program, IrOpKind::Constant, vec![pool], 0)
         }
-        Sym::Add(terms) => emit_nary(terms, IrOpKind::Add, parameters, program, cache)?,
-        Sym::Mul(factors) => emit_nary(factors, IrOpKind::Mul, parameters, program, cache)?,
+        Sym::Add(terms) => emit_nary(terms, IrOpKind::Add, parameters, program, cache, ordered)?,
+        Sym::Mul(factors) => {
+            emit_nary(factors, IrOpKind::Mul, parameters, program, cache, ordered)?
+        }
         Sym::Pow(base, exponent) => match exponent.as_ref() {
             Sym::Num(value) if value.is_integer() && value.numerator().to_decimal() == "-1" => {
-                let base = emit(base, parameters, program, cache)?;
+                let base = emit(base, parameters, program, cache, ordered)?;
                 add_node(program, IrOpKind::Reciprocal, vec![base], 0)
             }
             Sym::Num(value)
                 if value.denominator().to_decimal() == "2"
                     && value.numerator().to_decimal() == "1" =>
             {
-                let base = emit(base, parameters, program, cache)?;
+                let base = emit(base, parameters, program, cache, ordered)?;
                 add_node(program, IrOpKind::Sqrt, vec![base], 0)
             }
             Sym::Num(value) if value.is_integer() => {
-                let base = emit(base, parameters, program, cache)?;
+                let base = emit(base, parameters, program, cache, ordered)?;
                 // The exponent is a FRESH constant node on every occurrence; the pool entry
                 // is deduplicated by value but the node is not (the reference's PowInt path).
                 let canonical = canonical_rational(value);
@@ -1028,18 +1072,18 @@ fn emit(
                 add_node(program, IrOpKind::PowInt, vec![base, exponent], 0)
             }
             _ => {
-                let base = emit(base, parameters, program, cache)?;
-                let exponent = emit(exponent, parameters, program, cache)?;
+                let base = emit(base, parameters, program, cache, ordered)?;
+                let exponent = emit(exponent, parameters, program, cache, ordered)?;
                 add_node(program, IrOpKind::Pow, vec![base, exponent], 0)
             }
         },
         Sym::Div(left, right) => {
-            let left = emit(left, parameters, program, cache)?;
-            let right = emit(right, parameters, program, cache)?;
+            let left = emit(left, parameters, program, cache, ordered)?;
+            let right = emit(right, parameters, program, cache, ordered)?;
             add_node(program, IrOpKind::Div, vec![left, right], 0)
         }
         Sym::Fun(name, arguments) => match name.as_str() {
-            "piecewise" => emit_piecewise(arguments, parameters, program, cache)?,
+            "piecewise" => emit_piecewise(arguments, parameters, program, cache, ordered)?,
             "and" | "or" | "not" => {
                 return Err(LangError::plain(
                     "Piecewise guards must be boolean-valued expressions.",
@@ -1056,7 +1100,7 @@ fn emit(
                 add_node(program, IrOpKind::Constant, vec![pool], 1)
             }
             "sqrt" if arguments.len() == 1 => {
-                let argument = emit(&arguments[0], parameters, program, cache)?;
+                let argument = emit(&arguments[0], parameters, program, cache, ordered)?;
                 add_node(program, IrOpKind::Sqrt, vec![argument], 0)
             }
             _ => {
@@ -1065,7 +1109,7 @@ fn emit(
                 })?;
                 let mut operands = Vec::with_capacity(arguments.len());
                 for argument in arguments {
-                    operands.push(emit(argument, parameters, program, cache)?);
+                    operands.push(emit(argument, parameters, program, cache, ordered)?);
                 }
                 add_node(program, op, operands, 0)
             }
@@ -1086,15 +1130,20 @@ fn emit_nary(
     parameters: &[String],
     program: &mut IrProgram,
     cache: &mut Vec<(Sym, usize)>,
+    ordered: bool,
 ) -> Result<usize, LangError> {
     if items.is_empty() {
         // The reference's identity constant for an empty n-ary node is a literal zero node.
         let pool = add_constant(program, &canonical_rational(&Rat::zero()));
         return Ok(add_node(program, IrOpKind::Constant, vec![pool], 0));
     }
+    let mut ordered_items: Vec<&Sym> = items.iter().collect();
+    if ordered {
+        ordered_items.sort_by(|a, b| lovelace_symbolics::canonical_order(a, b));
+    }
     let mut emitted = Vec::with_capacity(items.len());
-    for item in items {
-        emitted.push(emit(item, parameters, program, cache)?);
+    for item in ordered_items {
+        emitted.push(emit(item, parameters, program, cache, ordered)?);
     }
     let mut accumulator = emitted[0];
     for operand in &emitted[1..] {
@@ -1108,6 +1157,7 @@ fn emit_piecewise(
     parameters: &[String],
     program: &mut IrProgram,
     cache: &mut Vec<(Sym, usize)>,
+    ordered: bool,
 ) -> Result<usize, LangError> {
     if arguments.len() < 3 || arguments.len() % 2 == 0 {
         return Err(LangError::plain(
@@ -1119,11 +1169,18 @@ fn emit_piecewise(
         parameters,
         program,
         cache,
+        ordered,
     )?;
     let branches = (arguments.len() - 1) / 2;
     for branch in (0..branches).rev() {
-        let guard = emit_guard(&arguments[2 * branch], parameters, program, cache)?;
-        let value = emit(&arguments[2 * branch + 1], parameters, program, cache)?;
+        let guard = emit_guard(&arguments[2 * branch], parameters, program, cache, ordered)?;
+        let value = emit(
+            &arguments[2 * branch + 1],
+            parameters,
+            program,
+            cache,
+            ordered,
+        )?;
         result = add_node(program, IrOpKind::Select, vec![guard, value, result], 0);
     }
     Ok(result)
@@ -1134,11 +1191,12 @@ fn emit_guard(
     parameters: &[String],
     program: &mut IrProgram,
     cache: &mut Vec<(Sym, usize)>,
+    ordered: bool,
 ) -> Result<usize, LangError> {
     match guard {
         Sym::Rel(op, left, right) => {
-            let left = emit(left, parameters, program, cache)?;
-            let right = emit(right, parameters, program, cache)?;
+            let left = emit(left, parameters, program, cache, ordered)?;
+            let right = emit(right, parameters, program, cache, ordered)?;
             let op = match op {
                 RelOp::Eq => IrOpKind::Eq,
                 RelOp::Ne => IrOpKind::Ne,
@@ -1150,25 +1208,25 @@ fn emit_guard(
             Ok(add_node(program, op, vec![left, right], 0))
         }
         Sym::Fun(name, operands) if name == "and" && !operands.is_empty() => {
-            let mut result = emit_guard(&operands[0], parameters, program, cache)?;
+            let mut result = emit_guard(&operands[0], parameters, program, cache, ordered)?;
             for operand in &operands[1..] {
-                let next = emit_guard(operand, parameters, program, cache)?;
+                let next = emit_guard(operand, parameters, program, cache, ordered)?;
                 let zero = const_node(program, Rat::zero());
                 result = add_node(program, IrOpKind::Select, vec![result, next, zero], 0);
             }
             Ok(result)
         }
         Sym::Fun(name, operands) if name == "or" && !operands.is_empty() => {
-            let mut result = emit_guard(&operands[0], parameters, program, cache)?;
+            let mut result = emit_guard(&operands[0], parameters, program, cache, ordered)?;
             for operand in &operands[1..] {
-                let next = emit_guard(operand, parameters, program, cache)?;
+                let next = emit_guard(operand, parameters, program, cache, ordered)?;
                 let one = const_node(program, Rat::one());
                 result = add_node(program, IrOpKind::Select, vec![result, one, next], 0);
             }
             Ok(result)
         }
         Sym::Fun(name, operands) if name == "not" && operands.len() == 1 => {
-            let inner = emit_guard(&operands[0], parameters, program, cache)?;
+            let inner = emit_guard(&operands[0], parameters, program, cache, ordered)?;
             let zero = const_node(program, Rat::zero());
             let one = const_node(program, Rat::one());
             Ok(add_node(

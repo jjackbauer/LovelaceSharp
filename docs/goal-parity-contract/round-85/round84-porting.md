@@ -22,34 +22,50 @@ pass — the stale `sourcesSha256` 792b… was not the current source walk.**
 
 The task snapshot quoted 5,307 passed / 1 ignored. That figure is 17 more tests than the checked-in
 5,290: the round-84 file supplies 8, so 9 desktop tests were already registered when the snapshot
-was taken; the remaining 17 desktop tests landed before source quiescence was reached (§2). The
-measured baseline is therefore larger than the snapshot, and the observed numbers below are the
-truthful baseline for the tree that was actually measured, not the earlier hint.
+was taken. The desktop lane kept writing after that moment; 19 further desktop tests landed before
+the final source quiescence. The measured baseline is therefore larger than the snapshot, and the
+observed numbers below are the truthful baseline for the tree that was actually measured.
 
-## 2. Quiescence and the fresh inventory
+## 2. Quiescence and the fresh inventory (three attempts)
 
-The desktop lane was actively writing `rust/lovelace-desktop` when this round started and for
-most of the first six minutes (its last edit was `ui/app.rs` at 15:45:13.991Z). After **90 s with
-no `.rs` change** (reached at 2026-11-12T15:46:43Z, attempt 1 of 3) the source walk was hashed, then
-`parity/gen-rust-tests.ps1` was run. The pre-run walk, the inventory's recorded
-`sourcesSha256` and the post-run walk are the same value (`ff9866a55ac94150f243cb7d6477690f3f1de5e4e5731ae0c4f98f8b7528022d`), so the run was not discarded for staleness and the gate's
-freshness check passed.
+The desktop lane was actively writing `rust/lovelace-desktop` while this round ran, so every
+measurement was gated on **90 s with no `.rs` change** and on the pre-run source walk matching
+the inventory's recorded `sourcesSha256`. The inventory is stale if that hash differs.
 
-Observed line (`generatedAtUtc 2026-11-12T15:49:38Z`, suite exit 0):
+**Attempt 1 — discarded (gate staleness).** Quiescence at 15:46:43Z (last edit `ui/app.rs`
+15:45:13.991Z); `parity/gen-rust-tests.ps1` produced `generatedAtUtc 2026-11-12T15:49:38Z`,
+5,325 listed / 5,324 passed, 0 failed, `sourcesSha256 ff9866a55ac94150f243cb7d6477690f3f1de5e4e5731ae0c4f98f8b7528022d`; the pre-run and post-run walks matched. With the map still
+unflipped it gave 5,987/6,209 (96.42 %) and a PASS, but between that run and the post-flip gate the
+desktop lane edited `engine.rs` (15:51:52Z) and `workbench.rs` (15:51:48Z); the gate correctly
+failed with `rust-tests.json is stale`. The measurement was discarded.
+
+**Attempt 2 — discarded (source changed mid-run).** Quiescence at 15:53:22Z (last edit
+`engine.rs` 15:51:52.448Z); pre-run walk `25144adad791e62d3d987c5952060b2174e9332180150bdbe8afafb8d3fb9ff0`.
+The run reported 5,327 listed / 5,326 passed, but the finished inventory recorded
+`1926e15c5e8578bc6648d3f5f17db917089377ace4c5e1f89ed299e677fb7205` because `ui/editor.rs`
+changed at 15:55:17Z inside the run window. A later fresh listing agreed with the recorded names,
+but the run was not measured against one stable tree, so it was discarded rather than argued into
+validity.
+
+**Attempt 3 — clean (used for the baseline).** The tree had been quiet since 15:55:17.983Z;
+pre-run walk `1926e15c5e8578bc6648d3f5f17db917089377ace4c5e1f89ed299e677fb7205`, and after the
+suite the inventory recorded the same hash, so pre-run = inventory = post-run. Observed line
+(`generatedAtUtc 2026-11-12T16:00:11Z`, suite exit 0):
 
 ```
-crates=11 tests=5325 suiteExit=0 passed=5324 failed=0
+crates=11 tests=5327 suiteExit=0 passed=5326 failed=0
 ```
 
-5,325 listed = 5,324 passed + the workspace's one ignored test
+5,327 listed = 5,326 passed + the workspace's one ignored test
 (`property_assertions::mathir_evaluates_like_symbolic`, blocked on the known 1-ulp
-`numeric::evaluate` / `IrEvaluator` difference). The inventory lists 34 tests more than the
-checked-in one and **removes none**: the 8 round-84 tests plus 26 desktop tests that landed after
+`numeric::evaluate` / `IrEvaluator` difference). The inventory lists 36 tests more than the
+checked-in one and **removes none**: the 8 round-84 tests plus 28 desktop tests that landed after
 15:04Z (8 `completion`, 2 `language`, 5 `ui::app` completion/decoration, 5 `diagnostic_map`,
-3 `engine`, 1 `statements`, 1 `workbench`, 1 `execution`). All 8 round-84 names are present.
+3 `engine`, 3 `workbench`, 1 `statements`, 1 `execution`). All 8 round-84 names are present.
 
 With the fresh inventory and the map still unflipped, `node parity/gen-manifest.mjs` and
-`parity/gate-manifest.ps1` gave the pre-flip baseline:
+`parity/gate-manifest.ps1` gave the pre-flip baseline (observed during attempt 1, so its
+`rustTests` count is 5,325; the dispositions are inventory-independent):
 
 ```
 {
@@ -80,14 +96,14 @@ rows, and are not mapped.
 | `.../EvalirBatch_FlatInputNotAWholeNumberOfRows_IsRejected#0` | `DxStructuredResultsTests.cs:273`: `[1, 2, 3]` for a 2-wide kernel throws `InvalidOperationException` with `evalir_batch(): kernel expects 2 parameters per row; got 3 values, which is not a whole number of rows.` | `lovelace-lang::round84_evalir_multi::evalir_batch_flat_input_not_a_whole_number_of_rows_is_rejected` (`:160`) | Same script; asserts the identical whole-rows sentence and `InvalidOperation`/`DomainError`. |
 
 The map stores for each row `disposition = "ported"`, the `lovelace-lang::round84_evalir_multi::…`
-test id, and a note citing the C# line, the Rust test line and the assertion. The obsolete round-45
-deferral reason was removed with the flip.
+test id, a note citing the C# line, the Rust test line and the assertion, and a reason recording
+the round-84 lift. The obsolete round-45 deferral reason was replaced.
 
 ## 4. Final regeneration — 4/4 resolve
 
 After the map write (map re-read immediately before writing; only the four entries changed, all
 other entries byte-identical), `node parity/gen-manifest.mjs`, `parity/gate-manifest.ps1` and
-`node parity/tools/coverage-report.mjs` gave:
+`node parity/tools/coverage-report.mjs` gave, against the clean attempt-3 inventory:
 
 ```
 {
@@ -98,7 +114,7 @@ other entries byte-identical), `node parity/gen-manifest.mjs`, `parity/gate-mani
     "deferred": 100
   },
   "coveragePercent": 96.49,
-  "rustTests": 5325
+  "rustTests": 5327
 }
 ```
 
@@ -144,6 +160,6 @@ Files changed by this round: `parity/manifest-map.json` (4 curated entries), the
 modified in the shared working tree by the concurrent lane and were not touched here. No Rust
 source, C# source, fixture or corpus file was edited.
 
-One freshness attempt was needed: the tree was quiescent for 90 s before the measurement and
-remained unchanged through the suite run (pre-run = inventory = post-run `sourcesSha256`), so the
-gate's staleness check passed with no discard/retry.
+Three freshness attempts were used (maximum 3): attempts 1 and 2 were discarded for a stale and a
+mid-run-changed inventory respectively; attempt 3 was measured against one stable source walk and
+the gate's staleness check passed.

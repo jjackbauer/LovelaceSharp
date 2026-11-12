@@ -1742,19 +1742,30 @@ pub fn call(
                     }
                 }
             }
+            // The compiled program is the reference's Lowering.Lower + IrTyping.Validate: the
+            // parameter list is the compilation contract's own (at least one), duplicate names
+            // bind to their LAST position and are refused by validation, and result_type is the
+            // FORWARD inference's last node type - unconstrained (a bare or multi-parameter
+            // result) is the reference's "unknown", never a guess from the symbolic domain.
+            let program = crate::mathir::compile_ordered(&f, &names)?;
+            let result_type = program
+                .result_type()
+                .map(|kind| kind.name().to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            let ir = program.ir_text();
             Ok(Value::Record(
                 "CompilationResult".to_string(),
                 vec![
-                    ("ir".to_string(), Value::Text(ir_text(&f, &names))),
+                    (
+                        "ir".to_string(),
+                        Value::Text(ir.trim_end_matches('\n').to_string()),
+                    ),
                     ("parameters".to_string(), Value::Vector(parameters)),
                     (
                         "result_domain".to_string(),
                         Value::Domain("complex".to_string()),
                     ),
-                    (
-                        "result_type".to_string(),
-                        Value::Text(result_type(&f, &names)),
-                    ),
+                    ("result_type".to_string(), Value::Text(result_type)),
                     (
                         "precision_policy".to_string(),
                         Value::Text("caller_supplied".to_string()),
@@ -1784,112 +1795,71 @@ pub fn call(
                 }
                 return Err(error);
             }
-            let digits = evalir_digits(name, &args[2])?;
-            let expr = match &args[0] {
-                Value::Text(text) if text.starts_with("#!mathir") => {
-                    // The reference gates the VERSION before reading any node: everything after
-                    // "#!mathir " must start with the supported version, and the refusal quotes
-                    // that whole tail verbatim (Unsupported MathIR format version '1\nparam x\n'
-                    // (expected 2).).
-                    if let Some(error) = ir_version_error(text, pos) {
-                        return Err(error);
+            // The kernel is the compiled IR text (or the ir field of a CompilationResult);
+            // Deserialize validates it exactly as the reference does, so a multi-parameter
+            // kernel is read and executed instead of being reduced to one free symbol.
+            let program = evalir_program(&args[0], pos)?;
+            if name == "evalir" {
+                // The reference casts the values argument to a list FIRST, then reads digits,
+                // then checks the count: preserve that order so the first refusal is the same.
+                let values = match evalir_list_values(&args[1]) {
+                    Some(values) => values,
+                    None => {
+                        return Err(LangError::coded(
+                            format!(
+                                "evalir(): argument 3 must be a value this builtin can use; got {}.",
+                                args[1].kind_name()
+                            ),
+                            0,
+                            "InvalidArgument",
+                            "TypeMismatch",
+                        ));
                     }
-                    match parse_ir_text(text) {
-                        Some(e) => e,
-                        None => {
-                            return Err(LangError::plain("evalir could not read that IR text."));
-                        }
-                    }
-                }
-                Value::Symbolic(e) => e.clone(),
-                // compile() answers a CompilationResult record whose payload is the IR TEXT;
-                // a record carrying a symbolic "expression" is accepted too. Both are compiled
-                // expressions — evalir must read either, as the reference does.
-                Value::Record(_, fields) => {
-                    if let Some(e) = fields
-                        .iter()
-                        .find(|(k, _)| k == "expression")
-                        .and_then(|(_, v)| as_expr(v))
-                    {
-                        e
-                    } else if let Some(text) =
-                        fields
-                            .iter()
-                            .find(|(k, _)| k == "ir")
-                            .and_then(|(_, v)| match v {
-                                Value::Text(t) => Some(t),
-                                _ => None,
-                            })
-                    {
-                        parse_ir_text(text).ok_or_else(|| {
-                            LangError::plain("evalir could not read that IR text.")
-                        })?
-                    } else {
-                        return Err(LangError::plain("evalir needs a compiled expression."));
-                    }
-                }
-                other => {
+                };
+                let digits = evalir_digits(name, &args[2])?;
+                if values.len() != program.parameters().len() {
                     return Err(LangError::plain(format!(
-                        "evalir needs a compiled expression, but got '{}'.",
-                        other.kind_name()
+                        "evalir(): kernel expects {} parameters; got {} values.",
+                        program.parameters().len(),
+                        values.len()
                     )));
                 }
-            };
-            // One free symbol, in order of first appearance.
-            let mut symbols: Vec<String> = Vec::new();
-            collect_all_symbols(&expr, &mut symbols);
-            if symbols.len() > 1 {
-                return Err(LangError::plain("evalir supports one free symbol."));
+                let mut bindings = std::collections::HashMap::with_capacity(values.len());
+                for (parameter, value) in program.parameters().iter().zip(values) {
+                    bindings.insert(
+                        parameter.clone(),
+                        value_to_num(value)
+                            .ok_or_else(|| LangError::plain("Expected a numeric value."))?,
+                    );
+                }
+                let result = crate::mathir::IrEvaluator::evaluate_at(&program, &bindings, digits)?;
+                return result.into_value(digits);
             }
-            let var = symbols.first().cloned().unwrap_or_else(|| "x".to_string());
-            let coeffs = lovelace_symbolics::poly_coeffs(&expr, &var)
-                .ok_or_else(|| LangError::plain("evalir needs a polynomial expression."))?;
-            let evaluate = |point: &Value| -> Result<Value, LangError> {
-                let r = as_real(point)
-                    .ok_or_else(|| LangError::plain("evalir needs numeric inputs."))?;
-                let mut acc = Real::zero();
-                for c in coeffs.iter().rev() {
-                    let num = Int::from_decimal(&c.numerator().to_decimal())
-                        .ok_or_else(|| LangError::plain("coefficient is too large."))?;
-                    let den = Int::from_decimal(&c.denominator().to_decimal())
-                        .ok_or_else(|| LangError::plain("coefficient is too large."))?;
-                    // The caller's digit count is a PRECISION: it is the count the answer is
-                    // computed at, so the coefficient division runs at that count rather than
-                    // the ambient one (the reference's Real.WithPrecision(digits, ...) scope).
-                    let coef = Real::from_int(&num)
-                        .div(&Real::from_int(&den), digits)
-                        .ok_or_else(divide_by_zero)?;
-                    acc = acc.mul(&r).add(&coef);
+            let digits = evalir_digits(name, &args[2])?;
+            let width = program.parameters().len();
+            let values = evalir_batch_rows(&args[1], width)?;
+            // The helper refuses every zero-width list before this point; checked_div keeps a
+            // future Ok path from turning the reference's DivisionByZero into a Rust panic.
+            let rows = values.len().checked_div(width).unwrap_or(0);
+            // One column per parameter, in declaration order: a repeated name overwrites the
+            // earlier column exactly as the reference's name-keyed dictionary does.
+            let mut columns: std::collections::HashMap<String, Vec<crate::numeric::Num>> =
+                std::collections::HashMap::new();
+            for (position, parameter) in program.parameters().iter().enumerate() {
+                let mut column = Vec::with_capacity(rows);
+                for row in 0..rows {
+                    column.push(
+                        value_to_num(&values[row * width + position])
+                            .ok_or_else(|| LangError::plain("Expected a numeric value."))?,
+                    );
                 }
-                if acc.is_integer() {
-                    if let Some(i) = acc.to_int_exact() {
-                        return Ok(Value::Integer(i));
-                    }
-                }
-                // The digits argument bounds the ANSWER, not just the working precision: a
-                // quotient the precision scope could not terminate inside the count is
-                // published truncated to it, and the cut is carried in the value's provenance
-                // (the reference publishes a precision-scoped Real, never a periodic one).
-                if stored_fraction_digits(&acc) > digits {
-                    let text = acc.to_decimal_fixed(digits);
-                    let truncated = Real::from_str(&text).unwrap_or_else(|| acc.clone());
-                    return Ok(Value::Real(truncated.mark_inexact()));
-                }
-                Ok(Value::Real(acc))
-            };
-            if name == "evalir" {
-                // A single-point vector is the documented way to pass one input.
-                if let Value::Vector(points) = &args[1] {
-                    if points.len() == 1 {
-                        return evaluate(&points[0]);
-                    }
-                }
-                return evaluate(&args[1]);
+                columns.insert(parameter.clone(), column);
             }
-            let points = flatten_values(&args[1])?;
-            let mut out = Vec::with_capacity(points.len());
-            for p in &points {
-                out.push(evaluate(p)?);
+            let results =
+                crate::mathir::IrEvaluator::evaluate_batch_at(&program, &columns, digits)?;
+            let mut out = Vec::with_capacity(results.len());
+            for result in results {
+                out.push(result.into_value(digits)?);
             }
             Ok(Value::Vector(out))
         }
@@ -2659,9 +2629,14 @@ pub fn call(
                     names.push(n.clone());
                 }
             }
-            // The kernel carries both its textual IR and the expression it denotes, so a
-            // consumer can either read the text or evaluate it.
-            Ok(Value::Text(ir_text(&e, &names)))
+            // The kernel carries the reference's Lowering.Lower text (trimmed of the
+            // serializer's trailing newline, as CompilationResult.IrText does). Lowering is
+            // UNVALIDATED here, so a duplicate parameter name binds to its LAST position and the
+            // text keeps the out-of-range operand the later validation refuses.
+            let program = crate::mathir::IrProgram::lower_ordered(&e, &names)?;
+            Ok(Value::Text(
+                program.serialize().trim_end_matches('\n').to_string(),
+            ))
         }
         "optimize" | "optimize_full" => {
             if args.len() < 2 {
@@ -3711,6 +3686,133 @@ fn evalir_digits(name: &str, arg: &Value) -> Result<usize, LangError> {
             other.kind_name()
         ))),
     }
+}
+
+/// The compiled kernel that evalir/evalir_batch evaluate: the serialized MathIR text from
+/// lower/compile, or the ir field of a CompilationResult. Any other payload is the
+/// reference's dispatch refusal naming both builtins; the text is read by IrProgram.Deserialize,
+/// whose validation is the same structural/type pass Compilation.Compile runs.
+fn evalir_program(value: &Value, pos: usize) -> Result<crate::mathir::IrProgram, LangError> {
+    let text = match value {
+        Value::Text(text) => text.as_str(),
+        Value::Record(_, fields) => match fields
+            .iter()
+            .find(|(name, _)| name == "ir")
+            .map(|(_, value)| value)
+        {
+            Some(Value::Text(text)) => text.as_str(),
+            _ => return Err(evalir_ir_refusal()),
+        },
+        _ => return Err(evalir_ir_refusal()),
+    };
+    // The builtin's version gate runs before the reader, quoting the whole tail after the
+    // "#!mathir" prefix. The language's own string literals unescape to real newlines, so this
+    // is the message the published evalir contract has always carried for those bytes; the
+    // library reader (IrProgram::deserialize) quotes the header line alone.
+    if let Some(error) = evalir_ir_version_error(text, pos) {
+        return Err(error);
+    }
+    crate::mathir::IrProgram::deserialize(text)
+}
+
+fn evalir_ir_version_error(text: &str, pos: usize) -> Option<LangError> {
+    let rest = text.strip_prefix("#!mathir")?;
+    let tail = rest.strip_prefix(' ').unwrap_or(rest);
+    if tail.starts_with('2') {
+        return None;
+    }
+    Some(LangError::coded(
+        format!("Unsupported MathIR format version '{tail}' (expected 2)."),
+        pos,
+        "InvalidInput",
+        "ParseError",
+    ))
+}
+
+fn evalir_ir_refusal() -> LangError {
+    LangError::plain("evalir/evalir_batch expect the IR from compile() or compile_full().")
+}
+
+/// A numeric argument at the reference's Num tiers: Natural/Integer are exact rationals, Real
+/// stays approximate, Complex stays complex. Non-numeric payloads are the reference's
+/// "Expected a numeric value." refusal.
+fn value_to_num(value: &Value) -> Option<crate::numeric::Num> {
+    use crate::numeric::Num;
+    match value {
+        Value::Natural(n) => Int::from_decimal(&n.to_decimal())
+            .map(|i| Num::Exact(Rat::from_parts(i, Nat::from_u64(1)))),
+        Value::Integer(i) => Some(Num::Exact(Rat::from_parts(i.clone(), Nat::from_u64(1)))),
+        Value::Real(r) | Value::RealClamped(r, _, _) => Some(Num::Real(r.clone())),
+        Value::Complex(re, im) => Some(Num::Complex(crate::complex::Complex::new(
+            re.clone(),
+            im.clone(),
+        ))),
+        _ => None,
+    }
+}
+
+/// The flat row-major values of a list-shaped argument: a rank-1 Vector, or the stored elements
+/// of a rank >= 2 Array. Any other payload is not a list.
+fn evalir_list_values(value: &Value) -> Option<&[Value]> {
+    match value {
+        Value::Vector(items) => Some(items),
+        Value::Array(array) => Some(array.as_slice()),
+        _ => None,
+    }
+}
+
+/// Splits evalir_batch's values argument into flat row-major values, with the reference's
+/// BatchRows contract: an empty list is refused; a rank-2 list is a list of rows whose width must
+/// equal the kernel width (never re-flowed); a rank > 2 list is refused by rank; a flat list must
+/// hold a whole number of rows. The zero-width flat case is the reference's DivisionByZero.
+fn evalir_batch_rows(value: &Value, width: usize) -> Result<Vec<Value>, LangError> {
+    let (values, rank, row_width) = match value {
+        Value::Vector(items) => (items.as_slice(), 1usize, None),
+        Value::Array(array) if array.rank() >= 2 => {
+            (array.as_slice(), array.rank(), Some(array.shape()[1]))
+        }
+        Value::Array(array) => (array.as_slice(), 1usize, None),
+        _ => {
+            return Err(LangError::plain(
+                "evalir_batch(): values must be a list of numbers or a list of rows.",
+            ));
+        }
+    };
+    if values.is_empty() {
+        return Err(LangError::plain(
+            "evalir_batch(): values must not be empty.",
+        ));
+    }
+    if let Some(row_width) = row_width {
+        if rank > 2 {
+            return Err(LangError::plain(format!(
+                "evalir_batch(): values must be a flat list or a list of rows (rank 2); got rank {rank}."
+            )));
+        }
+        if row_width != width {
+            return Err(LangError::plain(format!(
+                "evalir_batch(): kernel expects {width} parameters per row; row 0 contains {row_width}."
+            )));
+        }
+        return Ok(values.to_vec());
+    }
+    let count = values.len();
+    if width == 0 {
+        // A flat list over a zero-parameter kernel is the reference's values.Count % width,
+        // i.e. a DivideByZeroException classified as DivisionByZero/DomainError.
+        return Err(LangError::coded(
+            "Attempted to divide by zero.",
+            0,
+            "DivisionByZero",
+            "DomainError",
+        ));
+    }
+    if count % width != 0 {
+        return Err(LangError::plain(format!(
+            "evalir_batch(): kernel expects {width} parameters per row; got {count} values, which is not a whole number of rows."
+        )));
+    }
+    Ok(values.to_vec())
 }
 
 /// The evalf computation itself: the argument bounded to the REQUESTED decimal count, never to
@@ -8275,105 +8377,6 @@ fn enforce_solution_values(result: Value, var: &str) -> Value {
     set_field(&mut fields, "unrepresented_reason", Value::Text(reason));
     Value::Record(name, fields)
 }
-/// The MathIR format-version gate. The supported version is 2; the refusal quotes everything
-/// after the "#!mathir " prefix, which is exactly what the reference's IrProgram.Deserialize
-/// reports (`Unsupported MathIR format version '<tail>' (expected 2).`) as a ParseError.
-fn ir_version_error(text: &str, pos: usize) -> Option<LangError> {
-    let rest = text.strip_prefix("#!mathir")?;
-    let tail = rest.strip_prefix(' ').unwrap_or(rest);
-    if tail.starts_with('2') {
-        return None;
-    }
-    Some(LangError::coded(
-        format!("Unsupported MathIR format version '{tail}' (expected 2)."),
-        pos,
-        "InvalidInput",
-        "ParseError",
-    ))
-}
-
-/// Reads back the MathIR text emitted by lower: constants, parameters and one node per line.
-fn parse_ir_text(text: &str) -> Option<Sym> {
-    let mut constants: Vec<Sym> = Vec::new();
-    let mut params: Vec<String> = Vec::new();
-    let mut nodes: Vec<Sym> = Vec::new();
-    for line in text.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with("#!") {
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("param ") {
-            params.push(rest.trim().to_string());
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("const ") {
-            let inner = rest.trim();
-            if let Some(body) = inner
-                .strip_prefix("(rat ")
-                .and_then(|s| s.strip_suffix(')'))
-            {
-                let mut parts = body.split_whitespace();
-                let num = parts.next()?;
-                let den = parts.next()?;
-                let n = Int::from_decimal(num)?;
-                let d = Nat::from_decimal(den)?;
-                constants.push(Sym::rational(&n, &d));
-                continue;
-            }
-            return None;
-        }
-        let mut parts = line.splitn(3, ' ');
-        let op = parts.next()?;
-        let _aux = parts.next()?;
-        let children = parts.next().unwrap_or("");
-        let mut indices: Vec<usize> = Vec::new();
-        for piece in children.split(',') {
-            if piece.is_empty() {
-                continue;
-            }
-            indices.push(piece.parse::<usize>().ok()?);
-        }
-        let node = match op {
-            "Parameter" => Sym::sym(&params.get(indices.first().copied()?)?.clone()),
-            "Constant" => constants.get(indices.first().copied()?)?.clone(),
-            "Add" => {
-                let mut acc = Sym::num(0);
-                for i in &indices {
-                    acc = Sym::add(acc, nodes.get(*i)?.clone());
-                }
-                acc
-            }
-            "Mul" => {
-                let mut acc = Sym::num(1);
-                for i in &indices {
-                    acc = Sym::mul(acc, nodes.get(*i)?.clone());
-                }
-                acc
-            }
-            "PowInt" => {
-                // The exponent is its own constant node in the published format.
-                let base = nodes.get(indices.first().copied()?)?.clone();
-                let exponent = nodes.get(indices.get(1).copied()?)?.clone();
-                Sym::pow(base, exponent)
-            }
-            "Div" => {
-                let a = nodes.get(indices.first().copied()?)?.clone();
-                let b = nodes.get(indices.get(1).copied()?)?.clone();
-                Sym::Div(Box::new(a), Box::new(b))
-            }
-            other => {
-                let mut args: Vec<Sym> = Vec::new();
-                for i in &indices {
-                    args.push(nodes.get(*i)?.clone());
-                }
-                Sym::Fun(other.to_string(), args)
-            }
-        };
-        nodes.push(node);
-    }
-    nodes.pop()
-}
-
 /// Rewrites a univariate polynomial in Horner form, factoring the lowest power of the variable
 /// first. Returns None when the expression is not a polynomial in that variable.
 fn horner_form(e: &Sym, var: &str) -> Option<Sym> {
@@ -9081,28 +9084,6 @@ fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
     )
 }
 
-/// Emits the MathIR text for a lowered expression.
-///
-/// The order is the published format: a power emits its base, then its exponent as a
-/// constant node, then the power node; sums and products emit children in order; repeated
-/// subexpressions reuse their index.
-fn ir_text(e: &Sym, params: &[String]) -> String {
-    let mut constants: Vec<String> = Vec::new();
-    let mut nodes: Vec<String> = Vec::new();
-    let mut cache: Vec<(String, usize)> = Vec::new();
-    emit_ir(e, params, &mut constants, &mut nodes, &mut cache);
-    let mut lines: Vec<String> = Vec::new();
-    lines.push("#!mathir 2".to_string());
-    for p in params {
-        lines.push(format!("param {}", p));
-    }
-    for c in &constants {
-        lines.push(format!("const {}", c));
-    }
-    lines.extend(nodes);
-    lines.join("\n")
-}
-
 /// The CSE accounting the optimizer publishes: every subexpression that occurs more than once
 /// contributes its extra occurrences, so a shared subtree is counted once per reuse.
 fn shared_subtree_count(e: &Sym) -> usize {
@@ -9128,179 +9109,6 @@ fn shared_subtree_count(e: &Sym) -> usize {
     counts.iter().map(|(_, c)| c.saturating_sub(1)).sum()
 }
 
-/// The MathIR payload type of an expression over the given parameters: the narrowest type that
-/// holds every value the expression can take. A polynomial with integer coefficients over the
-/// parameters is integer-valued; rational coefficients keep it rational; a non-rational leaf (a
-/// transcendental constant, a radical or a transcendental function) widens it to real, and an
-/// imaginary leaf to complex.
-fn result_type(e: &Sym, params: &[String]) -> String {
-    use lovelace_symbolics::Dom;
-    let _ = params;
-    let domain = e.domain();
-    match domain {
-        Dom::Integer | Dom::Rational => {
-            // A rational whose denominators are all one is integer-valued.
-            if polynomial_is_integral(e) {
-                "Integer".to_string()
-            } else {
-                "Rational".to_string()
-            }
-        }
-        Dom::Real => "Real".to_string(),
-        Dom::Complex => {
-            if polynomial_is_integral(e) {
-                "Integer".to_string()
-            } else {
-                "Complex".to_string()
-            }
-        }
-    }
-}
-
-/// True when the expression is a polynomial with integer coefficients in its symbols.
-fn polynomial_is_integral(e: &Sym) -> bool {
-    match e {
-        Sym::Num(n) => n.denominator().to_decimal() == "1",
-        // a real constant is a decimal value: never an integer polynomial coefficient
-        Sym::Real(_) => false,
-        Sym::Sym(_) => true,
-        Sym::Add(items) | Sym::Mul(items) => items.iter().all(polynomial_is_integral),
-        Sym::Pow(base, exp) => {
-            polynomial_is_integral(base)
-                && matches!(exp.as_ref(), Sym::Num(n)
-                    if n.denominator().to_decimal() == "1" && !n.is_negative())
-        }
-        Sym::Div(a, b) => polynomial_is_integral(a) && polynomial_is_integral(b),
-        Sym::Fun(..) | Sym::Rel(..) => false,
-    }
-}
-
-/// Emits a fresh Constant node over the deduplicated constant table. Literal nodes are never
-/// cached: the reference's lowering adds one node per literal occurrence, so two occurrences of
-/// the same value share a const entry but not a node (see the PowInt exponent path).
-fn emit_constant_node(
-    value: &lovelace_symbolics::Rat,
-    constants: &mut Vec<String>,
-    nodes: &mut Vec<String>,
-) -> usize {
-    let ci = constant_index(value, constants);
-    nodes.push(format!("Constant 0 {}", ci));
-    nodes.len() - 1
-}
-
-fn constant_index(value: &lovelace_symbolics::Rat, constants: &mut Vec<String>) -> usize {
-    let text = format!(
-        "(rat {} {})",
-        value.numerator().to_decimal(),
-        value.denominator().to_decimal()
-    );
-    match constants.iter().position(|c| *c == text) {
-        Some(i) => i,
-        None => {
-            constants.push(text);
-            constants.len() - 1
-        }
-    }
-}
-
-fn emit_ir(
-    e: &Sym,
-    params: &[String],
-    constants: &mut Vec<String>,
-    nodes: &mut Vec<String>,
-    cache: &mut Vec<(String, usize)>,
-) -> usize {
-    let key = e.to_string();
-    if let Some((_, index)) = cache.iter().find(|(k, _)| *k == key) {
-        return *index;
-    }
-    let index = match e {
-        Sym::Sym(name) => {
-            let position = params.iter().position(|p| p == name).unwrap_or(0);
-            nodes.push(format!("Parameter 0 {}", position));
-            nodes.len() - 1
-        }
-        Sym::Num(r) => {
-            let ci = constant_index(r, constants);
-            nodes.push(format!("Constant 0 {}", ci));
-            nodes.len() - 1
-        }
-        Sym::Real(text) => {
-            let entry = format!("(real {text})");
-            let ci = match constants.iter().position(|c| *c == entry) {
-                Some(i) => i,
-                None => {
-                    constants.push(entry);
-                    constants.len() - 1
-                }
-            };
-            nodes.push(format!("Constant 0 {}", ci));
-            nodes.len() - 1
-        }
-        Sym::Pow(base, exp) => match exp.as_ref() {
-            Sym::Num(n) if n.denominator().to_decimal() == "1" => {
-                let child = emit_ir(base, params, constants, nodes, cache);
-                // The reference's PowInt exponent is emitted as a FRESH Constant node on every
-                // occurrence (Lowering.Emit calls AddConstant, which never consults the node
-                // cache): the constant TABLE dedupes by value, but the node does not. A literal
-                // that appears both as an exponent and as a coefficient therefore names two
-                // distinct nodes over one const entry, which is the published sym/071 listing.
-                let exponent = emit_constant_node(n, constants, nodes);
-                nodes.push(format!("PowInt 0 {},{}", child, exponent));
-                nodes.len() - 1
-            }
-            _ => {
-                let a = emit_ir(base, params, constants, nodes, cache);
-                let b2 = emit_ir(exp, params, constants, nodes, cache);
-                nodes.push(format!("Pow 0 {},{}", a, b2));
-                nodes.len() - 1
-            }
-        },
-        Sym::Add(terms) => {
-            let mut ordered = terms.clone();
-            ordered.sort_by(lovelace_symbolics::canonical_order);
-            let mut children: Vec<usize> = Vec::new();
-            for t in &ordered {
-                children.push(emit_ir(t, params, constants, nodes, cache));
-            }
-            let list: Vec<String> = children.iter().map(|c| c.to_string()).collect();
-            nodes.push(format!("Add 0 {}", list.join(",")));
-            nodes.len() - 1
-        }
-        Sym::Mul(terms) => {
-            let mut ordered = terms.clone();
-            ordered.sort_by(lovelace_symbolics::canonical_order);
-            let mut children: Vec<usize> = Vec::new();
-            for t in &ordered {
-                children.push(emit_ir(t, params, constants, nodes, cache));
-            }
-            let list: Vec<String> = children.iter().map(|c| c.to_string()).collect();
-            nodes.push(format!("Mul 0 {}", list.join(",")));
-            nodes.len() - 1
-        }
-        Sym::Div(a, b2) => {
-            let x = emit_ir(a, params, constants, nodes, cache);
-            let y = emit_ir(b2, params, constants, nodes, cache);
-            nodes.push(format!("Div 0 {},{}", x, y));
-            nodes.len() - 1
-        }
-        Sym::Fun(name, args) => {
-            let mut children: Vec<usize> = Vec::new();
-            for a in args {
-                children.push(emit_ir(a, params, constants, nodes, cache));
-            }
-            let list: Vec<String> = children.iter().map(|c| c.to_string()).collect();
-            nodes.push(format!("{} 0 {}", name, list.join(",")));
-            nodes.len() - 1
-        }
-        Sym::Rel(_, _, _) => {
-            nodes.push("Unsupported 0 ".to_string());
-            nodes.len() - 1
-        }
-    };
-    cache.push((key, index));
-    index
-}
 /// Why a solution set is Partial although no root is missing from the wire: the roots exist in
 /// the requested domain but the exact kernel cannot represent them (RootOf is real-only in v1).
 /// This is the reference's own reason string, carried into `unrepresented_reason` and into the

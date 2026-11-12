@@ -45868,34 +45868,38 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_AcceptsNestedRowValues#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-multi': $.diagnostics[0].message: \"evalir supports one free symbol.\" vs the documented multi-parameter batch result/refusal"
+disposition = "ported"
+rust = "lovelace-lang::round84_evalir_multi::evalir_batch_accepts_nested_row_values"
+reason = "Ported by round 84: the MathIR compiler and IrEvaluator now evaluate multi-parameter kernels and reproduce this row's documented answer/refusal (see note; docs/goal-parity-contract/round-84/evalir-multi.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: DxStructuredResultsTests.cs:424 asserts a two-parameter kernel's row-shaped call evalir_batch(compile_full(x + y, [x, y]), [[1, 2], [3, 4]], 40) is [3, 7] (Vector) and the compilation result is a record. Rust: rust/lovelace-lang/src/round84_evalir_multi.rs:85 asserts the same [3, 7] (Vector) batch and result_type \"unknown\" for the unconstrained parameter (the reference's forward-inference answer)."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_FlatInputNotAWholeNumberOfRows_IsRejected#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-multi': $.diagnostics[0].message: \"evalir supports one free symbol.\" vs the documented multi-parameter batch result/refusal"
+disposition = "ported"
+rust = "lovelace-lang::round84_evalir_multi::evalir_batch_flat_input_not_a_whole_number_of_rows_is_rejected"
+reason = "Ported by round 84: the MathIR compiler and IrEvaluator now evaluate multi-parameter kernels and reproduce this row's documented answer/refusal (see note; docs/goal-parity-contract/round-84/evalir-multi.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: DxStructuredResultsTests.cs:273 asserts a flat 3-value list for a 2-parameter kernel throws InvalidOperationException with \"evalir_batch(): kernel expects 2 parameters per row; got 3 values, which is not a whole number of rows.\". Rust: rust/lovelace-lang/src/round84_evalir_multi.rs:160 asserts the identical message and InvalidOperation/DomainError."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_RowOrientedInput_EvaluatesRowByRow#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-multi': $.diagnostics[0].message: \"evalir supports one free symbol.\" vs the documented multi-parameter batch result/refusal"
+disposition = "ported"
+rust = "lovelace-lang::round84_evalir_multi::evalir_batch_row_oriented_input_evaluates_row_by_row"
+reason = "Ported by round 84: the MathIR compiler and IrEvaluator now evaluate multi-parameter kernels and reproduce this row's documented answer/refusal (see note; docs/goal-parity-contract/round-84/evalir-multi.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: DxStructuredResultsTests.cs:252 asserts evalir_batch(compile(x*y + 1, [x, y]), [[1, 2], [3, 4]], 40) is [3, 13] (Vector), i.e. values pair row by row. Rust: rust/lovelace-lang/src/round84_evalir_multi.rs:115 asserts the same [3, 13] (Vector) and the flat row-major [1, 2, 3, 4] form of the same rows."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/EvalirBatch_RowWidthMismatch_IsRejectedWithTheDocumentedShape#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'evalir-multi': $.diagnostics[0].message: \"evalir supports one free symbol.\" vs the documented multi-parameter batch result/refusal"
+disposition = "ported"
+rust = "lovelace-lang::round84_evalir_multi::evalir_batch_row_width_mismatch_is_rejected_with_the_documented_shape"
+reason = "Ported by round 84: the MathIR compiler and IrEvaluator now evaluate multi-parameter kernels and reproduce this row's documented answer/refusal (see note; docs/goal-parity-contract/round-84/evalir-multi.md)."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: DxStructuredResultsTests.cs:261 asserts a 3-value row for a 2-parameter kernel throws InvalidOperationException with \"evalir_batch(): kernel expects 2 parameters per row; row 0 contains 3.\". Rust: rust/lovelace-lang/src/round84_evalir_multi.rs:140 asserts the identical message and InvalidOperation/DomainError."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/Inspect_ArrayShapeRankAndElementDomain_AreStructural#0"
