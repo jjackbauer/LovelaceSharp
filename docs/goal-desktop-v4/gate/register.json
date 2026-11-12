@@ -1,4 +1,4 @@
-{
+﻿{
     "schema":  1,
     "source":  "docs/goal-desktop-v4/requirements.md",
     "catalog_total":  229,
@@ -81,9 +81,9 @@
                      "evidence":  [
                                       {
                                           "path":  "rust/lovelace-desktop/src/engine/real.rs",
-                                          "sha256":  "4D147E6A51DBACA5FBA7D796DEA34FC2C7C4C4FCC5CE5673B2028C2BDA0465C4",
+                                          "sha256":  "1E9E099F1E08E8F524F2D9A5BE51D60ACF1CEC6836CB7013181865BC0858FC93",
                                           "class":  "static",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "census-core",
@@ -104,13 +104,13 @@
                                           "path":  "docs/goal-desktop-v4/round-1/gate-failclosed.txt",
                                           "sha256":  "B65C18CA1D6C7F7D6136321BA19A0FF3B5398F055E0A5F7E39CD97D98BB7CEC3",
                                           "class":  "static",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "tools/desktop-gate.ps1",
-                                          "sha256":  "F9B1FB1A039A4890FD457EAB0D0219E97836D02C33922EA42403B7AF58FBEA4D",
+                                          "sha256":  "E59A633A4E0D983B1DF72F8136BFB3F94917A1E02AC625DB31FF0E20F8696673",
                                           "class":  "static",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "-Verify",
@@ -129,9 +129,9 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/deviations.md",
-                                          "sha256":  "6AC550E033AA7B4FEBD0BE8DFD18C4A17E4444177DDB971A427EBC7E8A390EED",
+                                          "sha256":  "BBAF48F9C6D00196853C3DAF88F0BB0A2AFEDD4BC9A74C2F3281A7A0111E994B",
                                           "class":  "static",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "review",
@@ -382,19 +382,19 @@
                                           "path":  "docs/goal-desktop-v4/round-9/kernel-cancel.md",
                                           "sha256":  "A8DEA6D11F7CE0B1283FA016B0BD9E04D7C2AB470FCFB7FD93CA253E1695930E",
                                           "class":  "unit",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/execution.rs",
-                                          "sha256":  "6F5B2AED1C1A363A79635F6594DEA67C4D0A3053896DBBADEBEAE7AFAB8079B8",
+                                          "sha256":  "4415F70697C0D36CFB74BBE48D152B3C6EB4B8A09B6DA17A24F59A9D06C1BABB",
                                           "class":  "unit",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
                                           "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
                                           "class":  "unit",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop t9; --gui-selftest long-run",
@@ -702,7 +702,7 @@
                      "priority":  "P1",
                      "type":  "Q",
                      "requirement":  "Respect motion preferences",
-                     "acceptance":  "Animation is modest (typically 120–200 ms) and reduced-motion setting removes nonessential motion while maintaining feedback.",
+                     "acceptance":  "Animation is modest (typically 120â€“200 ms) and reduced-motion setting removes nonessential motion while maintaining feedback.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -718,7 +718,7 @@
                      "priority":  "P0",
                      "type":  "D",
                      "requirement":  "Ensure coherent responsive window design",
-                     "acceptance":  "The 900×600, 1280×800 and 1920×1080 layouts remain usable without clipping, accidental overlays or illegible content.",
+                     "acceptance":  "The 900Ã—600, 1280Ã—800 and 1920Ã—1080 layouts remain usable without clipping, accidental overlays or illegible content.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -766,7 +766,7 @@
                      "priority":  "P0",
                      "type":  "W",
                      "requirement":  "Make the editor the primary surface",
-                     "acceptance":  "At default 1280×800 editor receives at least ~45% width and clear visual priority without making results/plot inaccessible.",
+                     "acceptance":  "At default 1280Ã—800 editor receives at least ~45% width and clear visual priority without making results/plot inaccessible.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -886,19 +886,13 @@
                                           "path":  "docs/goal-desktop-v4/round-5/uia-tree.txt",
                                           "sha256":  "FE65E692133F4F79253049E000B8C8B3DFDF330E4504954B6F9A5D7E5024E765",
                                           "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-5/product-typed.png",
                                           "sha256":  "80B225E2D5A58C18E150E1BE89DE60991692FC762A0C8ABBF765D017D18DFBCD",
                                           "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
-                                      },
-                                      {
-                                          "path":  "docs/goal-desktop-v4/round-5/driver.log",
-                                          "sha256":  "17123C87A0C235DF627830DA06655DDAB4C7B537A946F70673A92A23D368D0F8",
-                                          "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "gui-harness capture+uia",
@@ -1022,25 +1016,25 @@
                                           "path":  "docs/goal-desktop-v4/round-20/highlighting-detail-2x.png",
                                           "sha256":  "5287C577B9D28F6481C548CEB21B3D33EB26DA61E0595E8FC2758983EBFF53BC",
                                           "class":  "gui",
-                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-20/highlighting.png",
                                           "sha256":  "AF62874B5F849B8F9EE8D46E8F3FE25B2FC8521D6F723A1C9D4AD08020959FEB",
                                           "class":  "gui",
-                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-20/highlighting.md",
                                           "sha256":  "58E8BE93C33E11CCE754C9C21100B6E1AC5D6288B45CF7B2D0C7DDEAEB97C682",
                                           "class":  "gui",
-                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/ui/syntax.rs",
-                                          "sha256":  "8C95ED0636FBDDF8D23A903587AA06828F944250763528FB8D4702CD0620F79E",
+                                          "sha256":  "CAEF8EA25E472778DF8FD0FFC7DA28EDE6C8FF7CEE98171D0702ADC59052F5F0",
                                           "class":  "gui",
-                                          "at_head":  "0325faf784bcf22cc247721684ad3ed09e5c8da9"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop syntax::tests; PrintWindow capture",
@@ -1294,24 +1288,24 @@
                                           "path":  "docs/goal-desktop-v4/round-21/unicode-offsets.md",
                                           "sha256":  "93CBF0B57BBBDBC1CCD13E615717C415450A26BEF2FFFA9C1C1C735B1129C799",
                                           "class":  "unit",
-                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/diagnostic_map.rs",
                                           "sha256":  "59D7127641400D6C231CD4F912DAF4A4D8D4DF2AEA1667BD40AAE324B5A8E2F7",
                                           "class":  "unit",
-                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/ui/editor.rs",
-                                          "sha256":  "AAB48E7D8CB698F274A0FB6D8BDFD32DA631BF3E598F8449AABD65D4E548DD55",
+                                          "sha256":  "39F20607C49A02616FDBB9106E868FCB50BA33390945C1389175B3651811F8B0",
                                           "class":  "unit",
-                                          "at_head":  "e13f2d04908183839df7c80e99005fbac08be2c3"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop combining|astral|crlf",
                      "waiver":  "",
-                     "scope_note":  "Combining-mark cluster, astral selection bytes (0,6)=a😀b, LF vs CRLF identical ranges, mixed CRLF script; fixed caret column to use UTF-16 units (was char count, 4 vs 5). 192 tests pass."
+                     "scope_note":  "Combining-mark cluster, astral selection bytes (0,6)=aðŸ˜€b, LF vs CRLF identical ranges, mixed CRLF script; fixed caret column to use UTF-16 units (was char count, 4 vs 5). 192 tests pass."
                  },
                  {
                      "id":  "EDT-015",
@@ -1976,19 +1970,19 @@
                                           "path":  "docs/goal-desktop-v4/round-9/kernel-cancel.md",
                                           "sha256":  "A8DEA6D11F7CE0B1283FA016B0BD9E04D7C2AB470FCFB7FD93CA253E1695930E",
                                           "class":  "perf",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/execution.rs",
-                                          "sha256":  "6F5B2AED1C1A363A79635F6594DEA67C4D0A3053896DBBADEBEAE7AFAB8079B8",
+                                          "sha256":  "4415F70697C0D36CFB74BBE48D152B3C6EB4B8A09B6DA17A24F59A9D06C1BABB",
                                           "class":  "perf",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
                                           "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
                                           "class":  "perf",
-                                          "at_head":  "702c323f68da3cd722b60774633343d84bfb978a"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "--gui-selftest long-run",
@@ -2228,7 +2222,7 @@
                      "priority":  "P0",
                      "type":  "W",
                      "requirement":  "Port the web incremental strategy",
-                     "acceptance":  "Top-level statement slicing, normalized source hashes and per-document computation cache follow reference behavior; no naïve whole-file rerun substitute.",
+                     "acceptance":  "Top-level statement slicing, normalized source hashes and per-document computation cache follow reference behavior; no naÃ¯ve whole-file rerun substitute.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "unit",
                      "evidence":  [
@@ -2429,7 +2423,7 @@
                                   ],
                      "test":  "cargo test -p lovelace-desktop workspace_table; UIA capture",
                      "waiver":  "",
-                     "scope_note":  "Aligned columns with name/kind/display; _ included; default ordinal ascending and header-click sorting both directions with stable ties; UIA shows VARIABLES · 2 with Natural kinds. 225 tests."
+                     "scope_note":  "Aligned columns with name/kind/display; _ included; default ordinal ascending and header-click sorting both directions with stable ties; UIA shows VARIABLES Â· 2 with Natural kinds. 225 tests."
                  },
                  {
                      "id":  "WKS-002",
@@ -2462,7 +2456,7 @@
                                   ],
                      "test":  "cargo test -p lovelace-desktop workspace_table",
                      "waiver":  "",
-                     "scope_note":  "Functions table from the engine registry snapshot with parameters, origin (user/builtin/plugin) and summary; UIA shows FUNCTIONS · 124 and user/builtin/plugin rows; count equals the registry count."
+                     "scope_note":  "Functions table from the engine registry snapshot with parameters, origin (user/builtin/plugin) and summary; UIA shows FUNCTIONS Â· 124 and user/builtin/plugin rows; count equals the registry count."
                  },
                  {
                      "id":  "WKS-003",
@@ -2566,7 +2560,7 @@
                      "priority":  "P0",
                      "type":  "Q",
                      "requirement":  "Never show stale document state",
-                     "acceptance":  "Changing active tab switches workspace and plot to matching engine in same repaint, even during another tab’s run.",
+                     "acceptance":  "Changing active tab switches workspace and plot to matching engine in same repaint, even during another tabâ€™s run.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -3192,7 +3186,7 @@
                      "priority":  "P0",
                      "type":  "W",
                      "requirement":  "Expose plot provenance",
-                     "acceptance":  "Title and active document/run identity appear with plot; opening other tab never silently shows another tab’s chart.",
+                     "acceptance":  "Title and active document/run identity appear with plot; opening other tab never silently shows another tabâ€™s chart.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -3325,19 +3319,13 @@
                                           "path":  "docs/goal-desktop-v4/round-5/uia-tree.txt",
                                           "sha256":  "FE65E692133F4F79253049E000B8C8B3DFDF330E4504954B6F9A5D7E5024E765",
                                           "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-5/product-typed.png",
                                           "sha256":  "80B225E2D5A58C18E150E1BE89DE60991692FC762A0C8ABBF765D017D18DFBCD",
                                           "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
-                                      },
-                                      {
-                                          "path":  "docs/goal-desktop-v4/round-5/driver.log",
-                                          "sha256":  "17123C87A0C235DF627830DA06655DDAB4C7B537A946F70673A92A23D368D0F8",
-                                          "class":  "gui",
-                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "gui-harness capture",
@@ -3390,19 +3378,19 @@
                                           "path":  "docs/goal-desktop-v4/round-19/output-integrity.md",
                                           "sha256":  "29C4101EF22EBF92A8234DAF8AB96C91B8A9AA5BB771FC56D05287B220EA6197",
                                           "class":  "unit",
-                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/workbench.rs",
-                                          "sha256":  "399D2C6D8675229B8902D5DA62DA0F5D9AD4DEE6EAD94D62F4BAEE57AE12A10C",
+                                          "sha256":  "ABEA7D24A186A8159202D3AE3D791574799FC678DEB628D9E2F98344E739F1F2",
                                           "class":  "unit",
-                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "rust/lovelace-desktop/src/execution.rs",
-                                          "sha256":  "4D489395194DD0B23E90D01F86599AFB861FD98654840BFB3FBC7806C6940166",
+                                          "sha256":  "4415F70697C0D36CFB74BBE48D152B3C6EB4B8A09B6DA17A24F59A9D06C1BABB",
                                           "class":  "unit",
-                                          "at_head":  "66a8163cd819927ac481487ca4446d0b6a702e5d"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop t10_output_events|replayed_events|cancelling_after|rerunning",
@@ -3641,7 +3629,7 @@
                      "priority":  "P0",
                      "type":  "D",
                      "requirement":  "Respect system text scaling",
-                     "acceptance":  "125–200% DPI/text scale retains readable buttons/labels and usable layout without clipped content.",
+                     "acceptance":  "125â€“200% DPI/text scale retains readable buttons/labels and usable layout without clipped content.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -3657,7 +3645,7 @@
                      "priority":  "P0",
                      "type":  "D",
                      "requirement":  "Provide adjustable editor typography",
-                     "acceptance":  "Users can configure mono font and 12–24 pt range, line-height and optionally ligatures; all decorations remain aligned.",
+                     "acceptance":  "Users can configure mono font and 12â€“24 pt range, line-height and optionally ligatures; all decorations remain aligned.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -3753,7 +3741,7 @@
                      "priority":  "P1",
                      "type":  "D",
                      "requirement":  "Ensure minimum pointer target",
-                     "acceptance":  "Most interactive targets are \u003e=32×32 logical pixels; compact density exceptions preserve alternative keyboard access.",
+                     "acceptance":  "Most interactive targets are \u003e=32Ã—32 logical pixels; compact density exceptions preserve alternative keyboard access.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -3903,21 +3891,21 @@
                      "evidence":  [
                                       {
                                           "path":  "rust/lovelace-desktop/src/engine.rs",
-                                          "sha256":  "89F63934B2B5664BB26EDD97400BE4F5369D3C430DE6556F4CA1A5408430A825",
+                                          "sha256":  "A0F34221CD363F9D24BD889C284CEAC7E1E90586F667DD5E86F556BD75DE2856",
                                           "class":  "static",
-                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-7/hardening.md",
                                           "sha256":  "5C0FB4A64B8CDB5DE0CE1A8EE4F80E9790CC916274D075CCACC7D63C5BCE37A5",
                                           "class":  "static",
-                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-7/A3-intree-sandbox.txt",
                                           "sha256":  "F0D09F93B096E6A85179EFF8499F6FF28878E724A27369A35898F4FF3422680D",
                                           "class":  "static",
-                                          "at_head":  "92390221364e1d5c743defa5bf5e853a2e7e4482"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "--gui-selftest plot-dir",
@@ -4274,7 +4262,7 @@
                      "priority":  "P0",
                      "type":  "D",
                      "requirement":  "Include screenshot visual regression",
-                     "acceptance":  "Baseline screenshots at 900×600, 1280×800, 1920×1080 and 100/150/200% scale reviewed for both themes.",
+                     "acceptance":  "Baseline screenshots at 900Ã—600, 1280Ã—800, 1920Ã—1080 and 100/150/200% scale reviewed for both themes.",
                      "status":  "NOT_TESTED",
                      "evidence_class":  "gui",
                      "evidence":  [
@@ -4504,15 +4492,15 @@
                      "evidence":  [
                                       {
                                           "path":  "tools/desktop-gate.ps1",
-                                          "sha256":  "F9B1FB1A039A4890FD457EAB0D0219E97836D02C33922EA42403B7AF58FBEA4D",
+                                          "sha256":  "E59A633A4E0D983B1DF72F8136BFB3F94917A1E02AC625DB31FF0E20F8696673",
                                           "class":  "file",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-1/gate-failclosed.txt",
                                           "sha256":  "B65C18CA1D6C7F7D6136321BA19A0FF3B5398F055E0A5F7E39CD97D98BB7CEC3",
                                           "class":  "file",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "a4167786510972e235b713bd1dff3aac731ab0cf"
                                       }
                                   ],
                      "test":  "-Verify",
