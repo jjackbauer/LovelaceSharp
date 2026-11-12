@@ -408,6 +408,7 @@ mod tests {
             name: name.to_string(),
             kind: kind.to_string(),
             display: "0".to_string(),
+            structured: None,
         }
     }
 

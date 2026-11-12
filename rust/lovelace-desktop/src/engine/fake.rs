@@ -224,6 +224,7 @@ impl Evaluator for FakeEngine {
                     name: name.clone(),
                     kind: value.kind().to_string(),
                     display: value.display(),
+                    structured: None,
                 })
                 .collect(),
             functions: builtin_functions()

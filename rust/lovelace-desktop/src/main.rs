@@ -35,6 +35,7 @@ mod language;
 mod log_kind;
 mod netcheck;
 mod quick_eval;
+mod results_tree;
 mod run_state;
 mod run_trace;
 mod selftest;

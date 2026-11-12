@@ -30,6 +30,7 @@ use std::time::Duration;
 
 use crate::engine::{EngineState, Evaluator, PlotCapture};
 use crate::statements::Statement;
+use lovelace_json::Json;
 
 /// Identifies one document buffer.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -54,6 +55,13 @@ pub struct SourceRevision(pub u64);
 pub struct WorkspaceSnapshot {
     /// Display form of the last value-producing committed statement ("Void" when none did).
     pub result: String,
+    /// The engine's structured projection of that same last committed result, alongside its
+    /// display text.
+    ///
+    /// RES-001: this is `structured::project_value`'s Json, published by the engine at the
+    /// moment the value existed. The window renders it directly; it never parses [`Self::result`]
+    /// to recover arrays, records or symbolic fields.
+    pub result_structured: Option<Json>,
     /// Variables visible after the committed statements, sorted by the engine.
     pub variables: Vec<(String, String)>,
     /// Functions visible after the committed statements.
@@ -562,6 +570,8 @@ struct Progress {
     committed: usize,
     /// Display form of the last committed value ("Void" before any).
     result: String,
+    /// The engine's structured projection of the last committed value, when it publishes one.
+    result_structured: Option<Json>,
     /// Print lines drained from the engine, in order.
     output: Vec<String>,
     /// Variables observed after the last committed statement.
@@ -584,6 +594,7 @@ impl Default for Progress {
             current: 0,
             committed: 0,
             result: "Void".to_string(),
+            result_structured: None,
             output: Vec::new(),
             variables: Vec::new(),
             functions: Vec::new(),
@@ -709,6 +720,17 @@ impl RunWorker {
             match panic::catch_unwind(AssertUnwindSafe(|| engine.eval(statement.text()))) {
                 Ok(Ok(value)) => {
                     progress.result = value;
+                    // RES-001: the engine's projection of the value this statement returned,
+                    // taken at the same commit point as the display the panes show. An engine
+                    // that publishes no projection leaves the field as None; the desktop does
+                    // not substitute a structure parsed out of the display.
+                    if let Ok(structured) =
+                        panic::catch_unwind(AssertUnwindSafe(|| engine.last_structured()))
+                    {
+                        progress.result_structured = structured;
+                    } else {
+                        progress.result_structured = None;
+                    }
                     self.drain_output(&mut engine, progress);
                     progress.committed += 1;
                     if let Ok(variables) =
@@ -832,6 +854,7 @@ impl RunWorker {
     fn snapshot(&self, progress: &Progress, diagnostic: Option<String>) -> WorkspaceSnapshot {
         WorkspaceSnapshot {
             result: progress.result.clone(),
+            result_structured: progress.result_structured.clone(),
             variables: progress.variables.clone(),
             functions: progress.functions.clone(),
             state: progress.state.clone(),
@@ -1100,6 +1123,7 @@ mod tests {
     fn test_snapshot(result: &str, revision: SourceRevision) -> WorkspaceSnapshot {
         WorkspaceSnapshot {
             result: result.to_string(),
+            result_structured: None,
             variables: vec![("x".to_string(), result.to_string())],
             functions: Vec::new(),
             state: EngineState {
@@ -1107,6 +1131,7 @@ mod tests {
                     name: "x".to_string(),
                     kind: "Natural".to_string(),
                     display: result.to_string(),
+                    structured: None,
                 }],
                 functions: Vec::new(),
             },

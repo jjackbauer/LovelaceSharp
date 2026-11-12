@@ -212,6 +212,11 @@ pub struct DocumentView {
     pub total: usize,
     /// Display form of the last value-producing committed statement.
     pub result: String,
+    /// The engine's structured projection of that same result, when the engine publishes one.
+    ///
+    /// RES-001: carried alongside [`Self::result`] from the one committed snapshot; the window's
+    /// result tree is built only from this value.
+    pub result_structured: Option<lovelace_json::Json>,
     /// Variables after the committed prefix, sorted by the engine.
     pub variables: Vec<(String, String)>,
     /// Functions after the committed prefix (the engine registry, WKS-002).
@@ -1329,6 +1334,7 @@ impl Workbench {
             result: snapshot
                 .map(|snapshot| snapshot.result.clone())
                 .unwrap_or_default(),
+            result_structured: snapshot.and_then(|snapshot| snapshot.result_structured.clone()),
             variables: snapshot
                 .map(|snapshot| snapshot.variables.clone())
                 .unwrap_or_default(),
@@ -1621,6 +1627,84 @@ mod tests {
         assert_eq!(builtin.origin, crate::engine::FunctionOrigin::Builtin);
         let plugin = table.rows.iter().find(|row| row.name == "acos").unwrap();
         assert_eq!(plugin.origin, crate::engine::FunctionOrigin::Plugin);
+    }
+
+    /// RES-001 end to end with the shipped engine: one run publishes the structured projection
+    /// of its last committed result in the snapshot/view, every captured variable carries the
+    /// engine's projection too, and the typed tree is built from that data (never the display).
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_real_snapshot_publishes_the_structured_result_and_variable_projections() {
+        use crate::results_tree::{ResultProjection, StructuredNode};
+
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(
+            0,
+            "m = [[1, 2], [3, 4]]\nx = symbol(\"x\")\ninv_full([[x, 1], [1, x]])\n".to_string(),
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        let view = workbench.active_view();
+        let structured = view
+            .result_structured
+            .as_ref()
+            .expect("the committed result carries the engine's projection");
+        assert_eq!(
+            structured.get("kind").and_then(lovelace_json::Json::as_str),
+            Some("Record"),
+            "the last result is the inv_full record: {structured:?}"
+        );
+        let tree = ResultProjection::new(view.result.clone(), Some(structured.clone()))
+            .tree()
+            .expect("the structured result is a tree");
+        let StructuredNode::Record(record) = tree else {
+            panic!("the committed result must render as a record");
+        };
+        assert_eq!(record.type_name, "MatrixInverseResult");
+        assert_eq!(
+            record.field_names(),
+            [
+                "status",
+                "complete",
+                "completeness",
+                "inverse",
+                "conditions",
+                "diagnostics"
+            ]
+        );
+        let StructuredNode::Array(inverse) = record.field("inverse").unwrap() else {
+            panic!("the inverse field is the nested 2x2 matrix");
+        };
+        assert_eq!(inverse.shape, [2, 2]);
+
+        let m = view
+            .state
+            .variables
+            .iter()
+            .find(|variable| variable.name == "m")
+            .expect("m is in the committed capture");
+        let m_tree = StructuredNode::from_structured(
+            m.structured
+                .as_ref()
+                .expect("the variable carries the engine projection"),
+        )
+        .expect("the variable projection is a tree");
+        let StructuredNode::Array(m) = m_tree else {
+            panic!("m is a 2x2 array");
+        };
+        assert_eq!(m.shape, [2, 2]);
+        assert_eq!(m.cell(1, 1).unwrap().headline(), "Natural 4");
+
+        // The display is beside the projection, and the tree above was built without it: the
+        // snapshot carries both fields from the same commit.
+        assert!(
+            view.result.contains("MatrixInverseResult"),
+            "the engine's display text is available alongside: {:?}",
+            view.result
+        );
     }
 
     /// An engine that sleeps in every evaluation, so cancellation has a real statement

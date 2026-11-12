@@ -2517,14 +2517,31 @@
                      "type":  "W",
                      "requirement":  "Render structured DTOs directly",
                      "acceptance":  "Recursive typed renderer uses engine structured values and does not reconstruct arrays or records by parsing pretty strings.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-26/structured-results-uia.txt",
+                                          "sha256":  "4E251BD7A2492D6F742AF7CD7743953078D7DB665A8EFE538D28C5F742C90A4A",
+                                          "class":  "gui",
+                                          "at_head":  "63e519d7df8e5794fc6e5da3dd2b7ae31e9b738b"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-26/structured-results-printwindow.png",
+                                          "sha256":  "E4FC3CEE26E27E352D2C7401D4DEE0015C9397A20DC883A1D77ADC88EC17CE63",
+                                          "class":  "gui",
+                                          "at_head":  "63e519d7df8e5794fc6e5da3dd2b7ae31e9b738b"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-26/structured-results.md",
+                                          "sha256":  "53F2FAE49DCA1D2C4B4F9913C6B4BC6228135BB8026D98A37DE728F5DDA3273E",
+                                          "class":  "gui",
+                                          "at_head":  "63e519d7df8e5794fc6e5da3dd2b7ae31e9b738b"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop results_tree; UIA dump",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Projection carried end to end (structured::project_value in RealEngine, last_structured through RunWorker into the snapshot); UIA shows MatrixInverseResult - 6 fields with nested canonical nodes; negative tests prove the display string cannot change the tree. 236 tests."
                  },
                  {
                      "id":  "RES-002",

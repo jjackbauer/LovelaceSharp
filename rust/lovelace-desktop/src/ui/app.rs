@@ -18,6 +18,7 @@ use crate::execution::Diagnostic;
 use crate::keyboard;
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
+use crate::results_tree::{ArrayNode, ResultProjection, StructuredNode};
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::{DocumentView, Workbench};
 use crate::workspace_table::{
@@ -769,12 +770,26 @@ impl WorkbenchApp {
                     .max_rect(body.shrink(8.0))
                     .layout(Layout::top_down(Align::Min)),
                 |ui| {
+                    // RES-001: constrain the result tree to this pane's width. The tree's
+                    // symbolic renderings are long, and a ScrollArea left to size itself from
+                    // its widest child would let them widen the content and clip at the border.
+                    // The 96 px reserve covers the nested record/array indentation: egui's
+                    // indents move the cursor without shrinking the wrap width, so a label
+                    // wrapping at the full pane width would still end under the border.
+                    let result_width = (body.width() - 96.0).max(120.0);
                     egui::ScrollArea::vertical()
                         .id_salt("workspace_scroll")
                         .show(ui, |ui| {
                             ui.label(RichText::new(&state_line).small().color(ACCENT));
                             ui.add_space(4.0);
 
+                            // RES-001: the last committed result's typed tree, built only from
+                            // the engine's structured projection. The display text is a caption;
+                            // it is never parsed for structure.
+                            paint_result_section(ui, view, result_width);
+
+                            ui.add_space(6.0);
+                            ui.separator();
                             ui.label(
                                 RichText::new(format!("VARIABLES · {variable_count}"))
                                     .small()
@@ -1125,6 +1140,271 @@ impl WorkbenchApp {
 impl eframe::App for WorkbenchApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         self.ui_root(ui);
+    }
+}
+
+/// The RESULT section: the engine's display text and the typed tree beside it.
+///
+/// The tree is built by [`ResultProjection::tree`] from `view.result_structured` alone; the
+/// display string is painted as a caption and is never parsed. An engine that publishes no
+/// projection gets an explicit empty state rather than a display-derived guess.
+fn paint_result_section(ui: &mut Ui, view: &DocumentView, width: f32) {
+    ui.set_max_width(width.max(120.0));
+    ui.label(
+        RichText::new("RESULT · structured projection")
+            .small()
+            .color(DIM),
+    );
+    if !view.has_snapshot {
+        ui.label(RichText::new("No run has published a result yet.").color(DIM));
+        return;
+    }
+    let projection = ResultProjection::new(
+        view.result.clone(),
+        view.result_structured.clone(),
+    );
+    match projection.tree() {
+        Some(tree) => {
+            // The display caption stays one line: the full display is in the Logs pane and on
+            // hover. It is painted beside the tree, never read by it.
+            let full = projection.display.clone();
+            let caption: String = full.chars().take(72).collect();
+            let caption = if full.chars().count() > 72 {
+                format!("{caption}…")
+            } else {
+                caption
+            };
+            ui.label(
+                RichText::new(format!("display: {caption}"))
+                    .small()
+                    .monospace()
+                    .color(DIM),
+            )
+            .on_hover_text(full);
+            paint_structured_node(ui, &tree, "result");
+        }
+        None => {
+            ui.label(
+                RichText::new(
+                    "The engine published no structured value for this result; only the display \
+                     text is available.",
+                )
+                .small()
+                .color(DIM),
+            );
+        }
+    }
+}
+
+/// Paints one structured node recursively. Record fields expand by name; arrays expand by shape;
+/// symbolic values show pretty and canonical; scalars show their kind and value.
+fn paint_structured_node(ui: &mut Ui, node: &StructuredNode, path: &str) {
+    match node {
+        StructuredNode::Scalar(scalar) => paint_scalar(ui, scalar),
+        StructuredNode::Null => {
+            ui.label(RichText::new("Null - no value").monospace().color(DIM));
+        }
+        StructuredNode::Symbolic(symbolic) => {
+            egui::CollapsingHeader::new(
+                RichText::new(symbolic.headline()).monospace().color(ACCENT),
+            )
+            .id_salt(path)
+            .default_open(true)
+            .show(ui, |ui| paint_symbolic_body(ui, symbolic));
+        }
+        StructuredNode::Array(array) => {
+            egui::CollapsingHeader::new(RichText::new(array.headline()).monospace().color(ACCENT))
+                .id_salt(path)
+                .default_open(true)
+                .show(ui, |ui| paint_array_body(ui, array, path));
+        }
+        StructuredNode::Record(record) => {
+            egui::CollapsingHeader::new(
+                RichText::new(record.headline()).monospace().color(ACCENT),
+            )
+            .id_salt(path)
+            .default_open(true)
+            .show(ui, |ui| paint_record_body(ui, record, path));
+        }
+    }
+}
+
+/// One scalar row: the projection kind, the value, then the remaining published fields.
+fn paint_scalar(ui: &mut Ui, scalar: &crate::results_tree::ScalarNode) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(&scalar.kind).monospace().color(DIM));
+        ui.label(RichText::new(&scalar.value).monospace().color(TEXT));
+        for (key, value) in &scalar.details {
+            ui.label(
+                RichText::new(format!("{key}={value}"))
+                    .small()
+                    .color(DIM),
+            );
+        }
+    });
+}
+
+/// A scalar or the absent value fits on the row beside its field name or matrix cell.
+fn inline_node(node: &StructuredNode) -> bool {
+    matches!(node, StructuredNode::Scalar(_) | StructuredNode::Null)
+}
+
+/// Paints a compact value used inside a matrix cell or after a record field name.
+fn paint_cell(ui: &mut Ui, node: &StructuredNode, path: &str) {
+    match node {
+        StructuredNode::Scalar(scalar) => paint_scalar(ui, scalar),
+        StructuredNode::Null => {
+            ui.label(RichText::new("Null").monospace().color(DIM));
+        }
+        StructuredNode::Symbolic(symbolic) => {
+            // A symbolic matrix cell still publishes both renderings from the projection; wrap
+            // them inside the cell so the canonical form is readable, not clipped.
+            ui.add(egui::Label::new(
+                RichText::new(format!("pretty: {}", symbolic.pretty))
+                    .monospace()
+                    .color(TEXT),
+            )
+            .wrap());
+            ui.add(
+                egui::Label::new(
+                    RichText::new(format!("canonical: {}", symbolic.canonical))
+                        .monospace()
+                        .small()
+                        .color(DIM),
+                )
+                .wrap(),
+            );
+        }
+        StructuredNode::Array(_) | StructuredNode::Record(_) => {
+            paint_structured_node(ui, node, path);
+        }
+    }
+}
+
+/// Paints a symbolic node's published renderings and metadata.
+fn paint_symbolic_body(ui: &mut Ui, symbolic: &crate::results_tree::SymbolicNode) {
+    ui.add(
+        egui::Label::new(
+            RichText::new(format!("pretty     {}", symbolic.pretty))
+                .monospace()
+                .color(TEXT),
+        )
+        .wrap(),
+    );
+    ui.add(
+        egui::Label::new(
+            RichText::new(format!("canonical  {}", symbolic.canonical))
+                .monospace()
+                .color(TEXT),
+        )
+        .wrap(),
+    );
+    if let Some(domain) = &symbolic.domain {
+        ui.label(RichText::new(format!("domain     {domain}")).small().color(DIM));
+    }
+    if !symbolic.free_symbols.is_empty() {
+        ui.label(
+            RichText::new(format!("free       {}", symbolic.free_symbols.join(", ")))
+                .small()
+                .color(DIM),
+        );
+    }
+    if let Some(count) = &symbolic.node_count {
+        ui.label(RichText::new(format!("nodes      {count}")).small().color(DIM));
+    }
+    if symbolic.truncated {
+        ui.label(
+            RichText::new("this rendering was shortened by a print budget")
+                .small()
+                .color(WARN),
+        );
+    }
+    for (key, value) in &symbolic.details {
+        ui.label(
+            RichText::new(format!("{key}={value}"))
+                .small()
+                .color(DIM),
+        );
+    }
+}
+
+/// Paints an array's body. A 2-D array is laid out as rows and columns; a 1-D array is a list of
+/// indexed elements; a higher-rank array names its shape and lists its row-major elements.
+fn paint_array_body(ui: &mut Ui, array: &ArrayNode, path: &str) {
+    if array.is_matrix() {
+        let rows = array.rows();
+        let columns = array.shape[1].max(1);
+        let cell_width = ((ui.available_width() - 44.0) / columns as f32).max(52.0);
+        egui::Grid::new(format!("{path}.rows"))
+            .num_columns(columns + 1)
+            .spacing([6.0, 3.0])
+            .show(ui, |ui| {
+                for (row_index, row) in rows.iter().enumerate() {
+                    ui.label(
+                        RichText::new(format!("[{row_index}]"))
+                            .small()
+                            .color(DIM),
+                    );
+                    for (column_index, cell) in row.iter().enumerate() {
+                        let cell_path = format!("{path}.{row_index}.{column_index}");
+                        ui.allocate_ui_with_layout(
+                            vec2(cell_width, 14.0),
+                            Layout::top_down(Align::Min),
+                            |ui| {
+                                ui.set_width(cell_width);
+                                paint_cell(ui, cell, &cell_path);
+                            },
+                        );
+                    }
+                    ui.end_row();
+                }
+            });
+        return;
+    }
+    if array.elements.is_empty() {
+        ui.label(RichText::new("empty").small().color(DIM));
+        return;
+    }
+    for (index, element) in array.elements.iter().enumerate() {
+        let child_path = format!("{path}.{index}");
+        if inline_node(element) {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(
+                    RichText::new(format!("[{index}]"))
+                        .small()
+                        .color(DIM),
+                );
+                paint_cell(ui, element, &child_path);
+            });
+        } else {
+            paint_structured_node(ui, element, &child_path);
+        }
+    }
+}
+
+/// Paints a record body: every field's published name, with the value on the same row when it is
+/// a scalar and as an expandable child when it is an array, record or symbolic expression.
+fn paint_record_body(ui: &mut Ui, record: &crate::results_tree::RecordNode, path: &str) {
+    if record.fields.is_empty() {
+        ui.label(RichText::new("no fields").small().color(DIM));
+        return;
+    }
+    for (index, field) in record.fields.iter().enumerate() {
+        let child_path = format!("{path}.f{index}");
+        let name = RichText::new(format!("{}:", field.name))
+            .monospace()
+            .color(DIM);
+        if inline_node(&field.value) {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(name);
+                paint_cell(ui, &field.value, &child_path);
+            });
+        } else {
+            ui.label(name);
+            ui.indent(&child_path, |ui| {
+                paint_structured_node(ui, &field.value, &child_path);
+            });
+        }
     }
 }
 
@@ -2676,5 +2956,102 @@ mod tests {
 
         gate.release();
         assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+    }
+
+    /// One assembled view whose result is the given display text plus a 2x2 projection.
+    fn result_view(display: &str) -> DocumentView {
+        use lovelace_json::Json;
+        let cell = |value: &str| {
+            Json::obj([
+                ("kind", Json::Str("Natural".to_string())),
+                ("value", Json::Str(value.to_string())),
+                ("exact", Json::Bool(true)),
+            ])
+        };
+        let structured = Json::obj([
+            ("kind", Json::Str("Array".to_string())),
+            ("type", Json::Str("Array".to_string())),
+            ("shape", Json::num_array([2, 2])),
+            (
+                "elements",
+                Json::Arr(vec![cell("1"), cell("2"), cell("3"), cell("4")]),
+            ),
+        ]);
+        DocumentView {
+            revision: crate::execution::SourceRevision(1),
+            has_snapshot: true,
+            committed_steps: 1,
+            total: 1,
+            result: display.to_string(),
+            result_structured: Some(structured),
+            variables: Vec::new(),
+            functions: Vec::new(),
+            state: EngineState::default(),
+            plot: None,
+            output: Vec::new(),
+            logs: Vec::new(),
+            diagnostic: None,
+            run_state: RunState::Idle,
+            elapsed_ms: 0,
+        }
+    }
+
+    fn collect_shape_text(shape: &egui::Shape, out: &mut Vec<String>) {
+        match shape {
+            egui::Shape::Text(text) => out.push(text.galley.text().to_string()),
+            egui::Shape::Vec(shapes) => {
+                for shape in shapes {
+                    collect_shape_text(shape, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// RES-001 at the paint layer: the workspace RESULT section paints the tree from the
+    /// structured projection. The display is deliberately contradictory (it names a record and
+    /// a flat list while the projection is a 2x2 array); no record header or field label may be
+    /// painted, and the 2x2 rows and scalar values must be.
+    #[test]
+    fn the_result_section_paints_the_projection_and_never_parses_the_display() {
+        let ctx = egui::Context::default();
+        let view = result_view("DivRemResult(quotient: 9, remainder: 9) [1, 2, 3, 4]");
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(460.0, 900.0))),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| paint_result_section(ui, &view, 420.0));
+        });
+        output.textures_delta.clear();
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect_shape_text(&clipped.shape, &mut texts);
+        }
+
+        assert!(
+            texts.iter().any(|text| text == "Array 2 x 2 - 4 elements"),
+            "the array headline must state the projection's shape: {texts:?}"
+        );
+        for value in ["1", "2", "3", "4"] {
+            assert!(
+                texts.iter().any(|text| text == value),
+                "the matrix must paint element {value}: {texts:?}"
+            );
+        }
+        assert!(
+            texts.iter().any(|text| text == "Natural"),
+            "the scalar kind must come from the projection: {texts:?}"
+        );
+        assert!(
+            !texts
+                .iter()
+                .any(|text| text.contains("DivRemResult - ")),
+            "the record-looking display must not create a record header: {texts:?}"
+        );
+        assert!(
+            !texts.iter().any(|text| text == "quotient:"),
+            "the record-looking display must not create a field label: {texts:?}"
+        );
     }
 }

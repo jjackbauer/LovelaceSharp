@@ -430,6 +430,7 @@ mod tests {
             name: name.to_string(),
             kind: kind.to_string(),
             display: display.to_string(),
+            structured: None,
         }
     }
 
@@ -665,6 +666,7 @@ mod tests {
         let legacy_functions = vec![("aaa".to_string(), vec!["x".to_string()])];
         let snapshot = crate::execution::WorkspaceSnapshot {
             result: String::new(),
+            result_structured: None,
             variables: Vec::new(),
             functions: legacy_functions,
             state: state.clone(),

@@ -19,6 +19,8 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use lovelace_json::Json;
+
 // The fake engine is the fallback for --no-default-features builds and the deterministic engine
 // used by the tests; with the real engine enabled the only non-test use is the factory below.
 #[cfg_attr(not(test), allow(dead_code))]
@@ -182,6 +184,12 @@ pub struct EngineVariable {
     pub kind: String,
     /// The display rendering the engine produced.
     pub display: String,
+    /// The engine's own structured projection of the value, when the engine publishes one.
+    ///
+    /// This is `lovelace_lang::structured::project_value`'s output, carried verbatim: the
+    /// desktop never derives structure from [`Self::display`]. A minimal evaluator that only
+    /// knows display strings leaves it `None`.
+    pub structured: Option<Json>,
 }
 
 /// A coherent capture of the engine's variables and functions.
@@ -223,6 +231,7 @@ impl EngineState {
                         name: name.clone(),
                         kind,
                         display,
+                        structured: None,
                     }
                 })
                 .collect(),
@@ -262,6 +271,11 @@ fn split_typed(display: &str) -> (String, String) {
 pub struct RunOutput {
     /// The value display, or the error message.
     pub result: Result<String, String>,
+    /// The engine's structured projection of the result value, alongside its display.
+    ///
+    /// `None` when the run failed or the evaluator publishes no projection. The desktop renders
+    /// this value directly and never reconstructs it from [`Self::result`].
+    pub result_structured: Option<Json>,
     /// print() lines produced by the run, in order.
     pub output: Vec<String>,
     /// Variables visible to the document after the run: name, display.
@@ -284,8 +298,10 @@ pub trait Evaluator {
     /// Evaluates a script and snapshots everything the panes need, even on failure.
     fn eval_full(&mut self, src: &str) -> RunOutput {
         let result = self.eval(src);
+        let result_structured = self.last_structured();
         RunOutput {
             result,
+            result_structured,
             output: self.take_output(),
             variables: self.variables(),
             functions: self.functions(),
@@ -342,6 +358,17 @@ pub trait Evaluator {
     /// two older accessors.
     fn state(&self) -> Option<EngineState> {
         Some(EngineState::from_legacy(&self.variables(), &self.functions()))
+    }
+
+    /// The engine's structured projection of the value the most recent successful [`Self::eval`]
+    /// returned.
+    ///
+    /// This is the engine's own `structured::project_value` output, not a desktop reconstruction:
+    /// the real adapter projects the `Value` the engine returned. The default is `None`, so an
+    /// evaluator that knows only display strings publishes no structure and the window renders
+    /// no tree rather than guessing one from the display text.
+    fn last_structured(&self) -> Option<Json> {
+        None
     }
 
     /// Drains the print() output produced since the last call.
