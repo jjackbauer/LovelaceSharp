@@ -13,12 +13,17 @@ use egui::{
     StrokeKind, Ui, UiBuilder, Vec2, pos2, vec2,
 };
 
+use crate::engine::FunctionOrigin;
 use crate::execution::Diagnostic;
 use crate::keyboard;
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 use crate::workbench::{DocumentView, Workbench};
+use crate::workspace_table::{
+    FunctionColumn, FunctionTable, VariableColumn, VariableTable, cell_text, ordered_functions,
+    ordered_variables,
+};
 
 use super::editor::{TextEditor, surface_id};
 use super::plot::Plot;
@@ -159,6 +164,13 @@ pub struct WorkbenchApp {
     workspace_frac: f32,
     logs_frac: f32,
     filter: String,
+    /// The two Workspace tables, rebuilt from the frame's committed snapshot in [`Self::sync`].
+    variables_table: VariableTable,
+    functions_table: FunctionTable,
+    /// Header rectangles from the last painted pass; the pointer tests click these centres and
+    /// the pane uses them to decide which column a click belongs to.
+    variable_header_rects: [Option<Rect>; 3],
+    function_header_rects: [Option<Rect>; 3],
     /// The one-line quick-eval input's text and submitted-expression history.
     quick_eval: QuickEval,
     /// The quick-eval field's last painted rectangle, used by the pointer-focus test.
@@ -195,6 +207,8 @@ impl WorkbenchApp {
             .map(|document| document.revision)
             .collect();
         let view = workbench.active_view();
+        let variables_table = VariableTable::new(&view.state);
+        let functions_table = FunctionTable::new(&view.state);
         WorkbenchApp {
             workbench,
             view,
@@ -206,6 +220,10 @@ impl WorkbenchApp {
             workspace_frac: 0.20,
             logs_frac: 0.18,
             filter: String::new(),
+            variables_table,
+            functions_table,
+            variable_header_rects: [None; 3],
+            function_header_rects: [None; 3],
             quick_eval: QuickEval::new(),
             quick_eval_rect: None,
             layout: None,
@@ -221,6 +239,10 @@ impl WorkbenchApp {
         // RUN-003: assemble the frame's pane state once, from the same committed snapshot the
         // poll above applied. Every pane below renders this value, not a fresh workbench lookup.
         self.view = self.workbench.active_view();
+        // WKS-001/WKS-002: the tables are rebuilt from the same committed capture the frame
+        // renders, keeping the user's chosen sort across runs and tab switches.
+        self.variables_table.rebuild(&self.view.state);
+        self.functions_table.rebuild(&self.view.state);
         // The workbench gates a diagnostic on the revision it was produced for; copying it here
         // makes every editor decoration appear with the failure and disappear on the next edit.
         for (index, editor) in self.editors.iter_mut().enumerate() {
@@ -701,8 +723,6 @@ impl WorkbenchApp {
     }
 
     fn workspace_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
-        let variables = &view.variables;
-        let functions = &view.functions;
         let has_snapshot = view.has_snapshot;
         // RUN-003: the pane states the revision and committed prefix it is showing, from the
         // same DocumentView as the variables below it. The status strip reports the live buffer
@@ -716,6 +736,17 @@ impl WorkbenchApp {
             format!("rev {} · no committed statement", view.revision.0)
         };
         let mut filter = self.filter.clone();
+        // WKS-001/WKS-002: the table rows, their counts and their sort state all come from the
+        // frame's one committed capture. The counts are the table row counts, so a displayed
+        // count cannot disagree with the rows beside it or with the snapshot's registry capture.
+        let variable_count = self.variables_table.rows.len();
+        let function_count = self.functions_table.rows.len();
+        let variable_rows = self.variables_table.rows.clone();
+        let function_rows = self.functions_table.rows.clone();
+        let mut variable_sort = self.variables_table.sort;
+        let mut function_sort = self.functions_table.sort;
+        let mut variable_header_rects: [Option<Rect>; 3] = [None; 3];
+        let mut function_header_rects: [Option<Rect>; 3] = [None; 3];
         with_pane(ui, rect, "Workspace", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
                 let label = ui.label("Filter");
@@ -726,13 +757,12 @@ impl WorkbenchApp {
                 )
                 .labelled_by(label.id);
                 ui.label(
-                    RichText::new(format!(
-                        "{} variables · {} functions",
-                        variables.len(),
-                        functions.len()
-                    ))
-                    .color(DIM),
-                );
+                    RichText::new(format!("{variable_count} vars · {function_count} funcs"))
+                        .color(DIM),
+                )
+                .on_hover_text(format!(
+                    "{variable_count} variables · {function_count} functions"
+                ));
             });
             ui.scope_builder(
                 UiBuilder::new()
@@ -744,52 +774,191 @@ impl WorkbenchApp {
                         .show(ui, |ui| {
                             ui.label(RichText::new(&state_line).small().color(ACCENT));
                             ui.add_space(4.0);
-                            ui.label(RichText::new("VARIABLES").small().color(DIM));
+
+                            ui.label(
+                                RichText::new(format!("VARIABLES · {variable_count}"))
+                                    .small()
+                                    .color(DIM),
+                            );
+                            let widths = variable_column_widths(ui.available_width());
+                            ui.horizontal(|ui| {
+                                for column in VariableColumn::ALL {
+                                    let response = ui.add_sized(
+                                        [widths[column.index()], 18.0],
+                                        egui::Button::new(
+                                            RichText::new(
+                                                variable_sort.header_text(column, column.label()),
+                                            )
+                                            .small(),
+                                        )
+                                        .frame(false),
+                                    );
+                                    let direction = if variable_sort.is_active(column) {
+                                        variable_sort.direction_label()
+                                    } else {
+                                        "not sorted"
+                                    };
+                                    variable_header_rects[column.index()] = Some(response.rect);
+                                    response.clone().on_hover_text(format!(
+                                        "Sort variables by {} ({direction})",
+                                        column.label().to_lowercase()
+                                    ));
+                                    if response.clicked() {
+                                        variable_sort.clicked(column);
+                                    }
+                                }
+                            });
+                            ui.add_space(1.0);
+
                             let mut shown = 0usize;
-                            for (name, value) in variables {
-                                if !filter.is_empty() && !name.contains(filter.as_str()) {
+                            for index in ordered_variables(&variable_rows, variable_sort) {
+                                let row = &variable_rows[index];
+                                if !filter.is_empty() && !row.name.contains(filter.as_str()) {
                                     continue;
                                 }
                                 shown += 1;
                                 ui.horizontal(|ui| {
-                                    ui.label(RichText::new(name).monospace().color(ACCENT));
-                                    ui.label(RichText::new("=").monospace().color(DIM));
-                                    ui.label(RichText::new(value).monospace().color(TEXT));
-                                });
-                            }
-                            if shown == 0 {
-                                let message = if !has_snapshot {
-                                    "No run has published a workspace yet."
-                                } else if variables.is_empty() {
-                                    "The last run defined no variables."
-                                } else {
-                                    "No variables match the filter."
-                                };
-                                ui.label(RichText::new(message).color(DIM));
-                            }
-                            ui.add_space(8.0);
-                            ui.separator();
-                            ui.label(RichText::new("FUNCTIONS").small().color(DIM));
-                            let mut shown = 0usize;
-                            for (name, parameters) in functions {
-                                if !filter.is_empty() && !name.contains(filter.as_str()) {
-                                    continue;
-                                }
-                                shown += 1;
-                                ui.horizontal(|ui| {
-                                    ui.label(RichText::new(name).monospace().color(ACCENT));
-                                    ui.label(
-                                        RichText::new(format!("({})", parameters.join(", ")))
+                                    table_cell(
+                                        ui,
+                                        widths[0],
+                                        RichText::new(cell_text(&row.name))
                                             .monospace()
-                                            .color(TEXT),
+                                            .color(ACCENT),
+                                        &row.name,
+                                    );
+                                    table_cell(
+                                        ui,
+                                        widths[1],
+                                        RichText::new(cell_text(&row.kind)).monospace().color(DIM),
+                                        &row.kind,
+                                    );
+                                    // WKS-001: a large display value is cut in the cell; the
+                                    // full value stays available as the hover text.
+                                    table_cell(
+                                        ui,
+                                        widths[2],
+                                        RichText::new(row.display_cell()).monospace().color(TEXT),
+                                        &row.display,
                                     );
                                 });
                             }
                             if shown == 0 {
                                 let message = if !has_snapshot {
                                     "No run has published a workspace yet."
-                                } else if functions.is_empty() {
-                                    "The last run defined no functions."
+                                } else if variable_rows.is_empty() {
+                                    "The last run defined no variables."
+                                } else {
+                                    "No variables match the filter."
+                                };
+                                ui.label(RichText::new(message).color(DIM));
+                            }
+
+                            ui.add_space(8.0);
+                            ui.separator();
+                            ui.label(
+                                RichText::new(format!("FUNCTIONS · {function_count}"))
+                                    .small()
+                                    .color(DIM),
+                            );
+                            let widths = function_column_widths(ui.available_width());
+                            ui.horizontal(|ui| {
+                                for column in FunctionColumn::ALL {
+                                    let response = ui.add_sized(
+                                        [widths[column.index()], 18.0],
+                                        egui::Button::new(
+                                            RichText::new(
+                                                function_sort.header_text(column, column.label()),
+                                            )
+                                            .small(),
+                                        )
+                                        .frame(false),
+                                    );
+                                    let direction = if function_sort.is_active(column) {
+                                        function_sort.direction_label()
+                                    } else {
+                                        "not sorted"
+                                    };
+                                    function_header_rects[column.index()] = Some(response.rect);
+                                    response.clone().on_hover_text(format!(
+                                        "Sort functions by {} ({direction})",
+                                        column.label().to_lowercase()
+                                    ));
+                                    if response.clicked() {
+                                        function_sort.clicked(column);
+                                    }
+                                }
+                            });
+                            ui.add_space(1.0);
+
+                            let mut shown = 0usize;
+                            for index in ordered_functions(&function_rows, function_sort) {
+                                let row = &function_rows[index];
+                                if !filter.is_empty() && !row.name.contains(filter.as_str()) {
+                                    continue;
+                                }
+                                shown += 1;
+                                ui.horizontal(|ui| {
+                                    table_cell(
+                                        ui,
+                                        widths[0],
+                                        RichText::new(cell_text(&row.name))
+                                            .monospace()
+                                            .color(ACCENT),
+                                        &row.name,
+                                    );
+                                    let parameters = row.parameters_text();
+                                    table_cell(
+                                        ui,
+                                        widths[1],
+                                        RichText::new(cell_text(&parameters))
+                                            .monospace()
+                                            .color(TEXT),
+                                        &parameters,
+                                    );
+                                    let origin_hover = match &row.plugin {
+                                        Some(plugin) => format!("plugin: {plugin}"),
+                                        None => row.origin_label().to_string(),
+                                    };
+                                    table_cell(
+                                        ui,
+                                        widths[2],
+                                        RichText::new(row.origin_label())
+                                            .monospace()
+                                            .color(origin_color(row.origin)),
+                                        &origin_hover,
+                                    );
+                                });
+                                // WKS-002: the registry's summary, when it publishes one, is a
+                                // second line under the function; it is cut like any other cell
+                                // and the full summary is the hover text.
+                                if let (Some(summary_cell), Some(summary)) =
+                                    (row.summary_cell(), row.summary.as_deref())
+                                {
+                                    ui.horizontal(|ui| {
+                                        ui.add_space(6.0);
+                                        ui.allocate_ui_with_layout(
+                                            vec2((ui.available_width() - 6.0).max(40.0), 14.0),
+                                            Layout::left_to_right(Align::Center),
+                                            |ui| {
+                                                ui.add(
+                                                    egui::Label::new(
+                                                        RichText::new(summary_cell)
+                                                            .small()
+                                                            .color(DIM),
+                                                    )
+                                                    .truncate(),
+                                                )
+                                                .on_hover_text(summary.to_string());
+                                            },
+                                        );
+                                    });
+                                }
+                            }
+                            if shown == 0 {
+                                let message = if !has_snapshot {
+                                    "No run has published a workspace yet."
+                                } else if function_rows.is_empty() {
+                                    "The engine published no functions."
                                 } else {
                                     "No functions match the filter."
                                 };
@@ -800,6 +969,10 @@ impl WorkbenchApp {
             );
         });
         self.filter = filter;
+        self.variables_table.sort = variable_sort;
+        self.functions_table.sort = function_sort;
+        self.variable_header_rects = variable_header_rects;
+        self.function_header_rects = function_header_rects;
     }
 
     fn logs_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
@@ -952,6 +1125,50 @@ impl WorkbenchApp {
 impl eframe::App for WorkbenchApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         self.ui_root(ui);
+    }
+}
+
+/// The fixed widths of the variables table's three columns, fitted to the pane.
+fn variable_column_widths(available: f32) -> [f32; 3] {
+    let usable = (available - 16.0).max(96.0);
+    let name = (usable * 0.34).max(40.0);
+    let kind = (usable * 0.26).max(34.0);
+    let display = (usable - name - kind).max(40.0);
+    [name, kind, display]
+}
+
+/// The fixed widths of the functions table's three columns, fitted to the pane.
+fn function_column_widths(available: f32) -> [f32; 3] {
+    let usable = (available - 16.0).max(120.0);
+    let name = (usable * 0.36).max(44.0);
+    let parameters = (usable * 0.32).max(38.0);
+    let origin = (usable - name - parameters).max(44.0);
+    [name, parameters, origin]
+}
+
+/// One aligned table cell: the (already truncated) text, with the full value as its tooltip.
+///
+/// The cell allocates a fixed width so every row lines up under its header; `Label::truncate`
+/// is the second clip for a value that is still wider than the column (the character cut in
+/// [`crate::workspace_table::cell_text`] is the deterministic one the tests pin).
+fn table_cell(ui: &mut Ui, width: f32, text: RichText, full: &str) {
+    ui.allocate_ui_with_layout(
+        vec2(width, 16.0),
+        Layout::left_to_right(Align::Center),
+        |ui| {
+            ui.add(egui::Label::new(text).truncate())
+                .on_hover_text(full.to_string());
+        },
+    );
+}
+
+/// The visible origin colour: core builtins are quiet, plugin builtins warn-coloured and user
+/// definitions take the accent so the three rows are distinguishable at a glance.
+fn origin_color(origin: FunctionOrigin) -> Color32 {
+    match origin {
+        FunctionOrigin::Builtin => DIM,
+        FunctionOrigin::Plugin => WARN,
+        FunctionOrigin::User => ACCENT,
     }
 }
 
@@ -1232,6 +1449,24 @@ mod tests {
         output.textures_delta.clear();
     }
 
+    /// A full pointer click at `pos`: move, press, release (one pass each), the same sequence a
+    /// user's mouse produces.
+    fn pointer_click(ctx: &egui::Context, app: &mut WorkbenchApp, pos: egui::Pos2) {
+        frame(ctx, app, vec![egui::Event::PointerMoved(pos)]);
+        for pressed in [true, false] {
+            frame(
+                ctx,
+                app,
+                vec![egui::Event::PointerButton {
+                    pos,
+                    button: egui::PointerButton::Primary,
+                    pressed,
+                    modifiers: egui::Modifiers::default(),
+                }],
+            );
+        }
+    }
+
     #[test]
     fn focus_starts_in_the_editor_and_typed_text_lands_without_a_click() {
         let mut app = WorkbenchApp::with_workbench(slow_workbench());
@@ -1429,6 +1664,96 @@ mod tests {
         assert_eq!(view.last_log_statement(), Some(4));
     }
 
+    /// WKS-001/WKS-002 through the window: both table headers are real clickable controls. The
+    /// first click on a column sorts ascending, the second descending, and the rows the window
+    /// paints are the committed snapshot's rows (so the header counts are the snapshot counts).
+    #[test]
+    fn workspace_header_clicks_sort_both_tables_and_the_counts_are_the_snapshot_counts() {
+        let mut app = fake_app_with_source("c = 3\na = 1\nb = 2\n");
+        let ctx = egui::Context::default();
+        assert!(app.workbench.run_active());
+        assert!(app.workbench.wait_until_idle(Duration::from_secs(5)));
+        frame(&ctx, &mut app, Vec::new());
+
+        let variable_names = |app: &WorkbenchApp| -> Vec<String> {
+            app.variables_table
+                .ordered()
+                .into_iter()
+                .map(|index| app.variables_table.rows[index].name.clone())
+                .collect()
+        };
+        let function_names = |app: &WorkbenchApp| -> Vec<String> {
+            app.functions_table
+                .ordered()
+                .into_iter()
+                .map(|index| app.functions_table.rows[index].name.clone())
+                .collect()
+        };
+
+        // Default: ordinal name ascending for both tables, and the painted rows are exactly the
+        // committed snapshot's rows.
+        assert_eq!(variable_names(&app), vec!["a", "b", "c"]);
+        assert!(app.variables_table.sort.ascending);
+        assert!(app.functions_table.sort.ascending);
+        assert_eq!(
+            app.variables_table.rows.len(),
+            app.view.state.variables.len(),
+            "the variables table must show every captured variable"
+        );
+        assert_eq!(
+            app.functions_table.rows.len(),
+            app.view.functions.len(),
+            "the displayed function count must equal the snapshot's function count"
+        );
+        assert_eq!(
+            app.functions_table.rows.len(),
+            app.view.state.functions.len(),
+            "and that count must be the registry capture the engine published"
+        );
+
+        // First click on Name keeps the default ascending order; the second click descends.
+        let name_header = app.variable_header_rects[VariableColumn::Name.index()]
+            .expect("the variables Name header was painted");
+        pointer_click(&ctx, &mut app, name_header.center());
+        assert!(
+            app.variables_table.sort.ascending,
+            "the first header click must sort ascending"
+        );
+        let name_header = app.variable_header_rects[VariableColumn::Name.index()]
+            .expect("the Name header stays painted");
+        pointer_click(&ctx, &mut app, name_header.center());
+        assert!(!app.variables_table.sort.ascending);
+        assert_eq!(variable_names(&app), vec!["c", "b", "a"]);
+
+        // A new column starts ascending again.
+        let kind_header = app.variable_header_rects[VariableColumn::Kind.index()]
+            .expect("the variables Kind header was painted");
+        pointer_click(&ctx, &mut app, kind_header.center());
+        assert_eq!(app.variables_table.sort.key, VariableColumn::Kind);
+        assert!(app.variables_table.sort.ascending);
+
+        // Functions obey the same click contract: the first click on Name is ascending, the
+        // second reverses the whole registry slice without losing a row.
+        let function_header = app.function_header_rects[FunctionColumn::Name.index()]
+            .expect("the functions Name header was painted");
+        pointer_click(&ctx, &mut app, function_header.center());
+        assert!(app.functions_table.sort.ascending);
+        let ascending = function_names(&app);
+        assert_eq!(ascending.len(), app.view.state.functions.len());
+        let function_header = app.function_header_rects[FunctionColumn::Name.index()]
+            .expect("the Name header stays painted");
+        pointer_click(&ctx, &mut app, function_header.center());
+        assert!(!app.functions_table.sort.ascending);
+        let mut reversed = ascending.clone();
+        reversed.reverse();
+        assert_eq!(
+            function_names(&app),
+            reversed,
+            "descending reverses every row"
+        );
+        assert_eq!(app.functions_table.rows.len(), ascending.len());
+    }
+
     #[test]
     fn ctrl_enter_runs_and_escape_cancels_with_the_visible_running_state() {
         let gate = Arc::new(Gate::default());
@@ -1549,6 +1874,8 @@ mod tests {
             name: name.to_string(),
             parameters: parameters.iter().map(|p| p.to_string()).collect(),
             is_builtin: true,
+            plugin: None,
+            summary: None,
         }
     }
 

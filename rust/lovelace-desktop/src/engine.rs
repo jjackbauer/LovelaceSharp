@@ -106,6 +106,36 @@ pub struct PlotCapture {
     pub svg: String,
 }
 
+/// Where a function in the engine's snapshot came from.
+///
+/// The engine publishes a builtin flag and, for a builtin, the plugin that registered it, so
+/// the three origins are distinguishable without the desktop keeping a list of its own:
+///
+/// - [`FunctionOrigin::Builtin`] — a core builtin (`is_builtin == true`, no plugin);
+/// - [`FunctionOrigin::Plugin`] — a builtin registered by a plugin (`is_builtin == true` and a
+///   plugin name);
+/// - [`FunctionOrigin::User`] — a script `func` definition (`is_builtin == false`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum FunctionOrigin {
+    /// A core builtin from the engine registry.
+    Builtin,
+    /// A builtin registered by a plugin.
+    Plugin,
+    /// A function defined by the script.
+    User,
+}
+
+impl FunctionOrigin {
+    /// The visible origin wording (`builtin` / `plugin` / `user`).
+    pub fn label(self) -> &'static str {
+        match self {
+            FunctionOrigin::Builtin => "builtin",
+            FunctionOrigin::Plugin => "plugin",
+            FunctionOrigin::User => "user",
+        }
+    }
+}
+
 /// One function the engine exposes, with its declared parameter names.
 ///
 /// The completion catalogue consumes these entries verbatim; the desktop never carries a
@@ -120,6 +150,27 @@ pub struct EngineFunction {
     pub parameters: Vec<String>,
     /// True for a builtin, false for a user definition or a host/plugin registration.
     pub is_builtin: bool,
+    /// The plugin that registered the builtin, when one did.
+    pub plugin: Option<String>,
+    /// The engine's one-line summary, when the registry publishes one.
+    ///
+    /// `capture_state` does not carry the field, so the real adapter reads the engine's own
+    /// `lovelace_lang::registry` entry (the same data the capture is built from); a user
+    /// definition or a host registration has no registry entry and therefore no summary.
+    pub summary: Option<String>,
+}
+
+impl EngineFunction {
+    /// The origin classification the Workspace table shows.
+    pub fn origin(&self) -> FunctionOrigin {
+        if !self.is_builtin {
+            FunctionOrigin::User
+        } else if self.plugin.is_some() {
+            FunctionOrigin::Plugin
+        } else {
+            FunctionOrigin::Builtin
+        }
+    }
 }
 
 /// One variable visible to the document, with the kind the engine published.
@@ -181,6 +232,8 @@ impl EngineState {
                     name: name.clone(),
                     parameters: parameters.clone(),
                     is_builtin: false,
+                    plugin: None,
+                    summary: None,
                 })
                 .collect(),
         }
@@ -439,7 +492,10 @@ mod tests {
         assert_eq!(state.variables[2].kind, "Array");
         assert_eq!(state.variables[2].display, "[1, 2]");
         assert!(!state.functions[0].is_builtin);
+        assert_eq!(state.functions[0].origin(), FunctionOrigin::User);
         assert_eq!(state.functions[0].parameters, vec!["a".to_string()]);
+        assert_eq!(state.functions[0].plugin, None);
+        assert_eq!(state.functions[0].summary, None);
     }
 
     #[test]
@@ -504,5 +560,62 @@ mod tests {
             .find(|variable| variable.name == "x")
             .expect("the run's variable is captured with its kind");
         assert_eq!(x.kind, "Natural");
+    }
+
+    /// WKS-002: the three origins are read from the engine's own snapshot (builtin flag plus
+    /// the registering plugin), never guessed by the desktop. `abs` is a core builtin, `acos`
+    /// is a builtin registered by the symbolics plugin, and a script's `func` is a user
+    /// definition. The registry summaries come from the same engine registry.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_real_registry_classifies_builtin_plugin_and_user_functions() {
+        let mut engine = RealEngine::new();
+        engine
+            .eval("func aaa(x) = x * 2")
+            .expect("the real engine evaluates the definition");
+        let state = engine
+            .state()
+            .expect("the real engine publishes its snapshot");
+
+        let user = state
+            .functions
+            .iter()
+            .find(|function| function.name == "aaa")
+            .expect("the user function is in the capture");
+        assert_eq!(user.origin(), FunctionOrigin::User);
+        assert_eq!(user.origin().label(), "user");
+        assert_eq!(user.parameters, vec!["x".to_string()]);
+        assert_eq!(
+            user.summary, None,
+            "a user definition has no registry summary"
+        );
+
+        let builtin = state
+            .functions
+            .iter()
+            .find(|function| function.name == "abs")
+            .expect("abs is in the registry");
+        assert_eq!(builtin.origin(), FunctionOrigin::Builtin);
+        assert_eq!(builtin.origin().label(), "builtin");
+        assert_eq!(builtin.plugin, None);
+        assert!(
+            builtin.summary.as_deref().is_some_and(|s| !s.is_empty()),
+            "the registry publishes a summary for abs: {:?}",
+            builtin.summary
+        );
+
+        let plugin = state
+            .functions
+            .iter()
+            .find(|function| function.name == "acos")
+            .expect("acos is in the registry");
+        assert_eq!(plugin.origin(), FunctionOrigin::Plugin);
+        assert_eq!(plugin.origin().label(), "plugin");
+        assert_eq!(plugin.plugin.as_deref(), Some("Lovelace.Symbolics"));
+        assert!(
+            plugin.summary.as_deref().is_some_and(|s| !s.is_empty()),
+            "the registry publishes a summary for acos: {:?}",
+            plugin.summary
+        );
     }
 }

@@ -46,6 +46,7 @@ mod ui;
 #[cfg(windows)]
 mod win32;
 mod workbench;
+mod workspace_table;
 
 #[cfg(windows)]
 fn main() {

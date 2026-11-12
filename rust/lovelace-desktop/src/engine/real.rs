@@ -96,10 +96,25 @@ impl Evaluator for RealEngine {
             functions: snapshot
                 .functions
                 .into_values()
-                .map(|function| EngineFunction {
-                    name: function.name,
-                    parameters: function.parameters,
-                    is_builtin: function.is_builtin,
+                .map(|function| {
+                    // `StateFunction` carries the plugin but not the registry's one-line summary.
+                    // The registry entry is the engine's own published data for the same
+                    // function, so the summary is read from there instead of being invented or
+                    // transcribed into the desktop: an unregistered user definition has none.
+                    let summary = if function.is_builtin {
+                        lovelace_lang::registry::find(&function.name)
+                            .and_then(|info| info.summary)
+                            .map(str::to_string)
+                    } else {
+                        None
+                    };
+                    EngineFunction {
+                        name: function.name,
+                        parameters: function.parameters,
+                        is_builtin: function.is_builtin,
+                        plugin: function.plugin,
+                        summary,
+                    }
                 })
                 .collect(),
         })

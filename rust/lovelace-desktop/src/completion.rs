@@ -388,6 +388,8 @@ mod tests {
             name: name.to_string(),
             parameters: parameters.iter().map(|p| p.to_string()).collect(),
             is_builtin: true,
+            plugin: None,
+            summary: None,
         }
     }
 
@@ -396,6 +398,8 @@ mod tests {
             name: name.to_string(),
             parameters: parameters.iter().map(|p| p.to_string()).collect(),
             is_builtin: false,
+            plugin: None,
+            summary: None,
         }
     }
 

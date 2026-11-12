@@ -647,6 +647,8 @@ mod tests {
                     name: (*name).to_string(),
                     parameters: vec!["x".to_string()],
                     is_builtin: true,
+                    plugin: None,
+                    summary: None,
                 })
                 .collect(),
         };
@@ -856,6 +858,8 @@ mod tests {
                 name: "myfunc".to_string(),
                 parameters: vec!["a".to_string()],
                 is_builtin: false,
+                plugin: None,
+                summary: None,
             }],
         };
         let ctx = SyntaxContext::from_engine_state(&state, "");

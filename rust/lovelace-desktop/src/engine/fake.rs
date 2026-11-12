@@ -232,6 +232,8 @@ impl Evaluator for FakeEngine {
                     name,
                     parameters,
                     is_builtin: true,
+                    plugin: None,
+                    summary: None,
                 })
                 .collect(),
         })

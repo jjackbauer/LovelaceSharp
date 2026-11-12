@@ -2307,14 +2307,31 @@
                      "type":  "W",
                      "requirement":  "Provide sortable variables table",
                      "acceptance":  "Show name, kind and display value for all globals including `_`, sorted by ordinal name by default.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables-printwindow.png",
+                                          "sha256":  "52C681C626BDF8258F299A43908136C3CF614B126E4F79EF6AF7D59368A06BFF",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables-uia.txt",
+                                          "sha256":  "34DB8D23BD9EEA4CFC63D6DC894DBB3862BC1AFC2BC18A7938531C5AD3803FC7",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables.md",
+                                          "sha256":  "3823E89F4A2F5D709AD8AED188D25097A541408D2B94FF5CE0F31FEEB9B9F9A5",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop workspace_table; UIA capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Aligned columns with name/kind/display; _ included; default ordinal ascending and header-click sorting both directions with stable ties; UIA shows VARIABLES · 2 with Natural kinds. 225 tests."
                  },
                  {
                      "id":  "WKS-002",
@@ -2323,14 +2340,31 @@
                      "type":  "W",
                      "requirement":  "Provide function table with source distinctions",
                      "acceptance":  "Show name, parameters, builtin/user/plugin origin and summary when available; counts agree with current engine registry.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables-printwindow.png",
+                                          "sha256":  "52C681C626BDF8258F299A43908136C3CF614B126E4F79EF6AF7D59368A06BFF",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables-uia.txt",
+                                          "sha256":  "34DB8D23BD9EEA4CFC63D6DC894DBB3862BC1AFC2BC18A7938531C5AD3803FC7",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-25/workspace-tables.md",
+                                          "sha256":  "3823E89F4A2F5D709AD8AED188D25097A541408D2B94FF5CE0F31FEEB9B9F9A5",
+                                          "class":  "gui",
+                                          "at_head":  "0cd0f8194dc9d692020841ee7a0571191feccd9d"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop workspace_table",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Functions table from the engine registry snapshot with parameters, origin (user/builtin/plugin) and summary; UIA shows FUNCTIONS · 124 and user/builtin/plugin rows; count equals the registry count."
                  },
                  {
                      "id":  "WKS-003",

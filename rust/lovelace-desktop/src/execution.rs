@@ -57,6 +57,10 @@ pub struct WorkspaceSnapshot {
     /// Variables visible after the committed statements, sorted by the engine.
     pub variables: Vec<(String, String)>,
     /// Functions visible after the committed statements.
+    ///
+    /// WKS-002: this is rebuilt from [`Self::state`] at every commit, so the list and its count
+    /// are the engine's current registry (builtins, plugin builtins and user definitions), not
+    /// the legacy [`Evaluator::functions`] pair list that names user definitions only.
     pub functions: Vec<(String, Vec<String>)>,
     /// The richer capture the completion catalogue reads: variables with their kinds and
     /// every function with its declared parameters and builtin flag.
@@ -724,6 +728,19 @@ impl RunWorker {
                         panic::catch_unwind(AssertUnwindSafe(|| engine.state()))
                     {
                         progress.state = state;
+                    }
+                    // WKS-002: the registry capture is the one source of truth for the function
+                    // table. `Evaluator::functions` is the legacy pair list and, in the real
+                    // engine, names only the script's user definitions; rebuilding the legacy
+                    // list from the capture keeps the snapshot's function count equal to the
+                    // count the Workspace table displays (builtins, plugins and user functions).
+                    if !progress.state.functions.is_empty() {
+                        progress.functions = progress
+                            .state
+                            .functions
+                            .iter()
+                            .map(|function| (function.name.clone(), function.parameters.clone()))
+                            .collect();
                     }
                     if let Ok(Some(plot)) =
                         panic::catch_unwind(AssertUnwindSafe(|| engine.last_plot()))

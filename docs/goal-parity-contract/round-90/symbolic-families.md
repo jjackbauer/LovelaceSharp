@@ -71,6 +71,7 @@ the field that carried the row.
 | 7 | `inspect(and(x > 0, 0))` | `(rat 0 1)`, nodeCount 1 | `(and (rat 0 1) (gt ...))`, nodeCount 5 | oracle-identical |
 | 7 | `inspect(or(0, 0))` | `(rat 0 1)`, nodeCount 1 | `(or (rat 0 1) (rat 0 1))`, nodeCount 3 | oracle-identical |
 | 7 | `inspect(and(x > 0, and(x < 1, y > 0)))` | flat 3-operand And, nodeCount 10 | nested And operand, nodeCount 11 | flat 3-operand And, nodeCount 10 |
+| 7 | `inspect(and(x > 0, x > 0))` | both operands kept, nodeCount 7 (the reference duplicate check is reference equality on the relation's children) | same | same: the language fold preserves duplicates; the library constructor dedupes the SAME node, as the C# row does |
 | 8 | library `Expr::piecewise` + `Evaluation.EvaluateToNum` / MathIR lowering | branch 1 at `x = 1/2`, 0 at `x = 2` (C# test) | numeric evaluation already correct; MathIR guard lowering already correct | same, pinned by test |
 | 9 | `2^(-1)` (control) | `0.5 (Real)` | identical | identical |
 | 10 | `0^3` (control) | `0 (Natural)` | identical | identical |
@@ -106,8 +107,13 @@ express.
    `:604` (`or_all`), `:612` (`logical_not`), `:623` (`logical_connective`). They flatten a
    nested same-kind node, fold the exact 0/1 constants, collapse a double negation, deduplicate and
    store operands in the canonical order, matching `Exprs.And/Or/Not` (Constructors.cs:646-731).
-   The language builtins (`rust/lovelace-lang/src/builtins.rs:1612`) and the unary `not`
-   (`rust/lovelace-lang/src/lib.rs:1497`) now build through them.
+   The language builtins route `and`/`or` through `logical_node`
+   (`rust/lovelace-lang/src/builtins.rs:6667`), which flattens, folds the constants and sorts but
+   deliberately does NOT deduplicate two separately evaluated equal relations — the reference
+   engine keeps both (`and(x > 0, x > 0)` is nodeCount 7). `not` uses `Expr::logical_not`
+   (`rust/lovelace-lang/src/lib.rs:1497`) because the reference folds a double negation.
+   The library constructor keeps its structural dedupe, which the C# row exercises by passing
+   the same `gt` node twice.
 6. **Numeric exponent normalization** — `rust/lovelace-symbolics/src/lib.rs:481` (`Expr::pow`
    normalizes an exact Real exponent) and `:5424` (`real_text_to_rational`, the Rust spelling of
    `RealLiteral.ToRational`). This is the reference's "every numeric exponent is a RationalConstant"
@@ -137,7 +143,7 @@ changed to fit the implementation.
 | 4 | `zero_to_a_negative_power_is_an_evaluation_failure` | `EvaluationException` + `"0 raised to a non-positive power."`; envelope EvaluationError |
 | 5 | `integrate_structured_result_reports_conditions` | `1/x` → SolvedConditional, expression `log(x)`, one condition `x > 0` (canonical `(gt (sym x) (rat 0 1))`); `x^5` SolvedExact no conditions; `exp(x^2)` Unevaluated |
 | 6 | `kleene_evaluation_and_or_not` | direct `Tristate` True/False/Unknown on the And; 1/0 from `EvaluateToNum`; Unknown is a typed error; Not and Or cases |
-| 7 | `logical_canonicalization` (symbolics) + `logical_canonicalization_through_the_engine` (lang) | all C# assertions: double negation, duplicate/constant folding, Or duals, pretty `"x < 1 and x > 0"`, canonical round-trip, 3-operand flatten with nodeCount 10 |
+| 7 | `logical_canonicalization` (symbolics) + `logical_canonicalization_through_the_engine` (lang) | all C# assertions: double negation, duplicate/constant folding, Or duals, pretty `"x < 1 and x > 0"`, canonical round-trip, 3-operand flatten with nodeCount 10, and the duplicate-operand case kept as the oracle publishes it (nodeCount 7) |
 | 8 | `piecewise_with_compound_guard_evaluates` | branch 1 at x=1/2, 0 at x=2 and at the boundary x=1, through numeric evaluation AND the MathIR kernel |
 | 9 | `pow_given_negative_exponent_throws` | InvalidArgument/TypeMismatch, `"Exponent must be positive. (Parameter 'exponent')"` |
 | 10 | `pow_given_zero_base_throws` | InvalidArgument/TypeMismatch, `"Base cannot be zero. (Parameter 'base')"`; base checked first (`0.Pow(0)` names the base); the three ported controls (2^10, (-2)^4, (-2)^3) still answer |
@@ -152,13 +158,18 @@ changed to fit the implementation.
 |---|---|---|---|
 | Symbolics suite | `cargo test -p lovelace-symbolics` | 190 passed, 0 failed (3 new) | 0 |
 | Language suite | `cargo test -p lovelace-lang` | 1,648 passed, 0 failed (12 new) | 0 |
-| Workspace suite | `cargo test --workspace` | `<pending>` | |
+| Workspace suite | `cargo test --workspace` | **5,432 passed, 0 failed, 1 ignored** over 21 test binaries (includes the 15 new tests and the concurrent lanes' additions); `WORKSPACE_EXIT=0` | 0 |
 | Documentation corpus | `cargo run --release -p lovelace-corpus` | `corpus: 214 passed, 0 failed, 214 total` | 0 |
 | Protocol fixtures | `node parity/tools/gate-fixtures.mjs` | `oracle: 20/20, rust: 20/20` | 0 |
 | CLI matrix | `node parity/tools/gate-cli.mjs` | `CLI matrix: 16/16` | 0 |
 | Differential | `node parity/diff/run.mjs --cases 200 --seed 1` | generated 200/200, replayed 1,758/1,758, 0 mismatch, 0 error | 0 |
 | Clippy | `cargo clippy -p lovelace-symbolics -p lovelace-lang --all-targets -- -D warnings` | clean | 0 |
 | Format | `cargo fmt -p lovelace-symbolics -p lovelace-lang -- --check` | clean | 0 |
+
+The workspace run is the measured one. The first attempt in this session failed to LINK a test
+binary while a concurrent desktop lane was mid-edit (`lovelace-desktop` E0061/E0277/E0027); the
+crate settled and the final run above is green. No `lovelace-desktop` file was touched by this
+round.
 
 ## 6. Scope, adjacent differences, and what remains
 
@@ -174,6 +185,12 @@ Adjacent differences seen while probing but **not** part of these 14 rows:
   integration-tier gap, unchanged here.
 - The language has no `piecewise` builtin on either runner ("Unknown function 'piecewise'"), so
   the piecewise row's surface is the library API; that is the surface the C# row itself uses.
+- The reference's And/Or duplicate test is REFERENCE identity on the operands' children. A Rust
+  value-semantics expression cannot reproduce both of the reference's answers: `and(x > 0, x > 0)`
+  keeps two nodes in the oracle (two separately evaluated relations) while `c = x > 0; and(c, c)`
+  collapses to one (the same relation instance). This round matches the literal form (the simplest
+  probe, and the one recorded in section 2) through `logical_node`; the library constructor
+  `Expr::and_all` matches the same-value form the C# row itself exercises (`Exprs.And(gt, gt)`).
 
 **Rows left blocked: 0.** All 14 ids are closed: rows 5, 6, 7 and 13 have production fixes, rows
 2 and 4 have their runner-envelope vocabulary fixed (their library surface was already

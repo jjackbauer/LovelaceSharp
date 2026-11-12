@@ -214,7 +214,7 @@ pub struct DocumentView {
     pub result: String,
     /// Variables after the committed prefix, sorted by the engine.
     pub variables: Vec<(String, String)>,
-    /// Functions after the committed prefix.
+    /// Functions after the committed prefix (the engine registry, WKS-002).
     pub functions: Vec<(String, Vec<String>)>,
     /// The kind-aware capture the completion catalogue reads.
     pub state: EngineState,
@@ -1463,6 +1463,8 @@ mod tests {
             name: name.to_string(),
             parameters: parameters.iter().map(|p| p.to_string()).collect(),
             is_builtin: true,
+            plugin: None,
+            summary: None,
         }
     }
 
@@ -1552,6 +1554,73 @@ mod tests {
                 .kind,
             CompletionKind::Builtin
         );
+    }
+
+    /// WKS-001/WKS-002 with the shipped engine: after a run that defines a user `func` and a
+    /// variable, the committed snapshot publishes `_` with its kind and display, the function
+    /// table is built from the registry capture (builtins + plugin builtins + the user
+    /// definition), and the table's count agrees with the snapshot and with a fresh engine's
+    /// registry plus that one user definition.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_real_snapshot_publishes_underscore_and_the_registry_count_for_the_tables() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(0, "func aaa(x) = x * 2\na = 21\naaa(a)\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        let view = workbench.active_view();
+        let underscore = view
+            .state
+            .variables
+            .iter()
+            .find(|variable| variable.name == "_")
+            .expect("the engine publishes the answer global in its capture");
+        assert_eq!(underscore.kind, "Natural");
+        assert_eq!(underscore.display, "42");
+        let a = view
+            .state
+            .variables
+            .iter()
+            .find(|variable| variable.name == "a")
+            .expect("the assigned variable is in the capture");
+        assert_eq!(a.kind, "Natural");
+        assert_eq!(a.display, "21");
+        assert!(
+            view.variables.iter().any(|(name, _)| name == "_"),
+            "the snapshot's variable list also names _: {:?}",
+            view.variables
+        );
+
+        let table = crate::workspace_table::FunctionTable::new(&view.state);
+        let fresh_registry = crate::engine::RealEngine::new()
+            .state()
+            .expect("a fresh real engine publishes its registry");
+        assert_eq!(
+            table.rows.len(),
+            view.state.functions.len(),
+            "the table rows are the snapshot's registry capture"
+        );
+        assert_eq!(
+            table.rows.len(),
+            view.functions.len(),
+            "the displayed count equals the snapshot's function count"
+        );
+        assert_eq!(
+            table.rows.len(),
+            fresh_registry.functions.len() + 1,
+            "the current registry plus the one user definition"
+        );
+
+        let user = table.rows.iter().find(|row| row.name == "aaa").unwrap();
+        assert_eq!(user.origin, crate::engine::FunctionOrigin::User);
+        assert_eq!(user.parameters_text(), "x");
+        let builtin = table.rows.iter().find(|row| row.name == "abs").unwrap();
+        assert_eq!(builtin.origin, crate::engine::FunctionOrigin::Builtin);
+        let plugin = table.rows.iter().find(|row| row.name == "acos").unwrap();
+        assert_eq!(plugin.origin, crate::engine::FunctionOrigin::Plugin);
     }
 
     /// An engine that sleeps in every evaluation, so cancellation has a real statement

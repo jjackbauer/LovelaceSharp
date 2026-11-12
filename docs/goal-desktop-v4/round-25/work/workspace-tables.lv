@@ -1,0 +1,3 @@
+func aaa(x) = x * 2
+a = 21
+aaa(a)
