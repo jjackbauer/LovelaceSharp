@@ -1,0 +1,591 @@
+﻿UIA pid=28988 window=Lovelace Desktop - J-12.ls
+ControlType.TitleBar | Lovelace Desktop - J-12.ls | focusable=False | enabled=True
+ControlType.MenuBar | System Menu Bar | focusable=True | enabled=True
+ControlType.MenuItem | System | focusable=True | enabled=True
+ControlType.Button | Minimize | focusable=False | enabled=True
+ControlType.Button | Maximize | focusable=False | enabled=True
+ControlType.Button | Close | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | File | focusable=False | enabled=True
+ControlType.Button | New | focusable=True | enabled=True
+ControlType.Button | Open... | focusable=True | enabled=True
+ControlType.Button | Save | focusable=True | enabled=True
+ControlType.Button | Save As... | focusable=True | enabled=True
+ControlType.Button | Recent | focusable=True | enabled=True
+ControlType.Button | Close | focusable=True | enabled=True
+ControlType.Button | Quit | focusable=True | enabled=True
+ControlType.Text | UTF-8 · LF | focusable=False | enabled=True
+ControlType.Text | C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-34\J-12.ls | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | Lovelace Desktop | focusable=False | enabled=True
+ControlType.Text | lovelace-lang | focusable=False | enabled=True
+ControlType.Button | Run | focusable=True | enabled=True
+ControlType.Text | Precision | focusable=False | enabled=True
+ControlType.Spinner |  | focusable=True | enabled=True
+ControlType.Text | 1000 digits | focusable=False | enabled=True
+ControlType.Text | 4 lines / 30 bytes | focusable=False | enabled=True
+ControlType.Text | laid out 4 / 38 visible rows | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Button | welcome.lv | focusable=True | enabled=True
+ControlType.Button | untitled.lv | focusable=True | enabled=True
+ControlType.Button | J-12.ls | focusable=True | enabled=True
+ControlType.Text | document 3 · revision 1 | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | J-12.ls  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Failed | focusable=False | enabled=True
+ControlType.Text | 7 ms last run | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Pane | Editor - J-12.ls | focusable=False | enabled=True
+ControlType.Text | J-12.ls | focusable=False | enabled=True
+ControlType.Text | 4 lines / 30 bytes | focusable=False | enabled=True
+ControlType.Text | UTF-8 · LF | focusable=False | enabled=True
+ControlType.Text | Diagnostic Ln 2, Col 11: Cannot divide by zero. | focusable=False | enabled=True
+ControlType.Edit | Script editor, 4 lines, caret line 1 column 1 | focusable=True | enabled=True
+ControlType.Pane | Plot - engine SVG | focusable=False | enabled=True
+ControlType.Button | Fit | focusable=True | enabled=True
+ControlType.Button | 100% | focusable=True | enabled=True
+ControlType.Button | Zoom out | focusable=True | enabled=True
+ControlType.Button | Zoom in | focusable=True | enabled=True
+ControlType.Text | 100% | focusable=False | enabled=True
+ControlType.Text | no engine plot | focusable=False | enabled=True
+ControlType.Button | Export SVG... | focusable=True | enabled=False
+ControlType.Button | Export PNG... | focusable=True | enabled=False
+ControlType.Pane | Workspace | focusable=False | enabled=True
+ControlType.Text | Filter | focusable=False | enabled=True
+ControlType.Edit | Filter | focusable=True | enabled=True
+ControlType.Text | 3 vars · 123 funcs | focusable=False | enabled=True
+ControlType.Button | Result | focusable=True | enabled=True
+ControlType.Button | Inspector | focusable=True | enabled=True
+ControlType.Text | rev 1 · committed 2/4 | focusable=False | enabled=True
+ControlType.Text | RESULT · structured projection | focusable=False | enabled=True
+ControlType.Text | display: 😀 | focusable=False | enabled=True
+ControlType.Text | Text | focusable=False | enabled=True
+ControlType.Text | 😀 | focusable=False | enabled=True
+ControlType.Text | VARIABLES · 3 | focusable=False | enabled=True
+ControlType.Button | Clear Variables | focusable=True | enabled=True
+ControlType.Button | Name ▲ | focusable=True | enabled=True
+ControlType.Button | Kind | focusable=True | enabled=True
+ControlType.Button | Value | focusable=True | enabled=True
+ControlType.Text | _ | focusable=False | enabled=True
+ControlType.Text | Text | focusable=False | enabled=True
+ControlType.Text | 😀 | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | Natural | focusable=False | enabled=True
+ControlType.Text | 1 | focusable=False | enabled=True
+ControlType.Text | s | focusable=False | enabled=True
+ControlType.Text | Text | focusable=False | enabled=True
+ControlType.Text | 😀 | focusable=False | enabled=True
+ControlType.Text | FUNCTIONS · 123 | focusable=False | enabled=True
+ControlType.Button | Name ▲ | focusable=True | enabled=True
+ControlType.Button | Parameters | focusable=True | enabled=True
+ControlType.Button | Origin | focusable=True | enabled=True
+ControlType.Text | abs | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Absolute value (magnitude for complex v… | focusable=False | enabled=True
+ControlType.Text | acos | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The principal arccosine. | focusable=False | enabled=True
+ControlType.Text | acosh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The inverse hyperbolic cosine, principa… | focusable=False | enabled=True
+ControlType.Text | and | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Logical conjunction of two conditions. | focusable=False | enabled=True
+ControlType.Text | apart | focusable=False | enabled=True
+ControlType.Text | f, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Partial fraction decomposition of a rat… | focusable=False | enabled=True
+ControlType.Text | append | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Append the values of one vector to anot… | focusable=False | enabled=True
+ControlType.Text | asin | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The principal arcsine. | focusable=False | enabled=True
+ControlType.Text | asinh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The inverse hyperbolic sine, principal … | focusable=False | enabled=True
+ControlType.Text | assume | focusable=False | enabled=True
+ControlType.Text | relation | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes a relation (or conjunction of r… | focusable=False | enabled=True
+ControlType.Text | assume_clear | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Clears every active assumption. | focusable=False | enabled=True
+ControlType.Text | assume_integer | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes x is an integer for the rest of… | focusable=False | enabled=True
+ControlType.Text | assume_negative | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes x < 0 for the rest of the sessi… | focusable=False | enabled=True
+ControlType.Text | assume_nonnegative | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes x >= 0 for the rest of the sess… | focusable=False | enabled=True
+ControlType.Text | assume_positive | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes x > 0 for the rest of the sessi… | focusable=False | enabled=True
+ControlType.Text | assume_real | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Assumes x is real-valued for the rest o… | focusable=False | enabled=True
+ControlType.Text | assumptions | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Lists the active assumptions as a struc… | focusable=False | enabled=True
+ControlType.Text | atan | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The principal arctangent. | focusable=False | enabled=True
+ControlType.Text | atanh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The inverse hyperbolic tangent, princip… | focusable=False | enabled=True
+ControlType.Text | cancel | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Cancels common polynomial factors in a … | focusable=False | enabled=True
+ControlType.Text | cancel_full | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured cancel: a CancelResult recor… | focusable=False | enabled=True
+ControlType.Text | capabilities | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Reports which domain values the solver'… | focusable=False | enabled=True
+ControlType.Text | collect | focusable=False | enabled=True
+ControlType.Text | f, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Collects coefficients of powers of x. | focusable=False | enabled=True
+ControlType.Text | compile | focusable=False | enabled=True
+ControlType.Text | f, params | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Compiles a symbolic expression to a val… | focusable=False | enabled=True
+ControlType.Text | compile_full | focusable=False | enabled=True
+ControlType.Text | f, params | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured compile: a CompilationResult… | focusable=False | enabled=True
+ControlType.Text | complex | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The complex domain value (the solve def… | focusable=False | enabled=True
+ControlType.Text | concat | focusable=False | enabled=True
+ControlType.Text | a, b, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Concatenate arrays along an axis. | focusable=False | enabled=True
+ControlType.Text | conj | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Complex conjugate of a complex value or… | focusable=False | enabled=True
+ControlType.Text | conv | focusable=False | enabled=True
+ControlType.Text | x, h | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Linear convolution of two signals. | focusable=False | enabled=True
+ControlType.Text | cos | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The cosine function. | focusable=False | enabled=True
+ControlType.Text | cosh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The hyperbolic cosine. | focusable=False | enabled=True
+ControlType.Text | cosine | focusable=False | enabled=True
+ControlType.Text | freq, phase, n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Cosine sequence of length n at the give… | focusable=False | enabled=True
+ControlType.Text | cross | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Cross product of two 3-vectors. | focusable=False | enabled=True
+ControlType.Text | delay | focusable=False | enabled=True
+ControlType.Text | x, k | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Delays a signal by k samples. | focusable=False | enabled=True
+ControlType.Text | det | focusable=False | enabled=True
+ControlType.Text | m | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Determinant (fraction-free for symbolic… | focusable=False | enabled=True
+ControlType.Text | dft | focusable=False | enabled=True
+ControlType.Text | x, n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Discrete Fourier transform; an optional… | focusable=False | enabled=True
+ControlType.Text | diff | focusable=False | enabled=True
+ControlType.Text | f, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Derivative of f with respect to x. | focusable=False | enabled=True
+ControlType.Text | divrem | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Quotient and remainder pair of integer … | focusable=False | enabled=True
+ControlType.Text | dot | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Dot product of two vectors. | focusable=False | enabled=True
+ControlType.Text | e | focusable=False | enabled=True
+ControlType.Text | digits | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | e to the requested precision (or the en… | focusable=False | enabled=True
+ControlType.Text | evalf | focusable=False | enabled=True
+ControlType.Text | f, digits | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Numerically evaluates a symbolic expres… | focusable=False | enabled=True
+ControlType.Text | evalir | focusable=False | enabled=True
+ControlType.Text | ir, values, digits | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Evaluates a compiled kernel (IR text or… | focusable=False | enabled=True
+ControlType.Text | evalir_batch | focusable=False | enabled=True
+ControlType.Text | ir, values, digits | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Batch-evaluates a compiled kernel (IR t… | focusable=False | enabled=True
+ControlType.Text | exp | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The exponential function, exp(x). | focusable=False | enabled=True
+ControlType.Text | expand | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Expands products and powers into a sum … | focusable=False | enabled=True
+ControlType.Text | exponential | focusable=False | enabled=True
+ControlType.Text | c, n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Exponential sequence c^k of length n. | focusable=False | enabled=True
+ControlType.Text | eye | focusable=False | enabled=True
+ControlType.Text | rows, cols | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Identity matrix. | focusable=False | enabled=True
+ControlType.Text | factor | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Factors a polynomial over the rationals. | focusable=False | enabled=True
+ControlType.Text | fft | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Fast Fourier transform of a signal. | focusable=False | enabled=True
+ControlType.Text | filter | focusable=False | enabled=True
+ControlType.Text | a, b, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Difference-equation filter of a signal … | focusable=False | enabled=True
+ControlType.Text | flatten | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Flatten an N-D array to a rank-1 vector. | focusable=False | enabled=True
+ControlType.Text | hessian | focusable=False | enabled=True
+ControlType.Text | f, vars | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Hessian matrix (second derivatives) of … | focusable=False | enabled=True
+ControlType.Text | im | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Imaginary part of a complex value or si… | focusable=False | enabled=True
+ControlType.Text | impulse | focusable=False | enabled=True
+ControlType.Text | n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Unit impulse sequence of length n. | focusable=False | enabled=True
+ControlType.Text | inf | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Positive infinity (the symbolic constan… | focusable=False | enabled=True
+ControlType.Text | inspect | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Structural introspection of x as a reco… | focusable=False | enabled=True
+ControlType.Text | integer | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The integer domain value (symbol(name, … | focusable=False | enabled=True
+ControlType.Text | integrate | focusable=False | enabled=True
+ControlType.Text | f, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Indefinite integral of f with respect t… | focusable=False | enabled=True
+ControlType.Text | integrate_full | focusable=False | enabled=True
+ControlType.Text | f, x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured integration: an IntegrationR… | focusable=False | enabled=True
+ControlType.Text | inv | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Reciprocal of a scalar or the inverse o… | focusable=False | enabled=True
+ControlType.Text | inv_full | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Structured matrix inverse: a MatrixInve… | focusable=False | enabled=True
+ControlType.Text | is_even | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Whether the integer value is even. | focusable=False | enabled=True
+ControlType.Text | is_odd | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Whether the integer value is odd. | focusable=False | enabled=True
+ControlType.Text | jacobian | focusable=False | enabled=True
+ControlType.Text | fs, vars | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Jacobian matrix (first derivatives) of … | focusable=False | enabled=True
+ControlType.Text | latex | focusable=False | enabled=True
+ControlType.Text | expr | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Renders an expression as LaTeX source. … | focusable=False | enabled=True
+ControlType.Text | len | focusable=False | enabled=True
+ControlType.Text | v | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Length of a vector (first dimension of … | focusable=False | enabled=True
+ControlType.Text | limit | focusable=False | enabled=True
+ControlType.Text | f, x, x0 | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Two-sided limit of f as x → x0, returne… | focusable=False | enabled=True
+ControlType.Text | limit_full | focusable=False | enabled=True
+ControlType.Text | f, x, x0 | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured limit: a LimitResult record … | focusable=False | enabled=True
+ControlType.Text | limit_left | focusable=False | enabled=True
+ControlType.Text | f, x, x0 | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | One-sided limit from the left as x appr… | focusable=False | enabled=True
+ControlType.Text | limit_right | focusable=False | enabled=True
+ControlType.Text | f, x, x0 | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | One-sided limit from the right as x app… | focusable=False | enabled=True
+ControlType.Text | linsolve | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Exact linear system solve over a symbol… | focusable=False | enabled=True
+ControlType.Text | linsolve_full | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Structured linear solve: a MatrixSolveR… | focusable=False | enabled=True
+ControlType.Text | log | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The natural logarithm (principal branch… | focusable=False | enabled=True
+ControlType.Text | lower | focusable=False | enabled=True
+ControlType.Text | f, params | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Lowers a symbolic expression to MathIR … | focusable=False | enabled=True
+ControlType.Text | matmul | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Matrix multiplication (also elementwise… | focusable=False | enabled=True
+ControlType.Text | matrix_rank | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Exact rank of a symbolic matrix. | focusable=False | enabled=True
+ControlType.Text | max | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Maximum of elements (optionally along a… | focusable=False | enabled=True
+ControlType.Text | mean | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Mean of elements (optionally along an a… | focusable=False | enabled=True
+ControlType.Text | min | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Minimum of elements (optionally along a… | focusable=False | enabled=True
+ControlType.Text | movingavg | focusable=False | enabled=True
+ControlType.Text | x, w | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Moving average of a signal with window … | focusable=False | enabled=True
+ControlType.Text | ndims | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Number of dimensions of an array (its r… | focusable=False | enabled=True
+ControlType.Text | noise | focusable=False | enabled=True
+ControlType.Text | scale, disp, n, seed | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Deterministic seeded noise sequence (th… | focusable=False | enabled=True
+ControlType.Text | norm | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Euclidean norm (optionally along an axi… | focusable=False | enabled=True
+ControlType.Text | not | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Logical negation of a condition. | focusable=False | enabled=True
+ControlType.Text | numel | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Total number of elements. | focusable=False | enabled=True
+ControlType.Text | ones | focusable=False | enabled=True
+ControlType.Text | dims | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | All-one array of the given shape. | focusable=False | enabled=True
+ControlType.Text | optimize | focusable=False | enabled=True
+ControlType.Text | f, params | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Equivalence-preserving optimization for… | focusable=False | enabled=True
+ControlType.Text | optimize_full | focusable=False | enabled=True
+ControlType.Text | f, params | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured optimization: an Optimizatio… | focusable=False | enabled=True
+ControlType.Text | or | focusable=False | enabled=True
+ControlType.Text | a, b | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Logical disjunction of two conditions. | focusable=False | enabled=True
+ControlType.Text | pi | focusable=False | enabled=True
+ControlType.Text | digits | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | π to the requested precision (or the en… | focusable=False | enabled=True
+ControlType.Text | plot | focusable=False | enabled=True
+ControlType.Text | x, y, title | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Renders a 2D line plot to an SVG file; … | focusable=False | enabled=True
+ControlType.Text | powerseries | focusable=False | enabled=True
+ControlType.Text | k, a, n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Geometric power series of length n. | focusable=False | enabled=True
+ControlType.Text | print | focusable=False | enabled=True
+ControlType.Text | values | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Writes the rendered value(s) to the eng… | focusable=False | enabled=True
+ControlType.Text | prod | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Product of elements (optionally along a… | focusable=False | enabled=True
+ControlType.Text | rank | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Number of array dimensions. | focusable=False | enabled=True
+ControlType.Text | rational | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The rational domain value (symbol(name,… | focusable=False | enabled=True
+ControlType.Text | re | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Real part of a complex value or signal. | focusable=False | enabled=True
+ControlType.Text | real | focusable=False | enabled=True
+ControlType.Text |  | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The real domain value (solve(..., real)… | focusable=False | enabled=True
+ControlType.Text | reshape | focusable=False | enabled=True
+ControlType.Text | a, dims | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Reshape an array to new dimensions. | focusable=False | enabled=True
+ControlType.Text | scale | focusable=False | enabled=True
+ControlType.Text | x, c | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Scales every sample of a signal by the … | focusable=False | enabled=True
+ControlType.Text | series | focusable=False | enabled=True
+ControlType.Text | f, x, x0, order | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Power series of f around x = x0 to the … | focusable=False | enabled=True
+ControlType.Text | setprecision | focusable=False | enabled=True
+ControlType.Text | digits | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Sets the engine computation and display… | focusable=False | enabled=True
+ControlType.Text | shape | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Dimensions of an array as a vector. | focusable=False | enabled=True
+ControlType.Text | sign | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Sign of a real value: -1, 0, or 1. | focusable=False | enabled=True
+ControlType.Text | simplify | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Safe simplification: applies only unive… | focusable=False | enabled=True
+ControlType.Text | simplify_full | focusable=False | enabled=True
+ControlType.Text | f | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured simplify: a TransformResult … | focusable=False | enabled=True
+ControlType.Text | sin | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The sine function. | focusable=False | enabled=True
+ControlType.Text | sinh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The hyperbolic sine. | focusable=False | enabled=True
+ControlType.Text | solve | focusable=False | enabled=True
+ControlType.Text | f, x, domain | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Solves an equation for x and returns th… | focusable=False | enabled=True
+ControlType.Text | solve_full | focusable=False | enabled=True
+ControlType.Text | f, x, domain | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured solve: a SolveResult record … | focusable=False | enabled=True
+ControlType.Text | solve_system | focusable=False | enabled=True
+ControlType.Text | eqs, vars | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Solves a polynomial equation system (Gr… | focusable=False | enabled=True
+ControlType.Text | solve_system_full | focusable=False | enabled=True
+ControlType.Text | eqs, vars | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Structured system solve: a SystemSolveR… | focusable=False | enabled=True
+ControlType.Text | sqrt | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Principal square root; symbolic argumen… | focusable=False | enabled=True
+ControlType.Text | squeeze | focusable=False | enabled=True
+ControlType.Text | a | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Remove length-1 axes. | focusable=False | enabled=True
+ControlType.Text | step | focusable=False | enabled=True
+ControlType.Text | n | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Unit step sequence of length n. | focusable=False | enabled=True
+ControlType.Text | subs | focusable=False | enabled=True
+ControlType.Text | f, x, value | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Substitutes value for the symbol x in f. | focusable=False | enabled=True
+ControlType.Text | sum | focusable=False | enabled=True
+ControlType.Text | a, axis | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Sum of elements (optionally along an ax… | focusable=False | enabled=True
+ControlType.Text | symbol | focusable=False | enabled=True
+ControlType.Text | name, domain | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | Creates a symbolic variable; an optiona… | focusable=False | enabled=True
+ControlType.Text | tan | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The tangent function. | focusable=False | enabled=True
+ControlType.Text | tanh | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | plugin | focusable=False | enabled=True
+ControlType.Text | The hyperbolic tangent. | focusable=False | enabled=True
+ControlType.Text | trace | focusable=False | enabled=True
+ControlType.Text | m | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Sum of the diagonal entries. | focusable=False | enabled=True
+ControlType.Text | transpose | focusable=False | enabled=True
+ControlType.Text | a, perm | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | Transpose (or permute the axes) of an a… | focusable=False | enabled=True
+ControlType.Text | type | focusable=False | enabled=True
+ControlType.Text | x | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | The value-kind name of x; structured re… | focusable=False | enabled=True
+ControlType.Text | zeros | focusable=False | enabled=True
+ControlType.Text | dims | focusable=False | enabled=True
+ControlType.Text | builtin | focusable=False | enabled=True
+ControlType.Text | All-zero array of the given shape. | focusable=False | enabled=True
+ControlType.ScrollBar |  | focusable=False | enabled=True
+ControlType.Pane | Logs | focusable=False | enabled=True
+ControlType.Text | run log · caret Ln 1, Col 1 · engine lovelace-lang | focusable=False | enabled=True
+ControlType.Text | Quick eval | focusable=False | enabled=True
+ControlType.Edit | Quick eval | focusable=True | enabled=True
+ControlType.Text | Ctrl+Shift+E | focusable=False | enabled=True
+ControlType.Text | Enter runs · Esc leaves the field | focusable=False | enabled=True
+ControlType.Text | [info] Opened C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-34\J-12.ls (30 bytes, UTF-8 · LF). | focusable=False | enabled=True
+ControlType.Text | [info] Run queued (revision 1, run 1). | focusable=False | enabled=True
+ControlType.Text | [info] Run started: 4 statements, engine lovelace-lang, precision 1000. | focusable=False | enabled=True
+ControlType.Text | [progress] statement 1/4: a = 1 | focusable=False | enabled=True
+ControlType.Text | [progress] statement 2/4: s = "😀" | focusable=False | enabled=True
+ControlType.Text | [progress] statement 3/4: 1 / 0 | focusable=False | enabled=True
+ControlType.Text | [diagnostic] Diagnostic: line 2, column 11: Cannot divide by zero. | focusable=False | enabled=True
+ControlType.Text | [timing] Run failed after 2 committed statements in 7 ms; the committed prefix remains in the workspace. | focusable=False | enabled=True
+ControlType.ScrollBar |  | focusable=False | enabled=True
+ControlType.Separator | Editor / plot splitter | focusable=True | enabled=True
+ControlType.Separator | Plot / workspace splitter | focusable=True | enabled=True
+ControlType.Separator | Workspace / logs splitter | focusable=True | enabled=True

@@ -1,0 +1,22 @@
+{
+    "exe":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\rust\\target-desktop\\debug\\lovelace-desktop.exe",
+    "exe_sha256":  "06F97485EC329D9B579CC76EFDFAB3AF59C3BC3251F912654EFB236F89819686",
+    "default_appdata":  "C:\\Users\\ricar\\AppData\\Roaming",
+    "redirected_appdata":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\appdata-journey",
+    "cwd":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\work",
+    "journey_out":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\journey-out",
+    "results":  [
+                    {
+                        "name":  "default-env-J-09",
+                        "exit":  1
+                    },
+                    {
+                        "name":  "j09-default-out",
+                        "exit":  0
+                    },
+                    {
+                        "name":  "five-journeys",
+                        "exit":  0
+                    }
+                ]
+}

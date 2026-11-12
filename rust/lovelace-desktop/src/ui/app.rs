@@ -2173,11 +2173,36 @@ impl WorkbenchApp {
 
                             ui.add_space(6.0);
                             ui.separator();
-                            ui.label(
-                                RichText::new(format!("VARIABLES · {variable_count}"))
-                                    .small()
-                                    .color(DIM),
-                            );
+                            // WKS-004: Clear Variables removes the globals and keeps every
+                            // function, including the user's `func` definitions. It belongs
+                            // beside the variables it clears (the pane header is too narrow for
+                            // a fourth control) and is disabled while a run is in flight or
+                            // before a run published a workspace.
+                            ui.horizontal(|ui| {
+                                ui.label(
+                                    RichText::new(format!("VARIABLES · {variable_count}"))
+                                        .small()
+                                        .color(DIM),
+                                );
+                                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                    let can_clear =
+                                        has_snapshot && !self.workbench.active_is_running();
+                                    if ui
+                                        .add_enabled(
+                                            can_clear,
+                                            egui::Button::new(
+                                                RichText::new("Clear Variables").small(),
+                                            ),
+                                        )
+                                        .on_hover_text(
+                                            "Remove every variable; function definitions are retained",
+                                        )
+                                        .clicked()
+                                    {
+                                        self.workbench.clear_variables_active();
+                                    }
+                                });
+                            });
                             let widths = variable_column_widths(ui.available_width());
                             ui.horizontal(|ui| {
                                 for column in VariableColumn::ALL {

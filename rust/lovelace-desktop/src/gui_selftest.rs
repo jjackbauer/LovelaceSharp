@@ -592,8 +592,9 @@ fn check_plot() -> Result<String, String> {
 /// Counts the element kinds the engine's plot renderer publishes, one line per element.
 ///
 /// The engine writes each element on its own line, so counting trimmed line prefixes cannot be
-/// confused by a point coordinate or a label that happens to spell a tag name.
-fn plot_element_counts(svg: &str) -> [usize; 4] {
+/// confused by a point coordinate or a label that happens to spell a tag name. `--journey J-15`
+/// reuses this census so the journey and the GUI selftest cannot disagree about the plot shape.
+pub(crate) fn plot_element_counts(svg: &str) -> [usize; 4] {
     let mut counts = [0usize; 4];
     for line in svg.lines() {
         let tag = line.trim_start();

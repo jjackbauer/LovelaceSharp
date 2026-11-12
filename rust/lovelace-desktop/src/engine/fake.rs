@@ -248,6 +248,16 @@ impl Evaluator for FakeEngine {
         self.plot.clone()
     }
 
+    /// Removes one global through the same selective seam the real adapter uses (WKS-004).
+    fn remove_variable(&mut self, name: &str) -> bool {
+        if self.vars.remove(name).is_some() {
+            self.revision = self.revision.saturating_add(1);
+            true
+        } else {
+            false
+        }
+    }
+
     fn clear(&mut self) {
         self.vars.clear();
         self.plot = None;

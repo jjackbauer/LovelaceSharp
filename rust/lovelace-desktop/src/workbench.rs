@@ -248,6 +248,19 @@ pub struct WorkbenchDocument {
     pub committed: usize,
     /// Number of statements the current or last run will visit.
     pub total: usize,
+    /// Display value of every statement the current or last run committed, in statement order.
+    ///
+    /// The panes only ever paint the last value (the snapshot's `result`); the headless
+    /// `--journey` mode narrates a run statement by statement, which is how J-03 observes the
+    /// digit count each `setprecision` produced inside one script. Reset when a run is submitted,
+    /// so it always describes one run.
+    pub committed_results: Vec<String>,
+    /// Statements the last run reported as reused from a cache.
+    ///
+    /// The execution core has no incremental cache yet, so every commit carries `reused: false`
+    /// and this is 0. The counter records what the run actually reported rather than assuming
+    /// none, so a future cache cannot silently reuse a value across a precision change (J-03).
+    pub reused: usize,
     /// Wall-clock time from submit to terminal, in milliseconds.
     pub elapsed_ms: u64,
     run: Option<RunHandle>,
@@ -1343,6 +1356,60 @@ impl Workbench {
         self.set_precision(self.active, decimals);
     }
 
+    /// WKS-004 / J-10: clears the document's variables while retaining its functions.
+    ///
+    /// Every run evaluates on a fresh engine (see [`crate::execution`]), so the workspace the
+    /// tables show is the last committed [`WorkspaceSnapshot`]; Clear Variables is the product's
+    /// operation on that workspace. It removes the entries from both variable projections
+    /// (`variables` and the kind-aware `state.variables`) and leaves the function tables alone,
+    /// builtins and user `func` definitions alike, which is the reference's `DELETE /api/state`
+    /// outcome. The engine-level counterpart, [`crate::engine::Evaluator::clear_variables`],
+    /// removes the same names through `Engine::remove_variable` and is what keeps a live engine's
+    /// user functions registered; this method keeps the *published* workspace consistent with it.
+    ///
+    /// Returns how many variables were removed, or `None` when a run is in flight or no run has
+    /// published a workspace yet. A refusal is logged and changes nothing.
+    pub fn clear_variables(&mut self, index: usize) -> Option<usize> {
+        let doc = self.docs.get_mut(index)?;
+        if doc.state().is_in_flight() {
+            Self::push_line(
+                doc,
+                LogLine::new(
+                    LogKind::Info,
+                    "Clear Variables refused: a run is in flight.",
+                ),
+            );
+            return None;
+        }
+        let Some(snapshot) = doc.snapshot.as_mut() else {
+            Self::push_line(
+                doc,
+                LogLine::new(
+                    LogKind::Info,
+                    "Clear Variables: no committed workspace yet.",
+                ),
+            );
+            return None;
+        };
+        let removed = snapshot.variables.len();
+        snapshot.variables.clear();
+        snapshot.state.variables.clear();
+        let functions = snapshot.functions.len();
+        Self::push_line(
+            doc,
+            LogLine::new(
+                LogKind::Info,
+                format!("Variables cleared: {removed} removed; {functions} functions retained."),
+            ),
+        );
+        Some(removed)
+    }
+
+    /// Clears the active document's variables (see [`Workbench::clear_variables`]).
+    pub fn clear_variables_active(&mut self) -> Option<usize> {
+        self.clear_variables(self.active)
+    }
+
     /// Requests a run of the active document.
     ///
     /// This only calls [`ExecutionHost::submit`], which spawns the worker and returns: no source
@@ -1479,6 +1546,8 @@ impl Workbench {
             doc.quick_eval_run = None;
             doc.committed = 0;
             doc.total = 0;
+            doc.committed_results.clear();
+            doc.reused = 0;
             doc.elapsed_ms = 0;
             doc.started = Some(Instant::now());
             let queued = doc.run_state.begin(run_id, "submit accepted");
@@ -1671,6 +1740,7 @@ impl Workbench {
             }
             DesktopEvent::StepCommitted {
                 index: statement,
+                reused: step_reused,
                 snapshot,
                 ..
             } => {
@@ -1692,6 +1762,10 @@ impl Workbench {
                     self.publish_snapshot(index, snapshot.clone());
                 }
                 self.docs[index].committed = snapshot.committed_steps;
+                self.docs[index]
+                    .committed_results
+                    .push(snapshot.result.clone());
+                self.docs[index].reused += usize::from(*step_reused);
                 true
             }
             DesktopEvent::Output { text, .. } => {
@@ -2107,6 +2181,8 @@ impl WorkbenchDocument {
             last_sequence: 0,
             committed: 0,
             total: 0,
+            committed_results: Vec::new(),
+            reused: 0,
             elapsed_ms: 0,
             run: None,
             quick_eval_run: None,
@@ -2409,6 +2485,73 @@ mod tests {
             view.result.contains("MatrixInverseResult"),
             "the engine's display text is available alongside: {:?}",
             view.result
+        );
+    }
+
+    /// WKS-004: Clear Variables removes the committed workspace's globals in both projections and
+    /// leaves the function table (here the user `func` plus the whole registry) untouched.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn clear_variables_removes_globals_and_keeps_the_user_function_in_the_workspace() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(
+            0,
+            "func twice(x) = x * 2\nanswer = 21\ntwice(answer)\n".to_string(),
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+        let before = workbench.active_view();
+        assert!(
+            before
+                .state
+                .variables
+                .iter()
+                .any(|variable| variable.name == "answer"),
+            "the run defined answer: {:?}",
+            before.state.variables
+        );
+        assert!(
+            before
+                .state
+                .functions
+                .iter()
+                .any(|function| function.name == "twice" && !function.is_builtin),
+            "the run defined the user function twice"
+        );
+
+        let removed = workbench
+            .clear_variables(0)
+            .expect("a finished workspace can be cleared");
+        assert!(removed >= 2, "answer and _ were removed: {removed}");
+        let after = workbench.active_view();
+        assert!(after.variables.is_empty(), "{:?}", after.variables);
+        assert!(
+            after.state.variables.is_empty(),
+            "{:?}",
+            after.state.variables
+        );
+        assert!(
+            after
+                .state
+                .functions
+                .iter()
+                .any(|function| function.name == "twice" && !function.is_builtin),
+            "the user function survives the clear"
+        );
+        assert_eq!(
+            after.functions.len(),
+            before.functions.len(),
+            "the function table is untouched"
+        );
+        assert_eq!(after.result, before.result, "the result display is untouched");
+        assert!(
+            workbench.documents()[0]
+                .logs
+                .iter()
+                .any(|line| line.text.starts_with("Variables cleared")),
+            "the clear is in the log"
         );
     }
 

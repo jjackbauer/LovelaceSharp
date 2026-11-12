@@ -7,9 +7,10 @@
 //! - eval -> Engine::eval, display -> Engine::format
 //! - variables / functions / take_output / last_plot / set_precision / precision / revision
 //!
-//! The contract exposes no selective "clear variables" operation, so clear() rebuilds the engine
-//! and restores its precision. That discards user functions as well as variables; the fake engine
-//! behaves the same way, and the app labels the command "Clear variables" to match the Studio.
+//! WKS-004: Clear Variables removes every global by name through the engine's own
+//! `Engine::remove_variable` seam, so user `func` definitions (and the builtin registry) stay
+//! registered. Rebuilding the engine would have cleared both and is no longer what the command
+//! does.
 
 use super::{EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
 use lovelace_json::Json;
@@ -190,10 +191,22 @@ impl Evaluator for RealEngine {
         })
     }
 
+    /// Removes one global variable through the engine's own selective seam.
+    ///
+    /// `lovelace_lang::Engine::remove_variable` removes exactly that binding and raises the
+    /// engine's `VariableChanged(removed: true)` event, leaving the function registry untouched.
+    fn remove_variable(&mut self, name: &str) -> bool {
+        self.engine.remove_variable(name)
+    }
+
+    /// Clear Variables: remove every global, keep the function table.
+    ///
+    /// WKS-004: this used to rebuild `lovelace_lang::Engine`, which silently discarded the user's
+    /// `func` definitions even though the command is labelled "Clear variables". The engine has a
+    /// selective removal seam, so the adapter uses it and the registry (builtins and user
+    /// definitions) is exactly what it was before the clear.
     fn clear(&mut self) {
-        let precision = self.engine.precision();
-        self.engine = lovelace_lang::Engine::new();
-        self.engine.set_precision(precision);
+        self.clear_variables();
     }
 
     fn name(&self) -> &'static str {

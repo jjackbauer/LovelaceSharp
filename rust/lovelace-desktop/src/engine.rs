@@ -402,6 +402,34 @@ pub trait Evaluator {
         None
     }
 
+    /// Removes one global variable, reporting whether it existed.
+    ///
+    /// WKS-004: this is the selective removal seam behind Clear Variables. The reference clears
+    /// the globals while the function table (builtins and user `func` definitions) stays, so the
+    /// desktop asks the engine to remove a name instead of rebuilding it, which would drop the
+    /// user functions too. The default reports "nothing removed": an evaluator with no removal
+    /// seam must not let [`Self::clear_variables`] claim a clear it did not perform.
+    fn remove_variable(&mut self, _name: &str) -> bool {
+        false
+    }
+
+    /// Removes every global variable, returning how many were removed.
+    ///
+    /// The names come from the engine's own [`Self::variables`] list, so the desktop never
+    /// guesses what a global is; each name goes through [`Self::remove_variable`]. Functions are
+    /// untouched on purpose: clearing variables keeps the user's `func` definitions (WKS-004).
+    fn clear_variables(&mut self) -> usize {
+        let names: Vec<String> = self
+            .variables()
+            .into_iter()
+            .map(|(name, _display)| name)
+            .collect();
+        names
+            .into_iter()
+            .filter(|name| self.remove_variable(name))
+            .count()
+    }
+
     /// Discards the engine's variables and transient state.
     fn clear(&mut self) {}
 
@@ -570,6 +598,79 @@ mod tests {
                 .iter()
                 .all(|f| !f.parameters.is_empty() || f.name == "clear"),
             "every function carries its declared parameter names"
+        );
+    }
+
+    /// WKS-004: Clear Variables removes every global through the engine's selective removal seam
+    /// and keeps the user's `func` definitions registered, so they still evaluate afterwards.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn clear_variables_removes_globals_and_keeps_the_real_user_function() {
+        let mut engine = RealEngine::new();
+        engine
+            .eval("func f(x) = x + 1\ny = 41")
+            .expect("the definition and the assignment evaluate");
+        assert!(
+            engine.variables().iter().any(|(name, _)| name == "y"),
+            "y is a global before the clear"
+        );
+        assert!(
+            engine.functions().iter().any(|(name, _)| name == "f"),
+            "f is a user function before the clear"
+        );
+
+        let removed = engine.clear_variables();
+        assert!(removed >= 1, "y was removed: {removed}");
+        assert!(
+            engine.variables().is_empty(),
+            "every global is gone: {:?}",
+            engine.variables()
+        );
+        assert!(
+            engine.functions().iter().any(|(name, _)| name == "f"),
+            "the user function survives the clear"
+        );
+        assert_eq!(
+            engine.eval("f(1)").ok(),
+            Some("2".to_string()),
+            "the retained function still evaluates"
+        );
+        assert!(
+            engine.eval("y").is_err(),
+            "the cleared global is not resolvable"
+        );
+
+        // `clear()` is the legacy Clear Variables entry point; it now keeps functions as well.
+        engine
+            .eval("func g(x) = x * 2\nz = 3")
+            .expect("a second definition and assignment evaluate");
+        engine.clear();
+        assert!(
+            engine.variables().is_empty(),
+            "clear() removes every global: {:?}",
+            engine.variables()
+        );
+        assert!(
+            engine.functions().iter().any(|(name, _)| name == "g"),
+            "clear() keeps the user function too"
+        );
+    }
+
+    /// The selective seam is engine-independent: the deterministic fake removes exactly the
+    /// globals it published and reports how many went.
+    #[test]
+    fn clear_variables_removes_every_fake_global() {
+        let mut engine = FakeEngine::new();
+        engine
+            .eval("x = 1\ntext = \"hi\"")
+            .expect("the fake evaluates assignments");
+        assert_eq!(engine.variables().len(), 2);
+        assert_eq!(engine.clear_variables(), 2);
+        assert!(engine.variables().is_empty());
+        assert_eq!(
+            engine.clear_variables(),
+            0,
+            "a second clear removes nothing and says so"
         );
     }
 

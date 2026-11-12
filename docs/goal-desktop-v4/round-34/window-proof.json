@@ -1,0 +1,390 @@
+{
+    "round":  34,
+    "head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808",
+    "session":  "locked",
+    "foreground":  "Windows Default Lock Screen",
+    "method":  "UIA Invoke + RangeValue + window-message keys + PrintWindow(PW_RENDERFULLCONTENT); real product window and document",
+    "exe":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\rust\\target-desktop\\debug\\lovelace-desktop.exe",
+    "exe_sha256":  "06F97485EC329D9B579CC76EFDFAB3AF59C3BC3251F912654EFB236F89819686",
+    "appdata":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\appdata",
+    "cwd":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\work",
+    "captures":  [
+                     {
+                         "name":  "J-03-precision-20",
+                         "file":  "J-03-precision-20.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  341310,
+                         "sha256":  "48802AF0A2E60FC507CF178A9798218462264B6E9CEE74C2BF1A29250AAFBBFE"
+                     },
+                     {
+                         "name":  "J-03",
+                         "file":  "J-03.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  342083,
+                         "sha256":  "CAAD41414F862C8670C83CB479C0CBEF50365C8A710D6E9E45C699262B68CFE4"
+                     },
+                     {
+                         "name":  "J-03-20-digits",
+                         "file":  "J-03-20-digits.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  230380,
+                         "sha256":  "C90FCE6BF10A50E1C35BA5A719F67428F92A404DF21EEEB4BBAC19B523FF38F5"
+                     },
+                     {
+                         "name":  "J-10-before",
+                         "file":  "J-10-before.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  220119,
+                         "sha256":  "E75C302D73E358BCDE026D38EE536309BDBBE75BDE63820D3F8E3C3C2B7164B5"
+                     },
+                     {
+                         "name":  "J-10",
+                         "file":  "J-10.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  224285,
+                         "sha256":  "9BD437CABF030300757A9BF314856CC50BF331F268A4639471723AD68C3D5BCD"
+                     },
+                     {
+                         "name":  "J-11-completion",
+                         "file":  "J-11-completion.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  185408,
+                         "sha256":  "246F563721258DDB3E14BCFF4E6F557E61E7E0CEF05EB040F4367C9123F74210"
+                     },
+                     {
+                         "name":  "J-11-accepted",
+                         "file":  "J-11-accepted.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  179140,
+                         "sha256":  "2266A79673E1D5131B0AE9984E08BFAFCFA06C07BB180CECA435FBDA53617CA7"
+                     },
+                     {
+                         "name":  "J-12",
+                         "file":  "J-12.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  229598,
+                         "sha256":  "AF6A0E01E324B38E6E588788981823ABCECF670ADAAEA19B4739FC1FE4277C39"
+                     },
+                     {
+                         "name":  "J-12-jump",
+                         "file":  "J-12-jump.png",
+                         "width":  1600,
+                         "height":  1000,
+                         "bytes":  228247,
+                         "sha256":  "F2F24F6099FB5CFB348FAA6B54CD8666D1638EB48689555D2B3F66B0D15777D0"
+                     }
+                 ],
+    "uia":  [
+                "J-03-precision-20-uia.txt",
+                "J-03-uia.txt",
+                "J-03-20-digits-uia.txt",
+                "J-10-before-uia.txt",
+                "J-10-uia.txt",
+                "J-11-completion-uia.txt",
+                "J-11-accepted-uia.txt",
+                "J-12-uia.txt",
+                "J-12-jump-uia.txt"
+            ],
+    "checks":  [
+                   {
+                       "name":  "J-03 fixture",
+                       "ok":  true,
+                       "detail":  "52 bytes sha256=4E8E5A1B451FB57ED118ACA6D6E3EE7615D317AE775EECFF5768B76CA268D3FA"
+                   },
+                   {
+                       "name":  "J-03 launch title names the script",
+                       "ok":  true,
+                       "detail":  "Lovelace Desktop - J-03.ls"
+                   },
+                   {
+                       "name":  "J-03 starts at the default 1000-digit precision",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-03.ls  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Idle | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 precision control changed 1000 -\u003e 20",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-03.ls  |  rev 1  |  precision 20  |  Ln 1, Col 1  |  run Idle | focusable=False | enabled=True ; ControlType.Text | 20 digits | focusable=False | enabled=True ; ControlType.Text | [info] Precision for J-03.ls set to 20 digits. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "capture J-03-precision-20",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 341310 bytes, sha256=48802AF0A2E60FC507CF178A9798218462264B6E9CEE74C2BF1A29250AAFBBFE"
+                   },
+                   {
+                       "name":  "J-03 run 1 status strip",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-03.ls  |  rev 1  |  precision 20  |  Ln 1, Col 1  |  run Finished | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 run 1 log names the visible precision",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [info] Run started: 4 statements, engine lovelace-lang, precision 20. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 run 1 final result honours the script setprecision(1000)",
+                       "ok":  true,
+                       "detail":  "digits=1000 sha256=92fa8c84b033aaf1a67722abccd41dab07aa693b6d64398b6baaafa47636b63c prefix=1.4142135623730950488016"
+                   },
+                   {
+                       "name":  "J-03 run 1 1000-digit value is the REF-digits value",
+                       "ok":  true,
+                       "detail":  "sha256=92fa8c84b033aaf1a67722abccd41dab07aa693b6d64398b6baaafa47636b63c"
+                   },
+                   {
+                       "name":  "J-03 variables table carries the 1000-digit answer",
+                       "ok":  true,
+                       "detail":  "rows=VARIABLES · 1, Clear Variables, Name ▲, Kind, Value, _, Real, 1.4142135623730950488016887242096980785…"
+                   },
+                   {
+                       "name":  "J-03 precision control changed 20 -\u003e 1000",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-03.ls  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Finished | focusable=False | enabled=True ; ControlType.Text | 1000 digits | focusable=False | enabled=True ; ControlType.Text | [info] Precision for J-03.ls set to 1000 digits. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "capture J-03",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 342083 bytes, sha256=CAAD41414F862C8670C83CB479C0CBEF50365C8A710D6E9E45C699262B68CFE4"
+                   },
+                   {
+                       "name":  "J-03 run 2 status strip after the precision change",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-03.ls  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Finished | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 run 2 is a fresh run of the same document",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [info] Run queued (revision 1, run 2). | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 run 2 log names precision 1000",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [info] Run started: 4 statements, engine lovelace-lang, precision 1000. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-03 run 2 re-rendered 1000 fractional digits",
+                       "ok":  true,
+                       "detail":  "digits=1000 sha256=92fa8c84b033aaf1a67722abccd41dab07aa693b6d64398b6baaafa47636b63c"
+                   },
+                   {
+                       "name":  "J-03 run 2 1000-digit value is the REF-digits value",
+                       "ok":  true,
+                       "detail":  "sha256=92fa8c84b033aaf1a67722abccd41dab07aa693b6d64398b6baaafa47636b63c"
+                   },
+                   {
+                       "name":  "J-03 precision-20 fixture",
+                       "ok":  true,
+                       "detail":  "25 bytes sha256=B2B0B6655A71619137939ED6DA878FB8F622916C12CB4CE8DA375B19051C06E0"
+                   },
+                   {
+                       "name":  "capture J-03-20-digits",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 230380 bytes, sha256=C90FCE6BF10A50E1C35BA5A719F67428F92A404DF21EEEB4BBAC19B523FF38F5"
+                   },
+                   {
+                       "name":  "J-03 sqrt(2) at precision 20 displays 19 fractional digits",
+                       "ok":  true,
+                       "detail":  "value=1.4142135623730950488 fractional_digits=19"
+                   },
+                   {
+                       "name":  "J-03 variables table carries the 19-digit answer at precision 20",
+                       "ok":  true,
+                       "detail":  "rows=VARIABLES · 1, Clear Variables, Name ▲, Kind, Value, _, Real, 1.4142135623730950488"
+                   },
+                   {
+                       "name":  "J-10 fixture",
+                       "ok":  true,
+                       "detail":  "30 bytes sha256=97A6DB63403260D5A986BF105F7ABC154543E8957A5CB8A30304A5FD3EE7B0C3"
+                   },
+                   {
+                       "name":  "J-10 launch title names the script",
+                       "ok":  true,
+                       "detail":  "Lovelace Desktop - J-10.ls"
+                   },
+                   {
+                       "name":  "capture J-10-before",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 220119 bytes, sha256=E75C302D73E358BCDE026D38EE536309BDBBE75BDE63820D3F8E3C3C2B7164B5"
+                   },
+                   {
+                       "name":  "J-10 run defines y=41",
+                       "ok":  true,
+                       "detail":  "variable rows=VARIABLES · 2, Clear Variables, Name ▲, Kind, Value, _, Natural, 42"
+                   },
+                   {
+                       "name":  "J-10 run defines the user function f",
+                       "ok":  true,
+                       "detail":  "function rows=FUNCTIONS · 124, Name ▲, Parameters, Origin, abs, x, builtin, Absolute value (magnitude for complex v…"
+                   },
+                   {
+                       "name":  "J-10 run result is 42",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [result] = 42 | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "capture J-10",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 224285 bytes, sha256=9BD437CABF030300757A9BF314856CC50BF331F268A4639471723AD68C3D5BCD"
+                   },
+                   {
+                       "name":  "J-10 variables table is empty after Clear Variables",
+                       "ok":  true,
+                       "detail":  "header=ControlType.Text | VARIABLES · 0 | focusable=False | enabled=True rows=VARIABLES · 0, Clear Variables, Name ▲, Kind, Value, The last run defined no variables."
+                   },
+                   {
+                       "name":  "J-10 the variable y is gone",
+                       "ok":  true,
+                       "detail":  "VARIABLES · 0, Clear Variables, Name ▲, Kind, Value, The last run defined no variables."
+                   },
+                   {
+                       "name":  "J-10 user function f is retained",
+                       "ok":  true,
+                       "detail":  "function rows=FUNCTIONS · 124, Name ▲, Parameters, Origin, abs, x, builtin, Absolute value (magnitude for complex v…"
+                   },
+                   {
+                       "name":  "J-10 functions table count is unchanged",
+                       "ok":  true,
+                       "detail":  "before=124 after=124"
+                   },
+                   {
+                       "name":  "J-10 clear is logged",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [info] Variables cleared: 2 removed; 124 functions retained. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-11 fixture is empty",
+                       "ok":  true,
+                       "detail":  "0 bytes"
+                   },
+                   {
+                       "name":  "J-11 launch title names the script",
+                       "ok":  true,
+                       "detail":  "Lovelace Desktop - J-11.ls"
+                   },
+                   {
+                       "name":  "capture J-11-completion",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 185408 bytes, sha256=246F563721258DDB3E14BCFF4E6F557E61E7E0CEF05EB040F4367C9123F74210"
+                   },
+                   {
+                       "name":  "J-11 completion popup offers sqrt with its signature",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | Completion: sq -\u003e sqrt(x) [builtin] 1/2 | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-11 editor caret is after the typed sq",
+                       "ok":  true,
+                       "detail":  "ControlType.Edit | Script editor, 1 lines, caret line 1 column 3 | focusable=True | enabled=True"
+                   },
+                   {
+                       "name":  "J-11 popup names the selected entry and the match count",
+                       "ok":  true,
+                       "detail":  "Completion: sq -\u003e sqrt(x) [builtin] 1/2"
+                   },
+                   {
+                       "name":  "capture J-11-accepted",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 179140 bytes, sha256=2266A79673E1D5131B0AE9984E08BFAFCFA06C07BB180CECA435FBDA53617CA7"
+                   },
+                   {
+                       "name":  "J-11 accepting sqrt moves the caret to column 5",
+                       "ok":  true,
+                       "detail":  "ControlType.Edit | Script editor, 1 lines, caret line 1 column 5 | focusable=True | enabled=True"
+                   },
+                   {
+                       "name":  "J-11 accepting the entry dismisses the popup",
+                       "ok":  true,
+                       "detail":  "completion nodes=0"
+                   },
+                   {
+                       "name":  "J-11 the accepted entry inserted sqrt into the document",
+                       "ok":  true,
+                       "detail":  "file=C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-34\\J-11-inserted.txt bytes=4 sha256=7E2131AB7C5075B12AA74CAFD5F0710EF489835C2D6DAE0B00E7CBC4611A01B3"
+                   },
+                   {
+                       "name":  "J-12 fixture",
+                       "ok":  true,
+                       "detail":  "30 bytes sha256=72E10D85AE7431F8D30A742DB37B11BA3427243D4EBFF4B00B06272B7EC66B30"
+                   },
+                   {
+                       "name":  "J-12 launch title names the script",
+                       "ok":  true,
+                       "detail":  "Lovelace Desktop - J-12.ls"
+                   },
+                   {
+                       "name":  "capture J-12",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 229598 bytes, sha256=AF6A0E01E324B38E6E588788981823ABCECF670ADAAEA19B4739FC1FE4277C39"
+                   },
+                   {
+                       "name":  "J-12 failed run status",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | J-12.ls  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Failed | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-12 diagnostic header names line 2 column 11",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | Diagnostic Ln 2, Col 11: Cannot divide by zero. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-12 diagnostic log line names line 2 column 11",
+                       "ok":  true,
+                       "detail":  "ControlType.Text | [diagnostic] Diagnostic: line 2, column 11: Cannot divide by zero. | focusable=False | enabled=True"
+                   },
+                   {
+                       "name":  "J-12 editor keeps the three-line document",
+                       "ok":  true,
+                       "detail":  "ControlType.Edit | Script editor, 4 lines, caret line 1 column 1 | focusable=True | enabled=True"
+                   },
+                   {
+                       "name":  "J-12 diagnostic underline is painted",
+                       "ok":  true,
+                       "detail":  "pixels=80 box=134,172..173,173"
+                   },
+                   {
+                       "name":  "J-12 diagnostic gutter marker is painted",
+                       "ok":  true,
+                       "detail":  "pixels=52 box=19,159..22,172"
+                   },
+                   {
+                       "name":  "J-12 underline and gutter marker share the line",
+                       "ok":  true,
+                       "detail":  "underline_centre=172.5 marker_centre=165.5 row_h=17.4"
+                   },
+                   {
+                       "name":  "J-12 gutter marker is on the second line",
+                       "ok":  true,
+                       "detail":  "expected_y=175.1 marker_centre=165.5 delta=9.6 row_h=17.4"
+                   },
+                   {
+                       "name":  "J-12 gutter marker is in the gutter, left of the underline",
+                       "ok":  true,
+                       "detail":  "marker_left=19 underline_left=134"
+                   },
+                   {
+                       "name":  "J-12 underline starts after the gutter",
+                       "ok":  true,
+                       "detail":  "editor_left=27.0 underline_left=134"
+                   },
+                   {
+                       "name":  "capture J-12-jump",
+                       "ok":  true,
+                       "detail":  "PrintWindow(PW_RENDERFULLCONTENT) 1600x1000, 228247 bytes, sha256=F2F24F6099FB5CFB348FAA6B54CD8666D1638EB48689555D2B3F66B0D15777D0"
+                   },
+                   {
+                       "name":  "J-12 F8 jumps to line 2 column 11",
+                       "ok":  true,
+                       "detail":  "ControlType.Edit | Script editor, 4 lines, caret line 2 column 11 | focusable=True | enabled=True ; ControlType.Text | J-12.ls  |  rev 1  |  precision 1000  |  Ln 2, Col 11  |  run Failed | focusable=False | enabled=True"
+                   }
+               ],
+    "passed":  58,
+    "failed":  0
+}

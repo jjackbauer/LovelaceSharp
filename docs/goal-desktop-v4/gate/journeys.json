@@ -43,11 +43,28 @@
                          "id":  "J-03",
                          "name":  "Precision",
                          "outcome":  "Set precision 20, evaluate sqrt(2), set 1000, rerun; full exact stored digits, visible precision and cache invalidation.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-03-precision-20.png",
+                                              "sha256":  "48802AF0A2E60FC507CF178A9798218462264B6E9CEE74C2BF1A29250AAFBBFE",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-03-20-digits.png",
+                                              "sha256":  "C90FCE6BF10A50E1C35BA5A719F67428F92A404DF21EEEB4BBAC19B523FF38F5",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/journeys.md",
+                                              "sha256":  "600E319B3213121317373F8D73C6382631CB2A73B917D178D4D8B0147BA8FD01",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "My run exit 0; window UIA shows precision 20 and \u002720 digits\u0027, digits 19 at 20 and 1000 at 1000, reused 0 after the change."
                      },
                      {
                          "id":  "J-04",
@@ -113,31 +130,82 @@
                          "id":  "J-10",
                          "name":  "Clear semantics",
                          "outcome":  "Define function f and variable x; Clear Variables removes x but not f; deleting one var preserves all other state.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-10.png",
+                                              "sha256":  "9BD437CABF030300757A9BF314856CC50BF331F268A4639471723AD68C3D5BCD",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-10-before.png",
+                                              "sha256":  "E75C302D73E358BCDE026D38EE536309BDBBE75BDE63820D3F8E3C3C2B7164B5",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/journeys.md",
+                                              "sha256":  "600E319B3213121317373F8D73C6382631CB2A73B917D178D4D8B0147BA8FD01",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "My run exit 0; capture after Clear Variables shows VARIABLES reduced while FUNCTIONS still lists the user f."
                      },
                      {
                          "id":  "J-11",
                          "name":  "Autocomplete",
                          "outcome":  "Type `sq`; completion offers sqrt with signature; define function and variable and see them appear; accepting suggestion edits source predictably.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-11-completion.png",
+                                              "sha256":  "246F563721258DDB3E14BCFF4E6F557E61E7E0CEF05EB040F4367C9123F74210",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-11-accepted.png",
+                                              "sha256":  "2266A79673E1D5131B0AE9984E08BFAFCFA06C07BB180CECA435FBDA53617CA7",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/journeys.md",
+                                              "sha256":  "600E319B3213121317373F8D73C6382631CB2A73B917D178D4D8B0147BA8FD01",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "Popup offers sqrt; accepting inserts it and the next run logs \u0027statement 2/2: sqrt(2)\u0027 - verified in the UIA dump."
                      },
                      {
                          "id":  "J-12",
                          "name":  "Error navigation",
                          "outcome":  "Trigger Unicode multiline error; exact line/column highlighted; error code/category accessible, jump-to-source works.",
-                         "status":  "NOT_TESTED",
+                         "status":  "PASS",
                          "evidence":  [
-
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-12.png",
+                                              "sha256":  "AF6A0E01E324B38E6E588788981823ABCECF670ADAAEA19B4739FC1FE4277C39",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/J-12-jump.png",
+                                              "sha256":  "F2F24F6099FB5CFB348FAA6B54CD8666D1638EB48689555D2B3F66B0D15777D0",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          },
+                                          {
+                                              "path":  "docs/goal-desktop-v4/round-34/journeys.md",
+                                              "sha256":  "600E319B3213121317373F8D73C6382631CB2A73B917D178D4D8B0147BA8FD01",
+                                              "class":  "gui",
+                                              "at_head":  "9764d2aa7807a4da226e8dc6833641d6aad6c808"
+                                          }
                                       ],
-                         "notes":  ""
+                         "notes":  "UIA: \u0027Diagnostic Ln 2, Col 11: Cannot divide by zero.\u0027 in the pane header and the log; F8 jump captured."
                      },
                      {
                          "id":  "J-13",
