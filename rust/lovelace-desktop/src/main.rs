@@ -11,6 +11,9 @@
 //!   exits non-zero on failure.
 //! - --selftest: the pre-cutover headless acceptance checks for the application core. Kept
 //!   working on purpose; it is not the shipped UI.
+//! - --raster-svg: the round-29 fidelity harness entry point. It rasterises one SVG file through
+//!   the pane's exact resvg path (system fonts, PLT-002 resolver) to a PNG, so a reference
+//!   rasteriser can be compared against the product rather than against a look-alike.
 //! - --legacy-win32: the old Win32 EDIT-control shell, reachable only through this explicit
 //!   argument. It is no longer the default UI.
 //!
@@ -56,6 +59,9 @@ fn main() {
 
     if args.iter().any(|arg| arg == "--gui-selftest") {
         std::process::exit(gui_selftest::run());
+    }
+    if let Some(index) = args.iter().position(|arg| arg == "--raster-svg") {
+        std::process::exit(ui::plot::raster_cli(&args[index + 1..]));
     }
     if args.iter().any(|arg| arg == "--selftest") {
         std::process::exit(selftest::run());
@@ -105,6 +111,12 @@ fn usage() -> String {
     );
     text.push_str(
         "  lovelace-desktop --selftest         headless acceptance of the pre-cutover core\n",
+    );
+    text.push_str(
+        "  lovelace-desktop --raster-svg <in.svg> --out <out.png> [--scale N]\n",
+    );
+    text.push_str(
+        "                                      rasterise one SVG exactly as the plot pane does\n",
     );
     text.push_str("  lovelace-desktop --legacy-win32 [script.ls]\n");
     text.push_str(

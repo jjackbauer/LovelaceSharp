@@ -7,7 +7,7 @@
 
 mod app;
 pub(crate) mod editor;
-mod plot;
+pub(crate) mod plot;
 mod syntax;
 
 pub use app::run;

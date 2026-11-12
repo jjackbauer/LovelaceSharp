@@ -1,0 +1,1 @@
+raster svg=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-29\corpus\feature-coverage.svg out=C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-29\rasters\product\feature-coverage.png px=800x600 scale=1.000 raster_ms=77.859

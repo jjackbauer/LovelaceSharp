@@ -1,0 +1,3 @@
+x = 1..24
+y = (x - 12)^2
+plot(x, y, "fidelity plot: text and polyline")

@@ -1,0 +1,56 @@
+{
+    "round":  "round-29",
+    "generated_at":  "2026-11-12T16:42:33.0199045-03:00",
+    "window":  "2500x1380",
+    "script":  [
+                   "x = 1..24",
+                   "y = (x - 12)^2",
+                   "plot(x, y, \"fidelity plot: text and polyline\")"
+               ],
+    "plot_title":  "fidelity plot: text and polyline",
+    "captures":  [
+                     {
+                         "state":  "100% fit (zoom 1.00)",
+                         "path":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-29\\plot-100.png",
+                         "bytes":  442463,
+                         "sha256":  "EF44A99B3C2872B93C87B42B5160C5B5FC92ECA747DAF35815EF086B0D6CF5A7",
+                         "size":  "2500x1380",
+                         "uia":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-29\\plot-100-uia.txt",
+                         "plot_widget":  "SVG plot canvas, 800 by 600 points, zoom 1.00",
+                         "raster_line":  "raster 800x600 @ 1.00x · 16.79 ms raster · 14.84 ms upload",
+                         "pane_rect":  "980x975",
+                         "palette":  {
+                                         "white":  640436,
+                                         "series_red":  1779,
+                                         "axis_dark":  4722,
+                                         "accent_teal":  4798
+                                     }
+                     },
+                     {
+                         "state":  "one zoom step (zoom 1.50)",
+                         "path":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-29\\plot-150.png",
+                         "bytes":  428690,
+                         "sha256":  "0DEFD337BF5B42C2CE56B86E3D2C88BE6687520FA1A5601A2112B62FD21C4567",
+                         "size":  "2500x1380",
+                         "uia":  "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-29\\plot-150-uia.txt",
+                         "plot_widget":  "SVG plot canvas, 800 by 600 points, zoom 1.50",
+                         "raster_line":  "raster 1200x900 @ 1.50x · 26.36 ms raster · 33.49 ms upload",
+                         "activation":  "InvokePattern"
+                     }
+                 ],
+    "assertions":  {
+                       "run_finished":  true,
+                       "plot_widget_present":  true,
+                       "zoom_step_applied":  true,
+                       "zoom_activation":  "InvokePattern",
+                       "fit_restores_zoom_1_00":  true,
+                       "fit_activation":  "InvokePattern",
+                       "frames_differ_percent":  16.4276,
+                       "pane_rect_100":  "980x975",
+                       "image_rect_100":  "964x723",
+                       "image_rect_150":  "1446x1084.5",
+                       "clipped_at_150":  true,
+                       "clipping":  "At zoom 1.00 the 800x600 SVG is fitted to the pane; at 1.50 it is drawn at 1.5x the fit size, so the image exceeds the pane and is clipped to the pane rectangle (visible as content cut at the pane edges)."
+                   },
+    "passed":  true
+}

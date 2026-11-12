@@ -1,26 +1,34 @@
 ﻿{
     "defects":  [
                     {
-                        "summary":  "Backspace that joins two lines crashed the application (panic at editor.rs:372, exit 101)",
+                        "summary":  "Backspace line-join crash (fixed)",
                         "id":  "DEF-001",
-                        "fix":  "recompute total/max_scroll after the event loop in TextEditor::ui",
-                        "evidence":  "docs/goal-desktop-v4/round-11/crash-fix.md; regression test backspace_that_joins_two_lines_keeps_the_paint_pass_in_bounds; suite 108/108 observed by the orchestrator",
-                        "severity":  1,
-                        "verified_by":  "orchestrator: cargo test -p lovelace-desktop 108 passed; the named regression test passes in isolation",
                         "owner":  "agent",
+                        "verified_by":  "108/108 then; regression test green",
+                        "status":  "fixed",
+                        "severity":  1,
                         "area":  "editor",
-                        "status":  "fixed"
+                        "evidence":  "round-11/crash-fix.md"
                     },
                     {
-                        "summary":  "Arrow keys left the editor without keyboard focus, so typing was ignored",
+                        "summary":  "Arrow keys dropped editor focus (fixed)",
                         "id":  "DEF-002",
-                        "fix":  "set_focus_lock_filter with horizontal/vertical arrows while focused",
-                        "evidence":  "docs/goal-desktop-v4/round-11/crash-fix.md; regression test arrow_up_moves_the_caret_without_surrendering_editor_focus",
-                        "severity":  3,
-                        "verified_by":  "orchestrator: suite includes the named test, 108/108",
                         "owner":  "agent",
+                        "verified_by":  "regression test green",
+                        "status":  "fixed",
+                        "severity":  3,
                         "area":  "editor focus",
-                        "status":  "fixed"
+                        "evidence":  "round-11/crash-fix.md"
+                    },
+                    {
+                        "summary":  "--gui-selftest still asserts a stale 3-point plot shape and fails on it",
+                        "id":  "DEF-003",
+                        "owner":  "agent",
+                        "status":  "open",
+                        "severity":  2,
+                        "area":  "selftest",
+                        "evidence":  "round-29 cargo-test.log / gui-selftest.log",
+                        "next":  "update the assertion to the current engine plot shape or explain why the shape is expected"
                     }
                 ],
     "schema":  1

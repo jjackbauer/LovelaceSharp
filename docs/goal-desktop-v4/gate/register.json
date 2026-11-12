@@ -2944,14 +2944,43 @@
                      "type":  "W",
                      "requirement":  "Match full supported Studio plot output",
                      "acceptance":  "Render all SVG elements/attributes actually emitted by Lovelace plotting, including text, polyline, path, clipping and labels; screenshot comparison verifies.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-fidelity.md",
+                                          "sha256":  "B90EF736BC513B5895CA6D4F49E3F39B5EEFF42C49E44955283AD3B8E10007EA",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/fidelity.json",
+                                          "sha256":  "B9033AC8616044BC42E07C8890E99618CAC76A4D27E983242D4A82F865AE9641",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/fidelity-table.md",
+                                          "sha256":  "98A1431F12400240F147F40D6C8E5FABD619F530104DDEAE86AEBFA113878FF7",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-100.png",
+                                          "sha256":  "EF44A99B3C2872B93C87B42B5160C5B5FC92ECA747DAF35815EF086B0D6CF5A7",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-150.png",
+                                          "sha256":  "0DEFD337BF5B42C2CE56B86E3D2C88BE6687520FA1A5601A2112B62FD21C4567",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "raster-svg vs headless Edge; diff metric",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Four engine/harness SVGs at 800x600 vs Edge: structural ink uncovered 0.0000% on all; pixel diff \u003e16 0.23-0.41%; text/polyline/rect/clip/transform rendered. Captures at 100% and 1.5x."
                  },
                  {
                      "id":  "PLT-002",
@@ -2960,14 +2989,43 @@
                      "type":  "W",
                      "requirement":  "Replace partial GDI SVG interpretation",
                      "acceptance":  "Current minimal polyline/text parser is not accepted as SVG parity; use a complete supported SVG renderer and document supported feature set.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-fidelity.md",
+                                          "sha256":  "B90EF736BC513B5895CA6D4F49E3F39B5EEFF42C49E44955283AD3B8E10007EA",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/fidelity.json",
+                                          "sha256":  "B9033AC8616044BC42E07C8890E99618CAC76A4D27E983242D4A82F865AE9641",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/fidelity-table.md",
+                                          "sha256":  "98A1431F12400240F147F40D6C8E5FABD619F530104DDEAE86AEBFA113878FF7",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-100.png",
+                                          "sha256":  "EF44A99B3C2872B93C87B42B5160C5B5FC92ECA747DAF35815EF086B0D6CF5A7",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-29/plot-150.png",
+                                          "sha256":  "0DEFD337BF5B42C2CE56B86E3D2C88BE6687520FA1A5601A2112B62FD21C4567",
+                                          "class":  "gui",
+                                          "at_head":  "68b8c0b6a1bc400e811658549c229be4a75de026"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "raster-svg hostile SVG",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "resvg/usvg 0.50 replaces the GDI polyline parser; non-data hrefs refused; hostile SVG with external file image + script renders byte-identical to control (0 differing pixels), pane clears and recovers; Edge contrast shows it would load/execute."
                  },
                  {
                      "id":  "PLT-003",

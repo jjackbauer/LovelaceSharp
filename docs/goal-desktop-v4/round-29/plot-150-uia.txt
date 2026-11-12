@@ -1,0 +1,572 @@
+﻿UIA pid=28988 window=Lovelace Desktop
+root | Lovelace Desktop | ControlType.Window
+Pane |  | id= | focusable=False | enabled=True
+  Text | Lovelace Desktop | id= | focusable=False | enabled=True
+  Text | lovelace-lang | id= | focusable=False | enabled=True
+  Button | Run | id= | focusable=True | enabled=True
+  Text | Precision | id= | focusable=False | enabled=True
+  Spinner |  | id= | focusable=True | enabled=True
+  Text | 1000 digits | id= | focusable=False | enabled=True
+  Text | 4 lines / 75 bytes | id= | focusable=False | enabled=True
+  Text | laid out 4 / 56 visible rows | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Button | window-plot.lv | id= | focusable=True | enabled=True
+  Button | untitled.lv | id= | focusable=True | enabled=True
+  Text | document 1 · revision 1 | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Text | window-plot.lv  |  rev 1  |  precision 1000  |  Ln 1, Col 1  |  run Finished | id= | focusable=False | enabled=True
+  Text | 199 ms last run | id= | focusable=False | enabled=True
+Pane |  | id= | focusable=False | enabled=True
+  Pane | Editor - window-plot.lv | id= | focusable=False | enabled=True
+    Text | window-plot.lv | id= | focusable=False | enabled=True
+    Text | 4 lines / 75 bytes | id= | focusable=False | enabled=True
+    Edit | Script editor, 4 lines, caret line 1 column 1 | id= | focusable=True | enabled=True
+  Pane | Plot - engine SVG | id= | focusable=False | enabled=True
+    Button | Fit | id= | focusable=True | enabled=True
+    Button | 1.0x | id= | focusable=True | enabled=True
+    Button | 1.5x | id= | focusable=True | enabled=True
+    Button | 2.0x | id= | focusable=True | enabled=True
+    Text | fidelity plot: text and polyline | id= | focusable=False | enabled=True
+    Text | raster 1200x900 @ 1.50x · 26.36 ms raster · 33.49 ms upload | id= | focusable=False | enabled=True
+    Image | SVG plot canvas, 800 by 600 points, zoom 1.50 | id= | focusable=True | enabled=True
+  Pane | Workspace | id= | focusable=False | enabled=True
+    Text | Filter | id= | focusable=False | enabled=True
+    Edit | Filter | id= | focusable=True | enabled=True
+    Text | 3 vars · 123 funcs | id= | focusable=False | enabled=True
+    Button | Result | id= | focusable=True | enabled=True
+    Button | Inspector | id= | focusable=True | enabled=True
+    Text | rev 1 · committed 3/3 | id= | focusable=False | enabled=True
+    Text | RESULT · structured projection | id= | focusable=False | enabled=True
+    Text | display: C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-deskto… | id= | focusable=False | enabled=True
+    Text | Text | id= | focusable=False | enabled=True
+    Text | C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-desktop\plots\run-1\plot.svg | id= | focusable=False | enabled=True
+    Text | VARIABLES · 3 | id= | focusable=False | enabled=True
+    Button | Name ▲ | id= | focusable=True | enabled=True
+    Button | Kind | id= | focusable=True | enabled=True
+    Button | Value | id= | focusable=True | enabled=True
+    Text | _ | id= | focusable=False | enabled=True
+    Text | Text | id= | focusable=False | enabled=True
+    Text | C:\Users\ricar\dev\LovelaceSharp\rust\t… | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | Vector | id= | focusable=False | enabled=True
+    Text | [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,… | id= | focusable=False | enabled=True
+    Text | y | id= | focusable=False | enabled=True
+    Text | Vector | id= | focusable=False | enabled=True
+    Text | [121, 100, 81, 64, 49, 36, 25, 16, 9, 4… | id= | focusable=False | enabled=True
+    Text | FUNCTIONS · 123 | id= | focusable=False | enabled=True
+    Button | Name ▲ | id= | focusable=True | enabled=True
+    Button | Parameters | id= | focusable=True | enabled=True
+    Button | Origin | id= | focusable=True | enabled=True
+    Text | abs | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Absolute value (magnitude for complex v… | id= | focusable=False | enabled=True
+    Text | acos | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The principal arccosine. | id= | focusable=False | enabled=True
+    Text | acosh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The inverse hyperbolic cosine, principa… | id= | focusable=False | enabled=True
+    Text | and | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Logical conjunction of two conditions. | id= | focusable=False | enabled=True
+    Text | apart | id= | focusable=False | enabled=True
+    Text | f, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Partial fraction decomposition of a rat… | id= | focusable=False | enabled=True
+    Text | append | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Append the values of one vector to anot… | id= | focusable=False | enabled=True
+    Text | asin | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The principal arcsine. | id= | focusable=False | enabled=True
+    Text | asinh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The inverse hyperbolic sine, principal … | id= | focusable=False | enabled=True
+    Text | assume | id= | focusable=False | enabled=True
+    Text | relation | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes a relation (or conjunction of r… | id= | focusable=False | enabled=True
+    Text | assume_clear | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Clears every active assumption. | id= | focusable=False | enabled=True
+    Text | assume_integer | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes x is an integer for the rest of… | id= | focusable=False | enabled=True
+    Text | assume_negative | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes x < 0 for the rest of the sessi… | id= | focusable=False | enabled=True
+    Text | assume_nonnegative | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes x >= 0 for the rest of the sess… | id= | focusable=False | enabled=True
+    Text | assume_positive | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes x > 0 for the rest of the sessi… | id= | focusable=False | enabled=True
+    Text | assume_real | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Assumes x is real-valued for the rest o… | id= | focusable=False | enabled=True
+    Text | assumptions | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Lists the active assumptions as a struc… | id= | focusable=False | enabled=True
+    Text | atan | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The principal arctangent. | id= | focusable=False | enabled=True
+    Text | atanh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The inverse hyperbolic tangent, princip… | id= | focusable=False | enabled=True
+    Text | cancel | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Cancels common polynomial factors in a … | id= | focusable=False | enabled=True
+    Text | cancel_full | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured cancel: a CancelResult recor… | id= | focusable=False | enabled=True
+    Text | capabilities | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Reports which domain values the solver'… | id= | focusable=False | enabled=True
+    Text | collect | id= | focusable=False | enabled=True
+    Text | f, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Collects coefficients of powers of x. | id= | focusable=False | enabled=True
+    Text | compile | id= | focusable=False | enabled=True
+    Text | f, params | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Compiles a symbolic expression to a val… | id= | focusable=False | enabled=True
+    Text | compile_full | id= | focusable=False | enabled=True
+    Text | f, params | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured compile: a CompilationResult… | id= | focusable=False | enabled=True
+    Text | complex | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The complex domain value (the solve def… | id= | focusable=False | enabled=True
+    Text | concat | id= | focusable=False | enabled=True
+    Text | a, b, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Concatenate arrays along an axis. | id= | focusable=False | enabled=True
+    Text | conj | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Complex conjugate of a complex value or… | id= | focusable=False | enabled=True
+    Text | conv | id= | focusable=False | enabled=True
+    Text | x, h | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Linear convolution of two signals. | id= | focusable=False | enabled=True
+    Text | cos | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The cosine function. | id= | focusable=False | enabled=True
+    Text | cosh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The hyperbolic cosine. | id= | focusable=False | enabled=True
+    Text | cosine | id= | focusable=False | enabled=True
+    Text | freq, phase, n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Cosine sequence of length n at the give… | id= | focusable=False | enabled=True
+    Text | cross | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Cross product of two 3-vectors. | id= | focusable=False | enabled=True
+    Text | delay | id= | focusable=False | enabled=True
+    Text | x, k | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Delays a signal by k samples. | id= | focusable=False | enabled=True
+    Text | det | id= | focusable=False | enabled=True
+    Text | m | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Determinant (fraction-free for symbolic… | id= | focusable=False | enabled=True
+    Text | dft | id= | focusable=False | enabled=True
+    Text | x, n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Discrete Fourier transform; an optional… | id= | focusable=False | enabled=True
+    Text | diff | id= | focusable=False | enabled=True
+    Text | f, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Derivative of f with respect to x. | id= | focusable=False | enabled=True
+    Text | divrem | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Quotient and remainder pair of integer … | id= | focusable=False | enabled=True
+    Text | dot | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Dot product of two vectors. | id= | focusable=False | enabled=True
+    Text | e | id= | focusable=False | enabled=True
+    Text | digits | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | e to the requested precision (or the en… | id= | focusable=False | enabled=True
+    Text | evalf | id= | focusable=False | enabled=True
+    Text | f, digits | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Numerically evaluates a symbolic expres… | id= | focusable=False | enabled=True
+    Text | evalir | id= | focusable=False | enabled=True
+    Text | ir, values, digits | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Evaluates a compiled kernel (IR text or… | id= | focusable=False | enabled=True
+    Text | evalir_batch | id= | focusable=False | enabled=True
+    Text | ir, values, digits | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Batch-evaluates a compiled kernel (IR t… | id= | focusable=False | enabled=True
+    Text | exp | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The exponential function, exp(x). | id= | focusable=False | enabled=True
+    Text | expand | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Expands products and powers into a sum … | id= | focusable=False | enabled=True
+    Text | exponential | id= | focusable=False | enabled=True
+    Text | c, n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Exponential sequence c^k of length n. | id= | focusable=False | enabled=True
+    Text | eye | id= | focusable=False | enabled=True
+    Text | rows, cols | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Identity matrix. | id= | focusable=False | enabled=True
+    Text | factor | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Factors a polynomial over the rationals. | id= | focusable=False | enabled=True
+    Text | fft | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Fast Fourier transform of a signal. | id= | focusable=False | enabled=True
+    Text | filter | id= | focusable=False | enabled=True
+    Text | a, b, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Difference-equation filter of a signal … | id= | focusable=False | enabled=True
+    Text | flatten | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Flatten an N-D array to a rank-1 vector. | id= | focusable=False | enabled=True
+    Text | hessian | id= | focusable=False | enabled=True
+    Text | f, vars | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Hessian matrix (second derivatives) of … | id= | focusable=False | enabled=True
+    Text | im | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Imaginary part of a complex value or si… | id= | focusable=False | enabled=True
+    Text | impulse | id= | focusable=False | enabled=True
+    Text | n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Unit impulse sequence of length n. | id= | focusable=False | enabled=True
+    Text | inf | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Positive infinity (the symbolic constan… | id= | focusable=False | enabled=True
+    Text | inspect | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Structural introspection of x as a reco… | id= | focusable=False | enabled=True
+    Text | integer | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The integer domain value (symbol(name, … | id= | focusable=False | enabled=True
+    Text | integrate | id= | focusable=False | enabled=True
+    Text | f, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Indefinite integral of f with respect t… | id= | focusable=False | enabled=True
+    Text | integrate_full | id= | focusable=False | enabled=True
+    Text | f, x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured integration: an IntegrationR… | id= | focusable=False | enabled=True
+    Text | inv | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Reciprocal of a scalar or the inverse o… | id= | focusable=False | enabled=True
+    Text | inv_full | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Structured matrix inverse: a MatrixInve… | id= | focusable=False | enabled=True
+    Text | is_even | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Whether the integer value is even. | id= | focusable=False | enabled=True
+    Text | is_odd | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Whether the integer value is odd. | id= | focusable=False | enabled=True
+    Text | jacobian | id= | focusable=False | enabled=True
+    Text | fs, vars | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Jacobian matrix (first derivatives) of … | id= | focusable=False | enabled=True
+    Text | latex | id= | focusable=False | enabled=True
+    Text | expr | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Renders an expression as LaTeX source. … | id= | focusable=False | enabled=True
+    Text | len | id= | focusable=False | enabled=True
+    Text | v | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Length of a vector (first dimension of … | id= | focusable=False | enabled=True
+    Text | limit | id= | focusable=False | enabled=True
+    Text | f, x, x0 | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Two-sided limit of f as x → x0, returne… | id= | focusable=False | enabled=True
+    Text | limit_full | id= | focusable=False | enabled=True
+    Text | f, x, x0 | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured limit: a LimitResult record … | id= | focusable=False | enabled=True
+    Text | limit_left | id= | focusable=False | enabled=True
+    Text | f, x, x0 | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | One-sided limit from the left as x appr… | id= | focusable=False | enabled=True
+    Text | limit_right | id= | focusable=False | enabled=True
+    Text | f, x, x0 | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | One-sided limit from the right as x app… | id= | focusable=False | enabled=True
+    Text | linsolve | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Exact linear system solve over a symbol… | id= | focusable=False | enabled=True
+    Text | linsolve_full | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Structured linear solve: a MatrixSolveR… | id= | focusable=False | enabled=True
+    Text | log | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The natural logarithm (principal branch… | id= | focusable=False | enabled=True
+    Text | lower | id= | focusable=False | enabled=True
+    Text | f, params | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Lowers a symbolic expression to MathIR … | id= | focusable=False | enabled=True
+    Text | matmul | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Matrix multiplication (also elementwise… | id= | focusable=False | enabled=True
+    Text | matrix_rank | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Exact rank of a symbolic matrix. | id= | focusable=False | enabled=True
+    Text | max | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Maximum of elements (optionally along a… | id= | focusable=False | enabled=True
+    Text | mean | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Mean of elements (optionally along an a… | id= | focusable=False | enabled=True
+    Text | min | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Minimum of elements (optionally along a… | id= | focusable=False | enabled=True
+    Text | movingavg | id= | focusable=False | enabled=True
+    Text | x, w | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Moving average of a signal with window … | id= | focusable=False | enabled=True
+    Text | ndims | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Number of dimensions of an array (its r… | id= | focusable=False | enabled=True
+    Text | noise | id= | focusable=False | enabled=True
+    Text | scale, disp, n, seed | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Deterministic seeded noise sequence (th… | id= | focusable=False | enabled=True
+    Text | norm | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Euclidean norm (optionally along an axi… | id= | focusable=False | enabled=True
+    Text | not | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Logical negation of a condition. | id= | focusable=False | enabled=True
+    Text | numel | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Total number of elements. | id= | focusable=False | enabled=True
+    Text | ones | id= | focusable=False | enabled=True
+    Text | dims | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | All-one array of the given shape. | id= | focusable=False | enabled=True
+    Text | optimize | id= | focusable=False | enabled=True
+    Text | f, params | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Equivalence-preserving optimization for… | id= | focusable=False | enabled=True
+    Text | optimize_full | id= | focusable=False | enabled=True
+    Text | f, params | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured optimization: an Optimizatio… | id= | focusable=False | enabled=True
+    Text | or | id= | focusable=False | enabled=True
+    Text | a, b | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Logical disjunction of two conditions. | id= | focusable=False | enabled=True
+    Text | pi | id= | focusable=False | enabled=True
+    Text | digits | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | π to the requested precision (or the en… | id= | focusable=False | enabled=True
+    Text | plot | id= | focusable=False | enabled=True
+    Text | x, y, title | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Renders a 2D line plot to an SVG file; … | id= | focusable=False | enabled=True
+    Text | powerseries | id= | focusable=False | enabled=True
+    Text | k, a, n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Geometric power series of length n. | id= | focusable=False | enabled=True
+    Text | print | id= | focusable=False | enabled=True
+    Text | values | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Writes the rendered value(s) to the eng… | id= | focusable=False | enabled=True
+    Text | prod | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Product of elements (optionally along a… | id= | focusable=False | enabled=True
+    Text | rank | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Number of array dimensions. | id= | focusable=False | enabled=True
+    Text | rational | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The rational domain value (symbol(name,… | id= | focusable=False | enabled=True
+    Text | re | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Real part of a complex value or signal. | id= | focusable=False | enabled=True
+    Text | real | id= | focusable=False | enabled=True
+    Text |  | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The real domain value (solve(..., real)… | id= | focusable=False | enabled=True
+    Text | reshape | id= | focusable=False | enabled=True
+    Text | a, dims | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Reshape an array to new dimensions. | id= | focusable=False | enabled=True
+    Text | scale | id= | focusable=False | enabled=True
+    Text | x, c | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Scales every sample of a signal by the … | id= | focusable=False | enabled=True
+    Text | series | id= | focusable=False | enabled=True
+    Text | f, x, x0, order | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Power series of f around x = x0 to the … | id= | focusable=False | enabled=True
+    Text | setprecision | id= | focusable=False | enabled=True
+    Text | digits | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Sets the engine computation and display… | id= | focusable=False | enabled=True
+    Text | shape | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Dimensions of an array as a vector. | id= | focusable=False | enabled=True
+    Text | sign | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Sign of a real value: -1, 0, or 1. | id= | focusable=False | enabled=True
+    Text | simplify | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Safe simplification: applies only unive… | id= | focusable=False | enabled=True
+    Text | simplify_full | id= | focusable=False | enabled=True
+    Text | f | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured simplify: a TransformResult … | id= | focusable=False | enabled=True
+    Text | sin | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The sine function. | id= | focusable=False | enabled=True
+    Text | sinh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The hyperbolic sine. | id= | focusable=False | enabled=True
+    Text | solve | id= | focusable=False | enabled=True
+    Text | f, x, domain | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Solves an equation for x and returns th… | id= | focusable=False | enabled=True
+    Text | solve_full | id= | focusable=False | enabled=True
+    Text | f, x, domain | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured solve: a SolveResult record … | id= | focusable=False | enabled=True
+    Text | solve_system | id= | focusable=False | enabled=True
+    Text | eqs, vars | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Solves a polynomial equation system (Gr… | id= | focusable=False | enabled=True
+    Text | solve_system_full | id= | focusable=False | enabled=True
+    Text | eqs, vars | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Structured system solve: a SystemSolveR… | id= | focusable=False | enabled=True
+    Text | sqrt | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Principal square root; symbolic argumen… | id= | focusable=False | enabled=True
+    Text | squeeze | id= | focusable=False | enabled=True
+    Text | a | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Remove length-1 axes. | id= | focusable=False | enabled=True
+    Text | step | id= | focusable=False | enabled=True
+    Text | n | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Unit step sequence of length n. | id= | focusable=False | enabled=True
+    Text | subs | id= | focusable=False | enabled=True
+    Text | f, x, value | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Substitutes value for the symbol x in f. | id= | focusable=False | enabled=True
+    Text | sum | id= | focusable=False | enabled=True
+    Text | a, axis | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Sum of elements (optionally along an ax… | id= | focusable=False | enabled=True
+    Text | symbol | id= | focusable=False | enabled=True
+    Text | name, domain | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | Creates a symbolic variable; an optiona… | id= | focusable=False | enabled=True
+    Text | tan | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The tangent function. | id= | focusable=False | enabled=True
+    Text | tanh | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | plugin | id= | focusable=False | enabled=True
+    Text | The hyperbolic tangent. | id= | focusable=False | enabled=True
+    Text | trace | id= | focusable=False | enabled=True
+    Text | m | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Sum of the diagonal entries. | id= | focusable=False | enabled=True
+    Text | transpose | id= | focusable=False | enabled=True
+    Text | a, perm | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | Transpose (or permute the axes) of an a… | id= | focusable=False | enabled=True
+    Text | type | id= | focusable=False | enabled=True
+    Text | x | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | The value-kind name of x; structured re… | id= | focusable=False | enabled=True
+    Text | zeros | id= | focusable=False | enabled=True
+    Text | dims | id= | focusable=False | enabled=True
+    Text | builtin | id= | focusable=False | enabled=True
+    Text | All-zero array of the given shape. | id= | focusable=False | enabled=True
+    ScrollBar |  | id= | focusable=False | enabled=True
+  Pane | Logs | id= | focusable=False | enabled=True
+    Text | run log · caret Ln 1, Col 1 · engine lovelace-lang | id= | focusable=False | enabled=True
+    Text | Quick eval | id= | focusable=False | enabled=True
+    Edit | Quick eval | id= | focusable=True | enabled=True
+    Text | Ctrl+Shift+E | id= | focusable=False | enabled=True
+    Text | Enter runs · Esc leaves the field | id= | focusable=False | enabled=True
+    Text | [info] Lovelace Desktop ready. Engine: lovelace-lang. Two documents open. | id= | focusable=False | enabled=True
+    Text | [info] Plot directory: C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-desktop\plots. | id= | focusable=False | enabled=True
+    Text | [info] Opened C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-29\work\window\window-plot.lv. | id= | focusable=False | enabled=True
+    Text | [info] Run queued (revision 1, run 1). | id= | focusable=False | enabled=True
+    Text | [info] Run started: 3 statements, engine lovelace-lang, precision 1000. | id= | focusable=False | enabled=True
+    Text | [progress] statement 1/3: x = 1..24 | id= | focusable=False | enabled=True
+    Text | [progress] statement 2/3: y = (x - 12)^2 | id= | focusable=False | enabled=True
+    Text | [progress] statement 3/3: plot(x, y, "fidelity plot: text and polyline") | id= | focusable=False | enabled=True
+    Text | [result] = C:\Users\ricar\dev\LovelaceSharp\rust\target-desktop\tmp\lovelace-desktop\plots\run-1\plot.svg | id= | focusable=False | enabled=True
+    Text | [timing] Run finished: 3 statements committed in 199 ms. | id= | focusable=False | enabled=True
+    ScrollBar |  | id= | focusable=False | enabled=True
+  Separator | Editor / plot splitter | id= | focusable=True | enabled=True
+  Separator | Plot / workspace splitter | id= | focusable=True | enabled=True
+  Separator | Workspace / logs splitter | id= | focusable=True | enabled=True

@@ -5,6 +5,10 @@
 //! SVG; this version loads exactly the `PlotCapture.svg` the engine attached to the document's
 //! last run. When no run has produced a plot, the pane shows an empty state instead of sample
 //! data.
+//!
+//! PLT-002: the renderer is configured for self-contained documents. External `xlink:href`
+//! strings are refused (only `data:` images resolve) and `<script>` is never executed by usvg;
+//! `raster_cli` exposes the same rasterisation path to the round-29 fidelity harness.
 
 use std::time::Instant;
 
@@ -127,6 +131,14 @@ impl Plot {
         let mut options = usvg::Options::default();
         // resvg/usvg do not load system fonts by default; the usvg CLI does this explicitly.
         options.fontdb_mut().load_system_fonts();
+        // PLT-002: an engine plot is self-contained. usvg's default string resolver would open
+        // an absolute path (`<image href="C:/...">`), so refuse every non-data href instead of
+        // letting a hostile document make the renderer read the local disk. Data URLs still
+        // resolve; scripts are not an SVG feature usvg implements, so `<script>` is inert.
+        options.image_href_resolver = usvg::ImageHrefResolver {
+            resolve_data: usvg::ImageHrefResolver::default_data_resolver(),
+            resolve_string: Box::new(|_, _| None),
+        };
         let fontdb_ms = started.elapsed().as_secs_f64() * 1000.0;
         Plot {
             options,
@@ -197,6 +209,16 @@ impl Plot {
                 false
             }
         }
+    }
+
+    /// Rasterises the currently parsed tree through the pane's renderer at `scale`.
+    ///
+    /// This is the exact put-the-tree-on-a-pixmap path the pane uses in [`Plot::rasterize`]; the
+    /// round-29 fidelity harness calls it through [`raster_cli`] so the product raster and the
+    /// pane cannot drift apart.
+    pub fn raster_pixmap(&self, scale: f32, max_side: f32) -> Option<(tiny_skia::Pixmap, f64)> {
+        let tree = self.tree.as_ref()?;
+        render_to_pixmap(tree, self.svg_w, self.svg_h, scale, max_side)
     }
 
     /// Resets zoom and pan so the whole plot fits the pane.
@@ -372,5 +394,214 @@ impl Plot {
             pan: self.pan,
             pointer,
         }
+    }
+}
+
+/// The `--raster-svg <in.svg> --out <out.png> [--scale N]` acceptance mode.
+///
+/// It builds the same [`Plot`] the pane builds (including the system font database and the
+/// PLT-002 resolver), parses the file through [`Plot::set_svg`] and rasterises it through
+/// [`Plot::raster_pixmap`], so the round-29 fidelity harness compares the product rasteriser
+/// rather than a look-alike. Exit codes: 0 rasterised, 1 rejected or failed to write, 2 usage.
+pub fn raster_cli(args: &[String]) -> i32 {
+    let mut input: Option<String> = None;
+    let mut output: Option<String> = None;
+    let mut scale = 1.0f32;
+    let mut i = 0usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--out" => {
+                let Some(value) = args.get(i + 1) else {
+                    eprintln!("--out needs a path");
+                    return 2;
+                };
+                output = Some(value.clone());
+                i += 2;
+            }
+            "--scale" => {
+                let Some(value) = args.get(i + 1) else {
+                    eprintln!("--scale needs a number");
+                    return 2;
+                };
+                match value.parse::<f32>() {
+                    Ok(value) if value.is_finite() && value > 0.0 => scale = value,
+                    _ => {
+                        eprintln!("--scale is not a positive number: {value}");
+                        return 2;
+                    }
+                }
+                i += 2;
+            }
+            value if input.is_none() => {
+                input = Some(value.to_string());
+                i += 1;
+            }
+            other => {
+                eprintln!("unexpected raster argument: {other}");
+                return 2;
+            }
+        }
+    }
+    let (Some(input), Some(output)) = (input, output) else {
+        eprintln!("usage: lovelace-desktop --raster-svg <in.svg> --out <out.png> [--scale N]");
+        return 2;
+    };
+    let source = match std::fs::read_to_string(&input) {
+        Ok(source) => source,
+        Err(error) => {
+            eprintln!("cannot read {input}: {error}");
+            return 1;
+        }
+    };
+    let mut plot = Plot::new();
+    if !plot.set_svg(&source) {
+        eprintln!(
+            "SVG rejected: {}",
+            plot.error.as_deref().unwrap_or("unknown error")
+        );
+        return 1;
+    }
+    let Some((pixmap, raster_ms)) = plot.raster_pixmap(scale, MAX_SIDE) else {
+        eprintln!("pixmap allocation failed for {input}");
+        return 1;
+    };
+    if let Err(error) = pixmap.save_png(&output) {
+        eprintln!("cannot write {output}: {error}");
+        return 1;
+    }
+    println!(
+        "raster svg={input} out={output} px={}x{} scale={:.3} raster_ms={raster_ms:.3}",
+        pixmap.width(),
+        pixmap.height(),
+        scale
+    );
+    0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Rasterises a document through the product's own pipeline at 1:1.
+    fn render(svg: &str) -> tiny_skia::Pixmap {
+        let mut plot = Plot::new();
+        assert!(plot.set_svg(svg), "SVG rejected: {:?}", plot.error);
+        let (pixmap, _) = plot
+            .raster_pixmap(1.0, MAX_SIDE)
+            .expect("pixmap allocation");
+        pixmap
+    }
+
+    fn rgb(pixmap: &tiny_skia::Pixmap, x: u32, y: u32) -> (u8, u8, u8) {
+        let color = pixmap.pixel(x, y).expect("pixel inside the pixmap");
+        (color.red(), color.green(), color.blue())
+    }
+
+    fn is_white(pixel: (u8, u8, u8)) -> bool {
+        pixel.0 > 245 && pixel.1 > 245 && pixel.2 > 245
+    }
+
+    fn has_dark_pixel(pixmap: &tiny_skia::Pixmap, x0: u32, y0: u32, x1: u32, y1: u32) -> bool {
+        (y0..y1).any(|y| {
+            (x0..x1).any(|x| {
+                let (r, g, b) = rgb(pixmap, x, y);
+                r < 128 && g < 128 && b < 128
+            })
+        })
+    }
+
+    #[test]
+    fn renders_clipping_transforms_dashed_paths_and_labels() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+  <defs><clipPath id="plot-clip"><rect x="0" y="0" width="50" height="50"/></clipPath></defs>
+  <rect width="100" height="100" fill="#ffffff"/>
+  <g clip-path="url(#plot-clip)"><rect x="0" y="0" width="100" height="100" fill="#ff0000"/></g>
+  <g transform="translate(50 50)"><rect width="20" height="20" fill="#00ff00"/></g>
+  <path d="M0 90 L100 90" fill="none" stroke="#0000ff" stroke-width="4" stroke-dasharray="10 6"/>
+  <polyline points="10,70 40,80" fill="none" stroke="#000000" stroke-width="2"/>
+  <text x="5" y="15" font-family="sans-serif" font-size="10">label</text>
+</svg>"##;
+        let pixmap = render(svg);
+        assert_eq!((pixmap.width(), pixmap.height()), (100, 100));
+
+        // The red rect is clipped to the left half; the right half stays white.
+        assert_eq!(rgb(&pixmap, 25, 25), (255, 0, 0), "inside the clip path");
+        assert!(is_white(rgb(&pixmap, 75, 25)), "outside the clip path");
+
+        // The translated group lands at (50,50)..(70,70), not at the origin.
+        assert_eq!(rgb(&pixmap, 55, 55), (0, 255, 0), "inside the transform");
+        assert!(is_white(rgb(&pixmap, 5, 55)), "the untransformed position");
+
+        // The dashed path paints its first dash and leaves the gap unpainted.
+        let dash = rgb(&pixmap, 5, 90);
+        assert!(dash.2 > 200 && dash.0 < 80, "dash pixel is blue: {dash:?}");
+        assert!(
+            is_white(rgb(&pixmap, 13, 90)),
+            "dash gap stays unpainted: {:?}",
+            rgb(&pixmap, 13, 90)
+        );
+
+        assert!(
+            has_dark_pixel(&pixmap, 5, 4, 45, 18),
+            "the text label paints ink"
+        );
+        assert!(
+            has_dark_pixel(&pixmap, 8, 68, 43, 83),
+            "the polyline paints ink"
+        );
+    }
+
+    #[test]
+    fn external_references_are_refused_and_scripts_do_not_run() {
+        // A real local PNG proves that a resolvable absolute path is still refused. usvg's
+        // default string resolver would open it; the pane's resolver must not.
+        let mut marker = tiny_skia::Pixmap::new(16, 16).expect("marker pixmap");
+        marker.fill(tiny_skia::Color::from_rgba8(255, 0, 255, 255));
+        let marker_path = std::env::temp_dir().join("lovelace-desktop-plot-security-marker.png");
+        marker.save_png(&marker_path).expect("write marker png");
+        let absolute = marker_path.display().to_string().replace('\\', "/");
+        let uri = format!("file:///{}", absolute.trim_start_matches('/'));
+
+        let control = r##"<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80">
+  <rect width="120" height="80" fill="#ffffff"/>
+  <rect id="marker" x="10" y="10" width="40" height="40" fill="#ffffff"/>
+  <text x="8" y="72" font-family="sans-serif" font-size="10">safe</text>
+</svg>"##;
+        let hostile = format!(
+            r##"<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="120" height="80">
+  <script type="text/javascript">document.getElementById('marker').setAttribute('fill', '#ff00ff');</script>
+  <rect width="120" height="80" fill="#ffffff"/>
+  <image xlink:href="{uri}" x="0" y="0" width="120" height="80"/>
+  <image href="{absolute}" x="0" y="0" width="120" height="80"/>
+  <rect id="marker" x="10" y="10" width="40" height="40" fill="#ffffff"/>
+  <text x="8" y="72" font-family="sans-serif" font-size="10">safe</text>
+</svg>"##
+        );
+
+        let expected = render(control);
+        let actual = render(&hostile);
+        assert_eq!(
+            (actual.width(), actual.height()),
+            (expected.width(), expected.height())
+        );
+        assert_eq!(
+            actual.data(),
+            expected.data(),
+            "an external image reference loaded or a script changed the document"
+        );
+
+        // The pane itself survives the hostile document: it reports no parse error, clears, and
+        // renders a valid document again (the "app remains usable" half of PLT-002).
+        let mut pane = Plot::new();
+        assert!(pane.set_svg(&hostile), "hostile SVG rejected: {:?}", pane.error);
+        assert!(pane.error.is_none(), "hostile SVG left an error: {:?}", pane.error);
+        pane.clear();
+        assert!(pane.set_svg(control));
+        let (recovered, _) = pane
+            .raster_pixmap(1.0, MAX_SIDE)
+            .expect("pane pixmap after the hostile document");
+        assert_eq!(recovered.data(), expected.data());
+
+        let _ = std::fs::remove_file(&marker_path);
     }
 }
