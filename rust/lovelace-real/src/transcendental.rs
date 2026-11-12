@@ -16,13 +16,14 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 
 use crate::Real;
+use crate::fast_path::DecimalGuard;
 
 /// Extra working digits carried internally so the final truncated result keeps the requested
 /// precision (the reference's \`ComplexMath.GuardDigits\`).
 pub const GUARD_DIGITS: usize = 20;
 
 fn int_from_mag(mag: &Nat) -> Int {
-    Int::from_decimal(&mag.to_decimal()).unwrap_or_else(Int::zero)
+    Int::from_nat(mag.clone())
 }
 
 /// Builds a value from sign/magnitude/exponent without normalising.
@@ -112,7 +113,11 @@ fn with_two_argument_provenance(result: Real, first: &Real, second: &Real) -> Re
 
 /// The reference \`ComplexMath.DivideTruncate\`: one fixed-point division to \`frac_digits\`
 /// fractional places (after folding a positive exponent difference into the numerator).
-/// The result is built without normalising, exactly as the reference builds it.
+///
+/// The reference normalises the quotient (Normalize(new Real(...))): the division may store
+/// hundreds of trailing zeros below the last significant digit, and a Taylor loop that feeds the
+/// term back into the next division grows them by frac_digits every term. Leaving them in place
+/// made cos(0.5) at 1000 places hold a 200 000-digit magnitude.
 pub fn div_truncate(left: &Real, right: &Real, frac_digits: usize) -> Real {
     assert!(!right.is_zero(), "Cannot divide a Real by zero.");
     if left.is_zero() {
@@ -125,7 +130,7 @@ pub fn div_truncate(left: &Real, right: &Real, frac_digits: usize) -> Real {
     let n = frac_digits as i64 + adjust.max(0);
     let scaled = a.mul_pow10(n as usize);
     let (q, r) = scaled.div_rem(b).expect("nonzero divisor");
-    raw(neg, q, -n + adjust, !r.is_zero())
+    norm(neg, q, -n + adjust, !r.is_zero())
 }
 
 /// The reference ambient \`Real.Divide\` for the operand shapes the kernel feeds it. Periodic
@@ -778,39 +783,7 @@ fn half_of(value: &Real, places: usize) -> Real {
 /// The reference's TryTerminateExactly: a quotient whose reduced denominator is 2^a*5^b is answered
 /// exactly, everything else is not (the caller then truncates at pi's own scale).
 fn try_terminate_exactly(numerator: &Nat, denominator: &Nat) -> Option<(Nat, i64)> {
-    let mut probe = denominator.clone();
-    let mut twos = 0i64;
-    let mut fives = 0i64;
-    while let Some((quotient, remainder)) = probe.div_rem(&Nat::from_u64(2)) {
-        if !remainder.is_zero() {
-            break;
-        }
-        probe = quotient;
-        twos += 1;
-    }
-    while let Some((quotient, remainder)) = probe.div_rem(&Nat::from_u64(5)) {
-        if !remainder.is_zero() {
-            break;
-        }
-        probe = quotient;
-        fives += 1;
-    }
-    if probe.to_decimal() != "1" {
-        return None;
-    }
-    if twos >= fives {
-        let magnitude = if twos == fives {
-            numerator.clone()
-        } else {
-            numerator.mul(&Nat::from_u64(5).pow((twos - fives) as u64))
-        };
-        Some((magnitude, twos))
-    } else {
-        Some((
-            numerator.mul(&Nat::from_u64(2).pow((fives - twos) as u64)),
-            fives,
-        ))
-    }
+    crate::terminate_exactly(numerator, denominator)
 }
 
 /// The value pi*num/den produces at pi's own scale, in integer arithmetic: the exact terminating
@@ -906,11 +879,12 @@ pub(crate) fn sin_taylor_guarded(r: &Real, guard: usize) -> Real {
     let x2 = r.mul(r);
     let mut term = r.clone();
     let mut sum = r.clone();
+    let mut termination = DecimalGuard::new();
     for k in 1..=(5 * guard + 60) {
         let denom = (2 * k) * (2 * k + 1);
         term = div_truncate(&term.neg().mul(&x2), &Real::from_i64(denom as i64), guard);
         sum = sum.add(&term);
-        if below_decimal_guard(&term, guard) {
+        if termination.is_below(&term, guard) {
             break;
         }
     }
@@ -922,11 +896,12 @@ pub(crate) fn cos_taylor_guarded(r: &Real, guard: usize) -> Real {
     let x2 = r.mul(r);
     let mut term = Real::from_i64(1);
     let mut sum = Real::from_i64(1);
+    let mut termination = DecimalGuard::new();
     for k in 1..=(5 * guard + 60) {
         let denom = (2 * k - 1) * (2 * k);
         term = div_truncate(&term.neg().mul(&x2), &Real::from_i64(denom as i64), guard);
         sum = sum.add(&term);
-        if below_decimal_guard(&term, guard) {
+        if termination.is_below(&term, guard) {
             break;
         }
     }

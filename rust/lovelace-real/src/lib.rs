@@ -67,6 +67,8 @@ mod round36_ambient;
 mod round36_precbench;
 #[cfg(test)]
 mod round39_real_tests;
+#[cfg(test)]
+mod round95_singletons;
 
 /// Builds a real from an exact rational under the reference's computation cap.
 ///
@@ -120,9 +122,9 @@ fn fraction_real_exact(num: Int, den: &Nat) -> Real {
     value.normalized()
 }
 
-/// Builds an integer from a natural magnitude.
+/// Builds an integer from a natural magnitude without rendering and reparsing its digits.
 fn int_from_nat(mag: &Nat) -> Int {
-    Int::from_decimal(&mag.to_decimal()).unwrap_or_else(Int::zero)
+    Int::from_nat(mag.clone())
 }
 
 /// An arbitrary-precision real number.
@@ -298,21 +300,32 @@ impl Real {
     }
 
     /// Removes trailing fractional zeros from a terminating value.
+    ///
+    /// The strip is the reference's galloping one (a few divisions by 10^18, 10^36, ...), not one
+    /// division per zero. Aligning a sum against a series term hundreds of places smaller creates a
+    /// long run of trailing zeros, and stripping it one digit at a time dominated the trig kernels.
     fn normalized(mut self) -> Real {
-        if self.period_len > 0 {
+        if self.period_len > 0 || self.exp >= 0 {
             return self;
         }
-        while self.exp < 0 {
-            let (q, r) = match self.int.div_rem(&Nat::from_u64(10)) {
-                Some(v) => v,
-                None => return self,
-            };
-            if !r.is_zero() {
-                break;
-            }
-            self.int = q;
-            self.exp += 1;
+        // Zero is canonical at exponent 0 whatever scale produced it: a cancelled sum or a
+        // zero valued modulus must render "0", not a run of trailing fractional zeros.
+        if self.int.is_zero() {
+            self.exp = 0;
+            return self;
         }
+        let cap = self.exp.unsigned_abs();
+        let (magnitude, stripped) =
+            fast_path::strip_trailing_decimal_zeros(self.int.magnitude(), cap);
+        if stripped == 0 {
+            return self;
+        }
+        let mut int = Int::from_nat(magnitude);
+        if self.int.is_negative() {
+            int = int.negate();
+        }
+        self.int = int;
+        self.exp += stripped as i64;
         self
     }
 
@@ -597,7 +610,23 @@ impl Real {
             });
         }
         let max_digits = max_digits.max(1);
-        let terminating = terminates(&r, den);
+        // The reference decides a finite decimal BEFORE the digit loop: a denominator whose only
+        // prime factors are 2 and 5 is scaled out with integer arithmetic, so a quotient whose
+        // expansion is thousands of places long (2^-100000) costs one exponent, not one digit of
+        // the computation budget. The fast decomposition also avoids walking 2^100000 one factor
+        // at a time.
+        if let Some((magnitude, scale)) = terminate_exactly(num, den) {
+            return Some(
+                Real {
+                    int: int_from_nat(&magnitude),
+                    exp: -scale,
+                    period_start: -1,
+                    period_len: 0,
+                    inexact: false,
+                }
+                .normalized(),
+            );
+        }
         // Stored fractional digits; the opening zero run is NOT stored (it is scale).
         let mut digits: Vec<u8> = Vec::new();
         let mut seen: Vec<(Nat, usize)> = Vec::new();
@@ -612,17 +641,15 @@ impl Real {
             if rem.is_zero() {
                 break;
             }
-            // The reference's `while` condition: a terminating expansion has already been
-            // answered exactly, so only a non-terminating one is bounded -- by decimal POSITION
+            // The reference's `while` condition: every terminating expansion was answered
+            // exactly above, so this loop only bounds a NON-terminating one -- by decimal POSITION
             // until the leading zero run alone fills the budget, then by STORED digits.
-            if !terminating {
-                if freed {
-                    if digits.len() >= max_digits {
-                        break;
-                    }
-                } else if position >= max_digits {
+            if freed {
+                if digits.len() >= max_digits {
                     break;
                 }
+            } else if position >= max_digits {
+                break;
             }
             if let Some((_, idx)) = seen.iter().find(|(v, _)| *v == rem) {
                 period_start = *idx as i64;
@@ -871,27 +898,51 @@ impl Real {
     }
 }
 
-/// True when `num/den` has a finite decimal expansion **by the reference's rule**: the
-/// DENOMINATOR's only prime factors are 2 and 5. Such a quotient is exact at ANY digit budget.
+/// Strips a prime's power from `value`, widest chunk first, and reports the exponent removed.
 ///
-/// The reference (`TryTerminateExactly`) does NOT cancel the numerator against the denominator
-/// first. That matters when the two share a factor: `pi(100)/6`, whose stored numerator happens to
-/// be divisible by 3, is mathematically the 101-digit decimal `...4465`, but the reference's
-/// denominator is still 2*3*10^100, so it takes the digit loop, spends the 100-place budget, and
-/// stores the 100-digit truncation `...446` (inexact, no period). Reducing first would publish the
-/// extra digit as exact and break the reference's row. The digit loop still answers exactly when
-/// the remainder reaches zero inside the budget; only the "finish beyond the budget" case differs.
-fn terminates(_num: &Nat, den: &Nat) -> bool {
-    let mut d = den.clone();
-    for prime in [2u64, 5u64] {
+/// The ladder is the reference's (`2^62, 2^31, ...` and `5^27, 5^13, ...`): pulling 2^100000 out
+/// of a denominator costs about 1600 64-bit-limb divisions instead of one division per factor.
+fn strip_prime_chunks(value: &mut Nat, base: u64, chunks: &[u32]) -> i64 {
+    let mut removed = 0i64;
+    for &exponent in chunks {
+        let chunk = Nat::from_u64(base).pow(u64::from(exponent));
         loop {
-            match d.div_rem(&Nat::from_u64(prime)) {
-                Some((q, r)) if r.is_zero() => d = q,
+            match value.div_rem(&chunk) {
+                Some((quotient, remainder)) if remainder.is_zero() => {
+                    *value = quotient;
+                    removed += i64::from(exponent);
+                }
                 _ => break,
             }
         }
     }
-    d.to_decimal() == "1"
+    removed
+}
+
+/// The reference's `TryTerminateExactly`: when `num/den` has a finite decimal expansion
+/// (the denominator's only prime factors are 2 and 5), produces `(magnitude, scale)` such that
+/// the quotient is exactly `magnitude * 10^-scale` without performing a division.
+///
+/// The reference does NOT cancel the numerator against the denominator first. That matters when
+/// the two share a factor: `pi(100)/6`, whose stored numerator happens to be divisible by 3, is
+/// mathematically the 101-digit decimal `...4465`, but the reference's denominator is still
+/// 2*3*10^100, so it takes the digit loop and stores the 100-place truncation (inexact). This
+/// helper therefore reports `None` whenever a prime other than 2 or 5 survives.
+pub(crate) fn terminate_exactly(num: &Nat, den: &Nat) -> Option<(Nat, i64)> {
+    if den.is_zero() {
+        return None;
+    }
+    let mut probe = den.clone();
+    let twos = strip_prime_chunks(&mut probe, 2, &[62, 31, 15, 7, 3, 1]);
+    let fives = strip_prime_chunks(&mut probe, 5, &[27, 13, 6, 3, 1]);
+    if !probe.is_one() {
+        return None;
+    }
+    match twos.cmp(&fives) {
+        Ordering::Greater => Some((num.mul(&Nat::from_u64(5).pow((twos - fives) as u64)), twos)),
+        Ordering::Less => Some((num.mul(&Nat::from_u64(2).pow((fives - twos) as u64)), fives)),
+        Ordering::Equal => Some((num.clone(), twos)),
+    }
 }
 
 fn fraction_real(num: Int, den: Nat, max_digits: usize) -> Real {

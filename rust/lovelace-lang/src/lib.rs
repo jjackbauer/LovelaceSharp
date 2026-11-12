@@ -10,6 +10,7 @@
 #![allow(clippy::result_large_err)]
 #![allow(clippy::needless_range_loop)]
 
+pub mod argument_contract;
 pub mod builtins;
 mod cancellable;
 pub mod complex;
@@ -37,6 +38,9 @@ pub mod structured;
 pub mod syntax;
 mod unicode;
 pub mod value_widen;
+
+#[cfg(test)]
+mod round95_engine_singletons;
 
 /// The cooperative cancellation token every long-running kernel polls. Re-exported so a host can
 /// arm a deadline at the same seam the engine does (see `Engine::set_cancel_after`).
@@ -579,6 +583,14 @@ pub struct StateFunction {
     pub name: String,
     /// The ordered parameter names.
     pub parameters: Vec<String>,
+    /// The smallest accepted argument count. The declaration TRAVELS with the function (the
+    /// reference's `FunctionDefinition.MinArity`), so the one call-site validator can enforce
+    /// what the descriptor declares instead of reading a second, private table.
+    pub min_arity: usize,
+    /// Whether extra trailing arguments are accepted (the reference's
+    /// `FunctionDefinition.Variadic`): an upper bound of infinity rather than the parameter
+    /// count.
+    pub variadic: bool,
     /// True for a builtin (native or plugin) and false for a user definition.
     pub is_builtin: bool,
     /// The plugin that registered the builtin, when one did.
@@ -644,6 +656,10 @@ pub struct Engine {
     /// True once the precision knob was changed from its default (mirrors the reference
     /// interpreter's `PrecisionExplicitlySet`, which plugin builtins read).
     precision_explicit: bool,
+    /// The DISPLAY bound when a host pins it below the computation bound (the reference's
+    /// `SuiteEngine.DisplayDecimalPlaces`). `None` keeps the historical coupling: 100 until
+    /// `setprecision` moves it, then the computation bound.
+    display_precision_override: Option<usize>,
     output: Vec<String>,
     /// Whether display formatting prefers the Unicode math glyphs (∞ π ≤ ≥ ≠), the
     /// reference's `SuiteEngine.UnicodeOutput` knob. ASCII is the default.
@@ -653,9 +669,25 @@ pub struct Engine {
     plot_file: String,
     revision: u64,
     timings: Vec<OpTiming>,
-    /// Live user-function frames, in budget units of six each (the reference's frame + scope +
-    /// body entry plus the statement/expression charges its body walk pays).
-    call_units: usize,
+    /// The live lexical chain below the global store: one map per open block, loop or user-frame
+    /// scope (the reference's `Scope` chain). Lookup walks it innermost-first and falls back to
+    /// the globals; assignment updates the nearest existing binding, a definition binds in the
+    /// innermost scope.
+    scopes: Vec<HashMap<String, Value>>,
+    /// The interpreter's LIVE evaluation depth in budget units (the reference's
+    /// `InputDepth.MaxEvaluationDepth` walk): one per statement executed, one per descending
+    /// expression node (a leaf and a call argument cost nothing), and one frame's units per user
+    /// function level. Every charge is undone when the node or statement finishes, so the counter
+    /// measures nesting rather than width.
+    eval_depth: usize,
+    /// The depth at which the current top-level statement entered user code, minus the frame's own
+    /// units: the zero the budget compares against.
+    eval_base: usize,
+    /// Whether the current top-level statement has already found its evaluation base.
+    eval_base_established: bool,
+    /// When non-zero, expression charging is suspended: a call argument's subtree is charged
+    /// nothing, exactly as the reference's argument routing leaves it uncharged.
+    free_charge: usize,
     /// The caller's deadline, when one was armed for the next evaluation (--cancel-after).
     cancel_after: Option<Duration>,
     /// The live cancellation flag the host may set while an evaluation is in flight (the desktop
@@ -715,6 +747,7 @@ impl Engine {
             funcs: HashMap::new(),
             precision: 1000,
             precision_explicit: false,
+            display_precision_override: None,
             output: Vec::new(),
             unicode_output_enabled: false,
             plot: None,
@@ -722,7 +755,11 @@ impl Engine {
             plot_file: "plot.svg".to_string(),
             revision: 0,
             timings: Vec::new(),
-            call_units: 0,
+            scopes: Vec::new(),
+            eval_depth: 0,
+            eval_base: 0,
+            eval_base_established: false,
+            free_charge: 0,
             cancel_after: None,
             cancel_flag: None,
             cancelled: false,
@@ -780,6 +817,8 @@ impl Engine {
         self.raise_function_defined(StateFunction {
             name: name.to_string(),
             parameters: parameters.iter().map(|p| (*p).to_string()).collect(),
+            min_arity: parameters.len(),
+            variadic: false,
             is_builtin: true,
             plugin: self.modus.plugin_name_of(name).map(str::to_string),
         });
@@ -800,6 +839,8 @@ impl Engine {
     {
         let definition = StateFunction {
             name: descriptor.name.clone(),
+            min_arity: descriptor.min_arity.unwrap_or(descriptor.parameters.len()),
+            variadic: descriptor.variadic,
             parameters: descriptor.parameters.clone(),
             is_builtin: true,
             plugin: self
@@ -899,11 +940,22 @@ impl Engine {
     /// The reference keeps two knobs (computation 1000, display 100) and `setprecision` moves
     /// both; until it is moved explicitly a constant such as `pi` renders at the display default.
     pub fn display_precision(&self) -> usize {
+        if let Some(decimals) = self.display_precision_override {
+            return decimals;
+        }
         if self.precision_explicit {
             self.precision
         } else {
             100
         }
+    }
+
+    /// Pins the DISPLAY bound without moving the computation bound (the reference's
+    /// `SuiteEngine.DisplayDecimalPlaces`). A host that asks for 1 100 stored digits can still
+    /// render 100; the structured projection keeps publishing every digit the value stores, so the
+    /// two bounds cannot make one value cross as two different payloads.
+    pub fn set_display_precision(&mut self, decimals: usize) {
+        self.display_precision_override = Some(decimals.max(1));
     }
 
     /// Sets the directory plots are written to.
@@ -1073,6 +1125,8 @@ impl Engine {
                         .iter()
                         .map(|p| (*p).to_string())
                         .collect(),
+                    min_arity: builtin.min_arity,
+                    variadic: builtin.variadic,
                     is_builtin: true,
                     plugin: builtin.plugin.map(|p| p.to_string()),
                 },
@@ -1087,6 +1141,8 @@ impl Engine {
                 StateFunction {
                     name: name.clone(),
                     parameters: parameters.clone(),
+                    min_arity: parameters.len(),
+                    variadic: false,
                     is_builtin: false,
                     plugin: None,
                 },
@@ -1177,13 +1233,17 @@ impl Engine {
 
     /// The snapshot view of one Modus-registered builtin.
     fn host_function(&self, name: &str) -> StateFunction {
+        let descriptor = self.modus.descriptor_of(name);
+        let parameters = descriptor
+            .map(|descriptor| descriptor.parameters.clone())
+            .unwrap_or_default();
         StateFunction {
             name: name.to_string(),
-            parameters: self
-                .modus
-                .descriptor_of(name)
-                .map(|descriptor| descriptor.parameters.clone())
-                .unwrap_or_default(),
+            min_arity: descriptor
+                .and_then(|descriptor| descriptor.min_arity)
+                .unwrap_or(parameters.len()),
+            variadic: descriptor.is_some_and(|descriptor| descriptor.variadic),
+            parameters,
             is_builtin: true,
             plugin: self.modus.plugin_name_of(name).map(str::to_string),
         }
@@ -1286,6 +1346,109 @@ impl Engine {
         result
     }
 
+    // -----------------------------------------------------------------
+    // Lexical scopes
+    // -----------------------------------------------------------------
+
+    /// Looks a name up in the live lexical chain, innermost first, then the global store.
+    fn lookup(&self, name: &str) -> Option<&Value> {
+        for scope in self.scopes.iter().rev() {
+            if let Some(value) = scope.get(name) {
+                return Some(value);
+            }
+        }
+        self.vars.get(name)
+    }
+
+    /// Assigns to the nearest existing binding, or defines in the innermost scope when the name is
+    /// new (the reference's `Scope.Assign`). Returns whether a GLOBAL binding was written, which is
+    /// the reference's `VariableChanged` condition.
+    fn assign(&mut self, name: &str, value: Value) -> bool {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(slot) = scope.get_mut(name) {
+                *slot = value;
+                return false;
+            }
+        }
+        if let Some(slot) = self.vars.get_mut(name) {
+            *slot = value;
+            return true;
+        }
+        // A name nothing binds yet is DEFINED in the innermost scope; at top level that scope is
+        // the global store, so the definition is still a published global change.
+        if self.scopes.is_empty() {
+            self.vars.insert(name.to_string(), value);
+            return true;
+        }
+        self.define(name, value);
+        false
+    }
+
+    /// Defines a binding in the innermost scope only (the reference's `Scope.Define`).
+    fn define(&mut self, name: &str, value: Value) {
+        match self.scopes.last_mut() {
+            Some(scope) => {
+                scope.insert(name.to_string(), value);
+            }
+            None => {
+                self.vars.insert(name.to_string(), value);
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------
+    // Evaluation budget (InputDepth.MaxEvaluationDepth)
+    // -----------------------------------------------------------------
+
+    /// The units one user-function level costs beyond its statements and expressions (the
+    /// reference's `CallLevelUnits`).
+    const FRAME_UNITS: usize = 4;
+
+    /// The depth BELOW the current top-level statement's base, which is what the budget bounds.
+    fn depth_below_base(&self) -> usize {
+        if self.eval_base_established {
+            self.eval_depth.saturating_sub(self.eval_base)
+        } else {
+            self.eval_depth
+        }
+    }
+
+    /// Charges `units` of the evaluation budget, refusing when the measured depth passes the
+    /// published bound. The charge is undone by the caller's own exit.
+    fn enter_depth(&mut self, units: usize) -> Result<(), LangError> {
+        self.eval_depth += units;
+        let depth = self.depth_below_base();
+        if depth > MAX_EVALUATION_DEPTH {
+            self.eval_depth -= units;
+            // The reference checks one unit at a time and publishes the FIRST level it found past
+            // the budget, so the reported number is always limit + 1 even when the remaining walk
+            // would measure deeper.
+            let reported = (MAX_EVALUATION_DEPTH + 1).min(depth);
+            return Err(LangError::depth(
+                "evaluation",
+                reported,
+                MAX_EVALUATION_DEPTH,
+                "evaluation",
+            ));
+        }
+        Ok(())
+    }
+
+    fn exit_depth(&mut self, units: usize) {
+        self.eval_depth = self.eval_depth.saturating_sub(units);
+    }
+
+    /// Marks the BASE of the budget for the current top-level statement: the first user-function
+    /// frame together with everything the statement charged to reach it (the reference's
+    /// `EstablishEvaluationBase`). The frame about to be pushed and the statement above it are the
+    /// zero of the measurement, so f(85) answers and f(86) is refused.
+    fn establish_eval_base(&mut self) {
+        if !self.eval_base_established {
+            self.eval_base_established = true;
+            self.eval_base = self.eval_depth + Self::FRAME_UNITS;
+        }
+    }
+
     /// The evaluation proper, on the engine's own text (a leading byte-order mark already
     /// stripped by eval_inner).
     fn eval_text(&mut self, source: &str) -> Result<Value, LangError> {
@@ -1305,11 +1468,16 @@ impl Engine {
                 "nesting",
             ));
         }
-        self.call_units = 0;
+        self.eval_depth = 0;
+        self.free_charge = 0;
         let mut last = Value::Void;
         for stmt in &program {
             let position = statement_position(stmt);
             self.current_position = position;
+            // Every top-level statement is its own entry into user code and finds its own base
+            // (the reference resets the evaluation budget per statement).
+            self.eval_base = 0;
+            self.eval_base_established = false;
             // Statement granularity, exactly as the reference's interpreter checks: a script whose
             // budget expires between two statements stops before the next one runs.
             if lovelace_symbolics::cancel::check() {
@@ -1392,6 +1560,21 @@ impl Engine {
     }
 
     fn exec(&mut self, stmt: &Stmt) -> Result<Flow, LangError> {
+        // A BlockStatement is GROUPING rather than a step of its own: the statements inside it are
+        // charged individually, so it costs nothing (the reference's ExecuteAsync).
+        let charged = if matches!(stmt, Stmt::Block(_)) { 0 } else { 1 };
+        if charged > 0 {
+            self.enter_depth(charged)?;
+        }
+        let result = self.exec_statement(stmt);
+        if charged > 0 {
+            self.exit_depth(charged);
+        }
+        result
+    }
+
+    /// Executes one statement with its budget unit already charged.
+    fn exec_statement(&mut self, stmt: &Stmt) -> Result<Flow, LangError> {
         match stmt {
             Stmt::Empty => Ok(Flow::Value(Value::Void)),
             Stmt::Expr(e, _) => {
@@ -1399,14 +1582,30 @@ impl Engine {
                 Ok(Flow::Value(v))
             }
             Stmt::Block(stmts) => {
+                // A braced block introduces a lexical scope (the reference's BlockStatement): names
+                // it defines do not leak outward, while an assignment to an existing outer binding
+                // still updates that binding.
+                self.scopes.push(HashMap::new());
                 let mut last = Value::Void;
+                let mut outcome = Ok(Flow::Value(Value::Void));
                 for s in stmts {
-                    match self.exec(s)? {
-                        Flow::Value(v) => last = v,
-                        other => return Ok(other),
+                    match self.exec(s) {
+                        Ok(Flow::Value(v)) => last = v,
+                        Ok(other) => {
+                            outcome = Ok(other);
+                            break;
+                        }
+                        Err(error) => {
+                            outcome = Err(error);
+                            break;
+                        }
                     }
                 }
-                Ok(Flow::Value(last))
+                self.scopes.pop();
+                match outcome? {
+                    Flow::Value(_) => Ok(Flow::Value(last)),
+                    other => Ok(other),
+                }
             }
             Stmt::If(cond, then, other) => {
                 let c = self.eval_expr(cond)?;
@@ -1475,7 +1674,10 @@ impl Engine {
                     if lovelace_symbolics::cancel::poll(iteration as u64) {
                         return Err(cancelled_error());
                     }
-                    self.vars.insert(var.clone(), item);
+                    // The loop variable is DEFINED in the current scope (the reference's
+                    // Scope.Define), so a top-level loop leaves it global and a loop inside a
+                    // block or a function body keeps it there.
+                    self.define(var, item);
                     match self.exec(body)? {
                         Flow::Break => break,
                         Flow::Continue => continue,
@@ -1500,6 +1702,8 @@ impl Engine {
                 self.raise_function_defined(StateFunction {
                     name: name.clone(),
                     parameters: params.clone(),
+                    min_arity: params.len(),
+                    variadic: false,
                     is_builtin: false,
                     plugin: None,
                 });
@@ -1509,6 +1713,26 @@ impl Engine {
     }
 
     fn eval_expr(&mut self, e: &Expr) -> Result<Value, LangError> {
+        // A LEAF -- a literal, a variable, a string -- descends nowhere and costs no unit, and a
+        // node inside a call argument's subtree is uncharged too, exactly as the reference routes
+        // arguments. Everything else re-enters here once per descent.
+        let leaf = matches!(
+            e,
+            Expr::Number(_) | Expr::Repeating(_) | Expr::Str(_) | Expr::Var(_, _)
+        );
+        let charged = if leaf || self.free_charge > 0 { 0 } else { 1 };
+        if charged > 0 {
+            self.enter_depth(charged)?;
+        }
+        let result = self.eval_expr_node(e);
+        if charged > 0 {
+            self.exit_depth(charged);
+        }
+        result
+    }
+
+    /// Evaluates one expression node with its budget unit already charged.
+    fn eval_expr_node(&mut self, e: &Expr) -> Result<Value, LangError> {
         match e {
             Expr::Number(text) => {
                 if text.contains('.') {
@@ -1537,7 +1761,7 @@ impl Engine {
                 }
                 Ok(Value::Text(out))
             }
-            Expr::Var(name, _pos) => match self.vars.get(name) {
+            Expr::Var(name, _pos) => match self.lookup(name) {
                 Some(v) => Ok(v.clone()),
                 // Mathematical constants, resolved after the variable store so a user
                 // assignment shadows them. The value is COMPUTED at the engine's computation
@@ -1567,7 +1791,12 @@ impl Engine {
             Expr::Call(name, args, pos) => {
                 let mut values = Vec::with_capacity(args.len());
                 for a in args {
-                    values.push(self.eval_expr(a)?);
+                    // An argument's subtree is uncharged: the budget measures the DESCENT the
+                    // function bodies add, and the reference's argument routing charges nothing.
+                    self.free_charge += 1;
+                    let evaluated = self.eval_expr(a);
+                    self.free_charge -= 1;
+                    values.push(evaluated?);
                 }
                 self.call(name, values, *pos)
             }
@@ -1586,12 +1815,25 @@ impl Engine {
                     spine.push(right);
                     node = left.as_ref();
                 }
-                let mut acc = self.eval_expr(node)?;
-                for operand in spine.iter().rev() {
-                    let rv = self.eval_expr(operand)?;
-                    acc = builtins::binary(*op, &acc, &rv, self.precision)?;
+                // The folded spine nodes are LIVE for as long as the fold runs, exactly as the
+                // recursive walk would keep them: charge the ones the wrapper did not charge, so a
+                // deep flat chain measures the same depth as its nested spelling.
+                let spine_extra = spine.len().saturating_sub(1);
+                if spine_extra > 0 {
+                    self.enter_depth(spine_extra)?;
                 }
-                Ok(acc)
+                let folded = (|| {
+                    let mut acc = self.eval_expr(node)?;
+                    for operand in spine.iter().rev() {
+                        let rv = self.eval_expr(operand)?;
+                        acc = builtins::binary(*op, &acc, &rv, self.precision)?;
+                    }
+                    Ok(acc)
+                })();
+                if spine_extra > 0 {
+                    self.exit_depth(spine_extra);
+                }
+                folded
             }
             Expr::Neg(inner) => {
                 let v = self.eval_expr(inner)?;
@@ -1712,11 +1954,13 @@ impl Engine {
             }
             Expr::Assign(name, value) => {
                 let v = self.eval_expr(value)?;
-                self.vars.insert(name.clone(), v.clone());
-                // The engine's store is flat, so this insert is the global write the
-                // reference raises `VariableChanged` for. A later round that adds real
-                // block/function scopes must move this raise with that store.
-                self.raise_variable_changed(name, &v, false);
+                // Standard block-scoped assignment: update the nearest existing binding, otherwise
+                // define in the innermost scope. Only a GLOBAL write raises `VariableChanged`
+                // (the reference's DefineInScope).
+                let global = self.assign(name, v.clone());
+                if global {
+                    self.raise_variable_changed(name, &v, false);
+                }
                 Ok(v)
             }
         }
@@ -1735,51 +1979,31 @@ impl Engine {
                     pos,
                 ));
             }
-            let saved: Vec<(String, Option<Value>)> = params
-                .iter()
-                .map(|p| (p.clone(), self.vars.get(p).cloned()))
-                .collect();
+            // A frame's parent is the GLOBAL scope (the reference's `new Scope(_global)`), so a
+            // callee never sees its caller's block locals; the caller's chain is restored when the
+            // call returns, including down an error path.
+            let saved_scopes = std::mem::take(&mut self.scopes);
+            let mut frame = HashMap::new();
             for (p, v) in params.iter().zip(args) {
-                self.vars.insert(p.clone(), v);
+                frame.insert(p.clone(), v);
             }
-            // One call LEVEL of the evaluation budget. The reference charges four units for the
-            // frame, its scope and the body entry, and the body's statements and descending
-            // expressions pay the rest: six units per level reproduces its published boundary
-            // (f(85) answers, f(86) is refused; a live wrapper costs one level).
-            self.call_units += 6;
-            // The statement's entry into user code is the ZERO of the measurement: the first
-            // frame's six units are the base, exactly as the reference establishes its base
-            // before charging the frame. f(85) therefore measures 510 and answers; f(86)
-            // measures 516 and is refused.
-            let depth = self.call_units - 6;
-            if depth > MAX_EVALUATION_DEPTH {
-                self.call_units -= 6;
-                // The reference checks one unit at a time and publishes the FIRST level it found
-                // past the budget, so that number is always limit + 1 even when the remaining
-                // call chain would measure deeper.
-                let reported = (MAX_EVALUATION_DEPTH + 1).min(depth);
-                let result = Err(LangError::depth(
-                    "evaluation",
-                    reported,
-                    MAX_EVALUATION_DEPTH,
-                    "evaluation",
-                ));
-                for (p, old) in saved {
-                    match old {
-                        Some(v) => self.vars.insert(p, v),
-                        None => self.vars.remove(&p),
-                    };
-                }
-                return result;
+            self.scopes.push(frame);
+            // The argument-suppression state belongs to the CALLER's argument list; the callee's
+            // body is charged normally.
+            let saved_free = std::mem::replace(&mut self.free_charge, 0);
+            // The first user frame of the statement is the ZERO of the measurement; every level
+            // below it costs the frame's units plus the statements and descending expressions its
+            // body walks (f(85) answers, f(86) is refused).
+            self.establish_eval_base();
+            if let Err(error) = self.enter_depth(Self::FRAME_UNITS) {
+                self.free_charge = saved_free;
+                self.scopes = saved_scopes;
+                return Err(error);
             }
             let result = self.exec(&body);
-            self.call_units -= 6;
-            for (p, old) in saved {
-                match old {
-                    Some(v) => self.vars.insert(p, v),
-                    None => self.vars.remove(&p),
-                };
-            }
+            self.exit_depth(Self::FRAME_UNITS);
+            self.free_charge = saved_free;
+            self.scopes = saved_scopes;
             return match result? {
                 Flow::Return(v) | Flow::Value(v) => Ok(v),
                 Flow::Break | Flow::Continue => {
@@ -2640,6 +2864,11 @@ mod round92_runner_families;
 /// verification by numeric substitution, and the two loop-body recursion-composition rows.
 #[cfg(test)]
 mod round92_symbolic_families;
+
+/// Round-95 numeric singletons: the batched NdArray matmul and the allocation-refusal declaration
+/// rows. One test per census id, asserting the oracle-observed observable.
+#[cfg(test)]
+mod round95_singletons;
 
 /// Round-93 eval/print families: one test per census id across EvalirDigitArgumentContract,
 /// PrintBudget, PrintBudgetTokenBoundary, TruncatingEvaluationStaysInexact, ValueDepthGuard and

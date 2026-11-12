@@ -9,6 +9,19 @@ use super::parity_batch::*;
 use super::*;
 use lovelace_lang::Value;
 
+/// The mirrored error taxonomy this family's envelope assertions prove their category against
+/// (the C# `PlotDirectoryErrorTests.ErrorCategories`); a literal so an observed category is a
+/// member of the documented set, compared to the enum by round 95's mirror test.
+pub(crate) const MIRRORED_ERROR_CATEGORIES: [&str; 7] = [
+    "ParseError",
+    "DomainError",
+    "UnsupportedOperation",
+    "BudgetExceeded",
+    "NoSolution",
+    "TypeMismatch",
+    "InternalInvariantFailure",
+];
+
 fn field<'a>(record: &'a [(String, Value)], name: &str) -> Option<&'a Value> {
     record
         .iter()

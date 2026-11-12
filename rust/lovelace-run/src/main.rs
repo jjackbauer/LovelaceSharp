@@ -1209,6 +1209,9 @@ mod round82_evalf_precision;
 #[cfg(test)]
 mod round90_runner_families;
 
+#[cfg(test)]
+mod round95_singletons;
+
 /// A millisecond count as the wire's invariant number text (up to three decimals).
 fn format_ms(ms: f64) -> String {
     let text = format!("{:.3}", ms);

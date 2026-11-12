@@ -9,6 +9,19 @@ use std::path::Path;
 
 use super::parity_batch::*;
 
+/// The mirrored error taxonomy this family's envelope assertions prove their category against
+/// (the C# `PlotFileErrorTests.ErrorCategories`); a literal so an observed category is a member
+/// of the documented set, compared to the enum by round 95's mirror test.
+pub(crate) const MIRRORED_ERROR_CATEGORIES: [&str; 7] = [
+    "ParseError",
+    "DomainError",
+    "UnsupportedOperation",
+    "BudgetExceeded",
+    "NoSolution",
+    "TypeMismatch",
+    "InternalInvariantFailure",
+];
+
 fn plot_dir(name: &str) -> String {
     let dir = format!("{}/{}", super::parity_batch::plot_dir(), name);
     let _ = std::fs::remove_dir_all(&dir);

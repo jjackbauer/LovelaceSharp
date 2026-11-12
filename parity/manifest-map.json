@@ -17938,9 +17938,10 @@
     "note": "C# Lovelace.Suite.Tests/ArrayTests.cs:79 ArrayTests (Zeros_ProducesRequestedShape) asserts the rendered value == \"[[0, 0, 0], [0, 0, 0]] (Array)\". Rust: rust/lovelace-lang/src/suite_parity_batch.rs:2736 lovelace-lang::suite_parity_batch::arraytests_zeros_producesrequestedshape."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.BroadcastTests/ColumnVector_BroadcastsToMatrix#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'broadcast': $.exitCode: [[1],[2]] + [[10,20],[30,40]] exits 1 in Rust vs 0 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::broadcasttests_column_vector_broadcasts_to_matrix",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/BroadcastTests.cs:19 asserts [[1],[2]] + [[10,20],[30,40]] is [[11, 21], [32, 42]]. Rust: rust/lovelace-run/src/round95_singletons.rs:115 asserts exit 0, ok and the typed Array through the runner's own run_args (the deferred field was $.exitCode)."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.BroadcastTests/IncompatibleShapes_ThrowsBroadcastError#0": {
     "disposition": "ported",
@@ -21144,9 +21145,10 @@
     "note": "C# Lovelace.Suite.Tests/StructuredRealExactnessTests.cs TerminatingQuotientBeyondTheDigitBudget_IsCertifiedExact#1: 2^-5000 and 10^-1001: exact with numerator 1 and the full power denominator. Rust: rust/lovelace-lang/src/suite_parity_batch.rs lovelace-lang::suite_parity_batch::r15_terminating_quotient_past_the_default_budget_is_certified_exact."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuredRealExactnessTests/TerminatingQuotientBeyondTheDigitBudget_IsCertifiedExact#2": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'large-exponent': $.exitCode: 2^-100000 (the #2 InlineData row) aborts the Rust runner (no envelope, exit -1) vs the oracle publishing 1 / 2^100000 exactly",
-    "note": "Both runners executed on the same --eval argv; see docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-real::round95_singletons::terminating_quotient_beyond_the_digit_budget_is_certified_exact",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/StructuredRealExactnessTests.cs:139 asserts 2^-100000 is certified exact with numerator 1, denominator 2^100000 and a 0.0000 prefix. Rust: rust/lovelace-real/src/round95_singletons.rs:12 asserts is_exact, the full rational and the 0.0000 render at a 1000-place budget."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuredRealExactnessTests/TerminatingQuotient_IsAlwaysCertifiedExact#0": {
     "disposition": "ported",
@@ -26011,9 +26013,10 @@
     "note": "Round 48: C# RealTrigFastPathTests.ArgumentReduction_IntegerQuotient_MatchesTheDividedForm expects WholeQuotient to equal Truncate(value/twoPi) in exponent and digits; rust/lovelace-real/src/fast_path_tests.rs argument_reduction_integer_quotient_matches_the_divided_form asserts the same. See docs/goal-parity-contract/round-48/real-fast-path.md §5."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/Cos_AtDefaultPrecision_StaysInteractive#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Real private fast-path internals (ReduceToTwoPi, WholeQuotient, Normalize, IsBelowDecimalGuard, ToInteger, TrySpecialAngle); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-real::round95_singletons::cos_at_default_precision_stays_interactive",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Real.Tests/RealTrigFastPathTests.cs:197 asserts cos(0.5) at 1000 places takes under 10 000 ms after a warmup and is not periodic. Rust: rust/lovelace-real/src/round95_singletons.rs:32 asserts the same 10 s bound and !is_periodic at 1000 places."
   },
   "Lovelace.Real.Tests/Lovelace.Real.Tests.RealTrigFastPathTests/HalfOf_MatchesTheDividedForm_ForPiShapedValues#0": {
     "disposition": "ported",
@@ -30474,9 +30477,10 @@
     "reason": "Ported: x^4-5x^2 solves Exactly with 3 solutions: -sqrt(20)/2, sqrt(20)/2, 0 (see note)."
   },
   "Lovelace.Array.Tests/Lovelace.Array.Tests.NdArrayTests/MatMul_Batched#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'broadcast': $.exitCode: batched 3-D matmul exits 1 in Rust vs 0 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round95_singletons::matmul_batched_multiplies_each_three_dimensional_slice",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Array.Tests/NdArrayTests.cs:296 asserts batched rank-3 ArrayMath.MatMul publishes [[[7, 10], [15, 22]], [[67, 78], [91, 106]]]. Rust: rust/lovelace-lang/src/round95_singletons.rs:17 asserts the same display through the language matmul surface."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.DspTests/Filter_GivenFir_MatchesConvolution#0": {
     "disposition": "ported",
@@ -30576,19 +30580,22 @@
     "note": "Round 48: C# FixedDspTests.MovingAverage64_GivenPowerOfTwoWindow_MatchesDspMath expects window 4 over i%7 samples to match DspMath; rust/lovelace-lang/src/fixed_dsp_tests.rs moving_average64_given_power_of_two_window_matches_dsp_math asserts the same values. See docs/goal-parity-contract/round-48/fixed-point-dsp.md §4."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerConstructorTests/Constructor_GivenInt_DelegatesToLongOverload#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Integer(Int) constructor and operator overloads; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-int::round95_singletons::constructor_given_int_delegates_to_long_overload",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Integer.Tests/IntegerConstructorTests.cs:69 asserts new Integer(-7) and new Integer(-7L) format identically and agree on sign. Rust: rust/lovelace-int/src/round95_singletons.rs:9 asserts From<i32>(-7) and From<i64>(-7) agree in decimal text, sign and value (the int overload delegates to the long overload)."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerEqualityTests/Equals_GivenReferenceToSelf_ReturnsTrue#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Integer reference/value equality API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-int::round95_singletons::equals_given_reference_to_self_returns_true",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Integer.Tests/IntegerEqualityTests.cs:38 asserts x.Equals(x) is true. Rust: rust/lovelace-int/src/round95_singletons.rs:19 asserts reference.eq(reference) and value.eq(&value) on a real reference (Int derives PartialEq/Eq)."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerMultiplyTests/OperatorStar_ProducesSameResultAsMultiplyMethod#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Integer operator* / Multiply API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-int::round95_singletons::operator_star_produces_same_result_as_multiply_method",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Integer.Tests/IntegerMultiplyTests.cs:141 asserts a.Multiply(b) and a * b are the same product for 6 * -7. Rust: rust/lovelace-int/src/round95_singletons.rs:29 asserts &a * &b == a.mul(&b) == -42."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerPowTests/Pow_GivenNegativeExponent_Throws#0": {
     "disposition": "ported",
@@ -30609,9 +30616,10 @@
     "reason": "Ported by round 90: integer_pow now implements the checked Integer.Pow(Integer) zero-exponent refusal (see note; docs/goal-parity-contract/round-90/symbolic-families.md)."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerSubtractTests/SubtractOperator_IsEquivalentToSubtractMethod#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Integer operator- / Subtract API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-int::round95_singletons::subtract_operator_is_equivalent_to_subtract_method",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Integer.Tests/IntegerSubtractTests.cs:118 asserts a.Subtract(b) and a - b are the same difference for 100 - 37. Rust: rust/lovelace-int/src/round95_singletons.rs:41 asserts &a - &b == a.sub(&b) == 63."
   },
   "Lovelace.Integer.Tests/Lovelace.Integer.Tests.IntegerToStringTests/TryFormat_GivenInsufficientBuffer_ReturnsFalse#0": {
     "disposition": "ported",
@@ -30631,9 +30639,10 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.ArityPropertyTests/DeclaredArity_TravelsWithEveryPluginBuiltin#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing registry FunctionDefinition.MinArity/Variadic introspection; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round95_engine_singletons::arityproperty_declared_arity_travels_with_every_plugin_builtin",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Run.Tests/ArityPropertyTests.cs:229 asserts FunctionDefinition.MinArity/Variadic travel with every plugin builtin. Rust: rust/lovelace-lang/src/round95_engine_singletons.rs:272 walks the snapshot's plugin builtins and asserts min_arity, variadic and parameter count against the registry descriptor."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.ArityPropertyTests/EveryBuiltin_RefusesEveryCountOutsideItsDeclaredArity_WithTheOneDocumentedShape#0": {
     "disposition": "ported",
@@ -30666,9 +30675,10 @@
     "note": "Round 74: C# CallSignatureDiagnosticsTests.EveryArityRefusalAgreesWithTheRegistryEntry (CallSignatureDiagnosticsTests.cs:78) drives five too-few calls (`matmul([1, 2])`, `cross([1, 2, 3])`, `append([1, 2])`, `conv([1, 2])`, `filter([1], [1])`) and requires each published signature's function/expectedMin/variadic to equal the registry entry's declaration and actual < declared min. rust/lovelace-lang/src/arity_taxonomy_round73.rs:389 asserts the same five probes against registry::find and additionally checks expectedMin/expectedMax (None when variadic), the rendered message and the parameter list. See docs/goal-parity-contract/round-74/arity-porting.md section 2."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.ErrorCategoryMirrorTests/EveryMirroredTaxonomy_EqualsTheEnum#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ErrorCategory enum and the three mirrored taxonomy arrays; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::errorcategorymirror_every_mirrored_taxonomy_equals_the_enum",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Run.Tests/ErrorCategoryMirrorTests.cs:14 asserts every mirrored taxonomy array equals the enum. Rust: rust/lovelace-run/src/round95_singletons.rs:206 compares all three MIRRORED_ERROR_CATEGORIES arrays with ErrorCategory::ALL in frozen order."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.EvalfDigitCapHonestyTests/ARequestAtTheCap_IsNotMarked#0": {
     "disposition": "ported",
@@ -30677,14 +30687,16 @@
     "note": "C# Lovelace.Run.Tests/EvalfDigitCapHonestyTests.cs:93 ARequestAtTheCap_IsNotMarked asserts Cap decimals and null truncated/truncationReason/budget for evalf(pi, 1000). Rust: rust/lovelace-run/src/round82_evalf_precision.rs:87 lovelace-run::round82_evalf_precision::a_request_at_the_cap_is_honoured_in_full_and_unmarked drives the runner's own parity_batch::run_args and asserts the same, plus the 100-place display and the variables[_] entry carrying the same digits. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.GoldenFixtureRecorder/RecordGoldenFixtures#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing golden-fixture recorder (TestSupport.Normalise + SourceGoldenPath); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::golden_batch::a_recorded_envelope_reproduces_every_golden",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Run.Tests/GoldenFixtureRecorder.cs:35 re-records the goldens with the comparison's normalise, inert unless LOVELACE_RECORD_GOLDENS=1. Rust: rust/lovelace-run/src/golden_batch.rs:131 asserts a re-record of every golden is content-identical after the same normalise; the inertness sibling is golden_batch::the_recorder_is_inert_unless_enabled (line 120)."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.LibraryProjectionAgreementTests/TheFacade_PublishesEveryStoredDigit_WhenTheDisplayBoundIsLower#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SuiteEngine ComputationDecimalPlaces/DisplayDecimalPlaces + ProjectValue above the 1000-digit language cap; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round95_engine_singletons::libraryprojectionagreement_the_facade_publishes_every_stored_digit",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Run.Tests/LibraryProjectionAgreementTests.cs:70 asserts the façade publishes every stored digit when display is lower. Rust: rust/lovelace-lang/src/round95_engine_singletons.rs:388 asserts computation 1100 / display 100 yields a 1100-digit payload with the pi tail, no truncation fields and a 100-digit render; the CLI/facade equality sibling is lovelace-run::round95_singletons::libraryprojectionagreement_the_cli_and_the_facade_publish_the_same_digits."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.PlotDirectoryErrorTests/EmptyPlotDirectory_IsAnErrorEnvelopeWithExitOne#0": {
     "disposition": "ported",
@@ -30705,9 +30717,10 @@
     "note": "Round 70: C# PlotFileErrorTests.cs:31 PlotFileUnderAMissingDirectory_IsAnErrorEnvelopeWithExitOne requires the same envelope for nope/x.svg and the caller path in message and diagnostic; lovelace-run plot_surface_wire::plot_file_under_a_missing_directory_is_an_error_envelope_with_exit_one asserts the same and that the missing parent is not created."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.RecursionDepthEnvelopeTests/NestedBlocksInsideARecursiveBody_AreRefused_InsteadOfDying#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'recursion': $.exitCode: 5 calls inside 120 nested ifs exits 0 in Rust vs 1 (DepthExceeded) in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::recursiondepthenvelope_nested_blocks_inside_a_recursive_body_are_refused",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Run.Tests/RecursionDepthEnvelopeTests.cs:150 asserts 120 nested ifs at five call levels are refused, not fatal. Rust: rust/lovelace-run/src/round95_singletons.rs:44 asserts exit 1, ok:false, DepthExceeded/BudgetExceeded, recoverable and the 512-depth message."
   },
   "Lovelace.Run.Tests/Lovelace.Run.Tests.StructuredRealPrecisionTests/EvalfCountAboveTheAmbientDisplayPrecision_CrossesInFull#0": {
     "disposition": "ported",
@@ -30716,9 +30729,10 @@
     "note": "C# Lovelace.Run.Tests/StructuredRealPrecisionTests.cs:100 EvalfCountAboveTheAmbientDisplayPrecision_CrossesInFull asserts 1000 decimals, the 3.+PiFirst60 prefix, the Pi981To1000 suffix and that variables[_] matches. Rust: rust/lovelace-run/src/round82_evalf_precision.rs:128 lovelace-run::round82_evalf_precision::evalf_count_above_the_ambient_display_precision_crosses_in_full asserts the same through parity_batch::run_args. See docs/goal-parity-contract/round-82/evalf-precision.md section 6."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayAllocationRefusalTests/TheSuiteDeclaresTheAllocationRefusalTheRunnerClassifies#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing AllocationRefusalException type declaration; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round95_singletons::suite_declares_the_allocation_refusal_the_runner_classifies",
+    "reason": "Round 95 resolved the documented library-only block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/numeric-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/ArrayAllocationRefusalTests.cs:45 asserts the suite declares the refusal the runner classifies. Rust: rust/lovelace-lang/src/round95_singletons.rs:30 asserts zeros(1000000000) is refused as AllocationRefused/BudgetExceeded with a zeros-naming message."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ArrayTests/CaptureState_ReportsArrayKind#0": {
     "disposition": "ported",
@@ -30756,9 +30770,10 @@
     "reason": "Ported by round 94: the natural-power cancellation observation (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspIntegerArgumentContractTests/TheExactlyIntegralRealRefusal_IsStillTheContractsContract#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing ArgumentContractException type; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round95_engine_singletons::dspintegerargumentcontract_the_exactly_integral_real_refusal_is_the_contracts_contract",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/DspIntegerArgumentContractTests.cs:102 asserts the exactly-integral-Real refusal's contract (kind, \"write it as 3\" message, ArgumentException base). Rust: rust/lovelace-lang/src/round95_engine_singletons.rs:348 asserts movingavg(..., 3.0) equals the integer form and eye(2.0) refuses InvalidArgument/TypeMismatch with \"write it as 2\"."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/ComplexArithmetic_GivenComplex_ThrowsActionableError#0": {
     "disposition": "ported",
@@ -30803,9 +30818,10 @@
     "note": "Round 67: C# EnumPayloadSeamTests.cs:42 EnumValue_RoundTripsThroughTheModusSeam; rust/lovelace-lang/src/round67_modus.rs enum_value_round_trips_through_the_modus_seam asserts an Enum(\"SolveStatus\",\"Solved\") payload crosses the seam and returns with both type and member. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.FunctionTests/Evaluate_GivenFunctionLocalVariable_DoesNotLeakToGlobal#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'variables': $.variables length: func f() { local = 42 }; f() leaves 2 variables in Rust vs 1 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::functiontests_function_local_variable_does_not_leak_to_global",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/FunctionTests.cs:55 asserts a function-local variable does not become global. Rust: rust/lovelace-run/src/round95_singletons.rs:144 asserts the envelope's variables array is exactly [\"_\"] for func f() { local = 42 }; f() (the deferred field was $.variables length)."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.HelpServiceTests/Help_Overview_ListsAllCategories#0": {
     "disposition": "ported",
@@ -31027,9 +31043,10 @@
     "reason": "Ported by round 94: the while-body recursion composition answers the deepest accepted call (see note; docs/goal-parity-contract/round-94/round92-93-porting.md)."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.RecursionDepthGuardTests/ADeepExpressionInsideTheRecursiveBody_IsRefused#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing deep-expression AST construction and EvaluationException API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::recursiondepthguard_a_deep_expression_inside_the_recursive_body_is_refused",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/RecursionDepthGuardTests.cs:120 asserts a 100-term body chain at ten call levels is refused. Rust: rust/lovelace-run/src/round95_singletons.rs:68 asserts exit 1, DepthExceeded/BudgetExceeded and recoverable through run_args."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.ScriptSourceTests/ToSemicolonStatements_GivenBlock_PreservesNewlinesInsideBraces#0": {
     "disposition": "ported",
@@ -31086,9 +31103,10 @@
     "note": "Round 67: C# SharedPluginInstanceAssumptionIsolationTests.cs:75 OnePluginTwoEngines_AssumptionCommittedWhileAIsRunning_DoesNotDecideB; rust/lovelace-lang/src/round67_modus.rs assumption_committed_while_a_is_running_does_not_decide_b asserts engine B answers x > 0 from inside engine A's gate and A remains True afterwards. See docs/goal-parity-contract/round-67/modus-seams.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StatementTests/Evaluate_GivenVariableAssignmentInsideBlock_DoesNotLeak#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'variables': $.variables length: { z = 99 } leaves z (2 variables) in Rust vs 1 in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-run::round95_singletons::statementtests_block_assignment_does_not_leak",
+    "reason": "Round 95 resolved the documented block: the row's observable is asserted by the named Rust test, verified against the pinned oracle. See docs/goal-parity-contract/round-95/engine-singletons.md.",
+    "note": "C#: Lovelace.Suite.Tests/StatementTests.cs:95 asserts a block assignment does not leak. Rust: rust/lovelace-run/src/round95_singletons.rs:154 asserts the envelope's variables array is exactly [\"_\"] for { z = 99 } and the result is 99 (the deferred field was $.variables length)."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuralEqualityTests/DifferenceInANestedField_IsNamedByPath#0": {
     "disposition": "ported",

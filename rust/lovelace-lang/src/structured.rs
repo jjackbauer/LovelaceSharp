@@ -50,7 +50,17 @@ pub fn project_value(_engine: &Engine, value: &Value, budget: Option<usize>) -> 
             fields.push(("exact", Json::Bool(true)));
         }
         Value::Real(r) | Value::RealClamped(r, _, _) => {
-            fields.push(("value", Json::Str(r.to_string())));
+            // The digits the value STORES, never what the display bound in force would have shown:
+            // the reference's StructuredProjection publishes the machine payload, so the façade
+            // and the CLI cannot publish different digits for one value and a display bound stays
+            // a display bound. (One projection, round-95 engine singletons.)
+            fields.push((
+                "value",
+                Json::Str(lovelace_real::with_display_decimal_places(
+                    usize::MAX,
+                    || r.to_string(),
+                )),
+            ));
             fields.push(("exact", Json::Bool(r.is_exact())));
             // An exact Real IS a rational: publish it as one, so 1/3 never has to be parsed back
             // out of "0.(3)" (the reference's StructuredProjection.Real rule).

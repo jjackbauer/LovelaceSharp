@@ -46,6 +46,19 @@ impl Int {
         Self::from_parts(sign, Nat::from_u64(value.unsigned_abs()))
     }
 
+    /// Creates a non-negative integer from a Natural magnitude.
+    ///
+    /// This is the lossless counterpart of [Self::magnitude]: it moves the magnitude
+    /// into the integer instead of rendering and reparsing its decimal digits.
+    #[must_use]
+    pub fn from_nat(magnitude: Nat) -> Self {
+        if magnitude.is_zero() {
+            Self::zero()
+        } else {
+            Self::from_parts(1, magnitude)
+        }
+    }
+
     /// Parses an optional leading minus sign followed by one or more decimal digits.
     ///
     /// A leading plus sign, whitespace, an empty payload, or any non-digit character
@@ -282,6 +295,60 @@ impl Ord for Int {
         }
     }
 }
+
+impl From<i32> for Int {
+    /// The reference's Integer(int) constructor: delegates to the i64 conversion without
+    /// changing the value.
+    fn from(value: i32) -> Self {
+        Self::from_i64(i64::from(value))
+    }
+}
+
+impl From<i64> for Int {
+    /// The reference's Integer(long) constructor.
+    fn from(value: i64) -> Self {
+        Self::from_i64(value)
+    }
+}
+
+impl core::ops::Mul for Int {
+    type Output = Int;
+
+    /// The reference's operator *: the same product as [Int::mul].
+    fn mul(self, rhs: Int) -> Int {
+        Int::mul(&self, &rhs)
+    }
+}
+
+impl core::ops::Mul<&Int> for &Int {
+    type Output = Int;
+
+    /// The reference's operator * on two values; the same product as [Int::mul].
+    fn mul(self, rhs: &Int) -> Int {
+        Int::mul(self, rhs)
+    }
+}
+
+impl core::ops::Sub for Int {
+    type Output = Int;
+
+    /// The reference's operator -: the same difference as [Int::sub].
+    fn sub(self, rhs: Int) -> Int {
+        Int::sub(&self, &rhs)
+    }
+}
+
+impl core::ops::Sub<&Int> for &Int {
+    type Output = Int;
+
+    /// The reference's operator - on two values; the same difference as [Int::sub].
+    fn sub(self, rhs: &Int) -> Int {
+        Int::sub(self, rhs)
+    }
+}
+
+#[cfg(test)]
+mod round95_singletons;
 
 #[cfg(test)]
 #[allow(non_snake_case)]

@@ -12,6 +12,35 @@ const FIXTURES: &str = concat!(
 );
 const VOLATILE: [&str; 4] = ["revision", "elapsed", "elapsedTime", "timings"];
 
+/// The environment gate the recorder shares with the C# `GoldenFixtureRecorder`: the recorder is
+/// inert unless it is explicitly set, so a normal test run can never rewrite a golden.
+const RECORD_ENV: &str = "LOVELACE_RECORD_GOLDENS";
+
+/// The golden corpus, shared by the comparison, the recorder and the "every script has a row"
+/// check so the three cannot disagree about which files the contract owns.
+const CORPUS: [&str; 20] = [
+    "symbolic",
+    "vector",
+    "array",
+    "record",
+    "nested_record",
+    "solve_result",
+    "solve_nosolutions",
+    "transform_result",
+    "limit_result",
+    "system_solve",
+    "integration_result",
+    "optimization_result",
+    "compilation",
+    "complex",
+    "matrix_inverse_result",
+    "matrix_solve_result",
+    "absent_field",
+    "capabilities",
+    "error_envelope",
+    "print_purity",
+];
+
 fn normalise(j: &Json) -> Json {
     match j {
         Json::Obj(map) => {
@@ -36,37 +65,83 @@ fn run_fixture(name: &str) -> RunResult {
     run_args(&["--file", &script, "--omit-functions"])
 }
 
+fn fixture_path(name: &str) -> String {
+    format!("{FIXTURES}/{name}.json")
+}
+
 fn fixture(name: &str) -> Json {
-    let path = format!("{FIXTURES}/{name}.json");
+    let path = fixture_path(name);
     Json::parse(&std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}")))
         .expect("golden parses")
 }
 
+/// The normalised envelope a re-record would write for `name`: the SAME `normalise` the
+/// comparison reads, so the recorder and the comparison cannot disagree about what is volatile.
+fn recorded_golden(name: &str) -> Json {
+    let r = run_fixture(name);
+    let expected_exit = if name == "error_envelope" { 1 } else { 0 };
+    assert_eq!(
+        r.exit, expected_exit,
+        "'{name}' exited {}: {}",
+        r.exit, r.stdout
+    );
+    normalise(&r.env)
+}
+
+/// Re-records every golden from the current runner — the C# `GoldenFixtureRecorder.RecordGoldenFixtures`
+/// equivalent, next to the comparison.
+///
+/// It is INERT unless `LOVELACE_RECORD_GOLDENS=1`, prints each file it rewrote (the caller does
+/// the printing), and writes the SOURCE fixture a reviewer sees in the diff rather than a staged
+/// copy. `<volatile>` stays the literal placeholder the goldens hold, because the files are read
+/// by people in diffs.
+pub(crate) fn record_all() -> Vec<String> {
+    if std::env::var(RECORD_ENV).as_deref() != Ok("1") {
+        return Vec::new();
+    }
+    let mut written = Vec::new();
+    for name in CORPUS {
+        let golden = recorded_golden(name);
+        std::fs::write(fixture_path(name), format!("{}\n", golden.to_pretty()))
+            .unwrap_or_else(|e| panic!("write {}: {e}", fixture_path(name)));
+        written.push(name.to_string());
+    }
+    written
+}
+
+/// The recorder's gate, exposed so a test can prove the inertness without touching a fixture.
+pub(crate) fn recording_enabled() -> bool {
+    std::env::var(RECORD_ENV).as_deref() == Ok("1")
+}
+
+/// `GoldenFixtureRecorder.RecordGoldenFixtures`: setting the environment variable is the whole
+/// interface; without it the recorder reports nothing to rewrite.
+#[test]
+fn the_recorder_is_inert_unless_enabled() {
+    if recording_enabled() {
+        // A record run is an explicit reviewer action, not part of the gate suite.
+        return;
+    }
+    assert!(record_all().is_empty());
+}
+
+/// A re-record is a REVIEWABLE diff, so the recorded document must equal the golden on disk
+/// exactly once the volatile keys are normalised — the property that makes the recorder safe.
+#[test]
+fn a_recorded_envelope_reproduces_every_golden() {
+    for name in CORPUS {
+        let recorded = recorded_golden(name);
+        let on_disk = normalise(&fixture(name));
+        assert_eq!(
+            recorded, on_disk,
+            "{name}: a re-record would change the golden"
+        );
+    }
+}
+
 #[test]
 fn every_fixture_matches_its_golden_envelope() {
-    let corpus = [
-        "symbolic",
-        "vector",
-        "array",
-        "record",
-        "nested_record",
-        "solve_result",
-        "solve_nosolutions",
-        "transform_result",
-        "limit_result",
-        "system_solve",
-        "integration_result",
-        "optimization_result",
-        "compilation",
-        "complex",
-        "matrix_inverse_result",
-        "matrix_solve_result",
-        "absent_field",
-        "capabilities",
-        "error_envelope",
-        "print_purity",
-    ];
-    for name in corpus {
+    for name in CORPUS {
         let r = run_fixture(name);
         let expected_exit = if name == "error_envelope" { 1 } else { 0 };
         assert_eq!(
@@ -222,28 +297,7 @@ fn every_fixture_script_has_a_corpus_row() {
         .map(|n| n.trim_end_matches(".ls").to_string())
         .collect();
     on_disk.sort();
-    let mut corpus = vec![
-        "symbolic",
-        "vector",
-        "array",
-        "record",
-        "nested_record",
-        "solve_result",
-        "solve_nosolutions",
-        "transform_result",
-        "limit_result",
-        "system_solve",
-        "integration_result",
-        "optimization_result",
-        "compilation",
-        "complex",
-        "matrix_inverse_result",
-        "matrix_solve_result",
-        "absent_field",
-        "capabilities",
-        "error_envelope",
-        "print_purity",
-    ];
+    let mut corpus: Vec<String> = CORPUS.iter().map(|name| (*name).to_string()).collect();
     corpus.sort();
     assert_eq!(on_disk, corpus);
 }

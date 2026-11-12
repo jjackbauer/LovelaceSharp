@@ -9,6 +9,21 @@ use super::parity_batch::*;
 use super::*;
 use lovelace_json::Json;
 
+/// The mirrored error taxonomy this family's envelope assertions prove their category against
+/// (the C# `AllocationRefusalEnvelopeTests.ErrorCategories`). It is a literal ON PURPOSE: a
+/// category a test observes must be a member of the DOCUMENTED set, not merely a non-empty string,
+/// and `round95_singletons::errorcategorymirror...` is the one place that fails when the enum
+/// gains a member and a mirror is not updated.
+pub(crate) const MIRRORED_ERROR_CATEGORIES: [&str; 7] = [
+    "ParseError",
+    "DomainError",
+    "UnsupportedOperation",
+    "BudgetExceeded",
+    "NoSolution",
+    "TypeMismatch",
+    "InternalInvariantFailure",
+];
+
 fn with_large_stack<T: Send + 'static>(probe: impl FnOnce() -> T + Send + 'static) -> T {
     std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)

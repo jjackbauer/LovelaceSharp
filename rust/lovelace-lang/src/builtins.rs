@@ -703,17 +703,35 @@ fn type_error(op: &str, a: &Value, b: &Value) -> LangError {
     ))
 }
 
-fn broadcast_error(a: &Value, b: &Value) -> LangError {
-    let sa = shape_of(a)
-        .map(|s| shape_text(&s))
-        .unwrap_or_else(|| "[]".to_string());
-    let sb = shape_of(b)
-        .map(|s| shape_text(&s))
-        .unwrap_or_else(|| "[]".to_string());
-    LangError::plain(format!(
-        "Operands could not be broadcast together with shapes {} and {}.",
-        sa, sb
-    ))
+/// The right-aligned common shape of two container shapes, or the documented broadcast refusal
+/// when an axis disagrees at neither 1 (the reference's Stage-4 rule).
+fn broadcast_shape(a: &[usize], b: &[usize]) -> Result<Vec<usize>, LangError> {
+    let rank = a.len().max(b.len());
+    let mut result = vec![1usize; rank];
+    for dim in 0..rank {
+        let sa = if dim < rank - a.len() {
+            1
+        } else {
+            a[dim - (rank - a.len())]
+        };
+        let sb = if dim < rank - b.len() {
+            1
+        } else {
+            b[dim - (rank - b.len())]
+        };
+        result[dim] = if sa == sb || sb == 1 {
+            sa
+        } else if sa == 1 {
+            sb
+        } else {
+            return Err(LangError::plain(format!(
+                "Operands could not be broadcast together with shapes {} and {}.",
+                shape_text(a),
+                shape_text(b)
+            )));
+        };
+    }
+    Ok(result)
 }
 
 fn elementwise<F>(a: &Value, b: &Value, _name: &str, f: F) -> Result<Value, LangError>
@@ -721,32 +739,12 @@ where
     F: Fn(&Value, &Value) -> Result<Value, LangError> + Copy,
 {
     match (a, b) {
-        (Value::Vector(x), Value::Vector(y)) => {
-            if x.len() != y.len() {
-                return Err(broadcast_error(a, b));
-            }
-            let mut out = Vec::with_capacity(x.len());
-            for (i, (p, q)) in x.iter().zip(y.iter()).enumerate() {
-                poll(i as u64)?;
-                out.push(f(p, q)?);
-            }
-            Ok(Value::Vector(out))
+        // Two containers share ONE right-aligned broadcast (the reference's Stage-4 semantics):
+        // a [2,1] operand broadcasts across a [2,2] one, and a length-1 vector across a longer
+        // vector. A vector/vector result stays a Vector; every other container pair is an Array.
+        (Value::Vector(_) | Value::Array(_), Value::Vector(_) | Value::Array(_)) => {
+            broadcast_elementwise(a, b, f)
         }
-        (Value::Array(x), Value::Array(y)) => {
-            if x.shape() != y.shape() {
-                return Err(broadcast_error(a, b));
-            }
-            let mut out = Vec::with_capacity(x.numel());
-            for (i, (p, q)) in x.iter().zip(y.iter()).enumerate() {
-                poll(i as u64)?;
-                out.push(f(p, q)?);
-            }
-            Ok(Value::Array(
-                NdArray::from_vec(x.shape().to_vec(), out).map_err(array_error)?,
-            ))
-        }
-        (Value::Vector(v), Value::Array(m)) => broadcast_vector_over_rows(v, m, f, true),
-        (Value::Array(m), Value::Vector(v)) => broadcast_vector_over_rows(v, m, f, false),
         (scalar, Value::Vector(v)) if !shape_of(scalar).is_some() => {
             let mut out = Vec::with_capacity(v.len());
             for (i, item) in v.iter().enumerate() {
@@ -787,39 +785,68 @@ where
     }
 }
 
-fn broadcast_vector_over_rows<F>(
-    v: &[Value],
-    m: &NdArray<Value>,
-    f: F,
-    vector_first: bool,
-) -> Result<Value, LangError>
+/// One element of a container under a RIGHT-ALIGNED broadcast: an axis of extent 1 contributes
+/// its only element whatever the result coordinate is, and every operand is aligned to the result
+/// shape from the right (the reference's Stage-4 broadcasting, BDC-001/002/003).
+fn broadcast_element_at<'a>(value: &'a Value, coords: &[usize], rank: usize) -> &'a Value {
+    match value {
+        Value::Vector(items) => {
+            let index = if items.len() == 1 {
+                0
+            } else {
+                coords[rank - 1]
+            };
+            &items[index]
+        }
+        Value::Array(array) => {
+            let shape = array.shape();
+            let mut local = vec![0usize; shape.len()];
+            for axis in 0..shape.len() {
+                let coord = coords[rank - shape.len() + axis];
+                local[axis] = if shape[axis] == 1 { 0 } else { coord };
+            }
+            array.get(&local).expect("broadcast coordinate is in range")
+        }
+        other => other,
+    }
+}
+
+/// Applies one scalar operation elementwise over two containers under right-aligned broadcasting.
+/// A vector/vector result stays a Vector; every pair involving an Array is an Array.
+fn broadcast_elementwise<F>(a: &Value, b: &Value, f: F) -> Result<Value, LangError>
 where
     F: Fn(&Value, &Value) -> Result<Value, LangError> + Copy,
 {
-    let shape = m.shape().to_vec();
-    if shape.len() < 2 || shape[shape.len() - 1] != v.len() {
-        let a = Value::Vector(v.to_vec());
-        let b = Value::Array(m.clone());
-        return Err(broadcast_error(&a, &b));
-    }
-    let rows = shape[0];
-    let cols = shape[1];
-    let mut out = Vec::with_capacity(m.numel());
-    for r in 0..rows {
-        // One row is a full sweep of the vector, so the outer loop checks on every pass.
-        checkpoint()?;
-        for c in 0..cols {
-            let cell = m.get(&[r, c]).cloned().unwrap_or(Value::Void);
-            out.push(if vector_first {
-                f(&v[c], &cell)?
+    let sa = shape_of(a).expect("container");
+    let sb = shape_of(b).expect("container");
+    let shape = broadcast_shape(&sa, &sb)?;
+    let numel: usize = shape.iter().product();
+    let mut coords = vec![0usize; shape.len()];
+    let mut out = Vec::with_capacity(numel);
+    for flat in 0..numel {
+        let mut remainder = flat;
+        for axis in (0..shape.len()).rev() {
+            let extent = shape[axis];
+            if extent == 0 {
+                coords[axis] = 0;
             } else {
-                f(&cell, &v[c])?
-            });
+                coords[axis] = remainder % extent;
+                remainder /= extent;
+            }
         }
+        poll(flat as u64)?;
+        out.push(f(
+            broadcast_element_at(a, &coords, shape.len()),
+            broadcast_element_at(b, &coords, shape.len()),
+        )?);
     }
-    Ok(Value::Array(
-        NdArray::from_vec(shape, out).map_err(array_error)?,
-    ))
+    if matches!((a, b), (Value::Vector(_), Value::Vector(_))) {
+        Ok(Value::Vector(out))
+    } else {
+        Ok(Value::Array(
+            NdArray::from_vec(shape, out).map_err(array_error)?,
+        ))
+    }
 }
 
 fn elementwise_scalar<F>(v: &Value, f: F) -> Result<Value, LangError>
@@ -4295,18 +4322,23 @@ fn exact_integer_argument(
         Value::Real(r) => match r.to_int_exact() {
             Some(i) => {
                 let text = i.to_decimal();
-                Err(refuse(format!(
-                    "{head} must be a Natural or Integer; got the Real {text}, which is integral — write it as {text}."
-                )))
+                Err(crate::argument_contract::not_an_integer_kind(
+                    name, parameter, position, &text,
+                ))
             }
-            None => Err(refuse(format!(
-                "{head} must be a Natural or Integer that denotes an exact integer; got the Real {r}."
-            ))),
+            None => Err(crate::argument_contract::not_an_integer(
+                name,
+                parameter,
+                position,
+                &format!("the Real {r}"),
+            )),
         },
-        other => Err(refuse(format!(
-            "{head} must be a Natural or Integer that denotes an exact integer; got the {}.",
-            other.kind_name()
-        ))),
+        other => Err(crate::argument_contract::not_an_integer(
+            name,
+            parameter,
+            position,
+            &format!("the {}", other.kind_name()),
+        )),
     }
 }
 
@@ -4758,6 +4790,15 @@ fn reduce_two(name: &str, a: &Value, b: &Value) -> Result<Value, LangError> {
 }
 
 fn matmul(a: &Value, b: &Value) -> Result<Value, LangError> {
+    // The reference's MatMul is the batched kernel for every rank above 2: both operands carry
+    // the same leading (batch) dimensions and each 2-D slice is multiplied independently.
+    if let (Value::Array(left), Value::Array(right)) = (a, b) {
+        let left_shape = left.shape().to_vec();
+        let right_shape = right.shape().to_vec();
+        if left_shape.len() > 2 || right_shape.len() > 2 {
+            return matmul_batched(left, &left_shape, right, &right_shape);
+        }
+    }
     let (am, an) = matrix_dims(a)?;
     let (bm, bn) = matrix_dims(b)?;
     if an != bm {
@@ -4780,6 +4821,64 @@ fn matmul(a: &Value, b: &Value) -> Result<Value, LangError> {
     }
     Ok(Value::Array(
         NdArray::from_vec(vec![am, bn], out).map_err(array_error)?,
+    ))
+}
+
+/// Batched matrix product for rank >= 2 operands whose leading dimensions agree.
+///
+/// This is the reference's MatMul shape rule: rank-2 pairs multiply one slice, and a rank-3 (or
+/// deeper) pair multiplies the matching 2-D slices batched under equal leading dimensions.
+fn matmul_batched(
+    left: &NdArray<Value>,
+    left_shape: &[usize],
+    right: &NdArray<Value>,
+    right_shape: &[usize],
+) -> Result<Value, LangError> {
+    if left_shape.len() != right_shape.len() {
+        return Err(LangError::plain(
+            "matmul() operands must have the same number of leading (batch) dimensions.",
+        ));
+    }
+    let batch_len = left_shape.len() - 2;
+    let batch = &left_shape[..batch_len];
+    if batch != &right_shape[..batch_len] {
+        return Err(LangError::plain(
+            "matmul() leading (batch) dimensions must match.",
+        ));
+    }
+    let inner = left_shape[left_shape.len() - 1];
+    if inner != right_shape[right_shape.len() - 2] {
+        return Err(LangError::plain("matmul shapes do not agree."));
+    }
+    let rows = left_shape[left_shape.len() - 2];
+    let columns = right_shape[right_shape.len() - 1];
+    let mut slices = 1usize;
+    for &dimension in batch {
+        slices *= dimension;
+    }
+    let mut out = Vec::with_capacity(slices * rows * columns);
+    for linear in 0..slices {
+        // One batch entry is a pair of full rank-2 products.
+        checkpoint()?;
+        let mut indices = vec![0usize; batch_len];
+        let mut rest = linear;
+        for (axis, &dimension) in batch.iter().enumerate().rev() {
+            indices[axis] = rest % dimension;
+            rest /= dimension;
+        }
+        let left_slice = left.index_partial(&indices).map_err(array_error)?;
+        let right_slice = right.index_partial(&indices).map_err(array_error)?;
+        let Value::Array(product) = matmul(&Value::Array(left_slice), &Value::Array(right_slice))?
+        else {
+            return Err(LangError::plain("matmul() produced a non-array slice."));
+        };
+        out.extend(product.iter().cloned());
+    }
+    let mut out_shape = batch.to_vec();
+    out_shape.push(rows);
+    out_shape.push(columns);
+    Ok(Value::Array(
+        NdArray::from_vec(out_shape, out).map_err(array_error)?,
     ))
 }
 
