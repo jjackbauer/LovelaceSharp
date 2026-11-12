@@ -1,11 +1,11 @@
 # Harness State — desktop-v4
 
-- **Round**: 6 (round 5 cutover delivered and verified from the product window)
+- **Round**: 8 (round 7 hardening verified; real-window gesture proof still missing)
 - **Goal**: Lovelace Desktop ships as a native Rust scientific scripting workbench that satisfies every
   P0 row of the v4.0 contract with fresh, source-bound GUI evidence and passes all 22 mandatory
   journeys.
-- **Definition of done**: 0/19 dimensions MET; 13/171 P0 rows PASS, 1 waived (TST-012), 0 FAIL,
-  157 NOT_TESTED.
+- **Definition of done**: 0/19 dimensions MET; 14/171 P0 rows PASS, 1 waived (TST-012), 0 FAIL,
+  156 NOT_TESTED.
 - **Stop criteria**: (1) `-Verify` exit 0, all dimensions MET — unmet; (2) round 40 — not reached;
   (3) same blocking condition 3 rounds — not triggered.
 
@@ -54,10 +54,16 @@ a product window, which is the standard the gate enforces.
 
 ## Next objective
 
-Round 7: harden the new product surface before widening it.
-1. Move the plot directory to an app-scoped path (PLF-006, RISK-007) and delete the repo copy.
-2. Wire the actions that make the window a workbench rather than a viewer: keyboard Run/Cancel,
-   Cancel visible while a run is active, precision control applying to the next run, and a long-script
-   responsiveness proof (ARC-005, RUN-001, RUN-009, VIS-010).
-3. Then certify EDT-001/002/015 from the product window with a real typing capture and a UIA caret
-   dump, and wire file open/save (DOC-002/PLF-001) before claiming DOC rows.
+Round 8: make the real-window gesture provable, then make cancellation reach kernels.
+1. **Single-process scenario runner.** Add a `-Action scenario` to `tools/gui-harness.ps1` that does
+   launch → wait → focus → set script → Ctrl+Enter → sample UIA → Esc → sample UIA → capture → close
+   inside ONE PowerShell process (the foreground is lost between separate tool calls, and UIA
+   `ValuePattern` is unsupported on the editor, so the gesture must be driven by real keystrokes in a
+   single invocation). Use it to certify VIS-010 (Cancel visible/Run disabled while running) and
+   RUN-009 (distinct statuses) with real-window artifacts.
+2. **Kernel cancellation (ARC-009 / RUN-006).** Add a live shared cancel flag polled at the same seams
+   as the thread-local deadline in `lovelace-symbolics/src/cancel.rs`, set it from the desktop's
+   Cancel path, and prove a single long `sqrt(2)` at high precision stops within 2 s. Coordinate with
+   the other session, which is editing `lovelace-lang` concurrently: prefer a new module plus the
+   smallest possible hook, and never revert its work.
+3. Then EDT-002/EDT-015 from the product window with a typing capture and a caret UIA dump.
