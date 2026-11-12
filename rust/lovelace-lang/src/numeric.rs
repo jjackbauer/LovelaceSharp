@@ -12,6 +12,7 @@ use lovelace_int::Int;
 use lovelace_nat::Nat;
 use lovelace_real::Real;
 use lovelace_real::transcendental::truncate_frac;
+use lovelace_symbolics::assumptions::{Assumption, AssumptionSet, Tristate as ScopeTristate};
 use lovelace_symbolics::{Expr as Sym, Rat, RelOp};
 
 use crate::LangError;
@@ -29,8 +30,61 @@ pub enum Num {
     Complex(Complex),
 }
 
+/// A numeric value together with the conditions the evaluation relied on.
+///
+/// The reference's `Evaluation.EvaluateToNum` returns the value alone: its assumption scope is
+/// ambient on the `ExprContext`. This additive result carries the subset of a caller-supplied
+/// scope that actually decided a guard, so the caller can see which assumed facts the answer
+/// depends on.
+#[derive(Clone, Debug)]
+pub struct ScopedEvaluation {
+    /// The numeric result.
+    pub value: Num,
+    /// The minimal subset of the caller-supplied scope that decided a guard, in the assumption
+    /// set's canonical order. Empty when every guard was decided numerically (or there was no
+    /// guard), so no assumption was needed.
+    pub conditions: AssumptionSet,
+}
+
+/// Evaluates a symbolic expression numerically under a caller-supplied assumption `scope`.
+///
+/// This is `Evaluation.EvaluateToNum` with the reference's `ExprContext.WithAssumptions` scope
+/// made an explicit argument. A bare `symbol <op> constant` relation guard (either spelling) is
+/// asked of `scope` before numeric evaluation, exactly as the reference's `EvaluateCondition`
+/// asks its ambient `AssumptionSet`; a decided guard takes its branch (or is refuted), and an
+/// undecided one falls through to numeric evaluation and is then refused, never guessed.
+///
+/// The returned [`ScopedEvaluation::conditions`] is the minimal subset of `scope` that the
+/// decided guards relied on. A guard decided numerically contributes nothing. A scope with no
+/// model (`AssumptionSet::unsatisfiable`) cannot license a branch: a piecewise guard carrying
+/// that answer is refused.
+pub fn evaluate_scoped(
+    expression: &Sym,
+    places: usize,
+    scope: &AssumptionSet,
+) -> Result<ScopedEvaluation, LangError> {
+    let mut relied: Vec<Assumption> = Vec::new();
+    let value = evaluate_with(expression, places, scope, &mut relied)?;
+    Ok(ScopedEvaluation {
+        value,
+        conditions: AssumptionSet::from_atoms(relied),
+    })
+}
+
 /// Evaluates a symbolic expression numerically at \`places\` fractional digits.
 pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
+    let mut relied: Vec<Assumption> = Vec::new();
+    evaluate_with(expression, places, &AssumptionSet::empty(), &mut relied)
+}
+
+/// The evaluator proper. `scope` is the assumption lattice for relation guards; `relied`
+/// accumulates the scope atoms those decisions used, so the public wrappers can report them.
+fn evaluate_with(
+    expression: &Sym,
+    places: usize,
+    scope: &AssumptionSet,
+    relied: &mut Vec<Assumption>,
+) -> Result<Num, LangError> {
     let places = places.max(1);
     match expression {
         Sym::Num(r) => Ok(Num::Exact(r.clone())),
@@ -46,25 +100,25 @@ pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
         Sym::Add(terms) => {
             let mut acc = Num::Exact(Rat::zero());
             for term in terms {
-                acc = acc.add(&evaluate(term, places)?, places)?;
+                acc = acc.add(&evaluate_with(term, places, scope, relied)?, places)?;
             }
             Ok(acc)
         }
         Sym::Mul(factors) => {
             let mut acc = Num::Exact(Rat::one());
             for factor in factors {
-                acc = acc.mul(&evaluate(factor, places)?, places)?;
+                acc = acc.mul(&evaluate_with(factor, places, scope, relied)?, places)?;
             }
             Ok(acc)
         }
         Sym::Div(left, right) => {
-            let left = evaluate(left, places)?;
-            let right = evaluate(right, places)?;
+            let left = evaluate_with(left, places, scope, relied)?;
+            let right = evaluate_with(right, places, scope, relied)?;
             left.div(&right, places)
         }
         Sym::Pow(base, exponent) => {
-            let base = evaluate(base, places)?;
-            let exponent = evaluate(exponent, places)?;
+            let base = evaluate_with(base, places, scope, relied)?;
+            let exponent = evaluate_with(exponent, places, scope, relied)?;
             base.pow(&exponent, places)
         }
         // A bare relation has no numeric value in the reference either: RelationExpr is
@@ -82,25 +136,28 @@ pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
             if name == "piecewise" {
                 if let Some((branches, otherwise)) = expression.as_piecewise() {
                     for (guard, value) in branches {
-                        match evaluate_condition(&guard, places)? {
-                            Tristate::True => return evaluate(&value, places),
+                        match evaluate_condition_with(&guard, places, scope, relied)? {
+                            Tristate::True => return evaluate_with(&value, places, scope, relied),
                             Tristate::False => continue,
-                            Tristate::Unknown => {
+                            // The reference's PiecewiseExpr arm takes True, skips False, and
+                            // refuses everything else - Unknown and the no-model sentinel alike.
+                            Tristate::Unknown | Tristate::Unsatisfiable => {
                                 return Err(LangError::plain(
                                     "Piecewise guard cannot be decided numerically.",
                                 ));
                             }
                         }
                     }
-                    return evaluate(&otherwise, places);
+                    return evaluate_with(&otherwise, places, scope, relied);
                 }
             }
             // And/Or/Not lower to boolean-valued nodes; the reference's EvaluateToNum arm
             // (Evaluation.cs:500-506) answers the exact integers 1/0 and refuses Unknown.
             if matches!(name.as_str(), "and" | "or" | "not") {
-                return match evaluate_condition(expression, places)? {
+                return match evaluate_condition_with(expression, places, scope, relied)? {
                     Tristate::True => Ok(Num::Exact(Rat::one())),
-                    Tristate::False => Ok(Num::Exact(Rat::zero())),
+                    // The reference throws only for Unknown; every other answer maps to 1/0.
+                    Tristate::False | Tristate::Unsatisfiable => Ok(Num::Exact(Rat::zero())),
                     Tristate::Unknown => Err(LangError::plain(
                         "Logical condition cannot be decided numerically.",
                     )),
@@ -108,7 +165,7 @@ pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
             }
             let mut values = Vec::with_capacity(args.len());
             for arg in args {
-                values.push(evaluate(arg, places)?);
+                values.push(evaluate_with(arg, places, scope, relied)?);
             }
             evaluate_function(name, &values, places)
         }
@@ -121,22 +178,42 @@ enum Tristate {
     True,
     False,
     Unknown,
+    /// The scope has no model. The reference's `Tristate.Unsatisfiable`; no guard decision can
+    /// rest on it, so a piecewise guard carrying it is refused rather than guessed.
+    Unsatisfiable,
 }
 
 /// `Evaluation.EvaluateCondition` (Evaluation.cs:537-617): relations, And/Or/Not and the exact
 /// constants 0/1. True/False only when decided; Unknown is never coerced to False. Numeric
 /// evaluation failures inside a guard are Unknown, exactly as the reference catches
 /// `EvaluationException` there.
-fn evaluate_condition(condition: &Sym, places: usize) -> Result<Tristate, LangError> {
+fn evaluate_condition_with(
+    condition: &Sym,
+    places: usize,
+    scope: &AssumptionSet,
+    relied: &mut Vec<Assumption>,
+) -> Result<Tristate, LangError> {
     match condition {
         Sym::Num(r) if r.is_zero() => Ok(Tristate::False),
         Sym::Num(r) if r.is_one() => Ok(Tristate::True),
         Sym::Rel(op, left, right) => {
-            let left = match evaluate(left, places) {
+            // The assumption lattice is consulted BEFORE numeric evaluation for a
+            // symbol-against-constant relation, exactly as the reference's
+            // Evaluation.EvaluateCondition does (Evaluation.cs:572-586): it is the only source
+            // that can decide a symbolic guard such as "x >= 0" where numeric evaluation has no
+            // binding for x and can only say Unknown.
+            if let Some((atom, decision)) = decided_relation(*op, left, right, scope) {
+                if matches!(decision, Tristate::True | Tristate::False) {
+                    // Report the scope subset the decision actually used, not the guard itself.
+                    relied.extend(minimal_witness(scope, &atom, decision));
+                }
+                return Ok(decision);
+            }
+            let left = match evaluate_with(left, places, scope, relied) {
                 Ok(value) => value,
                 Err(_) => return Ok(Tristate::Unknown),
             };
-            let right = match evaluate(right, places) {
+            let right = match evaluate_with(right, places, scope, relied) {
                 Ok(value) => value,
                 Err(_) => return Ok(Tristate::Unknown),
             };
@@ -157,20 +234,20 @@ fn evaluate_condition(condition: &Sym, places: usize) -> Result<Tristate, LangEr
                 Tristate::False
             })
         }
-        Sym::Fun(name, args) if name == "not" && args.len() == 1 => {
-            Ok(match evaluate_condition(&args[0], places)? {
+        Sym::Fun(name, args) if name == "not" && args.len() == 1 => Ok(
+            match evaluate_condition_with(&args[0], places, scope, relied)? {
                 Tristate::True => Tristate::False,
-                Tristate::False => Tristate::True,
+                Tristate::False | Tristate::Unsatisfiable => Tristate::True,
                 Tristate::Unknown => Tristate::Unknown,
-            })
-        }
+            },
+        ),
         Sym::Fun(name, args) if name == "and" => {
             let mut unknown = false;
             for operand in args {
-                match evaluate_condition(operand, places)? {
+                match evaluate_condition_with(operand, places, scope, relied)? {
                     Tristate::False => return Ok(Tristate::False),
                     Tristate::Unknown => unknown = true,
-                    Tristate::True => {}
+                    Tristate::True | Tristate::Unsatisfiable => {}
                 }
             }
             Ok(if unknown {
@@ -182,10 +259,10 @@ fn evaluate_condition(condition: &Sym, places: usize) -> Result<Tristate, LangEr
         Sym::Fun(name, args) if name == "or" => {
             let mut unknown = false;
             for operand in args {
-                match evaluate_condition(operand, places)? {
+                match evaluate_condition_with(operand, places, scope, relied)? {
                     Tristate::True => return Ok(Tristate::True),
                     Tristate::Unknown => unknown = true,
-                    Tristate::False => {}
+                    Tristate::False | Tristate::Unsatisfiable => {}
                 }
             }
             Ok(if unknown {
@@ -196,6 +273,75 @@ fn evaluate_condition(condition: &Sym, places: usize) -> Result<Tristate, LangEr
         }
         _ => Ok(Tristate::Unknown),
     }
+}
+
+/// The assumption atom equivalent to a relation of the lattice's shape — a symbol against a
+/// numeric constant — or `None` when the relation is not of that shape. The lattice stores
+/// symbol-op-constant only, so a mirrored spelling is flipped into it (the reference's
+/// `Evaluation.AssumptionRelationOf`, Evaluation.cs:519-531).
+fn assumption_relation_of(op: RelOp, left: &Sym, right: &Sym) -> Option<Assumption> {
+    let is_constant = |e: &Sym| matches!(e, Sym::Num(_) | Sym::Real(_));
+    if let Sym::Sym(name) = left {
+        if is_constant(right) {
+            return Some(Assumption::SymbolRelation(name.clone(), op, right.clone()));
+        }
+    }
+    if let Sym::Sym(name) = right {
+        if is_constant(left) {
+            return Some(Assumption::SymbolRelation(
+                name.clone(),
+                Assumption::flipped(op),
+                left.clone(),
+            ));
+        }
+    }
+    None
+}
+
+/// Asks the caller's scope for a relation guard and converts the lattice's answer into the
+/// evaluator's tri-state. `None` means the scope has nothing to say, so numeric evaluation must
+/// decide (and may still refuse).
+fn decided_relation(
+    op: RelOp,
+    left: &Sym,
+    right: &Sym,
+    scope: &AssumptionSet,
+) -> Option<(Assumption, Tristate)> {
+    let atom = assumption_relation_of(op, left, right)?;
+    let decision = match scope.ask(&atom) {
+        ScopeTristate::True => Tristate::True,
+        ScopeTristate::False => Tristate::False,
+        ScopeTristate::Unknown => return None,
+        ScopeTristate::Unsatisfiable => Tristate::Unsatisfiable,
+    };
+    Some((atom, decision))
+}
+
+/// The minimal subset of `scope` that still answers `atom` the same way: the atoms the guard
+/// actually relied on. Removing one atom at a time is deterministic because the set is in
+/// canonical order; an empty scope has no witness.
+fn minimal_witness(
+    scope: &AssumptionSet,
+    atom: &Assumption,
+    decision: Tristate,
+) -> Vec<Assumption> {
+    let target = match decision {
+        Tristate::True => ScopeTristate::True,
+        Tristate::False => ScopeTristate::False,
+        _ => return Vec::new(),
+    };
+    let mut atoms = scope.atoms().to_vec();
+    let mut index = 0;
+    while index < atoms.len() {
+        let mut reduced = atoms.clone();
+        reduced.remove(index);
+        if AssumptionSet::from_atoms(reduced.clone()).ask(atom) == target {
+            atoms = reduced;
+        } else {
+            index += 1;
+        }
+    }
+    atoms
 }
 
 /// `NumOps.TryCompare`: an unordered (complex) pair reports None instead of throwing.

@@ -31055,24 +31055,28 @@
     "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuralEqualityTests/DifferenceInANestedField_IsNamedByPath#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing StructuralEquality.FirstDifference path reporting; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_structural_equality::difference_in_a_nested_field_is_named_by_path",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive lovelace-lang structural_equality::StructuralEquality surface (values_equal / records_equal / first_difference path reporting); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Suite.Tests/StructuralEqualityTests.cs:32 DifferenceInANestedField_IsNamedByPath asserts FirstDifference(Sample(2), Sample(3)) contains solutions[1].multiplicity. Rust: rust/lovelace-lang/src/round78_structural_equality.rs:71 lovelace-lang::round78_structural_equality::difference_in_a_nested_field_is_named_by_path asserts the exact diagnostic $.solutions[1].multiplicity: Integer value differs. See docs/goal-parity-contract/round-78/structural-equality.md section 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuralEqualityTests/DifferentKinds_AreReportedByKind#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing StructuralEquality.FirstDifference path reporting; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_structural_equality::different_kinds_are_reported_by_kind",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive lovelace-lang structural_equality::StructuralEquality surface (values_equal / records_equal / first_difference path reporting); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Suite.Tests/StructuralEqualityTests.cs:64 DifferentKinds_AreReportedByKind asserts FirstDifference(Integer 1, Text \"1\") contains kind. Rust: rust/lovelace-lang/src/round78_structural_equality.rs:83 lovelace-lang::round78_structural_equality::different_kinds_are_reported_by_kind asserts $: kind Integer != Text. See docs/goal-parity-contract/round-78/structural-equality.md section 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuralEqualityTests/DifferentShape_IsReportedAsShape#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing StructuralEquality.FirstDifference path reporting; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_structural_equality::different_shape_is_reported_as_shape",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive lovelace-lang structural_equality::StructuralEquality surface (values_equal / records_equal / first_difference path reporting); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Suite.Tests/StructuralEqualityTests.cs:40 DifferentShape_IsReportedAsShape asserts FirstDifference(Vector [1,2], Vector [1]) contains shape. Rust: rust/lovelace-lang/src/round78_structural_equality.rs:95 lovelace-lang::round78_structural_equality::different_shape_is_reported_as_shape asserts $: shape [2] != [1]. See docs/goal-parity-contract/round-78/structural-equality.md section 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.StructuralEqualityTests/SymbolicEquality_IsByCanonicalForm_NotPrettyText#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing StructuralEquality.FirstDifference path reporting; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_structural_equality::symbolic_equality_is_by_canonical_form_not_pretty_text",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive lovelace-lang structural_equality::StructuralEquality surface (values_equal / records_equal / first_difference path reporting); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Suite.Tests/StructuralEqualityTests.cs:50 SymbolicEquality_IsByCanonicalForm_NotPrettyText asserts FirstDifference(left, left) is null (and a tautological ValuesEqual). Rust: rust/lovelace-lang/src/round78_structural_equality.rs:105 lovelace-lang::round78_structural_equality::symbolic_equality_is_by_canonical_form_not_pretty_text asserts x+x equals 2*x by canonical form with a null self-difference, and that a rational -1/2 leaf and a quotient with the same display are unequal ($: symbolic canonical differs). See docs/goal-parity-contract/round-78/structural-equality.md section 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.SuiteEngineOutputPlotTests/EvaluateAsync_GivenOutputWriter_CapturesPrintLinesToThatWriter#0": {
     "disposition": "deferred",
@@ -31963,24 +31967,28 @@
     "note": "Round 58: C# MetamorphicSetClosureTests.InverseIdentityCheck_RejectsInversesThatPassTheNumericSpotCheck (MetamorphicSetClosureTests.cs:250) asserts the kernel's own inverse passes, that a transposed adjugate, a sign-flipped cofactor and a +1 numerator perturbation are each rejected with non-empty detail, and that a perturbation subtracting (x-3)^2 from the [0,1] numerator, which vanishes at (x,y)=(3,2), passes the numeric spot check yet is rejected symbolically; rust/lovelace-symbolics/src/symbolic_matrix.rs:575 inverse_identity_check_rejects_inverses_that_pass_the_numeric_spot_check asserts the same clean pass, the same three corruptions, the same (3,2) identity values and the same symbolic rejection. See docs/goal-parity-contract/round-57/rational-cancel.md section 4 and docs/goal-parity-contract/round-58/rational-porting.md section 2."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PiecewiseAssumptionTests/MirroredSpelling_IsAlsoDecided#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Piecewise + assumption decision API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_scoped_eval::mirrored_spelling_is_also_decided",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive numeric::evaluate_scoped / ScopedEvaluation surface (an explicit caller assumption scope returning the value and the relied-on conditions); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/PiecewiseAssumptionTests.cs:57 MirroredSpelling_IsAlsoDecided writes the guard constant-first as 0 < x and, under the x > 0 assumption, asserts EvaluateToNum(piecewise(1 if 0 < x, 2)) equals 1. Rust: rust/lovelace-lang/src/round78_scoped_eval.rs:90 lovelace-lang::round78_scoped_eval::mirrored_spelling_is_also_decided asserts the same value and that the reported condition is the assumed atom x > 0. See docs/goal-parity-contract/round-78/scoped-eval.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PiecewiseAssumptionTests/ProvenGuard_TakesTheBranch#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Piecewise + assumption decision API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_scoped_eval::proven_guard_takes_the_branch",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive numeric::evaluate_scoped / ScopedEvaluation surface (an explicit caller assumption scope returning the value and the relied-on conditions); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/PiecewiseAssumptionTests.cs:42 ProvenGuard_TakesTheBranch, under x > 0, proves the guard x >= 0 and asserts EvaluateToNum(piecewise(1 if x >= 0, 2)) equals 1. Rust: rust/lovelace-lang/src/round78_scoped_eval.rs:76 lovelace-lang::round78_scoped_eval::proven_guard_takes_the_branch asserts the same value and the condition x > 0 (the fact used, not the weaker guard). See docs/goal-parity-contract/round-78/scoped-eval.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PiecewiseAssumptionTests/RefutedGuard_TakesTheOtherwiseBranch#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Piecewise + assumption decision API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_scoped_eval::refuted_guard_takes_the_otherwise_branch",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive numeric::evaluate_scoped / ScopedEvaluation surface (an explicit caller assumption scope returning the value and the relied-on conditions); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/PiecewiseAssumptionTests.cs:27 RefutedGuard_TakesTheOtherwiseBranch, under x < 0, refutes the guard x >= 0 and asserts EvaluateToNum(piecewise(1 if x >= 0, 2)) equals 2. Rust: rust/lovelace-lang/src/round78_scoped_eval.rs:62 lovelace-lang::round78_scoped_eval::refuted_guard_takes_the_otherwise_branch asserts the same value and the condition x < 0. See docs/goal-parity-contract/round-78/scoped-eval.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PiecewiseAssumptionTests/WithoutAssumptions_TheGuardIsStillUndecidable#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Exprs.Piecewise + assumption decision API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-lang::round78_scoped_eval::without_assumptions_the_guard_is_still_undecidable",
+    "reason": "Round 78: the round-45 library-only block is lifted by the new additive numeric::evaluate_scoped / ScopedEvaluation surface (an explicit caller assumption scope returning the value and the relied-on conditions); the mapped round-78 test asserts this C# row directly.",
+    "note": "C# Lovelace.Symbolics.Tests/PiecewiseAssumptionTests.cs:75 WithoutAssumptions_TheGuardIsStillUndecidable asserts that with no assumptions EvaluateToNum(piecewise(1 if x >= 0, 2)) throws EvaluationException. Rust: rust/lovelace-lang/src/round78_scoped_eval.rs:111 lovelace-lang::round78_scoped_eval::without_assumptions_the_guard_is_still_undecidable asserts that both evaluate and evaluate_scoped with an empty scope refuse with the piecewise-guard message. See docs/goal-parity-contract/round-78/scoped-eval.md section 4."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PolynomialsApiTests/Content_PrimitivePart_SplitCoefficients#0": {
     "disposition": "ported",
