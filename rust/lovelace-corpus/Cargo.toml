@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 lovelace-json = { path = "../lovelace-json" }
 lovelace-lang = { path = "../lovelace-lang" }
+lovelace-symbolics = { path = "../lovelace-symbolics" }
 
 [lints]
 workspace = true

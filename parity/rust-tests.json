@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T01:21:47Z",
+    "generatedAtUtc":  "2026-11-12T02:09:40Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5054,
+                  "passed":  5074,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5054
+                   "tests":  5078
                },
-    "sourcesSha256":  "0fa2699bca0d963ec085a0aac45bb2638dd7095dfc5435bd56ac50685b0c773a",
+    "sourcesSha256":  "297fa3dd12bfba6f59133d0857320a40db0854c9cbfdf7cc095be91392f9fc19",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3222,6 +3222,13 @@
                                      "dispatcher_guard_round51::every_registered_builtin_dispatches_instead_of_answering_unknown_function",
                                      "dispatcher_guard_round51::filter_signal_and_impulse_forms_match_the_reference_arithmetic",
                                      "dispatcher_guard_round51::the_four_gap_builtins_run_their_published_examples",
+                                     "dsp_family_round61::complex_arithmetic_refusal_names_the_bridge_builtins",
+                                     "dsp_family_round61::fft_of_a_non_power_of_two_length_is_a_typed_refusal",
+                                     "dsp_family_round61::fft_of_an_empty_signal_is_the_empty_transform",
+                                     "dsp_family_round61::filter_fir_signal_matches_the_convolution_prefix",
+                                     "dsp_family_round61::filter_iir_signal_matches_the_impulse_response_convolution",
+                                     "dsp_family_round61::filter_scalar_length_returns_the_impulse_response",
+                                     "dsp_family_round61::filter_signal_matches_the_convolution_with_its_impulse_response",
                                      "dsp_round20::cosine_given_general_frequency_matches_the_oracle_digits",
                                      "dsp_round20::cosine_given_negative_count_reports_the_non_negative_bound",
                                      "dsp_round20::cosine_given_quarter_cycle_hits_the_exact_special_angles",
@@ -5052,7 +5059,23 @@
                        "name":  "lovelace-corpus",
                        "version":  "0.1.0",
                        "tests":  [
-
+                                     "dotnet_random::tests::minimum_seed_uses_the_int_min_value_rule",
+                                     "dotnet_random::tests::next_double_matches_the_documented_sample_contract",
+                                     "dotnet_random::tests::seeded_next_values_match_dotnet_10",
+                                     "property_assertions::canonical_text_round_trips_and_reinterns",
+                                     "property_assertions::diff_matches_numerical_derivative",
+                                     "property_assertions::integrate_diff_round_trips",
+                                     "property_assertions::mathir_evaluates_like_symbolic",
+                                     "property_assertions::optimize_preserves_values",
+                                     "property_assertions::simplify_preserves_values_under_real_assumption",
+                                     "property_assertions::solve_quadratic_roots_satisfy_polynomial",
+                                     "property_corpus::tests::canonical_text_corpus_matches_the_reference",
+                                     "property_corpus::tests::diff_corpus_matches_the_reference",
+                                     "property_corpus::tests::integrate_corpus_matches_the_reference",
+                                     "property_corpus::tests::mathir_corpus_matches_the_reference",
+                                     "property_corpus::tests::optimize_corpus_matches_the_reference",
+                                     "property_corpus::tests::simplify_corpus_matches_the_reference",
+                                     "property_corpus::tests::solve_corpus_matches_the_reference"
                                  ]
                    },
                    {

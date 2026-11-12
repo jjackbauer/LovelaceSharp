@@ -569,8 +569,20 @@ fn type_error(op: &str, a: &Value, b: &Value) -> LangError {
     if op == "+" && (a.is_numeric() || b.is_numeric()) && (!a.is_numeric() || !b.is_numeric()) {
         let numeric = if a.is_numeric() { a } else { b };
         let other = if a.is_numeric() { b } else { a };
+        // Value.Widen appends a kind-specific bridge hint to the widening refusal. The live
+        // binary path published only the first sentence, so `fft(...)[1] + 1` lost the
+        // reference's actionable "Reductions over Complex arrays ..." tail (round-61 DSP family).
+        let hint = match other {
+            Value::Complex(_, _) => {
+                " Reductions over Complex arrays (sum/mean/dot/norm/matmul) are not supported; use re()/im()/conj()/abs() to bridge back to Real."
+            }
+            Value::Symbolic(_) => {
+                " Symbolic is a domain type; use subs()/evalf() to bridge back to numeric values."
+            }
+            _ => "",
+        };
         return LangError::plain(format!(
-            "Cannot widen from {} to {}: only numeric kinds (Natural, Integer, Real) support widening.",
+            "Cannot widen from {} to {}: only numeric kinds (Natural, Integer, Real) support widening.{hint}",
             numeric.kind_name(),
             other.kind_name()
         ));
@@ -3107,22 +3119,36 @@ pub fn call(
             // reports. An exact answer (0.5, 2) dropped nothing and is never marked.
             Ok(clamp_evalf_result(digits, value))
         }
-        "fft" => dft(engine, &args, false, "fft"),
-        "dft" => dft(engine, &args, true, "dft"),
+        "fft" => fft(engine, &args),
+        "dft" => dft(engine, &args),
         "conv" => {
             arity(2)?;
+            // DspPlugin.Convolve converts every sample through ToComplex and returns the Cplx
+            // array unchanged, so the result is a Complex vector even when both inputs are
+            // Natural; and Convolve answers [] when either signal is empty. The generic
+            // arithmetic path answered Natural elements and refused the empty signal.
             let a = flatten_values(&args[0])?;
             let b = flatten_values(&args[1])?;
             if a.is_empty() || b.is_empty() {
-                return Err(LangError::plain("conv needs two non-empty vectors."));
+                return Ok(Value::Vector(Vec::new()));
             }
-            let mut out = vec![Value::Natural(Nat::zero()); a.len() + b.len() - 1];
+            let mut out: Vec<(Real, Real)> =
+                vec![(Real::zero(), Real::zero()); a.len() + b.len() - 1];
             for (i, x) in a.iter().enumerate() {
+                let (xr, xi) = complex_sample(x)?;
                 for (j, y) in b.iter().enumerate() {
-                    out[i + j] = add(&out[i + j], &mul(x, y)?)?;
+                    let (yr, yi) = complex_sample(y)?;
+                    let re = xr.mul(&yr).sub(&xi.mul(&yi));
+                    let im = xr.mul(&yi).add(&xi.mul(&yr));
+                    out[i + j].0 = out[i + j].0.add(&re);
+                    out[i + j].1 = out[i + j].1.add(&im);
                 }
             }
-            Ok(Value::Vector(out))
+            Ok(Value::Vector(
+                out.into_iter()
+                    .map(|(re, im)| Value::Complex(re, im))
+                    .collect(),
+            ))
         }
         "filter" => dsp_filter(engine, &args),
         "scale" => dsp_scale(&args),
@@ -6073,28 +6099,57 @@ fn dsp_complex_exp(z: &(Real, Real), digits: usize, publish: usize) -> (Real, Re
     (exponential.mul(&cos), exponential.mul(&sin))
 }
 
-fn dft(engine: &Engine, args: &[Value], _inverse: bool, name: &str) -> Result<Value, LangError> {
+/// The forward FFT. The reference's `DspMath.Fft` answers the empty transform for an empty
+/// signal FIRST, then refuses a non-power-of-two length with its ArgumentException taxonomy.
+/// Routing `fft` through the generic DFT answered a non-power-of-two and refused the empty
+/// vector: both divergences are closed here.
+fn fft(engine: &Engine, args: &[Value]) -> Result<Value, LangError> {
+    if args.is_empty() {
+        return Err(LangError::plain("fft needs a vector."));
+    }
+    let values = flatten_values(&args[0])?;
+    let n = values.len();
+    if n == 0 {
+        return Ok(Value::Vector(Vec::new()));
+    }
+    if !n.is_power_of_two() {
+        return Err(LangError::coded(
+            format!("FFT length must be a power of two, but got {n}. (Parameter 'x')"),
+            0,
+            "InvalidArgument",
+            "TypeMismatch",
+        ));
+    }
+    transform(engine, &values, n)
+}
+
+/// The discrete Fourier transform. Any length is accepted, the optional second argument
+/// zero-pads (or truncates) the input to exactly n samples, and n = 0 is the empty transform.
+/// An empty input is the empty transform too, exactly as `DspMath.Dft` returns [] for N == 0.
+fn dft(engine: &Engine, args: &[Value]) -> Result<Value, LangError> {
     if args.is_empty() {
         return Err(LangError::plain("dft needs a vector."));
     }
     let values = flatten_values(&args[0])?;
-    if values.is_empty() {
-        return Err(LangError::plain("dft needs a non-empty vector."));
-    }
     // The optional length is an integer-semantic argument, not a value to transform: the
     // reference zero-pads (or truncates) the input to exactly n samples and n = 0 is the empty
     // transform. Ignoring it answered a DIFFERENT transform than the caller asked for.
     let n = if args.len() >= 2 {
-        dsp_integer(&args[1], name, "n", 2, DspIntBounds::NonNegative32)? as usize
+        dsp_integer(&args[1], "dft", "n", 2, DspIntBounds::NonNegative32)? as usize
     } else {
         values.len()
     };
     if n == 0 {
         return Ok(Value::Vector(Vec::new()));
     }
+    transform(engine, &values, n)
+}
+
+/// One DFT of `values` zero-padded (or truncated) to exactly `n` samples.
+fn transform(engine: &Engine, values: &[Value], n: usize) -> Result<Value, LangError> {
     let digits = engine.dsp_precision();
     let mut samples: Vec<(Real, Real)> = Vec::with_capacity(n);
-    for value in &values {
+    for value in values {
         samples.push(complex_sample(value)?);
     }
     samples.resize(n, (Real::zero(), Real::zero()));

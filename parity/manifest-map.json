@@ -24896,8 +24896,8 @@
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/CanonicalText_RoundTripsAndReinterns#0": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 63 deferral (round 62 measured blocker): no expression interning in Rust (Context interns Symbol/Function only, so Assert.Same has no Rust spelling), and canonical_parse(canonical()).canonical() differs for 1/200 corpus items (item 49, commutative factor order). See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1.",
+    "note": "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::canonical_text_round_trips_and_reinterns is #[ignore]; the row stays deferred until interning is decided and canonical round-trip is idempotent for all 200 items."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Assume_ConjunctionAndNegation_ThroughEngine#0": {
     "disposition": "ported",
@@ -30497,14 +30497,16 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FftTests/Fft_GivenEmpty_ReturnsEmpty#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: fft([]) is refused (dft needs a non-empty vector) in Rust vs [] in the oracle",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dsp_family_round61::fft_of_an_empty_signal_is_the_empty_transform",
+    "reason": "Round 63 mapping: the C# row's exit-0 empty transform is reproduced by the named Rust test (see note for the oracle fields and the test location).",
+    "note": "Round 61: C# FftTests.Fft_GivenEmpty_ReturnsEmpty asserts fft([]) is empty; rust/lovelace-lang/src/dsp_family_round61.rs fft_of_an_empty_signal_is_the_empty_transform asserts exit 0 and \"[] (Vector)\", matching the oracle (the round-45 failure was exit 1 / DomainError \"dft needs a non-empty vector.\"). See docs/goal-parity-contract/round-61/dsp-family.md section 2 row 3."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FftTests/Fft_GivenNonPowerOfTwo_ThrowsArgumentException#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.exitCode: fft([1,1,1]) answers [3,0,0] in Rust vs the oracle refusing a non-power-of-two",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dsp_family_round61::fft_of_a_non_power_of_two_length_is_a_typed_refusal",
+    "reason": "Round 63 mapping: the C# row's typed refusal for a non-power-of-two FFT is reproduced by the named Rust test (see note for the oracle fields and the test location).",
+    "note": "Round 61: C# FftTests.Fft_GivenNonPowerOfTwo_ThrowsArgumentException expects ArgumentException for fft([1,1,1]); rust/lovelace-lang/src/dsp_family_round61.rs fft_of_a_non_power_of_two_length_is_a_typed_refusal asserts exit 1, InvalidArgument/TypeMismatch, position 0 and the oracle sentence \"FFT length must be a power of two, but got 3. (Parameter 'x')\". See docs/goal-parity-contract/round-61/dsp-family.md section 2 row 4."
   },
   "Lovelace.Dsp.Tests/Lovelace.Dsp.Tests.FixedDspTests/Convolve128_Given123SelfConvolution_MatchesDspMath#0": {
     "disposition": "ported",
@@ -30722,9 +30724,10 @@
     "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/ComplexArithmetic_GivenComplex_ThrowsActionableError#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 measured family 'dsp': $.diagnostics[0].message: fft([0,1,0,0])[1]+1 refuses with different prose and suggestion text",
-    "note": "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+    "disposition": "ported",
+    "rust": "lovelace-lang::dsp_family_round61::complex_arithmetic_refusal_names_the_bridge_builtins",
+    "reason": "Round 63 mapping: the C# row's actionable Complex widening refusal is reproduced by the named Rust test (see note for the exact sentence and the test location).",
+    "note": "Round 61: C# DspPluginTests.ComplexArithmetic_GivenComplex_ThrowsActionableError expects the full widening refusal; rust/lovelace-lang/src/dsp_family_round61.rs complex_arithmetic_refusal_names_the_bridge_builtins asserts exit 1, InvalidOperation/DomainError and the identical sentence including \"use re()/im()/conj()/abs() to bridge back to Real.\". See docs/goal-parity-contract/round-61/dsp-family.md section 2 row 5."
   },
   "Lovelace.Suite.Tests/Lovelace.Suite.Tests.DspPluginTests/DspPlugin_GivenUnregisteredEngine_ThrowsUnknownFunction#0": {
     "disposition": "deferred",
@@ -31962,33 +31965,36 @@
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Diff_MatchesNumericalDerivative#0": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 63 deferral (round 62 measured blocker): numeric::evaluate has no Piecewise/Relation arm, so the generated derivative's (pw ((ne ...) 0) (derivative)) shape is refused (lovelace-lang/src/numeric.rs:70-72); the reference Evaluation.EvaluateToNum handles PiecewiseExpr and EvaluateCondition. See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1.",
+    "note": "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::diff_matches_numerical_derivative is #[ignore]; it needs a production numeric arm, not a tolerance."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Integrate_DiffRoundTrips#0": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 63 deferral (round 62 measured blocker): integration closes five of six integrands but leaves x^2*sin(x^3) unevaluated, so the C# closed-form round trip cannot be asserted; the missing case is a production builtins change (builtins.rs:1463 / integrate_basic at builtins.rs:6392). See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1.",
+    "note": "Corpus is exact (draw transcript byte-identical). The blocker probe lovelace-corpus::property_assertions::integrate_diff_round_trips is #[ignore]; it needs the u-substitution shape in production integrate()."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/MathIR_EvaluatesLikeSymbolic#0": {
     "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "reason": "Round 63 deferral (round 62 measured blocker): numeric::evaluate and IrEvaluator differ by 1 in the 50th decimal place at x=1/3 on expression 2, while the C# row asserts exact NumOps.Compare(direct, lowered) == 0; a tolerance would weaken the row. See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1.",
+    "note": "Corpus is exact (59/60 canonical items; item 35 differs only by commutative factor order). The blocker probe lovelace-corpus::property_assertions::mathir_evaluates_like_symbolic is #[ignore]; it needs exact 50-place agreement between the two evaluators."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Optimize_PreservesValues#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-corpus::property_assertions::optimize_preserves_values",
+    "reason": "Round 63 mapping: the C# property row is reproduced by the named Rust test over the identical seeded corpus (see note).",
+    "note": "Round 62: C# PropertyTests.Optimize_PreservesValues (seed 20260914, 40 polynomials, 3 points -2/3,1/2,5/4) asserts eval(optimize(f)) == eval(f) exactly; rust/lovelace-corpus/src/property_assertions.rs optimize_preserves_values passes the same corpus with exact Num comparison. See docs/goal-parity-contract/round-62/dotnet-random.md sections 4 and 5."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Simplify_PreservesValues_UnderRealAssumption#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-corpus::property_assertions::simplify_preserves_values_under_real_assumption",
+    "reason": "Round 63 mapping: the C# property row is reproduced by the named Rust test over the identical seeded corpus (see note).",
+    "note": "Round 62: C# PropertyTests.Simplify_PreservesValues_UnderRealAssumption (seed 20260910, 150 expressions, 5 points -7/4,-1/3,1/5,3/2,11/4) asserts eval(simplify(f)) == eval(f) under x in Real; rust/lovelace-corpus/src/property_assertions.rs simplify_preserves_values_under_real_assumption passes the same corpus with exact Num comparison. See docs/goal-parity-contract/round-62/dotnet-random.md sections 4 and 5."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Solve_QuadraticRoots_SatisfyPolynomial#0": {
-    "disposition": "deferred",
-    "reason": "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing System.Random corpus + Printing.CanonicalParse round-trip API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md.",
-    "note": "Library-only census row; grouped by missing API in the round-45 final sweep."
+    "disposition": "ported",
+    "rust": "lovelace-corpus::property_assertions::solve_quadratic_roots_satisfy_polynomial",
+    "reason": "Round 63 mapping: the C# property row is reproduced by the named Rust test over the identical seeded corpus (see note).",
+    "note": "Round 62: C# PropertyTests.Solve_QuadraticRoots_SatisfyPolynomial (seed 20260913, 40 triples a in [1,6), b,c in [-7,8)) asserts Solve is Exact with exactly two roots and each substituted/expanded root is rational zero; rust/lovelace-corpus/src/property_assertions.rs solve_quadratic_roots_satisfy_polynomial passes the same corpus. See docs/goal-parity-contract/round-62/dotnet-random.md sections 4 and 5."
   },
   "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.RelationsAndFamiliesTests/Integrate_StructuredResult_ReportsConditions#0": {
     "disposition": "deferred",

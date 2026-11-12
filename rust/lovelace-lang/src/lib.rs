@@ -1922,3 +1922,7 @@ mod falsification_round46;
 /// additive [`fixed_dsp`] kernels.
 #[cfg(test)]
 mod fixed_dsp_tests;
+
+/// Round-61 DSP family: the seven round-50 `dsp` census rows, each pinned to the oracle.
+#[cfg(test)]
+mod dsp_family_round61;
