@@ -62,6 +62,13 @@ pub struct WorkspaceSnapshot {
     /// moment the value existed. The window renders it directly; it never parses [`Self::result`]
     /// to recover arrays, records or symbolic fields.
     pub result_structured: Option<Json>,
+    /// SYM-001: the engine's symbolic inspection payload captured for that same result.
+    ///
+    /// This is read from [`Evaluator::last_inspection`] at the same commit point as the display
+    /// and the structured projection, so the Inspector pane is bound to the last **committed**
+    /// result and never to the editor buffer. `None` when the engine publishes no inspection
+    /// (for example the deterministic fake).
+    pub result_inspection: Option<Json>,
     /// Variables visible after the committed statements, sorted by the engine.
     pub variables: Vec<(String, String)>,
     /// Functions visible after the committed statements.
@@ -572,6 +579,8 @@ struct Progress {
     result: String,
     /// The engine's structured projection of the last committed value, when it publishes one.
     result_structured: Option<Json>,
+    /// SYM-001: the engine's inspection payload for that same committed value.
+    result_inspection: Option<Json>,
     /// Print lines drained from the engine, in order.
     output: Vec<String>,
     /// Variables observed after the last committed statement.
@@ -595,6 +604,7 @@ impl Default for Progress {
             committed: 0,
             result: "Void".to_string(),
             result_structured: None,
+            result_inspection: None,
             output: Vec::new(),
             variables: Vec::new(),
             functions: Vec::new(),
@@ -731,6 +741,16 @@ impl RunWorker {
                     } else {
                         progress.result_structured = None;
                     }
+                    // SYM-001: the engine's inspection of the same value, captured at the same
+                    // commit point. An engine that publishes none leaves it None; the Inspector
+                    // then shows its explicit "the engine published no inspection" state.
+                    if let Ok(inspection) =
+                        panic::catch_unwind(AssertUnwindSafe(|| engine.last_inspection()))
+                    {
+                        progress.result_inspection = inspection;
+                    } else {
+                        progress.result_inspection = None;
+                    }
                     self.drain_output(&mut engine, progress);
                     progress.committed += 1;
                     if let Ok(variables) =
@@ -855,6 +875,7 @@ impl RunWorker {
         WorkspaceSnapshot {
             result: progress.result.clone(),
             result_structured: progress.result_structured.clone(),
+            result_inspection: progress.result_inspection.clone(),
             variables: progress.variables.clone(),
             functions: progress.functions.clone(),
             state: progress.state.clone(),
@@ -1124,6 +1145,7 @@ mod tests {
         WorkspaceSnapshot {
             result: result.to_string(),
             result_structured: None,
+            result_inspection: None,
             variables: vec![("x".to_string(), result.to_string())],
             functions: Vec::new(),
             state: EngineState {

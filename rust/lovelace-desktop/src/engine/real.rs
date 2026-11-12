@@ -28,6 +28,12 @@ pub struct RealEngine {
     /// own `structured::project_value` at the moment the value exists, so the snapshot and the
     /// window never have to reconstruct structure from a display string.
     last_structured: Option<Json>,
+    /// SYM-001: the engine's inspection payload for that same value, captured at the same point.
+    ///
+    /// The payload is built by [`super::inspection::capture`] from the value's structured
+    /// projection, the expression AST, `inspect(value)`, the TransformResult record and the
+    /// compile path. It is never built from a display string and never re-evaluates the buffer.
+    last_inspection: Option<Json>,
 }
 
 impl RealEngine {
@@ -36,6 +42,7 @@ impl RealEngine {
         RealEngine {
             engine: lovelace_lang::Engine::new(),
             last_structured: None,
+            last_inspection: None,
         }
     }
 }
@@ -50,6 +57,7 @@ impl Evaluator for RealEngine {
     fn eval(&mut self, src: &str) -> Result<String, String> {
         // A failed eval must not leave the previous run's structure looking like this run's.
         self.last_structured = None;
+        self.last_inspection = None;
         match self.engine.eval(src) {
             Ok(value) => {
                 // RES-001: the engine's own structured projection, the same function the CLI
@@ -59,6 +67,11 @@ impl Evaluator for RealEngine {
                     &value,
                     None,
                 ));
+                // SYM-001: the engine's inspection of that same value, captured at the same
+                // commit point. A value that is not symbolic still gets a payload whose six
+                // sections name the reason they are absent.
+                self.last_inspection =
+                    Some(super::inspection::capture(&mut self.engine, &value));
                 Ok(self.engine.format(&value))
             }
             Err(error) => Err(error.message),
@@ -67,6 +80,10 @@ impl Evaluator for RealEngine {
 
     fn last_structured(&self) -> Option<Json> {
         self.last_structured.clone()
+    }
+
+    fn last_inspection(&self) -> Option<Json> {
+        self.last_inspection.clone()
     }
 
     fn set_precision(&mut self, decimals: usize) {

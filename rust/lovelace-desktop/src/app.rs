@@ -636,6 +636,7 @@ impl AppState {
         let RunOutput {
             result,
             result_structured: _,
+            result_inspection: _,
             output,
             variables,
             functions,
@@ -865,6 +866,7 @@ impl AppState {
         let RunOutput {
             result,
             result_structured: _,
+            result_inspection: _,
             output,
             variables,
             functions,
@@ -978,6 +980,7 @@ mod tests {
         RunOutput {
             result: Ok("Void".to_string()),
             result_structured: None,
+            result_inspection: None,
             output: Vec::new(),
             variables: Vec::new(),
             functions: Vec::new(),
@@ -1081,6 +1084,7 @@ mod tests {
         let late = RunOutput {
             result: Ok("1".to_string()),
             result_structured: None,
+            result_inspection: None,
             output: vec!["late output".to_string()],
             variables: vec![("x".to_string(), "1".to_string())],
             functions: Vec::new(),

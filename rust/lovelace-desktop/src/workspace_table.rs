@@ -667,6 +667,7 @@ mod tests {
         let snapshot = crate::execution::WorkspaceSnapshot {
             result: String::new(),
             result_structured: None,
+            result_inspection: None,
             variables: Vec::new(),
             functions: legacy_functions,
             state: state.clone(),

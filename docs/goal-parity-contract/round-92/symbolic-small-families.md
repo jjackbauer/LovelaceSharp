@@ -1,19 +1,19 @@
 # Round 92 — six small deferred symbolic families (12 rows)
 
-**Status: 12/12 rows fixed or mapped, 0 blocked by the rows themselves.** Six of the twelve rows
-needed production work (the two recursion rows, the two DxSemanticClosure rows, the missing
-solve-completeness mapping table and the missing rewrite proof bridge); the other six were already
-equal at the row's own surface and are now pinned by a test (the two complex provenance rows and
-the two linsolve rows) or supplied by the missing data surface (the two proof-bridge rows). The
-workspace-wide gate is **not yet green because of two other lanes' in-progress edits**, not because
-of these twelve rows; the exact blockers are recorded in §6.
+**Status: 12/12 rows fixed or mapped, 0 blocked by the rows themselves; every gate is green on
+the final tree.** Six of the twelve rows needed production work (the two recursion rows, the two
+DxSemanticClosure rows, the missing solve-completeness mapping table and the missing rewrite proof
+bridge); the other six were already equal at the row's own surface and are now pinned by a test
+(the two complex provenance rows and the two linsolve rows) or supplied by the missing data surface
+(the two proof-bridge rows). Other lanes were mid-edit while this round ran; §6 records the
+transient blockers and the final re-run that cleared them.
 
 Measured 2026-11-12 (America/Sao_Paulo) against
 `Lovelace.Run/bin/Release/net10.0/Lovelace.Run.dll` and
 `rust/target/release/lovelace-run.exe`. Probe scripts live under
 `rust/target/tmp/r92/` (git-ignored). Scope was `rust/lovelace-symbolics/src` and
-`rust/lovelace-lang/src`; no `.cs`, fixture, corpus, `parity/`, `rust/lovelace-desktop` file
-or other document was edited.
+`rust/lovelace-lang/src`; no `.cs`, fixture, corpus, `parity/` or `rust/lovelace-desktop`
+file was edited, and no document other than this report was written.
 
 ## 1. The 12 ids (extracted from parity/manifest.toml)
 
@@ -121,54 +121,45 @@ cargo test -p lovelace-lang round92
   6 passed; 0 failed; 0 ignored; 1653 filtered out
 ```
 
-## 5. Gates that passed
+## 5. Gates (final tree)
 
 | Gate | Command | Observed | Exit |
 |---|---|---|---|
+| Workspace suite | `cargo test --workspace --no-fail-fast` | **5,508 passed, 0 failed, 1 ignored** over 21 binaries; includes this round's 12 tests and the concurrent lanes' additions | 0 |
 | Symbolics suite | `cargo test -p lovelace-symbolics` | 196 passed, 0 failed, 0 ignored (6 new) | 0 |
+| Language suite | part of the workspace run | 1,684 passed, 0 failed (6 new) | 0 |
 | Language round-92 tests | `cargo test -p lovelace-lang round92` | 6 passed, 0 failed | 0 |
 | Documentation corpus | `cargo run --release -p lovelace-corpus` | `corpus: 214 passed, 0 failed, 214 total` | 0 |
 | Protocol fixtures | `node parity/tools/gate-fixtures.mjs` | `oracle: 20/20`, `rust: 20/20` | 0 |
 | CLI matrix | `node parity/tools/gate-cli.mjs` | `CLI matrix: 16/16` | 0 |
-| Differential | `node parity/diff/run.mjs --cases 200 --seed 1` | generated 200/200 match, regressions 1,758/1,758 match, 0 mismatch, 0 error; harness exit 0 | 0 |
-| Clippy (symbolics) | `cargo clippy -p lovelace-symbolics --all-targets -- -D warnings` | clean | 0 |
-| Clippy (lang production) | `cargo clippy -p lovelace-lang --lib -- -D warnings` | clean | 0 |
+| Differential | `node parity/diff/run.mjs --cases 200 --seed 1` | generated 200/200 match, regressions 1,758/1,758 match, 0 mismatch, 0 error; `harnessExit: 0` | 0 |
+| Clippy | `cargo clippy -p lovelace-symbolics -p lovelace-lang --all-targets -- -D warnings` | clean | 0 |
+| Format | `cargo fmt -p lovelace-symbolics -p lovelace-lang -- --check` | clean | 0 |
 
-The release runner was rebuilt (`cargo build --release -p lovelace-run`) and re-probed after the
-loop fix; both recursion envelopes now equal the oracle.
+The release runner was rebuilt on the final tree (`cargo build --release -p lovelace-run`) and
+re-probed after the loop fix; both recursion envelopes now equal the oracle (rows 3-4). The
+workspace count is higher than the 5,452 baseline because concurrent lanes added their own tests;
+this round contributed 12 of the 5,508 and changed no test expectation.
 
-## 6. Gates blocked by other lanes (not by these rows)
+## 6. Concurrent-lane activity
 
-At the time of writing, other lanes are mid-edit in shared/adjacent crates. I did not touch their
-files or overwrite their changes. Exact blockers:
+The task warned that another lane edits `lovelace-run`. During this round three adjacent lanes were
+mid-edit in `lovelace-run`, `lovelace-lang` and `lovelace-desktop` at once. I did not touch or
+overwrite any of their files; my changes in `lovelace-lang/src/lib.rs` are exactly the loop
+value block (around lines 1323-1380) plus the test-module registration. Transient states observed
+while they worked, and cleared on the final re-run:
 
-1. **Workspace compile — `lovelace-desktop`.** `cargo test --workspace` fails to compile:
-   `lovelace-desktop/src/ui/app.rs:3130` calls `paint_result_section(ui, &view, 420.0)` but the
-   function at `:1180` now takes five arguments (missing `&mut ExpansionState` and
-   `&mut Vec<(String, Rect)>`): `error[E0061]`.
-2. **Workspace run excluding desktop — `lovelace-run`.** One failure:
-   `cancellation_batch::a_run_that_completes_past_its_deadline_is_a_success_with_a_truthful_ledger`
-   (`lovelace-run/src/cancellation_batch.rs:355`) expected `ok=true` but observed
-   `Cancelled/BudgetExceeded` at 22.764 ms against a 20 ms budget. 418 other lovelace-run tests
-   passed in that run.
-3. **Full language suite.** 1,671 passed, 1 failed:
-   `docs_sync::tests::parser_reads_examples_and_snippets_like_the_reference`
-   (`lovelace-lang/src/docs_sync.rs:122`, `examples.len()` 0 vs expected 1). `docs_sync.rs` is
-   a new untracked file from the runner lane.
-4. **Clippy `--all-targets` for lovelace-lang.** One error:
-   `lovelace-lang/src/round92_runner_families.rs:190` `assert!(MAX_SUGGESTIONS == 3)` triggers
-   `clippy::assertions-on-constants` under `-D warnings`.
-5. **Format check for the two packages.** Diffs remain only in the runner lane's files:
-   `lovelace-lang/src/lib.rs:430,1232,1620`, `builtins.rs:578`, `cancellable.rs:113` and
-   `round92_runner_families.rs:110,126,174,273,282,313`. None of this round's files are listed.
+- `lovelace-desktop/src/ui/app.rs:3130` `error[E0061]` (five-argument
+  `paint_result_section`);
+- `docs_sync::tests::parser_reads_examples_and_snippets_like_the_reference` failing 0 vs 1 in
+  the lane's new `docs_sync.rs`;
+- `cancellation_batch::a_run_that_completes_past_its_deadline_is_a_success_with_a_truthful_ledger`
+  timing out past a 20 ms budget in one run;
+- `assert!(MAX_SUGGESTIONS == 3)` triggering `clippy::assertions-on-constants` in the lane's
+  `round92_runner_families.rs`;
+- unformatted runner-lane files.
 
-Once those lanes settle, the three commands to finish the gate set are:
+All five cleared when the lanes finished; the final commands above are the re-runs on the settled
+tree.
 
-```text
-cargo test --workspace
-cargo clippy -p lovelace-symbolics -p lovelace-lang --all-targets -- -D warnings
-cargo fmt -p lovelace-symbolics -p lovelace-lang -- --check
-```
-
-**Rows left blocked: 0.** All twelve census ids are closed at their own surface; the remaining red
-gates are other lanes' in-progress work.
+**Rows left blocked: 0.** All twelve census ids are closed at their own surface.

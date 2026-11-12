@@ -15,6 +15,7 @@ use egui::{
 
 use crate::engine::FunctionOrigin;
 use crate::execution::Diagnostic;
+use crate::inspector::{Inspection, InspectorExpansion, Section, TREE_ROOT_PATH, tree_path};
 use crate::keyboard;
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
@@ -174,6 +175,17 @@ pub struct WorkbenchApp {
     /// in `paint_result_section`, so repaints of the same value keep every decision and a new
     /// result clears the map.
     expansion: ExpansionState,
+    /// SYM-001: true while the Workspace pane's Inspector view is selected. The view is a tab
+    /// beside the Result view; it renders only the committed snapshot's inspection payload.
+    inspector_open: bool,
+    /// SYM-001: the expression tree's per-path collapse state, scoped to the inspection payload.
+    inspector_expansion: InspectorExpansion,
+    /// SYM-001: expression-tree headers painted in the last pass (path and rectangle), the same
+    /// test seam as `result_toggle_rects`.
+    inspector_toggle_rects: Vec<(String, Rect)>,
+    /// SYM-001: the Result and Inspector tab rectangles painted in the last pass. The pointer
+    /// tests click these centres; UIA reaches the same buttons by their names.
+    workspace_view_tabs: [Option<Rect>; 2],
     /// RESULT tree headers painted in the last pass: their node path and rectangle. The pointer
     /// tests click these centres, the same seam as `variable_header_rects`.
     result_toggle_rects: Vec<(String, Rect)>,
@@ -233,6 +245,10 @@ impl WorkbenchApp {
             variables_table,
             functions_table,
             expansion: ExpansionState::new(),
+            inspector_open: false,
+            inspector_expansion: InspectorExpansion::new(),
+            inspector_toggle_rects: Vec::new(),
+            workspace_view_tabs: [None; 2],
             result_toggle_rects: Vec::new(),
             variable_header_rects: [None; 3],
             function_header_rects: [None; 3],
@@ -764,6 +780,10 @@ impl WorkbenchApp {
         // quick eval, an edit) cannot reset it; `paint_result_section` clears it only when the
         // committed result changes.
         let expansion = &mut self.expansion;
+        let inspector_expansion = &mut self.inspector_expansion;
+        let mut inspector_open = self.inspector_open;
+        let mut inspector_toggle_rects: Vec<(String, Rect)> = Vec::new();
+        let mut workspace_view_tabs: [Option<Rect>; 2] = [None; 2];
         let mut result_toggle_rects: Vec<(String, Rect)> = Vec::new();
         with_pane(ui, rect, "Workspace", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
@@ -794,22 +814,51 @@ impl WorkbenchApp {
                     // indents move the cursor without shrinking the wrap width, so a label
                     // wrapping at the full pane width would still end under the border.
                     let result_width = (body.width() - 96.0).max(120.0);
-                    egui::ScrollArea::vertical()
-                        .id_salt("workspace_scroll")
-                        .show(ui, |ui| {
-                            ui.label(RichText::new(&state_line).small().color(ACCENT));
-                            ui.add_space(4.0);
+                    // SYM-001: the Workspace pane has two views over the same committed
+                    // snapshot. The Inspector tab never reads the editor buffer; it renders
+                    // only `view.result_inspection`, which came from the last commit.
+                    ui.horizontal(|ui| {
+                        let result_tab = ui.selectable_label(!inspector_open, "Result");
+                        if result_tab.clicked() {
+                            inspector_open = false;
+                        }
+                        workspace_view_tabs[0] = Some(result_tab.rect);
+                        let inspector_tab = ui.selectable_label(inspector_open, "Inspector");
+                        if inspector_tab.clicked() {
+                            inspector_open = true;
+                        }
+                        workspace_view_tabs[1] = Some(inspector_tab.rect);
+                        ui.label(RichText::new(&state_line).small().color(ACCENT));
+                    });
+                    ui.add_space(4.0);
+                    if inspector_open {
+                        egui::ScrollArea::vertical()
+                            .id_salt("workspace_inspector_scroll")
+                            .show(ui, |ui| {
+                                paint_inspector(
+                                    ui,
+                                    view,
+                                    result_width,
+                                    inspector_expansion,
+                                    &mut inspector_toggle_rects,
+                                );
+                            });
+                    } else {
+                        egui::ScrollArea::vertical()
+                            .id_salt("workspace_scroll")
+                            .show(ui, |ui| {
+                                ui.add_space(4.0);
 
-                            // RES-001: the last committed result's typed tree, built only from
-                            // the engine's structured projection. The display text is a caption;
-                            // it is never parsed for structure.
-                            paint_result_section(
-                                ui,
-                                view,
-                                result_width,
-                                expansion,
-                                &mut result_toggle_rects,
-                            );
+                                // RES-001: the last committed result's typed tree, built only from
+                                // the engine's structured projection. The display text is a caption;
+                                // it is never parsed for structure.
+                                paint_result_section(
+                                    ui,
+                                    view,
+                                    result_width,
+                                    expansion,
+                                    &mut result_toggle_rects,
+                                );
 
                             ui.add_space(6.0);
                             ui.separator();
@@ -1003,6 +1052,7 @@ impl WorkbenchApp {
                                 ui.label(RichText::new(message).color(DIM));
                             }
                         });
+                    }
                 },
             );
         });
@@ -1012,6 +1062,9 @@ impl WorkbenchApp {
         self.variable_header_rects = variable_header_rects;
         self.function_header_rects = function_header_rects;
         self.result_toggle_rects = result_toggle_rects;
+        self.inspector_open = inspector_open;
+        self.inspector_toggle_rects = inspector_toggle_rects;
+        self.workspace_view_tabs = workspace_view_tabs;
     }
 
     fn logs_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {
@@ -1164,6 +1217,329 @@ impl WorkbenchApp {
 impl eframe::App for WorkbenchApp {
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         self.ui_root(ui);
+    }
+}
+
+/// The INSPECTOR view: the engine's six symbolic sections for the last committed result.
+///
+/// Every value painted here comes from `view.result_inspection`, the payload the engine adapter
+/// captured beside the result when it was committed. The editor buffer is not read, and no
+/// section is reconstructed from a display string. A section the engine did not supply paints
+/// the engine's (or the adapter's) specific reason instead of an empty box.
+fn paint_inspector(
+    ui: &mut Ui,
+    view: &DocumentView,
+    width: f32,
+    expansion: &mut InspectorExpansion,
+    toggles: &mut Vec<(String, Rect)>,
+) {
+    ui.set_max_width(width.max(120.0));
+    ui.label(RichText::new("INSPECTOR · last committed result").small().color(DIM));
+    if !view.has_snapshot {
+        ui.label(RichText::new("No run has published a result yet.").color(DIM));
+        return;
+    }
+    let Some(payload) = view.result_inspection.as_ref() else {
+        ui.label(
+            RichText::new(
+                "The engine published no inspection payload for this result. It supplies no \
+                 pretty, canonical, tree, assumptions, trace or MathIR for a result it did not \
+                 inspect.",
+            )
+            .small()
+            .color(WARN),
+        );
+        return;
+    };
+    // SYM-001: bind the tree's collapse map to this payload. The payload is committed data, so
+    // an edit to the buffer cannot clear the map while a new committed result can.
+    expansion.bind(payload);
+    let Some(inspection) = Inspection::from_json(payload) else {
+        ui.label(
+            RichText::new(
+                "The engine's inspection payload was not readable (unexpected desktop schema); \
+                 no section is shown.",
+            )
+            .small()
+            .color(WARN),
+        );
+        return;
+    };
+
+    let subject = &inspection.subject;
+    let detail = subject
+        .detail
+        .as_deref()
+        .map(|detail| format!(" · {detail}"))
+        .unwrap_or_default();
+    ui.label(
+        RichText::new(format!("subject  {} · {}{detail}", subject.kind, subject.path))
+            .monospace()
+            .color(ACCENT),
+    );
+
+    paint_inspector_heading(ui, "Pretty", "");
+    match &inspection.pretty {
+        Section::Supplied(text) => paint_inspector_text(ui, text),
+        Section::Missing(reason) => paint_inspector_reason(ui, reason),
+    }
+
+    paint_inspector_heading(ui, "Canonical", "");
+    match &inspection.canonical {
+        Section::Supplied(text) => paint_inspector_text(ui, text),
+        Section::Missing(reason) => paint_inspector_reason(ui, reason),
+    }
+
+    match &inspection.tree {
+        Section::Supplied(tree) => {
+            paint_inspector_heading(ui, "Expression tree", &count_label(tree.count(), "node", "nodes"));
+            paint_inspector_node(ui, tree, TREE_ROOT_PATH, expansion, toggles);
+        }
+        Section::Missing(reason) => {
+            paint_inspector_heading(ui, "Expression tree", "");
+            paint_inspector_reason(ui, reason);
+        }
+    }
+
+    match &inspection.assumptions {
+        Section::Supplied(assumptions) => {
+            paint_inspector_heading(
+                ui,
+                "Assumptions",
+                &count_label(assumptions.len(), "row", "rows"),
+            );
+            if assumptions.is_empty() {
+                ui.label(
+                    RichText::new("No active assumptions constrain the free symbols of this result.")
+                        .small()
+                        .color(DIM),
+                );
+            }
+            for assumption in assumptions {
+                paint_inspector_assumption(ui, assumption);
+            }
+        }
+        Section::Missing(reason) => {
+            paint_inspector_heading(ui, "Assumptions", "");
+            paint_inspector_reason(ui, reason);
+        }
+    }
+
+    match &inspection.trace {
+        Section::Supplied(steps) => {
+            paint_inspector_heading(ui, "Simplification trace", &count_label(steps.len(), "step", "steps"));
+            if steps.is_empty() {
+                ui.label(
+                    RichText::new(
+                        "The engine's TransformResult recorded 0 rewrite steps; the expression \
+                         was already in its target form.",
+                    )
+                    .small()
+                    .color(DIM),
+                );
+            }
+            for (index, step) in steps.iter().enumerate() {
+                ui.add_space(2.0);
+                ui.label(
+                    RichText::new(format!("{}. {}", index + 1, step.rule_id))
+                        .monospace()
+                        .color(ACCENT),
+                );
+                ui.label(
+                    RichText::new(format!("classification  {}", step.classification))
+                        .small()
+                        .color(DIM),
+                );
+                ui.label(
+                    RichText::new(format!("before  {}", step.before))
+                        .monospace()
+                        .color(TEXT),
+                );
+                if !step.before_canonical.is_empty() {
+                    ui.label(
+                        RichText::new(format!("canonical  {}", step.before_canonical))
+                            .small()
+                            .monospace()
+                            .color(DIM),
+                    );
+                }
+                ui.label(
+                    RichText::new(format!("after   {}", step.after))
+                        .monospace()
+                        .color(TEXT),
+                );
+                if !step.after_canonical.is_empty() {
+                    ui.label(
+                        RichText::new(format!("canonical  {}", step.after_canonical))
+                            .small()
+                            .monospace()
+                            .color(DIM),
+                    );
+                }
+                if step.conditions.is_empty() {
+                    ui.label(
+                        RichText::new("requires  none")
+                            .small()
+                            .monospace()
+                            .color(DIM),
+                    );
+                } else {
+                    ui.label(RichText::new("requires").small().color(DIM));
+                    for condition in &step.conditions {
+                        paint_inspector_assumption(ui, condition);
+                    }
+                }
+            }
+        }
+        Section::Missing(reason) => {
+            paint_inspector_heading(ui, "Simplification trace", "");
+            paint_inspector_reason(ui, reason);
+        }
+    }
+
+    match &inspection.mathir {
+        Section::Supplied(mathir) => {
+            let result_type = mathir
+                .result_type
+                .as_deref()
+                .map(|kind| format!(" · result {kind}"))
+                .unwrap_or_default();
+            paint_inspector_heading(
+                ui,
+                "MathIR",
+                &format!(
+                    "compile · parameters [{}]{result_type}",
+                    mathir.parameters.join(", ")
+                ),
+            );
+            // SYM-007 groundwork: monospaced, selectable, and scrollable both ways. The outer
+            // pane scrolls vertically; this inner area bounds the IR's own height and width.
+            egui::ScrollArea::both()
+                .id_salt("inspector_mathir")
+                .max_height(240.0)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.add(
+                        egui::Label::new(RichText::new(&mathir.text).monospace().color(TEXT))
+                            .selectable(true)
+                            .extend(),
+                    );
+                });
+        }
+        Section::Missing(reason) => {
+            paint_inspector_heading(ui, "MathIR", "");
+            paint_inspector_reason(ui, reason);
+        }
+    }
+}
+
+/// `1 node` / `5 nodes`, so a one-item section does not read as a count bug.
+fn count_label(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {singular}")
+    } else {
+        format!("{count} {plural}")
+    }
+}
+
+fn paint_inspector_heading(ui: &mut Ui, title: &str, detail: &str) {
+    ui.add_space(8.0);
+    ui.horizontal_wrapped(|ui| {
+        ui.label(RichText::new(title).small().color(DIM));
+        if !detail.is_empty() {
+            ui.label(RichText::new(detail).small().color(ACCENT));
+        }
+    });
+}
+
+fn paint_inspector_text(ui: &mut Ui, text: &str) {
+    ui.add(
+        egui::Label::new(RichText::new(text).monospace().color(TEXT))
+            .selectable(true)
+            .wrap(),
+    );
+}
+
+fn paint_inspector_reason(ui: &mut Ui, reason: &str) {
+    ui.label(RichText::new(reason).small().color(WARN));
+}
+
+fn paint_inspector_assumption(ui: &mut Ui, assumption: &crate::inspector::Assumption) {
+    ui.horizontal_wrapped(|ui| {
+        ui.add_space(6.0);
+        ui.label(
+            RichText::new(format!("[{}]", assumption.source))
+                .small()
+                .color(DIM),
+        );
+        ui.label(
+            RichText::new(assumption.type_label())
+                .small()
+                .color(ACCENT),
+        );
+        ui.label(RichText::new(&assumption.label).monospace().color(TEXT));
+    });
+    if let Some(canonical) = &assumption.canonical {
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(12.0);
+            ui.label(RichText::new("canonical").small().color(DIM));
+            ui.label(
+                RichText::new(canonical)
+                    .small()
+                    .monospace()
+                    .color(DIM),
+            );
+        });
+    }
+}
+
+/// Paints one expression-tree node. A node with children is a collapsible button header whose
+/// accessible name carries the node kind, the engine pretty rendering, the node path and the
+/// state; a leaf is a single indented row. Child order is the engine's child order.
+fn paint_inspector_node(
+    ui: &mut Ui,
+    node: &crate::inspector::TreeNode,
+    path: &str,
+    expansion: &mut InspectorExpansion,
+    toggles: &mut Vec<(String, Rect)>,
+) {
+    let label = node.header();
+    if node.children.is_empty() {
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(8.0);
+            ui.label(RichText::new(label).monospace().color(TEXT));
+        });
+        return;
+    }
+    let visible = format!("{} {}", expansion.glyph(path), label);
+    let response = ui
+        .push_id(path, |ui| {
+            ui.add(egui::Button::new(RichText::new(visible).monospace().color(ACCENT)).frame(false))
+        })
+        .inner;
+    if response.clicked() {
+        expansion.toggle(path);
+        ui.memory_mut(|memory| memory.request_focus(response.id));
+        ui.ctx().request_repaint();
+    }
+    let accessible = expansion.accessible_name(path, &label);
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, accessible.clone()));
+    let action = if expansion.is_collapsed(path) {
+        "expand"
+    } else {
+        "collapse"
+    };
+    response.clone().on_hover_text(format!(
+        "{path} · {} — click, or press Space/Enter, to {action}",
+        expansion.state_word(path)
+    ));
+    toggles.push((path.to_string(), response.rect));
+    if !expansion.is_collapsed(path) {
+        ui.indent(path, |ui| {
+            for (index, child) in node.children.iter().enumerate() {
+                paint_inspector_node(ui, child, &tree_path(path, index), expansion, toggles);
+            }
+        });
     }
 }
 
@@ -3102,6 +3478,7 @@ mod tests {
             total: 1,
             result: display.to_string(),
             result_structured: Some(structured),
+            result_inspection: None,
             variables: Vec::new(),
             functions: Vec::new(),
             state: EngineState::default(),
@@ -3682,5 +4059,455 @@ mod tests {
             app.expansion.is_collapsed("result.solutions"),
             "editing the buffer must not reset the result tree"
         );
+    }
+
+    /// SYM-001: one inspection payload in the exact shape `engine::real::inspection` publishes.
+    /// `mathir` is either the supplied IR object or a `{reason}` object.
+    fn inspector_payload(mathir: lovelace_json::Json) -> lovelace_json::Json {
+        use lovelace_json::Json;
+        let relation = Json::obj([
+            ("source", Json::Str("session".to_string())),
+            ("kind", Json::Str("Relation".to_string())),
+            ("op", Json::Str("gt".to_string())),
+            ("opLabel", Json::Str(">".to_string())),
+            ("left", Json::Str("x".to_string())),
+            ("right", Json::Str("0".to_string())),
+            ("label", Json::Str("x > 0".to_string())),
+            (
+                "canonical",
+                Json::Str("(gt (sym x) (rat 0 1))".to_string()),
+            ),
+        ]);
+        let leaf = |kind: &str, label: &str| {
+            Json::obj([
+                ("kind", Json::Str(kind.to_string())),
+                ("label", Json::Str(label.to_string())),
+                ("children", Json::Arr(Vec::new())),
+            ])
+        };
+        let finite = Json::obj([
+            ("source", Json::Str("required".to_string())),
+            ("kind", Json::Str("FiniteCondition".to_string())),
+            (
+                "label",
+                Json::Str("FiniteCondition(expression: log(x))".to_string()),
+            ),
+        ]);
+        Json::obj([
+            (
+                "subject",
+                Json::obj([
+                    ("kind", Json::Str("Symbolic".to_string())),
+                    ("path", Json::Str("result".to_string())),
+                ]),
+            ),
+            (
+                "sections",
+                Json::obj([
+                    (
+                        "pretty",
+                        Json::obj([("text", Json::Str("3*x^2".to_string()))]),
+                    ),
+                    (
+                        "canonical",
+                        Json::obj([(
+                            "text",
+                            Json::Str("(mul (rat 3 1) (pow (sym x) (rat 2 1)))".to_string()),
+                        )]),
+                    ),
+                    (
+                        "tree",
+                        Json::obj([
+                            ("nodes", Json::Num("5".to_string())),
+                            (
+                                "root",
+                                Json::obj([
+                                    ("kind", Json::Str("Mul".to_string())),
+                                    ("label", Json::Str("3*x^2".to_string())),
+                                    (
+                                        "children",
+                                        Json::Arr(vec![
+                                            leaf("Num", "3"),
+                                            Json::obj([
+                                                ("kind", Json::Str("Pow".to_string())),
+                                                ("label", Json::Str("x^2".to_string())),
+                                                (
+                                                    "children",
+                                                    Json::Arr(vec![leaf("Sym", "x"), leaf("Num", "2")]),
+                                                ),
+                                            ]),
+                                        ]),
+                                    ),
+                                ]),
+                            ),
+                        ]),
+                    ),
+                    (
+                        "assumptions",
+                        Json::obj([("items", Json::Arr(vec![relation]))]),
+                    ),
+                    (
+                        "trace",
+                        Json::obj([(
+                            "steps",
+                            Json::Arr(vec![Json::obj([
+                                ("ruleId", Json::Str("logexp.exp-log".to_string())),
+                                ("classification", Json::Str("Conditional".to_string())),
+                                (
+                                    "before",
+                                    Json::obj([
+                                        ("pretty", Json::Str("exp(log(x))".to_string())),
+                                        (
+                                            "canonical",
+                                            Json::Str("(fun exp (fun log (sym x)))".to_string()),
+                                        ),
+                                    ]),
+                                ),
+                                (
+                                    "after",
+                                    Json::obj([
+                                        ("pretty", Json::Str("x".to_string())),
+                                        ("canonical", Json::Str("(sym x)".to_string())),
+                                    ]),
+                                ),
+                                ("conditions", Json::Arr(vec![finite])),
+                            ])]),
+                        )]),
+                    ),
+                    ("mathir", mathir),
+                ]),
+            ),
+        ])
+    }
+
+    fn inspector_view(mathir: lovelace_json::Json) -> DocumentView {
+        let mut view = result_view("Symbolic 3*x^2");
+        view.result = "3*x^2".to_string();
+        view.result_structured = Some(lovelace_json::Json::obj([
+            (
+                "kind",
+                lovelace_json::Json::Str("Symbolic".to_string()),
+            ),
+            (
+                "pretty",
+                lovelace_json::Json::Str("3*x^2".to_string()),
+            ),
+            (
+                "canonical",
+                lovelace_json::Json::Str(
+                    "(mul (rat 3 1) (pow (sym x) (rat 2 1)))".to_string(),
+                ),
+            ),
+        ]));
+        view.result_inspection = Some(inspector_payload(mathir));
+        view
+    }
+
+    fn supplied_mathir() -> lovelace_json::Json {
+        use lovelace_json::Json;
+        Json::obj([
+            (
+                "text",
+                Json::Str("#!mathir 2\nparam x\nParameter 0 0\nPowInt 0 0,1\nMul 0 0,2".to_string()),
+            ),
+            ("parameters", Json::str_array(["x"])),
+            ("resultType", Json::Str("Integer".to_string())),
+        ])
+    }
+
+    fn missing_mathir() -> lovelace_json::Json {
+        use lovelace_json::Json;
+        Json::obj([(
+            "reason",
+            Json::Str("Node kind Relation cannot be lowered to MathIR.".to_string()),
+        )])
+    }
+
+    /// Paints one inspector pass and returns every Text shape in paint order.
+    fn paint_inspector_frame(
+        ctx: &egui::Context,
+        view: &DocumentView,
+        expansion: &mut InspectorExpansion,
+        toggles: &mut Vec<(String, Rect)>,
+        events: Vec<egui::Event>,
+    ) -> Vec<String> {
+        toggles.clear();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(460.0, 1200.0))),
+            events,
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                paint_inspector(ui, view, 420.0, expansion, toggles);
+            });
+        });
+        output.textures_delta.clear();
+        let mut texts = Vec::new();
+        for clipped in &output.shapes {
+            collect_shape_text(&clipped.shape, &mut texts);
+        }
+        texts
+    }
+
+    /// SYM-001 at the paint layer: all six sections come from the payload, not from the display.
+    #[test]
+    fn the_inspector_paints_all_six_sections_from_the_engine_payload() {
+        let ctx = egui::Context::default();
+        let view = inspector_view(supplied_mathir());
+        let mut expansion = InspectorExpansion::new();
+        let mut toggles = Vec::new();
+        let texts = paint_inspector_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+
+        assert!(
+            texts.iter().any(|text| text == "INSPECTOR · last committed result"),
+            "the inspector heading: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "Pretty"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text == "3*x^2"),
+            "the engine's pretty text: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "Canonical"), "{texts:?}");
+        assert!(
+            texts
+                .iter()
+                .any(|text| text == "(mul (rat 3 1) (pow (sym x) (rat 2 1)))"),
+            "the engine's canonical text: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "Expression tree"),
+            "{texts:?}"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|text| text.ends_with("Mul · 3*x^2")),
+            "the tree root's node kind and engine rendering: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "Num · 3"),
+            "a leaf child in engine child order: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "Assumptions"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text == "relation >"),
+            "the assumption is a typed relation, not prose: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "x > 0"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text == "Simplification trace"),
+            "{texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "1. logexp.exp-log"),
+            "{texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "classification  Conditional"),
+            "{texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "before  exp(log(x))"),
+            "{texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "after   x"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text == "FiniteCondition"),
+            "the required condition's engine record kind: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "MathIR"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text.contains("#!mathir 2")),
+            "the engine IR text is painted: {texts:?}"
+        );
+        assert!(
+            !texts.iter().any(|text| text.contains("display:")),
+            "the inspector never paints the result display caption: {texts:?}"
+        );
+    }
+
+    /// SYM-009: a subject that cannot lower to MathIR keeps its reason while every other
+    /// supplied section stays usable.
+    #[test]
+    fn a_missing_mathir_shows_the_reason_and_leaves_the_other_sections_usable() {
+        let ctx = egui::Context::default();
+        let view = inspector_view(missing_mathir());
+        let mut expansion = InspectorExpansion::new();
+        let mut toggles = Vec::new();
+        let texts = paint_inspector_frame(&ctx, &view, &mut expansion, &mut toggles, Vec::new());
+
+        assert!(
+            texts
+                .iter()
+                .any(|text| text == "Node kind Relation cannot be lowered to MathIR."),
+            "the engine's specific refusal: {texts:?}"
+        );
+        assert!(texts.iter().any(|text| text == "MathIR"), "{texts:?}");
+        assert!(
+            texts.iter().any(|text| text == "3*x^2"),
+            "pretty stays usable: {texts:?}"
+        );
+        assert!(
+            texts
+                .iter()
+                .any(|text| text == "(mul (rat 3 1) (pow (sym x) (rat 2 1)))"),
+            "canonical stays usable: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text.ends_with("Mul · 3*x^2")),
+            "the tree stays usable: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "relation >"),
+            "assumptions stay usable: {texts:?}"
+        );
+    }
+
+    /// SYM-002: the inspector renders the last committed result, not the editor buffer. An edit
+    /// changes neither the payload nor the painted inspector; a new committed result does both.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_inspector_is_bound_to_the_committed_result_not_the_buffer() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(
+            0,
+            "x = symbol(\"x\")\nassume(x > 0)\ndiff(x^3, x)".to_string(),
+        );
+        assert!(workbench.run_active(), "the first run must start");
+        assert!(
+            workbench.wait_until_idle(Duration::from_secs(15)),
+            "the first run must finish"
+        );
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        let screen = vec2(2500.0, 1380.0);
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+
+        let before = app.view.clone();
+        assert!(
+            before.result_inspection.is_some(),
+            "the real engine published an inspection payload"
+        );
+        let mut expansion = InspectorExpansion::new();
+        let mut toggles = Vec::new();
+        let first = paint_inspector_frame(&ctx, &before, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            first.iter().any(|text| text == "3*x^2"),
+            "the committed diff result is inspected: {first:?}"
+        );
+        assert!(
+            first.iter().any(|text| text == "x > 0"),
+            "the session assumption is inspected: {first:?}"
+        );
+
+        // Editing advances the buffer revision and marks the result stale, but publishes no new
+        // result: the inspector must not move.
+        app.workbench.set_source(
+            0,
+            "x = symbol(\"x\")\n1 + 1".to_string(),
+        );
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        assert_eq!(
+            app.view.result_inspection, before.result_inspection,
+            "editing the buffer must not change the inspected payload"
+        );
+        let after_edit =
+            paint_inspector_frame(&ctx, &app.view, &mut expansion, &mut toggles, Vec::new());
+        assert_eq!(
+            after_edit, first,
+            "editing the buffer must paint the same inspector"
+        );
+
+        // A new committed result replaces the payload, the tree and the rendered text.
+        app.workbench.set_source(
+            0,
+            "x = symbol(\"x\")\nassume(x > 0)\ndiff(x^4, x)".to_string(),
+        );
+        assert!(app.workbench.run_active(), "the second run must start");
+        assert!(
+            app.workbench.wait_until_idle(Duration::from_secs(15)),
+            "the second run must finish"
+        );
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        assert_ne!(
+            app.view.result_inspection, before.result_inspection,
+            "a new committed result must publish a different inspection"
+        );
+        let second =
+            paint_inspector_frame(&ctx, &app.view, &mut expansion, &mut toggles, Vec::new());
+        assert!(
+            second.iter().any(|text| text == "4*x^3"),
+            "the new result's pretty form is painted: {second:?}"
+        );
+        assert!(
+            !second.iter().any(|text| text == "3*x^2"),
+            "the old result's pretty form is gone: {second:?}"
+        );
+    }
+
+    /// SYM-001 through the shipped window layout: the Workspace pane's Inspector tab is a real
+    /// pointer target, and selecting it swaps the Result view for the inspector.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_workspace_inspector_tab_swaps_the_view_and_the_result_tab_restores_it() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(
+            0,
+            "x = symbol(\"x\")\nassume(x > 0)\ndiff(x^3, x)".to_string(),
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(15)));
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        let ctx = egui::Context::default();
+        let screen = vec2(2500.0, 1380.0);
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        assert!(!app.inspector_open, "the Result view is the default");
+
+        let inspector_tab = app
+            .workspace_view_tabs[1]
+            .expect("the window painted the Inspector tab");
+        let pos = inspector_tab.center();
+        frame_sized(&ctx, &mut app, screen, vec![egui::Event::PointerMoved(pos)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, false)]);
+        assert!(
+            app.inspector_open,
+            "clicking the Inspector tab must select it"
+        );
+        frame_sized(&ctx, &mut app, screen, Vec::new());
+        let mut texts = Vec::new();
+        let input = egui::RawInput {
+            screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), screen)),
+            ..Default::default()
+        };
+        let mut output = ctx.run_ui(input, |ui| app.ui_root(ui));
+        output.textures_delta.clear();
+        for clipped in &output.shapes {
+            collect_shape_text(&clipped.shape, &mut texts);
+        }
+        assert!(
+            texts.iter().any(|text| text == "INSPECTOR · last committed result"),
+            "the inspector heading is painted: {texts:?}"
+        );
+        assert!(
+            texts.iter().any(|text| text == "3*x^2"),
+            "the committed pretty form is painted: {texts:?}"
+        );
+        assert!(
+            !texts.iter().any(|text| text == "RESULT · structured projection"),
+            "the Result view is replaced, not stacked: {texts:?}"
+        );
+
+        let result_tab = app
+            .workspace_view_tabs[0]
+            .expect("the window painted the Result tab");
+        let pos = result_tab.center();
+        frame_sized(&ctx, &mut app, screen, vec![egui::Event::PointerMoved(pos)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, true)]);
+        frame_sized(&ctx, &mut app, screen, vec![pointer_button(pos, false)]);
+        assert!(!app.inspector_open, "clicking Result must restore the result view");
     }
 }

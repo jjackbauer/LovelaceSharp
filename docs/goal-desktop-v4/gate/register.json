@@ -2739,14 +2739,43 @@
                      "type":  "W",
                      "requirement":  "Match web inspector information",
                      "acceptance":  "Display pretty, canonical, expression tree, current assumptions, simplification trace and MathIR, where engine supplies them.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-28/simplify-trace-uia.txt",
+                                          "sha256":  "E92FED2BF20DE40AD2581CE47C2409A704CDF0ACA9216C7C333EDF34B0D8A311",
+                                          "class":  "gui",
+                                          "at_head":  "0119c9d5401267c64923b27c463cc17d0f059e5a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-28/symbolic-diff-uia.txt",
+                                          "sha256":  "4D5C37074F01B4A3CD904054DE85FB52610EDF3BFF192D6017DE4E3032B0DB64",
+                                          "class":  "gui",
+                                          "at_head":  "0119c9d5401267c64923b27c463cc17d0f059e5a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-28/simplify-trace.png",
+                                          "sha256":  "1EB8826D4F18820E200E407169A05DE14318C0D200EC3DCC054D7151E5418AFB",
+                                          "class":  "gui",
+                                          "at_head":  "0119c9d5401267c64923b27c463cc17d0f059e5a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-28/symbolic-diff.png",
+                                          "sha256":  "273FA80285B371316BF3698B238157F7D816425950882C1F67686CB0CF7B32C3",
+                                          "class":  "gui",
+                                          "at_head":  "0119c9d5401267c64923b27c463cc17d0f059e5a"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-28/symbolic-inspector.md",
+                                          "sha256":  "8464C629D1F6C146A278553FA7FF8CF772976B5223A84B7AF0C345B67B3E4790",
+                                          "class":  "gui",
+                                          "at_head":  "0119c9d5401267c64923b27c463cc17d0f059e5a"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop inspector; UIA dumps",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Inspector from the engine payload: pretty/canonical projection, Expr tree from Value::Symbolic (no text parsing), assumptions as typed relations, trace from TransformResult.steps, MathIR via mathir::compile_ordered; simplify_full supplies all six, missing ones show a specific reason. Bound to the committed result, not the buffer. 261 tests."
                  },
                  {
                      "id":  "SYM-002",

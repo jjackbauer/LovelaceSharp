@@ -227,6 +227,7 @@ fn check_cancel() -> Result<(), String> {
     let stale = RunOutput {
         result: Ok("2".to_string()),
         result_structured: None,
+        result_inspection: None,
         output: vec!["late".to_string()],
         variables: vec![("late".to_string(), "1".to_string())],
         functions: Vec::new(),

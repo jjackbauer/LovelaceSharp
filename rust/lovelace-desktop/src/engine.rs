@@ -26,6 +26,8 @@ use lovelace_json::Json;
 #[cfg_attr(not(test), allow(dead_code))]
 mod fake;
 #[cfg(feature = "real-engine")]
+pub mod inspection;
+#[cfg(feature = "real-engine")]
 pub mod real;
 
 #[allow(unused_imports)]
@@ -276,6 +278,12 @@ pub struct RunOutput {
     /// `None` when the run failed or the evaluator publishes no projection. The desktop renders
     /// this value directly and never reconstructs it from [`Self::result`].
     pub result_structured: Option<Json>,
+    /// The engine's symbolic inspection payload for that same result, when it publishes one.
+    ///
+    /// SYM-001: the adapter captures pretty, canonical, the expression tree, assumptions, the
+    /// rewrite trace and MathIR at the moment the value exists. The window renders this payload;
+    /// it never derives a section from [`Self::result`] or from [`Self::result_structured`].
+    pub result_inspection: Option<Json>,
     /// print() lines produced by the run, in order.
     pub output: Vec<String>,
     /// Variables visible to the document after the run: name, display.
@@ -299,9 +307,11 @@ pub trait Evaluator {
     fn eval_full(&mut self, src: &str) -> RunOutput {
         let result = self.eval(src);
         let result_structured = self.last_structured();
+        let result_inspection = self.last_inspection();
         RunOutput {
             result,
             result_structured,
+            result_inspection,
             output: self.take_output(),
             variables: self.variables(),
             functions: self.functions(),
@@ -368,6 +378,17 @@ pub trait Evaluator {
     /// evaluator that knows only display strings publishes no structure and the window renders
     /// no tree rather than guessing one from the display text.
     fn last_structured(&self) -> Option<Json> {
+        None
+    }
+
+    /// The engine's symbolic inspection payload for the value the most recent successful
+    /// [`Self::eval`] returned.
+    ///
+    /// SYM-001: this is not a second evaluation. The real adapter captures the six sections from
+    /// the value it already holds (its structured projection, its expression AST, `inspect`, a
+    /// `TransformResult`'s steps, and the compile path). The default is `None`, so an evaluator
+    /// that knows only display strings shows the explicit "no inspection" state.
+    fn last_inspection(&self) -> Option<Json> {
         None
     }
 
@@ -496,6 +517,10 @@ mod tests {
         assert_eq!(engine.precision(), DEFAULT_PRECISION);
         assert!(engine.variables().is_empty());
         assert!(engine.last_plot().is_none());
+        assert!(
+            engine.last_inspection().is_none(),
+            "a minimal evaluator publishes no inspection rather than a guessed one"
+        );
         assert_eq!(engine.name(), "evaluator");
         assert_eq!(engine.revision(), 0);
         assert!(engine.state().expect("a default capture").is_empty());

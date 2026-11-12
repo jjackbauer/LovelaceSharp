@@ -217,6 +217,11 @@ pub struct DocumentView {
     /// RES-001: carried alongside [`Self::result`] from the one committed snapshot; the window's
     /// result tree is built only from this value.
     pub result_structured: Option<lovelace_json::Json>,
+    /// SYM-001: the engine's symbolic inspection payload for that same committed result.
+    ///
+    /// Copied from the one committed snapshot, so editing the buffer cannot change it and a new
+    /// committed result replaces it together with the result display and structured projection.
+    pub result_inspection: Option<lovelace_json::Json>,
     /// Variables after the committed prefix, sorted by the engine.
     pub variables: Vec<(String, String)>,
     /// Functions after the committed prefix (the engine registry, WKS-002).
@@ -1335,6 +1340,7 @@ impl Workbench {
                 .map(|snapshot| snapshot.result.clone())
                 .unwrap_or_default(),
             result_structured: snapshot.and_then(|snapshot| snapshot.result_structured.clone()),
+            result_inspection: snapshot.and_then(|snapshot| snapshot.result_inspection.clone()),
             variables: snapshot
                 .map(|snapshot| snapshot.variables.clone())
                 .unwrap_or_default(),

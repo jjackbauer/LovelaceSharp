@@ -12,6 +12,9 @@ lovelace-json = { path = "../lovelace-json" }
 # --no-default-features still builds and every document falls back to the deterministic
 # engine::FakeEngine; the default feature set wires the real engine behind engine::Evaluator.
 lovelace-lang = { path = "../lovelace-lang", optional = true }
+# SYM-001: the engine's symbolic expression type, read (never modified) to project the
+# expression tree the structured value projection does not carry. Only the real adapter uses it.
+lovelace-symbolics = { path = "../lovelace-symbolics", optional = true }
 
 # The new native workbench (round-5 cutover) reuses the measured eframe/egui 0.37 and
 # resvg 0.50 stack from rust/lovelace-desktop-spike. These are Windows-only because the
@@ -25,7 +28,7 @@ resvg = "0.50"
 [features]
 default = ["real-engine"]
 # Enables engine::real::RealEngine, the adapter over lovelace_lang::Engine (CONTRACT.md).
-real-engine = ["dep:lovelace-lang"]
+real-engine = ["dep:lovelace-lang", "dep:lovelace-symbolics"]
 
 [lints]
 workspace = true
