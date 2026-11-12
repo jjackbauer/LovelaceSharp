@@ -16,6 +16,7 @@ use egui::{
     Align2, Color32, CursorIcon, FontId, Rect, RichText, Sense, Stroke, TextStyle, Ui, pos2, vec2,
 };
 
+use crate::completion::{self, CaretContext, CompletionItem, CompletionKind, CompletionSession};
 use crate::diagnostic_map::{self, DiagnosticRange};
 use crate::execution::Diagnostic;
 
@@ -35,6 +36,23 @@ pub const CARET: Color32 = Color32::from_rgb(0xf0, 0xf4, 0xf8);
 pub const DIAGNOSTIC_UNDERLINE: Color32 = Color32::from_rgb(0xff, 0x7b, 0x72);
 /// Diagnostic gutter-marker colour; a little deeper than the underline so it reads as a marker.
 pub const DIAGNOSTIC_MARKER: Color32 = Color32::from_rgb(0xe0, 0x4b, 0x45);
+/// Completion popup background: one step above the pane background so it reads as an overlay.
+pub const COMPLETION_BG: Color32 = Color32::from_rgb(0x1b, 0x22, 0x2a);
+/// Completion popup border, in the accent colour.
+pub const COMPLETION_BORDER: Color32 = Color32::from_rgb(0x4e, 0xc9, 0xb0);
+/// The highlighted completion row.
+pub const COMPLETION_SELECTED: Color32 = Color32::from_rgb(0x2b, 0x4a, 0x47);
+/// The detail column of a completion row.
+pub const COMPLETION_DETAIL: Color32 = Color32::from_rgb(0x8b, 0x98, 0xa9);
+/// User-defined and host functions: a distinct accent from the builtins, which use the
+/// highlighter's builtin blue. This is how the popup marks user functions apart.
+pub const COMPLETION_FUNCTION: Color32 = Color32::from_rgb(0x4e, 0xc9, 0xb0);
+/// Variables use the plain text colour; their detail carries the kind.
+pub const COMPLETION_VARIABLE: Color32 = Color32::from_rgb(0xd8, 0xde, 0xe9);
+/// Height of one completion row, in pixels.
+const COMPLETION_ROW_H: f32 = 18.0;
+/// The popup never grows past this many rows; the highlight scrolls the window inside it.
+const COMPLETION_MAX_ROWS: usize = 9;
 
 /// What one editor pass laid out, for the status strip and for measurement.
 #[allow(dead_code)] // the benchmark-side fields stay part of the measured editor surface
@@ -78,6 +96,8 @@ pub struct TextEditor {
     /// revision-gated; the editor additionally drops it on the same pass as an edit and refuses
     /// to paint a line past the buffer.
     pub diagnostic: Option<Diagnostic>,
+    /// The live completion popup: filtered entries, highlight and the prefix acceptance replaces.
+    pub completion: CompletionSession,
 }
 
 /// The stable egui id of the editor surface.
@@ -105,6 +125,7 @@ impl TextEditor {
             last_ui_ms: 0.0,
             edits: 0,
             diagnostic: None,
+            completion: CompletionSession::default(),
         }
     }
 
@@ -114,6 +135,7 @@ impl TextEditor {
         self.caret_row = self.caret_row.min(self.line_count().saturating_sub(1));
         self.caret_col = self.caret_col.min(self.line_chars(self.caret_row));
         self.scroll_y = 0.0;
+        self.completion.dismiss();
     }
 
     /// The current buffer as source text. Exactly the text supplied to [`TextEditor::load`]
@@ -283,6 +305,68 @@ impl TextEditor {
         }
     }
 
+    /// Opens completion for the caret's identifier prefix; Ctrl+Space also opens it with an
+    /// empty prefix (the whole catalogue). Strings and comments suppress it even explicitly.
+    fn open_completion(&mut self, catalogue: &[CompletionItem]) {
+        let line = self.lines[self.caret_row].clone();
+        if completion::caret_context(&line, self.caret_col) != CaretContext::Code {
+            self.completion.dismiss();
+            return;
+        }
+        let (prefix, start) = completion::identifier_prefix(&line, self.caret_col)
+            .map(|prefix| (prefix.text, prefix.start_col))
+            .unwrap_or_else(|| (String::new(), self.caret_col));
+        self.completion.show(catalogue, &prefix, start);
+    }
+
+    /// Refreshes completion after typed text: opens on an identifier prefix, closes otherwise.
+    ///
+    /// This is the "automatically after typing an identifier prefix of at least one character"
+    /// trigger. A character typed inside a string or comment (or after punctuation, or into a
+    /// number) closes the popup instead of showing a stale filter.
+    fn refresh_completion(&mut self, catalogue: &[CompletionItem]) {
+        let line = self.lines[self.caret_row].clone();
+        if completion::caret_context(&line, self.caret_col) != CaretContext::Code {
+            self.completion.dismiss();
+            return;
+        }
+        match completion::identifier_prefix(&line, self.caret_col) {
+            Some(prefix) => {
+                self.completion.show(catalogue, &prefix.text, prefix.start_col);
+            }
+            None => self.completion.dismiss(),
+        }
+    }
+
+    /// Accepts the highlighted entry, replacing exactly the identifier prefix.
+    fn accept_completion(&mut self) {
+        if let Some((row, col)) =
+            self.completion
+                .accept(&mut self.lines, self.caret_row, self.caret_col)
+        {
+            self.caret_row = row;
+            self.caret_col = col;
+            self.edits += 1;
+        }
+    }
+
+    /// The one-line completion state the pane header publishes (and the capture records).
+    ///
+    /// It is a plain egui label in the header, so the typed prefix, the selected signature and
+    /// the entry's origin are part of the window's accessibility tree even though the popup
+    /// itself is painted.
+    pub fn completion_summary(&self) -> Option<String> {
+        let item = self.completion.selected()?;
+        Some(format!(
+            "Completion: {} -> {} [{}] {}/{}",
+            self.completion.prefix(),
+            item.detail,
+            item.kind.tag(),
+            self.completion.selected_index() + 1,
+            self.completion.items().len()
+        ))
+    }
+
     fn set_caret_from_pos(
         &mut self,
         position: egui::Pos2,
@@ -300,7 +384,10 @@ impl TextEditor {
     }
 
     /// Draws and edits the buffer inside `rect`.
-    pub fn ui(&mut self, ui: &mut Ui, rect: Rect) -> EditorMetrics {
+    ///
+    /// `catalogue` is the live completion catalogue for the active document (the window
+    /// rebuilds it from the engine's registry and the last committed snapshot each pass).
+    pub fn ui(&mut self, ui: &mut Ui, rect: Rect, catalogue: &[CompletionItem]) -> EditorMetrics {
         let started = Instant::now();
         let edits_before = self.edits;
         let font = FontId::monospace(13.0);
@@ -323,23 +410,6 @@ impl TextEditor {
             response.request_focus();
         }
         let focused = ui.memory(|memory| memory.has_focus(id));
-        if focused {
-            // Keep the arrow keys for the caret. egui's focus system otherwise treats a bare
-            // arrow as "move keyboard focus to the closest widget in that direction" before the
-            // editor can consume it, which drops focus out of the editor after one Up/Down
-            // (DEF-002). The lock is stored for the next pass; the editor itself reads the keys
-            // below. Tab and Escape are left to egui so focus navigation and Cancel still work.
-            ui.memory_mut(|memory| {
-                memory.set_focus_lock_filter(
-                    id,
-                    egui::EventFilter {
-                        horizontal_arrows: true,
-                        vertical_arrows: true,
-                        ..Default::default()
-                    },
-                );
-            });
-        }
         if response.hovered() {
             ui.ctx().set_cursor_icon(CursorIcon::Text);
             let scroll = ui.input(|input| input.smooth_scroll_delta.y);
@@ -350,37 +420,136 @@ impl TextEditor {
 
         if focused {
             let events = ui.input(|input| input.events.clone());
+            // Ctrl+Space opens the popup explicitly, with the caret's prefix or the whole
+            // catalogue when the prefix is empty. Some backends also deliver the space as a
+            // Text event; that one is swallowed so the shortcut can never insert a space.
+            let mut explicit = false;
+            for event in &events {
+                if let egui::Event::Key {
+                    key: egui::Key::Space,
+                    pressed: true,
+                    modifiers,
+                    ..
+                } = event
+                {
+                    if modifiers.command || modifiers.ctrl {
+                        explicit = true;
+                    }
+                }
+            }
+            let mut swallow_space = explicit;
+            if explicit {
+                self.open_completion(catalogue);
+            }
             for event in events {
                 match event {
-                    egui::Event::Text(text) => self.insert_str(&text),
-                    egui::Event::Paste(text) => self.insert_str(&text),
+                    egui::Event::Text(text) => {
+                        if swallow_space && text == " " {
+                            swallow_space = false;
+                            continue;
+                        }
+                        self.insert_str(&text);
+                        self.refresh_completion(catalogue);
+                    }
+                    egui::Event::Paste(text) => {
+                        self.insert_str(&text);
+                        self.completion.dismiss();
+                    }
                     egui::Event::Key {
                         key,
                         pressed: true,
                         modifiers,
                         ..
                     } => match key {
-                        egui::Key::Backspace => self.backspace(),
-                        egui::Key::Delete => self.delete_forward(),
+                        egui::Key::Backspace => {
+                            self.completion.dismiss();
+                            self.backspace();
+                        }
+                        egui::Key::Delete => {
+                            self.completion.dismiss();
+                            self.delete_forward();
+                        }
                         egui::Key::Enter => {
                             // Ctrl+Enter is the workbench's Run shortcut; it must not also
-                            // insert a newline into the document.
+                            // insert a newline into the document, and it never accepts a
+                            // completion.
                             if !(modifiers.command || modifiers.ctrl) {
-                                self.newline();
+                                if self.completion.is_open() {
+                                    self.accept_completion();
+                                } else {
+                                    self.newline();
+                                }
                             }
                         }
-                        egui::Key::Tab => self.insert_str("  "),
-                        egui::Key::ArrowLeft => self.move_left(),
-                        egui::Key::ArrowRight => self.move_right(),
-                        egui::Key::ArrowUp => self.move_up(),
-                        egui::Key::ArrowDown => self.move_down(),
-                        egui::Key::Home => self.caret_col = 0,
-                        egui::Key::End => self.caret_col = self.line_chars(self.caret_row),
+                        egui::Key::Tab => {
+                            if self.completion.is_open() {
+                                self.accept_completion();
+                            } else {
+                                self.insert_str("  ");
+                            }
+                        }
+                        egui::Key::Escape => {
+                            // Dismiss only: the buffer and the caret stay exactly as they were.
+                            self.completion.dismiss();
+                        }
+                        egui::Key::ArrowLeft => {
+                            self.completion.dismiss();
+                            self.move_left();
+                        }
+                        egui::Key::ArrowRight => {
+                            self.completion.dismiss();
+                            self.move_right();
+                        }
+                        egui::Key::ArrowUp => {
+                            if self.completion.is_open() {
+                                self.completion.move_selection(-1);
+                            } else {
+                                self.move_up();
+                            }
+                        }
+                        egui::Key::ArrowDown => {
+                            if self.completion.is_open() {
+                                self.completion.move_selection(1);
+                            } else {
+                                self.move_down();
+                            }
+                        }
+                        egui::Key::Home => {
+                            self.completion.dismiss();
+                            self.caret_col = 0;
+                        }
+                        egui::Key::End => {
+                            self.completion.dismiss();
+                            self.caret_col = self.line_chars(self.caret_row);
+                        }
                         _ => {}
                     },
                     _ => {}
                 }
             }
+        }
+
+        if focused {
+            // Keep the arrow keys for the caret. egui's focus system otherwise treats a bare
+            // arrow as "move keyboard focus to the closest widget in that direction" before the
+            // editor can consume it, which drops focus out of the editor after one Up/Down
+            // (DEF-002). While the popup is open, Tab and Escape belong to it too: Tab accepts
+            // a completion instead of moving focus, and Escape dismisses the popup instead of
+            // surrendering focus. The filter is stored for the NEXT pass, so it is written here,
+            // after the events, when this pass's popup state is final; otherwise the Escape that
+            // dismisses the popup would be seen by egui first and surrender the editor's focus.
+            let completion_open = self.completion.is_open();
+            ui.memory_mut(|memory| {
+                memory.set_focus_lock_filter(
+                    id,
+                    egui::EventFilter {
+                        tab: completion_open,
+                        escape: completion_open,
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                    },
+                );
+            });
         }
 
         // An edit invalidates the diagnostic's coordinates: it names a line and column in the
@@ -405,11 +574,14 @@ impl TextEditor {
                     .map(|range| (range, diagnostic.render()))
             });
 
-        // A click in the gutter marker jumps to the reported line and column; any other click
-        // positions the caret as before. This is checked after the key events so the caret the
-        // paint pass uses is the final one.
+        // A pointer click in the gutter marker jumps to the reported line and column; any other
+        // pointer click positions the caret as before and dismisses the popup (the caret left the
+        // prefix it was filtered for). A keyboard activation of this focused surface also reports
+        // `clicked()`, but has no pointer position; it must not be mistaken for a click here —
+        // Ctrl+Space is exactly such an activation.
         if response.clicked() {
             if let Some(position) = response.interact_pointer_pos() {
+                self.completion.dismiss();
                 let row = row_at(rect, self.scroll_y, row_h, total, position.y);
                 let on_marker = position.x < text_left
                     && decoration
@@ -542,6 +714,19 @@ impl TextEditor {
             );
         }
 
+        // The completion popup paints last, above the text and the caret. It is a pure painter
+        // overlay: no widget, no interaction, no focus, so it can never block typing or swallow
+        // a click. It is anchored one row BELOW the caret line (or, when that side has no room,
+        // above it), so it does not cover the line being typed on.
+        self.paint_completion(ui, rect, text_left, row_h, char_w);
+        #[cfg(test)]
+        eprintln!(
+            "[dbg] editor end open={} items={} pass={}",
+            self.completion.is_open(),
+            self.completion.items().len(),
+            ui.ctx().cumulative_pass_nr()
+        );
+
         let (line, column) = self.line_col_1based();
         let label = format!(
             "Script editor, {} lines, caret line {} column {}",
@@ -562,6 +747,144 @@ impl TextEditor {
         };
         self.last_ui_ms = started.elapsed().as_secs_f64() * 1000.0;
         self.metrics
+    }
+
+    /// Paints the completion popup over the editor surface.
+    ///
+    /// The popup is painter-only on purpose: it owns no widget, requests no focus and senses no
+    /// pointer, so typing continues to reach the editor and no click is swallowed. Placement
+    /// prefers the free space below the caret row and falls back to the free space above it;
+    /// the number of rows is capped by that free space, so the popup never covers the caret
+    /// line unless the pane is shorter than one row (in which case nothing is painted).
+    fn paint_completion(&self, ui: &Ui, rect: Rect, text_left: f32, row_h: f32, char_w: f32) {
+        let items = self.completion.items();
+        if !self.completion.is_open() || items.is_empty() {
+            return;
+        }
+        let selected = self.completion.selected_index();
+        let font = FontId::monospace(12.0);
+        let detail_font = FontId::monospace(11.0);
+        let label_char_w = ui
+            .painter()
+            .layout_no_wrap("M".to_owned(), font.clone(), Color32::WHITE)
+            .size()
+            .x
+            .max(1.0);
+        let detail_char_w = ui
+            .painter()
+            .layout_no_wrap("M".to_owned(), detail_font.clone(), Color32::WHITE)
+            .size()
+            .x
+            .max(1.0);
+        let label_cols = items
+            .iter()
+            .map(|item| item.label.chars().count())
+            .max()
+            .unwrap_or(0) as f32;
+        let detail_cols = items
+            .iter()
+            .map(|item| item.detail.chars().count())
+            .max()
+            .unwrap_or(0) as f32;
+        let padding = 8.0;
+        let column_gap = 14.0;
+        let wanted =
+            label_cols * label_char_w + column_gap + detail_cols * detail_char_w + padding * 2.0 + 4.0;
+        let max_width = (rect.width() - 8.0).max(120.0);
+        let width = wanted.clamp(180.0f32.min(max_width), max_width);
+        let height_for = |rows: usize| rows as f32 * COMPLETION_ROW_H + 6.0;
+
+        let caret_top = rect.top() - self.scroll_y + self.caret_row as f32 * row_h;
+        let below_top = caret_top + row_h + 3.0;
+        let above_top = rect.top() + 4.0;
+        let below_space = (rect.bottom() - 4.0 - below_top).max(0.0);
+        let above_space = (caret_top - 3.0 - above_top).max(0.0);
+        let place_below = below_space >= above_space;
+        let space = if place_below { below_space } else { above_space };
+        let capacity = ((space - 6.0) / COMPLETION_ROW_H).floor().max(0.0) as usize;
+        let visible = items.len().min(COMPLETION_MAX_ROWS).min(capacity);
+        if visible == 0 {
+            return;
+        }
+        let height = height_for(visible);
+        let y = if place_below {
+            below_top
+        } else {
+            caret_top - height - 3.0
+        };
+        let caret_x = text_left + self.caret_col as f32 * char_w;
+        let mut x = caret_x;
+        let right_limit = rect.right() - 4.0 - width;
+        if x > right_limit {
+            x = right_limit;
+        }
+        x = x.max(rect.left() + 4.0);
+
+        // Scroll the visible window so the highlighted row stays inside it.
+        let first = if selected < visible {
+            0
+        } else {
+            (selected + 1 - visible).min(items.len() - visible)
+        };
+
+        let painter = ui.painter().with_clip_rect(rect);
+        let popup = Rect::from_min_size(pos2(x, y), vec2(width, height));
+        painter.rect_filled(popup, 3.0, COMPLETION_BG);
+        painter.rect_stroke(
+            popup,
+            3.0,
+            Stroke::new(1.0, COMPLETION_BORDER),
+            egui::StrokeKind::Inside,
+        );
+        for (offset, item) in items[first..first + visible].iter().enumerate() {
+            let index = first + offset;
+            let row_top = popup.top() + 3.0 + offset as f32 * COMPLETION_ROW_H;
+            let row = Rect::from_min_size(
+                pos2(popup.left() + 1.0, row_top),
+                vec2(popup.width() - 2.0, COMPLETION_ROW_H),
+            );
+            if index == selected {
+                painter.rect_filled(row, 2.0, COMPLETION_SELECTED);
+            }
+            let accent = completion_colour(item.kind);
+            // A two-pixel kind bar: builtins keep the highlighter's blue, user functions and
+            // variables get their own colour, keywords the highlighter's keyword colour.
+            painter.rect_filled(
+                Rect::from_min_size(
+                    pos2(row.left() + 3.0, row_top + 3.0),
+                    vec2(2.0, COMPLETION_ROW_H - 6.0),
+                ),
+                1.0,
+                accent,
+            );
+            painter.text(
+                pos2(popup.left() + padding, row_top + 2.0),
+                Align2::LEFT_TOP,
+                &item.label,
+                font.clone(),
+                accent,
+            );
+            painter.text(
+                pos2(
+                    popup.left() + padding + label_cols * label_char_w + column_gap,
+                    row_top + 3.0,
+                ),
+                Align2::LEFT_TOP,
+                &item.detail,
+                detail_font.clone(),
+                COMPLETION_DETAIL,
+            );
+        }
+    }
+}
+
+/// The colour and kind bar one completion entry is painted with.
+fn completion_colour(kind: CompletionKind) -> Color32 {
+    match kind {
+        CompletionKind::Keyword => syntax::DARK.keyword,
+        CompletionKind::Builtin => syntax::DARK.builtin,
+        CompletionKind::Function => COMPLETION_FUNCTION,
+        CompletionKind::Variable => COMPLETION_VARIABLE,
     }
 }
 

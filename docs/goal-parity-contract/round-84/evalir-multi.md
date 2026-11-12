@@ -141,11 +141,11 @@ sentences, and `kind == Record`).
 | Gate | Command | Observed | Exit |
 |---|---|---|---:|
 | Focused | `cargo test -p lovelace-lang round84_evalir_multi` | **8 passed; 0 failed; 0 ignored** (1,608 filtered out) | 0 |
-| Workspace | `cargo test --workspace` | **5,298 passed; 0 failed; 1 ignored** across 21 result blocks | 0 |
+| Workspace | `cargo test --workspace` | **5,307 passed; 0 failed; 1 ignored** across 21 result blocks. This round adds 8 tests: the first workspace run mid-session observed 5,298 (the 5,290 baseline + these 8), and the final run observed 5,307 because concurrent lanes landed 9 more tests in the shared tree; every block is `ok` and this round's 8 are present | 0 |
 | Corpus | `cargo run --release -p lovelace-corpus` | `corpus: 214 passed, 0 failed, 214 total` | 0 |
 | Fixtures | `node parity/tools/gate-fixtures.mjs` | `oracle: 20/20`, `rust: 20/20`, `PASS` | 0 |
 | CLI | `node parity/tools/gate-cli.mjs` | `CLI matrix: 16/16`, `PASS` | 0 |
-| Differential | `node parity/diff/run.mjs --cases 200 --seed 1 --no-minimize --concurrency 10` | generated **200 match / 0 mismatch / 0 error**; regressions **1,758 match / 0 mismatch / 0 error**; `harness exit: 0`; run `parity/diff/runs/20261112T152704Z-seed1` | 0 |
+| Differential | `node parity/diff/run.mjs --cases 200 --seed 1 --no-minimize --concurrency 10` | generated **200 match / 0 mismatch / 0 error**; regressions **1,758 match / 0 mismatch / 0 error**; `harness exit: 0`; run `parity/diff/runs/20261112T153742Z-seed1` | 0 |
 | Clippy | `cargo clippy -p lovelace-lang -p lovelace-run --all-targets -- -D warnings` | `Finished`, no diagnostics | 0 |
 | Format | `cargo fmt -p lovelace-lang -p lovelace-run -- --check` | clean | 0 |
 
@@ -167,7 +167,7 @@ sentences, and `kind == Record`).
 
 No `.cs` file, fixture, corpus file, `parity/manifest-map.json`, `parity/manifest.toml`, desktop
 file or other document was edited. Running the gates wrote their own artifacts under
-`parity/diff/runs/20261112T152704Z-seed1` and `rust/target/tmp`; no tracked `parity/` file
+`parity/diff/runs/20261112T153742Z-seed1` and `rust/target/tmp`; no tracked `parity/` file
 changed.
 
 ## 9. Reproduction

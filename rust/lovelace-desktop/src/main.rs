@@ -25,10 +25,12 @@
 mod app;
 #[cfg(windows)]
 mod diagnostic_map;
+mod completion;
 mod engine;
 mod execution;
 mod gui_selftest;
 mod keyboard;
+mod language;
 mod netcheck;
 mod run_state;
 mod run_trace;

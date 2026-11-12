@@ -6,6 +6,8 @@
 
 use egui::{Color32, FontId, TextFormat, text::LayoutJob};
 
+use crate::language::KEYWORDS;
+
 /// Colours for one syntax theme.
 #[derive(Clone, Copy)]
 pub struct Palette {
@@ -32,12 +34,6 @@ pub const DARK: Palette = Palette {
     builtin: Color32::from_rgb(0x4f, 0xc1, 0xff),
     comment: Color32::from_rgb(0x6a, 0x99, 0x55),
 };
-
-/// Keywords coloured as language keywords.
-pub const KEYWORDS: &[&str] = &[
-    "let", "if", "else", "for", "while", "end", "do", "then", "return", "function", "set", "print",
-    "assert", "in", "and", "or", "not", "solve", "plot", "elseif", "assume",
-];
 
 /// Builtin names coloured as builtins.
 pub const BUILTINS: &[&str] = &[

@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::engine::{Evaluator, PlotCapture};
+use crate::engine::{EngineState, Evaluator, PlotCapture};
 use crate::statements::Statement;
 
 /// Identifies one document buffer.
@@ -52,6 +52,12 @@ pub struct WorkspaceSnapshot {
     pub variables: Vec<(String, String)>,
     /// Functions visible after the committed statements.
     pub functions: Vec<(String, Vec<String>)>,
+    /// The richer capture the completion catalogue reads: variables with their kinds and
+    /// every function with its declared parameters and builtin flag.
+    ///
+    /// Taken from [`Evaluator::state`] at the same moment as `variables`/`functions`, so it
+    /// describes exactly the committed prefix the panes display.
+    pub state: EngineState,
     /// The most recent plot produced by the committed statements.
     pub plot: Option<PlotCapture>,
     /// Every print line produced by the committed statements, in order.
@@ -528,6 +534,8 @@ struct Progress {
     variables: Vec<(String, String)>,
     /// Functions observed after the last committed statement.
     functions: Vec<(String, Vec<String>)>,
+    /// The engine's kind-aware symbol capture for the last committed statement.
+    state: EngineState,
     /// Most recent plot observed during the run. A statement that produces no plot does not
     /// erase an earlier one: the real engine clears its own capture at the start of every
     /// `eval`, and this core evaluates one statement at a time.
@@ -545,6 +553,7 @@ impl Default for Progress {
             output: Vec::new(),
             variables: Vec::new(),
             functions: Vec::new(),
+            state: EngineState::default(),
             plot: None,
             ended: false,
         }
@@ -675,6 +684,14 @@ impl RunWorker {
                     {
                         progress.functions = functions;
                     }
+                    // The kind-aware capture the completion catalogue reads. It is taken at the
+                    // same commit point as the pane lists, so the popup can never offer a
+                    // variable the displayed workspace does not have.
+                    if let Ok(Some(state)) =
+                        panic::catch_unwind(AssertUnwindSafe(|| engine.state()))
+                    {
+                        progress.state = state;
+                    }
                     if let Ok(Some(plot)) =
                         panic::catch_unwind(AssertUnwindSafe(|| engine.last_plot()))
                     {
@@ -762,6 +779,7 @@ impl RunWorker {
             result: progress.result.clone(),
             variables: progress.variables.clone(),
             functions: progress.functions.clone(),
+            state: progress.state.clone(),
             plot: progress.plot.clone(),
             output: progress.output.clone(),
             revision: self.revision,
@@ -1028,6 +1046,14 @@ mod tests {
             result: result.to_string(),
             variables: vec![("x".to_string(), result.to_string())],
             functions: Vec::new(),
+            state: EngineState {
+                variables: vec![crate::engine::EngineVariable {
+                    name: "x".to_string(),
+                    kind: "Natural".to_string(),
+                    display: result.to_string(),
+                }],
+                functions: Vec::new(),
+            },
             plot: None,
             output: vec![result.to_string()],
             revision,

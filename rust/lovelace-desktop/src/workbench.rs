@@ -25,12 +25,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use crate::app::LogLevel;
-use crate::engine::{self, DEFAULT_PRECISION, PlotCapture};
+use crate::completion::{self, CompletionItem};
+use crate::engine::{self, DEFAULT_PRECISION, EngineState, PlotCapture};
 use crate::execution::{
     DesktopEvent, Diagnostic, DocumentId, EvaluatorFactory, EventSink, ExecutionHost, RunHandle,
     RunId, SequencedEvent, SourceRevision, SubmitError, WorkspaceSnapshot,
 };
 use crate::keyboard::WorkbenchCommand;
+use crate::language;
 use crate::run_state::{RunState, RunStateMachine, RunStateTransition};
 use crate::settings::{MAX_PRECISION, MIN_PRECISION};
 
@@ -176,6 +178,12 @@ pub struct Workbench {
     active: usize,
     engine_name: &'static str,
     plot_root: PathBuf,
+    /// The active engine's own symbol table, captured once when the workbench was created.
+    ///
+    /// Completion uses it before the first run (keywords + the engine's registered functions
+    /// with their parameter names). Once a run publishes a snapshot, that snapshot's capture
+    /// adds the document's variables and user functions on top of it.
+    engine_state: EngineState,
 }
 
 impl Default for Workbench {
@@ -187,13 +195,18 @@ impl Default for Workbench {
 impl Workbench {
     /// Creates the shipped workbench: the real engine and two document tabs.
     pub fn new() -> Workbench {
-        let engine_name = (engine::default_engine_factory())().name();
+        let engine = (engine::default_engine_factory())();
+        let engine_name = engine.name();
+        // The engine constructed to learn the name is also the one that donates its registry
+        // to completion. No second engine is built and no builtin list is transcribed.
+        let engine_state = engine.state().unwrap_or_default();
         let (plot_root, plot_error) = engine::prepare_plot_dir();
         let factory = plot_scoped_factory(
             Box::new(engine::default_engine_factory()),
             plot_root.clone(),
         );
-        let mut workbench = Workbench::with_plot_root(factory, engine_name, plot_root.clone());
+        let mut workbench =
+            Workbench::with_plot_root(factory, engine_name, plot_root.clone(), engine_state);
         workbench.log(
             0,
             LogLevel::Info,
@@ -207,17 +220,21 @@ impl Workbench {
 
     /// Creates a workbench over an arbitrary engine factory (used by unit tests).
     ///
-    /// The factory is invoked once to learn the engine's name. Constructing a throwaway engine
-    /// is safe for every factory that can also serve runs; tests whose factory is stateful use
+    /// The factory is invoked once to learn the engine's name and to capture the engine's own
+    /// registry for completion. Constructing a throwaway engine is safe for every factory that
+    /// can also serve runs; tests whose factory is stateful use
     /// [`Workbench::with_named_factory`] instead.
     #[allow(dead_code)] // exercised by the unit tests; the shipped constructor is `new`
     pub fn with_factory(factory: EvaluatorFactory) -> Workbench {
-        let engine_name = (factory)().name();
+        let engine = (factory)();
+        let engine_name = engine.name();
+        let engine_state = engine.state().unwrap_or_default();
         let (plot_root, plot_error) = engine::prepare_plot_dir();
         let mut workbench = Workbench::with_plot_root(
             plot_scoped_factory(factory, plot_root.clone()),
             engine_name,
             plot_root.clone(),
+            engine_state,
         );
         workbench.log(
             0,
@@ -231,16 +248,27 @@ impl Workbench {
     }
 
     /// Creates a workbench over an arbitrary factory and an explicit engine name.
+    ///
+    /// This constructor deliberately does not call `factory`: it exists for factories whose
+    /// construction blocks or mutates state, so it has no engine instance to capture a registry
+    /// from. Completion still receives every symbol the document's last run published.
     #[allow(dead_code)] // used by the unit tests; the shipped constructors pick the engine itself
     pub fn with_named_factory(factory: EvaluatorFactory, engine_name: &'static str) -> Workbench {
-        Workbench::with_plot_root(factory, engine_name, engine::default_plot_dir())
+        Workbench::with_plot_root(
+            factory,
+            engine_name,
+            engine::default_plot_dir(),
+            EngineState::default(),
+        )
     }
 
-    /// Creates a workbench over a factory, a name and the plot root its runs write under.
+    /// Creates a workbench over a factory, a name, the plot root its runs write under and the
+    /// registry snapshot completion starts from.
     fn with_plot_root(
         factory: EvaluatorFactory,
         engine_name: &'static str,
         plot_root: PathBuf,
+        engine_state: EngineState,
     ) -> Workbench {
         let host = ExecutionHost::new(factory);
         let mut workbench = Workbench {
@@ -252,6 +280,7 @@ impl Workbench {
             active: 0,
             engine_name,
             plot_root,
+            engine_state,
         };
         workbench.log(
             0,
@@ -294,6 +323,66 @@ impl Workbench {
     /// The name of the engine every run constructs.
     pub fn engine_name(&self) -> &'static str {
         self.engine_name
+    }
+
+    /// The active engine's registry capture, taken when the workbench was created.
+    #[allow(dead_code)] // host-facing accessor; the window reads completion_catalogue instead
+    pub fn engine_state(&self) -> &EngineState {
+        &self.engine_state
+    }
+
+    /// Everything completion may offer for the active document.
+    ///
+    /// The engine's registry (builtins with their declared parameter names) is the base. The
+    /// active document's last committed snapshot is overlaid field for field, so its variables
+    /// carry the kinds the engine reported and its user `func` definitions arrive already
+    /// marked `is_builtin: false`. A symbol the run published replaces the registry entry of
+    /// the same name; the snapshot describes the document, the registry describes the engine.
+    pub fn completion_state(&self) -> EngineState {
+        let mut state = self.engine_state.clone();
+        if let Some(snapshot) = self.active_snapshot() {
+            for variable in &snapshot.state.variables {
+                match state
+                    .variables
+                    .iter_mut()
+                    .find(|existing| existing.name == variable.name)
+                {
+                    Some(existing) => *existing = variable.clone(),
+                    None => state.variables.push(variable.clone()),
+                }
+            }
+            for function in &snapshot.state.functions {
+                match state
+                    .functions
+                    .iter_mut()
+                    .find(|existing| existing.name == function.name)
+                {
+                    Some(existing) => *existing = function.clone(),
+                    None => state.functions.push(function.clone()),
+                }
+            }
+        }
+        state.variables
+            .sort_by(|a, b| a.name.cmp(&b.name));
+        state
+            .functions
+            .sort_by(|a, b| a.name.cmp(&b.name));
+        state
+    }
+
+    /// The completion catalogue for the active document, built from live sources.
+    ///
+    /// Keys/colour/insertion all read this one list; the window rebuilds it per frame so an
+    /// engine snapshot landing or a document switch is reflected without a cache to invalidate.
+    pub fn completion_catalogue(&self) -> Vec<CompletionItem> {
+        let state = self.completion_state();
+        completion::build_catalogue(language::KEYWORDS, &state.functions, &state.variables)
+    }
+
+    /// Replaces the captured registry (tests use it to provide a deterministic engine surface).
+    #[cfg(test)]
+    pub(crate) fn set_engine_state(&mut self, state: EngineState) {
+        self.engine_state = state;
     }
 
     /// The active tab index.
@@ -965,11 +1054,109 @@ fn plot_scoped_factory(inner: EvaluatorFactory, root: PathBuf) -> EvaluatorFacto
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::{Evaluator, FakeEngine};
+    use crate::completion::CompletionKind;
+    use crate::engine::{EngineFunction, Evaluator, FakeEngine};
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
     fn fake_workbench() -> Workbench {
         Workbench::with_factory(Box::new(|| Box::new(FakeEngine::new())))
+    }
+
+    fn builtin(name: &str, parameters: &[&str]) -> EngineFunction {
+        EngineFunction {
+            name: name.to_string(),
+            parameters: parameters.iter().map(|p| p.to_string()).collect(),
+            is_builtin: true,
+        }
+    }
+
+    #[test]
+    fn completion_catalogue_merges_the_engine_registry_with_the_last_committed_snapshot() {
+        let mut workbench = fake_workbench();
+        // The registry the engine published at startup: one builtin the fake itself does not
+        // own. This is exactly how the real engine's capture_state reaches completion.
+        workbench.set_engine_state(EngineState {
+            variables: Vec::new(),
+            functions: vec![builtin("sqrt", &["x"])],
+        });
+        workbench.set_source(0, "a = 1".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+
+        let catalogue = workbench.completion_catalogue();
+        let find = |label: &str| {
+            catalogue
+                .iter()
+                .find(|item| item.label == label)
+                .unwrap_or_else(|| panic!("{label} is missing from the completion catalogue"))
+        };
+
+        // From the engine's registry.
+        let sqrt = find("sqrt");
+        assert_eq!(sqrt.kind, CompletionKind::Builtin);
+        assert_eq!(sqrt.detail, "sqrt(x)");
+        // From the document's last committed snapshot, with the kind the engine reported.
+        let a = find("a");
+        assert_eq!(a.kind, CompletionKind::Variable);
+        assert_eq!(a.detail, "a (Natural)");
+        // From the language surface.
+        assert_eq!(find("while").kind, CompletionKind::Keyword);
+        // From the fake engine's own snapshot functions.
+        assert!(catalogue.iter().any(|item| item.label == "abs"));
+        // No duplicates anywhere in the merged catalogue.
+        let mut labels: Vec<&str> = catalogue.iter().map(|item| item.label.as_str()).collect();
+        let before = labels.len();
+        labels.sort_unstable();
+        labels.dedup();
+        assert_eq!(labels.len(), before, "the catalogue must be deduplicated");
+    }
+
+    /// Proves the whole completion source chain with the shipped engine: startup registry ->
+    /// completion before any run, then a script-defined function -> last committed snapshot.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn completion_catalogue_offers_the_real_registry_and_a_script_defined_function() {
+        let mut workbench = Workbench::with_factory(Box::new(|| {
+            Box::new(crate::engine::RealEngine::new())
+        }));
+        // Before any run the registry alone supplies the functions (and their signatures).
+        let before = workbench.completion_catalogue();
+        assert!(
+            before
+                .iter()
+                .any(|item| item.label == "sqrt" && item.detail == "sqrt(x)"),
+            "the startup engine registry must already reach completion"
+        );
+
+        workbench.set_source(0, "func myfunc(a, b) = a + b".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(
+            workbench.documents()[0].state(),
+            RunState::Finished,
+            "the definition must run before it can complete"
+        );
+
+        let catalogue = workbench.completion_catalogue();
+        let myfunc = catalogue
+            .iter()
+            .find(|item| item.label == "myfunc")
+            .expect("the script-defined function is offered");
+        assert_eq!(
+            myfunc.kind,
+            CompletionKind::Function,
+            "a script func is marked distinctly from a builtin"
+        );
+        assert_eq!(myfunc.detail, "myfunc(a, b)");
+        assert_eq!(
+            catalogue
+                .iter()
+                .find(|item| item.label == "sqrt")
+                .expect("the registry survives the run")
+                .kind,
+            CompletionKind::Builtin
+        );
     }
 
     /// An engine that sleeps in every evaluation, so cancellation has a real statement

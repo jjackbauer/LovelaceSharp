@@ -1,0 +1,2 @@
+﻿Text | Completion: sq -> sqrt(x) [builtin] 1/2 | id= | focusable=False | enabled=True
+Edit | Script editor, 1 lines, caret line 1 column 3 | id= | focusable=True | enabled=True

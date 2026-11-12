@@ -1008,14 +1008,31 @@
                      "type":  "W",
                      "requirement":  "Offer live context-aware completion",
                      "acceptance":  "Completion includes keywords, registered builtins, signatures, user functions, live variables and snippets from active engine; values update after execution.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-16/completion-sq-sqrt.png",
+                                          "sha256":  "3AD0C8FFB70898E09BFAF46F544D14358B7642D8194CAB5AF120335DF7CC15BB",
+                                          "class":  "gui",
+                                          "at_head":  "2b80caa80de65d372c51479fc80934e65363e5ed"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-16/uia-tree.txt",
+                                          "sha256":  "33AF642F995145853956D52EC9391FBDE65E290F3620752B124C051AD396BF95",
+                                          "class":  "gui",
+                                          "at_head":  "2b80caa80de65d372c51479fc80934e65363e5ed"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-16/completion.md",
+                                          "sha256":  "730AEAAE2D4AA68BC0DBEC5D6FBAF91E3C045ECA180F1D440A19915920D22833",
+                                          "class":  "gui",
+                                          "at_head":  "2b80caa80de65d372c51479fc80934e65363e5ed"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop completion; PrintWindow capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Popup shows sqrt(x)/squeeze(a) after typing sq; catalogue from Engine::capture_state (builtins, params, plugin) plus snapshot variables/user funcs and the shared keyword table; 149 tests pass. Captured while the session was locked, via posted WM_KEYDOWN/WM_CHAR + PrintWindow; UIA excerpt records the state."
                  },
                  {
                      "id":  "EDT-004",

@@ -11,7 +11,7 @@
 //! and restores its precision. That discards user functions as well as variables; the fake engine
 //! behaves the same way, and the app labels the command "Clear variables" to match the Studio.
 
-use super::{Evaluator, PlotCapture};
+use super::{EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
 
 /// Creates a boxed RealEngine.
 pub fn boxed() -> Box<dyn Evaluator> {
@@ -72,6 +72,37 @@ impl Evaluator for RealEngine {
 
     fn functions(&self) -> Vec<(String, Vec<String>)> {
         self.engine.functions()
+    }
+
+    /// Copies the engine's own `capture_state` snapshot.
+    ///
+    /// The engine's capture is the registry: every enabled builtin with its declared parameter
+    /// names and plugin, every host registration, and the script's user `func` definitions with
+    /// `is_builtin == false`. The desktop maps it field for field and never invents an entry, so
+    /// a builtin added to (or removed from) the engine appears in (or disappears from)
+    /// completion without a desktop change.
+    fn state(&self) -> Option<EngineState> {
+        let snapshot = self.engine.capture_state();
+        Some(EngineState {
+            variables: snapshot
+                .variables
+                .into_values()
+                .map(|variable| EngineVariable {
+                    name: variable.name,
+                    kind: variable.kind,
+                    display: variable.display,
+                })
+                .collect(),
+            functions: snapshot
+                .functions
+                .into_values()
+                .map(|function| EngineFunction {
+                    name: function.name,
+                    parameters: function.parameters,
+                    is_builtin: function.is_builtin,
+                })
+                .collect(),
+        })
     }
 
     fn take_output(&mut self) -> Vec<String> {

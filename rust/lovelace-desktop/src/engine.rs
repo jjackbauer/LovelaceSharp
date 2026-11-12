@@ -106,6 +106,104 @@ pub struct PlotCapture {
     pub svg: String,
 }
 
+/// One function the engine exposes, with its declared parameter names.
+///
+/// The completion catalogue consumes these entries verbatim; the desktop never carries a
+/// builtin list of its own. The real engine fills them from its own snapshot
+/// (`Engine::capture_state`), which publishes every builtin in the registry, every host or
+/// plugin registration, and every user `func` definition.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EngineFunction {
+    /// The registered name.
+    pub name: String,
+    /// The declared parameter names, in declaration order.
+    pub parameters: Vec<String>,
+    /// True for a builtin, false for a user definition or a host/plugin registration.
+    pub is_builtin: bool,
+}
+
+/// One variable visible to the document, with the kind the engine published.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EngineVariable {
+    /// The variable name as written in source.
+    pub name: String,
+    /// The published kind name (`Natural`, `Real`, `Text`, `Record`, ...).
+    pub kind: String,
+    /// The display rendering the engine produced.
+    pub display: String,
+}
+
+/// A coherent capture of the engine's variables and functions.
+///
+/// This is the desktop-side view of the engine's snapshot API: one value that a completion
+/// catalogue (and any future outline) can be built from without asking the engine twice.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct EngineState {
+    /// Variables, sorted by name.
+    pub variables: Vec<EngineVariable>,
+    /// Functions (builtins and user definitions), sorted by name.
+    pub functions: Vec<EngineFunction>,
+}
+
+impl EngineState {
+    /// True when the capture names no symbol at all.
+    #[allow(dead_code)] // invariant accessor used by the engine tests
+    pub fn is_empty(&self) -> bool {
+        self.variables.is_empty() && self.functions.is_empty()
+    }
+
+    /// Builds a state from the older `(name, typed display)` contract accessors.
+    ///
+    /// Engines that override [`Evaluator::state`] (both shipped engines do) never take this
+    /// path. It exists so a minimal third-party evaluator that only implements the two older
+    /// accessors still contributes its symbols; the kind is recovered from a `"value (Kind)"`
+    /// typed rendering when there is one, and the function origin is unknown, so functions are
+    /// reported as non-builtins rather than claimed as registry entries.
+    pub fn from_legacy(
+        variables: &[(String, String)],
+        functions: &[(String, Vec<String>)],
+    ) -> EngineState {
+        EngineState {
+            variables: variables
+                .iter()
+                .map(|(name, display)| {
+                    let (display, kind) = split_typed(display);
+                    EngineVariable {
+                        name: name.clone(),
+                        kind,
+                        display,
+                    }
+                })
+                .collect(),
+            functions: functions
+                .iter()
+                .map(|(name, parameters)| EngineFunction {
+                    name: name.clone(),
+                    parameters: parameters.clone(),
+                    is_builtin: false,
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Splits `"value (Kind)"` into its display and kind halves; an untyped display stays whole.
+fn split_typed(display: &str) -> (String, String) {
+    if let Some(index) = display.rfind(" (") {
+        let wrapped = &display[index + 2..];
+        if let Some(kind) = wrapped.strip_suffix(')') {
+            let plausible = !kind.is_empty()
+                && kind
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphabetic() || ch == ' ' || ch == '|' || ch == '_');
+            if plausible {
+                return (display[..index].to_string(), kind.to_string());
+            }
+        }
+    }
+    (display.to_string(), "Value".to_string())
+}
+
 /// The complete, coherent result of one evaluation: what the panes need to update together.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RunOutput {
@@ -179,6 +277,18 @@ pub trait Evaluator {
     /// Returns the current functions, sorted by name.
     fn functions(&self) -> Vec<(String, Vec<String>)> {
         Vec::new()
+    }
+
+    /// Captures the engine's own symbol table: variables with their kinds and every function
+    /// with its parameter names and builtin flag.
+    ///
+    /// This is the source of the completion catalogue. Both shipped engines override it: the
+    /// real engine copies `lovelace_lang::Engine::capture_state` (the registry itself, never a
+    /// desktop copy), and the deterministic fake reports the kinds it actually stores. The
+    /// default below is only for minimal evaluators; it derives a best-effort capture from the
+    /// two older accessors.
+    fn state(&self) -> Option<EngineState> {
+        Some(EngineState::from_legacy(&self.variables(), &self.functions()))
     }
 
     /// Drains the print() output produced since the last call.
@@ -308,5 +418,91 @@ mod tests {
         assert!(engine.last_plot().is_none());
         assert_eq!(engine.name(), "evaluator");
         assert_eq!(engine.revision(), 0);
+        assert!(engine.state().expect("a default capture").is_empty());
+    }
+
+    #[test]
+    fn legacy_capture_recovers_a_typed_kind_and_never_claims_a_builtin() {
+        let state = EngineState::from_legacy(
+            &[
+                ("n".to_string(), "3 (Natural)".to_string()),
+                ("flag".to_string(), "true".to_string()),
+                ("pair".to_string(), "[1, 2] (Array)".to_string()),
+            ],
+            &[("f".to_string(), vec!["a".to_string()])],
+        );
+        assert_eq!(state.variables[0].name, "n");
+        assert_eq!(state.variables[0].kind, "Natural");
+        assert_eq!(state.variables[0].display, "3");
+        assert_eq!(state.variables[1].kind, "Value", "an untyped display has no kind");
+        assert_eq!(state.variables[1].display, "true");
+        assert_eq!(state.variables[2].kind, "Array");
+        assert_eq!(state.variables[2].display, "[1, 2]");
+        assert!(!state.functions[0].is_builtin);
+        assert_eq!(state.functions[0].parameters, vec!["a".to_string()]);
+    }
+
+    #[test]
+    fn the_fake_engine_reports_its_own_variable_kinds_and_builtins() {
+        let mut engine = FakeEngine::new();
+        engine.eval("x = 3\ntext = \"hi\"").expect("the fake run");
+        let state = engine.state().expect("the fake publishes a state");
+        let x = state.variables.iter().find(|v| v.name == "x").unwrap();
+        assert_eq!(x.kind, "Natural");
+        let text = state.variables.iter().find(|v| v.name == "text").unwrap();
+        assert_eq!(text.kind, "Text");
+        assert!(
+            state.functions.iter().any(|f| f.name == "abs" && f.is_builtin),
+            "the fake's own registry is marked builtin: {:?}",
+            state.functions
+        );
+        assert!(
+            state
+                .functions
+                .iter()
+                .all(|f| !f.parameters.is_empty() || f.name == "clear"),
+            "every function carries its declared parameter names"
+        );
+    }
+
+    /// Proves the catalogue's function source is the *engine's* registry: the real adapter
+    /// publishes the real builtins (with their declared parameter names) and marks a script's
+    /// own `func` definition as a non-builtin. If the engine registry changed, this test moves
+    /// with it; the desktop has no second list that could drift.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn the_real_engine_publishes_its_registry_and_marks_user_functions() {
+        let mut engine = RealEngine::new();
+        let state = engine.state().expect("the real engine publishes its snapshot");
+        let sqrt = state
+            .functions
+            .iter()
+            .find(|function| function.name == "sqrt")
+            .unwrap_or_else(|| panic!("sqrt is missing from {} functions", state.functions.len()));
+        assert!(sqrt.is_builtin, "sqrt comes from the engine's registry");
+        assert_eq!(sqrt.parameters, vec!["x".to_string()]);
+
+        engine
+            .eval("func myfunc(a, b) = a + b\nx = 3")
+            .expect("the real engine evaluates the definition");
+        let after = engine.state().expect("a second capture");
+        let norm = after
+            .functions
+            .iter()
+            .find(|function| function.name == "myfunc")
+            .expect("the user function is in the capture");
+        assert!(!norm.is_builtin, "a script `func` is not a builtin");
+        assert_eq!(norm.parameters, vec!["a".to_string(), "b".to_string()]);
+        assert!(
+            after.functions.iter().filter(|f| f.is_builtin).count()
+                >= state.functions.iter().filter(|f| f.is_builtin).count(),
+            "the user definition does not replace the registry"
+        );
+        let x = after
+            .variables
+            .iter()
+            .find(|variable| variable.name == "x")
+            .expect("the run's variable is captured with its kind");
+        assert_eq!(x.kind, "Natural");
     }
 }

@@ -275,9 +275,12 @@ impl WorkbenchApp {
                     }
                 }
             }
+            // An open completion popup owns Escape for dismissal; it must not also cancel the
+            // document's run. The editor closes the popup later in this same frame.
+            let completion_open = self.editors[self.workbench.active()].completion.is_open();
             keyboard::command_for_shortcut(
                 enter,
-                escape,
+                escape && !completion_open,
                 enter_command || input.modifiers.command || input.modifiers.ctrl,
             )
         });
@@ -431,6 +434,11 @@ impl WorkbenchApp {
                 let selected = index == self.workbench.active();
                 if ui.selectable_label(selected, title).clicked() {
                     self.workbench.set_active(index);
+                    // A tab switch is a pointer click outside the editor: drop every popup so a
+                    // stale one cannot reappear when the user switches back.
+                    for editor in &mut self.editors {
+                        editor.completion.dismiss();
+                    }
                 }
             }
             ui.separator();
@@ -524,6 +532,10 @@ impl WorkbenchApp {
         // A run failure is also stated in the pane header, so the position and message are
         // readable (and visible to accessibility clients) without hovering the underline.
         let diagnostic = self.workbench.active_diagnostic().cloned();
+        // The live catalogue: keywords, the engine's registered functions and the active
+        // document's last committed variables/user functions. Built fresh each pass so an
+        // engine snapshot landing or a tab switch is reflected immediately.
+        let catalogue = self.workbench.completion_catalogue();
         let pane_title = format!("Editor - {title}");
         with_pane(ui, rect, &pane_title, |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
@@ -538,9 +550,15 @@ impl WorkbenchApp {
                     )
                     .on_hover_text(diagnostic.render());
                 }
+                // The popup itself is painted; the header states its selected signature so the
+                // completion also exists in the accessibility tree and in a UIA capture.
+                if let Some(summary) = self.editors[active].completion_summary() {
+                    ui.separator();
+                    ui.label(RichText::new(summary).monospace().color(ACCENT));
+                }
             });
             let before = self.editors[active].edits;
-            let metrics = self.editors[active].ui(ui, body);
+            let metrics = self.editors[active].ui(ui, body, &catalogue);
             if self.editors[active].edits != before {
                 // An edit makes the old position describe text that is gone. Drop it now, not
                 // only on the next frame, so the paint pass cannot show a stale underline.
@@ -911,7 +929,8 @@ pub fn run(initial_path: Option<PathBuf>) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::engine::Evaluator;
+    use crate::completion::CompletionKind;
+    use crate::engine::{EngineFunction, EngineState, Evaluator};
     use crate::run_state::RunState;
     use crate::workbench::Workbench;
     use std::sync::{Arc, Condvar, Mutex};
@@ -1282,5 +1301,227 @@ mod tests {
         let toolbar = app.workbench.toolbar_state();
         assert!(toolbar.run_enabled, "Run must return after the run stops");
         assert!(!toolbar.cancel_visible, "Cancel must leave with the run");
+    }
+
+    fn builtin(name: &str, parameters: &[&str]) -> EngineFunction {
+        EngineFunction {
+            name: name.to_string(),
+            parameters: parameters.iter().map(|p| p.to_string()).collect(),
+            is_builtin: true,
+        }
+    }
+
+    fn sqrt_function() -> EngineFunction {
+        builtin("sqrt", &["x"])
+    }
+
+    /// An app whose editor holds `source`, with the caret at `(row, col)` and a registry that
+    /// only contains the functions the test names.
+    fn completion_app(source: &str, row: usize, col: usize, functions: Vec<EngineFunction>) -> WorkbenchApp {
+        let mut workbench = slow_workbench();
+        workbench.set_engine_state(EngineState {
+            variables: Vec::new(),
+            functions,
+        });
+        workbench.set_source(0, source.to_string());
+        let mut app = WorkbenchApp::with_workbench(workbench);
+        app.editors[0].set_caret(row, col);
+        app
+    }
+
+    #[test]
+    fn typing_sq_opens_completion_with_the_engine_function_and_enter_replaces_only_the_prefix() {
+        let mut app = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new()); // first frame: focus the editor
+        frame(&ctx, &mut app, vec![egui::Event::Text("sq".to_string())]);
+
+        let session = &app.editors[0].completion;
+        assert!(session.is_open(), "typing `sq` must open the popup");
+        assert_eq!(session.items().len(), 1);
+        let item = session.selected().expect("a highlighted entry");
+        assert_eq!(item.label, "sqrt");
+        assert_eq!(
+            item.detail, "sqrt(x)",
+            "the signature comes from the engine's own function snapshot"
+        );
+        assert_eq!(item.kind, CompletionKind::Builtin);
+        assert_eq!(
+            app.editors[0].completion_summary().as_deref(),
+            Some("Completion: sq -> sqrt(x) [builtin] 1/1")
+        );
+        assert_eq!(app.workbench.documents()[0].source, "sq");
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert_eq!(
+            app.editors[0].source(),
+            "sqrt",
+            "Enter must replace exactly the typed prefix"
+        );
+        assert_eq!(
+            app.editors[0].line_col_1based(),
+            (1, 5),
+            "the caret must sit after the inserted text"
+        );
+        assert!(!app.editors[0].completion.is_open());
+        assert_eq!(app.workbench.documents()[0].source, "sqrt");
+    }
+
+    #[test]
+    fn arrow_keys_move_the_completion_selection_and_tab_accepts_it() {
+        let mut app = completion_app(
+            "",
+            0,
+            0,
+            vec![builtin("sq", &["x"]), builtin("sqrt", &["x"])],
+        );
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+        frame(&ctx, &mut app, vec![egui::Event::Text("sq".to_string())]);
+        assert_eq!(
+            app.editors[0]
+                .completion
+                .items()
+                .iter()
+                .map(|item| item.label.as_str())
+                .collect::<Vec<_>>(),
+            vec!["sq", "sqrt"],
+            "the exact label is offered before the longer prefix match"
+        );
+        assert_eq!(app.editors[0].completion.selected_index(), 0);
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowDown, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].completion.selected_index(), 1);
+        assert_eq!(app.editors[0].source(), "sq", "navigation must not edit");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 3));
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].completion.selected_index(), 0);
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowUp, egui::Modifiers::default())],
+        );
+        assert_eq!(
+            app.editors[0].completion.selected_index(),
+            0,
+            "Up on the first entry stays on it"
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::ArrowDown, egui::Modifiers::default())],
+        );
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Tab, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].source(), "sqrt", "Tab accepts the selection");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 5));
+        assert!(!app.editors[0].completion.is_open());
+    }
+
+    #[test]
+    fn escape_dismisses_completion_without_changing_the_buffer_or_accepting() {
+        let mut app = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+        frame(&ctx, &mut app, vec![egui::Event::Text("sq".to_string())]);
+        assert!(app.editors[0].completion.is_open());
+
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Escape, egui::Modifiers::default())],
+        );
+        assert!(!app.editors[0].completion.is_open(), "Esc must dismiss");
+        assert_eq!(app.editors[0].source(), "sq", "Esc must not edit the buffer");
+        assert_eq!(app.editors[0].line_col_1based(), (1, 3));
+        assert_eq!(app.workbench.documents()[0].source, "sq");
+
+        // A dismissed popup must not accept anything: Enter is an ordinary newline again.
+        frame(
+            &ctx,
+            &mut app,
+            vec![key(Key::Enter, egui::Modifiers::default())],
+        );
+        assert_eq!(app.editors[0].source(), "sq\n");
+        assert_eq!(app.editors[0].line_col_1based(), (2, 1));
+    }
+
+    #[test]
+    fn ctrl_space_opens_the_whole_catalogue_and_strings_and_comments_suppress_it() {
+        let mut app = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut app, Vec::new());
+        let ctrl = egui::Modifiers {
+            ctrl: true,
+            command: true,
+            ..Default::default()
+        };
+        frame(
+            &ctx,
+            &mut app,
+            vec![egui::Event::ModifiersChanged(ctrl), key(Key::Space, ctrl)],
+        );
+        assert!(
+            app.editors[0].completion.is_open(),
+            "Ctrl+Space must open the popup even with no typed prefix"
+        );
+        assert_eq!(
+            app.editors[0].completion.selected().map(|item| item.label.as_str()),
+            Some("break"),
+            "with an empty prefix the catalogue starts at the first keyword in name order"
+        );
+        assert!(
+            app.editors[0]
+                .completion
+                .items()
+                .iter()
+                .any(|item| item.label == "sqrt" && item.detail == "sqrt(x)"),
+            "the whole catalogue includes the engine's registered functions"
+        );
+        assert_eq!(app.editors[0].source(), "", "Ctrl+Space must not insert a space");
+
+        // Inside a string literal the popup stays closed.
+        let mut quoted = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut quoted, Vec::new());
+        frame(
+            &ctx,
+            &mut quoted,
+            vec![egui::Event::Text("\"sq".to_string())],
+        );
+        assert!(
+            !quoted.editors[0].completion.is_open(),
+            "a string literal must suppress completion"
+        );
+
+        // Inside a comment the popup stays closed too.
+        let mut commented = completion_app("", 0, 0, vec![sqrt_function()]);
+        let ctx = egui::Context::default();
+        frame(&ctx, &mut commented, Vec::new());
+        frame(
+            &ctx,
+            &mut commented,
+            vec![egui::Event::Text("# sq".to_string())],
+        );
+        assert!(
+            !commented.editors[0].completion.is_open(),
+            "a comment must suppress completion"
+        );
     }
 }

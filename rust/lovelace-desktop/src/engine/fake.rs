@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use super::{DEFAULT_PRECISION, Evaluator, PlotCapture};
+use super::{DEFAULT_PRECISION, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
 use crate::svg;
 
 /// Creates a boxed FakeEngine.
@@ -210,6 +210,31 @@ impl Evaluator for FakeEngine {
 
     fn functions(&self) -> Vec<(String, Vec<String>)> {
         builtin_functions()
+    }
+
+    /// The fake's own symbol table: the kinds the values actually hold and its own
+    /// [`builtin_functions`] registry. Overriding the trait default is what makes completion in
+    /// `--no-default-features` builds report real kinds instead of `Value`.
+    fn state(&self) -> Option<EngineState> {
+        Some(EngineState {
+            variables: self
+                .vars
+                .iter()
+                .map(|(name, value)| EngineVariable {
+                    name: name.clone(),
+                    kind: value.kind().to_string(),
+                    display: value.display(),
+                })
+                .collect(),
+            functions: builtin_functions()
+                .into_iter()
+                .map(|(name, parameters)| EngineFunction {
+                    name,
+                    parameters,
+                    is_builtin: true,
+                })
+                .collect(),
+        })
     }
 
     fn take_output(&mut self) -> Vec<String> {
