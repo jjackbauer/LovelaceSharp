@@ -22,7 +22,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use crate::completion::{self, CompletionItem};
 use crate::document_io::{self, LoadedFile, NewlineStyle};
@@ -34,8 +34,9 @@ use crate::execution::{
 use crate::keyboard::WorkbenchCommand;
 use crate::language;
 use crate::log_kind::{LogKind, LogLine};
+use crate::recovery::RecoveryRecord;
 use crate::run_state::{RunState, RunStateMachine, RunStateTransition};
-use crate::settings::{MAX_PRECISION, MIN_PRECISION};
+use crate::settings::{MAX_PRECISION, MIN_PRECISION, SessionState, SessionTab};
 
 /// Maximum number of log entries retained per document; the oldest are evicted first.
 pub const LOG_CAP: usize = 500;
@@ -75,6 +76,74 @@ fn file_name_of(path: &Path) -> String {
     path.file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_else(|| path.display().to_string())
+}
+
+/// The modification time of `path`, when it can be read.
+///
+/// DOC-005 records this in the recovery journal; a file that cannot be stat'ed (it was deleted
+/// between the save and the stat, for example) simply has no recorded time.
+fn file_mtime(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+}
+
+/// One document that a launch restore puts back, before it becomes a [`WorkbenchDocument`].
+///
+/// DOC-004/005: a restored document comes either from a file (read again, nothing written) or from
+/// a recovery record (the journaled bytes, nothing executed). The two sources differ only in which
+/// fields they fill in, so they share the installation path.
+struct RestoredDocument {
+    /// The identity the restored tab keeps (the session's, so its journal record stays keyed to it).
+    id: DocumentId,
+    /// Tab title.
+    title: String,
+    /// File path, when the tab showed a file.
+    path: Option<PathBuf>,
+    /// The buffer text to show.
+    source: String,
+    /// The text that counts as saved, so [`WorkbenchDocument::dirty`] is meaningful immediately.
+    saved_source: String,
+    /// Newline style, or `None` to detect it from the source.
+    newline: Option<NewlineStyle>,
+    /// Whether the file began with a UTF-8 byte-order mark.
+    bom: bool,
+    /// The source file's mtime when it was opened, when known.
+    source_mtime: Option<SystemTime>,
+    /// The file's own bytes, for a byte-identical clean save. `None` for a recovered buffer.
+    original_bytes: Option<Vec<u8>>,
+    /// Caret to restore, as 0-based row and column.
+    caret: (usize, usize),
+    /// Selection to restore.
+    selection: Option<((usize, usize), (usize, usize))>,
+}
+
+/// What one session restore did (DOC-004).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RestoreReport {
+    /// The identities of the documents that were put back, in tab order.
+    pub restored: Vec<DocumentId>,
+    /// Identities of the recovery records whose text the session restore consumed.
+    ///
+    /// A record is consumed when the tab it belongs to could only be restored from the journal
+    /// (an unsaved buffer, or a file that has since disappeared). The window keeps tracking those
+    /// records so they are deleted when the document is saved, closed or the app exits cleanly.
+    pub recovered: Vec<u64>,
+    /// One message per entry that could not be restored, with the reason.
+    pub skipped: Vec<String>,
+}
+
+/// What one recovery did (DOC-005).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RecoverReport {
+    /// The document the text was put into.
+    pub document_id: DocumentId,
+    /// Its index in the tab list.
+    pub index: usize,
+    /// True when an open tab was rewritten, false when the text arrived in a new tab.
+    pub replaced: bool,
+    /// Number of buffer bytes recovered.
+    pub bytes: usize,
 }
 
 /// Which toolbar controls the window must show for the active document's state.
@@ -119,6 +188,18 @@ pub struct WorkbenchDocument {
     pub newline: NewlineStyle,
     /// DOC-002: true when the file began with a UTF-8 byte-order mark, which save restores.
     pub bom: bool,
+    /// DOC-005: the file's modification time when it was opened or last saved.
+    ///
+    /// The recovery record carries it so a recovered buffer still names the version of the file
+    /// it was typed against; conflict detection (DOC-006) reads the same value.
+    pub source_mtime: Option<SystemTime>,
+    /// DOC-005: the caret to journal with the buffer, as 0-based row and column.
+    ///
+    /// The window copies its editor's caret here every frame; the workbench itself never derives
+    /// one, so a headless restore can put the caret back exactly where the user left it.
+    pub caret: (usize, usize),
+    /// DOC-005: the selection to journal with the buffer: anchor and caret end, both 0-based.
+    pub selection: Option<((usize, usize), (usize, usize))>,
     /// Source text currently in the editor.
     pub source: String,
     /// Precision passed to the next run's engine.
@@ -662,9 +743,12 @@ impl Workbench {
 
     /// Loads a file into an existing document, recording its path and clean state.
     ///
-    /// This is the window's startup path (the script named on the command line). A read failure is
-    /// logged and returned so the caller can surface it, and a file that is not UTF-8 is refused
-    /// before the tab is touched: the decoder never mangles bytes it cannot read.
+    /// This is the "read into tab N" entry point for hosts and tests; the window itself opens
+    /// files with [`Workbench::open`], which decides between reusing an empty tab and creating
+    /// one. A read failure is logged and returned so the caller can surface it, and a file that is
+    /// not UTF-8 is refused before the tab is touched: the decoder never mangles bytes it cannot
+    /// read.
+    #[allow(dead_code)] // kept as the "read into tab N" entry point for hosts and tests
     pub fn load_file(&mut self, index: usize, path: &Path) -> Result<(), String> {
         if index >= self.docs.len() {
             return Err("No document tab to open the file in.".to_string());
@@ -743,6 +827,9 @@ impl Workbench {
         doc.saved_source = doc.source.clone();
         doc.newline = loaded.newline;
         doc.bom = loaded.bom;
+        doc.source_mtime = file_mtime(path);
+        doc.caret = (0, 0);
+        doc.selection = None;
         doc.original_bytes = Some(loaded.bytes);
         doc.revision = doc.revision.saturating_add(1);
         doc.snapshot = None;
@@ -850,6 +937,7 @@ impl Workbench {
                     doc.original_bytes = Some(bytes);
                     doc.newline = NewlineStyle::detect(&doc.source);
                     doc.bom = bom;
+                    doc.source_mtime = file_mtime(&path);
                 }
                 let detail = self.docs[index].encoding_label();
                 self.add_recent(&path);
@@ -925,6 +1013,306 @@ impl Workbench {
         self.recent_files.retain(|existing| existing != &path);
         self.recent_files.insert(0, path);
         self.recent_files.truncate(crate::settings::MAX_RECENT_FILES);
+    }
+
+    /// DOC-004: adopts the persisted recent list when the application starts.
+    ///
+    /// Paths are deduplicated, capped and pruned of files that no longer exist, in that order of
+    /// authority: an entry that survives keeps its position, so a file the user has not touched
+    /// does not jump to the top merely because the list was loaded.
+    pub fn set_recent_files(&mut self, paths: Vec<String>) {
+        let mut loaded: Vec<String> = Vec::new();
+        for path in paths {
+            let path = path.trim();
+            if path.is_empty() || !Path::new(path).exists() {
+                continue;
+            }
+            if loaded.iter().any(|existing| existing == path) {
+                continue;
+            }
+            loaded.push(path.to_string());
+        }
+        loaded.truncate(crate::settings::MAX_RECENT_FILES);
+        self.recent_files = loaded;
+    }
+
+    /// DOC-005: stores the caret and selection the window's editor currently shows.
+    ///
+    /// The workbench never computes a caret; the window copies its editor's position here before
+    /// each journal pass, so a recovery record names exactly where the user was typing.
+    pub fn set_caret(
+        &mut self,
+        index: usize,
+        caret: (usize, usize),
+        selection: Option<((usize, usize), (usize, usize))>,
+    ) {
+        if let Some(document) = self.docs.get_mut(index) {
+            document.caret = caret;
+            document.selection = selection;
+        }
+    }
+
+    /// DOC-004: the tab order, the active tab and each tab's file, for the settings file.
+    ///
+    /// A pathless tab keeps its document identity so the next launch can look for its recovery
+    /// record; a tab with a file records the path, so it is restored by reading that file again.
+    pub fn session_state(&self) -> SessionState {
+        SessionState::new(
+            self.docs
+                .iter()
+                .map(|document| SessionTab {
+                    path: document
+                        .path
+                        .as_ref()
+                        .map(|path| path.to_string_lossy().into_owned()),
+                    document_id: document.id.0,
+                })
+                .collect(),
+            self.active,
+        )
+    }
+
+    /// DOC-004: replaces the tab list with the last session's tabs, in their original order.
+    ///
+    /// A tab with a file is restored by **reading** the file (never by executing it and never by
+    /// writing it), so an unchanged file comes back byte-for-byte as the codec decoded it. A tab
+    /// without a file is restored only when a DOC-005 recovery record covers it: the journal's
+    /// text is what the user was typing, and putting it back performs no I/O on any document file.
+    /// An entry that cannot be restored is reported in [`RestoreReport::skipped`] and the launch
+    /// continues; a session whose every entry is unreadable leaves one fresh empty document.
+    pub fn restore_session(
+        &mut self,
+        session: &SessionState,
+        records: &[RecoveryRecord],
+    ) -> RestoreReport {
+        let mut report = RestoreReport::default();
+        for document in &mut self.docs {
+            if let Some(handle) = document.run.take() {
+                let _ = self.host.cancel(&handle);
+            }
+        }
+        self.docs.clear();
+        self.active = 0;
+        // The session's active tab is mapped to the restored tab it became, not to the same
+        // numeric index: a skipped entry must not silently move the selection to a neighbour.
+        let mut active_index: Option<usize> = None;
+
+        for (entry_index, tab) in session.documents.iter().enumerate() {
+            let record = records
+                .iter()
+                .find(|record| record.document_id == tab.document_id);
+            let restored = match &tab.path {
+                Some(path_text) => {
+                    let path = PathBuf::from(path_text);
+                    match document_io::read(&path) {
+                        Ok(loaded) => Some(RestoredDocument {
+                            id: DocumentId(tab.document_id),
+                            title: file_name_of(&path),
+                            path: Some(path.clone()),
+                            source: loaded.text.clone(),
+                            saved_source: loaded.text,
+                            newline: Some(loaded.newline),
+                            bom: loaded.bom,
+                            source_mtime: file_mtime(&path),
+                            original_bytes: Some(loaded.bytes),
+                            caret: (0, 0),
+                            selection: None,
+                        }),
+                        // The file is gone. If its journal record still has the text, that text
+                        // is all that is left of the document, so restore it instead of dropping
+                        // the tab; the record names the path it was being edited from.
+                        Err(message) => match record {
+                            Some(record) => {
+                                report.recovered.push(record.document_id);
+                                Some(Self::restored_from_record(record, DocumentId(tab.document_id)))
+                            }
+                            None => {
+                                report.skipped.push(message);
+                                None
+                            }
+                        },
+                    }
+                }
+                None => match record {
+                    Some(record) => {
+                        report.recovered.push(record.document_id);
+                        Some(Self::restored_from_record(record, DocumentId(tab.document_id)))
+                    }
+                    None => {
+                        report.skipped.push(format!(
+                            "the unsaved buffer for document {} has no recovery record",
+                            tab.document_id
+                        ));
+                        None
+                    }
+                },
+            };
+            if let Some(restored) = restored {
+                let index = self.install_document(restored);
+                report.restored.push(self.docs[index].id);
+                if entry_index == session.active {
+                    active_index = Some(index);
+                } else if active_index.is_none() && entry_index > session.active {
+                    // The active entry was skipped; the nearest following restored tab is the
+                    // closest thing to what the user had selected.
+                    active_index = Some(index);
+                }
+            }
+        }
+
+        if self.docs.is_empty() {
+            let id = self.next_document_id();
+            self.docs
+                .push(WorkbenchDocument::new(id, UNTITLED_TITLE, ""));
+        }
+        let highest = self.docs.iter().map(|doc| doc.id.0).max().unwrap_or(0);
+        self.next_id = self.next_id.max(highest.saturating_add(1));
+        self.active = active_index.unwrap_or(self.docs.len() - 1);
+
+        let count = report.restored.len();
+        let total = session.documents.len();
+        self.log(
+            self.active,
+            LogKind::Info,
+            format!(
+                "Restored {count} of {total} document(s) from the last session; nothing was run \
+                 and no file was written."
+            ),
+        );
+        for skipped in &report.skipped {
+            self.log(
+                self.active,
+                LogKind::Diagnostic,
+                format!("Session restore skipped a tab: {skipped}"),
+            );
+        }
+        report
+    }
+
+    /// DOC-005: puts one recovery record's text into a tab, before any save can overwrite it.
+    ///
+    /// The text goes into the tab that already represents the record's document when one is open
+    /// (the session restore usually recreated it from disk, and the edit is what is missing), or
+    /// into a new tab otherwise. The file on disk is not touched in either case, and nothing is
+    /// executed: the recovered text is only a buffer until the user saves it.
+    pub fn recover(&mut self, record: &RecoveryRecord) -> RecoverReport {
+        let existing = self
+            .docs
+            .iter()
+            .position(|document| document.id.0 == record.document_id)
+            .or_else(|| {
+                record.path.as_ref().and_then(|path| {
+                    self.docs
+                        .iter()
+                        .position(|document| document.path.as_deref() == Some(path.as_path()))
+                })
+            });
+        let bytes = record.buffer_bytes();
+        if let Some(index) = existing {
+            if let Some(handle) = self.docs[index].run.take() {
+                let _ = self.host.cancel(&handle);
+            }
+            let title = self.docs[index].title.clone();
+            let id = self.docs[index].id;
+            {
+                let document = &mut self.docs[index];
+                let was_active = document.state() != RunState::Idle;
+                document.source = record.source.clone();
+                document.caret = record.caret;
+                document.selection = record.selection;
+                document.source_mtime = record.source_mtime;
+                document.revision = document.revision.saturating_add(1);
+                document.snapshot = None;
+                document.last_plot = None;
+                document.diagnostic = None;
+                document.diagnostic_revision = None;
+                document.pending_logs.clear();
+                document.current_statement = None;
+                document.committed = 0;
+                document.total = 0;
+                document.elapsed_ms = 0;
+                if was_active {
+                    document.run_state.reset("document recovered from the journal");
+                }
+            }
+            self.active = index;
+            self.log(
+                index,
+                LogKind::Info,
+                format!("Recovered {title} from the recovery journal ({bytes} bytes); nothing was written."),
+            );
+            RecoverReport {
+                document_id: id,
+                index,
+                replaced: true,
+                bytes,
+            }
+        } else {
+            let id = self.next_document_id();
+            let restored = Self::restored_from_record(record, id);
+            let index = self.install_document(restored);
+            self.active = index;
+            let title = self.docs[index].title.clone();
+            self.log(
+                index,
+                LogKind::Info,
+                format!(
+                    "Recovered {title} from the recovery journal ({bytes} bytes); nothing was executed."
+                ),
+            );
+            RecoverReport {
+                document_id: id,
+                index,
+                replaced: false,
+                bytes,
+            }
+        }
+    }
+
+    /// The [`RestoredDocument`] a recovery record describes.
+    fn restored_from_record(record: &RecoveryRecord, id: DocumentId) -> RestoredDocument {
+        // The disk text is the "saved" side of the dirty comparison: a recovered buffer whose
+        // text happens to equal the file's is not dirty, one that differs is.
+        let saved_source = record
+            .path
+            .as_deref()
+            .and_then(|path| document_io::read(path).ok())
+            .map(|loaded| loaded.text)
+            .unwrap_or_default();
+        RestoredDocument {
+            id,
+            title: record.title.clone(),
+            path: record.path.clone(),
+            source: record.source.clone(),
+            saved_source,
+            // The journal holds the buffer's own line endings, so the style is detected from it.
+            newline: None,
+            bom: record.bom,
+            source_mtime: record.source_mtime,
+            // A recovered buffer was never written from this process, so there are no file bytes
+            // to write back verbatim: a save re-encodes the text the user recovered.
+            original_bytes: None,
+            caret: record.caret,
+            selection: record.selection,
+        }
+    }
+
+    /// Appends one restored document and returns its index.
+    fn install_document(&mut self, restored: RestoredDocument) -> usize {
+        let mut document =
+            WorkbenchDocument::new(restored.id, &restored.title, &restored.source);
+        document.path = restored.path;
+        document.newline = restored
+            .newline
+            .unwrap_or_else(|| NewlineStyle::detect(&restored.source));
+        document.bom = restored.bom;
+        document.source_mtime = restored.source_mtime;
+        document.caret = restored.caret;
+        document.selection = restored.selection;
+        document.saved_source = restored.saved_source;
+        document.original_bytes = restored.original_bytes;
+        self.docs.push(document);
+        self.docs.len() - 1
     }
 
     /// Sets the active document's precision.
@@ -1538,6 +1926,16 @@ impl Workbench {
         self.docs[index].snapshot = Some(snapshot);
     }
 
+    /// Appends a log line of `kind` to the active document.
+    ///
+    /// DOC-004/005: the window reports settings, session-restore and journal problems through the
+    /// same log the Logs pane shows, so a skipped record or an unwritable settings file is visible
+    /// in the product instead of only on stderr.
+    pub fn log_active(&mut self, kind: LogKind, text: impl Into<String>) {
+        let active = self.active;
+        self.log(active, kind, text);
+    }
+
     /// Appends a log line of `kind`, enforcing [`LOG_CAP`].
     fn log(&mut self, index: usize, kind: LogKind, text: impl Into<String>) {
         let Some(doc) = self.docs.get_mut(index) else {
@@ -1691,6 +2089,9 @@ impl WorkbenchDocument {
             path: None,
             newline: NewlineStyle::detect(source),
             bom: false,
+            source_mtime: None,
+            caret: (0, 0),
+            selection: None,
             source: source.to_string(),
             precision: DEFAULT_PRECISION,
             revision: 0,
@@ -4121,5 +4522,457 @@ mod tests {
         assert_eq!(replacement.source, "");
         assert!(!replacement.dirty());
         assert_ne!(replacement.id, first, "the replacement is a new document");
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-004 / DOC-005: recent files, session restore and the crash-recovery journal.
+    // -----------------------------------------------------------------------------------------
+
+    /// A temporary directory unique to one test in this process.
+    fn session_scratch(name: &str) -> PathBuf {
+        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "lovelace-desktop-session-{}-{}-{name}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        directory
+    }
+
+    #[test]
+    fn adopting_the_saved_recent_list_dedupes_prunes_and_keeps_the_order() {
+        let directory = session_scratch("recent-adopt");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        let missing = directory.join("missing.lv");
+        std::fs::write(&first, "a = 1\n").expect("fixture");
+        std::fs::write(&second, "b = 2\n").expect("fixture");
+        let _ = std::fs::remove_file(&missing);
+
+        let mut workbench = fake_workbench();
+        workbench.set_recent_files(vec![
+            second.to_string_lossy().into_owned(),
+            "   ".to_string(),
+            missing.to_string_lossy().into_owned(),
+            first.to_string_lossy().into_owned(),
+            second.to_string_lossy().into_owned(),
+        ]);
+        assert_eq!(
+            workbench.recent_files(),
+            &[
+                second.to_string_lossy().into_owned(),
+                first.to_string_lossy().into_owned()
+            ],
+            "the existing paths keep their order, the missing one is pruned and the duplicate dropped"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn reopening_a_file_moves_it_to_the_top_of_the_recent_list() {
+        let directory = session_scratch("recent-reopen");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        std::fs::write(&first, "a = 1\n").expect("fixture");
+        std::fs::write(&second, "b = 2\n").expect("fixture");
+        let mut workbench = fake_workbench();
+
+        workbench.open(&first).expect("open the first file");
+        workbench.open(&second).expect("open the second file");
+        assert_eq!(workbench.recent_files()[0], second.to_string_lossy());
+        workbench.open(&first).expect("open the first file again");
+        assert_eq!(
+            workbench.recent_files()[0],
+            first.to_string_lossy(),
+            "a re-opened file moves to the top"
+        );
+        assert_eq!(
+            workbench
+                .recent_files()
+                .iter()
+                .filter(|path| path.as_str() == first.to_string_lossy())
+                .count(),
+            1,
+            "and it is not duplicated"
+        );
+        assert_eq!(workbench.recent_files().len(), 2);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn the_session_lists_the_tabs_in_order_with_their_paths_and_the_active_tab() {
+        let directory = session_scratch("session-state");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        std::fs::write(&first, "a = 1\n").expect("fixture");
+        std::fs::write(&second, "b = 2\n").expect("fixture");
+        let mut workbench = fake_workbench();
+        let first_index = workbench.open(&first).expect("open the first file");
+        let second_index = workbench.open(&second).expect("open the second file");
+        workbench.new_document();
+        workbench.set_active(second_index);
+
+        let session = workbench.session_state();
+        let ids: Vec<u64> = workbench.documents().iter().map(|doc| doc.id.0).collect();
+        assert_eq!(
+            session.documents.iter().map(|tab| tab.document_id).collect::<Vec<_>>(),
+            ids,
+            "the session keeps tab order"
+        );
+        assert_eq!(session.active, second_index, "the active tab is recorded");
+        assert_eq!(
+            session.documents[first_index].path.as_deref(),
+            Some(first.to_string_lossy().as_ref())
+        );
+        assert_eq!(
+            session.documents[second_index].path.as_deref(),
+            Some(second.to_string_lossy().as_ref())
+        );
+        assert_eq!(
+            session.documents.last().expect("the new tab").path,
+            None,
+            "an unsaved buffer keeps its place with no path"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn restoring_the_last_session_reopens_the_same_tabs_in_order_without_running_or_writing() {
+        let directory = session_scratch("session-restore");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        let third = directory.join("third.lv");
+        let first_bytes = b"a = 1\n";
+        let second_bytes = b"plot([1], [4], \"two\")\r\n";
+        let third_bytes = b"z = 3\n";
+        std::fs::write(&first, first_bytes).expect("fixture");
+        std::fs::write(&second, second_bytes).expect("fixture");
+        std::fs::write(&third, third_bytes).expect("fixture");
+
+        let session = {
+            let mut workbench = fake_workbench();
+            workbench.open(&first).expect("open first");
+            workbench.open(&second).expect("open second");
+            workbench.open(&third).expect("open third");
+            workbench.set_active(3);
+            workbench.session_state()
+        };
+
+        let mut relaunched = fake_workbench();
+        let report = relaunched.restore_session(&session, &[]);
+        assert_eq!(report.restored.len(), 3);
+        assert_eq!(
+            report.skipped.len(),
+            2,
+            "the two pathless starter tabs have no journal and are not restored: {:?}",
+            report.skipped
+        );
+        assert!(
+            report.skipped.iter().all(|skipped| skipped.contains("no recovery record")),
+            "{:?}",
+            report.skipped
+        );
+        assert_eq!(
+            relaunched
+                .documents()
+                .iter()
+                .map(|doc| doc.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["first.lv", "second.lv", "third.lv"],
+            "the tabs come back in their original order"
+        );
+        assert_eq!(relaunched.active(), 1, "the active tab comes back");
+        assert_eq!(
+            relaunched.active_document().title,
+            "second.lv",
+            "the active tab is the tab the user had selected, not a shifted neighbour"
+        );
+        assert_eq!(relaunched.documents()[1].source, "plot([1], [4], \"two\")\r\n");
+        assert_eq!(
+            relaunched.documents()[1].newline,
+            NewlineStyle::CrLf,
+            "a restored file keeps its newline style"
+        );
+        for (path, bytes) in [
+            (&first, first_bytes.as_slice()),
+            (&second, second_bytes.as_slice()),
+            (&third, third_bytes.as_slice()),
+        ] {
+            assert_eq!(
+                std::fs::read(path).expect("read the file back"),
+                bytes,
+                "restoring must never write a file"
+            );
+        }
+        assert!(
+            relaunched.documents().iter().all(|doc| doc.state() == RunState::Idle),
+            "restoring must not run anything"
+        );
+        assert!(
+            relaunched
+                .documents()
+                .iter()
+                .flat_map(|doc| doc.logs.iter())
+                .all(|line| !line.text.starts_with("Run queued")),
+            "no document may have queued a run"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn restoring_a_session_never_constructs_an_engine() {
+        // A factory that counts its own invocations: a run would construct the engine, so a count
+        // of zero proves the restore only read files and built buffers.
+        let directory = session_scratch("session-no-engine");
+        let file = directory.join("quiet.lv");
+        std::fs::write(&file, "a = 1\n").expect("fixture");
+        let session = {
+            let mut workbench = fake_workbench();
+            workbench.open(&file).expect("open");
+            workbench.set_active(0);
+            workbench.session_state()
+        };
+        let calls = Arc::new(AtomicU64::new(0));
+        let counter = calls.clone();
+        let mut workbench = Workbench::with_named_factory(
+            Box::new(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Box::new(FakeEngine::new())
+            }),
+            "counting",
+        );
+        let report = workbench.restore_session(&session, &[]);
+        assert_eq!(report.restored.len(), 1);
+        assert_eq!(calls.load(Ordering::SeqCst), 0, "no engine was constructed");
+        assert!(workbench.documents().iter().all(|doc| doc.state() == RunState::Idle));
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_pathless_session_tab_restores_only_when_the_journal_covers_it() {
+        let directory = session_scratch("session-pathless");
+        let session = SessionState::new(
+            vec![SessionTab {
+                path: None,
+                document_id: 5,
+            }],
+            0,
+        );
+        let mut workbench = fake_workbench();
+        let report = workbench.restore_session(&session, &[]);
+        assert!(report.restored.is_empty());
+        assert_eq!(report.skipped.len(), 1);
+        assert!(report.skipped[0].contains("no recovery record"));
+        assert_eq!(
+            workbench.documents().len(),
+            1,
+            "an unrestorable session still leaves the window one empty document"
+        );
+        assert_eq!(workbench.documents()[0].title, "untitled.lv");
+        assert_eq!(workbench.documents()[0].source, "");
+
+        let record = RecoveryRecord {
+            document_id: 5,
+            revision: 2,
+            title: "untitled-2.lv".to_string(),
+            path: None,
+            bom: false,
+            caret: (1, 4),
+            selection: Some(((0, 0), (1, 4))),
+            source_mtime: None,
+            saved_at: SystemTime::UNIX_EPOCH,
+            source: "x = 1\ny = 2\n".to_string(),
+        };
+        let mut workbench = fake_workbench();
+        let report = workbench.restore_session(&session, std::slice::from_ref(&record));
+        assert_eq!(report.recovered, vec![5], "the journal record was consumed");
+        assert_eq!(workbench.documents().len(), 1);
+        let document = &workbench.documents()[0];
+        assert_eq!(document.source, "x = 1\ny = 2\n");
+        assert_eq!(document.title, "untitled-2.lv");
+        assert!(document.dirty(), "a recovered unsaved buffer is dirty");
+        assert_eq!(document.caret, (1, 4));
+        assert_eq!(document.selection, Some(((0, 0), (1, 4))));
+        assert_eq!(document.id, DocumentId(5), "the identity the journal is keyed by");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_journaled_dirty_buffer_produces_a_record_immediately_and_is_throttled_for_a_second() {
+        use crate::recovery::{RecoveryJournal, record_path};
+
+        let directory = session_scratch("journal-debounce");
+        let recovery_root = directory.join("recovery");
+        let mut workbench = fake_workbench();
+        let mut journal = RecoveryJournal::new(recovery_root.clone());
+        assert_eq!(journal.debounce(), Duration::from_secs(1));
+        let document_id = workbench.documents()[0].id.0;
+        let path = record_path(&recovery_root, document_id);
+        let start = Instant::now();
+
+        workbench.set_source(0, "a = 1\n".to_string());
+        workbench.set_caret(0, (0, 5), Some(((0, 2), (0, 5))));
+        let report = journal.sync(workbench.documents(), start);
+        assert_eq!(report.written, vec![document_id], "the first edit is journaled at once");
+        assert!(path.exists());
+        let first = RecoveryRecord::parse(&std::fs::read(&path).expect("read")).expect("parses");
+        assert_eq!(first.source, "a = 1\n");
+        assert_eq!(first.source.as_bytes(), b"a = 1\n", "byte-identical to the buffer");
+        assert_eq!(first.caret, (0, 5));
+        assert_eq!(first.selection, Some(((0, 2), (0, 5))));
+        assert_eq!(first.path, None);
+
+        // A keystroke 500 ms later is inside the window: the record must not be rewritten.
+        workbench.set_source(0, "a = 2\n".to_string());
+        let report = journal.sync(workbench.documents(), start + Duration::from_millis(500));
+        assert!(report.written.is_empty(), "typing must not rewrite per keystroke");
+        assert_eq!(
+            std::fs::read(&path).expect("read"),
+            first.to_bytes(),
+            "the record on disk is still the first revision"
+        );
+        // The window must ask for a frame when the window elapses: the trailing write cannot wait
+        // for the next keystroke, or a kill after typing stops would lose more than one window.
+        assert_eq!(
+            journal.pending_delay(workbench.documents(), start + Duration::from_millis(500)),
+            Some(Duration::from_millis(500)),
+            "the window knows when the throttled revision becomes due"
+        );
+
+        // Once the window has elapsed the newest text is flushed, so a kill loses at most one
+        // second of typing.
+        let report = journal.sync(workbench.documents(), start + Duration::from_millis(1_000));
+        assert_eq!(report.written, vec![document_id]);
+        let second = RecoveryRecord::parse(&std::fs::read(&path).expect("read")).expect("parses");
+        assert_eq!(second.source, "a = 2\n");
+        assert_eq!(
+            journal.pending_delay(workbench.documents(), start + Duration::from_millis(1_000)),
+            None,
+            "nothing is outstanding once the newest revision is on disk"
+        );
+
+        // Saving the document makes it clean, and its record is deleted.
+        workbench.save_as(0, directory.join("saved.lv"));
+        let report = journal.sync(workbench.documents(), start + Duration::from_secs(2));
+        assert_eq!(report.deleted, vec![document_id]);
+        assert!(!path.exists(), "a clean document has no recovery record");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_journaled_record_names_the_sources_mtime_at_open() {
+        let directory = session_scratch("journal-mtime");
+        let file = directory.join("mtime.lv");
+        std::fs::write(&file, "a = 1\n").expect("fixture");
+        let expected = std::fs::metadata(&file)
+            .and_then(|metadata| metadata.modified())
+            .expect("the file has an mtime");
+        let mut workbench = fake_workbench();
+        let index = workbench.open(&file).expect("open");
+        let document = workbench.document(index).expect("tab");
+        assert_eq!(document.source_mtime, Some(expected), "open records the mtime");
+        workbench.set_source(index, "a = 2\n".to_string());
+        let record =
+            RecoveryRecord::from_document(workbench.document(index).expect("tab"), SystemTime::now());
+        assert_eq!(record.source_mtime, Some(expected));
+        assert_eq!(record.path, Some(file.clone()));
+        assert!(
+            String::from_utf8_lossy(&record.to_bytes()).contains("mtime_unix_nanos:"),
+            "the record file states the mtime it was opened at"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_crash_leaves_the_record_and_the_next_launch_restores_the_exact_text_and_original_path() {
+        use crate::recovery::{self as recovery_mod, RecoveryJournal};
+
+        let directory = session_scratch("crash");
+        let recovery_root = directory.join("recovery");
+        let file = directory.join("notes.lv");
+        let on_disk = b"a = 1\nb = 2\n";
+        std::fs::write(&file, on_disk).expect("fixture");
+
+        let session;
+        let record;
+        {
+            // "The process": a workbench and its journal. It is dropped below without ever calling
+            // the clean-exit path, which is exactly what a forced kill leaves behind.
+            let mut workbench = fake_workbench();
+            let index = workbench.open(&file).expect("open");
+            workbench.set_source(index, "a = 1\nb = 3\nc = 4\n".to_string());
+            workbench.set_caret(index, (2, 5), None);
+            session = workbench.session_state();
+            let mut journal = RecoveryJournal::new(recovery_root.clone());
+            let report = journal.sync(workbench.documents(), Instant::now());
+            assert_eq!(report.written.len(), 1, "the dirty buffer was journaled");
+        }
+        assert_eq!(
+            std::fs::read(&file).expect("their file"),
+            on_disk,
+            "journaling an unsaved edit never writes the document"
+        );
+
+        let scanned = recovery_mod::scan(&recovery_root);
+        assert_eq!(scanned.warnings, Vec::<String>::new());
+        assert_eq!(scanned.records.len(), 1, "the record survived the simulated crash");
+        record = scanned.records[0].clone();
+        assert_eq!(record.path, Some(file.clone()), "the record reports the original path");
+        assert_eq!(record.title, "notes.lv");
+        assert_eq!(
+            record.source, "a = 1\nb = 3\nc = 4\n",
+            "the record is byte-identical to the buffer the user saw"
+        );
+
+        // Next launch: the session restores the file from disk, then the recovery prompt's answer
+        // puts the missing edit back into that tab. The file itself is not touched.
+        let mut relaunched = fake_workbench();
+        let restore = relaunched.restore_session(&session, &scanned.records);
+        assert_eq!(restore.restored.len(), 1, "the file's tab is back from disk");
+        assert!(
+            restore.recovered.is_empty(),
+            "a readable file is restored from disk, leaving its record for the prompt"
+        );
+        let recovered = relaunched.recover(&record);
+        assert!(recovered.replaced, "the text goes back into the tab that owns the file");
+        let document = relaunched.document(recovered.index).expect("tab");
+        assert_eq!(document.source, "a = 1\nb = 3\nc = 4\n", "the exact text is restored");
+        assert_eq!(document.path, Some(file.clone()));
+        assert_eq!(document.caret, (2, 5));
+        assert!(document.dirty());
+        assert_eq!(document.title_with_marker(), "notes.lv *");
+        assert_eq!(
+            std::fs::read(&file).expect("their file"),
+            on_disk,
+            "recovering must not overwrite the file"
+        );
+        assert!(document.state() == RunState::Idle, "recovering runs nothing");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_clean_exit_deletes_only_the_records_the_session_owns() {
+        use crate::recovery::{RecoveryJournal, record_path};
+
+        let directory = session_scratch("clean-exit");
+        let recovery_root = directory.join("recovery");
+        let mut journal = RecoveryJournal::new(recovery_root.clone());
+        let mut workbench = fake_workbench();
+        let id = workbench.documents()[0].id.0;
+        workbench.set_source(0, "a = 1\n".to_string());
+        journal.sync(workbench.documents(), Instant::now());
+        assert!(record_path(&recovery_root, id).exists());
+
+        // A record nobody in this session owns is left alone: quitting must not destroy an
+        // unanswered recovery prompt from an earlier crash.
+        let foreign = record_path(&recovery_root, 99);
+        std::fs::write(&foreign, b"foreign").expect("foreign record");
+
+        let report = journal.clean_exit(workbench.documents());
+        assert_eq!(report.deleted, vec![id]);
+        assert!(!record_path(&recovery_root, id).exists());
+        assert!(foreign.exists(), "only this session's records are cleaned up");
+        let _ = std::fs::remove_dir_all(&directory);
     }
 }

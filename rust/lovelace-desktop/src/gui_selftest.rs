@@ -16,6 +16,7 @@ use crate::document_io::NewlineStyle;
 use crate::engine::DEFAULT_PRECISION;
 use crate::keyboard::{WorkbenchCommand, command_for_shortcut};
 use crate::log_kind::LogKind;
+use crate::recovery::{self, RecoveryJournal};
 use crate::run_state::RunState;
 use crate::workbench::{SaveOutcome, Workbench, WorkbenchDocument};
 
@@ -48,7 +49,7 @@ pub fn run() -> i32 {
         "GUI_SELFTEST plot-dir {}",
         crate::engine::default_plot_dir().display()
     );
-    let checks: [(&str, Check); 16] = [
+    let checks: [(&str, Check); 18] = [
         ("two-tabs", check_two_tabs),
         ("arithmetic", check_arithmetic),
         ("print", check_print),
@@ -65,6 +66,8 @@ pub fn run() -> i32 {
         ("run-state-stale", check_run_state_stale),
         ("file-bom-crlf", check_file_bom_crlf),
         ("file-refuse", check_file_refuse),
+        ("session-recovery", check_session_recovery),
+        ("recovery-corrupt", check_recovery_corrupt),
     ];
     // The editor's own history is a Windows-only surface (egui is a Windows dependency), so the
     // check joins the list exactly when that surface is compiled in.
@@ -1502,5 +1505,189 @@ fn check_file_refuse() -> Result<String, String> {
     Ok(format!(
         "refused with {message:?}; tab count kept at {before}; file bytes untouched ({} bytes)",
         original.len()
+    ))
+}
+
+/// The scratch directory the DOC-004 / DOC-005 checks use for a recovery journal.
+fn recovery_scratch(name: &str) -> Result<PathBuf, String> {
+    let path = file_scratch(name)?;
+    let _ = std::fs::remove_dir_all(&path);
+    std::fs::create_dir_all(&path)
+        .map_err(|error| format!("cannot create {}: {error}", path.display()))?;
+    Ok(path)
+}
+
+/// DOC-004 / DOC-005: a dirty buffer is journaled atomically, a forced kill leaves the record, and
+/// the next launch restores the exact text and the original path without executing or writing.
+fn check_session_recovery() -> Result<String, String> {
+    let file = file_scratch("session-recovery.lv")?;
+    let original: &[u8] = b"a = 1\nb = 2\n";
+    std::fs::write(&file, original)
+        .map_err(|error| format!("session-recovery: cannot write the fixture: {error}"))?;
+    let root = recovery_scratch("recovery-journal")?;
+    let edited = "a = 1\nb = 3\n";
+
+    let session;
+    {
+        // "The process": workbench + journal. Both are dropped below without the clean-exit path,
+        // which is exactly what a forced kill leaves on disk.
+        let mut workbench = new_workbench();
+        let index = workbench
+            .open(&file)
+            .map_err(|error| format!("session-recovery: {error}"))?;
+        workbench.set_source(index, edited.to_string());
+        workbench.set_caret(index, (1, 5), None);
+        session = workbench.session_state();
+        let mut journal = RecoveryJournal::new(root.clone());
+        let report = journal.sync(workbench.documents(), Instant::now());
+        if report.written.len() != 1 {
+            return Err(format!(
+                "session-recovery: the dirty buffer was not journaled: {report:?}"
+            ));
+        }
+    }
+    if std::fs::read(&file).map_err(|error| error.to_string())? != original {
+        return Err("session-recovery: journaling an edit wrote the document".to_string());
+    }
+
+    let scan = recovery::scan(&root);
+    if scan.records.len() != 1 || !scan.warnings.is_empty() {
+        return Err(format!(
+            "session-recovery: the crash left {} record(s) and {} warning(s)",
+            scan.records.len(),
+            scan.warnings.len()
+        ));
+    }
+    let record = scan.records[0].clone();
+    if record.source != edited {
+        return Err(format!(
+            "session-recovery: the record text is {:?}, expected {edited:?}",
+            record.source
+        ));
+    }
+    if record.path.as_deref() != Some(file.as_path()) {
+        return Err(format!(
+            "session-recovery: the record path is {:?}",
+            record.path
+        ));
+    }
+
+    let mut relaunched = new_workbench();
+    let restore = relaunched.restore_session(&session, &scan.records);
+    if restore.restored.len() != 1 {
+        return Err(format!(
+            "session-recovery: the session restored {} document(s): {:?}",
+            restore.restored.len(),
+            restore.skipped
+        ));
+    }
+    let recovered = relaunched.recover(&record);
+    let document = relaunched
+        .document(recovered.index)
+        .ok_or("session-recovery: the recovered tab vanished")?;
+    if document.source != edited || !document.dirty() {
+        return Err(format!(
+            "session-recovery: the recovered buffer is {:?} (dirty={})",
+            document.source,
+            document.dirty()
+        ));
+    }
+    if document.path.as_deref() != Some(file.as_path()) {
+        return Err("session-recovery: the recovered tab lost the original path".to_string());
+    }
+    if document.state() != RunState::Idle {
+        return Err(format!(
+            "session-recovery: restoring ran the document (state {})",
+            document.state().label()
+        ));
+    }
+    if std::fs::read(&file).map_err(|error| error.to_string())? != original {
+        return Err("session-recovery: recovery overwrote the file".to_string());
+    }
+
+    let mut journal = RecoveryJournal::new(root.clone());
+    if let Some(message) = journal.forget(record.document_id) {
+        return Err(format!("session-recovery: discarding failed: {message}"));
+    }
+    if recovery::record_path(&root, record.document_id).exists() {
+        return Err("session-recovery: discarding left the record on disk".to_string());
+    }
+    let _ = std::fs::remove_file(&file);
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(format!(
+        "journaled {edited:?} ({} bytes) for the original path; the forced kill left it; the next launch restored the exact text and path without running or writing; discarding deleted it",
+        edited.len()
+    ))
+}
+
+/// DOC-005 / PERF-010: a truncated record and a garbage record are skipped with a warning, and the
+/// valid record beside them is still recovered. A corrupt journal never stops the launch.
+fn check_recovery_corrupt() -> Result<String, String> {
+    let root = recovery_scratch("recovery-corrupt")?;
+    let file = file_scratch("recovery-corrupt.lv")?;
+    std::fs::write(&file, b"a = 1\nb = 2\n")
+        .map_err(|error| format!("recovery-corrupt: cannot write the fixture: {error}"))?;
+    let mut workbench = new_workbench();
+    let index = workbench
+        .open(&file)
+        .map_err(|error| format!("recovery-corrupt: {error}"))?;
+    workbench.set_source(index, "a = 1\nb = 7\n".to_string());
+    let document_id = workbench
+        .document(index)
+        .ok_or("recovery-corrupt: the tab vanished")?
+        .id
+        .0;
+    let mut journal = RecoveryJournal::new(root.clone());
+    journal.sync(workbench.documents(), Instant::now());
+    let valid_path = recovery::record_path(&root, document_id);
+    let full = std::fs::read(&valid_path)
+        .map_err(|error| format!("recovery-corrupt: cannot read the record: {error}"))?;
+    std::fs::write(
+        recovery::record_path(&root, 90),
+        &full[..full.len() / 2],
+    )
+    .map_err(|error| format!("recovery-corrupt: {error}"))?;
+    std::fs::write(recovery::record_path(&root, 91), b"not a record")
+        .map_err(|error| format!("recovery-corrupt: {error}"))?;
+
+    let scan = recovery::scan(&root);
+    if scan.records.len() != 1 {
+        return Err(format!(
+            "recovery-corrupt: {} records survived, expected 1",
+            scan.records.len()
+        ));
+    }
+    if scan.warnings.len() != 2 {
+        return Err(format!(
+            "recovery-corrupt: {} warning(s), expected 2: {:?}",
+            scan.warnings.len(),
+            scan.warnings
+        ));
+    }
+    for warning in &scan.warnings {
+        if !warning.contains("corrupt") {
+            return Err(format!("recovery-corrupt: unclear warning {warning:?}"));
+        }
+    }
+    let mut relaunched = new_workbench();
+    let recovered = relaunched.recover(&scan.records[0]);
+    let document = relaunched
+        .document(recovered.index)
+        .ok_or("recovery-corrupt: the valid record did not recover")?;
+    if document.source != "a = 1\nb = 7\n" {
+        return Err(format!(
+            "recovery-corrupt: the valid record restored {:?}",
+            document.source
+        ));
+    }
+    if std::fs::read(&file).map_err(|error| error.to_string())? != b"a = 1\nb = 2\n" {
+        return Err("recovery-corrupt: the file was rewritten".to_string());
+    }
+    let _ = std::fs::remove_file(&file);
+    let _ = std::fs::remove_dir_all(&root);
+    Ok(format!(
+        "scan skipped {} corrupt record(s) with a warning and recovered the valid one ({} bytes)",
+        scan.warnings.len(),
+        document.source.len()
     ))
 }

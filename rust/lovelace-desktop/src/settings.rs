@@ -70,6 +70,40 @@ impl Default for LayoutFractions {
     }
 }
 
+/// One tab of the last session: the file it showed, or just its identity for an unsaved buffer.
+///
+/// DOC-004: a tab with a path is restored by reading that file again; a tab without one can only
+/// be restored when DOC-005's recovery journal still holds its buffer, which is why the identity
+/// is persisted beside the path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SessionTab {
+    /// The file the tab showed, when it had one.
+    pub path: Option<String>,
+    /// The document identity the tab had, so a recovery record can be matched to it.
+    pub document_id: u64,
+}
+
+/// The tabs that were open at the last persist, in tab order, and which one was active.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SessionState {
+    /// The open tabs, left to right.
+    pub documents: Vec<SessionTab>,
+    /// The index of the tab that was selected.
+    pub active: usize,
+}
+
+impl SessionState {
+    /// Builds a session value from `(path, document identity)` pairs and the active index.
+    pub fn new(documents: Vec<SessionTab>, active: usize) -> SessionState {
+        let active = if documents.is_empty() {
+            0
+        } else {
+            active.min(documents.len() - 1)
+        };
+        SessionState { documents, active }
+    }
+}
+
 /// Everything the application persists between runs.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Settings {
@@ -83,6 +117,8 @@ pub struct Settings {
     pub recent_files: Vec<String>,
     /// Display precision of the document that was active at exit.
     pub active_precision: usize,
+    /// DOC-004: the tabs that were open at the last persist, or `None` when nothing was saved.
+    pub session: Option<SessionState>,
     /// Problems found while loading. Never serialised; the shell copies them into the log.
     pub warnings: Vec<String>,
 }
@@ -95,6 +131,7 @@ impl Default for Settings {
             layout: LayoutFractions::default(),
             recent_files: Vec::new(),
             active_precision: DEFAULT_PRECISION,
+            session: None,
             warnings: Vec::new(),
         }
     }
@@ -142,6 +179,34 @@ impl Settings {
             (
                 "active_precision",
                 Json::Num(self.active_precision.to_string()),
+            ),
+            (
+                "session",
+                match &self.session {
+                    Some(session) => Json::obj(vec![
+                        ("active", Json::Num(session.active.to_string())),
+                        (
+                            "documents",
+                            Json::Arr(
+                                session
+                                    .documents
+                                    .iter()
+                                    .map(|tab| {
+                                        let mut fields = vec![(
+                                            "document_id",
+                                            Json::Num(tab.document_id.to_string()),
+                                        )];
+                                        if let Some(path) = &tab.path {
+                                            fields.push(("path", Json::Str(path.clone())));
+                                        }
+                                        Json::obj(fields)
+                                    })
+                                    .collect(),
+                            ),
+                        ),
+                    ]),
+                    None => Json::Null,
+                },
             ),
         ])
         .to_pretty()
@@ -273,6 +338,15 @@ impl Settings {
                 None => warnings.push("recent_files is not an array; ignored.".to_string()),
             }
         }
+        if let Some(session) = root.get("session") {
+            // `null` is how a settings file with no session is written; it is not a problem.
+            // A malformed session never fails the load either: read_session records the warning.
+            if !matches!(session, Json::Null) {
+                if let Some(parsed) = read_session(session, &mut warnings) {
+                    settings.session = Some(parsed);
+                }
+            }
+        }
         settings.warnings.extend(warnings);
         settings
     }
@@ -316,10 +390,91 @@ impl Settings {
         self.recent_files.truncate(MAX_RECENT_FILES);
     }
 
+    /// DOC-004: drops every recent path that no longer exists on disk, returning how many went.
+    ///
+    /// This runs when the settings are loaded into the running application, so the File bar's
+    /// Recent menu never offers a file that was deleted between two launches. A path that exists
+    /// but cannot be read is kept: the Open path reports that failure, which is more useful than
+    /// silently forgetting the file.
+    pub fn prune_missing_recent(&mut self) -> usize {
+        let before = self.recent_files.len();
+        self.recent_files
+            .retain(|path| Path::new(path).exists());
+        before - self.recent_files.len()
+    }
+
+    /// Replaces the persisted session with `session`.
+    pub fn set_session(&mut self, session: SessionState) {
+        self.session = Some(session);
+    }
+
     /// Takes the load warnings, leaving the list empty.
     pub fn take_warnings(&mut self) -> Vec<String> {
         std::mem::take(&mut self.warnings)
     }
+}
+
+/// Reads a persisted session (DOC-004).
+///
+/// A malformed session never fails the load: it is ignored with a warning and the next launch
+/// simply opens the starter documents. Entries without a usable document identity are skipped,
+/// because an unsaved buffer could not be matched to its recovery record without one.
+fn read_session(session: &Json, warnings: &mut Vec<String>) -> Option<SessionState> {
+    let mut documents = Vec::new();
+    match session.get("documents").and_then(Json::as_arr) {
+        Some(items) => {
+            for (index, item) in items.iter().enumerate() {
+                let Some(document_id) = item
+                    .get("document_id")
+                    .and_then(|value| match value {
+                        Json::Num(text) => text.parse::<u64>().ok(),
+                        _ => None,
+                    })
+                else {
+                    warnings.push(format!(
+                        "session document {index} has no document_id; it was skipped."
+                    ));
+                    continue;
+                };
+                let path = match item.get("path") {
+                    None | Some(Json::Null) => None,
+                    Some(Json::Str(path)) => {
+                        let path = path.trim();
+                        if path.is_empty() {
+                            warnings.push(format!(
+                                "session document {index} has an empty path; it was skipped."
+                            ));
+                            continue;
+                        }
+                        Some(path.to_string())
+                    }
+                    Some(_) => {
+                        warnings.push(format!(
+                            "session document {index} has a path that is not a string; it was skipped."
+                        ));
+                        continue;
+                    }
+                };
+                documents.push(SessionTab { path, document_id });
+            }
+        }
+        None => {
+            warnings.push("session.documents is not an array; the session was ignored.".to_string());
+            return None;
+        }
+    }
+    if documents.is_empty() {
+        return None;
+    }
+    let active = match session.get("active") {
+        Some(Json::Num(text)) => text.parse::<usize>().unwrap_or(0),
+        None => 0,
+        Some(_) => {
+            warnings.push("session.active is not a number; using tab 1.".to_string());
+            0
+        }
+    };
+    Some(SessionState::new(documents, active))
 }
 
 /// Reads an integer field, clamping it into range and recording a warning when it is missing,
@@ -397,6 +552,15 @@ pub fn default_config_path() -> Option<PathBuf> {
 /// process working directory (PLF-006).
 pub fn default_plot_dir() -> Option<PathBuf> {
     app_dir().map(|directory| directory.join("plots"))
+}
+
+/// DOC-005: the per-user recovery directory, `%APPDATA%\Lovelace\recovery` on Windows.
+///
+/// It is the sibling of the settings file, so every file the application writes outside a
+/// document lives under the one application-scoped directory (PLF-006). One record file per
+/// journaled document lives here and nowhere else.
+pub fn default_recovery_dir() -> Option<PathBuf> {
+    app_dir().map(|directory| directory.join("recovery"))
 }
 
 #[cfg(test)]
@@ -583,6 +747,152 @@ mod tests {
         assert_eq!(loaded, settings);
         assert!(loaded.warnings.is_empty());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// DOC-004: a session saves and loads with its tab order and active tab intact.
+    #[test]
+    fn session_tab_order_and_active_tab_round_trip_through_disk() {
+        let directory =
+            std::env::temp_dir().join(format!("lovelace-session-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        let settings_path = directory.join("desktop.json");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        let third = directory.join("third.lv");
+        for path in [&first, &second, &third] {
+            std::fs::write(path, "a = 1\n").expect("fixture");
+        }
+
+        let mut settings = Settings::new();
+        settings.add_recent(&second.to_string_lossy());
+        settings.add_recent(&first.to_string_lossy());
+        settings.set_session(SessionState::new(
+            vec![
+                SessionTab {
+                    path: Some(first.to_string_lossy().into_owned()),
+                    document_id: 7,
+                },
+                SessionTab {
+                    path: None,
+                    document_id: 8,
+                },
+                SessionTab {
+                    path: Some(third.to_string_lossy().into_owned()),
+                    document_id: 9,
+                },
+            ],
+            1,
+        ));
+        settings.save(&settings_path).expect("save settings");
+
+        let loaded = Settings::load(&settings_path);
+        assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+        let session = loaded.session.as_ref().expect("session survives a save/load");
+        assert_eq!(session.active, 1, "the active tab is persisted");
+        assert_eq!(session.documents.len(), 3, "tab order is persisted");
+        assert_eq!(session.documents[0].document_id, 7);
+        assert_eq!(session.documents[2].document_id, 9);
+        assert_eq!(
+            session.documents[2].path.as_deref(),
+            Some(third.to_string_lossy().as_ref())
+        );
+        assert_eq!(session.documents[1].path, None, "a pathless tab stays pathless");
+        assert_eq!(session.documents[1].document_id, 8);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /// DOC-004: reopening a file moves it to the top of the recent list and never duplicates it.
+    #[test]
+    fn recent_files_move_a_reopened_file_to_the_top_without_duplicating_it() {
+        let mut settings = Settings::new();
+        settings.add_recent("C:/scripts/a.lv");
+        settings.add_recent("C:/scripts/b.lv");
+        settings.add_recent("C:/scripts/c.lv");
+        assert_eq!(
+            settings.recent_files,
+            vec![
+                "C:/scripts/c.lv".to_string(),
+                "C:/scripts/b.lv".to_string(),
+                "C:/scripts/a.lv".to_string()
+            ]
+        );
+        settings.add_recent("C:/scripts/a.lv");
+        assert_eq!(settings.recent_files[0], "C:/scripts/a.lv");
+        assert_eq!(
+            settings
+                .recent_files
+                .iter()
+                .filter(|path| path.as_str() == "C:/scripts/a.lv")
+                .count(),
+            1,
+            "a re-opened file must appear exactly once"
+        );
+        assert_eq!(settings.recent_files.len(), 3);
+    }
+
+    /// DOC-004: a recent path that no longer exists is pruned when the settings are loaded.
+    #[test]
+    fn recent_paths_that_no_longer_exist_are_pruned_on_load() {
+        let directory =
+            std::env::temp_dir().join(format!("lovelace-recent-prune-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        let kept = directory.join("kept.lv");
+        let gone = directory.join("gone.lv");
+        std::fs::write(&kept, "a = 1\n").expect("fixture");
+        let _ = std::fs::remove_file(&gone);
+
+        let mut settings = Settings::new();
+        settings.recent_files = vec![
+            gone.to_string_lossy().into_owned(),
+            kept.to_string_lossy().into_owned(),
+        ];
+        let pruned = settings.prune_missing_recent();
+        assert_eq!(pruned, 1);
+        assert_eq!(
+            settings.recent_files,
+            vec![kept.to_string_lossy().into_owned()],
+            "the existing file is kept in its position"
+        );
+        // A second prune finds nothing to do.
+        assert_eq!(settings.prune_missing_recent(), 0);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    /// DOC-004: a malformed session falls back to no session with a warning, never a crash.
+    #[test]
+    fn a_malformed_session_is_ignored_with_a_warning() {
+        let text = r#"{
+            "schema_version": 1,
+            "session": { "documents": "not an array" }
+        }"#;
+        let settings = Settings::from_json(text);
+        assert!(settings.session.is_none());
+        assert!(
+            settings.warnings.iter().any(|warning| warning.contains("session.documents")),
+            "{:?}",
+            settings.warnings
+        );
+
+        let text = r#"{
+            "schema_version": 1,
+            "session": { "active": 9, "documents": [
+                { "document_id": 4 },
+                { "path": "C:/x.lv" }
+            ] }
+        }"#;
+        let settings = Settings::from_json(text);
+        let session = settings.session.expect("one valid entry remains");
+        assert_eq!(session.documents.len(), 1, "the entry without an id is skipped");
+        assert_eq!(session.active, 0, "the active index is clamped to the tabs");
+    }
+
+    /// DOC-005: the recovery directory is the sibling of the settings file.
+    #[test]
+    fn recovery_dir_is_the_sibling_of_the_settings_file() {
+        assert_eq!(
+            default_recovery_dir(),
+            default_config_path().map(|path| path.parent().unwrap().join("recovery"))
+        );
     }
 
     #[test]

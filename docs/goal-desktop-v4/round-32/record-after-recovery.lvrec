@@ -1,0 +1,13 @@
+LOVELACE-RECOVERY 1
+id: 3
+revision: 5
+title: recovery-fixture.lv
+path: C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-32\recovery-fixture.lv
+bom: 0
+caret: 1:9
+mtime_unix_nanos: 1794517436761189100
+saved_unix_nanos: 1794517442805875200
+bytes: 16
+
+a = 1
+b = 2 = 1

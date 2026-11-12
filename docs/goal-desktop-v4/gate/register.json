@@ -1577,14 +1577,37 @@
                      "type":  "D",
                      "requirement":  "Autosave unsaved buffers for crash recovery",
                      "acceptance":  "Edits are journaled atomically to a recovery directory; forced process termination then restart offers intact recovery before overwriting anything.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "file",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/recovery-prompt.png",
+                                          "sha256":  "1A2BFDEA29116F01F8F54B98D76CBF0A0AC4F6E8ADB72095221B9ECF6C1A61D6",
+                                          "class":  "file",
+                                          "at_head":  "815b0d7ed28a11ab476d543a088c837d4747a1a3"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/restored-buffer.png",
+                                          "sha256":  "6C0CF7292EAA926EEC13C9015468959FB4206FC70F25C8F6DD20F6590301F750",
+                                          "class":  "file",
+                                          "at_head":  "815b0d7ed28a11ab476d543a088c837d4747a1a3"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/record-after-crash.lvrec",
+                                          "sha256":  "F3EE4985B2D14C767AA65555A7F82B94DC353DC53B203E0B2488E10EE8D37A1F",
+                                          "class":  "file",
+                                          "at_head":  "815b0d7ed28a11ab476d543a088c837d4747a1a3"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-32/session-recovery.md",
+                                          "sha256":  "0D178503D6B0CA1DD3AABF44BBF5B74ED8D70540E6BE520E343705B44CAD11E5",
+                                          "class":  "file",
+                                          "at_head":  "815b0d7ed28a11ab476d543a088c837d4747a1a3"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop recovery; crash-then-relaunch capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Atomic .lvrec records (header + exact buffer bytes) written on the first dirty revision then 1 s debounce; record flushed 909 ms after the last keystroke; launch offers Recover/Discard before any save; corrupt records skipped with a warning; clean exit leaves 0 records."
                  },
                  {
                      "id":  "DOC-006",

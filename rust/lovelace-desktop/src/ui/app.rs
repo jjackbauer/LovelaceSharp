@@ -6,7 +6,7 @@
 //! to show render their empty state instead of sample data.
 
 use std::path::PathBuf;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use egui::{
     Align, Align2, Color32, CursorIcon, FontId, Id, Key, Layout, Rect, RichText, Sense, Stroke,
@@ -19,10 +19,11 @@ use crate::inspector::{Inspection, InspectorExpansion, Section, TREE_ROOT_PATH, 
 use crate::keyboard::{self, FileCommand};
 use crate::log_kind::LogKind;
 use crate::quick_eval::QuickEval;
+use crate::recovery::{self, RecoveryJournal, RecoveryRecord, RecoveryScan};
 use crate::results_tree::{
     ArrayNode, ExpansionState, ResultProjection, StructuredNode, element_path, field_path,
 };
-use crate::settings::{MAX_PRECISION, MIN_PRECISION};
+use crate::settings::{self, MAX_PRECISION, MIN_PRECISION, Settings};
 use crate::workbench::{DocumentView, SaveOutcome, Workbench};
 use crate::workspace_table::{
     FunctionColumn, FunctionTable, VariableColumn, VariableTable, cell_text, ordered_functions,
@@ -226,9 +227,80 @@ impl ClosePrompt {
     }
 }
 
+/// Where the window persists its state (DOC-004) and journals unsaved buffers (DOC-005).
+///
+/// The shipped window resolves both paths from the application directory
+/// (`%APPDATA%\Lovelace` on Windows); the window tests supply scratch paths through
+/// [`WorkbenchApp::with_storage`], so no test touches the user profile and no product code writes
+/// beside the executable or in the process working directory (PLF-006).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct AppStorage {
+    /// The settings file, or `None` when this window must not persist anything.
+    settings_path: Option<PathBuf>,
+    /// The recovery directory, or `None` when this window must not journal anything.
+    recovery_root: Option<PathBuf>,
+}
+
+impl AppStorage {
+    /// The paths the shipped window uses.
+    fn from_application_dir() -> AppStorage {
+        AppStorage {
+            settings_path: settings::default_config_path(),
+            recovery_root: settings::default_recovery_dir(),
+        }
+    }
+}
+
+/// What pressing a button in the DOC-005 recovery prompt means.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RecoveryAnswer {
+    /// Put the record's text back into a tab; the file on disk is not touched.
+    Recover,
+    /// Delete the record without restoring it.
+    Discard,
+}
+
+impl RecoveryAnswer {
+    /// The button label, which is also the button's accessible name in a UIA capture.
+    fn label(self) -> &'static str {
+        match self {
+            RecoveryAnswer::Recover => "Recover",
+            RecoveryAnswer::Discard => "Discard",
+        }
+    }
+}
+
+/// The recovery prompt shown at launch when journaled buffers survived (DOC-005).
+///
+/// It is answered record by record. While it is open no keystroke reaches an editor and no pane
+/// accepts a pointer, so the journaled text is offered before any save can overwrite a file.
+#[derive(Clone, Debug)]
+struct RecoveryPrompt {
+    /// The records still to answer, oldest document identity first.
+    records: Vec<RecoveryRecord>,
+    /// Why the last answer failed, shown in the prompt itself.
+    error: Option<String>,
+    /// The widget that had focus when the prompt opened; restored when it is dismissed.
+    focus_before: Option<Id>,
+}
+
 /// The window application.
 pub struct WorkbenchApp {
     workbench: Workbench,
+    /// DOC-004: the settings value this run loaded, updated as the session changes.
+    settings: Settings,
+    /// DOC-004: where the settings file and the recovery directory live.
+    storage: AppStorage,
+    /// DOC-005: the debounced writer that keeps one recovery record per dirty document.
+    recovery: RecoveryJournal,
+    /// DOC-005: the launch recovery prompt, while one is open.
+    recovery_prompt: Option<RecoveryPrompt>,
+    /// DOC-005 test seam: the recovery prompt buttons painted in the last pass.
+    recovery_buttons: Vec<(usize, RecoveryAnswer, Rect)>,
+    /// DOC-004: the session signature last written, so an unchanged session is not rewritten.
+    persisted_session: Option<String>,
+    /// The last settings write failure, so it is logged once instead of every frame.
+    settings_error: Option<String>,
     /// The one assembled state this frame renders (RUN-003).
     ///
     /// Rebuilt in [`WorkbenchApp::sync`] immediately after `poll()`, so every pane draws the
@@ -313,21 +385,120 @@ pub struct WorkbenchApp {
 
 impl WorkbenchApp {
     /// Creates the window over a fresh workbench, optionally opening a script path in tab one.
+    ///
+    /// DOC-004/005: the launch reads the settings file, restores the last session's tabs (by
+    /// reading their files again, never by executing them) and offers any recovery records the
+    /// previous run left behind.
     pub fn new(initial_path: Option<PathBuf>) -> WorkbenchApp {
-        let mut workbench = Workbench::new();
-        if let Some(path) = initial_path {
-            let _ = workbench.load_file(0, &path);
-        }
-        WorkbenchApp::with_workbench(workbench)
+        WorkbenchApp::launch(AppStorage::from_application_dir(), initial_path)
     }
 
-    /// Creates the window over an existing workbench (also the test seam).
+    /// Launches over an explicit storage location (the test seam for DOC-004/005).
+    fn launch(storage: AppStorage, initial_path: Option<PathBuf>) -> WorkbenchApp {
+        let mut settings = match &storage.settings_path {
+            Some(path) => Settings::load(path),
+            None => Settings::new(),
+        };
+        let settings_warnings = settings.take_warnings();
+        let mut workbench = Workbench::new();
+        // DOC-004: a recent path whose file was deleted between two launches is pruned before the
+        // File bar can offer it.
+        let before_recent = settings.recent_files.len();
+        let pruned = settings.prune_missing_recent();
+        workbench.set_recent_files(settings.recent_files.clone());
+        settings.recent_files = workbench.recent_files().to_vec();
+
+        // DOC-005: whatever an interrupted run journaled is read before anything else, so the
+        // prompt can offer it and no save can slip in first.
+        let scan = match &storage.recovery_root {
+            Some(root) => recovery::scan(root),
+            None => RecoveryScan::default(),
+        };
+        let mut consumed: Vec<u64> = Vec::new();
+        if let Some(session) = settings.session.clone() {
+            let report = workbench.restore_session(&session, &scan.records);
+            consumed = report.recovered;
+        }
+        for warning in settings_warnings {
+            workbench.log_active(LogKind::Diagnostic, format!("Settings: {warning}"));
+        }
+        if pruned > 0 {
+            workbench.log_active(
+                LogKind::Info,
+                format!("Pruned {pruned} recent file(s) that no longer exist."),
+            );
+        }
+        let _ = before_recent;
+        for warning in &scan.warnings {
+            workbench.log_active(LogKind::Diagnostic, format!("Recovery: {warning}"));
+        }
+        // A path named on the command line wins over the restored session: it is selected when the
+        // session already had it, otherwise it opens in its own tab.
+        if let Some(path) = &initial_path {
+            match workbench
+                .documents()
+                .iter()
+                .position(|document| document.path.as_deref() == Some(path.as_path()))
+            {
+                Some(index) => workbench.set_active(index),
+                None => {
+                    if let Err(message) = workbench.open(path) {
+                        workbench.log_active(LogKind::Diagnostic, message);
+                    }
+                }
+            }
+        }
+
+        let pending: Vec<RecoveryRecord> = scan
+            .records
+            .iter()
+            .filter(|record| !consumed.contains(&record.document_id))
+            .cloned()
+            .collect();
+
+        let mut app = WorkbenchApp::with_storage(workbench, storage);
+        app.settings = settings;
+        // A record the session restore consumed is exactly the text now in its tab, so the journal
+        // keeps tracking it instead of rewriting it on the first frame; it is deleted when the
+        // document is saved, closed or the window exits cleanly.
+        for document_id in consumed {
+            if let Some(index) = app.workbench.document_index(DocumentId(document_id)) {
+                let revision = app.workbench.documents()[index].revision;
+                app.recovery.track(document_id, revision, Instant::now());
+            }
+        }
+        if !pending.is_empty() {
+            app.recovery_prompt = Some(RecoveryPrompt {
+                records: pending,
+                error: None,
+                focus_before: None,
+            });
+        }
+        // The first frame writes the settings file, so the session is current from the moment the
+        // window appears: a crash later in the run restores the tabs that were actually open.
+        app.persisted_session = None;
+        app
+    }
+
+    /// Creates the window over an existing workbench (the test seam).
+    #[cfg_attr(not(test), allow(dead_code))]
     fn with_workbench(workbench: Workbench) -> WorkbenchApp {
+        WorkbenchApp::with_storage(workbench, AppStorage::default())
+    }
+
+    /// Creates the window over an existing workbench and an explicit storage location.
+    fn with_storage(workbench: Workbench, storage: AppStorage) -> WorkbenchApp {
         let editors = workbench
             .documents()
             .iter()
             .map(|document| {
-                TextEditor::from_source_with_newline(&document.source, document.newline)
+                // DOC-005: a restored buffer comes back with the caret and selection the journal
+                // recorded, so recovery does not merely restore the text.
+                let mut editor =
+                    TextEditor::from_source_with_newline(&document.source, document.newline);
+                editor.set_caret(document.caret.0, document.caret.1);
+                editor.selection = document.selection.map(|(anchor, _end)| anchor);
+                editor
             })
             .collect();
         let editor_ids = workbench.documents().iter().map(|doc| doc.id).collect();
@@ -339,8 +510,19 @@ impl WorkbenchApp {
         let view = workbench.active_view();
         let variables_table = VariableTable::new(&view.state);
         let functions_table = FunctionTable::new(&view.state);
+        let recovery = match &storage.recovery_root {
+            Some(root) => RecoveryJournal::new(root.clone()),
+            None => RecoveryJournal::disabled(),
+        };
         WorkbenchApp {
             workbench,
+            settings: Settings::new(),
+            storage,
+            recovery,
+            recovery_prompt: None,
+            recovery_buttons: Vec::new(),
+            persisted_session: None,
+            settings_error: None,
             view,
             editors,
             editor_ids,
@@ -384,6 +566,29 @@ impl WorkbenchApp {
         self.workbench.poll();
         // DOC-002: New, Open and Close change the tab list; keep one editor per open document.
         self.sync_editors();
+        // DOC-005: the caret and selection belong to the editor, so they are copied into the
+        // document before the journal pass that writes them into the recovery record.
+        for (index, editor) in self.editors.iter().enumerate() {
+            let selection = editor
+                .selection
+                .map(|anchor| (anchor, (editor.caret_row, editor.caret_col)));
+            self.workbench
+                .set_caret(index, (editor.caret_row, editor.caret_col), selection);
+        }
+        // DOC-005: journal every dirty document, at most once per debounce window. A write failure
+        // is a diagnostic line, never a crash and never a lost buffer. Once the window close has
+        // been approved nothing may journal or persist again: the clean exit has already recorded
+        // the final state on disk.
+        if !self.window_close_approved {
+            let report = self.recovery.sync(self.workbench.documents(), Instant::now());
+            for failure in report.failed {
+                self.workbench
+                    .log_active(LogKind::Diagnostic, format!("Recovery journal: {failure}"));
+            }
+            // DOC-004: a changed tab list, active tab, recent list or precision is persisted at
+            // once, so a crash leaves a current session rather than the one from the last exit.
+            self.persist_state(false);
+        }
         // RUN-003: assemble the frame's pane state once, from the same committed snapshot the
         // poll above applied. Every pane below renders this value, not a fresh workbench lookup.
         self.view = self.workbench.active_view();
@@ -437,20 +642,27 @@ impl WorkbenchApp {
             let mut revisions = Vec::with_capacity(ids.len());
             for (index, id) in ids.iter().enumerate() {
                 let document = &self.workbench.documents()[index];
+                let (caret, selection) = (document.caret, document.selection);
                 match previous.iter().position(|(existing, _, _)| existing == id) {
                     Some(position) => {
                         let (_, mut editor, loaded) = previous.remove(position);
                         if loaded != document.revision {
                             editor.load_with_newline(&document.source, document.newline);
                         }
+                        // DOC-005: a loaded or recovered buffer puts the journaled caret back.
+                        editor.set_caret(caret.0, caret.1);
+                        editor.selection = selection.map(|(anchor, _end)| anchor);
                         editors.push(editor);
                         revisions.push(document.revision);
                     }
                     None => {
-                        editors.push(TextEditor::from_source_with_newline(
+                        let mut editor = TextEditor::from_source_with_newline(
                             &document.source,
                             document.newline,
-                        ));
+                        );
+                        editor.set_caret(caret.0, caret.1);
+                        editor.selection = selection.map(|(anchor, _end)| anchor);
+                        editors.push(editor);
                         revisions.push(document.revision);
                     }
                 }
@@ -465,8 +677,114 @@ impl WorkbenchApp {
         if self.loaded_revisions[active] != revision {
             let document = &self.workbench.documents()[active];
             let (source, newline) = (document.source.clone(), document.newline);
+            let (caret, selection) = (document.caret, document.selection);
             self.editors[active].load_with_newline(&source, newline);
+            self.editors[active].set_caret(caret.0, caret.1);
+            self.editors[active].selection = selection.map(|(anchor, _end)| anchor);
             self.loaded_revisions[active] = revision;
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-004 / DOC-005: the persisted session, the recovery journal and the recovery prompt.
+    // -----------------------------------------------------------------------------------------
+
+    /// A string that changes exactly when something the settings file stores changes.
+    fn session_signature(&self) -> String {
+        let session = self.workbench.session_state();
+        let recent = self.workbench.recent_files();
+        let precision = self.workbench.active_document().precision;
+        format!("{session:?}|{recent:?}|{precision}")
+    }
+
+    /// Writes the session, the recent list and the active precision when they changed.
+    ///
+    /// `force` is used at a clean exit. A failure is logged once and never blocks the window: a
+    /// read-only or missing application directory must not make the editor unusable.
+    fn persist_state(&mut self, force: bool) {
+        let Some(path) = self.storage.settings_path.clone() else {
+            return;
+        };
+        let signature = self.session_signature();
+        if !force && self.persisted_session.as_deref() == Some(signature.as_str()) {
+            return;
+        }
+        self.settings.set_session(self.workbench.session_state());
+        self.settings.recent_files = self.workbench.recent_files().to_vec();
+        self.settings.active_precision = self.workbench.active_document().precision;
+        match self.settings.save(&path) {
+            Ok(()) => {
+                self.persisted_session = Some(signature);
+                self.settings_error = None;
+            }
+            Err(error) => {
+                let message = format!("Cannot save settings to {}: {error}", path.display());
+                if self.settings_error.as_deref() != Some(message.as_str()) {
+                    self.workbench
+                        .log_active(LogKind::Diagnostic, message.clone());
+                    self.settings_error = Some(message);
+                }
+            }
+        }
+    }
+
+    /// DOC-005: deletes the records of every open document at a clean exit.
+    ///
+    /// Called only once the window is actually closing, after every dirty document has been saved
+    /// or discarded, so nothing recoverable is left behind by a normal quit.
+    fn finish_clean_exit(&mut self) {
+        self.persist_state(true);
+        let report = self.recovery.clean_exit(self.workbench.documents());
+        for failure in report.failed {
+            self.workbench
+                .log_active(LogKind::Diagnostic, format!("Recovery journal: {failure}"));
+        }
+    }
+
+    /// DOC-005: puts one record's text back into a tab.
+    ///
+    /// A record whose document is already open (the session restore usually recreated the tab from
+    /// disk) rewrites that tab's buffer; otherwise the text arrives in a new tab. Either way the
+    /// document is dirty against what is on disk, nothing is executed and nothing is written.
+    fn recover_record(&mut self, record: RecoveryRecord) {
+        let report = self.workbench.recover(&record);
+        if report.document_id.0 == record.document_id {
+            // The record file is now exactly the text in the tab, so the journal tracks it instead
+            // of writing it again on this frame.
+            let revision = self.workbench.documents()[report.index].revision;
+            self.recovery
+                .track(record.document_id, revision, Instant::now());
+        } else if let Some(message) = self.recovery.forget(record.document_id) {
+            // Recovered into a different tab identity: the old record is superseded. The new tab
+            // is dirty and untracked, so the next journal pass writes its record immediately.
+            self.workbench
+                .log_active(LogKind::Diagnostic, format!("Recovery journal: {message}"));
+        }
+        self.remove_recovery_record(record.document_id);
+        self.sync();
+        self.pending_focus = Some(surface_id());
+    }
+
+    /// DOC-005: deletes one record without restoring it.
+    fn discard_record(&mut self, record: RecoveryRecord) {
+        if let Some(message) = self.recovery.forget(record.document_id) {
+            self.workbench
+                .log_active(LogKind::Diagnostic, format!("Recovery journal: {message}"));
+        }
+        self.remove_recovery_record(record.document_id);
+        self.pending_focus = Some(surface_id());
+    }
+
+    /// Removes one answered record from the prompt, closing the prompt when none are left.
+    fn remove_recovery_record(&mut self, document_id: u64) {
+        let Some(prompt) = self.recovery_prompt.as_mut() else {
+            return;
+        };
+        prompt.records.retain(|record| record.document_id != document_id);
+        if prompt.records.is_empty() {
+            if let Some(prompt) = self.recovery_prompt.take() {
+                self.pending_focus = Some(prompt.focus_before.unwrap_or_else(surface_id));
+            }
         }
     }
 
@@ -542,7 +860,9 @@ impl WorkbenchApp {
 
     /// Starts closing `target`, or closes it immediately when nothing in it is dirty.
     fn request_close(&mut self, target: CloseTarget, ctx: &egui::Context) {
-        if self.close.is_some() {
+        // The DOC-005 recovery prompt is answered before any close: a quit must not race the
+        // question of whether journaled text should be recovered.
+        if self.close.is_some() || self.recovery_prompt.is_some() {
             return;
         }
         let pending: Vec<DocumentId> = match target {
@@ -573,6 +893,12 @@ impl WorkbenchApp {
     fn perform_close(&mut self, target: CloseTarget, ctx: &egui::Context) {
         match target {
             CloseTarget::Tab(id) => {
+                // DOC-005: a tab that is closed (saved or discarded) no longer has unsaved work,
+                // so its recovery record must not outlive it.
+                if let Some(message) = self.recovery.forget(id.0) {
+                    self.workbench
+                        .log_active(LogKind::Diagnostic, format!("Recovery journal: {message}"));
+                }
                 self.workbench.close_document(id);
                 // The tab list changed under this frame's editors; reconcile now so no pane draws
                 // a document that is gone.
@@ -580,6 +906,9 @@ impl WorkbenchApp {
                 self.pending_focus = Some(surface_id());
             }
             CloseTarget::Window => {
+                // DOC-004/005: the last session is written and the journal's records of the open
+                // documents are deleted; the quit is only approved once both have happened.
+                self.finish_clean_exit();
                 self.window_close_approved = true;
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             }
@@ -654,11 +983,17 @@ impl WorkbenchApp {
         if self.window_close_approved {
             return;
         }
+        // DOC-005: the recovery question is answered first; the window stays open until it is.
+        if self.recovery_prompt.is_some() {
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            return;
+        }
         if self.close.is_some() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             return;
         }
         if self.workbench.dirty_documents().is_empty() {
+            self.finish_clean_exit();
             self.window_close_approved = true;
             return;
         }
@@ -747,6 +1082,102 @@ impl WorkbenchApp {
         }
         if let Some(answer) = answer {
             self.answer_close(answer, ctx);
+        }
+    }
+
+    /// Paints the DOC-005 recovery prompt and applies the answer.
+    ///
+    /// Like the close prompt it is a foreground modal and the caller strips every key and text
+    /// event, so the journaled text is decided before a save can overwrite anything. Escape (or a
+    /// click outside) keeps the question for the next launch instead of deleting the records.
+    fn recovery_prompt_ui(&mut self, ctx: &egui::Context, escape: bool) {
+        self.recovery_buttons.clear();
+        let Some(prompt) = self.recovery_prompt.clone() else {
+            return;
+        };
+        let mut answer: Option<(usize, RecoveryAnswer)> = None;
+        let modal = egui::Modal::new(egui::Id::unique("recovery-prompt")).show(ctx, |ui| {
+            ui.set_max_width(760.0);
+            ui.label(RichText::new("Recover unsaved work").strong().size(16.0).color(TEXT));
+            ui.add_space(4.0);
+            ui.label(
+                RichText::new(
+                    "The last session did not close cleanly. These buffers were journaled before \
+                     it ended:",
+                )
+                .color(TEXT)
+                .size(14.0),
+            );
+            ui.label(
+                RichText::new(
+                    "Recovering puts the text back into a tab before anything is saved, and runs \
+                     nothing. Discarding deletes the record.",
+                )
+                .small()
+                .color(DIM),
+            );
+            if let Some(error) = &prompt.error {
+                ui.add_space(2.0);
+                ui.label(RichText::new(error).small().color(ERROR));
+            }
+            ui.add_space(8.0);
+            egui::ScrollArea::vertical()
+                .max_height(320.0)
+                .show(ui, |ui| {
+                    for (row, record) in prompt.records.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.label(RichText::new(&record.title).monospace().color(ACCENT));
+                            ui.label(
+                                RichText::new(format!(
+                                    "{}  ·  {} bytes",
+                                    record.path_label(),
+                                    record.buffer_bytes()
+                                ))
+                                .small()
+                                .color(DIM),
+                            );
+                            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                                for choice in [RecoveryAnswer::Discard, RecoveryAnswer::Recover] {
+                                    let text = RichText::new(choice.label()).size(14.0);
+                                    let text = if choice == RecoveryAnswer::Recover {
+                                        text.strong()
+                                    } else {
+                                        text
+                                    };
+                                    let response = ui.add(
+                                        egui::Button::new(text).min_size(vec2(96.0, 26.0)),
+                                    );
+                                    if response.clicked() {
+                                        answer = Some((row, choice));
+                                    }
+                                    self.recovery_buttons.push((row, choice, response.rect));
+                                }
+                            });
+                        });
+                        ui.separator();
+                    }
+                });
+            ui.add_space(6.0);
+            ui.label(
+                RichText::new("Escape keeps these records for the next launch.")
+                    .small()
+                    .color(DIM),
+            );
+        });
+        if answer.is_none() && (escape || modal.should_close()) {
+            // Keep everything: the records stay on disk and are offered again next launch.
+            self.recovery_prompt = None;
+            self.pending_focus = Some(prompt.focus_before.unwrap_or_else(surface_id));
+            return;
+        }
+        if let Some((row, choice)) = answer {
+            let Some(record) = prompt.records.get(row).cloned() else {
+                return;
+            };
+            match choice {
+                RecoveryAnswer::Recover => self.recover_record(record),
+                RecoveryAnswer::Discard => self.discard_record(record),
+            }
         }
     }
 
@@ -927,11 +1358,11 @@ impl WorkbenchApp {
         // DOC-003: the OS close request (title-bar X, Alt+F4) is either refused with a prompt or
         // allowed through. It is handled before anything else so a close can never race a pane.
         self.handle_close_request(&ctx);
-        // While the prompt is open nothing in this frame may consume a keystroke: read the two keys
-        // the prompt itself uses, then strip every key and text event so no editor can be edited
-        // behind the modal. The modal's buttons still receive pointer events, and the prompt is
-        // drawn in egui's foreground layer even though it is built before the panes.
-        if self.close.is_some() {
+        // While a prompt is open nothing in this frame may consume a keystroke: read the keys the
+        // prompt itself uses, then strip every key and text event so no editor can be edited
+        // behind the modal. The modal's buttons still receive pointer events, and the prompts are
+        // drawn in egui's foreground layer even though they are built before the panes.
+        if self.close.is_some() || self.recovery_prompt.is_some() {
             let (escape, enter) = ctx.input(|input| {
                 (
                     input.key_pressed(Key::Escape),
@@ -946,7 +1377,13 @@ impl WorkbenchApp {
                     )
                 });
             });
-            self.close_prompt_ui(&ctx, escape, enter);
+            // The recovery prompt is the outermost question (DOC-005): it is asked before a save
+            // can offer to overwrite anything.
+            if self.recovery_prompt.is_some() {
+                self.recovery_prompt_ui(&ctx, escape);
+            } else {
+                self.close_prompt_ui(&ctx, escape, enter);
+            }
         }
 
         // Start with keyboard focus in the editor so a typed script lands there without a click.
@@ -1044,6 +1481,15 @@ impl WorkbenchApp {
         self.sync();
         if self.trace_pending {
             crate::run_trace::mark("sync_done", "event queue polled and document synced");
+        }
+        // DOC-005: while a dirty document's newest revision is still inside the debounce window,
+        // ask for a frame when that window elapses. The trailing write then happens even if the
+        // user stops typing, so a forced kill never loses more than the window.
+        if let Some(delay) = self
+            .recovery
+            .pending_delay(self.workbench.documents(), Instant::now())
+        {
+            ui.ctx().request_repaint_after(delay);
         }
 
         // F8 is window-global keyboard navigation to the last failure: it works whether the
@@ -5938,5 +6384,365 @@ mod tests {
             b"u = \xE9\n"
         );
         let _ = std::fs::remove_file(&path);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // DOC-004 / DOC-005: the persisted session, the recovery journal and the recovery prompt.
+    // -----------------------------------------------------------------------------------------
+
+    /// Scratch storage for a launch test: a settings file and a recovery directory.
+    fn app_storage(name: &str) -> (AppStorage, PathBuf) {
+        let directory = std::env::temp_dir().join(format!(
+            "lovelace-desktop-launch-{name}-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&directory);
+        std::fs::create_dir_all(&directory).expect("scratch directory");
+        (
+            AppStorage {
+                settings_path: Some(directory.join("desktop.json")),
+                recovery_root: Some(directory.join("recovery")),
+            },
+            directory,
+        )
+    }
+
+    /// Writes the state a forced kill leaves: a session naming the file and a journaled edit.
+    fn crash_state(
+        storage: &AppStorage,
+        file: &std::path::Path,
+        source: &str,
+        caret: (usize, usize),
+    ) -> RecoveryRecord {
+        let record = RecoveryRecord {
+            document_id: 1,
+            revision: 1,
+            title: file.file_name().unwrap().to_string_lossy().into_owned(),
+            path: Some(file.to_path_buf()),
+            bom: false,
+            caret,
+            selection: None,
+            source_mtime: None,
+            saved_at: std::time::SystemTime::UNIX_EPOCH,
+            source: source.to_string(),
+        };
+        let root = storage.recovery_root.as_ref().expect("recovery root");
+        record
+            .write_atomic(&recovery::record_path(root, 1))
+            .expect("write the recovery record");
+        let mut settings = Settings::new();
+        settings.set_session(crate::settings::SessionState::new(
+            vec![crate::settings::SessionTab {
+                path: Some(file.to_string_lossy().into_owned()),
+                document_id: 1,
+            }],
+            0,
+        ));
+        settings
+            .save(storage.settings_path.as_ref().expect("settings path"))
+            .expect("save the settings");
+        record
+    }
+
+    /// The centre of a recovery prompt button painted in the last pass.
+    fn recovery_button(app: &WorkbenchApp, choice: RecoveryAnswer) -> egui::Pos2 {
+        app.recovery_buttons
+            .iter()
+            .find(|(_, painted, _)| *painted == choice)
+            .map(|(_, _, rect)| rect.center())
+            .unwrap_or_else(|| panic!("the {choice:?} button was not painted"))
+    }
+
+    /// The recovery prompt buttons in their on-screen order.
+    fn recovery_choices(app: &WorkbenchApp) -> Vec<&'static str> {
+        app.recovery_buttons
+            .iter()
+            .map(|(_, choice, _)| choice.label())
+            .collect()
+    }
+
+    #[test]
+    fn the_recovery_prompt_offers_a_crashed_buffer_and_recovering_restores_it_before_any_save() {
+        let (storage, directory) = app_storage("recover");
+        let file = directory.join("notes.lv");
+        std::fs::write(&file, b"a = 1\nb = 2\n").expect("fixture");
+        let record = crash_state(&storage, &file, "a = 1\nb = 3\n", (1, 3));
+        let record_path = recovery::record_path(storage.recovery_root.as_ref().unwrap(), 1);
+        assert!(record_path.exists());
+
+        let mut app = WorkbenchApp::launch(storage.clone(), None);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        // The session restored the file from disk; the missing edit is only in the journal.
+        assert_eq!(app.workbench.documents().len(), 1);
+        assert_eq!(app.workbench.documents()[0].source, "a = 1\nb = 2\n");
+        assert_eq!(
+            std::fs::read(&file).expect("their file"),
+            b"a = 1\nb = 2\n",
+            "restoring reads the file and writes nothing"
+        );
+        let prompt = app
+            .recovery_prompt
+            .as_ref()
+            .expect("a surviving record is offered at launch");
+        assert_eq!(prompt.records.len(), 1);
+        assert_eq!(prompt.records[0], record, "the prompt lists the journaled record");
+        assert_eq!(
+            prompt.records[0].path_label(),
+            file.display().to_string(),
+            "the prompt reports the original path"
+        );
+        assert_eq!(recovery_choices(&app), vec!["Discard", "Recover"]);
+
+        let recover_at = recovery_button(&app, RecoveryAnswer::Recover);
+        pointer_click(&ctx, &mut app, recover_at);
+        settle(&ctx, &mut app);
+
+        assert!(app.recovery_prompt.is_none(), "the answer closes the prompt");
+        let index = app.workbench.active();
+        let document = &app.workbench.documents()[index];
+        assert_eq!(document.source, "a = 1\nb = 3\n", "the exact journaled text is back");
+        assert_eq!(document.path.as_deref(), Some(file.as_path()));
+        assert_eq!(document.caret, (1, 3), "the journaled caret is back");
+        assert!(document.dirty(), "the recovered text is unsaved work");
+        assert_eq!(
+            app.editors[index].source(),
+            "a = 1\nb = 3\n",
+            "the editor shows the recovered text"
+        );
+        assert_eq!(
+            std::fs::read(&file).expect("their file"),
+            b"a = 1\nb = 2\n",
+            "recovering never writes the document file"
+        );
+
+        // Saving is the first action that may overwrite the file, and it retires the record.
+        frame(&ctx, &mut app, vec![key(Key::S, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+        assert_eq!(std::fs::read(&file).expect("the saved file"), b"a = 1\nb = 3\n");
+        assert!(!app.workbench.documents()[index].dirty());
+        assert!(!record_path.exists(), "a clean document has no recovery record");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn discarding_a_recovery_record_deletes_it_and_leaves_the_file_and_buffer_alone() {
+        let (storage, directory) = app_storage("discard");
+        let file = directory.join("notes.lv");
+        std::fs::write(&file, b"a = 1\nb = 2\n").expect("fixture");
+        crash_state(&storage, &file, "a = 1\nb = 9\n", (0, 0));
+        let record_path = recovery::record_path(storage.recovery_root.as_ref().unwrap(), 1);
+
+        let mut app = WorkbenchApp::launch(storage.clone(), None);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        assert!(app.recovery_prompt.is_some());
+
+        let discard_at = recovery_button(&app, RecoveryAnswer::Discard);
+        pointer_click(&ctx, &mut app, discard_at);
+        settle(&ctx, &mut app);
+
+        assert!(app.recovery_prompt.is_none());
+        assert!(!record_path.exists(), "discarding deletes the record");
+        assert_eq!(std::fs::read(&file).expect("their file"), b"a = 1\nb = 2\n");
+        assert_eq!(
+            app.workbench.documents()[0].source, "a = 1\nb = 2\n",
+            "discarding changes no buffer"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn a_corrupt_recovery_record_is_skipped_with_a_warning_and_the_launch_continues() {
+        let (storage, directory) = app_storage("corrupt");
+        let file = directory.join("notes.lv");
+        std::fs::write(&file, b"a = 1\n").expect("fixture");
+        crash_state(&storage, &file, "a = 1\nb = 3\n", (0, 0));
+        let root = storage.recovery_root.as_ref().unwrap();
+        let corrupt = recovery::record_path(root, 9);
+        std::fs::write(&corrupt, b"LOVELACE-RECOVERY 1\nid: 9\nbytes: 100\n\nshort")
+            .expect("corrupt record");
+
+        let mut app = WorkbenchApp::launch(storage.clone(), None);
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+
+        assert_eq!(
+            app.recovery_prompt
+                .as_ref()
+                .map(|prompt| prompt.records.len()),
+            Some(1),
+            "only the valid record is offered"
+        );
+        let warned = app
+            .workbench
+            .documents()
+            .iter()
+            .flat_map(|document| document.logs.iter())
+            .any(|line| {
+                line.kind == LogKind::Diagnostic
+                    && line.text.contains("corrupt recovery record")
+                    && line.text.contains("doc-9.lvrec")
+            });
+        assert!(warned, "the skipped record is a warning naming the file");
+        assert_eq!(std::fs::read(&file).expect("their file"), b"a = 1\n");
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn the_session_is_written_at_a_clean_quit_and_restored_on_the_next_launch() {
+        let (storage, directory) = app_storage("session");
+        let first = directory.join("first.lv");
+        let second = directory.join("second.lv");
+        std::fs::write(&first, b"a = 1\n").expect("fixture");
+        std::fs::write(&second, b"b = 2\n").expect("fixture");
+
+        let ctx = egui::Context::default();
+        let mut app = WorkbenchApp::launch(storage.clone(), None);
+        app.dialogs = Box::new(ScriptedDialogs::opening([
+            Some(first.clone()),
+            Some(second.clone()),
+        ]));
+        settle(&ctx, &mut app);
+        frame(&ctx, &mut app, vec![key(Key::O, ctrl_modifiers())]);
+        frame(&ctx, &mut app, vec![key(Key::O, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+        assert_eq!(app.workbench.documents().len(), 4);
+        let first_tab = app
+            .workbench
+            .documents()
+            .iter()
+            .position(|document| document.path.as_deref() == Some(first.as_path()))
+            .expect("the first file has a tab");
+        app.workbench.set_active(first_tab);
+        settle(&ctx, &mut app);
+
+        let output = close_request(&ctx, &mut app);
+        assert!(
+            !cancelled_close(&output),
+            "a clean workbench does not refuse the close request"
+        );
+        assert!(app.window_close_approved);
+
+        let saved = Settings::load(storage.settings_path.as_ref().expect("settings path"));
+        assert!(saved.warnings.is_empty(), "{:?}", saved.warnings);
+        let session = saved.session.expect("the clean quit wrote the session");
+        assert_eq!(session.documents.len(), 4, "every tab is in the session");
+        assert_eq!(session.active, first_tab, "the active tab is in the session");
+        assert_eq!(
+            session.documents[2].path.as_deref(),
+            Some(first.to_string_lossy().as_ref()),
+            "tab order is the tab order"
+        );
+        assert_eq!(
+            session.documents[3].path.as_deref(),
+            Some(second.to_string_lossy().as_ref())
+        );
+        assert!(
+            session.documents[0].path.is_none(),
+            "a pathless tab keeps its place with no path"
+        );
+
+        let mut relaunched = WorkbenchApp::launch(storage.clone(), None);
+        settle(&ctx, &mut relaunched);
+        let titles: Vec<&str> = relaunched
+            .workbench
+            .documents()
+            .iter()
+            .map(|document| document.title.as_str())
+            .collect();
+        assert_eq!(
+            titles,
+            vec!["first.lv", "second.lv"],
+            "the file tabs come back in their original order"
+        );
+        assert_eq!(
+            relaunched.workbench.active_document().title,
+            "first.lv",
+            "the active tab comes back"
+        );
+        assert!(
+            relaunched
+                .workbench
+                .documents()
+                .iter()
+                .all(|document| !document.dirty() && document.state() == RunState::Idle),
+            "a restored session is clean and has not run anything"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn discarding_at_the_window_close_does_not_recreate_the_record() {
+        let (storage, directory) = app_storage("discard-quit");
+        let file = directory.join("quit.lv");
+        std::fs::write(&file, b"a = 1\n").expect("fixture");
+        let mut app = WorkbenchApp::launch(storage.clone(), Some(file.clone()));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        let index = app.workbench.active();
+        app.workbench.set_source(index, "a = 2\n".to_string());
+        settle(&ctx, &mut app);
+        let record_path = recovery::record_path(
+            storage.recovery_root.as_ref().expect("recovery root"),
+            app.workbench.documents()[index].id.0,
+        );
+        assert!(record_path.exists(), "the dirty buffer is journaled");
+
+        let output = close_request(&ctx, &mut app);
+        assert!(
+            cancelled_close(&output),
+            "a dirty window refuses the close and asks first"
+        );
+        settle(&ctx, &mut app);
+        assert!(app.close.is_some());
+
+        let discard_at = prompt_button(&app, UnsavedAnswer::Discard);
+        pointer_click(&ctx, &mut app, discard_at);
+
+        assert!(app.window_close_approved, "Discard approves the window close");
+        assert!(
+            !record_path.exists(),
+            "the clean exit deleted the record and the closing frame did not journal it again"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn an_edit_journals_the_buffer_and_the_save_retires_the_record() {
+        let (storage, directory) = app_storage("journal");
+        let file = directory.join("dirty.lv");
+        std::fs::write(&file, b"a = 1\n").expect("fixture");
+
+        let mut app = WorkbenchApp::launch(storage.clone(), Some(file.clone()));
+        let ctx = egui::Context::default();
+        settle(&ctx, &mut app);
+        let index = app.workbench.active();
+        assert_eq!(app.workbench.active_document().path.as_deref(), Some(file.as_path()));
+        app.workbench.set_source(index, "a = 2\n".to_string());
+        settle(&ctx, &mut app);
+
+        let document_id = app.workbench.documents()[index].id.0;
+        let record_path = recovery::record_path(
+            storage.recovery_root.as_ref().expect("recovery root"),
+            document_id,
+        );
+        assert!(
+            record_path.exists(),
+            "the dirty buffer is journaled within the debounce window"
+        );
+        let record = recovery::read_record(&record_path).expect("the record parses");
+        assert_eq!(record.source, "a = 2\n", "the record is the buffer");
+        assert_eq!(record.path, Some(file.clone()));
+        assert_eq!(record.source.as_bytes(), b"a = 2\n");
+
+        frame(&ctx, &mut app, vec![key(Key::S, ctrl_modifiers())]);
+        settle(&ctx, &mut app);
+        assert_eq!(std::fs::read(&file).expect("the saved file"), b"a = 2\n");
+        assert!(
+            !record_path.exists(),
+            "a saved document's recovery record is deleted"
+        );
+        let _ = std::fs::remove_dir_all(&directory);
     }
 }

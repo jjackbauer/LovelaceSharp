@@ -40,6 +40,7 @@ mod language;
 mod log_kind;
 mod netcheck;
 mod quick_eval;
+mod recovery;
 mod results_tree;
 mod run_state;
 mod run_trace;
@@ -145,5 +146,11 @@ fn usage() -> String {
         "  document with unsaved changes asks Save / Discard / Cancel. The toolbar has Run,\n",
     );
     text.push_str("  Cancel (while running) and the precision control.\n");
+    text.push_str(
+        "  At launch the last session's tabs come back by reading their files again, and after a\n",
+    );
+    text.push_str(
+        "  crash a recovery prompt offers the journaled buffers. Nothing is executed by either.\n",
+    );
     text
 }

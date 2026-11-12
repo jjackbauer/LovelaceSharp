@@ -1,0 +1,79 @@
+﻿UIA pid=32356 window=Lovelace Desktop - recovery-fixture.lv *
+ControlType.TitleBar | Lovelace Desktop - recovery-fixture.lv * | focusable=False | enabled=True
+ControlType.MenuBar | System Menu Bar | focusable=True | enabled=True
+ControlType.MenuItem | System | focusable=True | enabled=True
+ControlType.Button | Minimize | focusable=False | enabled=True
+ControlType.Button | Maximize | focusable=False | enabled=True
+ControlType.Button | Close | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | File | focusable=False | enabled=True
+ControlType.Button | New | focusable=True | enabled=True
+ControlType.Button | Open... | focusable=True | enabled=True
+ControlType.Button | Save | focusable=True | enabled=True
+ControlType.Button | Save As... | focusable=True | enabled=True
+ControlType.Button | Recent | focusable=True | enabled=True
+ControlType.Button | Close | focusable=True | enabled=True
+ControlType.Button | Quit | focusable=True | enabled=True
+ControlType.Text | UTF-8 · LF | focusable=False | enabled=True
+ControlType.Text | C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-32\recovery-fixture.lv | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | Lovelace Desktop | focusable=False | enabled=True
+ControlType.Text | lovelace-lang | focusable=False | enabled=True
+ControlType.Button | Run | focusable=True | enabled=True
+ControlType.Text | Precision | focusable=False | enabled=True
+ControlType.Spinner |  | focusable=True | enabled=True
+ControlType.Text | 1000 digits | focusable=False | enabled=True
+ControlType.Text | 3 lines / 16 bytes | focusable=False | enabled=True
+ControlType.Text | laid out 3 / 38 visible rows | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Button | welcome.lv | focusable=True | enabled=True
+ControlType.Button | untitled.lv | focusable=True | enabled=True
+ControlType.Button | recovery-fixture.lv * | focusable=True | enabled=True
+ControlType.Text | document 3 · revision 5 | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Text | recovery-fixture.lv  |  rev 5  |  precision 1000  |  Ln 2, Col 10  |  run Idle | focusable=False | enabled=True
+ControlType.Text | 0 ms last run | focusable=False | enabled=True
+ControlType.Pane |  | focusable=False | enabled=True
+ControlType.Pane | Editor - recovery-fixture.lv | focusable=False | enabled=True
+ControlType.Text | recovery-fixture.lv | focusable=False | enabled=True
+ControlType.Text | 3 lines / 16 bytes | focusable=False | enabled=True
+ControlType.Text | UTF-8 · LF | focusable=False | enabled=True
+ControlType.Edit | Script editor, 3 lines, caret line 2 column 10 | focusable=True | enabled=True
+ControlType.Pane | Plot - engine SVG | focusable=False | enabled=True
+ControlType.Button | Fit | focusable=True | enabled=True
+ControlType.Button | 100% | focusable=True | enabled=True
+ControlType.Button | Zoom out | focusable=True | enabled=True
+ControlType.Button | Zoom in | focusable=True | enabled=True
+ControlType.Text | 100% | focusable=False | enabled=True
+ControlType.Text | no engine plot | focusable=False | enabled=True
+ControlType.Button | Export SVG... | focusable=True | enabled=False
+ControlType.Button | Export PNG... | focusable=True | enabled=False
+ControlType.Pane | Workspace | focusable=False | enabled=True
+ControlType.Text | Filter | focusable=False | enabled=True
+ControlType.Edit | Filter | focusable=True | enabled=True
+ControlType.Text | 0 vars · 0 funcs | focusable=False | enabled=True
+ControlType.Button | Result | focusable=True | enabled=True
+ControlType.Button | Inspector | focusable=True | enabled=True
+ControlType.Text | rev 0 · no committed statement | focusable=False | enabled=True
+ControlType.Text | RESULT · structured projection | focusable=False | enabled=True
+ControlType.Text | No run has published a result yet. | focusable=False | enabled=True
+ControlType.Text | VARIABLES · 0 | focusable=False | enabled=True
+ControlType.Button | Name ▲ | focusable=True | enabled=True
+ControlType.Button | Kind | focusable=True | enabled=True
+ControlType.Button | Value | focusable=True | enabled=True
+ControlType.Text | No run has published a workspace yet. | focusable=False | enabled=True
+ControlType.Text | FUNCTIONS · 0 | focusable=False | enabled=True
+ControlType.Button | Name ▲ | focusable=True | enabled=True
+ControlType.Button | Parameters | focusable=True | enabled=True
+ControlType.Button | Origin | focusable=True | enabled=True
+ControlType.Text | No run has published a workspace yet. | focusable=False | enabled=True
+ControlType.Pane | Logs | focusable=False | enabled=True
+ControlType.Text | run log · caret Ln 2, Col 10 · engine lovelace-lang | focusable=False | enabled=True
+ControlType.Text | Quick eval | focusable=False | enabled=True
+ControlType.Edit | Quick eval | focusable=True | enabled=True
+ControlType.Text | Ctrl+Shift+E | focusable=False | enabled=True
+ControlType.Text | Enter runs · Esc leaves the field | focusable=False | enabled=True
+ControlType.Text | [info] Opened C:\Users\ricar\dev\LovelaceSharp\docs\goal-desktop-v4\round-32\recovery-fixture.lv (12 bytes, UTF-8 · LF). | focusable=False | enabled=True
+ControlType.Separator | Editor / plot splitter | focusable=True | enabled=True
+ControlType.Separator | Plot / workspace splitter | focusable=True | enabled=True
+ControlType.Separator | Workspace / logs splitter | focusable=True | enabled=True
