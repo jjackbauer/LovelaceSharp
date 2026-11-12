@@ -839,14 +839,31 @@
                      "type":  "W",
                      "requirement":  "Offer an unobtrusive status strip",
                      "acceptance":  "Status always reports active document, revision, precision, cursor line/column, run state and recent elapsed time without truncating essential fields.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/uia-tree.txt",
+                                          "sha256":  "FE65E692133F4F79253049E000B8C8B3DFDF330E4504954B6F9A5D7E5024E765",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/product-typed.png",
+                                          "sha256":  "80B225E2D5A58C18E150E1BE89DE60991692FC762A0C8ABBF765D017D18DFBCD",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/driver.log",
+                                          "sha256":  "17123C87A0C235DF627830DA06655DDAB4C7B537A946F70673A92A23D368D0F8",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness capture+uia",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Product window status strip: welcome.lv | rev 0 | precision 1000 | Ln 1, Col 1 | run Finished + 14 ms last run."
                  },
                  {
                      "id":  "LAY-009",
@@ -2663,14 +2680,31 @@
                      "type":  "D",
                      "requirement":  "Provide sensible no-plot and error states",
                      "acceptance":  "Graph pane says No plot yet or Plot unavailable with reason and next action; no blank white mystery pane.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/uia-tree.txt",
+                                          "sha256":  "FE65E692133F4F79253049E000B8C8B3DFDF330E4504954B6F9A5D7E5024E765",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/product-typed.png",
+                                          "sha256":  "80B225E2D5A58C18E150E1BE89DE60991692FC762A0C8ABBF765D017D18DFBCD",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-5/driver.log",
+                                          "sha256":  "17123C87A0C235DF627830DA06655DDAB4C7B537A946F70673A92A23D368D0F8",
+                                          "class":  "gui",
+                                          "at_head":  "c50fef3834e14f4c158e1712b5bb4b3c46d35d4f"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "gui-harness capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Graph pane empty state \u0027No plot yet. Run a script that calls plot(...).\u0027 visible in product-typed.png; post-run UIA shows a rastered plot canvas."
                  },
                  {
                      "id":  "PLT-012",

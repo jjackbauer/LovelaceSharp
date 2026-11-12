@@ -93,3 +93,7 @@ rust/target-spike/
 rust/target-probe-iced/
 rust/target-probe-slint/
 
+
+# engine plot files written into the CWD (see RISK-007; must move to APPDATA)
+lovelace-plots/
+

@@ -361,3 +361,24 @@
 - **Depends on**: the green execution core (done) and the spike modules
 - **Status**: Open — round 5 objective
 - **Related**: OBS-010, ARC-003, ARC-005, RUN-001, RUN-004, RUN-009
+
+### RISK-007: The product writes plot files into the current working directory
+
+- **Risk**: the new shell sets the engine's plot directory to `<cwd>\lovelace-plots`, so running the
+  app from the repository root creates an untracked directory there and, on an installed system,
+  would attempt to write next to the binary (PLF-006 forbids that by default).
+- **Likelihood**: Certain (observed) — **Impact**: Medium
+- **Evidence**: EVD-055, `round-5/uia-tree.txt:51`, `round-5/product-typed.png`
+- **Mitigation**: add `lovelace-plots/` to `.gitignore` now; round 6 must move the plot directory to
+  an app-scoped location (`%APPDATA%\Lovelace\plots`), create it explicitly, surface write failures,
+  and delete the repository copy.
+- **Gate**: G1 (PLF-006 evidence must come from the fixed build)
+
+### TODO-005: Move the engine plot directory out of the working directory
+
+- **Task**: resolve the plot directory from the app-scoped data directory, create it with error
+  reporting, use it for `Engine::set_plot_dir`, and remove the accidental `<repo>\lovelace-plots`.
+- **Priority**: P0 (PLF-006 is P0)
+- **Depends on**: nothing
+- **Status**: Open — round 6
+- **Related**: EVD-055, RISK-007, PLF-006

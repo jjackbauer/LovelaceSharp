@@ -474,3 +474,14 @@
 - **Impact**: parity integration is blocked until that session's tree is green; the arity mappings (5 ids) can be written but cannot be gated or counted.
 - **Mitigation**: parity lanes are told not to touch desktop files; mapping proceeds without a gate claim; I re-run gen-rust-tests when the desktop session settles. If the collision persists, the parity gate needs an agreed crate scope rather than a silent exclusion.
 - **Related**: OQ-018 (inventory discrepancies), the earlier add -A note in round-73
+
+### RISK-002 resolved: the desktop session fixed its own module
+
+- **Resolution**: the second goal session repaired rust/lovelace-desktop/src/execution.rs; `cargo test -p lovelace-desktop` now reports 90 passed / 0 failed, `cargo test --workspace` exits 0, and the parity gate was re-established at 5,955/6,209 (95.91 %), deferred 136, failures [].
+- **Lesson**: the correct response to a foreign red crate is to wait and keep working gate-independently (probe, classify, map, test in package scope), not to exclude the crate from the gate or to edit another session's files. Eight mappings accumulated during the block and were counted the moment the workspace went green.
+
+### CAP-003: SymPy is absent on this host
+
+- **Capability**: a live SymPy session for the 8 SymPy-oracle census rows.
+- **Check**: `python -c "import sympy"` -> "Python was not found; run without arguments to install from the Microsoft Store..." (the Windows Store execution alias). No interpreter, so no SymPy.
+- **Result**: the 8 rows are blocked by an absent external capability. They stay deferred and are not excluded (an exclusion needs owner approval).

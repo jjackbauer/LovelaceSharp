@@ -21,7 +21,7 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state')]
+    [Parameter(Mandatory = $true)][ValidateSet('launch', 'wait', 'capture', 'uia', 'click', 'keys', 'close', 'state', 'focus', 'typeinto')]
     [string]$Action,
     [string]$Exe = '',
     [string[]]$Arguments = @(),
@@ -46,10 +46,17 @@ public static class GuiNative {
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr hWnd, out GuiRect rect);
   [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr hWnd, ref GuiRect point);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool IsHungAppWindow(IntPtr hWnd);
 }
 "@
+
+$HWND_TOPMOST = [IntPtr](-1)
+$SWP_NOSIZE_MOVE = 0x0003
 
 function Write-Log([string]$line) {
     $stamp = (Get-Date).ToString('HH:mm:ss.fff')
@@ -85,6 +92,27 @@ function Find-ByTitle([string]$substr) {
     return @($procs)[0]
 }
 
+function Focus-Window([IntPtr]$h) {
+    # SetForegroundWindow can silently fail when the caller is not foreground. Promote the window
+    # and verify: capturing or typing without owning the foreground produces evidence about the
+    # wrong application, which is worse than no evidence.
+    [GuiNative]::ShowWindow($h, 9) | Out-Null                      # SW_RESTORE
+    [GuiNative]::SetWindowPos($h, $HWND_TOPMOST, 0, 0, 0, 0, $SWP_NOSIZE_MOVE) | Out-Null
+    [GuiNative]::BringWindowToTop($h) | Out-Null
+    [GuiNative]::SetForegroundWindow($h) | Out-Null
+    Start-Sleep -Milliseconds 300
+    $fg = [GuiNative]::GetForegroundWindow()
+    return ($fg -eq $h)
+}
+
+function Assert-Foreground([IntPtr]$h, [string]$action) {
+    $fg = [GuiNative]::GetForegroundWindow()
+    if ($fg -ne $h) {
+        $title = (Get-Process | Where-Object { $_.MainWindowHandle -eq $fg } | Select-Object -First 1).MainWindowTitle
+        throw "$action refused: target hwnd $h does not own the foreground (foreground=$fg '$title')"
+    }
+}
+
 switch ($Action) {
     'launch' {
         if ($Exe -eq '') { throw 'launch needs -Exe' }
@@ -115,7 +143,8 @@ switch ($Action) {
         $h = if ($Title -ne '') { [IntPtr](Find-ByTitle $Title).MainWindowHandle } else { (Get-AppProcess) | ForEach-Object { $_.Refresh(); $_.MainWindowHandle } }
         if ($Title -ne '') { $h = [IntPtr](Find-ByTitle $Title).MainWindowHandle } else { $h = [IntPtr]$h }
         if ($h -eq [IntPtr]::Zero) { throw 'no window handle' }
-        [GuiNative]::SetForegroundWindow($h) | Out-Null
+        if (-not (Focus-Window $h)) { throw 'capture refused: could not bring the target window to the foreground' }
+        Assert-Foreground $h 'capture'
         Start-Sleep -Milliseconds 250
         $r = New-Object GuiRect
         [GuiNative]::GetWindowRect($h, [ref]$r) | Out-Null
@@ -187,11 +216,44 @@ switch ($Action) {
         if ($Keys -eq '') { throw 'keys needs -Keys' }
         $p = Get-AppProcess
         $p.Refresh()
-        [GuiNative]::SetForegroundWindow([IntPtr]$p.MainWindowHandle) | Out-Null
+        if (-not (Focus-Window ([IntPtr]$p.MainWindowHandle))) { throw 'keys refused: could not bring the target window to the foreground' }
+        Assert-Foreground ([IntPtr]$p.MainWindowHandle) 'keys'
         Start-Sleep -Milliseconds 150
         [System.Windows.Forms.SendKeys]::SendWait($Keys)
         Write-Log "keys pid=$($p.Id) keys=$Keys"
         Write-Output "SENT=$Keys"
+        break
+    }
+    'focus' {
+        $p = Get-AppProcess
+        $p.Refresh()
+        $ok = Focus-Window ([IntPtr]$p.MainWindowHandle)
+        Write-Log "focus pid=$($p.Id) hwnd=$($p.MainWindowHandle) ok=$ok"
+        Write-Output "FOCUSED=$ok"
+        if (-not $ok) { exit 1 }
+        break
+    }
+    'typeinto' {
+        # Focus a named control by prefix, then type. The editor's accessible name changes with its
+        # line/caret, so match the stable prefix and let the caller pass the rest of the keys.
+        if ($Name -eq '') { throw 'typeinto needs -Name' }
+        $p = Get-AppProcess
+        $p.Refresh()
+        $h = [IntPtr]$p.MainWindowHandle
+        if (-not (Focus-Window $h)) { throw 'typeinto refused: could not bring the target window to the foreground' }
+        Assert-Foreground $h 'typeinto'
+        $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+        $edits = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            (New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Edit)))
+        $target = $null
+        foreach ($e in $edits) { if ($e.Current.Name -like "$Name*") { $target = $e; break } }
+        if (-not $target) { throw "no Edit whose name starts with '$Name'" }
+        $target.SetFocus()
+        Start-Sleep -Milliseconds 200
+        if ($Keys -ne '') { [System.Windows.Forms.SendKeys]::SendWait($Keys) }
+        Write-Log "typeinto pid=$($p.Id) element='$($target.Current.Name)' keys=$Keys"
+        Write-Output "TYPED=$($target.Current.Name)"
         break
     }
     'close' {
