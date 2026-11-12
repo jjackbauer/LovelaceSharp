@@ -494,6 +494,10 @@ unsafe extern "system" {
     pub fn MoveWindow(hwnd: HWND, x: i32, y: i32, width: i32, height: i32, repaint: i32) -> i32;
     /// Sets the keyboard focus.
     pub fn SetFocus(hwnd: HWND) -> HWND;
+    /// Returns the window that is currently active, or null.
+    pub fn GetForegroundWindow() -> HWND;
+    /// Returns the thread that owns a window and optionally its process id.
+    pub fn GetWindowThreadProcessId(hwnd: HWND, process_id: *mut u32) -> u32;
     /// Creates an empty menu.
     pub fn CreateMenu() -> HMENU;
     /// Creates an empty popup menu.
@@ -591,6 +595,8 @@ unsafe extern "system" {
 unsafe extern "system" {
     /// Returns the module handle of the running executable.
     pub fn GetModuleHandleW(name: *const u16) -> HINSTANCE;
+    /// Returns the process id of the calling process.
+    pub fn GetCurrentProcessId() -> u32;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1169,11 +1175,45 @@ pub fn open_file_dialog(owner: HWND) -> Option<PathBuf> {
 
 /// Shows the Save As dialog and returns the chosen path.
 pub fn save_file_dialog(owner: HWND, suggested: &str) -> Option<PathBuf> {
-    let filter: Vec<u16> = "Lovelace scripts (*.ls)\0*.ls\0All files (*.*)\0*.*\0\0"
-        .encode_utf16()
-        .collect();
-    let title = wide("Save Lovelace script");
-    let extension = wide("ls");
+    save_file_dialog_with(
+        owner,
+        suggested,
+        "Save Lovelace script",
+        &[("Lovelace scripts (*.ls)", "*.ls"), ("All files (*.*)", "*.*")],
+        "ls",
+        None,
+    )
+}
+
+/// Shows the Save As dialog with an explicit filter list, title and default extension.
+///
+/// `filters` is a list of (description, pattern) pairs rendered in order; `default_extension`
+/// is applied when the typed name has none; `initial_dir` is the folder the dialog opens in
+/// (the user's last folder is used when it is `None`). Without an initial directory the shell
+/// may start in a redirected profile folder that the process cannot write, which turns a save
+/// into a permission prompt. The dialog keeps the process working directory
+/// (`OFN_NOCHANGEDIR`) and prompts before overwriting an existing file. Returns `None` when the
+/// user cancels.
+pub fn save_file_dialog_with(
+    owner: HWND,
+    suggested: &str,
+    title: &str,
+    filters: &[(&str, &str)],
+    default_extension: &str,
+    initial_dir: Option<&std::path::Path>,
+) -> Option<PathBuf> {
+    // The filter string is pairs of NUL-terminated strings, then one extra NUL.
+    let mut filter: Vec<u16> = Vec::new();
+    for (description, pattern) in filters {
+        filter.extend(description.encode_utf16());
+        filter.push(0);
+        filter.extend(pattern.encode_utf16());
+        filter.push(0);
+    }
+    filter.push(0);
+    let title = wide(title);
+    let extension = wide(default_extension);
+    let directory = initial_dir.map(|directory| wide(&directory.to_string_lossy()));
     let mut file = vec![0u16; 2048];
     for (index, unit) in suggested.encode_utf16().enumerate() {
         if index + 1 < file.len() {
@@ -1186,6 +1226,10 @@ pub fn save_file_dialog(owner: HWND, suggested: &str) -> Option<PathBuf> {
         nFilterIndex: 1,
         lpstrFile: file.as_mut_ptr(),
         nMaxFile: file.len() as u32,
+        lpstrInitialDir: directory
+            .as_ref()
+            .map(|directory| directory.as_ptr())
+            .unwrap_or(std::ptr::null()),
         lpstrTitle: title.as_ptr(),
         lpstrDefExt: extension.as_ptr(),
         Flags: OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR,
@@ -1201,6 +1245,30 @@ pub fn save_file_dialog(owner: HWND, suggested: &str) -> Option<PathBuf> {
         None
     } else {
         Some(PathBuf::from(path))
+    }
+}
+
+/// The foreground window when it belongs to this process, else 0.
+///
+/// Dialogs are owned by the workbench window. The egui integration owns that window on this
+/// same thread, so the process's active window is the one that should parent the dialog; the
+/// ownership test is what makes an unrelated foreground window (another application) never
+/// become the owner. A null owner is a valid, if unparented, dialog owner.
+pub fn foreground_window_of_this_process() -> HWND {
+    // SAFETY: both calls take a window handle/handle-sized value and write only the ids the
+    // caller passed; no pointers outlive the call.
+    unsafe {
+        let window = GetForegroundWindow();
+        if window == 0 {
+            return 0;
+        }
+        let mut process_id: u32 = 0;
+        GetWindowThreadProcessId(window, &mut process_id);
+        if process_id == GetCurrentProcessId() {
+            window
+        } else {
+            0
+        }
     }
 }
 

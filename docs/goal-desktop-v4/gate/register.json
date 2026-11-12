@@ -3050,14 +3050,43 @@
                      "type":  "D",
                      "requirement":  "Provide intuitive zoom/pan/fit",
                      "acceptance":  "Wheel/buttons zoom around pointer, drag pans, one-click Fit restores full plot and 100% reset is available.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-fit.png",
+                                          "sha256":  "02D8AFD61C7019810DEB1290CE9EEDA0E63B7673D59480DE6BB42ECC437EA1F6",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-zoom.png",
+                                          "sha256":  "FD1538BA62C22800AA52F099E0E67A2A2D26F0B03A52B20B3899700EC7EC9039",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-export.svg",
+                                          "sha256":  "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-export.png",
+                                          "sha256":  "C8FFEA6442E7FB3F247330ECE143B8884083C79DB520199CD5F37A13E687DAEB",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-interaction.md",
+                                          "sha256":  "3FDACF0A8BCF7ED249BEBB107B1E54E5923507DCBAE0C14D0D19E75A27A2C835",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop (277); headless transform tests + egui handler test",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Pointer-anchored wheel zoom (anchor within 1e-3 px), drag pan, Fit = identity, 100% natural-size reset, \u003e=32 px clamp; captures at Fit and 1.25x."
                  },
                  {
                      "id":  "PLT-005",
@@ -3082,14 +3111,43 @@
                      "type":  "D",
                      "requirement":  "Support SVG and PNG export",
                      "acceptance":  "Save SVG preserves engine bytes; PNG export supports chosen dimensions/scaling and transparent/opaque background options.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-fit.png",
+                                          "sha256":  "02D8AFD61C7019810DEB1290CE9EEDA0E63B7673D59480DE6BB42ECC437EA1F6",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-zoom.png",
+                                          "sha256":  "FD1538BA62C22800AA52F099E0E67A2A2D26F0B03A52B20B3899700EC7EC9039",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-export.svg",
+                                          "sha256":  "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-export.png",
+                                          "sha256":  "C8FFEA6442E7FB3F247330ECE143B8884083C79DB520199CD5F37A13E687DAEB",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-30/plot-interaction.md",
+                                          "sha256":  "3FDACF0A8BCF7ED249BEBB107B1E54E5923507DCBAE0C14D0D19E75A27A2C835",
+                                          "class":  "gui",
+                                          "at_head":  "ccca7a3c4c0a1742a23abd58f1b2ac89f721ec2f"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "SVG/PNG export via GetSaveFileNameW",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "SVG export 14,914 B SHA-256 3A76EC02... byte-identical to PlotCapture.svg (byte loop, not hash only); PNG 2x/transparent 42,891 B valid 1600x1200; scale/background matrix tested."
                  },
                  {
                      "id":  "PLT-007",

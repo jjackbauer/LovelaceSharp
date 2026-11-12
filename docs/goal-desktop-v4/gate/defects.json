@@ -4,7 +4,7 @@
                         "summary":  "Backspace line-join crash (fixed)",
                         "id":  "DEF-001",
                         "owner":  "agent",
-                        "verified_by":  "108/108 then; regression test green",
+                        "verified_by":  "regression test green",
                         "status":  "fixed",
                         "severity":  1,
                         "area":  "editor",
@@ -21,14 +21,14 @@
                         "evidence":  "round-11/crash-fix.md"
                     },
                     {
-                        "summary":  "--gui-selftest still asserts a stale 3-point plot shape and fails on it",
+                        "summary":  "Stale 3-point plot assertion",
                         "id":  "DEF-003",
                         "owner":  "agent",
-                        "status":  "open",
+                        "verified_by":  "assertion now checks the 2 rect/14 line/13 text/1 polyline census, 580 samples and three mapped vertices - stricter than before, not weakened",
+                        "status":  "fixed",
                         "severity":  2,
                         "area":  "selftest",
-                        "evidence":  "round-29 cargo-test.log / gui-selftest.log",
-                        "next":  "update the assertion to the current engine plot shape or explain why the shape is expected"
+                        "evidence":  "round-30 plot-interaction.md; suite 277 green"
                     }
                 ],
     "schema":  1

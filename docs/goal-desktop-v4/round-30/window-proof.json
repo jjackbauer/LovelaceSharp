@@ -1,0 +1,82 @@
+﻿{
+  "round": 30,
+  "requirement": "PLT-004, PLT-006, DEF-003",
+  "environment": {
+    "session": "locked during the capture: the window proof uses UIA Invoke (AccessKit) plus PrintWindow(PW_RENDERFULLCONTENT); injected pointer input cannot be delivered while the lock screen covers the desktop",
+    "harness": "tools/gui-harness.ps1 launch/wait/click/uia/close",
+    "appdata": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\appdata",
+    "appdata_note": "redirected to a writable workspace directory and the app starts in the round work directory, so the plot directory is writable and is not under the working directory; without the redirect plot statements fail with Access is denied",
+    "current_directory": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\work",
+    "plot_directory": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\appdata\\Lovelace\\plots",
+    "window": "2500x1380",
+    "device_scale_factor": 1
+  },
+  "plot": {
+    "script": "x = 1..24\r\ny = (x - 12)^2\r\nplot(x, y, \"round 30 plot: zoom pan export\")\r\n",
+    "title": "round 30 plot: zoom pan export",
+    "image_after_run": "SVG plot canvas, 800 by 600 points, zoom 1.00, 121%",
+    "image_after_two_zoom_steps": "SVG plot canvas, 800 by 600 points, zoom 1.56, 188%",
+    "image_after_fit": "SVG plot canvas, 800 by 600 points, zoom 1.00, 121%",
+    "image_after_one_zoom": "SVG plot canvas, 800 by 600 points, zoom 1.25, 151%"
+  },
+  "captures": [
+    {
+      "file": "plot-fit.png",
+      "bytes": 432134,
+      "sha256": "02D8AFD61C7019810DEB1290CE9EEDA0E63B7673D59480DE6BB42ECC437EA1F6"
+    },
+    {
+      "file": "plot-zoom.png",
+      "bytes": 423352,
+      "sha256": "FD1538BA62C22800AA52F099E0E67A2A2D26F0B03A52B20B3899700EC7EC9039"
+    }
+  ],
+  "export": {
+    "svg": {
+      "file": "plot-export.svg",
+      "bytes": 14914,
+      "sha256": "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F",
+      "written_by_dialog": {
+        "file": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\appdata\\Lovelace\\plots\\run-1\\round 30 plot- zoom pan export.svg",
+        "bytes": 14914,
+        "sha256": "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F"
+      },
+      "copy_matches_written_file": true,
+      "engine_capture_independent": {
+        "file": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\work\\engine-capture\\engine-capture.svg",
+        "bytes": 14914,
+        "sha256": "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F"
+      },
+      "engine_capture_this_run": {
+        "file": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\appdata\\Lovelace\\plots\\run-1\\plot.svg",
+        "bytes": 14914,
+        "sha256": "3A76EC02C2C3448C3D680958FEF93A5DB2D9654E5715D1AF3FC5F840D23A599F"
+      },
+      "byte_identical_to_independent": true,
+      "byte_identical_to_this_run_capture": true
+    },
+    "png": {
+      "file": "plot-export.png",
+      "bytes": 42891,
+      "sha256": "C8FFEA6442E7FB3F247330ECE143B8884083C79DB520199CD5F37A13E687DAEB",
+      "written_by_dialog": {
+        "file": "C:\\Users\\ricar\\dev\\LovelaceSharp\\docs\\goal-desktop-v4\\round-30\\appdata\\Lovelace\\plots\\run-1\\round 30 plot- zoom pan export.png",
+        "bytes": 42891,
+        "sha256": "C8FFEA6442E7FB3F247330ECE143B8884083C79DB520199CD5F37A13E687DAEB"
+      },
+      "scale": 2,
+      "background": "Transparent",
+      "width": 1600,
+      "height": 1200,
+      "decoded": "1600x1200",
+      "png_signature": true,
+      "note": "the engine chart paints its own opaque white 800x600 canvas, so the transparent background choice cannot change these pixels; the transparent/opaque difference is measured on a document with transparent regions in the crate test"
+    }
+  },
+  "uia": [
+    "plot-fit-uia.txt",
+    "plot-zoom-uia.txt",
+    "plot-export-dialog-uia.txt"
+  ]
+}
+

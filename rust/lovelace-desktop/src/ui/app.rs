@@ -30,7 +30,7 @@ use crate::workspace_table::{
 };
 
 use super::editor::{TextEditor, surface_id};
-use super::plot::Plot;
+use super::plot::{self, Plot, PngBackground};
 /// Pane background.
 pub const PANE_BG: Color32 = Color32::from_rgb(0x17, 0x1b, 0x21);
 /// Pane header background.
@@ -151,6 +151,24 @@ pub fn compute_layout(
     }
 }
 
+/// The in-window PNG export options (PLT-006): a chosen scale and background.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct PngExport {
+    /// Pixels per SVG point.
+    scale: f32,
+    /// Opaque white or transparent.
+    background: PngBackground,
+}
+
+impl Default for PngExport {
+    fn default() -> PngExport {
+        PngExport {
+            scale: 2.0,
+            background: PngBackground::Opaque,
+        }
+    }
+}
+
 /// The window application.
 pub struct WorkbenchApp {
     workbench: Workbench,
@@ -164,6 +182,11 @@ pub struct WorkbenchApp {
     loaded_revisions: Vec<u64>,
     plot: Plot,
     loaded_plot_svg: Option<String>,
+    /// PLT-006: the open PNG export options window, if any.
+    plot_export: Option<PngExport>,
+    /// PLT-006: the last export's short result and whether it is an error, shown in the plot
+    /// header so the action has feedback even when the file dialog closes without a trace.
+    plot_export_status: Option<(String, bool)>,
     editor_frac: f32,
     workspace_frac: f32,
     logs_frac: f32,
@@ -238,6 +261,8 @@ impl WorkbenchApp {
             loaded_revisions,
             plot: Plot::new(),
             loaded_plot_svg: None,
+            plot_export: None,
+            plot_export_status: None,
             editor_frac: 0.40,
             workspace_frac: 0.20,
             logs_frac: 0.18,
@@ -427,6 +452,9 @@ impl WorkbenchApp {
             let full = ui.available_rect_before_wrap();
             self.panes(ui, full);
         });
+        // PLT-006: the PNG options window sits over every pane, not inside the plot pane, so a
+        // click on it cannot also reach the plot canvas underneath.
+        self.plot_export_window(ui.ctx());
         if self.trace_pending {
             crate::run_trace::mark("panes_drawn", "");
         }
@@ -703,16 +731,44 @@ impl WorkbenchApp {
         let empty = self.plot.is_empty();
         with_pane(ui, rect, "Plot - engine SVG", |ui, header, body| {
             ui.scope_builder(header_ui(header), |ui| {
-                if ui.button("Fit").clicked() {
+                // PLT-004: Fit restores the whole plot; 100% is the natural-size reset (one SVG
+                // point per logical screen pixel) and is a different view on a pane whose fit
+                // scale is not 1:1. Both are one click, and the wheel/drag handlers in
+                // `plot.rs` apply the same clamped transform.
+                if ui
+                    .button("Fit")
+                    .on_hover_text("Show the whole plot in the pane")
+                    .clicked()
+                {
                     self.plot.fit();
                 }
-                ui.separator();
-                for zoom in [1.0f32, 1.5, 2.0] {
-                    if ui.button(format!("{zoom:.1}x")).clicked() {
-                        self.plot.zoom = zoom;
-                        self.plot.pan = Vec2::ZERO;
-                    }
+                if ui
+                    .button("100%")
+                    .on_hover_text("Natural size: one SVG point per screen pixel")
+                    .clicked()
+                {
+                    self.plot.actual_size();
                 }
+                if ui
+                    .button("Zoom out")
+                    .on_hover_text("Zoom out one step around the pointer")
+                    .clicked()
+                {
+                    self.plot.zoom_step(1.0 / plot::WHEEL_STEP);
+                }
+                if ui
+                    .button("Zoom in")
+                    .on_hover_text("Zoom in one step around the pointer")
+                    .clicked()
+                {
+                    self.plot.zoom_step(plot::WHEEL_STEP);
+                }
+                ui.label(
+                    RichText::new(format!("{:.0}%", self.plot.zoom_percent()))
+                        .monospace()
+                        .color(DIM),
+                )
+                .on_hover_text("Zoom as a percentage of natural size");
                 ui.separator();
                 match &plot_title {
                     Some(title) => {
@@ -722,13 +778,35 @@ impl WorkbenchApp {
                         ui.label(RichText::new("no engine plot").color(DIM));
                     }
                 }
+                ui.separator();
+                // PLT-006: both exports go through the native save dialog. SVG copies the
+                // engine's captured bytes; PNG opens an in-window options step first.
+                if ui
+                    .add_enabled(!empty, egui::Button::new("Export SVG..."))
+                    .on_hover_text("Save the engine's original SVG bytes unchanged")
+                    .clicked()
+                {
+                    self.export_plot_svg();
+                }
+                if ui
+                    .add_enabled(!empty, egui::Button::new("Export PNG..."))
+                    .on_hover_text("Rasterise at a chosen scale and background")
+                    .clicked()
+                {
+                    self.plot_export = Some(PngExport::default());
+                }
+                if let Some((status, error)) = &self.plot_export_status {
+                    ui.label(
+                        RichText::new(status)
+                            .small()
+                            .color(if *error { ERROR } else { ACCENT }),
+                    );
+                }
             });
             if empty {
                 self.plot.ui(ui, body);
                 return;
             }
-            let ppp = ui.ctx().pixels_per_point();
-            self.plot.ensure(ui.ctx(), ppp * self.plot.zoom);
             let info = format!(
                 "raster {}x{} @ {:.2}x · {:.2} ms raster · {:.2} ms upload",
                 self.plot.raster_px[0],
@@ -748,6 +826,168 @@ impl WorkbenchApp {
             let canvas = Rect::from_min_max(pos2(body.left(), body.top() + 18.0), body.max);
             self.plot.ui(ui, canvas);
         });
+    }
+
+    /// PLT-006: writes the captured `PlotCapture.svg` through the native save dialog.
+    fn export_plot_svg(&mut self) {
+        let title = self.plot_title();
+        let suggested = plot::export_file_name(title.as_deref(), "svg");
+        let Some(path) = plot::save_plot_dialog(
+            "Export plot as SVG",
+            plot::SVG_FILTER,
+            "svg",
+            &suggested,
+            self.plot_export_dir().as_deref(),
+        ) else {
+            self.plot_export_status = Some(("SVG export cancelled".to_string(), false));
+            return;
+        };
+        self.plot_export_status = Some(match self.plot.export_svg_to(&path) {
+            Ok(bytes) => (
+                format!(
+                    "SVG: {bytes} bytes -> {}",
+                    path.file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| path.display().to_string())
+                ),
+                false,
+            ),
+            Err(error) => (error, true),
+        });
+    }
+
+    /// PLT-006: rasterises at the chosen scale/background and writes it through the dialog.
+    fn export_plot_png(&mut self, scale: f32, background: PngBackground) {
+        let title = self.plot_title();
+        let suggested = plot::export_file_name(title.as_deref(), "png");
+        let Some(path) = plot::save_plot_dialog(
+            "Export plot as PNG",
+            plot::PNG_FILTER,
+            "png",
+            &suggested,
+            self.plot_export_dir().as_deref(),
+        ) else {
+            self.plot_export_status = Some(("PNG export cancelled".to_string(), false));
+            return;
+        };
+        self.plot_export_status = Some(match self.plot.export_png_to(&path, scale, background) {
+            Ok([width, height]) => (
+                format!(
+                    "PNG: {width}x{height} px {} -> {}",
+                    background.label(),
+                    path.file_name()
+                        .map(|name| name.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| path.display().to_string())
+                ),
+                false,
+            ),
+            Err(error) => (error, true),
+        });
+    }
+
+    fn plot_title(&self) -> Option<String> {
+        self.view.plot.as_ref().map(|plot| plot.title.clone())
+    }
+
+    /// The folder the save dialog starts in: where the engine wrote this plot's capture.
+    ///
+    /// The engine has already created and written that directory, so it is writable; starting
+    /// the dialog there avoids a shell default folder this process cannot write (which would
+    /// turn every export into a permission prompt) and keeps the exported file next to the
+    /// capture it came from.
+    fn plot_export_dir(&self) -> Option<PathBuf> {
+        self.view
+            .plot
+            .as_ref()
+            .map(|plot| PathBuf::from(&plot.path))
+            .and_then(|path| path.parent().map(|directory| directory.to_path_buf()))
+            .filter(|directory| directory.is_dir())
+    }
+
+    /// PLT-006: the PNG export options window, drawn over the workbench.
+    fn plot_export_window(&mut self, ctx: &egui::Context) {
+        let Some(mut options) = self.plot_export else {
+            return;
+        };
+        let mut open = true;
+        let mut close = false;
+        let mut save = false;
+        let dimensions = match plot::export_pixels(
+            self.plot.svg_w,
+            self.plot.svg_h,
+            options.scale,
+        ) {
+            Ok((width, height)) => format!("{width} x {height} px"),
+            Err(error) => error,
+        };
+        egui::Window::new("Export PNG")
+            .id(Id::unique("plot_export_png"))
+            .collapsible(false)
+            .resizable(false)
+            .anchor(Align2::CENTER_CENTER, Vec2::ZERO)
+            .open(&mut open)
+            .show(ctx, |ui| {
+                ui.label(RichText::new("Scale").color(DIM));
+                ui.horizontal(|ui| {
+                    for scale in [1.0f32, 2.0, 4.0] {
+                        let selected = (options.scale - scale).abs() < f32::EPSILON;
+                        let label = format!("{scale:.0}x");
+                        if ui
+                            .add(egui::Button::new(if selected {
+                                RichText::new(label).strong().color(ACCENT)
+                            } else {
+                                RichText::new(label)
+                            }))
+                            .clicked()
+                        {
+                            options.scale = scale;
+                        }
+                    }
+                });
+                ui.label(RichText::new("Background").color(DIM));
+                ui.horizontal(|ui| {
+                    for background in [PngBackground::Opaque, PngBackground::Transparent] {
+                        let selected = options.background == background;
+                        let label = background.label();
+                        if ui
+                            .add(egui::Button::new(if selected {
+                                RichText::new(label).strong().color(ACCENT)
+                            } else {
+                                RichText::new(label)
+                            }))
+                            .clicked()
+                        {
+                            options.background = background;
+                        }
+                    }
+                });
+                ui.separator();
+                ui.label(format!("Output: {dimensions}"));
+                ui.label(
+                    RichText::new(format!(
+                        "Selected: {:.0}x, {}",
+                        options.scale,
+                        options.background.label()
+                    ))
+                    .color(DIM),
+                );
+                ui.horizontal(|ui| {
+                    if ui.button("Save PNG...").clicked() {
+                        save = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close = true;
+                    }
+                });
+            });
+        self.plot_export = if open && !close && !save {
+            Some(options)
+        } else {
+            None
+        };
+        if save {
+            self.export_plot_png(options.scale, options.background);
+        }
     }
 
     fn workspace_pane(&mut self, ui: &mut Ui, rect: Rect, view: &DocumentView) {

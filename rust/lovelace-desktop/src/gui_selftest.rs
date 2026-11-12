@@ -517,26 +517,91 @@ fn check_plot() -> Result<String, String> {
     if !plot.svg.contains("polyline") {
         return Err("the engine SVG has no polyline".to_string());
     }
+    // DEF-003: the pre-round-87 engine emitted a 3-vertex polyline stub; the current engine
+    // (the round-87 plot surface in lovelace-lang) publishes an 800x600 chart with a frame, both
+    // axes, tick geometry, tick labels, the title text and ONE densely sampled series polyline.
+    // This data has x = [1, 4, 2], which is not strictly increasing, so the renderer samples a
+    // parametric Catmull-Rom instead of a natural spline. The assertion below pins that current
+    // shape (counts, sample count and the three data vertices), not the obsolete 3-point stub.
+    let counts = plot_element_counts(&plot.svg);
+    let expected_counts = [2usize, 14, 13, 1];
+    if counts != expected_counts {
+        return Err(format!(
+            "the engine SVG's element counts are rect {} / line {} / text {} / polyline {}, expected {} / {} / {} / {}",
+            counts[0], counts[1], counts[2], counts[3],
+            expected_counts[0], expected_counts[1], expected_counts[2], expected_counts[3]
+        ));
+    }
     let parsed = crate::svg::parse(&plot.svg);
+    if parsed.width != 800 * crate::svg::MILLI || parsed.height != 600 * crate::svg::MILLI {
+        return Err(format!(
+            "the engine SVG canvas is {} by {} milli-points, expected 800000 by 600000",
+            parsed.width, parsed.height
+        ));
+    }
     if parsed.polylines.len() != 1 {
         return Err(format!(
             "the engine SVG parsed {} polylines, expected 1",
             parsed.polylines.len()
         ));
     }
-    if parsed.polylines[0].points.len() != 3 {
+    let points = &parsed.polylines[0].points;
+    // 1 + ceil(segment1_len_px / 2) + ceil(segment2_len_px / 2) = 1 + 338 + 241 for the mapped
+    // (1,4) -> (4,5) -> (2,6) path; the density is the engine's published sampling contract.
+    if points.len() != 580 {
         return Err(format!(
-            "the engine SVG parsed {} points, expected 3",
-            parsed.polylines[0].points.len()
+            "the engine SVG parsed {} sampled points, expected 580 (the dense parametric spline)",
+            points.len()
         ));
     }
+    // The polyline still represents the three plotted points: (1,4) first, (4,5) at the branch,
+    // (2,6) last, at the same mapped coordinates the engine's own tick geometry uses.
+    let expected_vertices = [
+        crate::svg::Point { x: 101_818, y: 522_500 },
+        crate::svg::Point { x: 738_181, y: 297_500 },
+        crate::svg::Point { x: 313_939, y: 72_500 },
+    ];
+    for vertex in expected_vertices {
+        if !points.contains(&vertex) {
+            return Err(format!(
+                "the engine SVG's series does not pass through ({}, {}) milli-points",
+                vertex.x, vertex.y
+            ));
+        }
+    }
+    if !parsed.texts.iter().any(|text| text.text == "selftest") {
+        return Err("the engine SVG has no title text".to_string());
+    }
     Ok(format!(
-        "{} SVG bytes, title {:?}, {} polyline with {} points",
+        "{} SVG bytes, title {:?}, {} rect / {} lines / {} texts / 1 polyline, {} sampled points through the three data vertices",
         plot.svg.len(),
         plot.title,
-        parsed.polylines.len(),
-        parsed.polylines[0].points.len()
+        counts[0],
+        counts[1],
+        counts[2],
+        points.len()
     ))
+}
+
+/// Counts the element kinds the engine's plot renderer publishes, one line per element.
+///
+/// The engine writes each element on its own line, so counting trimmed line prefixes cannot be
+/// confused by a point coordinate or a label that happens to spell a tag name.
+fn plot_element_counts(svg: &str) -> [usize; 4] {
+    let mut counts = [0usize; 4];
+    for line in svg.lines() {
+        let tag = line.trim_start();
+        if tag.starts_with("<rect") {
+            counts[0] += 1;
+        } else if tag.starts_with("<line") {
+            counts[1] += 1;
+        } else if tag.starts_with("<text") {
+            counts[2] += 1;
+        } else if tag.starts_with("<polyline") {
+            counts[3] += 1;
+        }
+    }
+    counts
 }
 
 /// Resolves a path the same way the product does, for component-wise comparisons.
