@@ -44879,18 +44879,20 @@ note = "C# Add_Scaling: 800 atoms keep every atom in non-decreasing key order in
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionScopeIsolationTests/NestedScopes_RestoreTheEnclosingScopeOnDispose#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::nested_scopes_restore_the_enclosing_scope_on_dispose"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# AssumptionScopeIsolationTests.NestedScopes_RestoreTheEnclosingScopeOnDispose (AssumptionScopeIsolationTests.cs:49) installs outer x > 0 and inner x < 0 scopes and asserts the enclosing x > 0 query is True after the inner dispose and the base set is Empty after both; rust/lovelace-lang/src/context_round56.rs:44 nested_scopes_restore_the_enclosing_scope_on_dispose asserts the same visibility sequence, that the inner set refutes the outer query, and the empty base afterwards. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionScopeIsolationTests/TwoConcurrentScopes_AreIsolated#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::two_concurrent_scopes_are_isolated"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# AssumptionScopeIsolationTests.TwoConcurrentScopes_AreIsolated (AssumptionScopeIsolationTests.cs:15) opens x > 0 and x < 0 scopes behind a Barrier(2) and asserts True, False and an Empty base set afterwards; rust/lovelace-lang/src/context_round56.rs:84 two_concurrent_scopes_are_isolated asserts the same two results behind a Barrier and the untouched base. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.AssumptionSoundnessTests/BoundReasoning_MatchesReferenceTruthTable#0"
@@ -45223,50 +45225,56 @@ note = "C#: Lovelace.Symbolics.Tests/ComplexClosedFormTests.cs:101 asserts sqrt(
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/AssumptionScopes_RestoreOnDispose#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::assumption_scopes_restore_on_dispose"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.AssumptionScopes_RestoreOnDispose (ConcurrencyTests.cs:100) simplifies sqrt(x^2) under x in Real on a worker task and asserts abs(x), then the baseline and an empty atom set after dispose; rust/lovelace-lang/src/context_round56.rs:118 assumption_scopes_restore_on_dispose asserts the same scoped abs(x), restored baseline and empty atoms. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/ParallelCompilation_AgreesWithSerial#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::parallel_compilation_agrees_with_serial"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.ParallelCompilation_AgreesWithSerial (ConcurrencyTests.cs:87) lowers x^5 + 2x^4 + 3x^3 on 16 parallel tasks and asserts every program equals the serial one; rust/lovelace-lang/src/context_round56.rs:158 parallel_compilation_agrees_with_serial asserts the same 16-way agreement. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/ParallelFunctionCreation_NoDuplicateIds#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::parallel_function_creation_no_duplicate_ids"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.ParallelFunctionCreation_NoDuplicateIds (ConcurrencyTests.cs:34) interns 8 x 250 fn names and asserts 2,000 distinct ids with id-to-name round-trip; rust/lovelace-lang/src/context_round56.rs:199 parallel_function_creation_no_duplicate_ids asserts the same uniqueness and round-trip. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/ParallelParse_AgreesWithSerial#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::parallel_parse_agrees_with_serial"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.ParallelParse_AgreesWithSerial (ConcurrencyTests.cs:51) parses 40 canonical texts serially and in parallel and asserts equal canonical results; rust/lovelace-lang/src/context_round56.rs:240 parallel_parse_agrees_with_serial asserts the same equality and that x is interned. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/ParallelSimplifyDiff_AgreeWithSerial#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::parallel_simplify_diff_agree_with_serial"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.ParallelSimplifyDiff_AgreeWithSerial (ConcurrencyTests.cs:66) computes 40 canonical diffs and simplifications serially and in parallel and asserts equality; rust/lovelace-lang/src/context_round56.rs:285 parallel_simplify_diff_agree_with_serial asserts the same two equalities. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ConcurrencyTests/ParallelSymbolCreation_NoDuplicateIds#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing thread-scoped ExprContext/assumption scopes; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::context_round56::parallel_symbol_creation_no_duplicate_ids"
+reason = "Round 57 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 57: C# ConcurrencyTests.ParallelSymbolCreation_NoDuplicateIds (ConcurrencyTests.cs:15) interns 8 x 250 symbol names and asserts 2,000 distinct ids with id-to-name round-trip; rust/lovelace-lang/src/context_round56.rs:335 parallel_symbol_creation_no_duplicate_ids asserts the same plus name-based equality of repeated interning. See docs/goal-parity-contract/round-57/expr-context-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DebugCubic/Cubic_Roots_SatisfyPolynomial#0"

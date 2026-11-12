@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-12T00:21:28Z",
+    "generatedAtUtc":  "2026-11-12T00:44:30Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  5000,
+                  "passed":  5011,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  5000
+                   "tests":  5011
                },
-    "sourcesSha256":  "4d1045fee82e094a204bf4fe50d2331c2c1378a3c58196636abfad9822bbaa2e",
+    "sourcesSha256":  "64b20ecd223173f95d93c49abe8eeffbfd540f679ed5f99d67646106dd24e366",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3169,6 +3169,17 @@
                                      "complex_round24::re_im_and_conj_map_a_complex_signal_like_the_oracle",
                                      "complex_round24::scalar_re_im_conj_promote_every_numeric_kind",
                                      "complex_round24::the_domain_constant_is_refused_by_the_complex_bridge",
+                                     "context_round56::a_scope_is_invisible_to_another_thread",
+                                     "context_round56::a_scope_restores_the_base_set_when_the_thread_unwinds",
+                                     "context_round56::assumption_scopes_restore_on_dispose",
+                                     "context_round56::nested_scopes_restore_the_enclosing_scope_on_dispose",
+                                     "context_round56::parallel_compilation_agrees_with_serial",
+                                     "context_round56::parallel_function_creation_no_duplicate_ids",
+                                     "context_round56::parallel_parse_agrees_with_serial",
+                                     "context_round56::parallel_simplify_diff_agree_with_serial",
+                                     "context_round56::parallel_symbol_creation_no_duplicate_ids",
+                                     "context_round56::the_base_setter_does_not_override_an_active_scope",
+                                     "context_round56::two_concurrent_scopes_are_isolated",
                                      "corpus_and_system_solve_round36::corpus_sym_071_optimize_lower_emits_the_documented_mathir_listing",
                                      "corpus_and_system_solve_round36::corpus_sym_076_linsolve_keeps_the_bareiss_division_shape",
                                      "corpus_and_system_solve_round36::system_solve_abandoned_branches_are_unevaluated_with_the_oracle_note",

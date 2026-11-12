@@ -13,6 +13,7 @@
 pub mod builtins;
 pub mod complex;
 pub mod complex_math;
+pub mod context;
 pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
@@ -1265,6 +1266,15 @@ impl Engine {
         &self.assumptions
     }
 
+    /// Installs an assumption set supplied by a [`context::Context`] scope. The simplifier reads
+    /// this set exactly as it reads a session's own; no other engine state is touched.
+    pub(crate) fn set_assumptions(
+        &mut self,
+        assumptions: lovelace_symbolics::assumptions::AssumptionSet,
+    ) {
+        self.assumptions = assumptions;
+    }
+
     /// Adds one atom to this engine's set; a contradiction is the reference's refusal sentence
     /// (the caller publishes it with the reference's error code and category).
     pub(crate) fn add_assumption(
@@ -1778,6 +1788,9 @@ mod mathir_round54;
 
 #[cfg(test)]
 mod mathir_typing_round55;
+
+#[cfg(test)]
+mod context_round56;
 
 #[cfg(test)]
 mod suite_parity_batch;
