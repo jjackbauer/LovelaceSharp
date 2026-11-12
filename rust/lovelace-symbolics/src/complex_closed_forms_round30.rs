@@ -39,6 +39,13 @@ fn numeric(e: &Expr) -> Option<(f64, f64)> {
             Some((round(num / den), 0.0))
         }
         Expr::Real(text) => Some((round(text.parse::<f64>().ok()?), 0.0)),
+        Expr::Complex(re, im) => {
+            let re = re.numerator().to_decimal().parse::<f64>().ok()?
+                / re.denominator().to_decimal().parse::<f64>().ok()?;
+            let im = im.numerator().to_decimal().parse::<f64>().ok()?
+                / im.denominator().to_decimal().parse::<f64>().ok()?;
+            Some((round(re), round(im)))
+        }
         Expr::Sym(_) => None,
         Expr::Fun(name, args) if name == "i" && args.is_empty() => Some((0.0, 1.0)),
         Expr::Fun(name, args) if name == "pi" && args.is_empty() => {

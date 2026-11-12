@@ -280,6 +280,11 @@ pub enum Expr {
     /// that is the whole of what the leaf means: its digits are its identity, its rendering and
     /// its ordering key.
     Real(String),
+    /// A complex constant with exact rational real and imaginary parts: the reference's
+    /// `ComplexConstantExpr` leaf (`Exprs.Complex`). User arithmetic folds complex constants
+    /// away, so the language cannot spell this shape; it exists for the model-level printers and
+    /// for API callers that construct a complex value directly.
+    Complex(Rat, Rat),
 }
 
 impl Expr {
@@ -301,6 +306,16 @@ impl Expr {
     /// A symbol.
     pub fn sym(name: &str) -> Expr {
         Expr::Sym(name.to_string())
+    }
+
+    /// A complex constant from exact rational parts. A zero imaginary part is the real value
+    /// itself, exactly as the reference's `Exprs.Complex` folds it.
+    pub fn complex(re: Rat, im: Rat) -> Expr {
+        if im.is_zero() {
+            Expr::Num(re)
+        } else {
+            Expr::Complex(re, im)
+        }
     }
 
     /// Canonical sum.
@@ -749,7 +764,7 @@ impl Expr {
     /// True when the expression contains the given symbol.
     pub fn contains(&self, name: &str) -> bool {
         match self {
-            Expr::Num(_) | Expr::Real(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => false,
             Expr::Sym(s) => s == name,
             Expr::Add(v) | Expr::Mul(v) => v.iter().any(|e| e.contains(name)),
             Expr::Pow(a, b) => a.contains(name) || b.contains(name),
@@ -768,7 +783,7 @@ impl Expr {
     /// True when the expression contains no symbols.
     pub fn is_constant(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Real(_) => true,
+            Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => true,
             Expr::Sym(_) => false,
             Expr::Add(v) | Expr::Mul(v) => v.iter().all(|e| e.is_constant()),
             Expr::Pow(a, b) => a.is_constant() && b.is_constant(),
@@ -809,7 +824,7 @@ impl Expr {
     /// not a claim about algebraicity.
     pub fn has_algebraic_power(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) | Expr::Complex(_, _) => false,
             Expr::Pow(base, exp) => {
                 matches!(exp.as_ref(), Expr::Num(n) if !n.is_integer())
                     || base.has_algebraic_power()
@@ -827,7 +842,7 @@ impl Expr {
     /// `Constructors.HasPoleRisk`.
     pub fn has_pole_risk(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) | Expr::Complex(_, _) => false,
             Expr::Pow(base, exp) => match exp.as_ref() {
                 Expr::Num(n) => n.is_negative() || base.has_pole_risk(),
                 _ => true,
@@ -847,7 +862,7 @@ impl Expr {
     /// This is the reference's `Constructors.HasUndefinedRisk`.
     pub fn has_undefined_risk(&self) -> bool {
         match self {
-            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => false,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) | Expr::Complex(_, _) => false,
             Expr::Fun(name, args) => {
                 (name == "inf" && args.is_empty()) || args.iter().any(|a| a.has_undefined_risk())
             }
@@ -874,7 +889,7 @@ impl Expr {
     /// saturates instead of wrapping; callers that need a real polynomial reject it.
     pub fn degree_in(&self, name: &str) -> i64 {
         match self {
-            Expr::Num(_) | Expr::Real(_) => 0,
+            Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => 0,
             Expr::Sym(s) => i64::from(s == name),
             Expr::Add(v) => v.iter().map(|e| e.degree_in(name)).max().unwrap_or(0),
             Expr::Mul(v) => v
@@ -903,6 +918,7 @@ impl Expr {
         match self {
             Expr::Num(n) => n.to_string(),
             Expr::Real(text) => text.clone(),
+            Expr::Complex(re, im) => complex_text(re, im),
             Expr::Sym(s) => s.clone(),
             Expr::Add(terms) => {
                 // Printing.OrderTermsForDisplay: a sum carrying the series O(...) term renders in
@@ -1156,6 +1172,19 @@ fn display_term_order(terms: &[Expr]) -> Vec<Expr> {
     ordered
 }
 
+/// The reference's `ComplexToText`: the real part, the sign, the imaginary magnitude with an
+/// explicit `*` only when it is not one, and `i` — `1 + i`, `1 - 2*i`, `-1 + 1/2*i`.
+fn complex_text(re: &Rat, im: &Rat) -> String {
+    let sign = if im.is_negative() { "-" } else { "+" };
+    let magnitude = im.abs();
+    let imaginary = if magnitude.is_one() {
+        String::new()
+    } else {
+        format!("{}*", magnitude)
+    };
+    format!("{} {} {}i", re, sign, imaginary)
+}
+
 fn signed_text(e: &Expr) -> (String, bool) {
     match e {
         Expr::Num(n) if n.is_negative() => (n.abs().to_string(), true),
@@ -1324,7 +1353,11 @@ fn power_text(e: &Expr) -> String {
             // reason: -2^x is -(2^x) and 1/2^x is 1/(2^x), not (-2)^x and (1/2)^x; a quotient
             // base (x/y)^2 is a division at the power's level too.
             let base_text = match base.as_ref() {
-                Expr::Add(_) | Expr::Mul(_) | Expr::Pow(_, _) | Expr::Div(_, _) => {
+                Expr::Add(_)
+                | Expr::Mul(_)
+                | Expr::Pow(_, _)
+                | Expr::Div(_, _)
+                | Expr::Complex(_, _) => {
                     format!("({})", base)
                 }
                 Expr::Num(n) if n.is_negative() || !n.is_integer() => {
@@ -1422,8 +1455,9 @@ pub fn term_order(a: &Expr, b: &Expr) -> Ordering {
 fn kind_rank(e: &Expr) -> u8 {
     match e {
         // The exact numeric constants come first, the Real leaf next (it is a numeric constant
-        // too, but outside the exact basis), then the symbolic nodes.
-        Expr::Num(_) => 0,
+        // too, but outside the exact basis), then the symbolic nodes. A complex constant is an
+        // exact numeric constant, so it shares the first rank.
+        Expr::Num(_) | Expr::Complex(_, _) => 0,
         Expr::Real(_) => 1,
         Expr::Sym(_) => 2,
         Expr::Fun(_, _) => 3,
@@ -1438,7 +1472,7 @@ fn kind_rank(e: &Expr) -> u8 {
 impl Expr {
     fn degree_in_total(&self) -> i64 {
         match self {
-            Expr::Num(_) | Expr::Real(_) => 0,
+            Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => 0,
             Expr::Sym(_) => 1,
             Expr::Add(v) => v.iter().map(|e| e.degree_in_total()).max().unwrap_or(0),
             // A product is as deep as its deepest factor: x*exp(x) ranks with exp(x), which is
@@ -1858,7 +1892,7 @@ struct LatexProductShape {
 /// Power before Multiply before Add.
 fn latex_term_rank(e: &Expr) -> u8 {
     match e {
-        Expr::Num(_) | Expr::Real(_) => 0,
+        Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => 0,
         Expr::Sym(_) => 1,
         Expr::Fun(name, args)
             if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "i" | "inf") =>
@@ -1894,6 +1928,15 @@ fn latex_term_cmp(a: &Expr, b: &Expr) -> Ordering {
     }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
+        (Expr::Complex(ar, ai), Expr::Complex(br, bi)) => ar.cmp(br).then_with(|| ai.cmp(bi)),
+        (Expr::Num(x), Expr::Complex(re, im)) => x
+            .cmp(re)
+            .then_with(|| Rat::zero().cmp(im))
+            .then(Ordering::Less),
+        (Expr::Complex(re, im), Expr::Num(y)) => re
+            .cmp(y)
+            .then_with(|| im.cmp(&Rat::zero()))
+            .then(Ordering::Greater),
         (Expr::Sym(x), Expr::Sym(y)) => x.cmp(y),
         (Expr::Fun(nx, ax), Expr::Fun(ny, ay)) => nx.cmp(ny).then_with(|| latex_seq_cmp(ax, ay)),
         (Expr::Pow(bx, ex), Expr::Pow(by, ey)) => {
@@ -2001,6 +2044,9 @@ fn latex_render(e: &Expr, parent_prec: i32) -> String {
         Expr::Num(n) => latex_rational(n),
         // A real constant renders its decimal digits; they are the value it denotes.
         Expr::Real(text) => text.clone(),
+        // The reference spells a complex constant as a parenthesised group, so the group itself
+        // already delimits a power base: (1 + 1 i)^{x}, never \left(1 + 1 i\right)^{x}.
+        Expr::Complex(re, im) => format!("({} + {} i)", re, im),
         Expr::Sym(s) => latex_name(s),
         Expr::Add(terms) => {
             if terms.is_empty() {
@@ -2058,7 +2104,7 @@ fn latex_render(e: &Expr, parent_prec: i32) -> String {
             } else {
                 enum Part {
                     Literal(String),
-                    Node(Expr),
+                    Node(Box<Expr>),
                 }
                 let mut num_parts: Vec<Part> = Vec::new();
                 let mut den_parts: Vec<Part> = Vec::new();
@@ -2073,10 +2119,10 @@ fn latex_render(e: &Expr, parent_prec: i32) -> String {
                     }
                 }
                 for f in &shape.numerators {
-                    num_parts.push(Part::Node(f.clone()));
+                    num_parts.push(Part::Node(Box::new(f.clone())));
                 }
                 for b in &shape.denominators {
-                    den_parts.push(Part::Node(b.clone()));
+                    den_parts.push(Part::Node(Box::new(b.clone())));
                 }
                 // The braces of \frac ARE the delimiter of each side, so a side that is a single
                 // part is rendered at the loosest precedence and carries no \left...\right of its
@@ -2184,6 +2230,21 @@ fn latex_render(e: &Expr, parent_prec: i32) -> String {
                 latex_render(&args[0], LATEX_ARG_PREC),
                 latex_render(&args[1], LATEX_ARG_PREC)
             ),
+            // An unevaluated derivative is a BINDING node: its variable names are not
+            // expression operands, so they are escaped as names (x\_1) behind the diff operator.
+            "derivative" => {
+                if let Some((body, variables)) = e.as_derivative() {
+                    let names: Vec<String> =
+                        variables.iter().map(|name| latex_name(name)).collect();
+                    format!(
+                        "\\operatorname{{diff}}({}, {})",
+                        latex_render(&body, LATEX_ARG_PREC),
+                        names.join(", ")
+                    )
+                } else {
+                    format!("{}()", latex_call_name(name))
+                }
+            }
             _ if args.is_empty() => match name.as_str() {
                 "pi" => "\\pi".to_string(),
                 "e" => "e".to_string(),
@@ -2485,7 +2546,7 @@ pub fn substitute(e: &Expr, var: &str, replacement: &Expr) -> Expr {
     }
     match e {
         Expr::Sym(s) if s == var => replacement.clone(),
-        Expr::Sym(_) | Expr::Num(_) | Expr::Real(_) => e.clone(),
+        Expr::Sym(_) | Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => e.clone(),
         Expr::Add(v) => {
             let mut acc = Expr::num(0);
             for t in v {
@@ -2698,6 +2759,14 @@ pub fn cancel(e: &Expr) -> Option<Expr> {
     let nc = poly_coeffs(&num, &var)?;
     let dc = poly_coeffs(&den, &var)?;
     let q = poly_div(&nc, &dc)?;
+    // Only an EXACT division cancels. A quotient with a remainder is an irreducible rational
+    // function: (x^2 + 1)/(x - 1) must stay the quotient, never become the polynomial quotient
+    // x + 1 that drops the remainder. The reference's RationalFunctions.Cancel returns the
+    // input unchanged when the common factor is one.
+    let remainder = poly_remainder(&nc, &dc);
+    if !(remainder.len() == 1 && remainder[0].is_zero()) {
+        return None;
+    }
     Some(poly_to_expr(&q, &var))
 }
 
@@ -2730,7 +2799,7 @@ fn collect_all(e: &Expr, out: &mut Vec<String>) {
             collect_all(a, out);
             collect_all(b, out);
         }
-        Expr::Real(_) => {}
+        Expr::Real(_) | Expr::Complex(_, _) => {}
         Expr::Num(_) => {}
     }
 }
@@ -2770,7 +2839,7 @@ fn expand_inner(e: &Expr) -> Expr {
         return e.clone();
     }
     match e {
-        Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => e.clone(),
+        Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) | Expr::Complex(_, _) => e.clone(),
         Expr::Add(terms) => {
             let mut acc = Expr::num(0);
             for t in terms {
@@ -4197,7 +4266,7 @@ pub fn diff(e: &Expr, var: &str) -> Expr {
         return e.clone();
     }
     match e {
-        Expr::Num(_) | Expr::Real(_) => Expr::num(0),
+        Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => Expr::num(0),
         Expr::Sym(s) => Expr::num(if s == var { 1 } else { 0 }),
         Expr::Add(terms) => {
             let mut acc = Expr::num(0);
@@ -4363,6 +4432,13 @@ impl Expr {
                 n.denominator().to_decimal()
             ),
             Expr::Real(text) => format!("(real {text})"),
+            Expr::Complex(re, im) => format!(
+                "(cplx {} {} {} {})",
+                re.numerator().to_decimal(),
+                re.denominator().to_decimal(),
+                im.numerator().to_decimal(),
+                im.denominator().to_decimal()
+            ),
             Expr::Sym(s) => format!("(sym {})", s),
             Expr::Add(terms) => {
                 // The canonical order is the kernel's total term order (constants first, then by
@@ -4508,7 +4584,7 @@ impl Expr {
     /// The number of nodes in the expression tree (a rational or a symbol is one node).
     pub fn node_count(&self) -> usize {
         match self {
-            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) => 1,
+            Expr::Num(_) | Expr::Real(_) | Expr::Sym(_) | Expr::Complex(_, _) => 1,
             Expr::Add(items) | Expr::Mul(items) => {
                 1 + items.iter().map(|i| i.node_count()).sum::<usize>()
             }
@@ -4580,7 +4656,7 @@ impl Expr {
                     }
                 }
                 Expr::Fun(_, args) => args.iter().for_each(|a| walk(a, out)),
-                Expr::Num(_) | Expr::Real(_) => {}
+                Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => {}
             }
         }
         walk(self, &mut names);
@@ -4591,7 +4667,7 @@ impl Expr {
     pub fn is_exact(&self) -> bool {
         match self {
             Expr::Real(_) => false,
-            Expr::Num(_) | Expr::Sym(_) => true,
+            Expr::Num(_) | Expr::Sym(_) | Expr::Complex(_, _) => true,
             Expr::Add(items) | Expr::Mul(items) => items.iter().all(|i| i.is_exact()),
             Expr::Pow(a, b) | Expr::Div(a, b) | Expr::Rel(_, a, b) => a.is_exact() && b.is_exact(),
             Expr::Fun(name, args) => match (name.as_str(), args.len()) {
@@ -4619,6 +4695,7 @@ impl Expr {
             Expr::Num(_) => Dom::Rational,
             // A real constant is a decimal value the numeric tier handed over.
             Expr::Real(_) => Dom::Real,
+            Expr::Complex(_, _) => Dom::Complex,
             // An unconstrained symbol ranges over the complex field; an assumption may narrow it.
             Expr::Sym(name) => domain_from_lattice(assumptions.domain_of_symbol(name)),
             Expr::Add(items) | Expr::Mul(items) => items
@@ -4843,6 +4920,7 @@ impl Expr {
         match self {
             Expr::Num(n) => format!("rat({})", n),
             Expr::Real(text) => format!("real({text})"),
+            Expr::Complex(re, im) => format!("cplx({re}, {im})"),
             Expr::Sym(s) => format!("sym({})", s),
             Expr::Add(terms) => {
                 let mut ordered = terms.clone();
@@ -4980,12 +5058,12 @@ impl std::error::Error for CanonicalParseError {}
 /// Parses the canonical S-expression form (the wire encoding Expr::canonical emits) back into an
 /// expression.
 ///
-/// The grammar is the tagged prefix language: (rat N D), (sym NAME), (add ...), (mul ...),
-/// (pow A B), (fn NAME ARG...), the relation tags, (rootof POLY INDEX) and the named constants
-/// (pi)/(e)/(i)/(inf). The oracle's (int N) alias is accepted for compatibility; the Rust model
-/// has ONE numeric leaf, so it canonicalises to (rat N 1). Tags the model has no node for
-/// (real/complex literals, derivative, integral, piecewise, logic, order) are refused rather than
-/// guessed.
+/// The grammar is the tagged prefix language: (rat N D), (cplx RE_N RE_D IM_N IM_D),
+/// (sym NAME), (add ...), (mul ...), (pow A B), (fn NAME ARG...), the relation tags,
+/// (rootof POLY INDEX) and the named constants (pi)/(e)/(i)/(inf). The oracle's (int N) alias is
+/// accepted for compatibility; the Rust model has ONE rational leaf, so it canonicalises to
+/// (rat N 1). Tags the model has no node for (real literals, derivative, integral, piecewise,
+/// logic, order) are refused rather than guessed.
 ///
 /// The round-trip guarantee is over THIS crate's canonical output: for every expression e,
 /// canonical_parse(e.canonical()).unwrap().canonical() == e.canonical().
@@ -5143,6 +5221,41 @@ impl CanonicalParser<'_> {
                 self.expect_close()?;
                 Ok(Expr::Num(Rat::new(value, Nat::from_u64(1))))
             }
+            "cplx" => {
+                let re_numerator_text = self.next_atom("a real numerator")?;
+                let re_denominator_text = self.next_atom("a real denominator")?;
+                let im_numerator_text = self.next_atom("an imaginary numerator")?;
+                let im_denominator_text = self.next_atom("an imaginary denominator")?;
+                let parse_component = |numerator_text: &str,
+                                       denominator_text: &str,
+                                       parser: &mut Self|
+                 -> Result<Rat, CanonicalParseError> {
+                    let numerator = Int::from_decimal(numerator_text).ok_or_else(|| {
+                        parser.error(
+                            tag_position,
+                            format!("(cplx) needs an integer numerator, got '{numerator_text}'"),
+                        )
+                    })?;
+                    let denominator = Nat::from_decimal(denominator_text).ok_or_else(|| {
+                        parser.error(
+                            tag_position,
+                            format!(
+                                "(cplx) needs a non-negative integer denominator, got '{denominator_text}'"
+                            ),
+                        )
+                    })?;
+                    if denominator.is_zero() {
+                        return Err(
+                            parser.error(tag_position, "(cplx) denominator must not be zero")
+                        );
+                    }
+                    Ok(Rat::new(numerator, denominator))
+                };
+                let re = parse_component(&re_numerator_text, &re_denominator_text, self)?;
+                let im = parse_component(&im_numerator_text, &im_denominator_text, self)?;
+                self.expect_close()?;
+                Ok(Expr::Complex(re, im))
+            }
             "rat" => {
                 let numerator_text = self.next_atom("a numerator")?;
                 let denominator_text = self.next_atom("a denominator")?;
@@ -5260,7 +5373,7 @@ impl CanonicalParser<'_> {
                 args.extend(variables);
                 Ok(Expr::Fun("integrate".to_string(), args))
             }
-            "real" | "cplx" => Err(self.error(
+            "real" => Err(self.error(
                 tag_position,
                 format!(
                     "the tag '{tag}' denotes a numeric literal this expression model has no leaf for"
@@ -5279,7 +5392,7 @@ impl CanonicalParser<'_> {
 /// symbol, a named constant, a function application, a power, a product, a sum and a relation.
 fn canonical_rank(e: &Expr) -> u8 {
     match e {
-        Expr::Num(_) | Expr::Real(_) => 0,
+        Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => 0,
         Expr::Sym(_) => 1,
         Expr::Fun(name, args)
             if args.is_empty() && matches!(name.as_str(), "pi" | "e" | "inf" | "i") =>
@@ -5377,6 +5490,15 @@ pub fn canonical_order(a: &Expr, b: &Expr) -> std::cmp::Ordering {
     }
     match (a, b) {
         (Expr::Num(x), Expr::Num(y)) => x.cmp(y),
+        (Expr::Complex(ar, ai), Expr::Complex(br, bi)) => ar.cmp(br).then_with(|| ai.cmp(bi)),
+        (Expr::Num(x), Expr::Complex(re, im)) => x
+            .cmp(re)
+            .then_with(|| Rat::zero().cmp(im))
+            .then(Ordering::Less),
+        (Expr::Complex(re, im), Expr::Num(y)) => re
+            .cmp(y)
+            .then_with(|| im.cmp(&Rat::zero()))
+            .then(Ordering::Greater),
         (Expr::Sym(x), Expr::Sym(y)) => x.cmp(y),
         (Expr::Fun(n1, a1), Expr::Fun(n2, a2)) => {
             // The reference's NamedConstant enum ordinal (Pi, E, I, Infinity) orders the four

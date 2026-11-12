@@ -616,7 +616,9 @@ impl RewriteEngine {
         sink: &mut ApplySink<'_>,
     ) -> Result<Expr, RuleError> {
         match expression {
-            Expr::Num(_) | Expr::Sym(_) | Expr::Real(_) => Ok(expression.clone()),
+            Expr::Num(_) | Expr::Sym(_) | Expr::Real(_) | Expr::Complex(_, _) => {
+                Ok(expression.clone())
+            }
             Expr::Add(terms) => {
                 let mut sum = Expr::num(0);
                 for term in terms {

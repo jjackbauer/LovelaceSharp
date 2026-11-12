@@ -136,6 +136,7 @@ fn poly_coefficients(e: &Expr, var: &str, limit: usize) -> Option<Vec<Expr>> {
             }
             Some(acc)
         }
+        Expr::Complex(_, _) => Some(vec![e.clone()]),
         Expr::Div(..) | Expr::Fun(..) | Expr::Rel(..) => None,
     }
 }

@@ -36,7 +36,7 @@ fn quintic() -> Expr {
 fn exact_by_leaf_rule(expression: &Expr) -> bool {
     match expression {
         Expr::Real(_) => false,
-        Expr::Num(_) | Expr::Sym(_) => true,
+        Expr::Num(_) | Expr::Sym(_) | Expr::Complex(_, _) => true,
         Expr::Add(items) | Expr::Mul(items) => items.iter().all(exact_by_leaf_rule),
         Expr::Pow(left, right) | Expr::Div(left, right) | Expr::Rel(_, left, right) => {
             exact_by_leaf_rule(left) && exact_by_leaf_rule(right)

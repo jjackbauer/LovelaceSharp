@@ -544,6 +544,90 @@ pub struct OpTiming {
     pub result_kind: String,
     /// Whether the statement wrote print output.
     pub has_output: bool,
+    /// How long the statement took. One measurement drives both the human `elapsed_display`
+    /// and the machine `elapsed_scale` pair, so the two can never disagree (the reference's
+    /// `OperationTiming.Elapsed`).
+    pub elapsed: Duration,
+}
+
+impl OpTiming {
+    /// The reference's `OperationTiming.ElapsedDisplay`: the elapsed time rendered with an
+    /// auto-selected unit (ns/µs/ms/s/min/h), at most two decimals, trailing zeros trimmed.
+    pub fn elapsed_display(&self) -> String {
+        let (value, unit) = self.elapsed_scale();
+        if unit == "ns" {
+            format!("{value:.0} {unit}")
+        } else {
+            format!("{} {}", format_two_decimals(value), unit)
+        }
+    }
+
+    /// The reference's `OperationTiming.ElapsedScale`: the `(value, unit)` pair behind
+    /// `elapsed_display`. The SAME selector drives both forms, so an agent never parses a
+    /// suffix to recover the unit.
+    pub fn elapsed_scale(&self) -> (f64, &'static str) {
+        scale_duration(self.elapsed)
+    }
+}
+
+/// `Timing.Scale`: the largest unit whose value is at least one whole unit, with a fractional
+/// value rounded to two decimals. Nanoseconds round to a whole number, as the reference's
+/// `Format` asks.
+fn scale_duration(elapsed: Duration) -> (f64, &'static str) {
+    let total_nanoseconds = elapsed.as_nanos() as f64;
+    if total_nanoseconds < 1_000.0 {
+        return (total_nanoseconds.round(), "ns");
+    }
+    let total_microseconds = total_nanoseconds / 1_000.0;
+    if total_microseconds < 1_000.0 {
+        return (round_two(total_microseconds), "µs");
+    }
+    let total_milliseconds = total_nanoseconds / 1_000_000.0;
+    if total_milliseconds < 1_000.0 {
+        return (round_two(total_milliseconds), "ms");
+    }
+    let total_seconds = total_nanoseconds / 1_000_000_000.0;
+    if total_seconds < 60.0 {
+        return (round_two(total_seconds), "s");
+    }
+    let total_minutes = total_seconds / 60.0;
+    if total_minutes < 60.0 {
+        return (round_two(total_minutes), "min");
+    }
+    (round_two(total_seconds / 3_600.0), "h")
+}
+
+/// .NET's `Math.Round(value, 2)` (banker's rounding at the midpoint), which is what the
+/// reference's `Timing.Scale` calls.
+fn round_two(value: f64) -> f64 {
+    let scaled = value * 100.0;
+    let floor = scaled.floor();
+    let fraction = scaled - floor;
+    let rounded = if (fraction - 0.5).abs() < f64::EPSILON {
+        // Midpoint: choose the even integer.
+        if (floor as i64) % 2 == 0 {
+            floor
+        } else {
+            floor + 1.0
+        }
+    } else {
+        scaled.round()
+    };
+    rounded / 100.0
+}
+
+/// Two decimals at most, trailing zeros trimmed (the reference's `"0.##"` format).
+fn format_two_decimals(value: f64) -> String {
+    let mut text = format!("{value:.2}");
+    if text.contains('.') {
+        while text.ends_with('0') {
+            text.pop();
+        }
+        if text.ends_with('.') {
+            text.pop();
+        }
+    }
+    text
 }
 
 /// The captured plot of the last plot call.
@@ -1484,12 +1568,14 @@ impl Engine {
                 return Err(cancelled_error().with_position(position));
             }
             let printed_before = self.output.len();
+            let started = Instant::now();
             match self.exec(stmt) {
                 Ok(Flow::Value(v)) => {
                     self.timings.push(OpTiming {
                         position,
                         result_kind: v.kind_name().to_string(),
                         has_output: self.output.len() > printed_before,
+                        elapsed: started.elapsed(),
                     });
                     self.last_completed_position = position;
                     last = v;
@@ -1499,6 +1585,7 @@ impl Engine {
                         position,
                         result_kind: v.kind_name().to_string(),
                         has_output: self.output.len() > printed_before,
+                        elapsed: started.elapsed(),
                     });
                     self.last_completed_position = position;
                     last = v;
@@ -1521,6 +1608,7 @@ impl Engine {
                         position,
                         result_kind: "Void".to_string(),
                         has_output: self.output.len() > printed_before,
+                        elapsed: started.elapsed(),
                     });
                     return Err(e);
                 }
@@ -2326,7 +2414,7 @@ pub(crate) fn symbolic_depth(root: &Sym) -> usize {
                 stack.push((left, next));
                 stack.push((right, next));
             }
-            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => {}
+            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) | Sym::Complex(_, _) => {}
         }
     }
     max
@@ -2875,3 +2963,7 @@ mod round95_singletons;
 /// DocsSync. Every expected value is the C# assertion.
 #[cfg(test)]
 mod round93_eval_print;
+
+/// Round-97 final tail: the last twelve mappable deferred census rows.
+#[cfg(test)]
+mod round97_tail;

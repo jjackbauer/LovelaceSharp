@@ -43802,10 +43802,11 @@ note = "C#: Lovelace.Suite.Tests/SuiteEngineTests.cs:84 subscribes VariableChang
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TimingScaleTests/OperationTiming_ExposesTheSameScaleAsItsDisplay#0"
 project = "Lovelace.Suite.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing OperationTiming.ElapsedDisplay scale; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::timingscaletests_operationtiming_exposes_the_same_scale_as_its_display"
+reason = "Round 97 closed the round-45 UNRUNNABLE block: OpTiming now carries the measured Duration and exposes elapsed_display()/elapsed_scale() from the SAME Timing.Scale selector, and the engine measures every top-level statement. The C# row's 3.5 ms pair and the seven TimingScale InlineData scales are asserted."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Suite.Tests/TimingScaleTests.cs:45 constructs OperationTiming(0, Value.Void, \"\", TimeSpan.FromMilliseconds(3.5)) and asserts ElapsedDisplay \"3.5 ms\" and ElapsedScale (3.5, \"ms\"). Rust: rust/lovelace-lang/src/round97_tail.rs timingscaletests_operationtiming_exposes_the_same_scale_as_its_display pins that pair plus ns/µs/ms/s/min/h; the value is measured in rust/lovelace-lang/src/lib.rs (OpTiming::elapsed_display/elapsed_scale)."
 
 [[test]]
 id = "Lovelace.Suite.Tests/Lovelace.Suite.Tests.TimingScaleTests/Scale_And_Format_AlwaysAgree#0"
@@ -46027,10 +46028,11 @@ note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:385 LinsolveFul
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/LinsolveFull_SingularSystem_ReportsStatusNotThrow#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'solve-partial': $.exitCode: linsolve([[x,x],[x,x]],[1,1]) exits 0 in Rust vs 1 in the oracle; the convenience projection does not throw"
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::dxstructuredresultstests_linsolvefull_singularsystem_reportsstatusnotthrow"
+reason = "Round 97 fixed the measured solve-partial field: the convenience linsolve on a singular symbolic system now returns the oracle's InvalidOperation/DomainError 'System is singular or underdetermined.' instead of an empty vector, while linsolve_full keeps publishing the NoSolutions/Complete record."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/DxStructuredResultsTests.cs:398 asserts linsolve_full([[x,x],[x,x]],[1,1]) is NoSolutions/complete/Complete and linsolve throws. Rust: rust/lovelace-lang/src/round97_tail.rs dxstructuredresultstests_linsolvefull_singularsystem_reportsstatusnotthrow asserts both the record and the typed refusal; production is rust/lovelace-lang/src/builtins.rs linsolve."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.DxStructuredResultsTests/OptimizeFull_ReportsCosts#0"
@@ -48132,10 +48134,11 @@ note = "C#: Lovelace.Symbolics.Tests/HelpMetadataCompletenessTests.cs:52 asserts
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/BuiltinCount_IncludesTheThreeHyperbolicFunctions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 50 UNRUNNABLE: the C# assertion is SuiteEngine.CaptureState().Functions.Values.Count(f => f.IsBuiltin) == 107 for a Symbolics-only engine; no Rust API exposes that library count (the runner publishes descriptors, not a builtin count). The runner surface --functions publishes total 123 in BOTH runners, so the round-45 \"registry-count\" difference compared two different surfaces and is not a wire difference. See docs/goal-parity-contract/round-50/resweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::hyperbolicbuiltinsandnegativeintegerpowerstests_builtincount_includesthethreehyperbolicfunctions"
+reason = "Round 97 added registry::builtin_count_for_plugins, the engine-level count the C# test reads: a Symbolics + MathIR engine publishes 107 builtins (the runner with the DSP plugin publishes 123). The count is now asked of the registry instead of being unavailable."
 targetPhase = 0
-note = "Round 50 re-adjudication: STILL-DIFFERENT -> UNRUNNABLE; the measured runner surface matches, the C# count does not exist in Rust."
+note = "C#: Lovelace.Symbolics.Tests/HyperbolicBuiltinsAndNegativeIntegerPowersTests.cs:103 asserts BuiltinCount(engine) == 107 for a Symbolics-only SuiteEngine. Rust: rust/lovelace-lang/src/round97_tail.rs hyperbolicbuiltinsandnegativeintegerpowerstests_builtincount_includesthethreehyperbolicfunctions asserts 107 for Lovelace.Symbolics+MathIR, 123 total, and asinh/acosh/atanh's plugin; production is rust/lovelace-lang/src/registry.rs builtin_count_for_plugins."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.HyperbolicBuiltinsAndNegativeIntegerPowersTests/HyperbolicBuiltins_AreRegistered_AndFoldAtTheirDefiningPoint#0"
@@ -48581,10 +48584,11 @@ note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:88 asser
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/SympyOracle_ExpOverComplexes_IsAnImageSet_AndTheTemplateMatchesIt#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::infinitefamilycompletenesstests_sympyoracle_expovercomplexes_isanimageset_and_thetemplatematchesit"
+reason = "Round 97 mapped the row after measuring both runners: solve_full(exp(x) - c == 0, x) already publishes the ImageSet family log(c) + 2*k*pi*i (Solved, complete, ParametricExact), and the real domain publishes log(5). The Rust test pins the family, period, parameter domain and every integer member k = -3..3."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/InfiniteFamilyCompletenessTests.cs:351 requires SymPy's ImageSet (Integers, 2*_n*pi), the residual 0 for k = -3..3, and the real answer {log(5)}. Rust: rust/lovelace-lang/src/round97_tail.rs infinitefamilycompletenesstests_sympyoracle_expovercomplexes_isanimageset_and_thetemplatematchesit asserts the same family/template and numeric residuals from the runner's own solve_full."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InfiniteFamilyCompletenessTests/TheLegitimateInverseBranch_StillRepresentsItsValues#0"
@@ -48697,10 +48701,11 @@ note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#4"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Solvers.Solve inverse-branch candidate verification API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::inversebranchcandidateverificationtests_everyrepresentedsolutionsatisfiestheoriginalequation"
+reason = "Round 97 mapped theory row #4 after measuring both runners: sqrt(x^2 + 1) - 2 = 0 is Solved/complete with the two roots ±1/2*sqrt(12), and substituting each back leaves a zero residual. The row is no longer Unevaluated, so the old skip note is retired."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/InverseBranchCandidateVerificationTests.cs:184 row #4 asserts expectedCount 2 and that every represented solution satisfies the original equation. Rust: rust/lovelace-lang/src/round97_tail.rs inversebranchcandidateverificationtests_everyrepresentedsolutionsatisfiestheoriginalequation pins Solved/complete, the two exact root renderings and the zero residual."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.InverseBranchCandidateVerificationTests/EveryRepresentedSolutionSatisfiesTheOriginalEquation#5"
@@ -50532,10 +50537,11 @@ note = "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:263 asserts latex((x/y
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/KnownRendering_PowerOfAComplexConstant_IsAlreadyAGroup#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Latex printer over Exprs.Complex construction; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::latexprintertests_knownrendering_powerofacomplexconstant_isalreadyagroup"
+reason = "Round 97 added the model-level complex constant leaf (Expr::Complex) the LaTeX printer was missing. It renders as the already-delimited group (1 + 1 i), so a power adds no \\left...\\right pair, matching the C# rendering."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/LatexPrinterTests.cs:253 requires Latex(Power(Exprs.Complex(1,1), x)) == \"(1 + 1 i)^{x}\". Rust: rust/lovelace-lang/src/round97_tail.rs latexprintertests_knownrendering_powerofacomplexconstant_isalreadyagroup asserts the same for (1+i) and (-1+i); production is rust/lovelace-symbolics/src/lib.rs Expr::Complex and latex_render."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexPrinterTests/KnownRendering_PowerOfANegativeNumericBase_HasDelimitedBase#0"
@@ -50783,10 +50789,11 @@ note = "C#: Lovelace.Symbolics.Tests/LatexSymbolNameEscapingTests.cs:79 decodes 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexSymbolNameEscapingTests/LatexSymbolName_InsideLargerExpressions_IsStillEscaped#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Latex printer escaping over Exprs.Symbol names; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::latexsymbolnameescapingtests_latexsymbolname_insidelargerexpressions_isstillescaped"
+reason = "Round 97 mapped the row after measuring the printer: escaped symbol names survive inside a product (a\\%b \\cdot c\\&d) and a derivative's variable list now renders \\operatorname{diff}(f, x\\_1) with escaped names."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/LatexSymbolNameEscapingTests.cs:141 asserts the product and the Derivative rendering. Rust: rust/lovelace-lang/src/round97_tail.rs latexsymbolnameescapingtests_latexsymbolname_insidelargerexpressions_isstillescaped asserts both; the derivative arm is rust/lovelace-symbolics/src/lib.rs latex_render."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.LatexSymbolNameEscapingTests/LatexSymbolName_LeavesNoBareSpecialCharacter#0"
@@ -51322,10 +51329,11 @@ note = "Round 58: C# MetamorphicSetClosureTests.Cancel_PreservesValueOffPoles_An
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelBuiltin_ReducesAndRefusesToCancelWhenNoFactorIsCommon#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'cancel': $.result.display: cancel((x^2+1)/(x-1)) is x + 1 in Rust vs the unchanged quotient (x^2 + 1)/(x - 1)"
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::metamorphicsetclosuretests_cancelbuiltin_reducesandrefusestocancelwhennofactoriscommon"
+reason = "Round 97 fixed the measured cancel field: the bare cancel builtin now uses RationalFunctions.Cancel (exact common factor only), so (x^2 + 1)/(x - 1) stays unchanged while (x^2 - 1)/(x - 1) reduces to x + 1 and x/x to 1."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/MetamorphicSetClosureTests.cs:531 asserts 1, x + 1 and the unchanged (x^2 + 1)/(x - 1). Rust: rust/lovelace-lang/src/round97_tail.rs metamorphicsetclosuretests_cancelbuiltin_reducesandrefusestocancelwhennofactoriscommon asserts the three typed renderings; production is rust/lovelace-lang/src/builtins.rs cancel and rust/lovelace-symbolics/src/rational_functions.rs."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MetamorphicSetClosureTests/CancelFull_ReportsTheConditionsTheBareValueCannotCarry#0"
@@ -52842,10 +52850,11 @@ note = "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:150 Minimality_No
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ModelLevel_PowerOfAComplexConstant_HasADelimitedBase#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing pretty printer over Exprs.Complex construction; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::prettyparenthesestests_modellevel_powerofacomplexconstant_hasadelimitedbase"
+reason = "Round 97 added Expr::Complex and the pretty power-base rule: a complex constant's text is a sum, so a power raises ONE delimited group — (1 + i)^x and (-1 + i)^x — while the leaf itself stays an atom in the precedence table."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/PrettyParenthesesTests.cs:281 asserts the base of the power is exactly the group (1 + i) / (-1 + i). Rust: rust/lovelace-lang/src/round97_tail.rs prettyparenthesestests_modellevel_powerofacomplexconstant_hasadelimitedbase pins the full renderings; production is rust/lovelace-symbolics/src/lib.rs power_text + Expr::Complex."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PrettyParenthesesTests/ReportedCase_ExpOfNegativeSquare_HasNoArgumentParens#0"
@@ -53453,10 +53462,11 @@ note = "Round 64: C# PropertyTests.cs:147 Integrate_DiffRoundTrips requires six 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/MathIR_EvaluatesLikeSymbolic#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 63 deferral (round 62 measured blocker): numeric::evaluate and IrEvaluator differ by 1 in the 50th decimal place at x=1/3 on expression 2, while the C# row asserts exact NumOps.Compare(direct, lowered) == 0; a tolerance would weaken the row. See docs/goal-parity-contract/round-62/dotnet-random.md section 4.1."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::propertytests_mathirevaluateslikesymbolic"
+reason = "Round 97 fixed the measured 1-ulp MathIR gap: numeric Add/Mul now fold in the reference's canonical TermOrder and IrProgram::lower emits that same operand order; numeric::evaluate_bound consumes bindings instead of substituting, so direct evaluation and the lowered kernel agree exactly at 50 places over the pinned 60-expression corpus."
 targetPhase = 0
-note = "Corpus is exact (59/60 canonical items; item 35 differs only by commutative factor order). The blocker probe lovelace-corpus::property_assertions::mathir_evaluates_like_symbolic is #[ignore]; it needs exact 50-place agreement between the two evaluators."
+note = "C#: Lovelace.Symbolics.Tests/PropertyTests.cs:236 asserts NumOps.Compare(EvaluateToNum(e, bindings), IrEvaluator.Evaluate(prog, bindings)) == 0 for seed 20260915 over -3/4, 1/3, 7/5. Rust: rust/lovelace-lang/src/round97_tail.rs propertytests_mathirevaluateslikesymbolic pins the canonical corpus (FNV 6,946,605,504,391,048,442), canonical order and exact 50-place equality; production is rust/lovelace-lang/src/numeric.rs and mathir.rs."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.PropertyTests/Optimize_PreservesValues#0"
@@ -54154,10 +54164,11 @@ note = "C#: SolveCompletenessMappingTests.cs:67 row 5 (x^4 + 1 == 0) asserts the
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/EverySolveStatus_PublishesTheDocumentedPair_OnBothRecords#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 measured family 'solve-partial': $.result.display: 8x2^8 system publishes Solved/complete True/Complete vs Partial/false/Partial; the 2^8 enumeration cap is not reproduced"
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::solvecompletenesspairingtests_everysolvestatus_publishesthedocumentedpair_onbothrecords"
+reason = "Round 97 published the truncation the oracle exposes: after the 128-solution enumeration cap, SystemOutcome::PartialSolutions builds Partial / complete:false / completeness:Partial with the 128 records and no diagnostics, instead of claiming Solved/Complete."
 targetPhase = 0
-note = "Both runners executed on the same --eval argv against oracle 1cc28f255eca6029849f880949fc7be1d40ab8af and rust/target/release/lovelace-run.exe; the row stays deferred until the named field changes. See docs/goal-parity-contract/round-45/final-sweep.md."
+note = "C#: Lovelace.Symbolics.Tests/SolveCompletenessPairingTests.cs:122 drives the 2^8 system and asserts Partial/False/Partial. Rust: rust/lovelace-lang/src/round97_tail.rs solvecompletenesspairingtests_everysolvestatus_publishesthedocumentedpair_onbothrecords asserts the same pair, 128 solutions and no diagnostics; production is rust/lovelace-lang/src/builtins.rs solve_system_impl/system_partial_result."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SolveCompletenessPairingTests/NoSolutions_IsACompleteAnswer#0"
@@ -54270,10 +54281,11 @@ note = "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:217 asserts an emp
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/NonlinearElimination_AndTheBoundary_AgreeWithSympySolve#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing SymPy oracle session (SympyOracle.Require); no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::round97_tail::systemsolveprooftests_nonlinearelimination_andtheboundary_agreewithsympysolve"
+reason = "Round 97 mapped the row after measuring both runners: the parabola/line and circle/line systems already enumerate SymPy's two exact solutions, and both inconsistent shapes publish NoSolutions/complete. The Rust test pins the C# 38/39-digit literals to 1e-24 and the proven-empty boundary."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "C#: Lovelace.Symbolics.Tests/SystemSolveProofTests.cs:338 compares both systems with sympy.solve at 30 digits and asserts the two inconsistent shapes have zero SymPy solutions and a proved-empty kernel result. Rust: rust/lovelace-lang/src/round97_tail.rs systemsolveprooftests_nonlinearelimination_andtheboundary_agreewithsympysolve asserts the same two solutions (C# decimal literals), the exact x = y relation and NoSolutions/complete for both inconsistent systems."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.SystemSolveProofTests/NonlinearElimination_FindsBothSolutionsOfCircleAndLine#0"

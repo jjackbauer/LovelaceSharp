@@ -590,7 +590,7 @@ mod tests {
                 let denominator = evaluate(denominator, bindings)?;
                 numerator.div(&denominator)
             }
-            Expr::Rel(_, _, _) | Expr::Fun(_, _) | Expr::Real(_) => None,
+            Expr::Rel(_, _, _) | Expr::Fun(_, _) | Expr::Real(_) | Expr::Complex(_, _) => None,
         }
     }
 

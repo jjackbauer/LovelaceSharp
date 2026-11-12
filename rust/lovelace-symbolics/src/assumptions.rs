@@ -329,6 +329,7 @@ fn node_type_name(e: &Expr) -> &'static str {
         Expr::Div(_, _) => "Lovelace.Symbolics.MultiplyExpr",
         Expr::Rel(_, _, _) => "Lovelace.Symbolics.RelationExpr",
         Expr::Real(_) => "Lovelace.Symbolics.RealConstantExpr",
+        Expr::Complex(_, _) => "Lovelace.Symbolics.ComplexConstantExpr",
     }
 }
 

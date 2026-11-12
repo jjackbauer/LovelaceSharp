@@ -117,13 +117,13 @@ fn kernel_batch_evaluation_columnwise() {
     let kernel = compile_kernel(&expression, &params(&["x"])).expect("kernel");
     let expected = "#!mathir 2\n\
 param x\n\
-const (rat 2 1)\n\
 const (rat 1 1)\n\
-Parameter 0 0\n\
+const (rat 2 1)\n\
 Constant 0 0\n\
-PowInt 0 0,1\n\
+Parameter 0 0\n\
 Constant 0 1\n\
-Add 0 2,3\n";
+PowInt 0 1,2\n\
+Add 0 0,3\n";
     assert_eq!(kernel.ir_text(), expected);
 
     let mut columns: HashMap<String, Vec<Num>> = HashMap::new();
@@ -194,12 +194,12 @@ param x\n\
 param y\n\
 const (rat 2 1)\n\
 Parameter 0 0\n\
-Constant 0 0\n\
-PowInt 0 0,1\n\
 Parameter 0 1\n\
-Mul 0 0,3\n\
-Sin 0 4\n\
-Add 0 2,5\n";
+Mul 0 0,1\n\
+Sin 0 2\n\
+Constant 0 0\n\
+PowInt 0 0,4\n\
+Add 0 3,5\n";
     assert_eq!(kernel.ir_text(), expected);
 
     let _scope = Real::with_precision(40, 20);
@@ -226,16 +226,16 @@ fn kernel_exact_tiers_preserved() {
     let kernel = compile_kernel(&expression, &params(&["x"])).expect("kernel");
     let expected = "#!mathir 2\n\
 param x\n\
+const (rat 1 2)\n\
 const (rat 2 1)\n\
 const (rat 3 1)\n\
-const (rat 1 2)\n\
 Constant 0 0\n\
-Parameter 0 0\n\
 Constant 0 1\n\
-PowInt 0 1,2\n\
-Mul 0 0,3\n\
+Parameter 0 0\n\
 Constant 0 2\n\
-Add 0 4,5\n";
+PowInt 0 2,3\n\
+Mul 0 1,4\n\
+Add 0 0,5\n";
     assert_eq!(kernel.ir_text(), expected);
 
     let result = kernel.evaluate(&[rat(1, 2)]).expect("evaluate");
@@ -286,11 +286,11 @@ fn kernel_named_and_positional_evaluate() {
 param x\n\
 param y\n\
 const (rat 1 1)\n\
+Constant 0 0\n\
 Parameter 0 0\n\
 Parameter 0 1\n\
-Mul 0 0,1\n\
-Constant 0 0\n\
-Add 0 2,3\n";
+Mul 0 1,2\n\
+Add 0 0,3\n";
     assert_eq!(kernel.ir_text(), expected);
 
     assert_same(
@@ -430,7 +430,7 @@ fn typing_infers_the_documented_tiers() {
     let types = IrTyping::infer(compilation.program());
     assert_eq!(
         types,
-        vec![None, Some(IrType::Rational), Some(IrType::Rational)]
+        vec![Some(IrType::Rational), None, Some(IrType::Rational)]
     );
     assert_eq!(compilation.result_type(), Some(IrType::Rational));
 

@@ -2728,6 +2728,9 @@ pub fn call(
                     &mutation_vars,
                     solutions,
                 )),
+                SystemOutcome::PartialSolutions(solutions) => {
+                    Ok(system_partial_result(&mutation_vars, solutions))
+                }
                 SystemOutcome::NoSolutions => Ok(no_solutions_system()),
                 // A well-shaped system this solver cannot decide is the reference's honest
                 // Unevaluated record, not an internal-sounding "no solver" error.
@@ -2861,7 +2864,16 @@ pub fn call(
                 .unwrap_or(false);
             if singular {
                 if name == "linsolve" {
-                    return Ok(Value::Vector(Vec::new()));
+                    // The convenience projection keeps the reference's throwing behaviour: a
+                    // singular system is a typed InvalidOperation/DomainError, not an empty
+                    // vector (the structured linsolve_full is the arm that PUBLISHES the
+                    // NoSolutions record).
+                    return Err(LangError::coded(
+                        "System is singular or underdetermined.",
+                        pos,
+                        "InvalidOperation",
+                        "DomainError",
+                    ));
                 }
                 return Ok(matrix_no_solutions("MatrixSolveResult", "solutions"));
             }
@@ -3009,10 +3021,13 @@ pub fn call(
             arity(1)?;
             let e =
                 as_expr(&args[0]).ok_or_else(|| LangError::plain("cancel needs an expression."))?;
-            match lovelace_symbolics::cancel(&e) {
-                Some(v) => Ok(Value::Symbolic(v)),
-                None => Ok(Value::Symbolic(e)),
-            }
+            // The reference's cancel is RationalFunctions.Cancel: a common polynomial factor is
+            // removed only when it divides BOTH sides exactly; an irreducible quotient is kept
+            // unchanged. The bare value form is the reduced expression alone (cancel_full is the
+            // record that carries the removed factor's NonZero condition).
+            Ok(Value::Symbolic(
+                lovelace_symbolics::rational_functions::cancel(&e),
+            ))
         }
         "cancel_full" => {
             // The structured form of cancel: the reduced value PLUS the nonzero conditions
@@ -6834,7 +6849,7 @@ fn log_arguments(expression: &Sym) -> Vec<Sym> {
                     walk(argument, out);
                 }
             }
-            Sym::Num(_) | Sym::Sym(_) | Sym::Real(_) | Sym::Rel(..) => {}
+            Sym::Num(_) | Sym::Sym(_) | Sym::Real(_) | Sym::Complex(_, _) | Sym::Rel(..) => {}
         }
     }
     let mut out = Vec::new();
@@ -7856,7 +7871,7 @@ fn mentions_solved_variable(e: &Sym, var: &str) -> bool {
     match e {
         Sym::Fun(name, _) if name == "rootof" => false,
         Sym::Sym(s) => s == var,
-        Sym::Num(_) | Sym::Real(_) => false,
+        Sym::Num(_) | Sym::Real(_) | Sym::Complex(_, _) => false,
         Sym::Add(v) | Sym::Mul(v) => v.iter().any(|x| mentions_solved_variable(x, var)),
         Sym::Pow(a, b) => mentions_solved_variable(a, var) || mentions_solved_variable(b, var),
         Sym::Fun(_, args) => args.iter().any(|a| mentions_solved_variable(a, var)),
@@ -8764,6 +8779,9 @@ fn exact_divide(a: &Sym, b: &Sym) -> Sym {
 enum SystemOutcome {
     /// At least one verified solution assignment.
     Solutions(Vec<Vec<(String, Sym)>>),
+    /// The enumeration hit the reference's solution cap: the published set is a PROVEN SUBSET
+    /// of the answer, so the record is Partial/complete:false rather than a false "Solved".
+    PartialSolutions(Vec<Vec<(String, Sym)>>),
     /// The elimination DERIVED a contradiction: an empty set proved, no note needed.
     NoSolutions,
     /// The branch search stopped without a proof; the string starts with `system-solve.`.
@@ -8834,6 +8852,11 @@ fn solve_system_impl(equations: &[Sym], vars: &[String]) -> SystemOutcome {
     }
     let mut state = SystemSolveState::new();
     solve_system_recursive(equations, vars, &mut Vec::new(), &mut state);
+    if state.truncated {
+        // The cap is the reference's 128-solution enumeration limit: the result is a proven
+        // SUBSET, so its status is Partial (never Solved) and complete is false.
+        return SystemOutcome::PartialSolutions(state.solutions);
+    }
     if !state.solutions.is_empty() {
         return SystemOutcome::Solutions(state.solutions);
     }
@@ -9145,7 +9168,7 @@ fn expression_coefficients(expression: &Sym, var: &str) -> Option<Vec<Sym>> {
         coefficients
     }
     match expression {
-        Sym::Num(_) | Sym::Real(_) => Some(vec![expression.clone()]),
+        Sym::Num(_) | Sym::Real(_) | Sym::Complex(_, _) => Some(vec![expression.clone()]),
         Sym::Sym(name) if name == var => Some(vec![Sym::num(0), Sym::num(1)]),
         Sym::Sym(_) => Some(vec![expression.clone()]),
         Sym::Add(items) => {
@@ -9296,32 +9319,32 @@ fn system_result_with_assumptions(
     system_result(vars, kept)
 }
 
-fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
-    // Publish in a stable order: by the last variable's value, then the first.
-    let mut sorted = solutions;
-    // Order by the last variable's value, then the first: the reference publishes the
-    // solutions of a circle-and-axes system in that sweep.
-    let value_of = |s: &Vec<(String, Sym)>, name: &str| -> Option<lovelace_symbolics::Rat> {
-        match s.iter().find(|(n, _)| n == name).map(|(_, v)| v) {
-            Some(Sym::Num(r)) => Some(r.clone()),
-            _ => None,
-        }
-    };
-    let last = vars.last().cloned().unwrap_or_default();
-    let first = vars.first().cloned().unwrap_or_default();
-    sorted.sort_by(|a, b| {
-        let compare =
-            |x: Option<lovelace_symbolics::Rat>, y: Option<lovelace_symbolics::Rat>| match (x, y) {
-                (Some(p), Some(q)) => p.cmp(&q),
-                _ => std::cmp::Ordering::Equal,
-            };
-        let by_last = compare(value_of(a, &last), value_of(b, &last));
-        if by_last != std::cmp::Ordering::Equal {
-            return by_last;
-        }
-        compare(value_of(a, &first), value_of(b, &first))
-    });
-    let records: Vec<Value> = sorted
+/// The SystemSolveResult that publishes a capped enumeration: the same records, in the
+/// elimination's own order, under Partial/complete:false/Partial with no diagnostics.
+fn system_partial_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
+    Value::Record(
+        "SystemSolveResult".to_string(),
+        vec![
+            ("status".to_string(), enum_value("SolveStatus", "Partial")),
+            ("domain".to_string(), Value::Domain("complex".to_string())),
+            ("complete".to_string(), Value::Boolean(false)),
+            (
+                "completeness".to_string(),
+                enum_value("Completeness", "Partial"),
+            ),
+            (
+                "solutions".to_string(),
+                Value::Vector(system_solution_records(vars, solutions)),
+            ),
+            ("diagnostics".to_string(), Value::Vector(Vec::new())),
+        ],
+    )
+}
+
+/// The SystemSolution records for one assignment set: one Binding per declared variable, in the
+/// declared order (a missing assignment reads as 0, exactly as the reference's binding lookup).
+fn system_solution_records(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Vec<Value> {
+    solutions
         .into_iter()
         .map(|bindings| {
             let bindings: Vec<Value> = vars
@@ -9353,7 +9376,35 @@ fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
                 ],
             )
         })
-        .collect();
+        .collect()
+}
+
+fn system_result(vars: &[String], solutions: Vec<Vec<(String, Sym)>>) -> Value {
+    // Publish in a stable order: by the last variable's value, then the first.
+    let mut sorted = solutions;
+    // Order by the last variable's value, then the first: the reference publishes the
+    // solutions of a circle-and-axes system in that sweep.
+    let value_of = |s: &Vec<(String, Sym)>, name: &str| -> Option<lovelace_symbolics::Rat> {
+        match s.iter().find(|(n, _)| n == name).map(|(_, v)| v) {
+            Some(Sym::Num(r)) => Some(r.clone()),
+            _ => None,
+        }
+    };
+    let last = vars.last().cloned().unwrap_or_default();
+    let first = vars.first().cloned().unwrap_or_default();
+    sorted.sort_by(|a, b| {
+        let compare =
+            |x: Option<lovelace_symbolics::Rat>, y: Option<lovelace_symbolics::Rat>| match (x, y) {
+                (Some(p), Some(q)) => p.cmp(&q),
+                _ => std::cmp::Ordering::Equal,
+            };
+        let by_last = compare(value_of(a, &last), value_of(b, &last));
+        if by_last != std::cmp::Ordering::Equal {
+            return by_last;
+        }
+        compare(value_of(a, &first), value_of(b, &first))
+    });
+    let records = system_solution_records(vars, sorted);
     Value::Record(
         "SystemSolveResult".to_string(),
         vec![
@@ -9387,7 +9438,7 @@ fn shared_subtree_count(e: &Sym) -> usize {
                 walk(b, counts);
             }
             Sym::Fun(_, args) => args.iter().for_each(|a| walk(a, counts)),
-            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) => {}
+            Sym::Num(_) | Sym::Real(_) | Sym::Sym(_) | Sym::Complex(_, _) => {}
         }
     }
     let mut counts: Vec<(String, usize)> = Vec::new();
@@ -10696,7 +10747,7 @@ fn collect_all_symbols(e: &Sym, out: &mut Vec<String>) {
             collect_all_symbols(a, out);
             collect_all_symbols(b, out);
         }
-        Sym::Num(_) | Sym::Real(_) => {}
+        Sym::Num(_) | Sym::Real(_) | Sym::Complex(_, _) => {}
     }
 }
 
@@ -10729,7 +10780,7 @@ fn collect_symbols(e: &Sym, found: &mut Option<String>) {
             collect_symbols(a, found);
             collect_symbols(b, found);
         }
-        Sym::Num(_) | Sym::Real(_) => {}
+        Sym::Num(_) | Sym::Real(_) | Sym::Complex(_, _) => {}
     }
 }
 

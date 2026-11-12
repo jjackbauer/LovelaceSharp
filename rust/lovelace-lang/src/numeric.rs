@@ -7,6 +7,7 @@
 //! truncation, so it is inexact; an exact rational that fits the window stays exact.
 
 use std::cmp::Ordering;
+use std::collections::HashMap;
 
 use lovelace_int::Int;
 use lovelace_nat::Nat;
@@ -64,7 +65,7 @@ pub fn evaluate_scoped(
     scope: &AssumptionSet,
 ) -> Result<ScopedEvaluation, LangError> {
     let mut relied: Vec<Assumption> = Vec::new();
-    let value = evaluate_with(expression, places, scope, &mut relied)?;
+    let value = evaluate_with(expression, places, scope, None, &mut relied)?;
     Ok(ScopedEvaluation {
         value,
         conditions: AssumptionSet::from_atoms(relied),
@@ -74,7 +75,35 @@ pub fn evaluate_scoped(
 /// Evaluates a symbolic expression numerically at \`places\` fractional digits.
 pub fn evaluate(expression: &Sym, places: usize) -> Result<Num, LangError> {
     let mut relied: Vec<Assumption> = Vec::new();
-    evaluate_with(expression, places, &AssumptionSet::empty(), &mut relied)
+    evaluate_with(
+        expression,
+        places,
+        &AssumptionSet::empty(),
+        None,
+        &mut relied,
+    )
+}
+
+/// Evaluates an expression with parameter bindings, the reference's
+/// `Evaluation.EvaluateToNum(e, ctx, bindings)`.
+///
+/// Unlike substitution, a binding is consumed where the SYMBOL is evaluated: the surrounding
+/// arithmetic keeps its canonical shape, so exact constants are not folded together first and the
+/// floating-point association is exactly the reference's. A symbol with no binding is refused with
+/// the same `No value for symbol` error plain evaluation reports.
+pub fn evaluate_bound(
+    expression: &Sym,
+    bindings: &HashMap<String, Num>,
+    places: usize,
+) -> Result<Num, LangError> {
+    let mut relied: Vec<Assumption> = Vec::new();
+    evaluate_with(
+        expression,
+        places,
+        &AssumptionSet::empty(),
+        Some(bindings),
+        &mut relied,
+    )
 }
 
 /// The evaluator proper. `scope` is the assumption lattice for relation guards; `relied`
@@ -83,6 +112,7 @@ fn evaluate_with(
     expression: &Sym,
     places: usize,
     scope: &AssumptionSet,
+    bindings: Option<&HashMap<String, Num>>,
     relied: &mut Vec<Assumption>,
 ) -> Result<Num, LangError> {
     let places = places.max(1);
@@ -96,29 +126,62 @@ fn evaluate_with(
                 "The real constant '{text}' is not a decimal value."
             ))),
         },
-        Sym::Sym(name) => Err(LangError::plain(format!("No value for symbol '{}'.", name))),
+        // A complex constant is two exact rational components; the numeric tier reads each at
+        // the ambient budget, exactly as the reference's Evaluation.cs ComplexConstantExpr arm.
+        Sym::Complex(re, im) => Ok(Num::Complex(Complex::new(
+            rat_to_real(re, places),
+            rat_to_real(im, places),
+        ))),
+        Sym::Sym(name) => match bindings.and_then(|values| values.get(name)) {
+            Some(value) => Ok(value.clone()),
+            None => Err(LangError::plain(format!("No value for symbol '{}'.", name))),
+        },
         Sym::Add(terms) => {
+            // The reference stores an Add's terms in TermOrder (its canonical order) and this
+            // evaluator must fold them in THAT order: floating-point addition is not associative,
+            // and a display-ordered fold differs from the reference in the last stored digit.
+            // Rust Sym keeps display order, so sort by the same canonical order the MathIR
+            // lowering uses before folding.
+            let mut values: Vec<(usize, Sym, Num)> = Vec::with_capacity(terms.len());
+            for (index, term) in terms.iter().enumerate() {
+                values.push((
+                    index,
+                    term.clone(),
+                    evaluate_with(term, places, scope, bindings, relied)?,
+                ));
+            }
+            values.sort_by(|a, b| lovelace_symbolics::canonical_order(&a.1, &b.1));
             let mut acc = Num::Exact(Rat::zero());
-            for term in terms {
-                acc = acc.add(&evaluate_with(term, places, scope, relied)?, places)?;
+            for (_, _, value) in values {
+                acc = acc.add(&value, places)?;
             }
             Ok(acc)
         }
         Sym::Mul(factors) => {
+            // Same ordering contract as Add, over the reference's Multiply factors.
+            let mut values: Vec<(usize, Sym, Num)> = Vec::with_capacity(factors.len());
+            for (index, factor) in factors.iter().enumerate() {
+                values.push((
+                    index,
+                    factor.clone(),
+                    evaluate_with(factor, places, scope, bindings, relied)?,
+                ));
+            }
+            values.sort_by(|a, b| lovelace_symbolics::canonical_order(&a.1, &b.1));
             let mut acc = Num::Exact(Rat::one());
-            for factor in factors {
-                acc = acc.mul(&evaluate_with(factor, places, scope, relied)?, places)?;
+            for (_, _, value) in values {
+                acc = acc.mul(&value, places)?;
             }
             Ok(acc)
         }
         Sym::Div(left, right) => {
-            let left = evaluate_with(left, places, scope, relied)?;
-            let right = evaluate_with(right, places, scope, relied)?;
+            let left = evaluate_with(left, places, scope, bindings, relied)?;
+            let right = evaluate_with(right, places, scope, bindings, relied)?;
             left.div(&right, places)
         }
         Sym::Pow(base, exponent) => {
-            let base = evaluate_with(base, places, scope, relied)?;
-            let exponent = evaluate_with(exponent, places, scope, relied)?;
+            let base = evaluate_with(base, places, scope, bindings, relied)?;
+            let exponent = evaluate_with(exponent, places, scope, bindings, relied)?;
             base.pow(&exponent, places)
         }
         // A bare relation has no numeric value in the reference either: RelationExpr is
@@ -136,8 +199,10 @@ fn evaluate_with(
             if name == "piecewise" {
                 if let Some((branches, otherwise)) = expression.as_piecewise() {
                     for (guard, value) in branches {
-                        match evaluate_condition_with(&guard, places, scope, relied)? {
-                            Tristate::True => return evaluate_with(&value, places, scope, relied),
+                        match evaluate_condition_with(&guard, places, scope, bindings, relied)? {
+                            Tristate::True => {
+                                return evaluate_with(&value, places, scope, bindings, relied);
+                            }
                             Tristate::False => continue,
                             // The reference's PiecewiseExpr arm takes True, skips False, and
                             // refuses everything else - Unknown and the no-model sentinel alike.
@@ -153,13 +218,13 @@ fn evaluate_with(
                             }
                         }
                     }
-                    return evaluate_with(&otherwise, places, scope, relied);
+                    return evaluate_with(&otherwise, places, scope, bindings, relied);
                 }
             }
             // And/Or/Not lower to boolean-valued nodes; the reference's EvaluateToNum arm
             // (Evaluation.cs:500-506) answers the exact integers 1/0 and refuses Unknown.
             if matches!(name.as_str(), "and" | "or" | "not") {
-                return match evaluate_condition_with(expression, places, scope, relied)? {
+                return match evaluate_condition_with(expression, places, scope, bindings, relied)? {
                     Tristate::True => Ok(Num::Exact(Rat::one())),
                     // The reference throws only for Unknown; every other answer maps to 1/0.
                     Tristate::False | Tristate::Unsatisfiable => Ok(Num::Exact(Rat::zero())),
@@ -173,7 +238,7 @@ fn evaluate_with(
             }
             let mut values = Vec::with_capacity(args.len());
             for arg in args {
-                values.push(evaluate_with(arg, places, scope, relied)?);
+                values.push(evaluate_with(arg, places, scope, bindings, relied)?);
             }
             evaluate_function(name, &values, places)
         }
@@ -199,6 +264,7 @@ fn evaluate_condition_with(
     condition: &Sym,
     places: usize,
     scope: &AssumptionSet,
+    bindings: Option<&HashMap<String, Num>>,
     relied: &mut Vec<Assumption>,
 ) -> Result<Tristate, LangError> {
     match condition {
@@ -217,11 +283,11 @@ fn evaluate_condition_with(
                 }
                 return Ok(decision);
             }
-            let left = match evaluate_with(left, places, scope, relied) {
+            let left = match evaluate_with(left, places, scope, bindings, relied) {
                 Ok(value) => value,
                 Err(_) => return Ok(Tristate::Unknown),
             };
-            let right = match evaluate_with(right, places, scope, relied) {
+            let right = match evaluate_with(right, places, scope, bindings, relied) {
                 Ok(value) => value,
                 Err(_) => return Ok(Tristate::Unknown),
             };
@@ -243,7 +309,7 @@ fn evaluate_condition_with(
             })
         }
         Sym::Fun(name, args) if name == "not" && args.len() == 1 => Ok(
-            match evaluate_condition_with(&args[0], places, scope, relied)? {
+            match evaluate_condition_with(&args[0], places, scope, bindings, relied)? {
                 Tristate::True => Tristate::False,
                 Tristate::False | Tristate::Unsatisfiable => Tristate::True,
                 Tristate::Unknown => Tristate::Unknown,
@@ -252,7 +318,7 @@ fn evaluate_condition_with(
         Sym::Fun(name, args) if name == "and" => {
             let mut unknown = false;
             for operand in args {
-                match evaluate_condition_with(operand, places, scope, relied)? {
+                match evaluate_condition_with(operand, places, scope, bindings, relied)? {
                     Tristate::False => return Ok(Tristate::False),
                     Tristate::Unknown => unknown = true,
                     Tristate::True | Tristate::Unsatisfiable => {}
@@ -267,7 +333,7 @@ fn evaluate_condition_with(
         Sym::Fun(name, args) if name == "or" => {
             let mut unknown = false;
             for operand in args {
-                match evaluate_condition_with(operand, places, scope, relied)? {
+                match evaluate_condition_with(operand, places, scope, bindings, relied)? {
                     Tristate::True => return Ok(Tristate::True),
                     Tristate::Unknown => unknown = true,
                     Tristate::False | Tristate::Unsatisfiable => {}
@@ -699,7 +765,7 @@ fn complex_to_real_error() -> LangError {
 /// \`RationalReal.ToReal\` at the ambient precision: exactly \`places\` fractional digits, truncated.
 /// The result is exact when the expansion terminates, inexact otherwise (the reference \`Real.Parse\`
 /// boundary at the same width).
-fn rat_to_real(value: &Rat, places: usize) -> Real {
+pub(crate) fn rat_to_real(value: &Rat, places: usize) -> Real {
     let num = value.numerator();
     let den = value.denominator();
     let negative = num.is_negative();

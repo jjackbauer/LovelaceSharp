@@ -30,6 +30,20 @@ pub struct BuiltinInfo {
     pub examples: &'static [&'static str],
 }
 
+/// The builtin count a `SuiteEngine` publishes after loading `plugins`: every CORE builtin
+/// (plugin `None`) plus the descriptors whose plugin is in the list. The reference's count is a
+/// property of the loaded plugin set — a Symbolics + MathIR engine is 107, the runner with the
+/// DSP plugin is 123 — so the count must be asked of the registry, not hard-coded.
+pub fn builtin_count_for_plugins(plugins: &[&str]) -> usize {
+    BUILTINS
+        .iter()
+        .filter(|info| match info.plugin {
+            None => true,
+            Some(plugin) => plugins.contains(&plugin),
+        })
+        .count()
+}
+
 /// Every builtin descriptor, in name order.
 pub static BUILTINS: &[BuiltinInfo] = &[
     BuiltinInfo {

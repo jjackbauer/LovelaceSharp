@@ -17,10 +17,10 @@ census case resolves to a Rust test that exists in the measured inventory and wh
 | Lovelace.Representation.Tests | 91 | 90 | 1 | 0 | 98.90 % | consolidated |
 | Lovelace.Run.Tests | 751 | 751 | 0 | 0 | 100.00 % | partial |
 | Lovelace.Studio.Tests | 22 | 0 | 0 | 22 | 0.00 % | partial |
-| Lovelace.Suite.Tests | 929 | 928 | 1 | 0 | 99.89 % | partial |
-| Lovelace.Symbolics.Tests | 1226 | 1209 | 17 | 0 | 98.61 % | partial |
+| Lovelace.Suite.Tests | 929 | 929 | 0 | 0 | 100.00 % | partial |
+| Lovelace.Symbolics.Tests | 1226 | 1220 | 6 | 0 | 99.51 % | partial |
 | precbench.Tests | 13 | 13 | 0 | 0 | 100.00 % | — |
-| **TOTAL** | **6209** | **6072** | **19** | **118** | **97.79 %** | |
+| **TOTAL** | **6209** | **6084** | **7** | **118** | **97.99 %** | |
 
 Proposed exclusions awaiting approval: parity/proposed-exclusions.toml (118 cases in four
 projects with no Rust crate). They are NOT counted above: an exclusion the user has not

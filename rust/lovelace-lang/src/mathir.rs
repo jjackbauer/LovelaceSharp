@@ -423,7 +423,12 @@ impl IrProgram {
     /// parameter, an unsupported function, an order term, a relation and a malformed piecewise
     /// guard all refuse with the reference's sentences.
     pub fn lower(expr: &Sym, parameters: &[String]) -> Result<IrProgram, LangError> {
-        IrProgram::lower_with(expr, parameters, false)
+        // The reference stores an Add's terms and a Multiply's factors in TermOrder (its
+        // canonical order), so Lowering.Lower emits them in that order. Rust Sym keeps the
+        // DISPLAY order in the node, so the same canonical sort is required here: without it a
+        // lowered program folds its operands in a different order than the reference and
+        // disagrees with direct numeric evaluation in the last stored digit.
+        IrProgram::lower_with(expr, parameters, true)
     }
 
     /// Lowers with the LANGUAGE SURFACE's operand order: Add/Multiply children are emitted in
@@ -1045,6 +1050,19 @@ fn emit(
         Sym::Real(text) => {
             let pool = add_constant(program, &format!("(real {text})"));
             add_node(program, IrOpKind::Constant, vec![pool], 0)
+        }
+        Sym::Complex(re, im) => {
+            let pool = add_constant(
+                program,
+                &format!(
+                    "(cplx {} {} {} {})",
+                    re.numerator().to_decimal(),
+                    re.denominator().to_decimal(),
+                    im.numerator().to_decimal(),
+                    im.denominator().to_decimal()
+                ),
+            );
+            add_node(program, IrOpKind::Constant, vec![pool], 1)
         }
         Sym::Add(terms) => emit_nary(terms, IrOpKind::Add, parameters, program, cache, ordered)?,
         Sym::Mul(factors) => {

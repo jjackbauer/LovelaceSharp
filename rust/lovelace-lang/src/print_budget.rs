@@ -134,7 +134,7 @@ pub fn expr_depth(root: &Expr) -> usize {
                 stack.push((left, next));
                 stack.push((right, next));
             }
-            Expr::Num(_) | Expr::Sym(_) | Expr::Real(_) => {}
+            Expr::Num(_) | Expr::Sym(_) | Expr::Real(_) | Expr::Complex(_, _) => {}
         }
     }
     max

@@ -399,6 +399,10 @@ pub fn evaluate_to_num(
                     "The real constant '{text}' is not a decimal value."
                 ))
             }),
+        Expr::Complex(re, im) => Ok(Num::Complex(crate::complex::Complex::new(
+            crate::numeric::rat_to_real(re, places),
+            crate::numeric::rat_to_real(im, places),
+        ))),
         Expr::Sym(name) => binding(bindings, name)
             .cloned()
             .ok_or_else(|| EvaluationError::evaluation(format!("No value for symbol '{name}'."))),

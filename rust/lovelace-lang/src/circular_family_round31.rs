@@ -92,7 +92,7 @@ fn mentions_x(expression: &Sym) -> bool {
         match e {
             Sym::Fun(name, _) if name == "rootof" => false,
             Sym::Sym(name) => name == "x",
-            Sym::Num(_) | Sym::Real(_) => false,
+            Sym::Num(_) | Sym::Real(_) | Sym::Complex(_, _) => false,
             Sym::Add(items) | Sym::Mul(items) => items.iter().any(walk),
             Sym::Pow(base, exponent) => walk(base) || walk(exponent),
             Sym::Fun(_, args) => args.iter().any(walk),

@@ -378,7 +378,7 @@ impl Context {
                 self.note_identities(left);
                 self.note_identities(right);
             }
-            Expr::Num(_) | Expr::Real(_) => {}
+            Expr::Num(_) | Expr::Real(_) | Expr::Complex(_, _) => {}
         }
     }
 }
