@@ -16,6 +16,7 @@ pub mod complex_math;
 pub mod fixed_dsp;
 pub mod help;
 pub mod lexer;
+pub mod mathir;
 pub mod numeric;
 pub mod registry;
 pub mod structured;
@@ -1771,6 +1772,12 @@ mod tests {
         assert_eq!(eval("{ 1; 2; 3 }"), "3 (Natural)");
     }
 }
+
+#[cfg(test)]
+mod mathir_round54;
+
+#[cfg(test)]
+mod mathir_typing_round55;
 
 #[cfg(test)]
 mod suite_parity_batch;

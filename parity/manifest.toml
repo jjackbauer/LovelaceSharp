@@ -45043,58 +45043,65 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/CompilationResult_IrText_RoundTrips#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::compilation_result_ir_text_round_trips"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.CompilationResult_IrText_RoundTrips (CompilationTests.cs:150) compiles x^5 + 3x over x and asserts IrProgram.Deserialize(compilation.IrText).Serialize() equals compilation.Program.Serialize(); rust/lovelace-lang/src/mathir_round54.rs:61 compilation_result_ir_text_round_trips asserts the same equality plus the exact 9-line text, the typed node sequence and constant pool, and that ToKernel wraps the same program. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_BatchEvaluation_Columnwise#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_batch_evaluation_columnwise"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_BatchEvaluation_Columnwise (CompilationTests.cs:48) compiles x^2 + 1 and asserts EvaluateBatch with x = [1,2,3] answers 2, 5, 10 and that columns of lengths 2 and 1 throw ArgumentException; rust/lovelace-lang/src/mathir_round54.rs:115 kernel_batch_evaluation_columnwise asserts the same three lanes and the refusal Column 'y' has 1 lanes; expected 2. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_BatchLazySelect_MixedGuards#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_batch_lazy_select_mixed_guards"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_BatchLazySelect_MixedGuards (CompilationTests.cs:96) compiles piecewise(x > 0: 1/x, otherwise -x) and asserts the batch x = [2, -3, 1/2] answers 1/2, 3, 2 with both branches demanded; rust/lovelace-lang/src/mathir_round54.rs:150 kernel_batch_lazy_select_mixed_guards asserts the same three lanes and the exact Select instruction sequence. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_BatchMatchesScalarEvaluation#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_batch_matches_scalar_evaluation"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_BatchMatchesScalarEvaluation (CompilationTests.cs:113) compiles sin(x*y) + x^2, evaluates three rational pairs at precision 40 and asserts every batch lane equals its scalar evaluation; rust/lovelace-lang/src/mathir_round54.rs:183 kernel_batch_matches_scalar_evaluation asserts the same lane-by-lane equality at the same precision and the exact program text. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_ExactTiers_Preserved#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_exact_tiers_preserved"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_ExactTiers_Preserved (CompilationTests.cs:70) compiles 2*x^3 + 1/2 and asserts Evaluate(1/2) is the exact NumRat 3/4 rather than a Real; rust/lovelace-lang/src/mathir_round54.rs:221 kernel_exact_tiers_preserved asserts the Num::Exact tier and the exact value 3/4. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_LazySelect_UntakenBranchNeverEvaluates#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_lazy_select_untaken_branch_never_evaluates"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_LazySelect_UntakenBranchNeverEvaluates (CompilationTests.cs:135) compiles piecewise(x == 0: 1, otherwise 1/x) and asserts Evaluate(0) is 1 with 1/x never evaluated and Evaluate(2) is 1/2; rust/lovelace-lang/src/mathir_round54.rs:252 kernel_lazy_select_untaken_branch_never_evaluates asserts the same two values, where 1/x would divide by zero if Select were strict. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_NamedAndPositional_Evaluate#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_named_and_positional_evaluate"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_NamedAndPositional_Evaluate (CompilationTests.cs:33) evaluates x*y + 1 positionally with (2,3) and by name with x=2,y=3 (both 7) and expects one positional argument to throw ArgumentException; rust/lovelace-lang/src/mathir_round54.rs:282 kernel_named_and_positional_evaluate asserts the same two answers and the exact refusal Kernel expects 2 argument(s), got 1. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_ScalarEvaluation#0"
@@ -45108,10 +45115,11 @@ note = "Round 34 Symbolics tail"
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.CompilationTests/Kernel_Transcendental_ApproximateTier#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing Compilation.Compile / IrProgram multi-parameter compilation API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_round54::kernel_transcendental_approximate_tier"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# CompilationTests.Kernel_Transcendental_ApproximateTier (CompilationTests.cs:83) compiles exp(x), opens Real.WithPrecision(40, 20) and asserts Evaluate(0) is a NumReal (IsExact false) equal to 1; rust/lovelace-lang/src/mathir_round54.rs:312 kernel_transcendental_approximate_tier asserts Num::Real, equality to 1 and the Parameter/Exp program text. See docs/goal-parity-contract/round-55/mathir-porting.md section 2."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.ComplexClosedFormTests/ImaginaryUnitIntegerPowers_FoldExactly#0"
@@ -51025,58 +51033,65 @@ note = "Library-only census row; grouped by missing API in the round-45 final sw
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Deserialize_RejectsMalformedProgram#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::deserialize_rejects_malformed_program"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Deserialize_RejectsMalformedProgram (MathIrTypingTests.cs:119) passes #!mathir 2 with Add 0 0,42 to IrProgram.Deserialize and expects InvalidOperationException; rust/lovelace-lang/src/mathir_typing_round55.rs:238 deserialize_rejects_malformed_program asserts the same text is refused with the validate sentence IR validation: node 2 (Add) references out-of-range operand 42 (code InvalidOperation, category DomainError) and that an unreadable opcode is refused with the parse sentence Malformed IR line. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Infer_TypesForLoweredExpressions#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::infer_types_for_lowered_expressions"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Infer_TypesForLoweredExpressions (MathIrTypingTests.cs:21) asserts Integer for x^2 + 1, Rational for x/2, Real for exp(2), unconstrained for exp(x), Bool at the Gt guard a piecewise emits, and Complex for (1+i)*x; rust/lovelace-lang/src/mathir_typing_round55.rs:41 infer_types_for_lowered_expressions asserts the same six facts. The exp tier is the fact the round-55 typing fix in mathir.rs supplies: unary transcendentals read one input (Typing.cs:31) and Div reads both, because it stands in for the reference quotient. See docs/goal-parity-contract/round-55/mathir-porting.md section 4."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Validate_AcceptsLoweredCorpus#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::validate_accepts_lowered_corpus"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Validate_AcceptsLoweredCorpus (MathIrTypingTests.cs:51) lowers five expressions over x and y and asserts IrTyping.Validate does not throw; rust/lovelace-lang/src/mathir_typing_round55.rs:109 validate_accepts_lowered_corpus lowers the same five and asserts IrTyping::validate is Ok, a root exists and the serialized text round-trips through IrProgram::deserialize. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Validate_RejectsNonBoolSelectGuard#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::validate_rejects_non_bool_select_guard"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Validate_RejectsNonBoolSelectGuard (MathIrTypingTests.cs:84) builds Parameter 0, Constant 0, Add 0 0,1 and Select 2 0 1 and expects InvalidOperationException from Validate; rust/lovelace-lang/src/mathir_typing_round55.rs:169 validate_rejects_non_bool_select_guard asserts the same program is refused with Select node 3 requires a Bool guard, got Integer (code InvalidOperation, category DomainError), that the guard's inferred type is Integer and that the prefix without the Select validates. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Validate_RejectsOrderedComparisonOfComplex#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::validate_rejects_ordered_comparison_of_complex"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Validate_RejectsOrderedComparisonOfComplex (MathIrTypingTests.cs:97) builds Constant (cplx 1 1 1 1), Parameter 0 and Lt 0 0,1 and expects InvalidOperationException; rust/lovelace-lang/src/mathir_typing_round55.rs:194 validate_rejects_ordered_comparison_of_complex asserts the same program is refused with ordered comparison Lt requires real operands, node 2 operand 0 is Complex, that the pool entry types as Complex and that the prefix without the comparison validates. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Validate_RejectsOutOfRangeOperand#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::validate_rejects_out_of_range_operand"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Validate_RejectsOutOfRangeOperand (MathIrTypingTests.cs:72) builds Parameter 0, Constant 0 and Add 0 42 and expects InvalidOperationException; rust/lovelace-lang/src/mathir_typing_round55.rs:145 validate_rejects_out_of_range_operand asserts the same program is refused with IR validation: node 2 (Add) references out-of-range operand 42 (code InvalidOperation, category DomainError) and that operand 1 in the same shape validates. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MathIrTypingTests/Validate_RejectsWrongArity#0"
 project = "Lovelace.Symbolics.Tests"
-disposition = "deferred"
-reason = "Round 45 UNRUNNABLE: the C# row exercises a library-only surface needing IrProgram.Deserialize/Validate/Infer typing API; no Rust API exists to assert the row's contract. Documented block, not an approximation. See docs/goal-parity-contract/round-45/final-sweep.md."
+disposition = "ported"
+rust = "lovelace-lang::mathir_typing_round55::validate_rejects_wrong_arity"
+reason = "Round 55 mapping: the C# assertion is reproduced by the named Rust test (see note for the assertion and the test location)."
 targetPhase = 0
-note = "Library-only census row; grouped by missing API in the round-45 final sweep."
+note = "Round 55: C# MathIrTypingTests.Validate_RejectsWrongArity (MathIrTypingTests.cs:109) builds Parameter 0 and Add 0 0 0 and expects InvalidOperationException; rust/lovelace-lang/src/mathir_typing_round55.rs:218 validate_rejects_wrong_arity asserts IR validation: node 1 (Add) has 3 operands; expected 2 (code InvalidOperation, category DomainError), that IrOpKind::Add arity is 2 and that the binary Add validates. See docs/goal-parity-contract/round-55/mathir-porting.md section 3."
 
 [[test]]
 id = "Lovelace.Symbolics.Tests/Lovelace.Symbolics.Tests.MatrixAdvanceTests/Inverse_Invertible_BehaviorPreserved#0"

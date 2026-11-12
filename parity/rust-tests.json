@@ -1,17 +1,17 @@
 ﻿{
     "schemaVersion":  1,
-    "generatedAtUtc":  "2026-11-11T23:55:24Z",
+    "generatedAtUtc":  "2026-11-12T00:21:28Z",
     "toolchain":  "cargo 1.99.1 (5f94df478 2026-08-27)",
     "suite":  {
                   "exitCode":  0,
-                  "passed":  4980,
+                  "passed":  5000,
                   "failed":  0
               },
     "totals":  {
                    "crates":  11,
-                   "tests":  4980
+                   "tests":  5000
                },
-    "sourcesSha256":  "085d1b0b0f60f964b6cc09ae5f89316169dbd33a247cc9b57167ec9b683086f2",
+    "sourcesSha256":  "4d1045fee82e094a204bf4fe50d2331c2c1378a3c58196636abfad9822bbaa2e",
     "crates":  [
                    {
                        "name":  "lovelace-json",
@@ -3364,6 +3364,26 @@
                                      "latex_printer_parity::latex_symbol_name_only_the_latex_arm_escapes",
                                      "latex_printer_parity::latex_symbol_name_underscore_is_an_escaped_literal_not_a_subscript",
                                      "latex_printer_parity::latex_symbol_name_uses_the_documented_escape",
+                                     "mathir_round54::compilation_result_ir_text_round_trips",
+                                     "mathir_round54::compile_requires_at_least_one_parameter",
+                                     "mathir_round54::deserialize_gates_the_format_version",
+                                     "mathir_round54::kernel_batch_evaluation_columnwise",
+                                     "mathir_round54::kernel_batch_lazy_select_mixed_guards",
+                                     "mathir_round54::kernel_batch_matches_scalar_evaluation",
+                                     "mathir_round54::kernel_exact_tiers_preserved",
+                                     "mathir_round54::kernel_lazy_select_untaken_branch_never_evaluates",
+                                     "mathir_round54::kernel_named_and_positional_evaluate",
+                                     "mathir_round54::kernel_transcendental_approximate_tier",
+                                     "mathir_round54::lowering_refuses_what_the_reference_refuses",
+                                     "mathir_round54::typing_infers_the_documented_tiers",
+                                     "mathir_round54::validation_reports_pool_parameter_and_guard_diagnostics",
+                                     "mathir_typing_round55::deserialize_rejects_malformed_program",
+                                     "mathir_typing_round55::infer_types_for_lowered_expressions",
+                                     "mathir_typing_round55::validate_accepts_lowered_corpus",
+                                     "mathir_typing_round55::validate_rejects_non_bool_select_guard",
+                                     "mathir_typing_round55::validate_rejects_ordered_comparison_of_complex",
+                                     "mathir_typing_round55::validate_rejects_out_of_range_operand",
+                                     "mathir_typing_round55::validate_rejects_wrong_arity",
                                      "panic_sweep_round22::a_negative_dimension_is_refused_instead_of_read_as_its_magnitude",
                                      "panic_sweep_round22::a_range_bound_beyond_i64_is_refused_by_name",
                                      "panic_sweep_round22::a_range_step_beyond_i64_is_refused_by_name",
