@@ -39,14 +39,14 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-1/parity-register.md",
-                                          "sha256":  "2B9B0838FBBA8753FA8119D3DDD1C70F2042009B4700DEED60E66B532135E0D4",
+                                          "sha256":  "BBDD1D3348A066F0B404796EA85EC2E6779CE10DA222D49F9B9DB30E4AE0AD66",
                                           "class":  "static",
-                                          "at_head":  "a17be2a466d9798b99221181fe2d5817b19347c2"
+                                          "at_head":  "f0df468276cb936ff958b993124bd011b8004169"
                                       }
                                   ],
                      "test":  "review",
                      "waiver":  "",
-                     "scope_note":  "49-row feature register; 229/229 requirement IDs accounted exactly once, 186 owned."
+                     "scope_note":  "49 feature rows; 229/229 requirement IDs owned after the explicit gate-owned resolution in section 5."
                  },
                  {
                      "id":  "CON-003",

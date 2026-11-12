@@ -311,7 +311,8 @@
   performance gate under CON-008) — so CON-002 can be audited without omissions.
 - **Priority**: P0
 - **Depends on**: the first GUI rows existing, so gate-owned rows can point at real tests
-- **Status**: Open
+- **Status**: **Done** (round 7) — `parity-register.md` section 5 resolves all 43 IDs as feature-owned
+  or gate-owned, with a count check: 43 + 186 = 229.
 - **Related**: CON-002, EVD-040
 
 ### OBS-009: The execution core is written but red

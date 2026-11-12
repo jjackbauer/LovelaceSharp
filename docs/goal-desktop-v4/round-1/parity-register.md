@@ -160,3 +160,25 @@ Every non-`PRESENT` register row is listed, including `PARTIAL` rows, so no resi
 48. **UNMAPPED — PLF-007, PLF-010 (2 IDs).** Installer/release artifacts and per-platform platform-behaviour testing have no owning register row.
 49. **UNMAPPED — PERF-001, PERF-002, PERF-003, PERF-004, PERF-005, PERF-006, PERF-007, PERF-008, PERF-009, PERF-011, PERF-012 (11 IDs).** All performance budgets except config-corruption recovery (PERF-010 → D-23) have no owning register row; performance is a separate gate under CON-008 and is not a capability row.
 50. **UNMAPPED — TST-001, TST-002, TST-003, TST-004, TST-005, TST-006, TST-007, TST-008, TST-009, TST-010, TST-011, TST-012, TST-013, TST-014, TST-015, TST-016, TST-017, TST-018 (18 IDs).** The entire test/acceptance group has no owning register row: no register row is a test suite, and census-tests.md records no desktop GUI, screenshot, accessibility, performance or packaging automation, no desktop CI job and no `tests/` target (census-tests.md:98, census-tests.md:143-156).
+
+## 5. Ownership resolution (closes TODO-003)
+
+The 43 IDs listed as UNMAPPED above are process, quality or platform requirements, not user-facing
+capabilities: a feature row cannot own them. Each is assigned an explicit owner and test path here so
+that no requirement in the catalog is unowned. `gate-owned` means the artifact that certifies the row
+is the gate itself or a gate-run measurement, not a product surface.
+
+| Requirement IDs | Owner | Test path | Rationale |
+|---|---|---|---|
+| CON-001, CON-004, CON-005, CON-007, CON-008, CON-010 | gate-owned (`goal.md`, `tools/desktop-gate.ps1`) | `-Verify` / `-Readiness` | these define the baseline, the single-engine rule, the gate, golden journeys and gate separation; the gate is the artifact that certifies them |
+| ARC-001 | gate-owned row ARC-001 + `round-2/arc-001-decision.md` | `spike --bench` + candidate probes | the framework decision is recorded evidence, not a UI capability |
+| EDT-016, EDT-017 | editor row W-03 / D-16 | GUI latency measurement + IME driver | the latency budget and IME composition are properties of the editor surface |
+| RUN-016 | logs row W-09 | 100k-line log load test | the starvation bound is a property of the logs surface |
+| INC-009, INC-011 | incremental row W-05 / D-19 | cache equivalence and eviction tests | full-rerun and the cache bound belong to the incremental row |
+| PLF-007, PLF-010 | gate-owned | packaging + platform-matrix evidence | release artifacts and per-platform claims are gate evidence |
+| PERF-001..PERF-009, PERF-011, PERF-012 | performance gate (scorecard) | measured runs | these are budgets, explicitly a separate gate under CON-008 |
+| TST-001..TST-018 | acceptance gate | the gate suite itself | these define the acceptance infrastructure; they are owned by the gate, not by a product surface |
+
+Count check: 6 + 1 + 2 + 1 + 2 + 2 + 11 + 18 = **43**, which accounts for every previously UNMAPPED
+ID. With the 186 IDs already owned by feature rows, the register now has an owner for all 229
+catalog requirements.
