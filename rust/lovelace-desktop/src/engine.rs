@@ -33,6 +33,9 @@ pub mod real;
 #[allow(unused_imports)]
 // Re-exported for tests and for hosts that want the deterministic engine explicitly.
 pub use fake::FakeEngine;
+// The fake's typed value is one payload of [`CachedValue`]; the re-export keeps that public enum
+// nameable without exposing the private module it is defined in.
+pub use fake::Value as FakeValue;
 #[allow(unused_imports)]
 #[cfg(feature = "real-engine")]
 pub use real::RealEngine;
@@ -108,6 +111,36 @@ pub struct PlotCapture {
     pub title: String,
     /// The SVG document itself.
     pub svg: String,
+}
+
+/// A typed engine value captured so that a reused statement can be re-applied to a fresh engine.
+///
+/// INC-001/INC-006: the incremental cache never replays a display string and never parses one.
+/// It keeps the evaluator's own typed value — the same [`lovelace_lang::Value`] the engine
+/// computed, or the deterministic fake's equivalent — and hands it back through
+/// [`Evaluator::apply_cached_value`] when a statement is reused. An evaluator that publishes no
+/// such value leaves [`Evaluator::supports_cached_values`] false and is never offered a reuse.
+#[derive(Clone, Debug, PartialEq)]
+pub enum CachedValue {
+    /// A value of the real `lovelace_lang` engine.
+    #[cfg(feature = "real-engine")]
+    Real(lovelace_lang::Value),
+    /// A value of the deterministic fake engine.
+    Fake(FakeValue),
+}
+
+impl CachedValue {
+    /// True when the value is the engine's absent value (`Void`).
+    ///
+    /// Applying a `Void` would invent a variable the engine never defined, so reuse leaves both
+    /// the statement's write target and the engine's `_` result untouched for it.
+    pub fn is_void(&self) -> bool {
+        match self {
+            #[cfg(feature = "real-engine")]
+            CachedValue::Real(value) => matches!(value, lovelace_lang::Value::Void),
+            CachedValue::Fake(value) => value.is_void(),
+        }
+    }
 }
 
 /// Where a function in the engine's snapshot came from.
@@ -403,6 +436,60 @@ pub trait Evaluator {
     /// Returns the most recent plot, if any.
     fn last_plot(&self) -> Option<PlotCapture> {
         None
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Incremental-reuse seam (INC-001..INC-010)
+    // ---------------------------------------------------------------------------------------
+
+    /// True when this evaluator can publish a typed value and re-apply one under a name.
+    ///
+    /// The incremental cache reuses a statement only by applying the cached *typed value* to the
+    /// document's engine, so an evaluator without that seam must never be offered a cache hit:
+    /// silently skipping the statement would corrupt the workspace. The default is false, which
+    /// keeps a minimal third-party evaluator correct (it always recomputes) rather than fast.
+    fn supports_cached_values(&self) -> bool {
+        false
+    }
+
+    /// The canonical dependency key of one global variable, or `None` when it is undefined.
+    ///
+    /// INC-006: the key is derived from the engine's full canonical **typed** value, never from
+    /// the display text. The real engine publishes the structured projection of the value (a
+    /// precision-independent function of the value); the fake publishes its exact integer/text
+    /// encoding. `None` means "this name has no global binding", which the cache records as
+    /// `UNDEF` so a statement that read a defined global can never reuse against an undefined one.
+    fn variable_key(&self, _name: &str) -> Option<String> {
+        None
+    }
+
+    /// The typed value the most recent successful [`Self::eval`] returned.
+    ///
+    /// The incremental cache captures this at the commit point and re-applies it on a later run.
+    /// The default is `None`, so an evaluator that publishes no typed value never caches.
+    fn last_value(&self) -> Option<CachedValue> {
+        None
+    }
+
+    /// Stores a cached typed `value` under `name`, reporting whether the engine accepted it.
+    ///
+    /// This is the apply-on-reuse seam: the reference calls `SetVariable(writeName, value)`; the
+    /// real engine does the same through `lovelace_lang::Engine::set_variable`, and the fake
+    /// stores the value in its own table. Returning false makes the caller evaluate the statement
+    /// instead of claiming a reuse it could not apply.
+    fn apply_cached_value(&mut self, _name: &str, _value: &CachedValue) -> bool {
+        false
+    }
+
+    /// True when [`Self::eval`] stores its last non-`Void` result under `_`.
+    ///
+    /// A reuse must reproduce that binding as well, or the variables table of a reused run would
+    /// differ from a fresh run's. The real engine does store `_` after every statement
+    /// (`Engine::eval`); the deterministic fake publishes no result variable, so its default is
+    /// false. An engine that stores `_` but leaves this false would make a reused run's workspace
+    /// differ from a fresh one, so the two shipped engines state the fact explicitly.
+    fn tracks_result_variable(&self) -> bool {
+        false
     }
 
     /// Removes one global variable, reporting whether it existed.

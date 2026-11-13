@@ -10,7 +10,8 @@
 use std::collections::BTreeMap;
 
 use super::{
-    DEFAULT_PRECISION, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture,
+    CachedValue, DEFAULT_PRECISION, EngineFunction, EngineState, EngineVariable, Evaluator,
+    PlotCapture,
 };
 use crate::svg;
 
@@ -21,8 +22,11 @@ pub fn boxed() -> Box<dyn Evaluator> {
 }
 
 /// A value in the fake engine.
+///
+/// Public because it is one payload of [`crate::engine::CachedValue`]: the incremental cache
+/// keeps the fake's own typed value and re-applies it, exactly as it does for the real engine.
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum Value {
+pub enum Value {
     Int(i64),
     Text(String),
     Void,
@@ -44,6 +48,23 @@ impl Value {
             Value::Void => "Void",
         }
     }
+
+    /// True for the absent value, which a reuse must not apply to a variable.
+    pub fn is_void(&self) -> bool {
+        matches!(self, Value::Void)
+    }
+
+    /// The canonical dependency key: the exact typed value, never the display form.
+    ///
+    /// Integers are prefixed so the text `"1"` and the number `1` cannot collide; text carries
+    /// its exact bytes (the length prefix keeps the encoding unambiguous).
+    pub fn canonical_key(&self) -> String {
+        match self {
+            Value::Int(value) => format!("Fake:Int:{value}"),
+            Value::Text(text) => format!("Fake:Text:{}:{text}", text.len()),
+            Value::Void => "Fake:Void".to_string(),
+        }
+    }
 }
 
 /// A tiny interpreter that keeps variables, print output and the last plot.
@@ -55,6 +76,8 @@ pub struct FakeEngine {
     output: Vec<String>,
     plot: Option<PlotCapture>,
     plots: u64,
+    /// The last statement value this engine produced, kept for the incremental cache.
+    last_value: Option<Value>,
 }
 
 impl Default for FakeEngine {
@@ -73,10 +96,11 @@ impl FakeEngine {
             output: Vec::new(),
             plot: None,
             plots: 0,
+            last_value: None,
         }
     }
 
-    fn statement(&mut self, src: &str) -> Result<Option<String>, String> {
+    fn statement(&mut self, src: &str) -> Result<Option<Value>, String> {
         if let Some((name, rhs)) = split_assignment(src) {
             let mut parser = ExprParser::new(rhs);
             let value = parser.expr(self)?;
@@ -85,7 +109,7 @@ impl FakeEngine {
                 return Err("The right-hand side of an assignment must be a value.".to_string());
             }
             self.vars.insert(name, value.clone());
-            return Ok(Some(value.display()));
+            return Ok(Some(value));
         }
         let mut parser = ExprParser::new(src);
         let value = parser.expr(self)?;
@@ -93,7 +117,7 @@ impl FakeEngine {
         Ok(if matches!(value, Value::Void) {
             None
         } else {
-            Some(value.display())
+            Some(value)
         })
     }
 
@@ -172,15 +196,21 @@ impl FakeEngine {
 
 impl Evaluator for FakeEngine {
     fn eval(&mut self, src: &str) -> Result<String, String> {
-        let mut last: Option<String> = None;
+        self.last_value = None;
+        let mut last: Option<Value> = None;
         for raw in split_statements(src) {
             let statement = raw.trim();
             if statement.is_empty() {
                 continue;
             }
             match self.statement(statement) {
-                Ok(Some(display)) => last = Some(display),
-                Ok(None) => {}
+                Ok(Some(value)) => {
+                    self.last_value = Some(value.clone());
+                    last = Some(value);
+                }
+                Ok(None) => {
+                    self.last_value = Some(Value::Void);
+                }
                 Err(error) => {
                     self.revision = self.revision.saturating_add(1);
                     return Err(error);
@@ -188,7 +218,9 @@ impl Evaluator for FakeEngine {
             }
         }
         self.revision = self.revision.saturating_add(1);
-        Ok(last.unwrap_or_else(|| "Void".to_string()))
+        Ok(last
+            .map(|value| value.display())
+            .unwrap_or_else(|| "Void".to_string()))
     }
 
     fn set_precision(&mut self, decimals: usize) {
@@ -268,6 +300,37 @@ impl Evaluator for FakeEngine {
 
     fn name(&self) -> &'static str {
         "fake"
+    }
+
+    /// INC-001: the fake stores typed values, so the incremental cache may reuse here too.
+    fn supports_cached_values(&self) -> bool {
+        true
+    }
+
+    /// INC-006: the exact typed value of one global, never its display form.
+    fn variable_key(&self, name: &str) -> Option<String> {
+        self.vars.get(name).map(Value::canonical_key)
+    }
+
+    /// INC-001: the last statement value, kept for re-application.
+    fn last_value(&self) -> Option<CachedValue> {
+        self.last_value.clone().map(CachedValue::Fake)
+    }
+
+    /// INC-001/INC-007: applies a cached typed value to this engine's own symbol table.
+    fn apply_cached_value(&mut self, name: &str, value: &CachedValue) -> bool {
+        match value {
+            CachedValue::Fake(value) => {
+                if value.is_void() {
+                    return false;
+                }
+                self.vars.insert(name.to_string(), value.clone());
+                self.revision = self.revision.saturating_add(1);
+                true
+            }
+            #[cfg(feature = "real-engine")]
+            CachedValue::Real(_) => false,
+        }
     }
 }
 

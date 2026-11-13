@@ -12,10 +12,14 @@
 //! non-zero when the expected observable does not match. A mismatch is always a failure; no
 //! expectation is relaxed to make a journey pass.
 //!
-//! Four of the five journeys need only the window's headless workbench. J-15 additionally drives
+//! Four of the first journeys need only the window's headless workbench. J-15 additionally drives
 //! the real plot pane: it loads the engine's `PlotCapture.svg` through `Plot::set_svg`,
 //! rasterises through the pane's resvg path, zooms/pans/fits through `PlotView` and exports the
 //! captured bytes through `Plot::export_svg_to`.
+//!
+//! J-07 and J-08 certify the incremental cache (INC-001..INC-010): they read the per-statement
+//! `StepCommitted { reused }` flags and the document's reuse counter from the same typed event
+//! stream the window consumes, and compare the resulting values with the reference captures.
 
 #![cfg(windows)]
 
@@ -67,7 +71,10 @@ pub fn run(args: &[String]) -> i32 {
     // Validate every id before any state is created or any line is printed: an unknown id is a
     // usage error (exit 2), not a journey failure, and must not depend on a writable temp folder.
     for id in &options.journeys {
-        if !matches!(id.as_str(), "J-02" | "J-03" | "J-09" | "J-10" | "J-15") {
+        if !matches!(
+            id.as_str(),
+            "J-02" | "J-03" | "J-07" | "J-08" | "J-09" | "J-10" | "J-15"
+        ) {
             eprintln!("unknown journey '{id}'\n\n{}", usage());
             return 2;
         }
@@ -100,6 +107,8 @@ pub fn run(args: &[String]) -> i32 {
         let outcome = match id.as_str() {
             "J-02" => journey_j02(),
             "J-03" => journey_j03(),
+            "J-07" => journey_j07(),
+            "J-08" => journey_j08(),
             "J-09" => journey_j09(&out),
             "J-10" => journey_j10(),
             "J-15" => journey_j15(&out),
@@ -166,7 +175,7 @@ impl Options {
 fn usage() -> String {
     "usage: lovelace-desktop --journey <ID> [--journey <ID> ...] [--out <dir>]\n\
      \n\
-     IDs: J-02 J-03 J-09 J-10 J-15\n\
+     IDs: J-02 J-03 J-07 J-08 J-09 J-10 J-15\n\
      \n\
      Each journey runs its script through the shipped workbench/ExecutionHost path and exits\n\
      non-zero when the expected observable in docs/goal-desktop-v4/journeys.md does not match.\n\
@@ -331,6 +340,17 @@ fn function_text(snapshot: &WorkspaceSnapshot, name: &str) -> String {
         ),
         None => "(missing)".to_string(),
     }
+}
+
+/// The display form of one variable in a snapshot, or `(missing)`.
+fn variable_display(snapshot: &WorkspaceSnapshot, name: &str) -> String {
+    snapshot
+        .state
+        .variables
+        .iter()
+        .find(|variable| variable.name == name)
+        .map(|variable| variable.display.clone())
+        .unwrap_or_else(|| "(missing)".to_string())
 }
 
 /// How many digits follow the decimal point in `text` (0 when it has none).
@@ -582,6 +602,249 @@ fn journey_j03() -> Result<(), String> {
             fractional_digits(&second_at1000)
         ),
         second_reused == 0 && fractional_digits(&second_at1000) == 1000,
+    );
+    checks.finish()
+}
+
+// ---------------------------------------------------------------------------------------------
+// J-07 - incremental reuse
+// ---------------------------------------------------------------------------------------------
+
+/// REF-incremental's script: three definitions plus the expression that consumes them.
+fn j07_source() -> &'static str {
+    "a = 2\nb = a + 1\nc = pi(100)\nb + c\n"
+}
+
+/// The same script with only its last statement edited.
+fn j07_edited_source() -> &'static str {
+    "a = 2\nb = a + 1\nc = pi(100)\nb + c + 1\n"
+}
+
+/// REF-incremental's `pi(100)` display, byte for byte.
+const J07_PI100: &str = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679";
+/// REF-incremental's `b + c` result.
+const J07_RESULT: &str = "6.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679";
+/// REF-incremental's edited `b + c + 1` result.
+const J07_EDITED_RESULT: &str = "7.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679";
+
+/// `a = 2`; `b = a + 1`; `c = pi(100)`; `b + c`, run twice with the last statement edited.
+///
+/// The expected observable is REF-incremental's: `reused=3` on the second run, identical values
+/// for the three unchanged statements, and a reused statement is never reported as recomputed
+/// (the per-statement flags are read from the typed `StepCommitted` events).
+fn journey_j07() -> Result<(), String> {
+    let mut checks = Checks::new("J-07");
+    let first_source = j07_source().to_string();
+    let edited_source = j07_edited_source().to_string();
+    let mut workbench = new_workbench();
+    workbench.set_source(0, first_source.clone());
+    println!("JOURNEY J-07 observed input={first_source:?}");
+
+    run_document(&mut workbench, "J-07 run 1")?;
+    let first = snapshot(&workbench, "J-07 run 1")?;
+    let first_reused = document(&workbench).reused;
+    let first_flags = document(&workbench).committed_reused.clone();
+    let first_results = document(&workbench).committed_results.clone();
+    println!(
+        "JOURNEY J-07 observed run 1 revision={} reused={first_reused} flags={first_flags:?} committed={}/{} results={first_results:?}",
+        first.revision.0, first.committed_steps, first.total
+    );
+    println!(
+        "JOURNEY J-07 observed run 1 result={:?} variables=[{}]",
+        first.result,
+        variables_text(&first)
+    );
+
+    workbench.set_source(0, edited_source.clone());
+    run_document(&mut workbench, "J-07 run 2")?;
+    let second = snapshot(&workbench, "J-07 run 2")?;
+    let second_reused = document(&workbench).reused;
+    let second_flags = document(&workbench).committed_reused.clone();
+    let second_results = document(&workbench).committed_results.clone();
+    println!("JOURNEY J-07 observed edited input={edited_source:?}");
+    println!(
+        "JOURNEY J-07 observed run 2 revision={} reused={second_reused} flags={second_flags:?} committed={}/{} results={second_results:?}",
+        second.revision.0, second.committed_steps, second.total
+    );
+    println!(
+        "JOURNEY J-07 observed run 2 result={:?} variables=[{}]",
+        second.result,
+        variables_text(&second)
+    );
+
+    checks.expect("run 1 reused count", "0", first_reused.to_string());
+    checks.expect(
+        "run 2 reused count (REF-incremental)",
+        "3",
+        second_reused.to_string(),
+    );
+    checks.expect(
+        "run 2 per-statement reuse flags",
+        "[true, true, true, false]",
+        format!("{second_flags:?}"),
+    );
+    checks.expect_that(
+        "the reused count is exactly the number of reused statements",
+        second_reused.to_string(),
+        second_flags
+            .iter()
+            .filter(|flag| **flag)
+            .count()
+            .to_string(),
+        second_reused == second_flags.iter().filter(|flag| **flag).count(),
+    );
+    checks.expect("run 1 result", J07_RESULT, first.result.clone());
+    checks.expect("run 1 c", J07_PI100, variable_display(&first, "c"));
+    checks.expect("run 2 result", J07_EDITED_RESULT, second.result.clone());
+    checks.expect("run 2 c", J07_PI100, variable_display(&second, "c"));
+    for name in ["a", "b", "c"] {
+        checks.expect(
+            &format!("the reused statement's value for {name} is identical"),
+            variable_display(&first, name),
+            variable_display(&second, name),
+        );
+    }
+    checks.expect(
+        "the three reused statements publish the same committed results",
+        format!("{:?}", &first_results[..3]),
+        format!("{:?}", &second_results[..3]),
+    );
+    checks.expect(
+        "run 2 committed steps",
+        "4",
+        second.committed_steps.to_string(),
+    );
+    checks.expect("run 2 total statements", "4", second.total.to_string());
+    checks.finish()
+}
+
+// ---------------------------------------------------------------------------------------------
+// J-08 - dependency invalidation
+// ---------------------------------------------------------------------------------------------
+
+/// The function chain J-08 redefines: `f` is called by `g`, which is called by `h`, which `y` calls.
+fn j08_function_source(body: &str) -> String {
+    format!(
+        "func f(x) = {body}\nfunc g(x) = f(x) * 2\nfunc h(x) = g(x) + 1\ny = h(3)\nz = pi(50)\n"
+    )
+}
+
+/// `a = 2`; `b = a + 1`; `c = pi(100)`; then change `a`; then redefine `func f`.
+///
+/// The expected observable is that transitive dependents recompute (`b` after `a`; `y` after
+/// `f` through `g` and `h`) while independent statements stay reused (`c`, `z`), reported one
+/// statement at a time.
+fn journey_j08() -> Result<(), String> {
+    let mut checks = Checks::new("J-08");
+    let mut workbench = new_workbench();
+
+    // Phase 1: a variable edit.
+    let first_source = "a = 2\nb = a + 1\nc = pi(100)\n";
+    let edited_source = "a = 5\nb = a + 1\nc = pi(100)\n";
+    workbench.set_source(0, first_source.to_string());
+    run_document(&mut workbench, "J-08 variable run 1")?;
+    let before = snapshot(&workbench, "J-08 variable run 1")?;
+    println!(
+        "JOURNEY J-08 observed variable run 1 reused={} b={:?} c={:?}",
+        document(&workbench).reused,
+        variable_display(&before, "b"),
+        variable_display(&before, "c")
+    );
+    let original_c = variable_display(&before, "c");
+
+    workbench.set_source(0, edited_source.to_string());
+    run_document(&mut workbench, "J-08 variable run 2")?;
+    let after = snapshot(&workbench, "J-08 variable run 2")?;
+    let variable_first_flags = document(&workbench).committed_reused.clone();
+    println!(
+        "JOURNEY J-08 observed variable run 2 reused={} flags={variable_first_flags:?} a={:?} b={:?} c={:?}",
+        document(&workbench).reused,
+        variable_display(&after, "a"),
+        variable_display(&after, "b"),
+        variable_display(&after, "c")
+    );
+
+    checks.expect(
+        "changing a: b recomputes and c reuses",
+        "[false, false, true]",
+        format!("{variable_first_flags:?}"),
+    );
+    checks.expect(
+        "changing a: reused count",
+        "1",
+        document(&workbench).reused.to_string(),
+    );
+    checks.expect(
+        "changing a: b sees the new a",
+        "6",
+        variable_display(&after, "b"),
+    );
+    checks.expect(
+        "changing a: c is unchanged",
+        original_c,
+        variable_display(&after, "c"),
+    );
+
+    // Phase 2: a function redefinition.
+    let function_source = j08_function_source("x + 1");
+    let function_edited = j08_function_source("x + 10");
+    workbench.set_source(0, function_source.clone());
+    run_document(&mut workbench, "J-08 function run 1")?;
+    let before = snapshot(&workbench, "J-08 function run 1")?;
+    println!(
+        "JOURNEY J-08 observed function run 1 reused={} y={:?} z={:?}",
+        document(&workbench).reused,
+        variable_display(&before, "y"),
+        variable_display(&before, "z")
+    );
+    let original_z = variable_display(&before, "z");
+
+    workbench.set_source(0, function_edited.clone());
+    run_document(&mut workbench, "J-08 function run 2")?;
+    let after = snapshot(&workbench, "J-08 function run 2")?;
+    let function_flags = document(&workbench).committed_reused.clone();
+    println!("JOURNEY J-08 observed function edited input={function_edited:?}");
+    println!(
+        "JOURNEY J-08 observed function run 2 reused={} flags={function_flags:?} y={:?} z={:?}",
+        document(&workbench).reused,
+        variable_display(&after, "y"),
+        variable_display(&after, "z")
+    );
+
+    checks.expect(
+        "redefining f: both definitions evaluate and the call site recomputes",
+        "[false, false, false, false, true]",
+        format!("{function_flags:?}"),
+    );
+    checks.expect(
+        "redefining f: reused count",
+        "1",
+        document(&workbench).reused.to_string(),
+    );
+    checks.expect_that(
+        "redefining f: the reuse count equals the reused statements",
+        document(&workbench).reused.to_string(),
+        function_flags
+            .iter()
+            .filter(|flag| **flag)
+            .count()
+            .to_string(),
+        document(&workbench).reused == function_flags.iter().filter(|flag| **flag).count(),
+    );
+    checks.expect(
+        "redefining f: y is recomputed through g and h",
+        "27",
+        variable_display(&after, "y"),
+    );
+    checks.expect(
+        "redefining f: z is reused",
+        original_z,
+        variable_display(&after, "z"),
+    );
+    checks.expect(
+        "redefining f: the recomputed y is not the old value",
+        "9",
+        variable_display(&before, "y"),
     );
     checks.finish()
 }
@@ -1155,7 +1418,7 @@ mod tests {
 
     #[test]
     fn only_the_artifact_writing_journeys_need_the_output_directory() {
-        for id in ["J-02", "J-03", "J-10"] {
+        for id in ["J-02", "J-03", "J-07", "J-08", "J-10"] {
             assert!(
                 !needs_output_dir(id),
                 "{id} reads only the workbench snapshot and must not require a writable temp directory"

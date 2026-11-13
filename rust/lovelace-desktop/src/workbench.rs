@@ -255,11 +255,18 @@ pub struct WorkbenchDocument {
     /// digit count each `setprecision` produced inside one script. Reset when a run is submitted,
     /// so it always describes one run.
     pub committed_results: Vec<String>,
+    /// Whether each statement of the current or last run was served from the incremental cache.
+    ///
+    /// INC-008: one entry per commit, in statement order, recorded from the `StepCommitted`
+    /// event's `reused` flag. It is what lets a journey assert *which* statements were reused
+    /// instead of trusting a total, and its length always equals [`Self::committed_results`].
+    pub committed_reused: Vec<bool>,
     /// Statements the last run reported as reused from a cache.
     ///
-    /// The execution core has no incremental cache yet, so every commit carries `reused: false`
-    /// and this is 0. The counter records what the run actually reported rather than assuming
-    /// none, so a future cache cannot silently reuse a value across a precision change (J-03).
+    /// The execution core runs an incremental cache per document (INC-001), so this records the
+    /// number of `StepCommitted { reused: true }` events the run actually delivered; it is never
+    /// inferred from how many statements could have been reused. A precision change, an effect, a
+    /// changed input or a changed function definition all make the observed count fall.
     pub reused: usize,
     /// Wall-clock time from submit to terminal, in milliseconds.
     pub elapsed_ms: u64,
@@ -1415,6 +1422,35 @@ impl Workbench {
         self.clear_variables(self.active)
     }
 
+    /// INC-009: drops the document's incremental cache, so the next run evaluates every statement.
+    ///
+    /// This is "Run All Fresh" without a second implementation: the run itself is the normal one,
+    /// it simply starts from an empty memo table. The values, output and log are identical to an
+    /// incremental run (the cache never changes a result), so the option cannot fork behaviour.
+    /// Returns false when a run is in flight (the request would race the run's own cache) or the
+    /// index does not exist.
+    #[allow(dead_code)] // host-facing option; the window has no toolbar button yet
+    pub fn clear_incremental_cache(&mut self, index: usize) -> bool {
+        let Some(doc) = self.docs.get(index) else {
+            return false;
+        };
+        if doc.state().is_in_flight() {
+            self.log(
+                index,
+                LogKind::Info,
+                "Run All Fresh refused: a run is in flight.",
+            );
+            return false;
+        }
+        self.host.clear_cache(doc.id);
+        self.log(
+            index,
+            LogKind::Info,
+            "Incremental cache cleared: the next run evaluates every statement.",
+        );
+        true
+    }
+
     /// Requests a run of the active document.
     ///
     /// This only calls [`ExecutionHost::submit`], which spawns the worker and returns: no source
@@ -1552,6 +1588,7 @@ impl Workbench {
             doc.committed = 0;
             doc.total = 0;
             doc.committed_results.clear();
+            doc.committed_reused.clear();
             doc.reused = 0;
             doc.elapsed_ms = 0;
             doc.started = Some(Instant::now());
@@ -1770,6 +1807,7 @@ impl Workbench {
                 self.docs[index]
                     .committed_results
                     .push(snapshot.result.clone());
+                self.docs[index].committed_reused.push(*step_reused);
                 self.docs[index].reused += usize::from(*step_reused);
                 true
             }
@@ -2187,6 +2225,7 @@ impl WorkbenchDocument {
             committed: 0,
             total: 0,
             committed_results: Vec::new(),
+            committed_reused: Vec::new(),
             reused: 0,
             elapsed_ms: 0,
             run: None,
@@ -2224,6 +2263,100 @@ mod tests {
 
     fn fake_workbench() -> Workbench {
         Workbench::with_factory(Box::new(|| Box::new(FakeEngine::new())))
+    }
+
+    /// INC-001/INC-008/INC-009 with the shipped engine: the second run of an unchanged script is
+    /// reported statement by statement as reused, and "Run All Fresh" clears that memo table
+    /// without changing a single value.
+    #[test]
+    #[cfg(feature = "real-engine")]
+    fn run_all_fresh_clears_the_cache_and_keeps_the_values() {
+        let mut workbench =
+            Workbench::with_factory(Box::new(|| Box::new(crate::engine::RealEngine::new())));
+        workbench.set_source(0, "a = 2\nb = a + 1\n".to_string());
+
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(workbench.documents()[0].state(), RunState::Finished);
+        assert_eq!(workbench.documents()[0].reused, 0);
+        let first = workbench.documents()[0]
+            .snapshot
+            .clone()
+            .expect("the first run's snapshot");
+
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(
+            workbench.documents()[0].committed_reused,
+            vec![true, true],
+            "the unchanged statements are reported reused one by one"
+        );
+        assert_eq!(workbench.documents()[0].reused, 2);
+
+        assert!(
+            workbench.clear_incremental_cache(0),
+            "Run All Fresh is accepted on an idle document"
+        );
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(10)));
+        assert_eq!(
+            workbench.documents()[0].committed_reused,
+            vec![false, false],
+            "a fresh run evaluates every statement"
+        );
+        assert_eq!(workbench.documents()[0].reused, 0);
+        let fresh = workbench.documents()[0]
+            .snapshot
+            .as_ref()
+            .expect("the fresh run's snapshot");
+        assert_eq!(
+            fresh.variables, first.variables,
+            "the fresh run must yield the same values as the incremental one"
+        );
+        assert_eq!(fresh.result, first.result);
+    }
+
+    /// INC-001/INC-007 on the offline (fake) engine: the second run reuses both statements and
+    /// the committed workspace is identical — in particular the fake publishes no `_`, and a
+    /// reuse must not invent one the fresh run would not have created.
+    #[test]
+    fn the_fake_engine_reuses_without_inventing_a_result_variable() {
+        let mut workbench = fake_workbench();
+        workbench.set_source(0, "a = 2\nb = a + 1\n".to_string());
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        let first = workbench.documents()[0]
+            .snapshot
+            .clone()
+            .expect("the first run's snapshot");
+        assert_eq!(workbench.documents()[0].reused, 0);
+
+        assert!(workbench.run_active());
+        assert!(workbench.wait_until_idle(Duration::from_secs(5)));
+        assert_eq!(
+            workbench.documents()[0].committed_reused,
+            vec![true, true],
+            "the fake engine supports typed values, so both statements reuse"
+        );
+        assert_eq!(workbench.documents()[0].reused, 2);
+        let second = workbench.documents()[0]
+            .snapshot
+            .as_ref()
+            .expect("the second run's snapshot");
+        assert_eq!(
+            second.state.variables, first.state.variables,
+            "the reused workspace must equal the fresh one"
+        );
+        assert_eq!(second.variables, first.variables);
+        assert!(
+            second
+                .state
+                .variables
+                .iter()
+                .all(|variable| variable.name != "_"),
+            "the fake publishes no `_`, so a reuse must not create one: {:?}",
+            second.state.variables
+        );
     }
 
     /// The log lines a run produced, from its own "Run queued" line onward.

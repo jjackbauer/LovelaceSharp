@@ -28,7 +28,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use crate::engine::{EngineState, Evaluator, PlotCapture};
+use crate::engine::{CachedValue, EngineState, Evaluator, PlotCapture};
+use crate::incremental::{CachedEntry, DocumentCache, ProgramAnalysis, StatementKey, StepDecision};
 use crate::statements::Statement;
 use lovelace_json::Json;
 
@@ -135,7 +136,11 @@ pub enum DesktopEvent {
         run: RunId,
         /// 0-based statement index.
         index: usize,
-        /// Whether the value was reused from a cache; this core has no cache, so it is false.
+        /// Whether the value was reused from the incremental cache.
+        ///
+        /// True exactly when the statement was **not** evaluated and its cached typed value was
+        /// applied to the engine (INC-001/INC-008). A statement whose cached value could not be
+        /// applied is evaluated and reported as `false`; the flag is never a prediction.
         reused: bool,
         /// The coherent workspace through this statement.
         snapshot: WorkspaceSnapshot,
@@ -427,6 +432,13 @@ pub struct ExecutionHost {
     state: Arc<Mutex<HostState>>,
     next_run: AtomicU64,
     snapshots: Arc<Mutex<HashMap<DocumentId, WorkspaceSnapshot>>>,
+    /// INC-001: one incremental cache per document, alive for the host's lifetime.
+    ///
+    /// A run takes its document's cache for the duration of the run (runs of one document are
+    /// exclusive, so no other worker can want it) and puts it back when it terminates. A
+    /// [`ExecutionHost::clear_cache`] during a run installs a fresh empty slot instead; the
+    /// finishing worker then leaves that slot alone, so "Run All Fresh" always wins.
+    caches: Arc<Mutex<HashMap<DocumentId, DocumentCache>>>,
 }
 
 impl ExecutionHost {
@@ -441,6 +453,7 @@ impl ExecutionHost {
             state: Arc::new(Mutex::new(HostState::default())),
             next_run: AtomicU64::new(0),
             snapshots: Arc::new(Mutex::new(HashMap::new())),
+            caches: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -475,6 +488,7 @@ impl ExecutionHost {
             sender: self.sender.clone(),
             state: Arc::clone(&self.state),
             snapshots: Arc::clone(&self.snapshots),
+            caches: Arc::clone(&self.caches),
             document,
             run,
             revision,
@@ -567,6 +581,32 @@ impl ExecutionHost {
             .unwrap_or_else(|error| error.into_inner());
         snapshots.get(&document).cloned()
     }
+
+    /// Drops the document's incremental cache (INC-009, "Run All Fresh").
+    ///
+    /// The next run of that document evaluates every statement and re-fills the cache. A run
+    /// already in flight keeps its own copy and does not repopulate this slot when it finishes:
+    /// the fresh request wins over the older run's cache. Nothing else changes, so the fresh run
+    /// yields the same values and output as an incremental one.
+    pub fn clear_cache(&self, document: DocumentId) {
+        let mut caches = self
+            .caches
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        // Drop the memoised statements but keep the document's function revisions, so the fresh
+        // run builds exactly the keys an incremental run would have built.
+        caches.entry(document).or_default().clear_entries();
+    }
+
+    /// How many statement outcomes the document's cache currently holds.
+    #[allow(dead_code)] // host-facing accessor exercised by the incremental tests
+    pub fn cached_entries(&self, document: DocumentId) -> usize {
+        let caches = self
+            .caches
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        caches.get(&document).map(DocumentCache::len).unwrap_or(0)
+    }
 }
 
 /// Everything one worker accumulates while it visits the sliced statements.
@@ -621,6 +661,8 @@ struct RunWorker {
     sender: Sender<RawEvent>,
     state: Arc<Mutex<HostState>>,
     snapshots: Arc<Mutex<HashMap<DocumentId, WorkspaceSnapshot>>>,
+    /// The host's per-document cache table; this run takes its document's entry from it.
+    caches: Arc<Mutex<HashMap<DocumentId, DocumentCache>>>,
     document: DocumentId,
     run: RunId,
     revision: SourceRevision,
@@ -640,8 +682,12 @@ impl RunWorker {
             "worker_start",
             format!("document={} run={}", self.document.0, self.run.0),
         );
+        // The document's incremental cache is owned by this run for its duration. Runs of one
+        // document are exclusive (`SubmitError::Busy`), and the cache goes back afterwards on
+        // every exit path so the next run reuses across runs.
+        let mut cache = self.take_cache();
         let mut progress = Progress::default();
-        match panic::catch_unwind(AssertUnwindSafe(|| self.execute(&mut progress))) {
+        match panic::catch_unwind(AssertUnwindSafe(|| self.execute(&mut progress, &mut cache))) {
             Ok(()) => {}
             Err(payload) => {
                 if !progress.ended {
@@ -658,6 +704,25 @@ impl RunWorker {
                 }
             }
         }
+        self.return_cache(cache);
+    }
+
+    /// Takes this document's cache out of the host table for the run.
+    fn take_cache(&self) -> DocumentCache {
+        let mut caches = self
+            .caches
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        caches.remove(&self.document).unwrap_or_default()
+    }
+
+    /// Puts the cache back unless a Clear/`clear_cache` installed a fresh slot meanwhile.
+    fn return_cache(&self, cache: DocumentCache) {
+        let mut caches = self
+            .caches
+            .lock()
+            .unwrap_or_else(|error| error.into_inner());
+        caches.entry(self.document).or_insert(cache);
     }
 
     /// True when either cancellation seam has been signalled for this run.
@@ -680,8 +745,8 @@ impl RunWorker {
         progress.ended = true;
     }
 
-    /// Evaluates every statement, publishing typed events on the way.
-    fn execute(&self, progress: &mut Progress) {
+    /// Evaluates (or reuses) every statement, publishing typed events on the way.
+    fn execute(&self, progress: &mut Progress, cache: &mut DocumentCache) {
         crate::run_trace::mark("engine_build_enter", "engine factory");
         let engine = match panic::catch_unwind(AssertUnwindSafe(|| (self.factory)())) {
             Ok(engine) => engine,
@@ -700,6 +765,14 @@ impl RunWorker {
         let _ = panic::catch_unwind(AssertUnwindSafe(|| {
             engine.set_cancel_flag(Some(cancel_flag));
         }));
+        // INC-001: the run's source-level dependency tables are built once, and the engine's own
+        // registry (a fresh engine, so builtins/plugins only) supplies the pure-callable set the
+        // effect classification consults.
+        let builtins = self.engine_builtins(&engine);
+        let analysis = ProgramAnalysis::new(&self.statements, builtins);
+        let cache_supported =
+            panic::catch_unwind(AssertUnwindSafe(|| engine.supports_cached_values()))
+                .unwrap_or(false);
         self.emit(DesktopEvent::RunStarted {
             document: self.document,
             run: self.run,
@@ -727,6 +800,27 @@ impl RunWorker {
                 index,
                 label: statement.label(),
             });
+
+            // INC-001/INC-002: a memoizable, effect-free statement is keyed from the typed
+            // values it reads *right now* (before it can change them). A hit is applied to the
+            // engine and committed without evaluating; a miss evaluates and stores under the
+            // same pre-evaluation key.
+            let mut store: Option<(StatementKey, Option<String>)> = None;
+            if cache_supported {
+                let effective = self.engine_precision(&engine);
+                let decision = cache.plan(&analysis, index, self.precision, effective, &*engine);
+                if let StepDecision::Keyed { key, write } = decision {
+                    let cached = cache.get(&key).cloned();
+                    if let Some(entry) = cached {
+                        if self.apply_cached(&mut engine, progress, &entry) {
+                            self.commit_step(progress, index, true);
+                            continue;
+                        }
+                    }
+                    store = Some((key, write));
+                }
+            }
+
             match panic::catch_unwind(AssertUnwindSafe(|| engine.eval(statement.text()))) {
                 Ok(Ok(value)) => {
                     progress.result = value;
@@ -753,37 +847,10 @@ impl RunWorker {
                     }
                     self.drain_output(&mut engine, progress);
                     progress.committed += 1;
-                    if let Ok(variables) =
-                        panic::catch_unwind(AssertUnwindSafe(|| engine.variables()))
-                    {
-                        progress.variables = variables;
-                    }
-                    if let Ok(functions) =
-                        panic::catch_unwind(AssertUnwindSafe(|| engine.functions()))
-                    {
-                        progress.functions = functions;
-                    }
                     // The kind-aware capture the completion catalogue reads. It is taken at the
                     // same commit point as the pane lists, so the popup can never offer a
                     // variable the displayed workspace does not have.
-                    if let Ok(Some(state)) =
-                        panic::catch_unwind(AssertUnwindSafe(|| engine.state()))
-                    {
-                        progress.state = state;
-                    }
-                    // WKS-002: the registry capture is the one source of truth for the function
-                    // table. `Evaluator::functions` is the legacy pair list and, in the real
-                    // engine, names only the script's user definitions; rebuilding the legacy
-                    // list from the capture keeps the snapshot's function count equal to the
-                    // count the Workspace table displays (builtins, plugins and user functions).
-                    if !progress.state.functions.is_empty() {
-                        progress.functions = progress
-                            .state
-                            .functions
-                            .iter()
-                            .map(|function| (function.name.clone(), function.parameters.clone()))
-                            .collect();
-                    }
+                    self.capture_symbols(&mut engine, progress);
                     if let Ok(Some(plot)) =
                         panic::catch_unwind(AssertUnwindSafe(|| engine.last_plot()))
                     {
@@ -792,22 +859,22 @@ impl RunWorker {
                         // reports None; that must not erase the plot from an earlier one.
                         progress.plot = Some(plot);
                     }
-                    self.emit(DesktopEvent::StepCommitted {
-                        document: self.document,
-                        run: self.run,
-                        index,
-                        reused: false,
-                        // RUN-003: the whole committed prefix travels with the commit event, so
-                        // the panes and the log advance from one object.
-                        snapshot: self.snapshot(progress, None),
-                    });
-                    let total = self.statements.len().max(1);
-                    self.emit(DesktopEvent::SubProgress {
-                        document: self.document,
-                        run: self.run,
-                        fraction: progress.committed as f32 / total as f32,
-                        label: format!("{}/{}", progress.committed, self.statements.len()),
-                    });
+                    // Store the evaluated outcome under the key built from the inputs the
+                    // statement actually had. The typed value is the engine's own, never a
+                    // display string re-parsed on reuse.
+                    if let Some((key, write)) = store.take() {
+                        if let Some(entry) = self.cached_entry(&engine, progress, write) {
+                            cache.insert(key, entry);
+                        }
+                    }
+                    // INC-003: definitions always evaluate; the revision moves only when the
+                    // combined normalized definition text changed, which invalidates call sites.
+                    if let Some(name) = analysis.definition_name(index) {
+                        if let Some(signature) = analysis.definition_signature(name) {
+                            cache.note_definition(name, signature);
+                        }
+                    }
+                    self.commit_step(progress, index, false);
                 }
                 Ok(Err(message)) => {
                     self.drain_output(&mut engine, progress);
@@ -840,6 +907,141 @@ impl RunWorker {
             snapshot,
         });
         progress.ended = true;
+    }
+
+    /// Captures the engine's variables, functions and kind-aware state at a commit point.
+    ///
+    /// Shared by the evaluate and reuse paths so a reused commit publishes the same coherent
+    /// pane data a fresh evaluation would have. WKS-002: the registry capture is the one source
+    /// of truth for the function table — rebuilding the legacy pair list from it keeps the
+    /// snapshot's function count equal to the count the Workspace table displays.
+    fn capture_symbols(&self, engine: &mut Box<dyn Evaluator>, progress: &mut Progress) {
+        if let Ok(variables) = panic::catch_unwind(AssertUnwindSafe(|| engine.variables())) {
+            progress.variables = variables;
+        }
+        if let Ok(functions) = panic::catch_unwind(AssertUnwindSafe(|| engine.functions())) {
+            progress.functions = functions;
+        }
+        if let Ok(Some(state)) = panic::catch_unwind(AssertUnwindSafe(|| engine.state())) {
+            progress.state = state;
+        }
+        if !progress.state.functions.is_empty() {
+            progress.functions = progress
+                .state
+                .functions
+                .iter()
+                .map(|function| (function.name.clone(), function.parameters.clone()))
+                .collect();
+        }
+    }
+
+    /// Emits the commit and its progress event for one statement.
+    fn commit_step(&self, progress: &Progress, index: usize, reused: bool) {
+        self.emit(DesktopEvent::StepCommitted {
+            document: self.document,
+            run: self.run,
+            index,
+            reused,
+            // RUN-003: the whole committed prefix travels with the commit event, so the panes
+            // and the log advance from one object.
+            snapshot: self.snapshot(progress, None),
+        });
+        let total = self.statements.len().max(1);
+        self.emit(DesktopEvent::SubProgress {
+            document: self.document,
+            run: self.run,
+            fraction: progress.committed as f32 / total as f32,
+            label: format!("{}/{}", progress.committed, self.statements.len()),
+        });
+    }
+
+    /// Applies a cached outcome to the engine and publishes the commit fields.
+    ///
+    /// INC-007: a reuse is genuine only when the cached typed value reaches the engine — the
+    /// statement's write target and, for a non-`Void` value, the engine's `_` result binding (the
+    /// engine stores `_` after every statement, so a fresh run would have set it too). Returning
+    /// false makes the caller evaluate the statement instead, so no reuse is ever reported for a
+    /// statement whose value was not applied.
+    fn apply_cached(
+        &self,
+        engine: &mut Box<dyn Evaluator>,
+        progress: &mut Progress,
+        entry: &CachedEntry,
+    ) -> bool {
+        if let Some(write) = &entry.write {
+            if !self.engine_apply(engine, write, &entry.value) {
+                return false;
+            }
+        }
+        // The engine's `_` binding is part of the workspace: a fresh run sets it after every
+        // statement, so a reused non-Void value must set it too. An engine that publishes no
+        // result variable says so (`tracks_result_variable`), and its reused runs stay identical
+        // to fresh ones.
+        if !entry.value.is_void()
+            && self.engine_tracks_result_variable(engine)
+            && !self.engine_apply(engine, "_", &entry.value)
+        {
+            return false;
+        }
+        progress.result = entry.display.clone();
+        progress.result_structured = entry.structured.clone();
+        progress.result_inspection = entry.inspection.clone();
+        progress.committed += 1;
+        self.capture_symbols(engine, progress);
+        true
+    }
+
+    /// Calls [`Evaluator::tracks_result_variable`] with panic isolation.
+    fn engine_tracks_result_variable(&self, engine: &Box<dyn Evaluator>) -> bool {
+        panic::catch_unwind(AssertUnwindSafe(|| engine.tracks_result_variable())).unwrap_or(false)
+    }
+
+    /// Calls [`Evaluator::apply_cached_value`] with panic isolation.
+    fn engine_apply(
+        &self,
+        engine: &mut Box<dyn Evaluator>,
+        name: &str,
+        value: &CachedValue,
+    ) -> bool {
+        panic::catch_unwind(AssertUnwindSafe(|| engine.apply_cached_value(name, value)))
+            .unwrap_or(false)
+    }
+
+    /// The typed value the engine just produced, as a cache entry, when the engine publishes one.
+    fn cached_entry(
+        &self,
+        engine: &Box<dyn Evaluator>,
+        progress: &Progress,
+        write: Option<String>,
+    ) -> Option<CachedEntry> {
+        let value = panic::catch_unwind(AssertUnwindSafe(|| engine.last_value()))
+            .ok()
+            .flatten()?;
+        Some(CachedEntry {
+            write,
+            display: progress.result.clone(),
+            structured: progress.result_structured.clone(),
+            inspection: progress.result_inspection.clone(),
+            value,
+        })
+    }
+
+    /// The engine's current display precision, or the submitted value when it publishes none.
+    fn engine_precision(&self, engine: &Box<dyn Evaluator>) -> usize {
+        panic::catch_unwind(AssertUnwindSafe(|| engine.precision())).unwrap_or(self.precision)
+    }
+
+    /// The names of the engine's pure-callable registry, for the effect classification.
+    fn engine_builtins(&self, engine: &Box<dyn Evaluator>) -> std::collections::HashSet<String> {
+        match panic::catch_unwind(AssertUnwindSafe(|| engine.state())) {
+            Ok(Some(state)) => state
+                .functions
+                .iter()
+                .filter(|function| function.is_builtin)
+                .map(|function| function.name.clone())
+                .collect(),
+            _ => std::collections::HashSet::new(),
+        }
     }
 
     /// Drains the engine's print output and publishes one event per line.

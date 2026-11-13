@@ -1,4 +1,4 @@
-﻿{
+{
     "schema":  1,
     "source":  "docs/goal-desktop-v4/requirements.md",
     "catalog_total":  229,
@@ -2223,14 +2223,37 @@
                      "type":  "W",
                      "requirement":  "Port the web incremental strategy",
                      "acceptance":  "Top-level statement slicing, normalized source hashes and per-document computation cache follow reference behavior; no naÃ¯ve whole-file rerun substitute.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-002",
@@ -2239,14 +2262,37 @@
                      "type":  "W",
                      "requirement":  "Track variable and function read dependencies",
                      "acceptance":  "Editing one variable definition recomputes dependent statements transitively, while independent statements report reused status.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-003",
@@ -2255,14 +2301,37 @@
                      "type":  "W",
                      "requirement":  "Track user-function revisions transitively",
                      "acceptance":  "Redefining a function invalidates all call sites and dependent calculations, including functions that call that function.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-004",
@@ -2271,14 +2340,37 @@
                      "type":  "W",
                      "requirement":  "Avoid caching side effects",
                      "acceptance":  "`print`, `plot`, `setprecision` and other effectful calls rerun rather than replaying stale side effects.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-005",
@@ -2287,14 +2379,37 @@
                      "type":  "W",
                      "requirement":  "Invalidate correctly when precision changes",
                      "acceptance":  "Precision-dependent cache keys include compute settings; a precision change cannot reuse an old low-precision result.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-006",
@@ -2303,14 +2418,37 @@
                      "type":  "W",
                      "requirement":  "Use exact full-value signatures",
                      "acceptance":  "Cache dependency hashes derive from full canonical typed value, never truncated display or formatted tooltip.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-007",
@@ -2319,14 +2457,37 @@
                      "type":  "W",
                      "requirement":  "Preserve code order and scope semantics",
                      "acceptance":  "Reused assignments reproduce correct downstream visible state without leaking function-local or block-local variables.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-008",
@@ -2335,14 +2496,37 @@
                      "type":  "Q",
                      "requirement":  "Report reuse honestly",
                      "acceptance":  "Progress and diagnostics report computed/reused count from actual cache hits; instrumentation can falsify the claim.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-009",
@@ -2367,14 +2551,37 @@
                      "type":  "Q",
                      "requirement":  "Test edit/rerun metamorphic equivalence",
                      "acceptance":  "After random edits and cache invalidations, incremental output equals a fresh-run engine snapshot for the identical script and settings.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
+                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
+                                          "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
+                                          "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-35/incremental.md",
+                                          "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
+                                          "class":  "unit",
+                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
                  },
                  {
                      "id":  "INC-011",

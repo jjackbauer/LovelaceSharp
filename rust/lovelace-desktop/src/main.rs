@@ -9,9 +9,9 @@
 //! - --gui-selftest: the headless acceptance mode for the same workbench. It drives the real
 //!   engine through `ExecutionHost` exactly as the window does, prints one line per check and
 //!   exits non-zero on failure.
-//! - --journey <ID>: the five mandatory journeys (J-02, J-03, J-09, J-10, J-15), executed
-//!   headlessly through the same workbench/`ExecutionHost` path and the same plot pane. It prints
-//!   the observed values and exits non-zero when the expected observable in
+//! - --journey <ID>: the seven implemented journeys (J-02, J-03, J-07, J-08, J-09, J-10,
+//!   J-15), executed headlessly through the same workbench/`ExecutionHost` path and the same plot
+//!   pane. It prints the observed values and exits non-zero when the expected observable in
 //!   `docs/goal-desktop-v4/journeys.md` does not match.
 //! - --selftest: the pre-cutover headless acceptance checks for the application core. Kept
 //!   working on purpose; it is not the shipped UI.
@@ -38,6 +38,7 @@ mod engine;
 mod execution;
 mod gui_selftest;
 mod history;
+mod incremental;
 mod inspector;
 #[cfg(windows)]
 mod journey;
@@ -126,7 +127,7 @@ fn usage() -> String {
     );
     text.push_str("  lovelace-desktop --journey <ID> [--journey <ID> ...] [--out <dir>]\n");
     text.push_str(
-        "                                      run J-02/J-03/J-09/J-10/J-15 through the same\n",
+        "                                      run J-02/J-03/J-07/J-08/J-09/J-10/J-15 through the\n",
     );
     text.push_str(
         "                                      workbench path; non-zero when the journeys.md\n",

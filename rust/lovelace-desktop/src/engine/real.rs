@@ -12,7 +12,7 @@
 //! registered. Rebuilding the engine would have cleared both and is no longer what the command
 //! does.
 
-use super::{EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
+use super::{CachedValue, EngineFunction, EngineState, EngineVariable, Evaluator, PlotCapture};
 use lovelace_json::Json;
 
 /// Creates a boxed RealEngine.
@@ -35,6 +35,9 @@ pub struct RealEngine {
     /// projection, the expression AST, `inspect(value)`, the TransformResult record and the
     /// compile path. It is never built from a display string and never re-evaluates the buffer.
     last_inspection: Option<Json>,
+    /// INC-001: the engine's own `Value` for that same `eval`, kept so the incremental cache can
+    /// re-apply the typed value to the next run's engine instead of re-parsing a display string.
+    last_value: Option<lovelace_lang::Value>,
 }
 
 impl RealEngine {
@@ -44,6 +47,7 @@ impl RealEngine {
             engine: lovelace_lang::Engine::new(),
             last_structured: None,
             last_inspection: None,
+            last_value: None,
         }
     }
 }
@@ -59,6 +63,7 @@ impl Evaluator for RealEngine {
         // A failed eval must not leave the previous run's structure looking like this run's.
         self.last_structured = None;
         self.last_inspection = None;
+        self.last_value = None;
         match self.engine.eval(src) {
             Ok(value) => {
                 // RES-001: the engine's own structured projection, the same function the CLI
@@ -72,6 +77,8 @@ impl Evaluator for RealEngine {
                 // commit point. A value that is not symbolic still gets a payload whose six
                 // sections name the reason they are absent.
                 self.last_inspection = Some(super::inspection::capture(&mut self.engine, &value));
+                // INC-001: the typed value itself, so a later run can re-apply it on reuse.
+                self.last_value = Some(value.clone());
                 Ok(self.engine.format(&value))
             }
             Err(error) => Err(error.message),
@@ -196,6 +203,50 @@ impl Evaluator for RealEngine {
     /// engine's `VariableChanged(removed: true)` event, leaving the function registry untouched.
     fn remove_variable(&mut self, name: &str) -> bool {
         self.engine.remove_variable(name)
+    }
+
+    /// INC-001: the real engine can re-apply a typed value, so the incremental cache may reuse.
+    fn supports_cached_values(&self) -> bool {
+        true
+    }
+
+    /// INC-006: the canonical dependency key of one global, from the engine's own structured
+    /// projection of the typed value.
+    ///
+    /// `structured::project_value` is a function of the value, not of the display bound: a `Real`
+    /// publishes every digit it stores (the projection renders it at `usize::MAX` decimal places
+    /// and adds the exact numerator/denominator when the value is a rational). Two values with
+    /// the same display at a low precision therefore still get different keys, and a displayed
+    /// tooltip is never hashed.
+    fn variable_key(&self, name: &str) -> Option<String> {
+        let value = self.engine.try_get_variable(name)?;
+        Some(lovelace_lang::structured::project_value(&self.engine, value, None).to_string())
+    }
+
+    /// INC-001: the engine's own `Value` for the last successful `eval`, kept for re-application.
+    fn last_value(&self) -> Option<CachedValue> {
+        self.last_value.clone().map(CachedValue::Real)
+    }
+
+    /// INC-001/INC-007: applies a cached typed value to this engine.
+    ///
+    /// This is the reference's `SetVariable(writeName, cachedResult)`. A value of another engine
+    /// flavor is refused instead of being guessed at, and the caller then evaluates the statement
+    /// rather than reporting a reuse whose value never reached the workspace.
+    fn apply_cached_value(&mut self, name: &str, value: &CachedValue) -> bool {
+        match value {
+            CachedValue::Real(value) => {
+                self.engine.set_variable(name, value.clone());
+                true
+            }
+            CachedValue::Fake(_) => false,
+        }
+    }
+
+    /// `lovelace_lang::Engine::eval` stores the last non-`Void` result under `_`, so a reuse sets
+    /// the same binding.
+    fn tracks_result_variable(&self) -> bool {
+        true
     }
 
     /// Clear Variables: remove every global, keep the function table.
