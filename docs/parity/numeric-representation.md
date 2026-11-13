@@ -3,7 +3,8 @@
 This document records how the representation used by the Rust numeric tower corresponds to the
 model in the pinned Lean project, and which parts of the tower that model does **not** cover. It
 is the companion to [proof-theorem-map.md](proof-theorem-map.md) (PROOF-002) and to the exhaustive
-small-domain tests in [proof_small_domain.rs](../../rust/lovelace-nat/src/proof_small_domain.rs)
+small-domain tests in [rust/lovelace-nat/src/proof_small_domain.rs](../../rust/lovelace-nat/src/proof_small_domain.rs)
+and [rust/lovelace-int/src/proof_small_domain.rs](../../rust/lovelace-int/src/proof_small_domain.rs)
 (PROOF-004).
 
 ## 1. The proof model
@@ -106,11 +107,14 @@ numeric tower are deliberately outside PROOF-002's mapping:
 
 ## 6. Verifying the correspondence
 
-    cargo test -p lovelace-nat proof_      # 7 exhaustive small-domain tests (PROOF-004)
+    cargo test -p lovelace-nat proof_      # 7 exhaustive small-domain tests (PROOF-004, digit algorithms)
+    cargo test -p lovelace-int proof_      # 6 exhaustive small-domain tests (PROOF-004, signed tower)
     cargo test -p lovelace-nat             # the crate's own property/round-trip tests
     cargo clippy -p lovelace-nat --all-targets -- -D warnings
 
 The tests instantiate both bases (`B = 2^64` for limbs, `10` for text), assert the digit bounds,
 reconstruct values from digits, and compare every result against an independent `u128` oracle over
-the exhaustive domains listed in the test module. The CI job
-[rust-ci.yml](../../.github/workflows/rust-ci.yml) runs the `proof_` subset as a named step.
+the exhaustive domains listed in the test module. The signed half compares every result against an
+`i128` oracle over `[-64, 64]` pairs and `[-16, 16]` triples, including the ordering laws, and
+checks the `2^64 ± 1` products against decimal constants written independently of the code. The CI
+job [rust-ci.yml](../../.github/workflows/rust-ci.yml) runs both `proof_` subsets as named steps.

@@ -348,6 +348,9 @@ impl core::ops::Sub<&Int> for &Int {
 }
 
 #[cfg(test)]
+mod proof_small_domain;
+
+#[cfg(test)]
 mod round95_singletons;
 
 #[cfg(test)]

@@ -31293,7 +31293,7 @@
    }
   ],
   "scan": {
-   "files": 126,
+   "files": 128,
    "rows": [
     {
      "file": ".github/workflows/ci.yml",
@@ -31916,6 +31916,16 @@
      "disposition": "Repository-internal gate (CON-009)."
     },
     {
+     "file": "parity/tools/ci-binaries.mjs",
+     "kind": "parity automation",
+     "disposition": "Repository-internal gate (CON-009)."
+    },
+    {
+     "file": "parity/tools/ecosystem-inventory.mjs",
+     "kind": "parity automation",
+     "disposition": "Repository-internal gate (CON-009)."
+    },
+    {
      "file": "parity/tools/gate-cli.mjs",
      "kind": "parity automation",
      "disposition": "Repository-internal gate (CON-009)."
@@ -31941,7 +31951,7 @@
     },
     {
      "dir": "parity",
-     "count": 5,
+     "count": 7,
      "kind": "parity automation",
      "disposition": "Repository-internal gate (CON-009)."
     },

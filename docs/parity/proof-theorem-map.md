@@ -18,14 +18,24 @@ that boundary. The mapping is deliberately two-sided:
   implementation boundary;
 * **no counterpart** — the Rust design has no such operation (e.g. fixed result lengths).
 
-The exhaustive small-domain tests live in
-[proof_small_domain.rs](../../rust/lovelace-nat/src/proof_small_domain.rs) and are also the
-PROOF-004 artifact. Run them with:
+The exhaustive small-domain tests live in two modules and are also the PROOF-004 artifact:
+
+* [rust/lovelace-nat/src/proof_small_domain.rs](../../rust/lovelace-nat/src/proof_small_domain.rs) —
+  the digit-algorithm instances of the Lean theorems (7 tests);
+* [rust/lovelace-int/src/proof_small_domain.rs](../../rust/lovelace-int/src/proof_small_domain.rs) —
+  the signed tower on top of those magnitudes: every `a, b` in `[-64, 64]` for `+`, `-`, `*`,
+  `div_rem_signed` and ordering against an `i128` oracle, plus ring laws and transitivity over
+  every `a, b, c` in `[-16, 16]` (6 tests). `Int` has no Lean module; these tests exercise the
+  laws the language exposes, not a theorem statement.
+
+Run them with:
 
     cargo test -p lovelace-nat proof_
+    cargo test -p lovelace-int proof_
 
-Last run on this machine: **7 passed, 0 failed** (see the round report for the recorded output).
-The full crate suite is `cargo test -p lovelace-nat`.
+Last run on this machine: **7 passed** (nat) and **6 passed** (int), 0 failed (see the round report
+for the recorded output). The full crate suites are `cargo test -p lovelace-nat` and
+`cargo test -p lovelace-int`.
 
 ## 1. Mapping
 
@@ -102,7 +112,8 @@ The full crate suite is `cargo test -p lovelace-nat`.
   model. The tests verify the theorem's **statement** on exhaustive small domains and on
   limb-boundary values, not the fast-path internals.
 * The unsigned convention is the only one in the Lean model. `Int` (sign + magnitude) is
-  mapped to `Nat` and covered by the integer crate's own tests, not by these theorems; see
+  mapped to `Nat` and covered by the integer crate's own exhaustive small-domain tests
+  (`cargo test -p lovelace-int proof_`), not by these theorems; see
   [numeric-representation.md](numeric-representation.md) for the complete tower correspondence.
 * These boundary tests are evidence, not a proof. The contract's own wording is recorded here:
   "These Rust property tests do not, by themselves, constitute a formal proof of the Rust code."
@@ -110,9 +121,10 @@ The full crate suite is `cargo test -p lovelace-nat`.
 ## 3. Reproduce
 
     cargo test -p lovelace-nat proof_          # 7 tests, exhaustive small domains
+    cargo test -p lovelace-int proof_          # 6 tests, exhaustive signed domains
     cargo test -p lovelace-nat                 # the whole crate, including the fast-path tests following the same contract
     cargo clippy -p lovelace-nat --all-targets -- -D warnings
 
 The CI workflow [.github/workflows/rust-ci.yml](../../.github/workflows/rust-ci.yml) runs
-`cargo test -p lovelace-nat proof_` as its own step, so the exhaustive verification is part of CI and
-not only of this document.
+`cargo test -p lovelace-nat proof_` and `cargo test -p lovelace-int proof_` as their own steps, so
+the exhaustive verification is part of CI and not only of this document.

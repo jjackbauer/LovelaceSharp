@@ -38,7 +38,30 @@ pwsh -NoProfile -File parity/tools/reproduce.ps1
 The script runs every step even when one is red (the report must show the whole picture) and its
 exit code is the number of failed steps. Observed summary on this machine:
 
-SUMMARY_PLACEHOLDER
+```
+   toolchain    INFO       0s  cargo 1.99.1 / rustc 1.99.1 (58cf8f9c3 2026-10-13) / rustfmt 1.10.0 / node v24.16.0 / dotnet 10.0.103
+   build        PASS       0s  Finished `release` profile [optimized] target(s) (--locked)
+   suite        PASS     117s  35 test binaries, 5 856 passed, 0 failed
+   proof-nat    PASS       1s  7 passed; 0 failed            (PROOF-004, digit algorithms)
+   proof-int    PASS       0s  6 passed; 0 failed            (PROOF-004, signed tower)
+   clippy       FAIL      36s  6 errors, all in lovelace-desktop (§3)
+   fmt          FAIL       2s  21 diffs, all in lovelace-desktop/src (§3)
+   corpus       PASS       0s  corpus: 214 passed, 0 failed, 214 total
+   binaries     PASS       7s  entry point PASS; CLI matrix 16/16; oracle 20/20, rust 20/20; corpus 214/214
+   ecosystem    PASS       0s  PASS: ecosystem artifacts are current
+   formats      PASS       0s  PASS: 1 graph file(s) conform to knowledge-graph v1
+   citations    PASS       0s  PASS: every cited path, link and test resolves against the tree
+   workflows    PASS       0s  PASS: 2 workflow file(s) are structurally well formed
+
+   failed steps: 2 / 13
+   exit code: 2
+```
+
+The 2 failures are the two whole-workspace lint steps, and both name only
+`rust/lovelace-desktop` files (§3). Everything else — build, the 5 856-test workspace suite, both
+exhaustive proof modules, the corpus, the release binaries through their entry points, and all four
+documentation/ledger gates — reproduced green from the checkout. The full transcript is
+`rust/target/tmp/reproduce.log`; the machine-readable record is `parity/build/reproduce.json`.
 
 ## 3. What is red, and why it is not this lane's
 

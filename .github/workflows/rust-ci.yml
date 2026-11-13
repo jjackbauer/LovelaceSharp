@@ -1,0 +1,186 @@
+# Rust CI — clean-checkout reproduction, release binaries, and the exhaustive proof gate.
+#
+# Requirement rows this workflow defends:
+#   REQ-010   reproducible from a clean checkout on CI infrastructure: every step below starts from
+#             the checked-out tree and the pinned toolchain, with no local state assumed.
+#   RUST-009  release artifacts for every supported target: the matrix builds the release binaries on
+#             both supported targets and records their SHA-256 in the uploaded evidence file. The
+#             supported-target table lives in docs/parity/release-targets.md.
+#   RUST-010  CI tests the real binaries through their published entry points: parity/tools/
+#             ci-binaries.mjs builds --release and drives lovelace-run and lovelace-corpus with argv
+#             and stdin, then runs the 16-row CLI matrix and the 20 golden fixtures against them.
+#   PROOF-004 exhaustive small-domain arithmetic verification runs in CI as a named step
+#             (cargo test -p lovelace-nat proof_ and -p lovelace-int proof_).
+#   ECO-003/004 and ECO-008 drift gates: the ecosystem inventory and the persisted-format validator
+#             must agree with the tree (docs/parity/ecosystem.md, knowledge-graph-v1.schema.json).
+#
+# Everything here was executed locally on Windows (x86_64-pc-windows-msvc) in the order the jobs
+# run; the round report records the observed lines. The workflow itself is the packaged form of that
+# sequence, which is also parity/tools/reproduce.ps1 for an operator on a workstation.
+
+name: Rust CI
+
+on:
+  push:
+    branches: [main, rust]
+    paths:
+      - 'rust/**'
+      - 'parity/**'
+      - 'docs/parity/**'
+      - 'Lovelace.Run.Tests/fixtures/**'
+      - '.github/workflows/rust-ci.yml'
+  pull_request:
+    paths:
+      - 'rust/**'
+      - 'parity/**'
+      - 'docs/parity/**'
+      - 'Lovelace.Run.Tests/fixtures/**'
+      - '.github/workflows/rust-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: rust-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: '3'
+  RUST_BACKTRACE: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  # REQ-010 + PROOF-004 + the ecosystem drift gates. No product binary is exercised here: this job
+  # proves the sources build, are formatted, are lint-clean, and that the suite and the exhaustive
+  # small-domain proofs pass from a clean checkout.
+  quality:
+    name: Quality gates (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust (pinned to the verified toolchain)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      # lovelace-desktop is the native Windows desktop product: its GUI dependencies
+      # (eframe/egui/resvg) are declared under [target.'cfg(windows)'.dependencies], so the Linux
+      # runner cannot build the GUI shell. The Windows runner runs the full workspace; the Linux
+      # runner runs every other crate. The desktop lane owns its own Windows gate.
+      - name: Formatting
+        shell: bash
+        run: cargo fmt --all --manifest-path rust/Cargo.toml -- --check
+
+      - name: Clippy (deny warnings)
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            cargo clippy --workspace --exclude lovelace-desktop --all-targets \
+              --manifest-path rust/Cargo.toml -- -D warnings
+          else
+            cargo clippy --workspace --all-targets --manifest-path rust/Cargo.toml -- -D warnings
+          fi
+
+      - name: Workspace test suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            cargo test --workspace --exclude lovelace-desktop --manifest-path rust/Cargo.toml
+          else
+            cargo test --workspace --manifest-path rust/Cargo.toml
+          fi
+
+      # PROOF-004: the exhaustive small-domain gates are their own step, so a regression names
+      # itself instead of disappearing inside the 5 000-test workspace run.
+      - name: Exhaustive small-domain proofs (Nat)
+        shell: bash
+        run: cargo test -p lovelace-nat proof_ --manifest-path rust/Cargo.toml
+
+      - name: Exhaustive small-domain proofs (Int)
+        shell: bash
+        run: cargo test -p lovelace-int proof_ --manifest-path rust/Cargo.toml
+
+      # ECO-003/004: the inventory must agree with the frozen C# tree (counts and consumers).
+      - name: Ecosystem inventory drift gate
+        shell: bash
+        run: node parity/tools/ecosystem-inventory.mjs --check
+
+      # ECO-008: every persisted format validator must accept the recorded graph.
+      - name: Persisted-format validator
+        shell: bash
+        run: node parity/tools/format-check.mjs --check
+
+      # PROOF-002/003: every path, link and test cited by the proof documents must exist.
+      - name: Proof-document citations
+        shell: bash
+        run: node parity/tools/verify-doc-citations.mjs
+
+  # RUST-009 + RUST-010. This job needs the C# oracle: the CLI matrix and the fixtures are
+  # comparisons, and a comparison that cannot run is not a pass.
+  release-binaries:
+    name: Release binaries through their entry points (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    env:
+      # RUST-009: MSVC embeds a link timestamp and a PDB identity in the PE image, so two default
+      # builds of the same sources differ in bytes. /Brepro removes that variance; with it, two
+      # clean relinks here produced byte-identical binaries (docs/parity/release-targets.md).
+      # ELF builds need no equivalent flag.
+      RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C link-arg=/Brepro' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET (the oracle runner)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Rust (pinned to the verified toolchain)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Build the pinned C# oracle
+        shell: bash
+        run: dotnet build Lovelace.Run/Lovelace.Run.csproj -c Release --nologo
+
+      # Builds --release --locked, checks the executables exist and are native binaries, drives
+      # lovelace-run through argv/stdin, runs the CLI matrix (16/16) and the fixtures (20/20) against
+      # the release binaries, runs the corpus binary (214/214), and writes parity/build/rust-binaries.json
+      # with the SHA-256 of both binaries and of the oracle DLL (RUST-009 evidence).
+      - name: Build and exercise the release binaries
+        shell: bash
+        run: node parity/tools/ci-binaries.mjs --locked
+
+      - name: Record artifact hashes and evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-binaries-${{ matrix.os }}
+          path: parity/build/rust-binaries.json
+          if-no-files-found: error
