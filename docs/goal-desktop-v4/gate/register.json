@@ -2079,14 +2079,25 @@
                      "type":  "Q",
                      "requirement":  "Protect against stale results after source edits",
                      "acceptance":  "Result event includes snapshot revision; editing while run active never falsely presents stale result as current; user can inspect old result with label.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "gui",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/window/scenario-final.png",
+                                          "sha256":  "C0F72864E76EC7681A36C9CCAAB10C82D60E8DDF97487B42D2D498A6FF8645A1",
+                                          "class":  "gui",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/run-rows.md",
+                                          "sha256":  "62B35C96D4F328F9FBFC8824D80DEA44C7629389D26980D22FE4A41AE0C7E128",
+                                          "class":  "gui",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop workbench::tests; scenario capture",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Discarded result ends Cancelled then Stale; old snapshot stays labelled (\u0027STALE: not the current source\u0027); tab dot and status \u0027run Stale\u0027. Test corrected (terminal-event count now per run id plus document total), product unchanged."
                  },
                  {
                      "id":  "RUN-013",
@@ -2143,14 +2154,25 @@
                      "type":  "Q",
                      "requirement":  "Prevent UI starvation from output floods",
                      "acceptance":  "10,000 emitted log events do not freeze editor; visible log updates batch without changing log order or final integrity.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "perf",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/cargo-test-round36-metrics.log",
+                                          "sha256":  "370BD98639EBF48046FAB79CC39E39208663AC61C18CFB0909333DF39285887C",
+                                          "class":  "perf",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/run-rows.md",
+                                          "sha256":  "62B35C96D4F328F9FBFC8824D80DEA44C7629389D26980D22FE4A41AE0C7E128",
+                                          "class":  "perf",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop output_flood (metrics)",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "10,005 events drained across 341 frames, max frame 10.44 ms, log order intact."
                  },
                  {
                      "id":  "RUN-017",
@@ -2159,14 +2181,25 @@
                      "type":  "Q",
                      "requirement":  "Handle engine panics and worker failures gracefully",
                      "acceptance":  "A simulated worker failure produces recoverable error state, releases run lock and preserves buffer/recovery files; process remains usable.",
-                     "status":  "NOT_TESTED",
+                     "status":  "PASS",
                      "evidence_class":  "unit",
                      "evidence":  [
-
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/cargo-test-green-final.log",
+                                          "sha256":  "39E4AD09D50C0D7151918ADBF7614434A1E5B2304448E1486D0187819321355B",
+                                          "class":  "unit",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      },
+                                      {
+                                          "path":  "docs/goal-desktop-v4/round-36/run-rows.md",
+                                          "sha256":  "62B35C96D4F328F9FBFC8824D80DEA44C7629389D26980D22FE4A41AE0C7E128",
+                                          "class":  "unit",
+                                          "at_head":  "e74dc648df60225361032d49d82f19240ed1f765"
+                                      }
                                   ],
-                     "test":  "",
+                     "test":  "cargo test -p lovelace-desktop panic",
                      "waiver":  "",
-                     "scope_note":  ""
+                     "scope_note":  "Panicking engine ends Failed, releases the lock, keeps the buffer; next run completes. 395 tests."
                  },
                  {
                      "id":  "RUN-018",

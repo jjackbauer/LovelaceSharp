@@ -501,3 +501,10 @@
 - **Correction to earlier reports**: the sweeps described these six as "unrunnable, needs live SymPy" in a way that implied a Rust gap. The accurate statement is: the reference does not execute them on this host either; the comparison is environment-gated on both sides.
 - **Consequence**: their disposition is a capability decision, not porting work. The kernel half of the same corpus (OracleCorpusDeclarationTests) is machine-checkable and is the part a Rust port can reproduce.
 - **Related**: CAP-003, round-45 and round-66 sweeps
+
+### RISK-003: A parity commit swept another goal session's work
+
+- **What happened**: commit e74dc64 used 'git add rust docs parity tools' to commit the knowledge-tool crate, the REPL and the ecosystem artifacts. The same paths also contained uncommitted work from the desktop-v4 goal session (rust/lovelace-desktop/engine.rs, execution.rs, workbench.rs, ui/app.rs, tools/gui-harness.ps1, docs/goal-desktop-v4/**), so that work was committed under a parity message and pushed.
+- **Impact**: no parity file was lost and the tree builds, but the other session's in-flight changes are now in a commit whose message does not describe them. Rewriting a pushed commit would be worse than leaving it, so it stays and is recorded here.
+- **Correction**: parity commits must enumerate the exact parity paths (parity/, docs/goal-parity-contract/, the ten parity crates and their src trees) and never bare 'docs' or 'tools', which the other session also writes to.
+- **Detected by**: inspecting 'git show --stat' after the push, not by any gate.

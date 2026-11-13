@@ -1,0 +1,22 @@
+{
+  "active_precision": 1000,
+  "layout": {
+    "editor_width_permille": 720,
+    "logs_height_permille": 220,
+    "plot_height_permille": 460
+  },
+  "recent_files": [],
+  "schema_version": 1,
+  "session": {
+    "active": 0,
+    "documents": [
+      {
+        "document_id": 2
+      }
+    ]
+  },
+  "window": {
+    "height": 800,
+    "width": 1280
+  }
+}
