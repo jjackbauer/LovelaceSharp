@@ -57,6 +57,18 @@ if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Forc
 Set-Content -Path $logFull -Value '' -Encoding UTF8
 $results = New-Object System.Collections.ArrayList
 
+# Bootstrap the pinned toolchain when the checkout ships one (REQ-010: a clean checkout must
+# reproduce without the caller pre-arranging PATH). Harmless when the toolchain is absent - the
+# toolchain step then reports the missing tools instead of failing to start.
+$localToolchain = Join-Path $repo '.toolchain'
+if (Test-Path $localToolchain) {
+    $env:RUSTUP_HOME = Join-Path $localToolchain 'rustup'
+    $env:CARGO_HOME = Join-Path $localToolchain 'cargo'
+    $env:PATH = (Join-Path $localToolchain 'cargo\bin') + ';' + $env:PATH
+    $env:TMP = Join-Path $repo 'rust\target\tmp'
+    $env:TEMP = $env:TMP
+}
+
 function Write-Transcript {
     param([string]$Line)
     Write-Host $Line

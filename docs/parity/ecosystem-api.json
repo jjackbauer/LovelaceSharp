@@ -31293,10 +31293,15 @@
    }
   ],
   "scan": {
-   "files": 128,
+   "files": 129,
    "rows": [
     {
      "file": ".github/workflows/ci.yml",
+     "kind": "CI automation",
+     "disposition": "Oracle build/execute; retained (CON-008)."
+    },
+    {
+     "file": ".github/workflows/rust-ci.yml",
      "kind": "CI automation",
      "disposition": "Oracle build/execute; retained (CON-008)."
     },
@@ -31956,16 +31961,16 @@
      "disposition": "Repository-internal gate (CON-009)."
     },
     {
+     "dir": ".github",
+     "count": 2,
+     "kind": "CI automation",
+     "disposition": "Oracle build/execute; retained (CON-008)."
+    },
+    {
      "dir": "harness",
      "count": 2,
      "kind": "agent harness",
      "disposition": "Spawns a published binary (CON-005/006)."
-    },
-    {
-     "dir": ".github",
-     "count": 1,
-     "kind": "CI automation",
-     "disposition": "Oracle build/execute; retained (CON-008)."
     },
     {
      "dir": "Lovelace.Knowledge.Run",

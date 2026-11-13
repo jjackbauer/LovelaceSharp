@@ -3647,7 +3647,7 @@ a consumer that disappears or changes entry point breaks the build of this docum
 | CON-013 | automation (historical evidence) | docs/** capture and verification scripts | snapshot oracle behaviour into recorded JSON/text evidence | Historical evidence, not a shipped consumer. Scanned in the appendix so the count is explicit; no compatibility obligation. |
 | CON-014 | application (benchmarks) | symbench, dspbench, precbench, arraybench, bench, realbench, mulbench | C# BenchmarkDotNet harnesses compiled against the libraries | Benchmark harnesses (PERF scope), not product consumers. They are evidence of library-level assembly use, not a reason for a C ABI. |
 
-The scan found **128** tracked scripts/projects that reference a C# entry point
+The scan found **129** tracked scripts/projects that reference a C# entry point
 (patterns: `Lovelace.Run`, `Lovelace.Knowledge.Run`, `Lovelace.Studio`, `dotnet run|build|test|publish|exec`).
 Grouped by location and disposition:
 
@@ -3656,8 +3656,8 @@ Grouped by location and disposition:
 | docs | 101 | historical evidence script | Captured probe/verification, no compatibility obligation (CON-013). |
 | harnessability-bench | 12 | benchmark harness | Runner path is a parameter (CON-007). |
 | parity | 7 | parity automation | Repository-internal gate (CON-009). |
+| .github | 2 | CI automation | Oracle build/execute; retained (CON-008). |
 | harness | 2 | agent harness | Spawns a published binary (CON-005/006). |
-| .github | 1 | CI automation | Oracle build/execute; retained (CON-008). |
 | Lovelace.Knowledge.Run | 1 | C# product project | Product application or library (see the project table). |
 | Lovelace.Run.Tests | 1 | C# test project | Test code, not an external consumer. |
 | Lovelace.Studio | 1 | C# product project | Product application or library (see the project table). |
@@ -3667,6 +3667,7 @@ Grouped by location and disposition:
 <details><summary>Full scanned file list</summary>
 
 - `.github/workflows/ci.yml` — CI automation
+- `.github/workflows/rust-ci.yml` — CI automation
 - `Lovelace.Knowledge.Run/Lovelace.Knowledge.Run.csproj` — C# product project
 - `Lovelace.Run.Tests/Lovelace.Run.Tests.csproj` — C# test project
 - `Lovelace.Studio.Tests/Lovelace.Studio.Tests.csproj` — C# test project
