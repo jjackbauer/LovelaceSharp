@@ -198,7 +198,7 @@ pub fn format_double(value: f64) -> String {
         .chars()
         .filter(|character| *character != '.')
         .collect();
-    let body = if exponent < -4 || exponent >= 15 {
+    let body = if !(-4..15).contains(&exponent) {
         scientific_notation(&digits, exponent)
     } else {
         fixed_notation(&digits, exponent)

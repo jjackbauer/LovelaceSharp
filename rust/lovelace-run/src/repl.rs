@@ -967,4 +967,40 @@ mod tests {
         assert_eq!(positive_integer("1.5"), None);
         assert_eq!(positive_integer("nope"), None);
     }
+
+    #[test]
+    fn interactive_editor_submits_edited_and_historical_lines() {
+        fn read(editor: &mut LineEditor, bytes: &[u8]) -> (Option<String>, String) {
+            let mut out = Vec::new();
+            let line = editor
+                .read_interactive(&mut std::io::Cursor::new(bytes), &mut out, "> ")
+                .expect("the editor cannot fail");
+            (line, String::from_utf8(out).expect("the redraw is UTF-8"))
+        }
+
+        let mut editor = LineEditor::new(true);
+        let (line, drawn) = read(&mut editor, b"hi\x1b[D!\r");
+        assert_eq!(line.as_deref(), Some("h!i"));
+        assert!(
+            drawn.contains("\u{1b}[1D"),
+            "the redraw moves the cursor back: {drawn:?}"
+        );
+
+        // Up recalls the most recent line; Enter submits the recalled text.
+        let (recalled, _) = read(&mut editor, b"\x1b[A\r");
+        assert_eq!(recalled.as_deref(), Some("h!i"));
+
+        // Up then Down restores the empty draft; typing submits fresh text.
+        let (draft, _) = read(&mut editor, b"\x1b[A\x1b[Bx\r");
+        assert_eq!(draft.as_deref(), Some("x"));
+
+        // Ctrl+C is exit intent, not a submitted line.
+        let (interrupted, _) = read(&mut editor, b"\x03");
+        assert_eq!(interrupted, None);
+
+        assert_eq!(
+            editor.history,
+            vec!["h!i".to_string(), "h!i".to_string(), "x".to_string()]
+        );
+    }
 }

@@ -32,9 +32,9 @@
    "HARNESS": 12
   },
   "byStatus": {
-   "met": 180,
-   "partial": 52,
-   "unmet": 30,
+   "met": 196,
+   "partial": 53,
+   "unmet": 13,
    "excluded": 0
   }
  },
@@ -266,92 +266,107 @@
    "family": "CLI",
    "title": "Implement the interactive Lovelace REPL.",
    "sourceLine": 318,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "parity/projects.toml: Lovelace.Console status=absent, reason 'No interactive REPL crate exists'",
-    "parity/manifest.toml: 15/15 Lovelace.Console.Tests cases disposition=excluded"
+    "`rust/target/debug/lovelace-run.exe --repl` with the script `func g(x) { ... } g(2)` piped on stdin: prints `LovelaceSharp REPL v1.0.0`, the two banner lines and blank line, `» ` prompts, `= 3 (Natural)   [164.4 µs]`, then `Bye!`; exit 0, stderr empty",
+    "`cargo test -p lovelace-run --test repl` — 11 passed, 0 failed: every transcript test spawns the built binary and compares the whole piped session",
+    "`rust/target/debug/lovelace-run.exe --repl --eval 1+1` — exit 2, stderr `error: --repl cannot be combined with a script source or registry query` plus usage",
+    "`rust/target/debug/lovelace-run.exe --help` — exit 0 and lists `--repl interactive session (stdin/stdout; Ctrl+C exits)`"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "The REPL exists in rust/lovelace-run (repl.rs, --repl in main.rs). Round 104 drove the built binary through a pipe; the four-line banner, prompts, evaluation, EOF/exit and error paths are exercised."
   },
   {
    "id": "CLI-002",
    "family": "CLI",
    "title": "Preserve multiline statement accumulation.",
    "sourceLine": 319,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-desktop::statements::tests::t1_a_brace_block_and_a_semicolon_string_are_each_one_statement` (desktop only, not a REPL)"
+    "`lovelace-run --repl` piped `func g(x) {` / `  x + 1` / `}` / `g(2)`: the continuation lines are read under the `… ` prompt and the balanced block is evaluated once, printing `= 3 (Natural)   [164.4 µs]`; exit 0",
+    "`cargo test -p lovelace-run --test repl` — multiline_accumulation_runs_the_block_after_braces_balance and continuation_end_of_input_still_prints_bye_once pass (11 passed, 0 failed)",
+    "`lovelace-run::repl::tests::braces_must_balance_for_continuation` — the literal `{`/`}` counting rule matches the C# reference (including a negative depth counting as balanced)"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "Accumulation matches ReplSession.cs: the first line is trimmed, continuation lines are appended verbatim, and a balanced brace depth submits the statement."
   },
   {
    "id": "CLI-003",
    "family": "CLI",
    "title": "Support editing, history, and keyboard navigation.",
    "sourceLine": 320,
-   "status": "unmet",
+   "status": "partial",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-desktop::history::tests::ctrl_z_undoes_ctrl_y_and_ctrl_shift_z_redo` (desktop editor only, not a REPL)"
+    "`cargo test -p lovelace-run repl::tests` — 9 passed, including line_buffer_edits_at_the_cursor, history_navigation_restores_the_draft, ansi_navigation_sequences_decode_to_keys, ctrl_c_interrupts_the_line and interactive_editor_submits_edited_and_historical_lines",
+    "`interactive_editor_submits_edited_and_historical_lines` drives `read_interactive` with real key bytes: `hi\\x1b[D!\\r` submits `h!i` (insert at cursor), `\\x1b[A\\r` recalls it from history, `\\x1b[A\\x1b[Bx\\r` restores the empty draft and submits `x`, `\\x03` returns None",
+    "ANSI decoding is exercised for Up/Down/Left/Right/Home/End/Delete and UTF-8 input; history is remembered for every non-blank submitted line",
+    "Not exercised: the Windows virtual-terminal / Unix `stty` raw-mode handshake that turns real keystrokes into those bytes. `--repl` under a pipe takes the plain path, and a ConPTY harness in this session aborts every child with 0xC0000142 before any byte is exchanged"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "Editing, history and navigation are implemented and unit-tested at the byte-driven editor loop; the gap is the terminal raw-mode layer, which this headless session cannot exercise end-to-end (no console, ConPTY unavailable)."
   },
   {
    "id": "CLI-004",
    "family": "CLI",
    "title": "Preserve interactive commands and help.",
    "sourceLine": 321,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-run::round19_run_batch` CLI flags; no REPL command loop"
+    "`lovelace-run --repl` piped command script: `help` prints the category overview, `help solve` the solve signature/examples, `funcs` the full categorized registry, `set pretty unicode` → `Pretty output: unicode.`, `inf` → `= ∞ (Symbolic)`, `set pretty ascii` → `= inf (Symbolic)`, `set display 4` + `pi` → `= 3.1415 (Real)`, `clear` → `All variables cleared.`, `vars` → `(no variables defined)`, `delete n` → `Variable 'n' is not defined.`; exit 0",
+    "`lovelace-run --repl` piped `help nosuchfn` and `funcs nosuch` print the reference `No category ... Known categories: ...` / `No category or function matching ...` sentences",
+    "`cargo test -p lovelace-run --test repl` — interactive_commands_and_help_match_the_reference_rendering, run_executes_a_script_file_and_prints_its_output_before_the_result and a_missing_run_file_reports_the_reference_clr_sentence pass"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "The command set, help text and exact messages match the reference console; `run <file>` stream output and the missing-file CLR sentence are transcript-tested."
   },
   {
    "id": "CLI-005",
    "family": "CLI",
    "title": "Maintain engine state between commands.",
    "sourceLine": 322,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-lang::suite_engine_batch::evaluate_given_assignment_exposes_variable_in_variables_dictionary` (engine API, not a REPL)"
+    "`lovelace-run --repl` piped `a = 5`, `func f(x) = x^2`, `_ * 3`, `f(4)`, `vars`: prints `= 5 (Natural)`, `= 15 (Natural)   [57.5 µs]`, `= 16 (Natural)   [100.9 µs]`, then `  _ = 16 (Natural)` and `  a = 5 (Natural)`; exit 0",
+    "`cargo test -p lovelace-run --test repl` — state_persists_between_commands_and_underscore_tracks_the_last_result and precision_knobs_apply_to_later_commands pass",
+    "One engine per session: assignments, function definitions, assumptions, precision and `_` survive between commands; `clear` removes variables but keeps functions"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "State is held by a single Engine reused for every command, as ReplSession.cs does; `vars` is sorted by name."
   },
   {
    "id": "CLI-006",
    "family": "CLI",
    "title": "Match precision handling and _ result behavior.",
    "sourceLine": 323,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-lang::suite_engine_batch::evaluate_given_result_stores_in_underscore_variable` (engine API, not a REPL)"
+    "`lovelace-run --repl` piped `sqrt(2)`, `set display 5`, `sqrt(2)`, `set precision 7`, `sqrt(2)`: first result is the 100-digit `1.4142135623730950488016887242096980785696718753769480731766797379907324784621070388503875343276415727 (Real)`, then `Display digits set to 5.` → `= 1.41421 (Real)`, then `Computation precision set to 7 decimal places.` → `= 1.4142135 (Real)`; exit 0",
+    "`_` after every successful non-void result: `_ * 3` evaluates to `= 15 (Natural)` and `vars` lists `_ = 16 (Natural)` after `f(4)`",
+    "`cargo test -p lovelace-run --test repl` — precision_knobs_apply_to_later_commands and the `_` assertions in state_persists_between_commands_and_underscore_tracks_the_last_result pass"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "Default computation/display precision, `set display`, `set precision` replacement semantics and `_` tracking match the reference."
   },
   {
    "id": "CLI-007",
    "family": "CLI",
    "title": "Match errors, cancellation, and output formatting.",
    "sourceLine": 324,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
    "evidence": [
-    "`lovelace-run::error_taxonomy_batch` (runner, not a REPL)"
+    "`lovelace-run --repl` piped `[1,2;3,4]`: echoes the source, prints a caret line and `Error: Expected 'RBracket' but found ';' at position 4.   [185.1 µs]`; `diff(x, 3)` prints `Error: Undefined variable 'x'.   [59.4 µs]`; the session then evaluates `2+2` to `= 4 (Natural)`; exit 0",
+    "`lovelace-run --repl --cancel-after 200` piped `sum(1..1000000000)` then `1+1`: `Error: the evaluation was cancelled by the caller.   [202.35 ms]`, then `= 2 (Natural)   [87.5 µs]`; exit 0",
+    "`run <file>` prints the script's `print` output before the result, EOF prints `Bye!`, and `exit`/`quit` print `Bye!` without evaluating the rest; all replay in `cargo test -p lovelace-run --test repl` (11 passed)"
    ],
-   "note": "No interactive Lovelace REPL exists: Lovelace.Console is dispositioned absent in parity/projects.toml and its 15 test cases are approved exclusions, not ports."
+   "note": "Parse errors carry the caret, runtime errors render without one, cancellation is an ordinary rendered error, and the session always continues; elapsed formatting matches the reference unit scaling."
   },
   {
    "id": "CPLX-001",
@@ -1765,110 +1780,152 @@
    "family": "KNOW",
    "title": "Port the observation-driven sampling pipeline.",
    "sourceLine": 328,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the observation-driven sampling pipeline is not implemented."
+   "evidence": [
+    "`rust/target/debug/lovelace-know.exe --file rust/target/tmp/know-cli/converge-seed.json` (command=converge, seed=20240617, default config): exit 0 in 10,208 ms; 314 samples executed against the real runner, producing 7 planes, 18 boundaries and 18 frontiers",
+    "`... --file rust/target/tmp/know-cli/sample8-a.json` (command=sample, batchSize=8): exit 0, summary `executed 8 samples: 7 ok, 1 errors, 4 distinct plane classes`; every record carries script, op, operand domains/literals, samplingKind and weight",
+    "`cargo test -p lovelace-know` — 56 integration tests passed, 0 failed (proposal, runner, observation, reducer, convergence and seed-reproduction stages)"
+   ],
+   "note": "The five-stage pipeline (proposal -> real runner -> observation -> reducer -> convergence) runs end to end; sampling produced the documented 314-sample stream."
   },
   {
    "id": "KNOW-002",
    "family": "KNOW",
    "title": "Preserve deterministic seeded generation.",
    "sourceLine": 329,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the deterministic seeded generation is not implemented."
+   "evidence": [
+    "Two `--file` runs of command=sample with seed=20240617 and batchSize=8 produced JSON-identical `samples` arrays (same scripts, order, sigmas, weights) and the same summary `executed 8 samples: 7 ok, 1 errors, 4 distinct plane classes`",
+    "seed=1 produced scripts `-5 ^ -0.5 | 11 > 5 | 5 < 2 | 1 <= -1.5 | ...`; seed=2 produced `2.5 >= 4 | 0.5 / 9 | -2 ^ 9 | 0.(3) < 0.1(6) | ...` — the stream is a pure function of the seed",
+    "`cargo test -p lovelace-know --test proposal_tests` — 7 passed, including same_seed_same_scripts and different_seed_different_scripts"
+   ],
+   "note": "Seeded Monte Carlo draws, sweeps, bisections and validation probes are deterministic; the same seed reproduces the same scripts exactly."
   },
   {
    "id": "KNOW-003",
    "family": "KNOW",
    "title": "Implement observation canonicalization and behavioral-plane classification.",
    "sourceLine": 330,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the observation canonicalization and behavioral-plane classification is not implemented."
+   "evidence": [
+    "`... --file rust/target/tmp/know-cli/sample8-a.json` (command=sample): `0 % 0` canonicalizes to `err|Cannot divide by zero.`; `3 - -2` to sigma `Integer` with typed `5 (Integer)`; `0.(3) == -4` to `Boolean:False`; `5 >= 3` to `Boolean:True` — 4 distinct sigma classes in the batch",
+    "The converged graph's `planes` are keyed by those sigma values: `Boolean:False`, `Boolean:True`, `Integer`, `Natural`, `Real`, `err|Cannot divide by zero.`, `err|Non-integer exponents are not yet supported.`",
+    "`cargo test -p lovelace-know --test observation_tests` — 7 passed (success/error canonicalization, boolean tagging, real plane, void, noise discarded, malformed envelope)"
+   ],
+   "note": "Runner envelopes are canonicalized to the sigma string and behavioural plane exactly as the C# observation stage does; errors keep only their message."
   },
   {
    "id": "KNOW-004",
    "family": "KNOW",
    "title": "Implement reduction, convergence, boundaries, and frontiers.",
    "sourceLine": 331,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the reduction, convergence, boundaries and frontiers is not implemented."
+   "evidence": [
+    "`... --file rust/target/tmp/know-cli/converge-seed.json`: 18 boundaries and 18 frontiers; metrics `C2_stable=18/18`, `C3_agreement=1` (45/45 held-out probes), `C4_covered=True`, `converged=True`, `stopReason=C1-C4 thresholds met`",
+    "`... --file rust/target/tmp/know-cli/reduce.json` (command=reduce on the 8-sample smoke graph): exit 0, summary `planes=2, boundaries=0, frontiers=54, samples=8, converged=False, ...` — reduction is re-derived from the persisted samples",
+    "`cargo test -p lovelace-know --test reducer_tests --test convergence_tests` — 8 + 7 passed, covering boundary detection (underflow, division by zero), frontiers, low-support planes, C1 windowing, C2/C3/C4 stopping and 108 coverage cells"
+   ],
+   "note": "Plane clustering, finite-difference boundaries, guard fitting, frontier marking and the C1-C4 stopping criterion all run on the persisted stream."
   },
   {
    "id": "KNOW-005",
    "family": "KNOW",
    "title": "Preserve graph persistence formats.",
    "sourceLine": 332,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the graph persistence formats is not implemented."
+   "evidence": [
+    "`converge` wrote `rust/target/tmp/know-cli/rust-graph-20240617.json` (215,968 bytes); the response's `graph` member is the same document, and `query`/`reduce` re-read it (exit 0)",
+    "`cargo test -p lovelace-know --test graph_tests` — 3 passed: `frozen_reference_round_trips_byte_for_byte` re-renders the 217,668-byte C# `knowledge-graph-demo.json` identically (CRLF-normalised), `save_and_load_round_trip` survives a write/read, `new_graph_is_empty_and_versioned` pins seed/version",
+    "`cargo test -p lovelace-know --test cli_stdio_tests` — `converge_then_query_round_trip` loads the persisted file and checks version, sample count and metrics"
+   ],
+   "note": "The persisted format is the C# WriteIndented document: field order, escaping, double notation and empty-container rendering match the frozen file byte for byte."
   },
   {
    "id": "KNOW-006",
    "family": "KNOW",
    "title": "Implement the config, sample, reduce, converge, query, and help commands.",
    "sourceLine": 333,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the config/sample/reduce/converge/query/help commands is not implemented."
+   "evidence": [
+    "`config` — exit 0, summary `config resolved: seed=20240617, batch=64, maxSamples=700, ops=12, naturals=13, integers=13, reals=8`",
+    "`sample` — exit 0, `executed 8 samples: 7 ok, 1 errors, 4 distinct plane classes`; `converge` — exit 0 and persists the graph; `reduce` — exit 0, `planes=2, boundaries=0, frontiers=54...`; `query summary|planes|boundaries|frontiers|metrics|graph` — exit 0 with the requested member(s); `help` — exit 0, summary `Commands: config (resolve defaults), sample (draw+execute a random batch), reduce (re-derive planes/boundaries/frontiers from a persisted graph), converge (autonomous loop to C1-C4 thresholds), query (summary|planes|boundaries|frontiers|metrics|graph).`",
+    "`cargo test -p lovelace-know --test cli_stdio_tests` — 11 passed, including the new `reduce_command_rederives_the_persisted_structure` (converge -> reduce -> planes/boundaries/frontiers/metrics)"
+   ],
+   "note": "All six commands dispatch and return their documented members; `reduce` was the one command without a CLI test and now has one."
   },
   {
    "id": "KNOW-007",
    "family": "KNOW",
    "title": "Match the JSON-over-stdio command protocol and exit codes.",
    "sourceLine": 334,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the JSON-over-stdio command protocol and exit codes is not implemented."
+   "evidence": [
+    "The `--eval`, `--file` and `--stdin` forms of the request `{\"command\":\"config\"}` produced byte-identical stdout and exit 0 (three spawns compared with Node)",
+    "Exit 1 cases: `{\"command\":\"bogus\"}` -> `error: unknown command 'bogus'`; malformed JSON -> `invalid request JSON: JSON error at byte 1: expected object key`; missing graph -> `no graph at '...'; run 'converge' first`",
+    "Exit 2 cases: `--bogus` -> `Error: Unknown argument '--bogus'.` plus usage on stderr with empty stdout; no request -> `Error: No request provided. Use --eval <json>, --file <path>, or --stdin.`",
+    "Every response is one indented JSON object with the fixed 11-member field set (`ok`, `command`, `summary`, `config`, `graph`, `planes`, `boundaries`, `frontiers`, `metrics`, `samples`, `error`) and unused members null"
+   ],
+   "note": "The stdio protocol and 0/1/2 exit-code contract match the C# CliResponse: command/execution failures exit 1 with an error member, usage failures exit 2 on stderr."
   },
   {
    "id": "KNOW-008",
    "family": "KNOW",
    "title": "Reproduce the seeded C# graph with seed 20240617.",
    "sourceLine": 335,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the reproducing the seeded C# graph (seed 20240617) is not implemented."
+   "evidence": [
+    "`... --file rust/target/tmp/know-cli/converge-seed.json` with seed 20240617 and the default configuration: exit 0 in 10,208 ms; 314/314 sample coordinates identical to the frozen `knowledge-graph-demo.json`; 18/18 boundaries identical in order; 18/18 non-low-support frontiers identical",
+    "`cargo test -p lovelace-know --test seed_reproduction` — 1 passed in 9.23 s: pins the 314 samples, the five documented observation divergences (indices 164, 177, 207, 219, 231), the 18 boundaries and the C#-only low-support error frontier",
+    "Graph delta: the C# reference has one extra plane (`err|Exponent must be positive. (Parameter 'exponent')`) and therefore 8 vs 7 planes, 19 vs 18 frontiers and Integer support 59 vs 60; every other structure is identical"
+   ],
+   "note": "The knowledge pipeline reproduces the seeded stream and reduction; the only differences are five runner-level expression-semantics divergences (unary-minus precedence, typed decimal rendering, real modulo), listed and pinned in seed_reproduction.rs rather than hidden."
   },
   {
    "id": "KNOW-009",
    "family": "KNOW",
    "title": "Verify the Rust knowledge tool against the real Rust runner rather than a mock.",
    "sourceLine": 336,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the verifying a Rust knowledge tool against the real runner is not implemented."
+   "evidence": [
+    "`sample` with `runner=C:/nonexistent/lovelace-run.exe` returned sigma `err|cannot spawn C:/nonexistent/lovelace-run.exe: The system cannot find the path specified. (os error 3)` — the pipeline really spawns a process and has no mock fallback",
+    "The full converge spawned `rust/target/debug/lovelace-run.exe` once per sample (314 times) with the script on stdin and parsed its JSON envelope from stdout, in 10.2 s",
+    "`cargo test -p lovelace-know --test cli_stdio_tests` — `sample_command_executes_the_real_runner` passes against the built binary; `runner.rs` uses `ProcessRunner` only (the NullRunner exists solely for pure config/reduce unit paths)"
+   ],
+   "note": "Every sample is executed by the real Rust runner over stdin/stdout; a missing runner surfaces as a per-sample `err|cannot spawn ...` observation, proving no simulation is substituted."
   },
   {
    "id": "KNOW-010",
    "family": "KNOW",
    "title": "Compare graph outputs and convergence metrics against the frozen C# implementation.",
    "sourceLine": 337,
-   "status": "unmet",
+   "status": "met",
    "owner": "phase-5",
    "phase": 0,
-   "evidence": [],
-   "note": "No Knowledge/MGIR module or crate exists (parity/projects.toml dispositions Lovelace.Knowledge and Lovelace.Knowledge.Run absent; a grep of rust/ for knowledge/sampling/convergence finds nothing), so the comparing graph outputs and convergence metrics with frozen C# is not implemented."
+   "evidence": [
+    "Comparison of the produced graph with `knowledge-graph-demo.json`: seed/version/config identical; 314/314 samples with 0 coordinate differences; 5 observation divergences (164, 177, 207, 219, 231); 18/18 boundaries identical; 18 non-low-support frontiers identical; 108/108 coverage cells identical",
+    "Metrics: converged, stopReason, totalSamples=314, c1NewPlanesLastK=0, c1NewPlaneRate=0, c1Saturated, c2TotalBoundaries=18, c2StableBoundaries=18, c3HeldOutCount=45, c3AgreedCount=45, c3Agreement=1, c3Agreed, c4Covered all identical; only planeCount differs (7 vs 8)",
+    "`cargo test -p lovelace-know --test convergence_tests` — 7 passed, including frozen_reference_reduces_to_the_stored_structure and frozen_reference_metrics_match",
+    "`cargo test -p lovelace-know --test seed_reproduction` — 1 passed; the divergences and their causes are asserted explicitly, so drift fails the test"
+   ],
+   "note": "Comparison is exact for the sample stream, boundaries, frontiers and every convergence metric except planeCount; the one extra C# plane is the documented error-plane divergence from sample 164."
   },
   {
    "id": "LANG-001",

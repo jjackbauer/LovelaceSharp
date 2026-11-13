@@ -239,6 +239,9 @@ impl ExactNumber {
             .div_rem(&self.den)
             .expect("the denominator is never zero");
         let ten = Nat::from_u64(10);
+        // Nat's interior mutability is a memoized limb/decimal cache; Eq and Hash are
+        // value-based, so a Nat is a sound key and the lint is a false positive here.
+        #[allow(clippy::mutable_key_type)]
         let mut seen: HashMap<Nat, usize> = HashMap::new();
         let mut digits: Vec<u8> = Vec::new();
         let mut period_start: Option<usize> = None;

@@ -233,3 +233,55 @@ fn missing_graph_exits_one() {
             .starts_with("no graph at '")
     );
 }
+
+#[test]
+fn reduce_command_rederives_the_persisted_structure() {
+    let graph_path = common::temp_graph_path("cli-reduce");
+    let _ = std::fs::remove_file(&graph_path);
+    let converge = format!(
+        r#"{{"command":"converge","graphPath":"{}","runner":"{}","maxSamples":8,"batchSize":8}}"#,
+        common::json_path(&graph_path),
+        common::json_path(&common::runner_path())
+    );
+    let (_, stderr, code) = common::run_cli(&["--stdin"], &converge);
+    assert_eq!(code, 0, "stderr: {stderr}");
+
+    let reduce = format!(
+        r#"{{"command":"reduce","graphPath":"{}"}}"#,
+        common::json_path(&graph_path)
+    );
+    let (stdout, stderr, code) = common::run_cli(&["--stdin"], &reduce);
+    assert_eq!(code, 0, "stderr: {stderr}");
+    let document = response(&stdout);
+    assert_eq!(member(&document, "ok"), &lovelace_json::Json::Bool(true));
+    assert_eq!(
+        document
+            .get("command")
+            .and_then(lovelace_json::Json::as_str),
+        Some("reduce")
+    );
+
+    let persisted = graph::load(&graph_path).expect("the graph is readable");
+    for (key, expected) in [
+        ("planes", persisted.planes.len()),
+        ("boundaries", persisted.boundaries.len()),
+        ("frontiers", persisted.frontiers.len()),
+    ] {
+        let items = member(&document, key)
+            .as_arr()
+            .unwrap_or_else(|| panic!("{key} is an array"));
+        assert_eq!(items.len(), expected, "{key} count");
+    }
+    // The persisted metrics are returned unchanged; the reduction itself is re-derived.
+    let metrics = member(&document, "metrics");
+    assert_eq!(
+        metrics.get("totalSamples"),
+        Some(&lovelace_json::Json::Num("8".to_string()))
+    );
+    assert_eq!(
+        metrics.get("converged"),
+        Some(&lovelace_json::Json::Bool(false))
+    );
+
+    let _ = std::fs::remove_file(&graph_path);
+}

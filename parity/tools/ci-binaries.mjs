@@ -135,13 +135,21 @@ const corpus = path.join(releaseDir, 'lovelace-corpus' + exe);
 let corpusSummary = null;
 if (fs.existsSync(corpus)) {
   const res = run(corpus, []);
-  const line = (res.stdout.match(/^corpus: \d+\/\d+.*$/m) || [lastMeaningful(res.stdout)])[0];
+  // The binary's summary is "corpus: <passed> passed, <failed> failed, <total> total"; the
+  // "<n>/<m>" form is still accepted so an older binary cannot fail this gate for its wording.
+  const line = (res.stdout.match(/^corpus: .*$/m) || [lastMeaningful(res.stdout)])[0];
   corpusSummary = line;
   console.log(line);
-  const m = line.match(/^corpus: (\d+)\/(\d+)/);
+  const fraction = line.match(/^corpus: (\d+)\/(\d+)/);
+  const counts = line.match(/^corpus: (\d+) passed, (\d+) failed, (\d+) total/);
   if (res.status !== 0) failures.push('lovelace-corpus exited ' + res.status + ': ' + lastMeaningful(res.stderr));
-  else if (!m) failures.push('lovelace-corpus did not print a corpus: n/m summary');
-  else if (m[1] !== m[2]) failures.push('corpus is ' + line + ', expected every example');
+  else if (!fraction && !counts) failures.push('lovelace-corpus did not print a corpus summary (passed/failed/total or n/m)');
+  else {
+    const passed = Number(fraction ? fraction[1] : counts[1]);
+    const failed = Number(fraction ? 0 : counts[2]);
+    const total = Number(fraction ? fraction[2] : counts[3]);
+    if (failed !== 0 || passed !== total) failures.push('corpus is ' + line + ', expected every example');
+  }
 }
 
 // --- 6. record the evidence -----------------------------------------------------------------
