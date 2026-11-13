@@ -2228,32 +2228,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-002",
@@ -2267,32 +2267,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-003",
@@ -2306,32 +2306,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-004",
@@ -2345,32 +2345,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-005",
@@ -2384,32 +2384,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-006",
@@ -2423,32 +2423,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-007",
@@ -2462,32 +2462,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-008",
@@ -2501,32 +2501,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-009",
@@ -2556,32 +2556,32 @@
                      "evidence":  [
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-inc-tests.txt",
-                                          "sha256":  "20788A1C23B3B00C1E73EBF362C89AD964A2CE781006733D74C133F15E8DAE1D",
+                                          "sha256":  "F1C410AFBE5A2A0CBED0A7ECFBA714B3BCA978CC6CD3AC821D5D55C495AAB53D",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J07.txt",
                                           "sha256":  "8B40AB8D8126199E8CC2F4E552F726C33980A892174994C998E90DFF4A780A5A",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/verify-J08.txt",
                                           "sha256":  "54253A631E4DE1D0933CEE70ADD83937220F4B3EE30900F70256251CF762A7CE",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       },
                                       {
                                           "path":  "docs/goal-desktop-v4/round-35/incremental.md",
                                           "sha256":  "F0F1CF4B87756463F19D58908CFAF9DC756FF22C263DD519A3C66D1FA02FFA99",
                                           "class":  "unit",
-                                          "at_head":  "4087936d610034c122c73944c1f8f3c0280f57d4"
+                                          "at_head":  "a694a672cf93b82fa846caeaedc80cae7e70dd5e"
                                       }
                                   ],
                      "test":  "cargo test -p lovelace-desktop incremental; --journey J-07/J-08",
                      "waiver":  "",
-                     "scope_note":  "Per-document cache keyed on normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; reuse applied via set_variable or falls back to evaluation; reuse==flags==hits. 382 tests; J-07 0-\u003e3 reuse, J-08 [F,F,T]."
+                     "scope_note":  "Cache key: normalized source + precision + ordered canonical typed reads + function revisions; effects always rerun; apply-on-reuse via set_variable or evaluate; reuse==flags==hits."
                  },
                  {
                      "id":  "INC-011",
